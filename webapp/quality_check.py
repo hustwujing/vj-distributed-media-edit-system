@@ -1,0 +1,128 @@
+"""Fixed checker inside a read-only task namespace. No network/model access."""
+import hashlib
+import json
+import math
+import re
+from pathlib import Path
+import resource
+import tempfile
+import os
+import subprocess
+import sys
+
+resource.setrlimit(resource.RLIMIT_AS,(2*1024**3,2*1024**3))
+resource.setrlimit(resource.RLIMIT_CPU,(30,30))
+resource.setrlimit(resource.RLIMIT_FSIZE,(2*1024**2,2*1024**2))
+
+
+def inspect(name):
+    path=Path(name)
+    if path.is_absolute() or '..' in path.parts or path.is_symlink() or not path.is_file():raise ValueError('无效产物路径')
+    size=path.stat().st_size
+    if not 0<size<=2*1024**3:raise ValueError('产物为空或过大')
+    digest=hashlib.sha256()
+    with path.open('rb') as stream:
+        while chunk:=stream.read(1024*1024):digest.update(chunk)
+    value={'name':name,'size':size,'sha256':digest.hexdigest(),'kind':'file'}
+    if path.suffix.lower() in ('.png','.jpg','.jpeg','.webp'):
+        from PIL import Image
+        with Image.open(path) as image:
+            if image.width*image.height>64_000_000:raise ValueError('图片尺寸过大')
+            value.update(kind='image',width=image.width,height=image.height,has_alpha='A' in image.getbands() or 'transparency' in image.info)
+            if value['has_alpha']:
+                alpha=image.convert('RGBA').getchannel('A')
+                value['transparent_fraction']=sum(alpha.histogram()[:255])/(image.width*image.height)
+            else:value['transparent_fraction']=0.0
+        with Image.open(path) as image:image.verify()
+    elif path.suffix.lower() in ('.mp4','.mov','.webm','.mkv','.mp3','.wav','.m4a','.flac','.ogg','.aac','.opus'):
+        record=json.loads(subprocess.check_output(['ffprobe','-v','error','-show_streams','-show_format','-of','json',name],timeout=15))
+        duration=float(record.get('format',{}).get('duration',0))
+        if not math.isfinite(duration) or duration<=0 or not record.get('streams'):raise ValueError('媒体时长或轨道无效')
+        video=next((s for s in record['streams'] if s.get('codec_type')=='video'),{})
+        value.update(kind='media',duration=duration,width=video.get('width'),height=video.get('height'),
+                     audio=any(s.get('codec_type')=='audio' for s in record['streams']),video=bool(video))
+        value['audio_tracks']=[{key:stream.get(key) for key in ('index','codec_name','channels','sample_rate')} for stream in record['streams'] if stream.get('codec_type')=='audio']
+        rate=video.get('avg_frame_rate','0/1').split('/')
+        value['fps']=float(rate[0])/max(1,float(rate[1])) if len(rate)==2 else float(rate[0])
+    elif path.suffix.lower()=='.json':
+        if size>2*1024**2:raise ValueError('JSON exceeds limit')
+        parsed=json.loads(path.read_text());value.update(kind='json',keys=list(parsed) if isinstance(parsed,dict) else [])
+    return value
+
+
+def main():
+    request=json.load(sys.stdin)
+    files=request['files'];rules=request.get('acceptance',[])
+    if len(files)>40 or len(rules)>20:raise ValueError('验收范围过大')
+    report={'version':'quality-v1','technical_valid':True,'passed':True,'requires_review':False,'requires_agent':False,'files':[],'checks':[]}
+    if not files:
+        report['technical_valid']=False;report['passed']=False
+        report['checks'].append({'passed':False,'code':'missing','reason':'没有输出文件'})
+    for name in files:
+        try:report['files'].append(inspect(name))
+        except Exception:
+            report['technical_valid']=False;report['passed']=False
+            report['checks'].append({'file':name,'passed':False,'reason':'文件完整性或媒体格式检查失败','code':'integrity'})
+    for index,rule in enumerate(rules):
+        if rule['kind'] in ('review','agent'):
+            targets=[f for f in report['files'] if (rule.get('file','*')=='*' or Path(f['name']).name==rule['file']) and (rule.get('target') not in ('image','media','json') or f['kind']==rule['target'])]
+            if not targets:
+                if rule.get('severity')!='signal':report['passed']=False
+                report['checks'].append({'passed':False,'code':'missing','reason':'内容验收没有对应产物','criterion':index})
+            report['requires_review' if rule['kind']=='review' else 'requires_agent']=True
+            report['checks'].append({'passed':None,'reason':rule['criterion'],'kind':rule['kind'],'criterion':index})
+            continue
+        selected=[f for f in report['files'] if (rule.get('file','*')=='*' or Path(f['name']).name==rule['file'])
+                  and (rule['kind'] not in ('image','media') or f['kind']==rule['kind'])]
+        if not selected:
+            if rule.get('severity')!='signal':report['passed']=False
+            report['checks'].append({'passed':False,'reason':'没有符合验收条件的输出文件','code':'missing','criterion':index})
+        if rule.get('checker'):
+            try:
+                checker=Path(rule['checker'])
+                if checker.is_absolute() or '..' in checker.parts or checker.is_symlink() or not str(checker).startswith('edit/') or not checker.is_file():raise ValueError('Invalid checker')
+                with tempfile.TemporaryFile() as output,tempfile.TemporaryFile() as errors:
+                    run=subprocess.run([sys.executable,str(checker)],env={**os.environ,'VIDEO_USE_CHECK_FILES':json.dumps([x['name'] for x in selected])},stdout=output,stderr=errors,timeout=20)
+                    output.seek(0);custom=json.loads(output.read(65536))
+                if run.returncode or not isinstance(custom.get('passed'),bool) or not isinstance(custom.get('reason'),str):raise ValueError('Invalid checker report')
+                report['checks'].append({'criterion':index,'passed':custom['passed'],'reason':custom['reason'][:2000],'code':'custom','severity':rule.get('severity','required')})
+                if not custom['passed'] and rule.get('severity')!='signal':report['passed']=False
+            except Exception:
+                report['checks'].append({'criterion':index,'passed':False,'reason':'自定义检查器失败、超时或返回无效报告','code':'custom'})
+                if rule.get('severity')!='signal':report['passed']=False
+        for value in selected:
+            failed=[];codes=[]
+            for key in ('width','height','audio','video'):
+                if rule.get(key) is not None and value.get(key)!=rule[key]:failed.append(key+' 不符合要求');codes.append(key)
+            if rule.get('min_duration') is not None and value.get('duration',-1)<rule['min_duration']:failed.append('时长不足');codes.append('min_duration')
+            if rule.get('max_duration') is not None and value.get('duration',float('inf'))>rule['max_duration']:failed.append('时长超出范围');codes.append('max_duration')
+            if rule.get('max_bytes') is not None and value['size']>rule['max_bytes']:failed.append('文件大小超限');codes.append('max_bytes')
+            if rule['kind']=='text':
+                if value['size']>2*1024**2:failed.append('文本过大');codes.append('max_bytes')
+                else:
+                    try:
+                        if Path(value['name']).suffix.lower() not in ('.txt','.md','.json','.srt','.vtt','.csv','.log'):raise ValueError('Not a text format')
+                        text=Path(value['name']).read_text()
+                        if any(token not in text for token in rule.get('contains',[])):failed.append('缺少要求的文本');codes.append('contains')
+                    except (ValueError,UnicodeError):failed.append('文本格式或编码无效');codes.append('integrity')
+            if rule.get('has_alpha') is not None and value.get('has_alpha')!=rule['has_alpha']:failed.append('透明通道不符');codes.append('alpha')
+            if rule.get('min_transparent_fraction') is not None and value.get('transparent_fraction',-1)<rule['min_transparent_fraction']:failed.append('透明区域不足');codes.append('alpha')
+            if rule.get('fps') is not None and abs(value.get('fps',0)-rule['fps'])>.02:failed.append('帧率不符');codes.append('fps')
+            if rule.get('decode'):
+                try:subprocess.run(['ffmpeg','-v','error','-xerror','-i',value['name'],'-f','null','-'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=45,check=True)
+                except Exception:failed.append('完整解码失败或超出检查时限');codes.append('decode')
+            if rule['kind']=='json' and (value['kind']!='json' or not set(rule.get('required_keys',[])).issubset(value.get('keys',[]))):failed.append('JSON 结构不符');codes.append('schema')
+            if rule['kind']=='subtitle':
+                try:
+                    if value['size']>2*1024**2:raise ValueError('Subtitle too large')
+                    content=Path(value['name']).read_text()
+                    stamps=re.findall(r'(\d{2}):(\d{2}):(\d{2})[,.](\d{3})',content)
+                    times=[int(h)*3600+int(m)*60+int(sec)+int(ms)/1000 for h,m,sec,ms in stamps]
+                    if not times or len(times)%2 or any(times[i]>=times[i+1] for i in range(0,len(times),2)) or any(times[i]>times[i+2] for i in range(0,len(times)-2,2)):raise ValueError('Invalid cues')
+                except Exception:failed.append('字幕时间范围无效');codes.append('subtitle')
+            report['checks'].append({'file':value['name'],'severity':rule.get('severity','required'),'passed':not failed,'codes':codes,'criterion':index,'reason':'；'.join(failed) or '通过','actual':value,'expected':rule})
+            if failed and rule.get('severity')!='signal':report['passed']=False
+    print(json.dumps(report,ensure_ascii=False))
+
+
+if __name__=='__main__':main()

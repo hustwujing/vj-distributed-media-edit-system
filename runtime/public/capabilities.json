@@ -1,0 +1,46 @@
+{
+  "policy_version": "video-use-public-v1",
+  "workspace": "/workspace",
+  "local_tools": [
+    "python",
+    "ffmpeg",
+    "ffprobe",
+    "bash"
+  ],
+  "helpers": [
+    "edit_media.py",
+    "edit_plan.py",
+    "edit_captions.py",
+    "preview_style.py",
+    "image_edit.py",
+    "render.py",
+    "grade.py",
+    "timeline_view.py",
+    "pack_transcripts.py",
+    "canvas_render.py"
+  ],
+  "services": [
+    "transcription",
+    "image-tools",
+    "scoped-canvas-edit",
+    "durable-workflows"
+  ],
+  "arbitrary_network": false,
+  "shared_runtime_installation": false,
+  "skill_visibility": "public",
+  "quality": [
+    "file",
+    "image",
+    "media",
+    "text",
+    "agent-review",
+    "human-review",
+    "matched-local-repairs",
+    "agent-diagnosis",
+    "explicit-final-delivery"
+  ],
+  "step_kinds": [
+    "script",
+    "operation"
+  ]
+}

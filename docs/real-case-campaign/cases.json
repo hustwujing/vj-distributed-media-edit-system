@@ -1,0 +1,1667 @@
+{
+  "campaign": "20261031-real60",
+  "status": "running",
+  "initial_release": "cd52b77407b0",
+  "simple_count": 30,
+  "complex_count": 30,
+  "rules": {
+    "entry": "real browser UI: upload, message, confirm; public APIs for observation/download only",
+    "success": "task success plus actual artifact validation and content review; no mocks or direct state seeding",
+    "parallel_cases": 8,
+    "case_timeout_seconds": 10800,
+    "repair": "preserve initial failure, fix shared cause, rerun affected cases and regression",
+    "external_unknown": "never blindly resubmit a possibly accepted paid request",
+    "browser_contexts": 8,
+    "max_execution_workers": 2,
+    "plan_review": "Review concrete plan and declared operations before browser confirmation",
+    "repair_observers": "Up to eight browser contexts; execution capacity changed from two to four total slots only at recorded idle worker boundaries.",
+    "max_execution_slots": 4,
+    "capacity_phases": [
+      {
+        "workers": 2,
+        "slots_per_worker": 1,
+        "node_cpu_slots": 3,
+        "node_memory_mb": 12288
+      },
+      {
+        "workers": 2,
+        "slots_per_worker": 2,
+        "node_cpu_slots": 6,
+        "node_memory_mb": 24576,
+        "evidence": "capacity-rollout.json"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "id": "S01",
+      "complexity": "simple",
+      "title": "图片中心裁切",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 256,
+        "height": 256
+      },
+      "content_checks": [
+        "对照原图中心裁切像素",
+        "人物内容完整符合裁切范围"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S02",
+      "complexity": "simple",
+      "title": "图片等比缩小",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。",
+      "expect": {
+        "kind": "image",
+        "width": 256,
+        "height": 256
+      },
+      "content_checks": [
+        "与原图缩小结果比较",
+        "无额外裁剪或文字"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S03",
+      "complexity": "simple",
+      "title": "图片顺时针旋转",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 portrait.png 顺时针旋转90度，输出512×512 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "与原图顺时针旋转像素比较"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S04",
+      "complexity": "simple",
+      "title": "图片水平镜像",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 portrait.png 左右镜像，保持512×512，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "与原图水平翻转像素比较"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S05",
+      "complexity": "simple",
+      "title": "图片亮度调整",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "亮度均值提高",
+        "内容与布局保持"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S06",
+      "complexity": "simple",
+      "title": "图片灰度化",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "RGB通道接近一致",
+        "人物结构保留"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S07",
+      "complexity": "simple",
+      "title": "图片高斯模糊",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "梯度能量下降",
+        "无额外缩放"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S08",
+      "complexity": "simple",
+      "title": "图标抠透明背景",
+      "assets": [
+        "logo_white.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "alpha": true
+      },
+      "content_checks": [
+        "边缘背景透明",
+        "蓝色主体与绿色圆点保留"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S09",
+      "complexity": "simple",
+      "title": "SAM3人像分割",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "alpha": true,
+        "min_images": 2
+      },
+      "content_checks": [
+        "真实分割模型调用",
+        "人物与透明背景分离",
+        "蒙版非全黑全白"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S10",
+      "complexity": "simple",
+      "title": "图片文字识别",
+      "assets": [
+        "poster.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。",
+      "expect": {
+        "kind": "text",
+        "extensions": [
+          ".json",
+          ".txt"
+        ],
+        "terms": [
+          "SUMMER",
+          "RUN",
+          "BEACH",
+          "CLUB",
+          "15",
+          "SECONDS"
+        ]
+      },
+      "content_checks": [
+        "核对已知文字及位置",
+        "真实OCR调用"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S11",
+      "complexity": "simple",
+      "title": "PNG转JPEG",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "extension": ".jpg"
+      },
+      "content_checks": [
+        "实际JPEG格式",
+        "内容保真"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S12",
+      "complexity": "simple",
+      "title": "WebP缩略图",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 portrait.png 制作成256×256 WebP缩略图，质量90。",
+      "expect": {
+        "kind": "image",
+        "width": 256,
+        "height": 256,
+        "extension": ".webp"
+      },
+      "content_checks": [
+        "实际WebP格式",
+        "图像可解码"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S13",
+      "complexity": "simple",
+      "title": "音频精确截取",
+      "assets": [
+        "speech.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。",
+      "expect": {
+        "kind": "audio",
+        "duration": 6,
+        "duration_tolerance": 0.2,
+        "channels": 1,
+        "sample_rate": 16000
+      },
+      "content_checks": [
+        "波形对应原音频2–8秒"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S14",
+      "complexity": "simple",
+      "title": "音量降低6dB",
+      "assets": [
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "RMS约为原音频一半"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S15",
+      "complexity": "simple",
+      "title": "音频首尾渐变",
+      "assets": [
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "首尾能量降低",
+        "中间音量保持"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S16",
+      "complexity": "simple",
+      "title": "视频提取音频",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2,
+        "channels": 1,
+        "sample_rate": 16000
+      },
+      "content_checks": [
+        "有真实音频内容",
+        "未截短"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S17",
+      "complexity": "simple",
+      "title": "视频精确剪切",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。",
+      "expect": {
+        "kind": "video",
+        "duration": 7,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "首帧对应源5秒附近",
+        "有音频"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S18",
+      "complexity": "simple",
+      "title": "视频等比缩小",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 320,
+        "height": 180,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "比例正确",
+        "完整时长"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S19",
+      "complexity": "simple",
+      "title": "视频顺时针旋转",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 360,
+        "height": 640,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "实际像素旋转",
+        "不只修改方向标签"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S20",
+      "complexity": "simple",
+      "title": "两倍速保音高",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "画面加速",
+        "440Hz参考音高保持"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S21",
+      "complexity": "simple",
+      "title": "移除视频音轨",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": false
+      },
+      "content_checks": [
+        "不存在音频流"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S22",
+      "complexity": "simple",
+      "title": "按时刻抽帧",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。",
+      "expect": {
+        "kind": "image",
+        "width": 640,
+        "height": 360,
+        "min_images": 3
+      },
+      "content_checks": [
+        "三个指定时刻的真实帧"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S23",
+      "complexity": "simple",
+      "title": "视频帧率转换",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "fps": 30
+      },
+      "content_checks": [
+        "帧率为30",
+        "时长不随帧率改变"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S24",
+      "complexity": "simple",
+      "title": "视频黑白效果",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "抽样帧RGB通道接近一致"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S25",
+      "complexity": "simple",
+      "title": "右上角透明图标",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "指定位置出现图标",
+        "透明区域不遮挡底图"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "S26",
+      "complexity": "simple",
+      "title": "真实语音转写",
+      "assets": [
+        "speech.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。",
+      "expect": {
+        "kind": "text",
+        "extensions": [
+          ".srt",
+          ".txt"
+        ],
+        "terms": [
+          "blue",
+          "square",
+          "green",
+          "circle",
+          "logo",
+          "right",
+          "final",
+          "video"
+        ]
+      },
+      "content_checks": [
+        "真实转写服务记录",
+        "字幕时间在0–30秒内"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "audio.transcribe"
+      ]
+    },
+    {
+      "id": "S27",
+      "complexity": "simple",
+      "title": "真实文生图",
+      "assets": [],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768
+      },
+      "content_checks": [
+        "真实外部生成调用",
+        "画面包含蓝色咖啡杯和白桌"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.generate_from_text"
+      ]
+    },
+    {
+      "id": "S28",
+      "complexity": "simple",
+      "title": "真实文生视频",
+      "assets": [],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。",
+      "expect": {
+        "kind": "video",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "真实外部异步任务",
+        "海面与日出内容",
+        "有实际帧变化"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "video.generate_from_text"
+      ]
+    },
+    {
+      "id": "S29",
+      "complexity": "simple",
+      "title": "真实图生视频",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "真实图生视频任务",
+        "参考图确实作为输入",
+        "画面保留人物特征与推镜"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "video.generate_from_image"
+      ]
+    },
+    {
+      "id": "S30",
+      "complexity": "simple",
+      "title": "字幕整理为文字",
+      "assets": [
+        "captions.srt"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。",
+      "expect": {
+        "kind": "text",
+        "extensions": [
+          ".txt"
+        ],
+        "terms": [
+          "blue",
+          "square",
+          "green",
+          "circle",
+          "logo",
+          "right",
+          "final",
+          "video"
+        ]
+      },
+      "content_checks": [
+        "原文完整",
+        "无SRT时间箭头"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C01",
+      "complexity": "complex",
+      "title": "三段精剪与配乐",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "三段顺序正确",
+        "音乐与淡入淡出",
+        "有质量报告"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C02",
+      "complexity": "complex",
+      "title": "双片段交叉淡化",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 11,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "转场区有两画面混合",
+        "标题正确",
+        "无缺音轨合成失败"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C03",
+      "complexity": "complex",
+      "title": "竖屏字幕与角标",
+      "assets": [
+        "clip_a.mp4",
+        "captions.srt",
+        "logo_rgba.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 360,
+        "height": 640,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "竖版无拉伸",
+        "字幕可读",
+        "角标正确"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C04",
+      "complexity": "complex",
+      "title": "抠图后视频合成",
+      "assets": [
+        "logo_white.png",
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 10,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "抠图结果可复用",
+        "正确角标",
+        "视频与透明图都交付"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C05",
+      "complexity": "complex",
+      "title": "人像分割精修海报",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 800,
+        "height": 600,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "人像边缘",
+        "背景为深蓝",
+        "标题与双成果"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C06",
+      "complexity": "complex",
+      "title": "跨图调色批量输出",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "poster.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 1920,
+        "height": 480,
+        "min_images": 4
+      },
+      "content_checks": [
+        "三张独立WebP",
+        "联系表顺序",
+        "统一尺寸且不拉伸"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C07",
+      "complexity": "complex",
+      "title": "OCR驱动文字替换",
+      "assets": [
+        "poster.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768,
+        "extra_text": true
+      },
+      "content_checks": [
+        "新文字30 SECONDS",
+        "其余两行保持",
+        "有实际OCR证据"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C08",
+      "complexity": "complex",
+      "title": "透视校正打印卡片",
+      "assets": [
+        "card_skew.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。",
+      "expect": {
+        "kind": "image",
+        "width": 640,
+        "height": 480,
+        "min_images": 2
+      },
+      "content_checks": [
+        "透视拉正",
+        "文字可读",
+        "两种格式"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C09",
+      "complexity": "complex",
+      "title": "真实图片分层与ORA",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "extra_extension": ".ora"
+      },
+      "content_checks": [
+        "真实分层服务",
+        "ORA图层有效",
+        "重建画面主体保留"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.decompose"
+      ]
+    },
+    {
+      "id": "C10",
+      "complexity": "complex",
+      "title": "异构素材竖版混剪",
+      "assets": [
+        "clip_a.mp4",
+        "portrait_clip.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 360,
+        "height": 640,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "混合横竖版不拉伸",
+        "顺序和标题",
+        "配乐完整"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C11",
+      "complexity": "complex",
+      "title": "四宫格视频",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "portrait_clip.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 10,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "四个有效画面",
+        "边界及编号",
+        "无拉伸"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C12",
+      "complexity": "complex",
+      "title": "图片动态幻灯片",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "poster.png",
+        "music.wav",
+        "logo_rgba.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "三张图与顺序",
+        "推镜和转场",
+        "时长精确"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C13",
+      "complexity": "complex",
+      "title": "分段变速与定格",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。",
+      "expect": {
+        "kind": "video",
+        "duration": 23,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "6+3+12+2秒分段",
+        "末尾真实定格",
+        "音画同步"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C14",
+      "complexity": "complex",
+      "title": "倒放混剪",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "中段确实倒放",
+        "三段时长及顺序"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C15",
+      "complexity": "complex",
+      "title": "旁白配乐压低与字幕",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。",
+      "expect": {
+        "kind": "video",
+        "duration": 20,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_extension": ".srt"
+      },
+      "content_checks": [
+        "真实语音转写",
+        "字幕与语音对应",
+        "配乐不盖人声"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "audio.transcribe"
+      ]
+    },
+    {
+      "id": "C16",
+      "complexity": "complex",
+      "title": "降噪与双格式播客",
+      "assets": [
+        "speech_noisy.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，规范到约-16 LUFS，首尾各0.5秒淡变，不改变30秒总长；交付单声道WAV、MP3和质量报告。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2,
+        "min_audio": 2
+      },
+      "content_checks": [
+        "静音区噪声降低",
+        "响度合理",
+        "两个格式及报告"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C17",
+      "complexity": "complex",
+      "title": "中英字幕品牌短片",
+      "assets": [
+        "clip_a.mp4",
+        "captions.srt",
+        "logo_rgba.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "中文没有缺字方框",
+        "英文字幕可读",
+        "标题和Logo"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C18",
+      "complexity": "complex",
+      "title": "音画分离后重组",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 480,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_audio": true,
+        "extra_image": true
+      },
+      "content_checks": [
+        "音画重组同步",
+        "裁切及对比度",
+        "多种成果"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C19",
+      "complexity": "complex",
+      "title": "海报动画与透明角标",
+      "assets": [
+        "poster.png",
+        "logo_white.png",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 640,
+        "height": 480,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "海报内容可读",
+        "有平移缩放",
+        "Logo背景透明"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C20",
+      "complexity": "complex",
+      "title": "精修人像双背景对照",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 1600,
+        "height": 600,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "人像在两版位置一致",
+        "不同背景",
+        "透明边缘"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C21",
+      "complexity": "complex",
+      "title": "并行预处理后汇合",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 1280,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "独立分支与汇合",
+        "左灰右彩",
+        "报告与配乐"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C22",
+      "complexity": "complex",
+      "title": "24片段长程批处理与暂停续跑",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。",
+      "expect": {
+        "kind": "video",
+        "duration": 48,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "24段顺序编号",
+        "暂停与恢复审计",
+        "没有重做已完成步骤"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "pause_resume",
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C23",
+      "complexity": "complex",
+      "title": "局部模糊遮挡与合成",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前10秒，把矩形x=180,y=40,w=230,h=220做明显高斯模糊，其他区域保持；加右上Logo，原音降低6dB，输出10秒640×360并附首中尾检查帧。",
+      "expect": {
+        "kind": "video",
+        "duration": 10,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_image": true
+      },
+      "content_checks": [
+        "模糊只在指定区域",
+        "Logo与音量",
+        "检查帧"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C24",
+      "complexity": "complex",
+      "title": "静音替换配乐与封面",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前18秒，移除原音并加入music；整段顶部标题SILENT SPACE；首尾各0.5秒淡变；交付18秒640×360 MP4和中间帧JPEG封面。",
+      "expect": {
+        "kind": "video",
+        "duration": 18,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_image": true
+      },
+      "content_checks": [
+        "无原旁白",
+        "标题",
+        "实际封面"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C25",
+      "complexity": "complex",
+      "title": "多画幅并行交付",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。",
+      "expect": {
+        "kind": "video_variants",
+        "duration": 8,
+        "sizes": [
+          [
+            640,
+            360
+          ],
+          [
+            360,
+            640
+          ],
+          [
+            480,
+            480
+          ]
+        ],
+        "primary_size": [
+          640,
+          360
+        ],
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "三种画幅都有结果",
+        "主体保留",
+        "用户侧主结果是横版"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C26",
+      "complexity": "complex",
+      "title": "OCR定位后真实AI消除",
+      "assets": [
+        "poster.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR定位15 SECONDS一行并生成该区域蒙版；调用生成式消除服务删掉这一行，保留另外两行和区域外像素；再检查结果并交付1024×768 PNG、蒙版和识别JSON。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768,
+        "min_images": 2,
+        "extra_text": true
+      },
+      "content_checks": [
+        "真实消除服务",
+        "15 SECONDS被删除",
+        "区域外保持"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.erase"
+      ]
+    },
+    {
+      "id": "C27",
+      "complexity": "complex",
+      "title": "文生图再编辑品牌海报",
+      "assets": [
+        "logo_white.png"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768,
+        "min_images": 2
+      },
+      "content_checks": [
+        "真实文生图和图片编辑",
+        "咖啡杯保留",
+        "标题与透明Logo"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.generate_from_text",
+        "image.edit"
+      ]
+    },
+    {
+      "id": "C28",
+      "complexity": "complex",
+      "title": "文生视频竖版包装",
+      "assets": [
+        "logo_white.png",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用文生视频服务生成8秒海上日出；做成720×1280竖版，保留太阳和海平面且不拉伸；将上传Logo抠透明放右上，前3秒中文标题“逐光而行”，加入music，交付8秒MP4。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 720,
+        "height": 1280,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "真实外部视频",
+        "竖版内容完整",
+        "中文与角标"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "video.generate_from_text"
+      ]
+    },
+    {
+      "id": "C29",
+      "complexity": "complex",
+      "title": "1080p长片与节点接管",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A循环制成60秒1920×1080、30fps短片，H.264 CRF18 slow高质量编码；加右上96像素Logo，去原声并循环music；分阶段保存成果并检查完整解码。执行中可能发生节点重启，应安全续跑。",
+      "expect": {
+        "kind": "video",
+        "duration": 60,
+        "width": 1920,
+        "height": 1080,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "fps": 30
+      },
+      "content_checks": [
+        "真实长耗时编码",
+        "节点中断与接管",
+        "结果可完整解码"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "worker_restart",
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": []
+    },
+    {
+      "id": "C30",
+      "complexity": "complex",
+      "title": "女孩图片到15秒海滩跑步完整视频",
+      "assets": [
+        "logo_white.png",
+        "music.wav"
+      ],
+      "prompt": "先给出执行方案，等我确认后实际处理并检查结果，最后交付文件。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "真实文生图→图生视频依赖",
+        "人物及跑步海滩内容",
+        "Logo位置与配乐",
+        "完整15秒最终结果"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "planned",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.generate_from_text",
+        "video.generate_from_image"
+      ]
+    }
+  ]
+}

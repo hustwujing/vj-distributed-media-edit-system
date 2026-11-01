@@ -1,0 +1,51 @@
+"""Retained project state versions and explicit, ownership-checked rollback."""
+import hashlib
+import json
+from pathlib import Path
+import uuid
+
+
+def profile():
+    skill=Path(__file__).resolve().parents[1]/'runtime/public/SKILL.md'
+    return 'public-runtime-v1-'+hashlib.sha256(skill.read_bytes()).hexdigest()[:12]
+
+
+def initialize(db):
+    db.executescript('''
+      CREATE TABLE IF NOT EXISTS execution_checkpoint_versions(
+        id TEXT PRIMARY KEY,project TEXT NOT NULL,attempt TEXT NOT NULL,path TEXT NOT NULL UNIQUE,
+        manifest TEXT NOT NULL,changes TEXT NOT NULL,profile TEXT NOT NULL,
+        thread_id TEXT,created REAL NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS execution_session_profiles(project TEXT PRIMARY KEY,profile TEXT NOT NULL);
+    ''')
+
+
+def versions(store,project):
+    rows=store.query('SELECT id,attempt,changes,created,path FROM execution_checkpoint_versions WHERE project=? ORDER BY created DESC',(project,))
+    current=store.query('SELECT path FROM execution_checkpoints WHERE project=?',(project,))
+    return [{'id':r['id'],'created':r['created'],'changes':json.loads(r['changes']),
+             'current':bool(current and r['path']==current[0]['path'])} for r in rows]
+
+
+def rollback(store,project,version):
+    with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        busy=db.execute("SELECT id FROM agent_turns WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling') UNION ALL SELECT id FROM jobs WHERE project=? AND status IN ('queued','running')",(project,project)).fetchone()
+        if busy:raise ValueError('请先停止当前任务，再恢复项目版本')
+        resources=db.execute('''SELECT l.turn_id FROM execution_leases l
+          JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.id=l.turn_id
+          WHERE t.project=? AND (l.active=1 OR EXISTS(
+            SELECT 1 FROM execution_cleanup c WHERE c.task_id=t.id AND c.state<>'complete')) LIMIT 1''',(project,)).fetchone()
+        if resources:raise ValueError('请等待执行资源回收完成，再恢复项目版本')
+        row=db.execute('SELECT * FROM execution_checkpoint_versions WHERE id=? AND project=?',(version,project)).fetchone()
+        if not row:raise ValueError('项目版本不存在或已超过保留期限')
+        if not store.shared_files and not (store.root/row['path']).is_dir():raise ValueError('版本文件不可用')
+        db.execute('INSERT INTO execution_checkpoints VALUES (?,?,?,?,?) ON CONFLICT(project) DO UPDATE SET attempt=excluded.attempt,path=excluded.path,manifest=excluded.manifest,updated=excluded.updated',
+                   (project,row['attempt'],row['path'],row['manifest'],store.now()))
+        if row['profile']==profile() and row['thread_id']:
+            db.execute('INSERT INTO agent_sessions VALUES (?,?) ON CONFLICT(project) DO UPDATE SET thread_id=excluded.thread_id',(project,row['thread_id']))
+        else:
+            db.execute('DELETE FROM agent_sessions WHERE project=?',(project,))
+        db.execute('INSERT INTO execution_session_profiles VALUES (?,?) ON CONFLICT(project) DO UPDATE SET profile=excluded.profile',(project,row['profile']))
+    return versions(store,project)

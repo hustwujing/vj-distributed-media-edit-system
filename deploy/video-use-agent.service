@@ -1,0 +1,47 @@
+[Unit]
+Description=Video Use isolated Codex agent launcher
+After=network.target video-use.service video-use-reaper.service
+Requires=video-use-reaper.service
+
+[Service]
+Type=simple
+User=root
+Group=video-use
+RuntimeDirectory=video-use-agent
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+WorkingDirectory=/data1/wujing03/video-use
+EnvironmentFile=/data1/wujing03/video-use/.env
+EnvironmentFile=/data1/wujing03/video-use/.agent.env
+Environment=VIDEO_USE_DATA_DIR=/data1/wujing03/video-use/workspace
+Environment=TMPDIR=/data1/wujing03/video-use/workspace/tmp
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/data1/wujing03/video-use/.venv/bin/python -m webapp.agent_host
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=960
+KillMode=control-group
+UMask=0007
+# The trusted launcher needs CAP_SETUID while creating namespaces and dropping UID.
+# Inside the namespace setpriv applies no-new-privs and removes every capability
+# before Python, Codex, or any model-generated code can run.
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data1/wujing03/video-use/workspace /data/wujing03/.media-gpu-leases /var/lib/video-use-executor /sys/fs/cgroup
+ProtectKernelTunables=true
+ProtectKernelModules=true
+# The trusted launcher creates task cgroups; they are never mounted in sandboxes.
+ProtectControlGroups=false
+RestrictSUIDSGID=true
+RestrictNamespaces=mnt pid net ipc uts cgroup
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_KILL CAP_NET_ADMIN
+LimitNOFILE=4096
+TasksMax=256
+MemoryMax=14G
+CPUQuota=400%
+
+[Install]
+WantedBy=multi-user.target

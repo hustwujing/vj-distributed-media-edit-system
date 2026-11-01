@@ -1,0 +1,35 @@
+[project]
+name = "vj-distributed-media-edit-system"
+version = "0.1.0"
+description = "Distributed, conversation-driven image, audio and video editing system"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "librosa",
+    "matplotlib",
+    "pillow",
+    "numpy",
+]
+
+[project.optional-dependencies]
+animations = ["manim"]
+web = [
+    "fastapi>=0.115,<1",
+    "uvicorn>=0.34,<1",
+    "python-multipart>=0.0.20,<1",
+    "psd-tools>=1.10,<2",
+    "opencv-python-headless>=4.10,<5",
+    "psycopg[binary]>=3.2,<4",
+    "boto3>=1.35,<2",
+    "cryptography>=44,<51",
+    "redis>=5,<7",
+]
+web-test = ["httpx>=0.28,<1", "moto[server]>=5,<6"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = []

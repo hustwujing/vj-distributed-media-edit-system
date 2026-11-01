@@ -1,0 +1,32 @@
+[Unit]
+Description=Video Use independent task watchdog and resource reaper
+After=local-fs.target
+
+[Service]
+Type=simple
+User=root
+RuntimeDirectory=video-use-agent
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+WorkingDirectory=/data1/wujing03/video-use
+EnvironmentFile=-/data1/wujing03/video-use/.agent.env
+Environment=VIDEO_USE_DATA_DIR=/data1/wujing03/video-use/workspace
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/data1/wujing03/video-use/.venv/bin/python -m webapp.execution_reaper
+Restart=always
+RestartSec=2
+KillMode=control-group
+UMask=0077
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data1/wujing03/video-use/workspace /var/lib/video-use-executor /sys/fs/cgroup /run/video-use-agent
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_PTRACE CAP_KILL CAP_DAC_OVERRIDE CAP_FOWNER CAP_CHOWN CAP_SETUID CAP_SETGID CAP_SETPCAP
+MemoryMax=512M
+TasksMax=256
+CPUQuota=50%
+
+[Install]
+WantedBy=multi-user.target

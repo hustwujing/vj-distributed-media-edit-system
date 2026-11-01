@@ -1,0 +1,40 @@
+[Unit]
+Description=Video Use browser studio
+After=network.target
+
+[Service]
+Type=simple
+User=video-use
+Group=video-use
+WorkingDirectory=/data1/wujing03/video-use
+EnvironmentFile=/data1/wujing03/video-use/.env
+Environment=VIDEO_USE_DATA_DIR=/data1/wujing03/video-use/workspace
+Environment=TMPDIR=/data1/wujing03/video-use/workspace/tmp
+Environment=XDG_CACHE_HOME=/data1/wujing03/video-use/workspace/cache
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+Environment=VIDEO_USE_CPUS=4
+ExecStart=/data1/wujing03/video-use/.venv/bin/python -m uvicorn webapp.app:app --host 127.0.0.1 --port 18765 --root-path /video-use --proxy-headers --forwarded-allow-ips 127.0.0.1
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=20
+KillMode=control-group
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/data1/wujing03/video-use/workspace /data/wujing03/.media-gpu-leases
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=user mnt pid net ipc uts cgroup
+CapabilityBoundingSet=
+LimitNOFILE=4096
+TasksMax=256
+MemoryMax=14G
+CPUQuota=400%
+
+[Install]
+WantedBy=multi-user.target

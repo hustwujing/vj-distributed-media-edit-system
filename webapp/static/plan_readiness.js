@@ -1,0 +1,2 @@
+export function executablePlan(turns){return [...turns].reverse().find(t=>t.mode==='plan'&&t.status==='succeeded'&&t.plan_readiness?.can_execute)||null;}
+export function planNotice(turn){const state=turn.plan_readiness?.state;return {pending:'方案正在检查',unavailable:'方案检查暂不可用，请重新核对后再执行',needs_information:'尚需补充信息，暂不能执行',stale:'方案或项目内容已变化，请重新讨论',discussion:'本轮尚未形成可执行方案',consumed:'该方案已确认执行'}[state]||'';}

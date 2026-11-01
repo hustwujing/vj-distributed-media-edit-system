@@ -1,0 +1,218 @@
+"""Observable media checks using tiny deterministic fixtures, never model calls."""
+import contextlib
+import copy
+import io
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from tests.isolation import temporary_root
+
+import numpy as np
+
+REPO=Path(__file__).resolve().parents[1]
+sys.path.insert(0,str(REPO/'helpers'))
+from edit_plan import validate,PlanError,probe
+from edit_captions import cues_for_plan,parse_srt,caption_font
+from edit_media import render_plan
+
+TMP=temporary_root()
+TMP.mkdir(parents=True,exist_ok=True)
+
+
+def ffmpeg(*args):
+    subprocess.run(['ffmpeg','-v','error','-nostdin','-y','-filter_threads','1',*map(str,args)],check=True,capture_output=True)
+
+
+def frame(path,t):
+    data=subprocess.check_output(['ffmpeg','-v','error','-ss',str(t),'-i',str(path),'-frames:v','1',
+                                  '-f','rawvideo','-pix_fmt','rgb24','-threads','1','-'])
+    meta=probe(path)
+    return np.frombuffer(data,np.uint8).reshape(meta['height'],meta['width'],3).astype(float)
+
+
+def samples(path,start=0,length=None):
+    args=['ffmpeg','-v','error','-ss',str(start),'-i',str(path)]
+    if length is not None:args+=['-t',str(length)]
+    data=subprocess.check_output(args+['-vn','-ac','1','-ar','48000','-f','f32le','-'])
+    return np.frombuffer(data,np.float32)
+
+
+@unittest.skipUnless(shutil.which('ffmpeg'),'FFmpeg required')
+class LocalEditingTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp=tempfile.TemporaryDirectory(prefix='media-ops-',dir=TMP);cls.root=Path(cls.temp.name)
+        (cls.root/'sources').mkdir();(cls.root/'edit').mkdir()
+        for color,frequency in [('red',440),('blue',880)]:
+            ffmpeg('-f','lavfi','-i',f'color={color}:s=160x120:r=20:d=3','-f','lavfi','-i',f'sine=frequency={frequency}:sample_rate=48000:duration=3',
+                   '-c:v','libx264','-threads','1','-pix_fmt','yuv420p','-c:a','aac','-shortest',cls.root/'sources'/f'{color}.mp4')
+        ffmpeg('-f','lavfi','-i','testsrc2=s=160x120:r=20:d=3','-c:v','libx264','-threads','1',cls.root/'sources/pattern.mp4')
+        ffmpeg('-f','lavfi','-i','sine=frequency=1200:sample_rate=48000:duration=1','-c:a','pcm_s16le',cls.root/'sources/music.wav')
+        ffmpeg('-f','lavfi','-i','aevalsrc=0.2*sin(2*PI*30*t)+0.1*sin(2*PI*440*t):s=48000:d=3',cls.root/'sources/hum.wav')
+        # Voice alternates between silence and a tone. This is a signal-processing fixture.
+        ffmpeg('-f','lavfi','-i',r"aevalsrc=if(between(t\,1\,2)\,0.35*sin(2*PI*440*t)\,0):s=48000:d=3",cls.root/'sources/voice.wav')
+        (cls.root/'sources/words.json').write_text(json.dumps({'words':[
+            {'type':'word','text':'One','start':.3,'end':.7,'speaker_id':'a'},
+            {'type':'spacing','text':' '},
+            {'type':'word','text':'two','start':.9,'end':1.2,'speaker_id':'a'},
+            {'type':'word','text':'three','start':1.8,'end':2.2,'speaker_id':'b'}]}))
+
+    @classmethod
+    def tearDownClass(cls):cls.temp.cleanup()
+
+    def plan(self,**extra):
+        return {'version':1,'sources':{'a':'sources/red.mp4','b':'sources/blue.mp4','pattern':'sources/pattern.mp4','music':'sources/music.wav'},
+                'clips':[{'source':'a','start':0,'end':2}],
+                'output':{'width':160,'height':120,'fps':20},**extra}
+
+    def render(self,raw,name):
+        p=validate(raw,self.root)
+        with contextlib.redirect_stdout(io.StringIO()):
+            report=render_plan(p,Path('edit')/name)
+        self.assertAlmostEqual(report['media']['duration'],p['_duration'],delta=.15)
+        return self.root/'edit'/name,p
+
+    def test_normal_speed_preserves_audio_samples_away_from_edge_fades(self):
+        import wave
+        # A varying waveform exposes unnecessary time-stretch alignment, unlike
+        # a stationary sine that may accidentally correlate after a cycle shift.
+        t=np.arange(3*48000)/48000
+        signal=.18*np.sin(2*np.pi*(180*t+170*t*t))+.04*np.sin(2*np.pi*440*t)
+        path=self.root/'sources/unity.wav'
+        with wave.open(str(path),'wb') as output:
+            output.setnchannels(1);output.setsampwidth(2);output.setframerate(48000)
+            output.writeframes(np.rint(signal*32767).astype('<i2').tobytes())
+        out,_=self.render(self.plan(sources={'a':'sources/unity.wav'},clips=[{'source':'a','end':3}],
+                                  output={'audio_only':True,'format':'wav'}),'unity.wav')
+        before=samples(path,.1,2.8);after=samples(out,.1,2.8)
+        self.assertEqual(len(before),len(after))
+        self.assertLess(float(np.max(np.abs(before-after))),.0001)
+        self.assertGreater(float(np.corrcoef(before,after)[0,1]),.99999)
+
+    def test_speed_preserves_pitch_and_av_duration(self):
+        for speed in (.25,.5,2,4):
+            with self.subTest(speed=speed):
+                out,p=self.render(self.plan(clips=[{'source':'a','start':0,'end':2,'speed':speed}]),f'speed{speed}.mp4')
+                self.assertAlmostEqual(probe(out)['duration'],2/speed,delta=.1)
+                audio=samples(out,.1,min(.3,2/speed-.2))
+                peak=np.fft.rfftfreq(len(audio),1/48000)[np.argmax(abs(np.fft.rfft(audio)))]
+                self.assertAlmostEqual(peak,440,delta=12)
+
+    def test_hard_cuts_and_transition_order(self):
+        raw=self.plan(clips=[{'source':'a','end':1},{'source':'b','end':1}])
+        out,_=self.render(raw,'cuts.mp4')
+        self.assertGreater(frame(out,.4)[:,:,0].mean(),200)
+        self.assertGreater(frame(out,1.4)[:,:,2].mean(),200)
+        raw['transition']={'type':'fade','duration':.4}
+        out,_=self.render(raw,'crossfade.mp4')
+        middle=frame(out,.8).mean(axis=(0,1))
+        self.assertGreater(middle[0],50);self.assertGreater(middle[2],50)
+        self.assertAlmostEqual(probe(out)['duration'],1.6,delta=.1)
+
+    def test_split_layout_uses_correct_cells_and_audio(self):
+        for layout,n in [('horizontal',2),('vertical',2),('grid',4)]:
+            raw=self.plan(layout=layout,split_audio=1,clips=[{'source':'a' if i%2==0 else 'b','end':1,'fit':'cover'} for i in range(n)])
+            out,_=self.render(raw,layout+'.mp4');img=frame(out,.4)
+            self.assertGreater(img[20,20,0],200)
+            y,x=(90,80) if layout=='vertical' else (20,120)
+            self.assertGreater(img[y,x,2],200)
+            sound=samples(out,.2,.4)
+            peak=np.fft.rfftfreq(len(sound),1/48000)[np.argmax(abs(np.fft.rfft(sound)))]
+            self.assertAlmostEqual(peak,880,delta=10)
+
+    def test_reverse_hold_repeat_and_silent_source(self):
+        normal,_=self.render(self.plan(clips=[{'source':'pattern','end':1}]),'normal.mp4')
+        reverse,_=self.render(self.plan(clips=[{'source':'pattern','end':1,'reverse':True,'freeze_end':.5,'repeat':2}]),'reverse.mp4')
+        expected=frame(normal,.9);actual=frame(reverse,0)
+        self.assertLess(np.abs(expected-actual).mean(),15)
+        self.assertLess(np.abs(frame(reverse,1.1)-frame(reverse,1.35)).mean(),2)
+        self.assertLess(np.max(np.abs(samples(reverse))),.002)
+        self.assertAlmostEqual(probe(reverse)['duration'],3,delta=.1)
+
+    def test_crop_rotate_flip_background_and_mask_timing(self):
+        raw=self.plan(clips=[{'source':'pattern','end':1,'crop':[20,0,120,120],'rotate':90,'flip':'horizontal','fit':'blur'}],
+                      output={'width':120,'height':160,'fps':20})
+        base,_=self.render(raw,'geometry.mp4')
+        raw['masks']=[{'x':20,'y':40,'width':50,'height':40,'start':.3,'end':.7,'mode':'black'}]
+        out,_=self.render(raw,'masked.mp4')
+        self.assertLess(frame(out,.5)[45:75,25:65].mean(),3)
+        self.assertLess(np.abs(frame(out,.1)-frame(base,.1)).mean(),4)
+        for mode in ('blur','pixelate'):
+            raw['masks'][0]['mode']=mode
+            processed,_=self.render(raw,mode+'.mp4')
+            self.assertGreater(np.abs(frame(processed,.5)[40:80,20:70]-frame(base,.5)[40:80,20:70]).mean(),4)
+
+    def test_subtitles_retime_speed_repeat_and_transition(self):
+        raw=self.plan(transcripts={'a':'sources/words.json'},
+            clips=[{'source':'a','words':[0,1],'speed':2,'repeat':2},{'source':'a','words':[2,2]}],
+            transition={'type':'fade','duration':.1},
+            subtitles={'from_transcripts':True,'words_per_line':2,'highlight':'#FFE066','size':16},
+            titles=[{'text':'中文标题','position':'top','size':16}])
+        p=validate(raw,self.root);cues=cues_for_plan(p)
+        self.assertAlmostEqual(cues[0]['start'],.04,places=4)
+        self.assertAlmostEqual(cues[1]['start']-cues[0]['start'],p['clips'][0]['_duration'])
+        self.assertAlmostEqual(cues[-1]['start'],p['clips'][1]['_offset']+.08)
+        out,_=self.render(raw,'captions.mp4')
+        self.assertIn('One two',out.with_suffix('.srt').read_text())
+        self.assertIn('\\kf',out.with_suffix('.ass').read_text())
+        self.assertEqual(probe(out)['width'],160)
+
+    def test_input_srt_is_last_and_timed(self):
+        srt=self.root/'edit/input.srt';srt.write_text('1\n00:00:00,300 --> 00:00:00,700\nhello\n你好\n')
+        raw=self.plan(clips=[{'source':'a','end':1}],subtitles={'file':'edit/input.srt','size':16},
+                      masks=[{'x':0,'y':0,'width':160,'height':120,'mode':'black'}])
+        out,_=self.render(raw,'srt.mp4')
+        self.assertLess(frame(out,.1).max(),5)
+        self.assertGreater(frame(out,.5).max(),150)
+        self.assertEqual(parse_srt(out.with_suffix('.srt'))[0]['text'],'hello\n你好')
+
+    def test_selected_font_has_distinct_chinese_glyphs(self):
+        from PIL import ImageFont
+        font=ImageFont.truetype(caption_font()[0],32)
+        self.assertNotEqual(bytes(font.getmask('中')),bytes(font.getmask('文')))
+
+    def test_audio_export_replace_loop_delay_and_denoise(self):
+        for fmt in ('wav','mp3','m4a'):
+            raw=self.plan(output={'audio_only':True,'format':fmt},audio={'source':'music','mode':'replace','volume':.8,'offset':.4,'loop':True})
+            out,_=self.render(raw,'audio-'+fmt+'.'+fmt)
+            self.assertFalse(probe(out)['video'])
+            self.assertLess(np.abs(samples(out,.05,.2)).mean(),.001)
+            self.assertGreater(np.abs(samples(out,1.5,.3)).mean(),.02)
+        raw=self.plan(sources={'a':'sources/hum.wav'},output={'audio_only':True},audio={'denoise':True,'highpass':100})
+        out,_=self.render(raw,'clean.wav')
+        before=samples(self.root/'sources/hum.wav',.5,1);after=samples(out,.5,1)
+        self.assertLess(abs(np.fft.rfft(after))[30],abs(np.fft.rfft(before))[30]*.2)
+
+    def test_music_ducking_reduces_music_during_voice(self):
+        raw=self.plan(sources={'a':'sources/voice.wav','music':'sources/music.wav'},clips=[{'source':'a','end':3}],
+                      output={'audio_only':True},audio={'source':'music','volume':1,'loop':True,'duck':True})
+        out,_=self.render(raw,'duck.wav')
+        def tone_level(t):
+            data=samples(out,t,.25);spectrum=np.abs(np.fft.rfft(data))/len(data)
+            return spectrum[round(1200*.25)]
+        self.assertLess(tone_level(1.5),tone_level(.5)*.65)
+
+    def test_invalid_plans_fail_before_output(self):
+        examples=[]
+        p=self.plan();p['clips'][0]['speeed']=2;examples.append(p)
+        p=self.plan();p['clips'][0]['speed']=float('nan');examples.append(p)
+        p=self.plan();p['sources']['a']='/etc/passwd';examples.append(p)
+        p=self.plan();p['clips'][0]['crop']=[150,0,30,30];examples.append(p)
+        p=self.plan();p['clips'][0]['end']=99;examples.append(p)
+        p=self.plan();p['audio']={'duck':True};examples.append(p)
+        p=self.plan();p['transcripts']={'a':'sources/words.json'};p['clips'][0]['start']=.5;examples.append(p)
+        for p in examples:
+            with self.subTest(plan=p),self.assertRaises(PlanError):validate(p,self.root)
+        p=validate(self.plan(),self.root)
+        with self.assertRaises(PlanError):render_plan(p,Path('sources/replaced.mp4'))
+        out=self.root/'edit/keep.mp4';out.write_bytes(b'previous-render')
+        with self.assertRaises(PlanError):render_plan(p,Path('edit/keep.mp4'))
+        self.assertEqual(out.read_bytes(),b'previous-render')
+
+
+if __name__=='__main__':unittest.main()
