@@ -1,6 +1,6 @@
 # Harness 与模型 Adapter
 
-本轮在独立 worktree 开发。实现状态与验证证据见 [验收报告](harness-adapters-report.md)；本文件描述实际边界，不代表已部署。
+实现先在独立 worktree 开发，现已合入 main 并随 `f2fe68121bc7` 部署。专项证据见 [验收报告](harness-adapters-report.md)，部署后全量验证见[完整报告](post-merge-real-validation-report.md)；下文的能力边界不因部署自动扩展。
 
 ## 分层和执行路径
 
@@ -114,7 +114,7 @@ python /opt/context.py tools --task TASK_ID --after 0
 
 ## 验证范围
 
-按用户最新要求，只运行 Harness、LLM Adapter 及直接相关恢复、隔离、计量、流式和浏览器测试，不运行整个项目全量测试。正式媒体链路中途切换、全部厂商模型能力、原生子 Agent 观测、异构节点安装组合等未验证范围在报告和 TODO 中保留，不以文本问答测试替代。
+最初专项范围为 Harness、LLM Adapter 及直接相关恢复、隔离、计量、流式和浏览器测试；用户随后要求合并、部署及全量回归。当前部署完整 Python 686/686、前端 43/43 已通过，77 条真实场景已完成核验（70 条交付、7 条异常处理符合预期），详见完整报告。正式媒体链路中途切换、全部厂商模型能力、原生子 Agent 观测、异构节点安装组合等未验证范围在报告和 TODO 中保留，不以文本问答测试替代。
 
 ### 部署场景发现的资源准入修复
 
