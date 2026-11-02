@@ -5,6 +5,12 @@ import numpy as np
 from PIL import Image
 
 
+def has_transparent_subject(image):
+    """Alpha delivery requires both background and visible content, not padding."""
+    return (0 < image.get('transparent_fraction', 0) < 1
+            and image.get('visible_fraction', 0) > 0)
+
+
 def check(case, selected, images, audios, fixture, frame, pcm):
     checks,errors={},[]
     if not selected:return checks,errors

@@ -62,7 +62,7 @@ def image_info(path):
     with Image.open(path) as im:
         if im.width*im.height>32_000_000:raise ValueError('Image exceeds QA decoder budget')
         rgba=np.asarray(im.convert('RGBA'));rgb=rgba[...,:3].astype(float);alpha=rgba[...,3]
-        return {'width':im.width,'height':im.height,'format':im.format,'mode':im.mode,'transparent_fraction':float((alpha<16).mean()),
+        return {'width':im.width,'height':im.height,'format':im.format,'mode':im.mode,'transparent_fraction':float((alpha<16).mean()),'visible_fraction':float((alpha>=16).mean()),
                 'mean':float(rgb.mean()),'channel_difference':float(np.max(rgb,axis=2).mean()-np.min(rgb,axis=2).mean()),
                 'gradient':float(np.abs(np.diff(rgb,axis=0)).mean()+np.abs(np.diff(rgb,axis=1)).mean())}
 
@@ -149,7 +149,8 @@ def verify(run_dir):
                 times=re.findall(r'(\d+):(\d+):(\d+),(\d+)',item.get('text',''))
                 if not times:errors.append('No actual SRT timecodes')
                 if any(int(h)*3600+int(m)*60+int(s)+int(ms)/1000>30.2 for h,m,s,ms in times):errors.append('SRT beyond input duration')
-    if expected.get('extra_alpha') and not any(a['image']['transparent_fraction']>.05 for a in images):errors.append('Requested transparent intermediate was not delivered')
+    from campaign_complex_checks import has_transparent_subject
+    if expected.get('extra_alpha') and not any(has_transparent_subject(a['image']) for a in images):errors.append('Requested transparent intermediate was not delivered')
     if expected.get('extra_image') and not images:errors.append('Requested image/contact sheet was not delivered')
     if expected.get('extra_audio') and not audios:errors.append('Requested audio was not delivered')
     if expected.get('extra_text') and not texts:errors.append('Requested text/report was not delivered')
