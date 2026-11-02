@@ -34,6 +34,14 @@ class DeploymentTests(unittest.TestCase):
         self.assertGreaterEqual(abs(cluster.UIDS['a']-cluster.UIDS['b']),64)
         self.assertFalse(set(cluster.GPUS['a'].split(','))&set(cluster.GPUS['b'].split(',')))
 
+    def test_node_gpu_candidates_are_configurable_and_validated(self):
+        self.assertEqual(cluster.node_gpu_devices({},'a'),cluster.GPUS['a'])
+        self.assertEqual(cluster.node_gpu_devices({'VIDEO_USE_NODE_A_GPU_DEVICES':'5, 1,5'},'a'),'1,5')
+        self.assertEqual(cluster.node_gpu_devices({'VIDEO_USE_NODE_B_GPU_DEVICES':''},'b'),'')
+        for value in ('-1','256','all','1; command',None):
+            with self.subTest(value=value),self.assertRaises(ValueError):
+                cluster.node_gpu_devices({'VIDEO_USE_NODE_A_GPU_DEVICES':value},'a')
+
     def test_stop_preserves_watchdogs_and_database_when_cleanup_is_incomplete(self):
         calls=[]
         with patch.object(cluster,'active',return_value=True),patch.object(cluster,'proxy'),patch.object(cluster,'parallel_service',side_effect=lambda action,names:calls.append((action,names))),patch.object(cluster,'wait_clean',side_effect=RuntimeError('pending')),patch.object(cluster,'run') as run:

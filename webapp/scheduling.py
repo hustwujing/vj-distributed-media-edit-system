@@ -82,8 +82,8 @@ def requirements(store,turn_id,kind,step_id=None):
     selected_step=None
     cpu=2;memory=4096;provider='';gpu=False
     if kind=='agent':
-        from .plan_readiness import is_light
-        if is_light(store,turn_id):return {'cpu':1,'memory_mb':256,'gpu':False,'provider':'','step_id':None}
+        from .harness_adapters import can_use_light
+        if can_use_light(store,turn_id):return {'cpu':1,'memory_mb':256,'gpu':False,'provider':'','step_id':None}
         from .execution_intent import get as get_intent
         intent=get_intent(store,turn_id)
         reviews=store.query("SELECT id FROM agent_workflows WHERE turn_id=? AND status IN ('reviewing','resuming')",(turn_id,))

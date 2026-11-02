@@ -518,10 +518,10 @@ class AgentHost:
                     if row['status'] == 'cancelling':
                         agent_store.finish(self.store, lease.turn_id, 'cancelled', row['text'], row['artifacts'])
                         return
-                    from .plan_readiness import is_light
+                    from .harness_adapters import can_use_light
                     from .agent_profiles import for_task
                     execution_profile=for_task(self.store,lease.turn_id)
-                    if is_light(self.store,lease.turn_id) and execution_profile.harness=='codex':
+                    if can_use_light(self.store,lease.turn_id):
                         from .light_conversation import run as light_run
                         if not self.store.execute("UPDATE agent_turns SET status='running',updated=? WHERE id=? AND status IN ('queued','running')",(self.store.now(),lease.turn_id)):return
                         lease.start_compute()

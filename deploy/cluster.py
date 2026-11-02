@@ -75,6 +75,14 @@ def registry(node):return EXECUTORS/node
 def data(role,node):return ROOT/(role+'-'+node)
 
 
+def node_gpu_devices(settings,node):
+    raw=settings.get(f'VIDEO_USE_NODE_{node.upper()}_GPU_DEVICES',GPUS[node])
+    try:devices=sorted({int(value.strip()) for value in raw.split(',') if value.strip()})
+    except (ValueError,AttributeError):raise ValueError('Invalid GPU candidates for node '+node) from None
+    if any(value<0 or value>255 for value in devices):raise ValueError('Invalid GPU candidates for node '+node)
+    return ','.join(map(str,devices))
+
+
 def unit_header(description):
     return f'''[Unit]
 Description={description}
@@ -435,6 +443,8 @@ def configure():
             'VIDEO_USE_USER_CONCURRENCY':'2','VIDEO_USE_NODE_CPU_SLOTS':'3','VIDEO_USE_NODE_MEMORY_MB':'12288',
             'VIDEO_USE_TASK_MEMORY_BYTES':str(12*1024**3),'VIDEO_USE_TASK_DISK_BYTES':str(2*1024**3),
             'VIDEO_USE_GPU_LEASE_ROOT':'/data/wujing03/.media-gpu-leases','VIDEO_USE_WORKSPACE_STORAGE':'disk'})
+    settings=env_file(config)
+    gpu_candidates={node:node_gpu_devices(settings,node) for node in PORTS}
     postgres=pwd.getpwnam('postgres');service=pwd.getpwnam('video-use')
     for path in (ROOT,REPO,REPO.parent):run(['setfacl','-m','u:postgres:--x',path])
     run(['setfacl','-m','u:video-use:--x',ROOT])
@@ -455,7 +465,7 @@ def configure():
                                          'VIDEO_USE_MEDIA_SOCKET':f'/run/vu-media-{node}/decoder.sock'})
         private_env(CONF/f'node-{node}.env',{'VIDEO_USE_DATA_DIR':data('node',node),'TMPDIR':data('node',node)/'tmp',
             'VIDEO_USE_EXECUTOR_ROOT':registry(node),'VIDEO_USE_UID_START':UIDS[node],'VIDEO_USE_UID_COUNT':64,
-            'VIDEO_USE_GPU_DEVICES':GPUS[node],'VIDEO_USE_NODE_OPERATIONS':'*'})
+            'VIDEO_USE_GPU_DEVICES':gpu_candidates[node],'VIDEO_USE_NODE_OPERATIONS':'*'})
     for name,text in {'video-use-api@.service':api_unit(),'video-use-executor@.service':worker_unit(),
                       'video-use-watchdog@.service':reaper_unit(),'video-use-media@.service':media_unit(),OBS_SERVICE:observer_unit(),DB_SERVICE:postgres_unit()}.items():
         (Path('/etc/systemd/system')/name).write_text(text)

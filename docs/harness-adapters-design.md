@@ -115,3 +115,7 @@ python /opt/context.py tools --task TASK_ID --after 0
 ## 验证范围
 
 按用户最新要求，只运行 Harness、LLM Adapter 及直接相关恢复、隔离、计量、流式和浏览器测试，不运行整个项目全量测试。正式媒体链路中途切换、全部厂商模型能力、原生子 Agent 观测、异构节点安装组合等未验证范围在报告和 TODO 中保留，不以文本问答测试替代。
+
+### 部署场景发现的资源准入修复
+
+`HarnessCapabilities.light_conversation` 明确轻量对话能力。`can_use_light()` 同时供调度资源准入和宿主分派使用；Claude/DeepSeek 的新任务即使初始路由是 light，也按完整 Agent 的 CPU/内存请求准入。不能在预留 256MB 后启动完整沙盒。

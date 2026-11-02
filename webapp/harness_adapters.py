@@ -6,6 +6,7 @@ from .harness_events import AgentEvent
 
 @dataclass(frozen=True)
 class HarnessCapabilities:
+    light_conversation: bool = False
     streaming_text: bool = True
     tool_events: bool = True
     native_resume: bool = True
@@ -59,6 +60,7 @@ class HarnessAdapter:
 
 class CodexAdapter(HarnessAdapter):
     id = 'codex'
+    capabilities = HarnessCapabilities(light_conversation=True)
 
     def open_session(self, rpc, profile, instructions, session_id=None):
         params = {'cwd': '/workspace', 'model': profile.model, 'approvalPolicy': 'never',
@@ -153,3 +155,10 @@ def get(name):
 def catalog():
     return [{'id': a.id, 'version': a.version, 'available': a.available(),
              'capabilities': asdict(a.capabilities)} for a in REGISTRY.values()]
+
+
+def can_use_light(store, task):
+    """Admission and dispatch must agree on whether a sandbox is required."""
+    from .plan_readiness import is_light
+    from .agent_profiles import for_task
+    return is_light(store, task) and get(for_task(store, task).harness).capabilities.light_conversation

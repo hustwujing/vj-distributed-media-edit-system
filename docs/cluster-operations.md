@@ -50,7 +50,7 @@ node --test tests/*.test.mjs
 | PostgreSQL | `.cluster/postgres` | video-use-db |
 | 固定媒体解码 | `/run/vu-media-a`、`/run/vu-media-b` | video-use-media@a、video-use-media@b |
 
-节点UID分别使用700000–700063和700100–700163。GPU候选分别为0和3，仍使用既有共享GPU租约目录；实际可用容量由GPU管理器检查。每个执行节点初始并发1，两节点可并行。systemd挂载策略禁止节点直接读取对方的目录。
+节点UID分别使用700000–700063和700100–700163。GPU候选默认分别为0和3，可在私有 `.distributed.env` 中通过 `VIDEO_USE_NODE_A_GPU_DEVICES` 和 `VIDEO_USE_NODE_B_GPU_DEVICES` 设置逗号分隔的设备编号；空字符串禁用该节点的 GPU。重新部署后生效，仍使用既有共享GPU租约目录及空闲显存/利用率检查，不绕过其他任务的 GPU 锁。每个执行节点初始并发1，两节点可并行。systemd挂载策略禁止节点直接读取对方的目录。
 
 私有共享数据库/会话配置在 `.distributed.env`，BOSS和文件加密配置在 `.storage.env`；均为0600、被gitignore。systemd读取这些配置，密钥不写入unit正文或命令行。各实例配置由脚本生成到 `/etc/video-use-cluster/`。更改固定拓扑、端口、UID/GPU候选需修改 `deploy/cluster.py` 并重新验证。
 

@@ -114,6 +114,31 @@ class FrozenAgentProfileTests(unittest.TestCase):
             self.assertNotEqual(selected().digest,before.digest)
             self.assertEqual(for_task(self.store,task).snapshot(),before.snapshot())
 
+    def test_non_light_harnesses_reserve_full_resources_before_claim(self):
+        from webapp.harness_adapters import can_use_light
+        from webapp.plan_readiness import register
+        from webapp.scheduling import requirements
+        from webapp.task_leases import Coordinator
+        from webapp import agent_store
+        profiles={name:{'harness':name,'protocol':'anthropic','model':'test','reasoning_effort':'high'}
+                  for name in ('claude_code','deepseek_harness')}
+        with patch.dict(os.environ,{'VIDEO_USE_AGENT_PROFILES_JSON':json.dumps(profiles),'VIDEO_USE_NODE_MEMORY_MB':'1024'}):
+            coordinator=Coordinator(self.store,'resource-regression-node','test')
+            for harness in ('claude_code','deepseek_harness','default'):
+                with patch.dict(os.environ,{'VIDEO_USE_AGENT_PROFILE':harness}):
+                    project=self.store.add_project('resource-owner-'+harness,'Resource admission')['id']
+                    task=agent_store.add_turn(self.store,project,'plan','Hello')
+                register(self.store,task,'light')
+                light=harness=='default'
+                self.assertEqual(can_use_light(self.store,task),light)
+                self.assertEqual(requirements(self.store,task,'agent')['memory_mb'],256 if light else 4096)
+                lease=coordinator.claim(task,'agent')
+                if light:
+                    self.assertIsNotNone(lease);lease.release()
+                else:
+                    self.assertIsNone(lease,'A 1GB node must not admit a full 4GB Harness as lightweight chat')
+                    self.assertFalse(self.store.query('SELECT attempt FROM execution_resource_claims WHERE task_id=?',(task,)))
+
     def test_portable_handoff_contains_authoritative_state_and_explicit_coverage(self):
         from webapp.harness_context import build
         task=self.fixture.turn;row=self.store.query('SELECT project,prompt FROM agent_turns WHERE id=?',(task,))[0]
