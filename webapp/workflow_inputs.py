@@ -60,6 +60,12 @@ def resolve(store,w,s,env):
             if not asset:raise ValueError('输入素材不属于当前项目')
             path=env['sources']/asset['filename']
             record={'asset':asset['id'],'path':'sources/'+asset['filename'],'sha256':digest(path),'metadata':asset['metadata']}
+            # Fixed media reports can include the display name and filename.
+            # These are dependencies too, even when the input bytes are equal.
+            operation=for_step(s['spec'])
+            previous=s.get('bindings',{}).get(name)
+            if operation and operation.reuse_safe and (not previous or 'reuse_identity' in previous):
+                record['reuse_identity']={'name':asset['name'],'filename':asset['filename']}
         else:
             if ref['step'] not in s['spec']['depends_on']:raise ValueError('输入缺少依赖声明')
             parent=next((x for x in w['steps'] if x['id']==ref['step']),None)

@@ -60,18 +60,33 @@ def save(runtime):
         raise
 
 
+def current_agent_rows(store,project):
+    """The same current, project-owned snapshots used for restore and consent."""
+    if not store.query("SELECT name FROM sqlite_master WHERE name='execution_step_checkpoints'"):return []
+    return store.query('''SELECT c.workflow,c.step,c.manifest FROM execution_step_checkpoints c
+        JOIN agent_workflows w ON w.id=c.workflow AND w.project=c.project
+        JOIN agent_steps s ON s.workflow=c.workflow AND s.id=c.step AND s.revision=c.revision
+        WHERE c.project=? ORDER BY c.workflow,c.step''',(project,))
+
+
+def records_for(rows):
+    from .artifact_store import logical_path
+    records={}
+    for row in rows:
+        for relative,record in json.loads(row['manifest']).items():
+            logical_path(relative)
+            if not relative.startswith(f'edit/workflows/{row["workflow"]}/{row["step"]}/'):
+                raise ValueError('Step checkpoint escaped its output scope')
+            records[relative]=record
+    return records
+
+
 def restore(runtime):
     store,lease=runtime.store,runtime.lease
     if lease.kind=='agent':
-        # A new conversation has no workflow of its own. Its project checkpoint
-        # can predate the last completed background step (for example, when
-        # semantic review was interrupted). Restore retained current revisions
-        # from the project's independent step snapshots as well. This grants
-        # visibility only; candidate/acceptance status is not changed.
-        rows=store.query('''SELECT c.workflow,c.step,c.manifest FROM execution_step_checkpoints c
-            JOIN agent_workflows w ON w.id=c.workflow AND w.project=c.project
-            JOIN agent_steps s ON s.workflow=c.workflow AND s.id=c.step AND s.revision=c.revision
-            WHERE c.project=? ORDER BY c.workflow,c.step''',(runtime.project.name,))
+        # Restore current retained outputs for visibility, without approving
+        # candidates or inheriting execution authority from an earlier turn.
+        rows=current_agent_rows(store,runtime.project.name)
     else:
         from .workflows import get
         workflow=get(store,lease.turn_id)
@@ -87,14 +102,7 @@ def restore(runtime):
             step=by_id[step_id]
             rows.extend(store.query('SELECT workflow,step,manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=? AND project=?',
                          (workflow['id'],step_id,step['revision'],runtime.project.name)))
-    records={}
-    from .artifact_store import logical_path
-    for row in rows:
-        for relative,record in json.loads(row['manifest']).items():
-            logical_path(relative)
-            if not relative.startswith(f'edit/workflows/{row["workflow"]}/{row["step"]}/'):
-                raise ValueError('Step checkpoint escaped its output scope')
-            records[relative]=record
+    records=records_for(rows)
     if not records:return
     # Account for the whole restored workspace, not only this batch. The
     # existing bounded mount is also retained as the final hard limit.

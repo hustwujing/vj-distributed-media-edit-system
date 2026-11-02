@@ -86,7 +86,7 @@ def enforce_direct(lease,operation):
     lease.consume('direct:'+operation,1)
 
 
-def completion_problem(store,turn_id,artifacts,canvas_result=None):
+def completion_problem(store,turn_id,artifacts,canvas_result=None,*,delivery_error=None):
     """A completed model reply is not proof that the declared work was done."""
     value=get(store,turn_id)
     if not value:return None  # Legacy conversations retain their existing contract.
@@ -95,5 +95,8 @@ def completion_problem(store,turn_id,artifacts,canvas_result=None):
         return ('paused','执行使用了已确认方案之外的能力，未标记完成；请修订方案并重新确认。')
     pending=store.query("SELECT request_key FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(turn_id,))
     if pending:return ('paused','外部处理尚未确认完成，任务记录已保留，请核实结果或停止后重新规划。')
-    if not artifacts and not canvas_result:return ('failed','本轮没有产生可交付成果，未标记业务完成。')
+    if delivery_error:return ('failed','交付声明未通过检查，生成文件已保留供后续修正：'+delivery_error)
+    from .artifacts import is_process_file
+    deliverable=any(not is_process_file(item) and item.get('purpose')!='style_preview' for item in artifacts)
+    if not deliverable and not canvas_result:return ('failed','本轮没有产生可交付成果，未标记业务完成。')
     return None

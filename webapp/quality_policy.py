@@ -1,13 +1,14 @@
 """Versioned, explicit acceptance conditions. Semantic claims require review."""
 from typing import Literal
 from pathlib import PurePosixPath
+from .text_formats import TEXT_SUFFIXES,SUBTITLE_SUFFIXES
 from pydantic import BaseModel,ConfigDict,Field,model_validator
 
 
 def validate_typed_output_targets(checks,filenames):
     # These are the types recognized by the fixed quality inspector. A script
     # report about an input video does not make that report a media output.
-    suffixes={'image':{'.png','.jpg','.jpeg','.webp'},
+    suffixes={'text':TEXT_SUFFIXES,'subtitle':SUBTITLE_SUFFIXES,'json':{'.json'},'image':{'.png','.jpg','.jpeg','.webp'},
               'media':{'.mp4','.mov','.webm','.mkv','.mp3','.wav','.m4a','.flac','.ogg','.aac','.opus'}}
     for check in checks:
         if check.kind not in suffixes or check.severity=='signal':continue
@@ -78,6 +79,6 @@ class Repair(BaseModel):
     @model_validator(mode='after')
     def valid(self):
         if any(not arg or len(arg)>8000 or '\x00' in arg for arg in self.argv):raise ValueError('修复命令参数无效')
-        allowed={'integrity','missing','width','height','audio','video','min_duration','max_duration','max_bytes','contains','review','alpha','fps','decode','schema','subtitle'}
+        allowed={'integrity','missing','width','height','audio','video','min_duration','max_duration','max_bytes','contains','review','alpha','fps','decode','schema','subtitle','unsupported_format','encoding'}
         if any(code not in allowed for code in self.when):raise ValueError('未知修复触发条件')
         return self

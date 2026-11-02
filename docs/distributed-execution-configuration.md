@@ -1,8 +1,64 @@
 # 分布式执行配置与验证
 
-此文档描述本次重构的部署契约。写入配置和执行测试不等于已部署；不要把新代码指向旧 SQLite 数据目录并假定它会迁移历史数据。
+此文档描述当前分布式执行的配置契约。写入配置和执行测试不等于已部署；不要把新代码指向旧 SQLite 数据目录并假定它会迁移历史数据。
 
-本项目已配置的 BOSS 接入、加密及现场验收步骤以 [分布式运行与验收配置](distributed-deployment.md) 为准。下面同时保留通用架构和独立测试环境的说明。
+## API 依赖容量与期限
+
+API 将同步依赖调用隔离到不同的有界执行器。异步 Redis SSE 不占这些线程；静态文件发送和受准入限制的 multipart 临时文件仍使用框架的短文件 I/O，不代表所有框架代码都不用 AnyIO。实际解码服务仍最多两个并行操作，没有扩大解码权限或增加业务任务类型。设计及验收见 [API 隔离设计](api-isolation-design.md)。
+
+| 池名 | 工作线程 | 等待队列 | 排队期限（秒） | 执行期限（秒） |
+| --- | ---: | ---: | ---: | ---: |
+| read | 6 | 12 | 1 | 15 |
+| write | 4 | 8 | 1 | 30 |
+| critical | 2 | 8 | 1 | 15 |
+| storage | 4 | 8 | 1 | 120 |
+| media | 2 | 4 | 1 | 100 |
+| diagnostics | 2 | 4 | 1 | 15 |
+| control | 2 | 4 | 1 | 45 |
+| cleanup | 1 | 8 | 2 | 120 |
+| auth | 2 | 4 | 0.5 | 5 |
+| stream_read | 2 | 8 | 1 | 15 |
+| health | 2 | 4 | 0.5 | 5 |
+
+覆盖方式为 `VIDEO_USE_API_<大写池名>_WORKERS`、`_QUEUE`、`_QUEUE_SECONDS`、`_RUN_SECONDS`。单池最多 64 线程、256 排队、30 秒排队期和 600 秒执行期；所有池线程上限合计不能超过 128，media 不能超过 2。启动时拒绝非法配置。
+
+`VIDEO_USE_API_DATABASE_SECONDS` 默认 5 秒，范围 0.1–30，限制 API 数据库连接/语句等待；单条语句期限不同于整请求期限。`VIDEO_USE_API_STREAM_LIMIT` 默认 64，范围 1–1024，超过时在 SSE 响应开始前返回 503。
+
+上传、图片导入、示例加载、删除分别有请求准入（活动/排队）：2/4、2/4、1/2、2/4，解析 multipart 前取得名额。整请求期限使用 `VIDEO_USE_API_UPLOAD_SECONDS`、`VIDEO_USE_API_IMAGE_IMPORT_SECONDS`、`VIDEO_USE_API_DEMO_SECONDS`、`VIDEO_USE_API_DELETE_SECONDS`，前三者默认 600 秒，删除默认 30 秒，范围 0.01–3600。
+
+排队满或超时返回稳定 `API_*` 错误码、`Retry-After: 1` 和查询编号。响应中的 `not_started` 仅表示未开始任何依赖工作；已开始或先前阶段可能提交时使用 `unknown`，需刷新确认，不能据此盲目重试非幂等写入。调用方停止等待不会提前释放仍在运行的同步 SDK 线程。媒体 Socket 可本地中断，但不宣称远端解码已停止。
+
+临时上传与已删除项目的本地缓存由 API 独立维护循环清理；数据库不可用时不删除归属未知的项目缓存。未提交远端对象沿用原有延迟 GC，仍需运维按既有对象清理流程执行，不能将本地维护循环当作远端 GC。
+
+受保护观测页提供“API 容量与等待”，包括每实例/每池活动数、队列、拒绝、超时、实际完成、取消和等待/运行累计秒数，以及事件循环滞后、默认线程占用。每 5 秒发布，采集器只展示最近 20 秒快照；缺失保持未知。计数、累计和最大值自进程启动计算；`completed` 是实际工作返回次数，可能同时属于失败或调用方已取消，不能视作成功业务次数。Prometheus 指标以 `video_use_api_pool_`、`video_use_api_gate_`、`video_use_api_loop_` 开头，只使用实例和固定池名标签。
+
+内置单机多实例部署以 [集群操作手册](cluster-operations.md) 为准；早期 BOSS 接入和现场验收背景保存在 [分布式运行与验收配置](distributed-deployment.md)。
+
+## 配置文件职责
+
+`.env.example` 只提供部分应用配置，不包含完整部署所需凭证。内置部署使用以下私有文件，由 systemd 加载；文件保持 `0600`，不提交版本库：
+
+| 文件 | 内容 |
+| --- | --- |
+| `.env` | ElevenLabs 转写、自然语言控制、可选 Redis 正文/活动传输 |
+| `.agent.env` | `VIDEO_USE_MODEL`、`VIDEO_USE_MODEL_BASE_URL`、`VIDEO_USE_MODEL_API_KEY` 等模型和适配器配置 |
+| `.storage.env` | S3/BOSS endpoint、bucket、prefix、AWS 凭证及对象加密密钥 |
+| `.distributed.env` | 共享数据库、会话密钥、并发与资源配置；内置部署首次缺失时生成 |
+
+各实例配置由部署脚本写入 `/etc/video-use-cluster/`。`VIDEO_USE_REDIS_URL` 为空时使用数据库快照同步；Redis 不作为任务或成果的权威存储。对话模型、图片/视频供应商和本地图片模型需要分别准备，配置主模型不会自动启用全部能力。
+
+### 对话模型与沙盒推理强度
+
+在私有 `.agent.env` 中配置，并通过完整部署重启服务使其生效：
+
+```dotenv
+VIDEO_USE_MODEL=gpt-5.6
+VIDEO_USE_MODEL_REASONING_EFFORT=high
+```
+
+`VIDEO_USE_MODEL` 同时用于沙盒 Codex Agent、服务端轻量对话，以及主方案检查服务不可用时的备用模型检查。`VIDEO_USE_MODEL_REASONING_EFFORT` 控制沙盒 Codex Agent，包括规划、正式执行和工作流验收；未设置时为 `medium`，支持 `minimal`、`low`、`medium`、`high`、`xhigh`，实际支持范围还需由选定模型确认。无效值会在准备沙盒前报错，不会静默降级。
+
+轻量对话和备用方案检查目前使用各自固定的 `low` 推理强度；Jev 结构化分类器由独立配置控制。更改主模型不会改变图片或视频生成模型。部署前应验证网关模型列表及实际请求，部署后以真实任务的模型调用记录和沙盒配置核对生效结果；不要仅凭修改配置文件认定运行中的进程已经切换。
 
 ## 共享服务与节点目录
 
@@ -85,11 +141,12 @@ GPU 默认根据 `/dev/nvidia*` 设备发现，也可通过 `VIDEO_USE_GPU_DEVIC
 ## 验证命令与边界
 
 ```bash
-uv sync --extra web --extra web-test
+uv sync --locked --extra web --extra web-test
 .venv/bin/python -m tests.run_distributed_suite
+node --test tests/*.test.mjs
 ```
 
-测试需要本机 PostgreSQL `initdb`/`pg_ctl`。分布式用例自动启动独立的真实 PostgreSQL 和 HTTP S3 协议测试服务，使用不同节点目录及多个进程；不会连接部署数据库或真实付费生成接口。特权沙箱测试要求 Linux root、Bubblewrap 和可用 cgroup。
+Python 入口运行全部后端测试。分布式用例需要本机 PostgreSQL `initdb`/`pg_ctl`，自动启动独立的真实 PostgreSQL 和 HTTP S3 协议测试服务，使用不同节点目录及多个进程；不会连接部署数据库或真实付费生成接口。特权沙箱测试要求 Linux root、Bubblewrap 和可用 cgroup。环境、定向测试及真实服务驱动说明见 [开发与测试](development.md)。
 
 磁盘工作区的硬配额另可验证：
 

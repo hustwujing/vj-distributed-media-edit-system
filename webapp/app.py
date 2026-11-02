@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import html
 import json
 import math
@@ -31,6 +32,7 @@ from .auth import Sessions
 from . import agent_api, agent_store, image_api, edit_feedback
 from .paths import data_root
 from .edit_tools import bind_plan, edit_asset_ids, PlanError
+from .api_execution import APIExecutors,APICapacityError,APIClientDisconnected,route_class,lane,admission
 
 REPO = Path(__file__).resolve().parents[1]
 COOKIE = 'video_use_session'
@@ -105,13 +107,20 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     from .telemetry import setup
     setup('api')
     root = data_dir or data_root()
-    store = Store(root)
+    database_seconds=float(os.environ.get('VIDEO_USE_API_DATABASE_SECONDS','5'))
+    if not .1<=database_seconds<=30:raise ValueError('Invalid API database timeout')
+    store = Store(root,timeout=database_seconds)
     agent_store.initialize(store)
+    if store.shared_files:store.artifacts  # Initialize reusable storage client/schema before serving.
     sessions = Sessions(store)
     stop = threading.Event()
     wake = threading.Event()
     mutation_lock = threading.RLock()
     current: dict = {}
+    api_execution=APIExecutors()
+    lifespan_users=0
+    lifespan_lock=threading.Lock()
+    configured_transcription=bool(read_key())
 
     def redact(text):
         key = read_key()
@@ -132,10 +141,48 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     async def lifespan(app):
         # API replicas never own task processes and never reset running jobs.
         # AgentHost handles both manual jobs and Agent turns through task leases.
-        yield
+        nonlocal lifespan_users
+        with lifespan_lock:lifespan_users+=1
+        from .api_maintenance import metrics,cleanup
+        background=[asyncio.create_task(metrics(api_execution)),asyncio.create_task(cleanup(store,api_execution))]
+        try:yield
+        finally:
+            for task in background:task.cancel()
+            await asyncio.gather(*background,return_exceptions=True)
+            with lifespan_lock:
+                lifespan_users-=1
+                if not lifespan_users:api_execution.close()
 
     app = FastAPI(title='updream-AI 编辑', docs_url=None, redoc_url=None,
                   openapi_url=None, lifespan=lifespan)
+    app.router.route_class=route_class(api_execution)
+    app.state.api_execution=api_execution
+
+    def capacity_response(exc):
+        from .telemetry import emit,context
+        emit('api.pool.unavailable','WARNING',operation=exc.pool,reason=exc.reason)
+        uncertain=exc.started or exc.prior_work
+        message=('请求暂时无法继续，部分操作可能已完成，请先刷新页面确认状态。' if uncertain
+                 else '当前请求较多，尚未开始处理，请稍后重试。')
+        return JSONResponse({'detail':message,'code':'API_'+exc.reason.upper(),
+                             'dependency':exc.pool,'outcome':'unknown' if uncertain else 'not_started',
+                             'request_id':context().get('request_id')},status_code=503,headers={'Retry-After':'1'})
+
+    @app.exception_handler(APICapacityError)
+    async def api_unavailable(request,exc):return capacity_response(exc)
+
+    @app.exception_handler(APIClientDisconnected)
+    async def client_disconnected(request,exc):
+        return JSONResponse({'code':'API_CLIENT_DISCONNECTED','outcome':'unknown'},status_code=499)
+
+    from psycopg import OperationalError as DatabaseUnavailable
+    @app.exception_handler(DatabaseUnavailable)
+    async def database_unavailable(request,exc):
+        from .telemetry import emit,context
+        emit('api.database_unavailable','WARNING',exception_type=type(exc).__name__)
+        return JSONResponse({'detail':'数据库暂不可用，请刷新确认状态后再操作。','code':'API_DATABASE_UNAVAILABLE',
+                             'outcome':'unknown','request_id':context().get('request_id')},
+                            status_code=503,headers={'Retry-After':'1'})
     from .media_isolation import MediaDecoderUnavailable
     @app.exception_handler(MediaDecoderUnavailable)
     async def decoder_unavailable(request,exc):
@@ -154,7 +201,16 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
             origin = request.headers.get('origin')
             if origin and urlsplit(origin).netloc != request.headers.get('host'):
                 return JSONResponse({'detail': '不接受跨站操作。'}, status_code=403)
-        owner, token, new_session = sessions.resolve(request.cookies.get(COOKIE))
+        cookie=request.cookies.get(COOKIE)
+        if request.scope['path'].removeprefix(request.scope.get('root_path',''))=='/api/health':
+            owner,token,new_session='',None,False
+        else:
+            try:
+                if sessions.legacy_enabled and re.fullmatch(r'[a-f0-9]{64}',cookie or ''):
+                    owner,token,new_session=await api_execution.run('auth',sessions.resolve,cookie)
+                else:owner,token,new_session=sessions.resolve(cookie)
+            except APICapacityError as exc:return capacity_response(exc)
+            except DatabaseUnavailable as exc:return await database_unavailable(request,exc)
         request.state.owner = owner
         response = await call_next(request)
         if new_session:
@@ -237,8 +293,8 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         return page('chat.html',request,project_id)
 
     @app.get('/api/health')
-    def health():
-        return {'status': 'ok', 'transcription_configured': bool(read_key()),
+    async def health():
+        return {'status': 'ok', 'transcription_configured': configured_transcription,
                 'max_upload_mb': int(os.environ.get('VIDEO_USE_MAX_UPLOAD_MB', '2048')),
                 'max_projects': MAX_PROJECTS,
                 'capabilities': ['transcribe', 'pack', 'timeline', 'analyze', 'review', 'render', 'edit']}
@@ -260,19 +316,32 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         return {k: project[k] for k in ('id', 'name', 'created')}
 
     @app.get('/api/projects/{project_id}')
-    def project_detail(project_id: str, request: Request):
-        project = own_project(project_id, request)
-        assets = []
-        for asset in store.assets(project_id):
-            paths = (store.project_dir(project_id) / 'edit' / 'transcripts').glob(asset['id'] + '*.json')
-            tracks = [int(p.stem.split('.track')[1]) if '.track' in p.stem else 0 for p in paths]
-            assets.append({'id': asset['id'], 'name': asset['name'], **asset['metadata'],
-                           'transcribed_tracks': tracks,
-                           'poster_url':f"api/projects/{project_id}/assets/{asset['id']}/thumbnail" if asset['metadata']['kind'] in ('video','image') else None,
-                           'url': f"api/projects/{project_id}/assets/{asset['id']}/file"})
-        jobs = [public_job(store.job(row['id'])) for row in store.query(
-            'SELECT id FROM jobs WHERE project=? ORDER BY created DESC', (project_id,))]
-        return {'id': project_id, 'name': project['name'], 'assets': assets, 'jobs': jobs, 'draft':store.draft(project_id)}
+    async def project_detail(project_id: str, request: Request):
+        def read():
+            project=own_project(project_id,request)
+            names=None
+            if store.shared_files:
+                names=[Path(row['path']).name for row in store.query(
+                    "SELECT f.path FROM artifact_files f JOIN artifact_objects o ON o.id=f.artifact AND o.project=f.project WHERE f.project=? AND f.path LIKE 'edit/transcripts/%' AND o.state IN ('staged','published')",(project_id,))]
+            jobs=[public_job(store.job(row['id'])) for row in store.query(
+                'SELECT id FROM jobs WHERE project=? ORDER BY created DESC',(project_id,))]
+            return project,store.assets(project_id),jobs,store.draft(project_id),names
+        project,records,jobs,draft,names=await api_execution.run('read',read)
+        if names is None:
+            names=await api_execution.run('storage',lambda:[p.name for p in (store.project_dir(project_id)/'edit/transcripts').glob('*.json') if p.is_file() and not p.is_symlink()])
+        def response():
+            import re
+            from fastapi.responses import JSONResponse
+            assets=[]
+            for asset in records:
+                pattern=re.compile(re.escape(asset['id'])+r'(?:\.track(\d+))?\.json')
+                tracks=sorted({int(match[1] or 0) for name in names if (match:=pattern.fullmatch(name))})
+                assets.append({'id':asset['id'],'name':asset['name'],**asset['metadata'],
+                    'transcribed_tracks':tracks,
+                    'poster_url':f"api/projects/{project_id}/assets/{asset['id']}/thumbnail" if asset['metadata']['kind'] in ('video','image') else None,
+                    'url':f"api/projects/{project_id}/assets/{asset['id']}/file"})
+            return JSONResponse({'id':project_id,'name':project['name'],'assets':assets,'jobs':jobs,'draft':draft})
+        return await api_execution.run('read',response)
 
     @app.put('/api/projects/{project_id}/draft')
     def save_draft(project_id: str, body: DraftInput, request: Request):
@@ -311,9 +380,9 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         for table in ('edit_notes','edit_branches','edit_chapters','brand_templates'):store.execute(f'DELETE FROM {table} WHERE project=?',(project_id,))
         for table in ('observation_audit','observation_tasks','execution_limits','execution_time_slices','execution_cleanup','execution_security_events','execution_external_cleanup','execution_waits','execution_cancel_requests','execution_phase_metrics'):
             store.execute(f'DELETE FROM {table} WHERE task_id IN ('+tasks+')',(project_id,project_id))
-        for table in ('workflow_step_versions','workflow_quality_events','workflow_diagnostics','workflow_agent_reviews','workflow_user_requests','workflow_provider_calls'):
+        for table in ('workflow_step_versions','workflow_quality_events','workflow_diagnostics','workflow_agent_reviews','workflow_user_requests','workflow_provider_calls','workflow_reuse_receipts'):
             store.execute(f'DELETE FROM {table} WHERE workflow IN (SELECT id FROM agent_workflows WHERE project=?)',(project_id,))
-        for table in ('execution_checkpoint_versions','execution_session_profiles'):
+        for table in ('execution_checkpoint_versions','execution_session_profiles','execution_native_descriptors','agent_project_profiles','agent_native_sessions','agent_harness_switches'):
             store.execute(f'DELETE FROM {table} WHERE project=?',(project_id,))
         for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
             store.execute(f'DELETE FROM {table} WHERE turn_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
@@ -324,7 +393,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM workflow_control WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_intents WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_job_results WHERE job_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
-        for table in ('agent_messages','agent_render_observations','execution_activities','agent_routes'):
+        for table in ('agent_messages','agent_render_observations','execution_activities','agent_routes','agent_run_profiles','agent_attempt_profiles','agent_context_events'):
             store.execute(f'DELETE FROM {table} WHERE task_id IN ('+tasks+')',(project_id,project_id))
         store.execute('DELETE FROM plan_review_retries WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM plan_readiness WHERE project=?',(project_id,))
@@ -340,95 +409,113 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM agent_turns WHERE project=?', (project_id,))
         store.execute('DELETE FROM agent_sessions WHERE project=?', (project_id,))
         store.execute('DELETE FROM projects WHERE id=?', (project_id,))
-        shutil.rmtree(store.project_dir(project_id), ignore_errors=True)
+
+    async def cleanup_deleted(project_ids):
+        def remove():
+            for project_id in project_ids:
+                for path in (store.project_dir(project_id),store.root/'cache/objects'/project_id):
+                    try:shutil.rmtree(path)
+                    except FileNotFoundError:pass
+        try:
+            async with asyncio.timeout(2):await api_execution.run('cleanup',remove)
+            return False
+        except (APICapacityError,TimeoutError,OSError) as exc:
+            from .telemetry import emit
+            emit('api.cleanup_deferred','WARNING',reason='deleted_project',exception_type=type(exc).__name__)
+            return True
 
     @app.post('/api/projects/batch-delete')
-    def batch_delete_projects(body: BatchDeleteInput, request: Request):
+    @admission('delete')
+    async def batch_delete_projects(body: BatchDeleteInput, request: Request):
         ids=list(dict.fromkeys(body.ids))
-        with mutation_lock,store.connect() as db:
-            db.execute('BEGIN IMMEDIATE')
-            for project_id in ids:own_project(project_id,request)
-            deleted=[];blocked=[]
-            for project_id in ids:
-                try:delete_project_data(project_id);deleted.append(project_id)
-                except HTTPException as exc:
-                    if exc.status_code!=409:raise
-                    blocked.append({'id':project_id,'detail':exc.detail})
-        return {'deleted':deleted,'blocked':blocked}
+        def remove_metadata():
+            with mutation_lock,store.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                for project_id in ids:own_project(project_id,request)
+                deleted=[];blocked=[]
+                for project_id in ids:
+                    try:delete_project_data(project_id);deleted.append(project_id)
+                    except HTTPException as exc:
+                        if exc.status_code!=409:raise
+                        blocked.append({'id':project_id,'detail':exc.detail})
+            return {'deleted':deleted,'blocked':blocked}
+        result=await api_execution.run('write',remove_metadata)
+        result['cleanup_pending']=await cleanup_deleted(result['deleted']) if result['deleted'] else False
+        return result
 
     @app.delete('/api/projects/{project_id}')
-    def delete_project(project_id: str, request: Request):
-        with mutation_lock,store.connect() as db:
-            db.execute('BEGIN IMMEDIATE')
-            own_project(project_id, request)
-            delete_project_data(project_id)
-        return {'deleted': True}
+    @admission('delete')
+    async def delete_project(project_id: str, request: Request):
+        def remove_metadata():
+            with mutation_lock,store.connect() as db:
+                db.execute('BEGIN IMMEDIATE')
+                own_project(project_id,request);delete_project_data(project_id)
+        await api_execution.run('write',remove_metadata)
+        return {'deleted':True,'cleanup_pending':await cleanup_deleted([project_id])}
 
     @app.post('/api/projects/{project_id}/assets', status_code=201)
-    def upload(project_id: str, request: Request, file: UploadFile = File(...)):
-        with mutation_lock:
+    @admission('upload')
+    async def upload(project_id: str, request: Request, file: UploadFile = File(...)):
+        from .api_staging import Staging
+        def authorize_upload():
             own_project(project_id, request)
             if len(store.assets(project_id)) >= 50:
                 raise HTTPException(409, '每个项目最多 50 个素材。')
-            original = (file.filename or 'video').replace('\\', '/').split('/')[-1][:180]
-            suffix = Path(original).suffix.lower()
-            if suffix not in VIDEO_EXTS | AUDIO_EXTS | IMAGE_EXTS | {'.srt'}:
-                raise HTTPException(415, '支持视频、音频、PNG/JPG/WebP 图片和 UTF-8 SRT。')
-            limit = int(os.environ.get('VIDEO_USE_MAX_UPLOAD_MB', '2048')) * 1024**2
+        await api_execution.run('read',authorize_upload)
+        original=(file.filename or 'video').replace('\\','/').split('/')[-1][:180]
+        suffix=Path(original).suffix.lower()
+        if suffix not in VIDEO_EXTS|AUDIO_EXTS|IMAGE_EXTS|{'.srt'}:
+            raise HTTPException(415,'支持视频、音频、PNG/JPG/WebP 图片和 UTF-8 SRT。')
+        limit=int(os.environ.get('VIDEO_USE_MAX_UPLOAD_MB','2048'))*1024**2
+        asset_id=uuid.uuid4().hex;filename=asset_id+suffix;stage=Staging(store.root);path=stage.path/filename
+        def copy_upload():
             if shutil.disk_usage(store.root).free < 2 * 1024**3:
-                raise HTTPException(507, '剩余存储空间不足，请删除旧项目后再上传。')
-            asset_id = uuid.uuid4().hex
-            filename = asset_id + suffix
-            path = store.project_dir(project_id) / 'sources' / filename
-            path.parent.mkdir(parents=True,exist_ok=True)
-            try:
-                size = 0
-                with path.open('wb') as output:
-                    while chunk := file.file.read(1024 * 1024):
-                        size += len(chunk)
-                        if size > limit:
-                            raise HTTPException(413, '文件超过上传大小限制。')
-                        output.write(chunk)
-                if suffix == '.srt':
-                    if size > 5 * 1024**2:
-                        raise ValueError('字幕文件不能超过 5 MB。')
-                    text = path.read_text(encoding='utf-8-sig')
-                    if '-->' not in text:
-                        raise ValueError('字幕文件缺少 SRT 时间戳。')
-                    metadata = {'kind': 'subtitle', 'size': size}
-                else:
-                    metadata = inspect_image(path) if suffix in IMAGE_EXTS else inspect_media(path, allow_audio=suffix in AUDIO_EXTS)
-                uploaded=store.artifacts.upload(project_id,path) if store.shared_files else None
+                raise HTTPException(507,'剩余存储空间不足，请删除旧项目后再上传。')
+            return stage.copy(file.file,filename,limit)
+        try:
+            size=await api_execution.run('storage',copy_upload)
+            if suffix=='.srt':
+                def subtitle():
+                    if size>5*1024**2:raise ValueError('字幕文件不能超过 5 MB。')
+                    if '-->' not in path.read_text(encoding='utf-8-sig'):raise ValueError('字幕文件缺少 SRT 时间戳。')
+                    return {'kind':'subtitle','size':size}
+                metadata=await api_execution.run('storage',subtitle)
+            elif suffix in IMAGE_EXTS:metadata=await api_execution.run('media',inspect_image,path)
+            else:metadata=await api_execution.run('media',inspect_media,path,allow_audio=suffix in AUDIO_EXTS)
+            uploaded=await api_execution.run('storage',store.artifacts.upload,project_id,path,check=stage.check) if store.shared_files else None
+            def publish_upload():
                 with store.connect() as db:
                     db.execute('BEGIN IMMEDIATE')
+                    authorize_upload();stage.check()
                     store.check_storage(project_id,size)
+                    stage.move(filename,store.project_dir(project_id)/'sources'/filename)
                     store.add_asset(project_id, asset_id, original, filename, metadata,artifact=uploaded)
-            except (HTTPException,MediaDecoderUnavailable):
-                path.unlink(missing_ok=True)
-                raise
-            except (ValueError, UnicodeError, subprocess.TimeoutExpired) as exc:
-                path.unlink(missing_ok=True)
-                raise HTTPException(422, str(exc)) from exc
-            finally:
-                file.file.close()
-        return {'id': asset_id, 'name': original, **metadata}
+                    stage.check()
+                return {'id':asset_id,'name':original,**metadata}
+            return await api_execution.run('write',stage.commit,publish_upload)
+        except OverflowError as exc:raise HTTPException(413,'文件超过上传大小限制。') from exc
+        except (ValueError,UnicodeError,subprocess.TimeoutExpired) as exc:
+            await api_execution.run('read',own_project,project_id,request)
+            raise HTTPException(422,str(exc)) from exc
+        finally:await stage.finish(api_execution)
 
     @app.get('/api/projects/{project_id}/assets/{asset_id}/file')
-    def source_file(project_id: str, asset_id: str, request: Request, download: bool = False):
-        own_project(project_id, request)
-        asset = get_asset(project_id, asset_id)
-        return FileResponse(store.file(project_id,'sources/'+asset['filename']),
-                            filename=asset['name'] if download else None)
+    async def source_file(project_id: str, asset_id: str, request: Request, download: bool = False):
+        def lookup():own_project(project_id,request);return get_asset(project_id,asset_id)
+        asset=await api_execution.run('read',lookup)
+        path=await api_execution.run('storage',store.file,project_id,'sources/'+asset['filename'])
+        return FileResponse(path,filename=asset['name'] if download else None)
 
     @app.get('/api/projects/{project_id}/assets/{asset_id}/thumbnail')
-    def source_thumbnail(project_id: str, asset_id: str, request: Request):
-        own_project(project_id,request)
-        asset=get_asset(project_id,asset_id)
+    async def source_thumbnail(project_id: str, asset_id: str, request: Request):
+        def lookup():own_project(project_id,request);return get_asset(project_id,asset_id)
+        asset=await api_execution.run('read',lookup)
+        if asset['metadata']['kind'] not in ('image','video'):raise HTTPException(404,'无图片封面。')
+        source=await api_execution.run('storage',store.file,project_id,'sources/'+asset['filename'])
         if asset['metadata']['kind']=='image':
-            return FileResponse(store.file(project_id,'sources/'+asset['filename']),media_type=asset['metadata'].get('mime','image/png'))
-        if asset['metadata']['kind']!='video':raise HTTPException(404,'无图片封面。')
+            return FileResponse(source,media_type=asset['metadata'].get('mime','image/png'))
         try:
-            path=thumbnail(store.file(project_id,'sources/'+asset['filename']),store.project_dir(project_id)/'edit/cache/posters')
+            path=await api_execution.run('media',thumbnail,source,store.project_dir(project_id)/'edit/cache/posters')
         except (ValueError,subprocess.TimeoutExpired) as exc:raise HTTPException(422,'视频封面暂不可用。') from exc
         return FileResponse(path,media_type='image/jpeg')
 
@@ -480,7 +567,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
                     ratio = current_ratio
                     if body.subtitles == 'transcript':
                         suffix = f'.track{seg.audio_track}' if seg.audio_track else ''
-                        if not (store.project_dir(project_id) / 'edit' / 'transcripts' / f'{seg.asset}{suffix}.json').exists():
+                        if not store.has_file(project_id,f'edit/transcripts/{seg.asset}{suffix}.json'):
                             raise HTTPException(422, '生成字幕前，请先转写每个片段使用的音轨。')
                 total = sum(s.end - s.start for s in body.segments)
                 for overlay in body.overlays:
@@ -499,35 +586,39 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         return public_job(job)
 
     @app.post('/api/projects/{project_id}/jobs/{job_id}/cancel')
+    @lane('critical')
     def cancel(project_id: str, job_id: str, request: Request):
         job = safe_job(project_id, job_id, request)
         from .task_lifecycle import cancel_task
         return cancel_task(store,job_id)
 
     @app.get('/api/projects/{project_id}/jobs/{job_id}/log')
-    def job_log(project_id: str, job_id: str, request: Request):
-        job = safe_job(project_id, job_id, request)
-        try:path = output_file(job,'job.log')
-        except FileNotFoundError:return {'text':'等待处理…'}
-        if not path.exists():
-            return {'text': '等待处理…'}
-        with path.open('rb') as stream:
-            stream.seek(max(0, path.stat().st_size - 10000))
-            return {'text': redact(stream.read().decode(errors='replace'))}
+    async def job_log(project_id: str, job_id: str, request: Request):
+        job=await api_execution.run('read',safe_job,project_id,job_id,request)
+        def read_log():
+            try:path=output_file(job,'job.log')
+            except FileNotFoundError:return {'text':'等待处理…'}
+            if not path.exists():return {'text':'等待处理…'}
+            with path.open('rb') as stream:
+                stream.seek(max(0,path.stat().st_size-10000))
+                return {'text':redact(stream.read().decode(errors='replace'))}
+        return await api_execution.run('storage',read_log)
 
     @app.get('/api/projects/{project_id}/jobs/{job_id}/files/{name}')
-    def result_file(project_id: str, job_id: str, name: str, request: Request, download: bool = False):
-        job = safe_job(project_id, job_id, request)
+    async def result_file(project_id: str, job_id: str, name: str, request: Request, download: bool = False):
+        job=await api_execution.run('read',safe_job,project_id,job_id,request)
         if name not in job['artifacts'] or job['status'] != 'succeeded':
             raise HTTPException(404, '结果不存在。')
-        return FileResponse(output_file(job,name), filename=name if download else None)
+        path=await api_execution.run('storage',output_file,job,name)
+        return FileResponse(path,filename=name if download else None)
 
     @app.get('/api/projects/{project_id}/jobs/{job_id}/files/{name}/thumbnail')
-    def job_thumbnail(project_id: str, job_id: str, name: str, request: Request):
-        job=safe_job(project_id,job_id,request)
+    async def job_thumbnail(project_id: str, job_id: str, name: str, request: Request):
+        job=await api_execution.run('read',safe_job,project_id,job_id,request)
         if name not in job['artifacts'] or job['status']!='succeeded' or not (mimetypes.guess_type(name)[0] or '').startswith('video/'):
             raise HTTPException(404,'无视频封面。')
-        try:path=thumbnail(output_file(job,name),store.project_dir(project_id)/'edit/cache/posters')
+        source=await api_execution.run('storage',output_file,job,name)
+        try:path=await api_execution.run('media',thumbnail,source,store.project_dir(project_id)/'edit/cache/posters')
         except (ValueError,subprocess.TimeoutExpired) as exc:raise HTTPException(422,'视频封面暂不可用。') from exc
         return FileResponse(path,media_type='image/jpeg')
 
@@ -537,10 +628,12 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     def catalog():return demo_library.snapshot().catalog
 
     @app.get('/api/demos')
+    @lane('storage')
     def demos():
         return catalog()
 
     @app.get('/api/demos/{demo_id}/files/{name}')
+    @lane('storage')
     def demo_file(demo_id: str, name: str):
         edition=demo_library.snapshot()
         demo = next((d for d in edition.catalog if d['id'] == demo_id), None)
@@ -549,6 +642,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         return FileResponse(edition.file(demo_id+'/'+name))
 
     @app.get('/api/demos/{demo_id}/sources/{key}')
+    @lane('storage')
     def demo_source(demo_id: str, key: str):
         edition=demo_library.snapshot()
         demo=next((d for d in edition.catalog if d['id']==demo_id),None)
@@ -560,68 +654,89 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         return FileResponse(path)
 
     @app.post('/api/demos/{demo_id}/load', status_code=201)
-    def load_demo(demo_id: str, request: Request):
-        edition=demo_library.snapshot()
-        demo = next((d for d in edition.catalog if d['id'] == demo_id), None)
-        if not demo:
-            raise HTTPException(404, '示例不存在。')
-        with mutation_lock:
-            project = new_project(ProjectInput(name='示例 · ' + demo['title']), request)
-            folder = store.project_dir(project['id'])
-            mapping = {}
+    @admission('demo')
+    async def load_demo(demo_id: str, request: Request):
+        from .api_staging import Staging
+        edition=await api_execution.run('storage',demo_library.snapshot)
+        demo=next((d for d in edition.catalog if d['id']==demo_id),None)
+        if not demo:raise HTTPException(404,'示例不存在。')
+        project=await api_execution.run('write',new_project,ProjectInput(name='示例 · '+demo['title']),request)
+        project_id=project['id'];folder=store.project_dir(project_id);stage=Staging(store.root)
+        mapping={};assets=[];auxiliary=[]
+        limit=int(os.environ.get('VIDEO_USE_MAX_UPLOAD_MB','2048'))*1024**2
+        def copy_source(source,name):
+            with source.open('rb') as stream:return stage.copy(stream,name,limit)
+        async def prepare_asset(relative,name):
+            source=await api_execution.run('storage',edition.file,relative)
+            asset_id=uuid.uuid4().hex;filename=asset_id+source.suffix
+            await api_execution.run('storage',copy_source,source,filename)
+            path=stage.path/filename
+            if source.suffix.lower() in IMAGE_EXTS:metadata=await api_execution.run('media',inspect_image,path)
+            else:metadata=await api_execution.run('media',inspect_media,path,allow_audio=source.suffix.lower() in AUDIO_EXTS)
+            artifact=await api_execution.run('storage',store.artifacts.upload,project_id,path,check=stage.check) if store.shared_files else None
+            assets.append({'id':asset_id,'name':name,'filename':filename,'metadata':metadata,'artifact':artifact})
+            return asset_id
+        async def prepare_auxiliary(logical,relative=None,data=None):
+            filename=uuid.uuid4().hex+Path(logical).suffix
+            if relative is not None:
+                source=await api_execution.run('storage',edition.file,relative)
+                await api_execution.run('storage',copy_source,source,filename)
+            else:await api_execution.run('storage',stage.write,filename,data)
+            artifact=await api_execution.run('storage',store.artifacts.upload,project_id,stage.path/filename,check=stage.check) if store.shared_files else None
+            auxiliary.append({'logical':logical,'filename':filename,'artifact':artifact})
+        try:
             for item in demo['sources']:
-                asset_id = uuid.uuid4().hex
-                mapping[item['key']] = asset_id
-                src = edition.file('sources/'+item['file'])
-                filename = asset_id + src.suffix
-                shutil.copyfile(src, folder / 'sources' / filename)
-                metadata = inspect_image(folder/'sources'/filename) if src.suffix.lower() in IMAGE_EXTS else inspect_media(folder/'sources'/filename,allow_audio=src.suffix.lower() in AUDIO_EXTS)
-                store.add_asset(project['id'], asset_id, item['name'], filename, metadata)
-                for track, transcript in item.get('transcripts', {}).items():
-                    suffix = f'.track{track}' if int(track) else ''
-                    shutil.copyfile(edition.file('sources/'+transcript),
-                                    folder / 'edit' / 'transcripts' / f'{asset_id}{suffix}.json')
-                    if store.shared_files:store.artifacts.save_file(project['id'],'edit/transcripts/'+f'{asset_id}{suffix}.json')
+                asset_id=await prepare_asset('sources/'+item['file'],item['name']);mapping[item['key']]=asset_id
+                for track,transcript in item.get('transcripts',{}).items():
+                    suffix=f'.track{track}' if int(track) else ''
+                    await prepare_auxiliary(f'edit/transcripts/{asset_id}{suffix}.json','sources/'+transcript)
             if demo_id=='video-version-compare':
-                result_source=edition.file(demo_id+'/'+demo['result'])
-                asset_id=uuid.uuid4().hex;filename=asset_id+result_source.suffix
-                shutil.copyfile(result_source,folder/'sources'/filename)
-                store.add_asset(project['id'],asset_id,'版本 2 · 暖调成片',filename,inspect_media(folder/'sources'/filename))
-            preset = json.loads(json.dumps(demo['preset']))
-            preset['assets'] = [mapping[key] for key in preset.get('assets', [])]
-            for seg in preset.get('segments', []):
-                seg['asset'] = mapping[seg['asset']]
-            for overlay in preset.get('overlays', []):
-                overlay['asset'] = mapping[overlay['asset']]
+                await prepare_asset(demo_id+'/'+demo['result'],'版本 2 · 暖调成片')
+            preset=json.loads(json.dumps(demo['preset']))
+            preset['assets']=[mapping[key] for key in preset.get('assets',[])]
+            for seg in preset.get('segments',[]):seg['asset']=mapping[seg['asset']]
+            for overlay in preset.get('overlays',[]):overlay['asset']=mapping[overlay['asset']]
             draft_preset=preset if preset.get('kind')!='agent' else {'kind':'render','assets':list(mapping.values()),
-                'segments':[{'asset':a['id'],'start':0,'end':min(10,a['metadata']['duration'])} for a in store.assets(project['id']) if a['metadata']['kind']=='video']}
+                'segments':[{'asset':a['id'],'start':0,'end':min(10,a['metadata']['duration'])} for a in assets if a['metadata']['kind']=='video']}
             if demo_id=='video-quality-review':
-                video_asset=next((a for a in store.assets(project['id']) if a['metadata']['kind']=='video'),None)
+                video_asset=next((a for a in assets if a['metadata']['kind']=='video'),None)
                 if video_asset:draft_preset={'kind':'review','tool':'review','assets':[video_asset['id']],'start':0,'end':video_asset['metadata']['duration']}
-            elif demo_id in DEMO_TO_TOOL:
-                draft_preset['tool']=DEMO_TO_TOOL[demo_id]
+            elif demo_id in DEMO_TO_TOOL:draft_preset['tool']=DEMO_TO_TOOL[demo_id]
             if demo.get('renderer')=='edit_media':
-                # Rebind the demonstrated plan to this new project's own uploaded IDs.
-                plan=json.loads(edition.file(demo_id+'/plan.json').read_text())
-                project_assets={a['id']:a for a in store.assets(project['id'])}
-                plan['sources']={key:'sources/'+project_assets[mapping[key]]['filename'] for key in plan['sources']}
-                if plan.get('transcripts'):
-                    plan['transcripts']={key:'transcripts/'+mapping[key]+'.json' for key in plan['transcripts']}
-                edit=folder/'agent'/'workspace'/'edit';edit.mkdir(parents=True,exist_ok=True)
-                (edit/'demo-plan.json').write_text(json.dumps(plan,ensure_ascii=False,indent=2))
-                if store.shared_files:store.artifacts.save_file(project['id'],'agent/workspace/edit/demo-plan.json')
-                browser_plan=json.loads(edition.file(demo_id+'/plan.json').read_text())
-                browser_plan.pop('sources',None);browser_plan.pop('transcripts',None)
-                asset_rows={a['id']:a for a in store.assets(project['id'])}
+                def read_plan():return json.loads(edition.file(demo_id+'/plan.json').read_text())
+                original_plan=await api_execution.run('storage',read_plan)
+                plan=json.loads(json.dumps(original_plan));asset_rows={a['id']:a for a in assets}
+                plan['sources']={key:'sources/'+asset_rows[mapping[key]]['filename'] for key in plan['sources']}
+                if plan.get('transcripts'):plan['transcripts']={key:'transcripts/'+mapping[key]+'.json' for key in plan['transcripts']}
+                await prepare_auxiliary('agent/workspace/edit/demo-plan.json',data=json.dumps(plan,ensure_ascii=False,indent=2).encode())
+                browser_plan=json.loads(json.dumps(original_plan));browser_plan.pop('sources',None);browser_plan.pop('transcripts',None)
                 for clip in browser_plan.get('clips',[]):
                     source=clip.pop('source');clip['asset']=mapping[source]
                     clip.setdefault('start',0);clip.setdefault('end',asset_rows[mapping[source]]['metadata']['duration'])
                 audio=browser_plan.get('audio',{})
                 if audio.get('source'):audio['asset']=mapping[audio.pop('source')]
                 draft_preset={'kind':'edit','tool':DEMO_TO_TOOL.get(demo_id,'render'),'edit_plan':browser_plan}
-            store.save_draft(project['id'],JobInput(**draft_preset).model_dump(),demo['prompt'],'images' if demo.get('media')=='image' else 'chat' if demo.get('workflow')=='agent' else 'tools')
-            store.set_demo_context(project['id'],demo_id)
-        return {'project': project, 'preset': preset, 'prompt': demo['prompt']}
+            draft=JobInput(**draft_preset).model_dump()
+            editor='images' if demo.get('media')=='image' else 'chat' if demo.get('workflow')=='agent' else 'tools'
+            def publish():
+                with store.connect() as db:
+                    db.execute('BEGIN IMMEDIATE');own_project(project_id,request)
+                    changed=any(store.query(f'SELECT project FROM {table} WHERE project=? LIMIT 1',(project_id,)) for table in
+                                ('assets','project_drafts','image_documents','jobs','agent_turns'))
+                    if changed:raise HTTPException(409,'导入期间项目已被修改，未覆盖已有内容。')
+                    if len(assets)>50:raise HTTPException(409,'每个项目最多 50 个素材。')
+                    store.check_storage(project_id,sum(a['metadata']['size'] for a in assets))
+                    for asset in assets:
+                        stage.move(asset['filename'],folder/'sources'/asset['filename'])
+                        store.add_asset(project_id,asset['id'],asset['name'],asset['filename'],asset['metadata'],artifact=asset['artifact'])
+                    for item in auxiliary:
+                        stage.move(item['filename'],folder/item['logical'])
+                        if item['artifact']:store.artifacts.publish(project_id,item['logical'],item['artifact']['id'],expected_revision=0)
+                    store.save_draft(project_id,draft,demo['prompt'],editor);store.set_demo_context(project_id,demo_id)
+                    stage.check()
+                return {'project':project,'preset':preset,'prompt':demo['prompt']}
+            return await api_execution.run('write',stage.commit,publish)
+        finally:await stage.finish(api_execution)
 
     image_api.register(app,store,own_project,mutation_lock,wake,public_job)
     edit_feedback.register(app,store,own_project,mutation_lock,wake)

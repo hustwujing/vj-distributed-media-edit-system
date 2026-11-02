@@ -86,9 +86,9 @@ def tool(db,task,payload):
 
 
 @contextmanager
-def model_call(lease,model,actor='host'):
+def model_call(lease,model,actor='host',observer=None):
     """Fail closed before submission; receipt-only transactions may outlive lease."""
-    observer=Receipt();call=None;error='';state='unknown'
+    observer=observer or Receipt();call=None;error='';state='unknown'
     if lease:
         with lease.store.connect() as db:
             call=start(db,lease.turn_id,'llm',model,attempt=lease.attempt,step=lease.step_id or '')
@@ -214,7 +214,17 @@ def _snapshot(store,task,scope,after,limit,provider_after):
         call['duration_seconds']=max(0,call['finished']-call['started']) if call['finished'] else None
     from .planning_budget import snapshot as planning
     planning_state=planning(store,task)
-    return {'task_id':task,'run_id':root['run_id'],'scope':scope,'members':members,'counts':counts,'tokens':tokens,'computed_total':computed_total,'execution_counts':attempts,'model_purposes':model_groups,'planning_budget':planning_state,
+    harnesses=[]
+    if store.query("SELECT name FROM sqlite_master WHERE name='agent_attempt_profiles'"):
+        profiles=store.query(f'''SELECT p.digest,p.configuration,COUNT(DISTINCT p.attempt_id) AS attempts,
+          COUNT(c.call_id) AS model_calls FROM agent_attempt_profiles p LEFT JOIN usage_calls c
+          ON c.attempt_id=p.attempt_id AND c.category='llm' WHERE p.task_id IN ({marks})
+          GROUP BY p.digest,p.configuration''',ids)
+        for entry in profiles:
+            config=json.loads(entry['configuration'])
+            harnesses.append({'digest':entry['digest'],'profile_name':config['name'],'harness':config['harness'],'model':config['model'],
+                              'attempts':entry['attempts'],'model_calls':entry['model_calls']})
+    return {'task_id':task,'run_id':root['run_id'],'scope':scope,'members':members,'counts':counts,'tokens':tokens,'computed_total':computed_total,'execution_counts':attempts,'model_purposes':model_groups,'planning_budget':planning_state,'harness_runs':harnesses,
             'workflow_retries':int(retries),'repairs':repairs,'llm_retries':None,'unfinished_calls_on_finished_attempts':incomplete,
             'provider':{'submissions':len(providers),'polls':sum(p['poll_count'] for p in providers),
                         'reported_usage':sum(p['usage'] is not None for p in providers),'reported_cost':sum(p['cost'] is not None for p in providers),

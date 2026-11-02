@@ -51,6 +51,10 @@ def run(source, arguments, timeout=45,*,input_fd=None,decode_uid=None,decode_gid
     # Run as caller in a user namespace. Media bytes never reach host decoders.
     with SLOTS, tempfile.TemporaryFile() as output, tempfile.TemporaryFile() as errors:
         result=subprocess.run(args,stdout=output,stderr=errors,timeout=timeout,pass_fds=(input_fd,) if input_fd is not None else ())
+        # A valid PNG header does not make a truncated body a valid artifact.
+        # Reject oversize output explicitly instead of returning partial success.
+        if output.tell()>32*1024**2:
+            return subprocess.CompletedProcess(arguments,1,b'',b'Media decoder output exceeds size limit')
         output.seek(0);errors.seek(0)
         return subprocess.CompletedProcess(arguments,result.returncode,output.read(32*1024**2),errors.read(65536))
 
@@ -75,7 +79,7 @@ def normalize_image(source):
     import struct
     result=run(source,[str(REPO/'.venv/bin/python'),'/inspect.py','--normalize'])
     ensure_available(result)
-    if result.returncode or not result.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
+    if result.returncode or len(result.stdout)<24 or not result.stdout.startswith(b'\x89PNG\r\n\x1a\n'):
         raise ValueError('图片解码失败或超过大小限制')
     width,height=struct.unpack('>II',result.stdout[16:24])
     return result.stdout,width,height

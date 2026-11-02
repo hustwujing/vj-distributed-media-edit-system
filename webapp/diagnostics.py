@@ -25,6 +25,8 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
     report={'schema':1,'task_id':task_id,'generated_at':time.time(),'observer_release':release(),
             'complete':True,'gaps':[],'read_only':True,'facts':{},'suggestions':[]}
     def query(name,sql,args=()):
+        from .api_execution import check_cancelled
+        check_cancelled()
         try:return store.query(sql,args)
         except Exception as exc:
             report['complete']=False;report['gaps'].append({'source':name,'error_code':type(exc).__name__});return []

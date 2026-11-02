@@ -62,12 +62,13 @@ class Operation:
     model_profile:str='none'
     implementation_id:str=''
     output_files:tuple[str,...]|None=None
+    reuse_safe:bool=False
     def public(self):
         result=asdict(self)
         from .operation_lifecycle import for_operation
         implementation=for_operation(self)
         result.update(contract_version=1,implementation=implementation.id,lifecycle=str(implementation.lifecycle),
-                      recovery_by_phase={phase:implementation.recovery(phase) for phase in ('local','sync','submit','poll','collect','validate')})
+                      recovery_by_phase={phase:implementation.recovery(phase) for phase in (*implementation.protocol.phases,'validate')})
         primary=REGISTRY.get(self.id,self)
         supported={primary.implementation_id or primary.executor+'@1',implementation.id,*_IMPLEMENTATION_BINDINGS.get(self.id,{})}
         if self.id=='image.generate_from_text':supported.add('image_sync@1')
@@ -142,12 +143,13 @@ for action in _ACTIONS:
                  memory_mb=8192 if action in _GPU else 2048,
                  provider='decompose' if action=='decompose' else 'edit' if external else '',
                  model_profile=_GPU.get(action,'ocr' if action in ('ocr','replace_text') else 'none'),
+                 reuse_safe=action in ('refine_mask','perspective','color_match','local_adjust','batch_export','product_layout'),
                  output_files=_FIXED_OUTPUT_FILES.get(action))
     REGISTRY[op.id]=op
 for action in ('render','edit','timeline','analyze','review','pack'):
     output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',)}[action]
     input_kinds=('json',) if action=='pack' else ('video','json') if action=='timeline' else ('video',) if action in ('analyze','review') else ('video','audio','image','subtitle','json')
-    op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800)
+    op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800,reuse_safe=True)
     REGISTRY[op.id]=op
 REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,provider='elevenlabs',output_files=('transcript.json',))
 REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,provider='generation')
@@ -181,11 +183,12 @@ def register_implementation(operation_id,implementation,**resources):
     from .operation_lifecycle import get as implementation_by_id,for_operation
     if operation_id not in REGISTRY:raise ValueError('Register operation before implementations')
     selected=implementation_by_id(implementation)
-    allowed={'cpu','memory_mb','gpu','timeout','provider','model_profile','retry_safe'}
+    allowed={'cpu','memory_mb','gpu','timeout','provider','model_profile','retry_safe','reuse_safe'}
     if set(resources)-allowed:raise ValueError('Implementation cannot override the business contract')
     variants=_IMPLEMENTATION_BINDINGS.setdefault(operation_id,{})
     if implementation in variants or implementation==for_operation(REGISTRY[operation_id]).id:raise ValueError('Duplicate operation implementation')
     definition=contract(REGISTRY[operation_id])
+    resources.setdefault('reuse_safe',False)
     variants[implementation]=replace(REGISTRY[operation_id],executor=selected.id.rsplit('@',1)[0],implementation_id=implementation,**resources)
     _VARIANT_CONTRACTS[(operation_id,implementation)]=definition
 
@@ -287,7 +290,8 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
 
 
 def catalog():
-    return {'version':4,
+    from .text_formats import TEXT_SUFFIXES,SUBTITLE_SUFFIXES
+    return {'version':4,'acceptance_formats':{'text':sorted(TEXT_SUFFIXES),'subtitle':sorted(SUBTITLE_SUFFIXES),'encoding':'UTF-8 / UTF-8 BOM','max_text_bytes':2*1024**2},
             'intent_contract':{'script_marker':'script',
                 'script_meaning':'Running helpers or custom local Pillow/FFmpeg/OpenCV commands, regardless of media type',
                 'single_script_example':{'route':'single','operations':['script'],'goal':'Rotate an image with a local helper','estimated_seconds':30},

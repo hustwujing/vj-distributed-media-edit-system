@@ -5,6 +5,7 @@ from pathlib import PurePosixPath
 
 def is_process_file(item):
     if item.get('workflow_delivery') is False:return True
+    if item.get('source_step') and item.get('workflow_delivery') is not True:return True
     if item.get('quality_state') in ('pending','superseded'):return True
     if item.get('role')=='deliverable':return False
     name=item.get('name','')

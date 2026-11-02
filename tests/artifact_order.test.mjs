@@ -62,3 +62,21 @@ test('explicit subtitle delivery is preserved ahead of its JSON manifest',()=>{
  const sections=resultSections(orderedArtifacts(files));
  assert.equal(sections.primary.name,'workflow/speech.srt');assert.equal(sections.primary.is_primary,true);
 });
+
+test('approved workflow intermediates cannot become final delivery before review',()=>{
+ const intermediate={name:'random-output.mp4',url:'one',type:'video/mp4',source_step:'first',quality_state:'approved'};
+ const pending={...intermediate,name:'complete.mp4',url:'two',quality_state:'pending'};
+ const result=resultSections(orderedArtifacts([intermediate,pending]));
+ assert.equal(result.primary,undefined);assert.equal(result.process.length,2);
+ const delivered={...intermediate,workflow_delivery:true,role:'deliverable'};
+ assert.equal(resultSections(orderedArtifacts([delivered,pending])).primary.name,'random-output.mp4');
+});
+
+test('workflow build documents cannot be promoted by missing delivery metadata',()=>{
+ const document={name:'arbitrary-construction.json',url:'definition',type:'application/json',is_primary:true};
+ const turn={id:'workflow',mode:'execute',status:'paused',workflow:{status:'paused'},artifacts:[document],created:1,text:'review required'};
+ const items=collectResults({jobs:[]},[turn],{},String);
+ assert.equal(resultSections(items).primary,undefined);assert.equal(resultSections(items).process.length,1);
+ turn.status='succeeded';turn.artifacts=[{...document,workflow_delivery:true}];
+ assert.equal(resultSections(collectResults({jobs:[]},[turn],{},String)).primary.name,document.name);
+});

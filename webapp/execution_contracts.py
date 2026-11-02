@@ -26,6 +26,7 @@ def profile(mode,*,review=False,step=False,fixed=False):
 
 def classify_error(detail,phase):
     if isinstance(detail,dict):
+        if phase=='local' and detail.get('error_type')=='ModelResultError':return 'model_result'
         if phase=='local' and detail.get('code')=='output_contract':return 'code'
         if detail.get('error_type') in ('ValueError','ValidationError'):return 'parameters'
         report=detail.get('report',{})
@@ -43,8 +44,9 @@ def classify_error(detail,phase):
             if line.startswith('RuntimeError: '):line=line[len('RuntimeError: '):]
             try:record=json.loads(line)
             except (ValueError,RecursionError):continue
-            if isinstance(record,dict) and record.get('stage')=='error':
-                if record.get('code')=='parameters' or record.get('error_type') in ('PlanError','ValueError','ValidationError'):
+            if isinstance(record,dict) and (record.get('stage')=='error' or record.get('event')=='tool.failure'):
+                if (record.get('exception_type') or record.get('error_type'))=='ModelResultError':return 'model_result'
+                if record.get('code')=='parameters' or (record.get('exception_type') or record.get('error_type')) in ('PlanError','ValueError','ValidationError'):
                     return 'parameters'
     text=str(detail).lower()
     if phase=='submit':return 'submission_unknown'

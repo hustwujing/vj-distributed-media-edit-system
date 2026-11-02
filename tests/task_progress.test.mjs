@@ -21,6 +21,11 @@ test('Agent review and diagnosis have distinct progress labels',async()=>{
  assert.equal(stepLabels.diagnosing,'Agent 诊断中');
  assert.equal(stepLabels.verifying,'程序验收中');
 });
+test('temporary model outage and unavailable compute retain truthful wait labels',()=>{
+ assert.match(lifecycleText({scheduling:{wait_reason:'model_unavailable'}}),/等待模型服务恢复/);
+ const waiting=lifecycleText({scheduling:{wait_reason:'resource'}});
+ assert.match(waiting,/等待计算资源/);assert.doesNotMatch(waiting,/模型未配置/);
+});
 test('manual async jobs display provider wait rather than generic queue',async()=>{
  const {jobPhaseLabel}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
  assert.equal(jobPhaseLabel({status:'queued',phase:'waiting'}),'等待外部结果');

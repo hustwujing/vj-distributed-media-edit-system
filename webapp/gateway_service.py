@@ -55,11 +55,13 @@ def main():
         destination.write_bytes(base64.b64decode(result['audio'],validate=True))
     def notify(kind,payload):agent_store.event(store,lease.turn_id,kind,payload)
     with lease.bind():
+        from .agent_profiles import AgentProfile
         gateway=Gateway(Path(config['socket']),Path(config['project']),config['assets'],config['mode'],config['model'],
             config['base_url'],config['key'],config['uid'],config['gid'],notify,extract,
             canvas_callback=(lambda body,asset:agent_patch(store,Path(config['project']).name,lease.turn_id,body,asset)) if config['canvas'] else None,
             workflow_callback=(lambda body:client.request('workflow_preflight',body) if body.get('action')=='preflight' else workflow_dispatch(store,lease.turn_id,body,config['mode'],config.get('workflow_review_id'))) if config['workflow'] else None,
-            listener_fd=int(sys.argv[1]),broker_client=client)
+            listener_fd=int(sys.argv[1]),broker_client=client,
+            profile=AgentProfile(**config['agent_profile']) if config.get('agent_profile') else None)
         gateway.thread.start()
     print('READY',flush=True)
     while os.getppid()==config['parent']:

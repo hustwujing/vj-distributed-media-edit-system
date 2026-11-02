@@ -8,6 +8,12 @@ from .artifacts import order_artifacts
 
 def initialize(store):
     with store.connect() as db:
+        from .agent_profiles import initialize as initialize_profiles
+        from .harness_events import initialize as initialize_context
+        initialize_profiles(db)
+        initialize_context(db)
+        from .harness_switching import initialize as initialize_switching
+        initialize_switching(db)
         db.executescript('''
           CREATE TABLE IF NOT EXISTS agent_sessions (
             project TEXT PRIMARY KEY, thread_id TEXT NOT NULL
@@ -74,6 +80,8 @@ def add_turn(store, project, mode, prompt, attachments=None,canvas_context=None,
         register(db,turn_id,project,now)
         from .task_usage import attach
         attach(db,turn_id,project,now,plan_id or parent_task_id)
+        from .agent_profiles import freeze
+        freeze(db,turn_id,project,now,plan_id)
     from .task_lifecycle import ensure
     with store.connect() as db:ensure(db,turn_id,now)
     return turn_id
@@ -105,6 +113,12 @@ def turn(store, turn_id):
     row['activities']=current(store,turn_id)
     from .public_messages import read
     row['messages']=read(store,turn_id)
+    from .task_leases import blocked_quota
+    row['quota']=blocked_quota(store,turn_id)
+    from .agent_profiles import public_for_task
+    from .harness_switching import latest
+    row['agent_profile']=public_for_task(store,turn_id)
+    row['harness_switch']=latest(store,turn_id)
     row['public_notes']=[json.loads(r['payload']) for r in store.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind='note' ORDER BY seq",(turn_id,))] if not row['messages'] else []
     return row
 
@@ -140,8 +154,16 @@ def event(store, turn_id, kind, payload):
     if activity:
         from .telemetry import emit
         emit('execution.activity',task_id=turn_id,activity_id=activity['id'],actor=activity['actor'],phase=activity['phase'],operation=activity['operation'],outcome=activity['status'])
+    notice_payload=json.dumps(payload,ensure_ascii=False)
+    store.notify_after_commit(lambda:_publish_notice(turn_id,kind,json.loads(notice_payload)))
+
+
+def _publish_notice(turn_id,kind,payload):
     from .agent_stream import bus
-    bus().publish(turn_id, kind, payload)
+    from .api_execution import CURRENT_WORK
+    transport=bus()
+    if CURRENT_WORK.get() is not None:transport.publish_async(turn_id,kind,payload)
+    else:transport.publish(turn_id,kind,payload)
 
 
 def publish_text_delta(turn_id, payload):
@@ -173,8 +195,7 @@ def finish(store, turn_id, status, text='', artifacts=None, error=''):
         db.execute("UPDATE agent_messages SET status='interrupted' WHERE task_id=? AND status='streaming'",(turn_id,))
         db.execute("UPDATE agent_turns SET status=?,text=?,artifacts=?,error=?,text_phase='idle',updated=? WHERE id=?",
                    (status, text, json.dumps(artifacts or [], ensure_ascii=False), error, time.time(), turn_id))
-    from .agent_stream import bus
-    bus().publish(turn_id, 'terminal', {'status': status})
+    store.notify_after_commit(lambda:_publish_notice(turn_id,'terminal',{'status':status}))
     return True
 
 
@@ -191,11 +212,15 @@ def public(row):
     result['execution_intent']=row.get('execution_intent')
     result['plan_readiness']=row.get('plan_readiness',{'state':'none','can_execute':False})
     result['routing']=row.get('routing')
+    result['quota']=row.get('quota')
+    result['agent_profile']=row.get('agent_profile')
+    result['harness_switch']=row.get('harness_switch')
     result['activities']=row.get('activities',[])
     result['activities_at']=row.get('activities_at',0)
     result['activity_attempts']=row.get('activity_attempts',[])
     result['workflow']=row.get('workflow')
     result['execution']=row.get('execution')
     for key in ('canvas_context','canvas_result'):result[key]=row.get(key)
-    result['artifacts']=[dict(a,poster_url=a['url']+'/thumbnail' if a.get('type','').startswith('video/') and a.get('url') else None) for a in order_artifacts(row['artifacts'],row.get('text',''))]
+    artifacts=[dict(a,workflow_delivery=a.get('workflow_delivery') is True) for a in row['artifacts']] if row.get('workflow') else row['artifacts']
+    result['artifacts']=[dict(a,poster_url=a['url']+'/thumbnail' if a.get('type','').startswith('video/') and a.get('url') else None) for a in order_artifacts(artifacts,row.get('text',''))]
     return result

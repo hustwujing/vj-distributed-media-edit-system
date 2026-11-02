@@ -1,6 +1,7 @@
 // Pure presentation policy: shared by chat cards, the result library and tests.
 export function processArtifact(item){
  if(item.workflow_delivery===false)return true;
+ if(item.source_step&&item.workflow_delivery!==true)return true;
  if(['pending','superseded'].includes(item.quality_state))return true;
  if(typeof item.is_process==='boolean')return item.is_process;
  if(item.role==='deliverable')return false;
@@ -31,7 +32,7 @@ export function collectResults(project,turns,labels,formatDate){
   ...turns.filter(t=>(t.status==='succeeded'||t.workflow)&&t.artifacts.length).map(t=>({...t,origin:'agent',group:t.mode==='plan'?'样式预览':'Agent 生成'}))]
   .sort((a,b)=>(b.updated||b.created)-(a.updated||a.created));
  const items=[],seen=new Set();
- for(const group of groups){for(const a of orderedArtifacts(group.artifacts,group.text||'')){
+ for(const group of groups){const artifacts=group.workflow?group.artifacts.map(a=>({...a,workflow_delivery:a.workflow_delivery===true})):group.artifacts;for(const a of orderedArtifacts(artifacts,group.text||'')){
   // Agent turns used to export the entire edit directory repeatedly. Show its
   // latest file snapshot once; earlier snapshots stay in their original messages.
   const key=group.origin==='agent'&&a.purpose!=='style_preview'?'agent:'+a.name:group.origin+':'+group.id+':'+a.name;

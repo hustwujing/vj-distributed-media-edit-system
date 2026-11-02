@@ -11,6 +11,7 @@ from PIL import Image,ImageOps
 
 from .image_document import Document,ImageTask,check_document,check_task
 from . import agent_store
+from .api_execution import admission
 from .image_canvas import current,selected,check_locks,write_version,patch_layer,CanvasContext
 
 class LayerLock(CanvasContext):
@@ -37,6 +38,7 @@ class ImageBatch(BaseModel):
 
 
 def register(app,store,own_project,lock,wake,public_job):
+    api_execution=app.state.api_execution
     with store.connect() as db:
         db.executescript('''CREATE TABLE IF NOT EXISTS image_documents(project TEXT PRIMARY KEY,revision INTEGER NOT NULL,document TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS image_versions(project TEXT NOT NULL,revision INTEGER NOT NULL,document TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(project,revision));''')
@@ -125,8 +127,10 @@ def register(app,store,own_project,lock,wake,public_job):
             wake.set();return {'jobs':jobs}
 
     @app.post('/api/projects/{project}/image-import',status_code=201)
-    def import_result(project:str,body:ImportResult,request:Request):
-        with lock:
+    @admission('image_import')
+    async def import_result(project:str,body:ImportResult,request:Request):
+        from .api_staging import Staging
+        def sources():
             own_project(project,request)
             if bool(body.job)==bool(body.turn):raise HTTPException(422,'请指定任务或 Agent 轮次')
             if body.job:
@@ -135,31 +139,46 @@ def register(app,store,own_project,lock,wake,public_job):
                 available={name:name for name in job['artifacts']};base=store.project_dir(project)/'edit/jobs'/body.job
                 published=store.query('SELECT attempt FROM execution_job_results WHERE job_id=?',(body.job,))
                 if published:base=base/published[0]['attempt']
+                identity={name:(str(base),name) for name in body.names}
             else:
                 row=agent_store.turn(store,body.turn)
                 if not row or row['project']!=project or (row['status']!='succeeded' and not row.get('workflow')):raise HTTPException(404,'结果不存在')
                 available={a['name']:a['file'] for a in row['artifacts']};base=store.project_dir(project)/'edit/agent_exports'/body.turn
+                identity={a['name']:tuple(a.get(k) for k in ('file','sha256','artifact_id','source_revision')) for a in row['artifacts'] if a['name'] in body.names}
             if any(n not in available for n in body.names):raise HTTPException(404,'结果图片不存在')
-            result=[];created=[]
-            try:
-                for name in body.names:
-                    if Path(name).suffix.lower() not in ('.png','.jpg','.jpeg','.webp'):raise ValueError('只能载入图片结果')
-                    source=base/available[name]
-                    if store.shared_files:source=store.file(project,str(source.relative_to(store.project_dir(project))))
-                    if source.is_symlink() or not source.resolve().is_relative_to(base.resolve()):raise ValueError('图片结果路径无效')
-                    from .media_isolation import normalize_image
-                    data,width,height=normalize_image(source)
-                    asset_id=uuid.uuid4().hex;filename=asset_id+'.png';dest=store.project_dir(project)/'sources'/filename
-                    dest.parent.mkdir(parents=True,exist_ok=True)
-                    with dest.open('xb') as f:f.write(data)
-                    created.append(dest);meta={'kind':'image','width':width,'height':height,'has_alpha':True,'size':dest.stat().st_size,'mime':'image/png','derived_from':{'job':body.job,'turn':body.turn,'name':name}}
-                    uploaded=store.artifacts.upload(project,dest) if store.shared_files else None
-                    result.append({'id':asset_id,'name':Path(name).name,'filename':filename,'metadata':meta,'artifact':uploaded})
+            return available,base,identity
+        available,base,identity=await api_execution.run('read',sources)
+        stage=Staging(store.root);result=[]
+        try:
+            for name in body.names:
+                if Path(name).suffix.lower() not in ('.png','.jpg','.jpeg','.webp'):raise ValueError('只能载入图片结果')
+                def materialize():
+                    path=base/available[name]
+                    if store.shared_files:path=store.file(project,str(path.relative_to(store.project_dir(project))))
+                    if path.is_symlink() or not path.resolve().is_relative_to(base.resolve()):raise ValueError('图片结果路径无效')
+                    return path
+                source=await api_execution.run('storage',materialize)
+                from .media_isolation import normalize_image
+                data,width,height=await api_execution.run('media',normalize_image,source)
+                asset_id=uuid.uuid4().hex;filename=asset_id+'.png';size=len(data)
+                dest=await api_execution.run('storage',stage.write,filename,data);del data
+                meta={'kind':'image','width':width,'height':height,'has_alpha':True,'size':size,'mime':'image/png',
+                      'derived_from':{'job':body.job,'turn':body.turn,'name':name}}
+                uploaded=await api_execution.run('storage',store.artifacts.upload,project,dest,check=stage.check) if store.shared_files else None
+                result.append({'id':asset_id,'name':Path(name).name,'filename':filename,'metadata':meta,'artifact':uploaded})
+            def publish():
                 with store.connect() as db:
                     db.execute('BEGIN IMMEDIATE')
+                    if sources()[2]!=identity:raise HTTPException(409,'来源结果已变化，请重新选择。')
+                    if len(store.assets(project))+len(result)>50:raise HTTPException(409,'每个项目最多 50 个素材。')
                     store.check_storage(project,sum(a['metadata']['size'] for a in result))
-                    for a in result:store.add_asset(project,a['id'],a['name'],a['filename'],a['metadata'],artifact=a['artifact'])
-            except (ValueError,OSError) as exc:
-                for path in created:path.unlink(missing_ok=True)
-                raise HTTPException(422,str(exc)) from exc
-            return {'assets':[{'id':a['id'],'name':a['name'],**a['metadata']} for a in result]}
+                    for a in result:
+                        stage.move(a['filename'],store.project_dir(project)/'sources'/a['filename'])
+                        store.add_asset(project,a['id'],a['name'],a['filename'],a['metadata'],artifact=a['artifact'])
+                    stage.check()
+                return {'assets':[{'id':a['id'],'name':a['name'],**a['metadata']} for a in result]}
+            return await api_execution.run('write',stage.commit,publish)
+        except ValueError as exc:raise HTTPException(422,str(exc)) from exc
+        except FileNotFoundError as exc:raise HTTPException(404,'结果图片不存在或已过期。') from exc
+        except OSError as exc:raise HTTPException(503,'结果图片暂不可用，请稍后重试。') from exc
+        finally:await stage.finish(api_execution)

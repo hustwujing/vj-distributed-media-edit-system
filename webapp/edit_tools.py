@@ -25,7 +25,7 @@ def edit_asset_ids(raw):
     return refs
 
 
-def bind_plan(raw, assets, project):
+def bind_plan(raw, assets, project, *, transcript_paths=None):
     """Never use caller-supplied filesystem paths, even for subtitle files."""
     refs=edit_asset_ids(raw)
     if not refs.issubset(assets):raise PlanError('请选择当前项目中的素材。')
@@ -39,8 +39,9 @@ def bind_plan(raw, assets, project):
         alias=f'{asset_id}_t{track}'
         c['source']=alias;p['sources'][alias]='sources/'+asset['filename']
         suffix=f'.track{track}' if track else ''
-        transcript=Path(project)/'edit'/'transcripts'/f'{asset_id}{suffix}.json'
-        if transcript.is_file():p['transcripts'][alias]=str(transcript)
+        transcript=(Path(project)/'edit'/'transcripts'/f'{asset_id}{suffix}.json' if transcript_paths is None
+                    else transcript_paths.get((asset_id,track)))
+        if transcript is not None and Path(transcript).is_file():p['transcripts'][alias]=str(transcript)
     audio=p.get('audio',{})
     if audio.get('asset'):
         asset_id=audio.pop('asset');alias=f'audio_{asset_id}'

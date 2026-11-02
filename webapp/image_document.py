@@ -71,8 +71,8 @@ class ImageTask(BaseModel):
     references:list[str]=Field(default_factory=list,max_length=2)
     mask:str|None=None
     document:Document|None=None
-    box:list[int]|None=Field(default=None,min_length=4,max_length=4)
-    points:list[list[int]]=Field(default_factory=list,max_length=16)
+    box:list[int]|None=Field(default=None,min_length=4,max_length=4,description='Pixel rectangle [x, y, width, height], origin at the image top-left. Width and height are at least 2; x+width and y+height must stay inside the source image.')
+    points:list[list[int]]=Field(default_factory=list,max_length=16,description='Image pixel coordinates [[x, y], ...], origin at the top-left; each point must lie inside the source image.')
     prompt:str=Field(default='',max_length=5000)
     text:str=Field(default='',max_length=500)
     size:int=Field(default=32,ge=8,le=300)

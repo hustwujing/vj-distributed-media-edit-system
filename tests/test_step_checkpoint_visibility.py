@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import tempfile
 import unittest
 
-from webapp import agent_store,workflows,step_checkpoints
+from webapp import agent_store,workflows,step_checkpoints,plan_readiness
 from webapp.store import Store
 from tests.test_workflows import local_step
 
@@ -44,6 +44,29 @@ class RetainedStepVisibilityTests(unittest.TestCase):
         self.assertEqual((self.workspace/relative).read_bytes(),b'candidate')
         self.assertFalse((self.workspace/stale).exists());self.assertFalse((self.workspace/foreign).exists())
         self.assertEqual(self.store.query('SELECT status FROM agent_steps WHERE workflow=?',(wid,))[0]['status'],'agent_review')
+
+    def test_replanning_checkpoint_does_not_invalidate_restored_step_content(self):
+        # Only one project and one thread: no concurrent browser or writer.
+        wid,relative,_,record=self.snapshot(self.project)
+        workflows.cancel(self.store,self.store.query('SELECT turn_id FROM agent_workflows WHERE id=?',(wid,))[0]['turn_id'])
+        task=agent_store.add_turn(self.store,self.project,'plan','resize retained output')
+        from tests.readiness_support import ready_plan
+        ready_plan(self.store,task)
+        before=plan_readiness.fingerprint(self.store,self.project)
+        step_checkpoints.restore(self.runtime)
+        self.store.execute('INSERT INTO execution_checkpoints VALUES (?,?,?,?,?)',
+            (self.project,'planning-attempt','checkpoint',json.dumps({'workspace':{relative:record},'state':{}}),self.store.now()))
+        self.assertEqual(plan_readiness.fingerprint(self.store,self.project),before)
+        self.assertTrue(plan_readiness.public(self.store,task)['can_execute'])
+
+    def test_new_step_content_invalidates_proposal_but_foreign_project_does_not(self):
+        wid,relative,_,record=self.snapshot(self.project)
+        before=plan_readiness.fingerprint(self.store,self.project)
+        foreign=self.store.add_project('different-owner','parallel project')['id'];self.snapshot(foreign,b'foreign')
+        self.assertEqual(plan_readiness.fingerprint(self.store,self.project),before)
+        changed={**record,'sha256':hashlib.sha256(b'changed').hexdigest()}
+        self.store.execute('UPDATE execution_step_checkpoints SET manifest=? WHERE workflow=?',(json.dumps({relative:changed}),wid))
+        self.assertNotEqual(plan_readiness.fingerprint(self.store,self.project),before)
 
     def test_restore_accounts_for_existing_workspace_and_rejects_before_copy(self):
         _,relative,_,_=self.snapshot(self.project,b'12345678');(self.workspace/'existing').write_bytes(b'1234');self.runtime.limit=10

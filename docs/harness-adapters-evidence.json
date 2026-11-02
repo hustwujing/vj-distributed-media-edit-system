@@ -1,0 +1,299 @@
+{
+  "date": "2026-11-02",
+  "scope": "Harness / LLM Adapter and directly affected behavior only; no project-wide suite or deployment",
+  "python": {
+    "passed": true,
+    "tests": 91,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 20.54,
+    "source_sha256": "2345d174e0668f538e89527193ecb725cb4726c0dbfa54b9379ab936ca214eb4",
+    "source_changed_during_run": false,
+    "selection": [
+      "tests.test_harness_adapters",
+      "tests.test_harness_switching",
+      "tests.test_harness_streaming",
+      "tests.test_session_checkpoint",
+      "tests.test_task_usage",
+      "tests.test_agent_text",
+      "tests.test_usage_stream_integration",
+      "tests.test_egress_policy",
+      "tests.test_distributed_cancellation"
+    ],
+    "infrastructure": "Distributed cases use isolated real PostgreSQL, an HTTP S3 protocol fixture, distinct node roots, real subprocesses and Linux sandboxes; no live paid provider calls",
+    "skipped_tests": [],
+    "failed_tests": []
+  },
+  "frontend": {
+    "passed": true,
+    "tests": 19,
+    "failures": 0,
+    "skipped": 0
+  },
+  "browser_switch": {
+    "passed": true,
+    "actual_browser": true,
+    "actual_api_database_cache": true,
+    "scenarios": [
+      "profile selection",
+      "pending switch",
+      "withdraw",
+      "safe activation",
+      "input retained",
+      "reload persistence",
+      "foreign owner rejected"
+    ],
+    "page_errors": [],
+    "scope": "Two API processes, real PG and Redis, S3 HTTP fixture; no Agent executor/model runs in this browser scenario."
+  },
+  "cross_harness": {
+    "source_run": "cross-harness-live-07",
+    "whole_run_passed": false,
+    "reason": "Added sixth turn expected wrong restore mode in test driver; corrected and separately rerun",
+    "verified_turns": [
+      {
+        "status": "succeeded",
+        "session": {
+          "harness": "claude_code",
+          "restore_mode": "public_context"
+        },
+        "marker_retained": true,
+        "successful_tools": 0,
+        "new_file_observed": true,
+        "tools_closed": true,
+        "seconds": 7.34,
+        "stream": {
+          "incremental_updates": 2,
+          "completed_updates": 2,
+          "first_text_seconds": 6.003,
+          "incremental_span_seconds": 0.011,
+          "max_incremental_gap_seconds": 0.011,
+          "native_incremental_supported": true
+        }
+      },
+      {
+        "status": "succeeded",
+        "session": {
+          "harness": "claude_code",
+          "restore_mode": "native_resume"
+        },
+        "marker_retained": true,
+        "successful_tools": 0,
+        "new_file_observed": true,
+        "tools_closed": true,
+        "seconds": 7.76,
+        "stream": {
+          "incremental_updates": 2,
+          "completed_updates": 2,
+          "first_text_seconds": 6.45,
+          "incremental_span_seconds": 0.218,
+          "max_incremental_gap_seconds": 0.218,
+          "native_incremental_supported": true
+        }
+      },
+      {
+        "status": "succeeded",
+        "session": {
+          "harness": "deepseek_harness",
+          "restore_mode": "public_context"
+        },
+        "marker_retained": true,
+        "successful_tools": 3,
+        "new_file_observed": true,
+        "tools_closed": true,
+        "seconds": 53.83,
+        "stream": {
+          "incremental_updates": 0,
+          "completed_updates": 2,
+          "first_text_seconds": 52.738,
+          "incremental_span_seconds": null,
+          "max_incremental_gap_seconds": 0,
+          "native_incremental_supported": false
+        }
+      },
+      {
+        "status": "succeeded",
+        "session": {
+          "harness": "deepseek_harness",
+          "restore_mode": "native_resume"
+        },
+        "marker_retained": true,
+        "successful_tools": 0,
+        "new_file_observed": true,
+        "tools_closed": true,
+        "seconds": 10.56,
+        "stream": {
+          "incremental_updates": 0,
+          "completed_updates": 2,
+          "first_text_seconds": 9.464,
+          "incremental_span_seconds": null,
+          "max_incremental_gap_seconds": 0,
+          "native_incremental_supported": false
+        }
+      },
+      {
+        "status": "succeeded",
+        "session": {
+          "harness": "claude_code",
+          "restore_mode": "public_context"
+        },
+        "marker_retained": true,
+        "successful_tools": 1,
+        "new_file_observed": true,
+        "tools_closed": true,
+        "seconds": 12.17,
+        "stream": {
+          "incremental_updates": 25,
+          "completed_updates": 2,
+          "first_text_seconds": 8.617,
+          "incremental_span_seconds": 2.478,
+          "max_incremental_gap_seconds": 0.314,
+          "native_incremental_supported": true
+        }
+      }
+    ]
+  },
+  "live_stream": {
+    "source_run": "live-stream-08",
+    "passed": true,
+    "turns": [
+      {
+        "status": "succeeded",
+        "session": {
+          "harness": "claude_code",
+          "restore_mode": "public_context"
+        },
+        "seconds": 8.06,
+        "stream": {
+          "incremental_updates": 2,
+          "completed_updates": 2,
+          "first_text_seconds": 6.164,
+          "incremental_span_seconds": 0.006,
+          "max_incremental_gap_seconds": 0.006,
+          "native_incremental_supported": true
+        }
+      },
+      {
+        "status": "succeeded",
+        "session": {
+          "harness": "claude_code",
+          "restore_mode": "native_resume"
+        },
+        "seconds": 281.95,
+        "stream": {
+          "incremental_updates": 552,
+          "completed_updates": 2,
+          "first_text_seconds": 8.606,
+          "incremental_span_seconds": 270.962,
+          "max_incremental_gap_seconds": 1.178,
+          "native_incremental_supported": true
+        },
+        "browser": {
+          "passed": true,
+          "partial_dom_updates": 502,
+          "total_dom_updates": 503,
+          "first_dom_update_at": 1793625060087,
+          "last_dom_update_at": 1793625333357,
+          "complete_text_and_tail_present": true,
+          "reload_preserves_text": true,
+          "page_errors": []
+        }
+      }
+    ],
+    "cancellations": [
+      {
+        "harness": "claude",
+        "seconds": 0.165,
+        "status": "cancelled",
+        "cleanup": [
+          {
+            "state": "complete"
+          }
+        ],
+        "upstream_cancellation_confirmed": false
+      },
+      {
+        "harness": "deepseek",
+        "seconds": 0.133,
+        "status": "cancelled",
+        "cleanup": [
+          {
+            "state": "complete"
+          }
+        ],
+        "upstream_cancellation_confirmed": false
+      }
+    ]
+  },
+  "chat_completions": {
+    "protocol": "chat_completions",
+    "model": "deepseek-v4-flash",
+    "http": 200,
+    "seconds": 0.875,
+    "safe_sse_frames": 9,
+    "public_text_fragments": 6,
+    "nonempty_public_text": true,
+    "receipt_status": "succeeded",
+    "usage": {
+      "input_tokens": 39,
+      "output_tokens": 7,
+      "total_tokens": 46,
+      "cached_tokens": 0,
+      "reasoning_tokens": 0
+    },
+    "passed": true
+  },
+  "usage_comparison": [
+    {
+      "model_calls": 1,
+      "ledger_input": 10430,
+      "ledger_output": 9,
+      "sdk_input_including_caches": 10430,
+      "sdk_output": 9,
+      "matches": true
+    }
+  ],
+  "merged_targeted": {
+    "passed": true,
+    "tests": 110,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 32.76,
+    "source_sha256": "c80954a11995ffab0419cc3f50eef3eed3a6745530be4aecc28e57d8d3fdc1c6",
+    "source_changed_during_run": false,
+    "selection": [
+      "tests.test_harness_adapters",
+      "tests.test_harness_switching",
+      "tests.test_harness_streaming",
+      "tests.test_session_checkpoint",
+      "tests.test_task_usage",
+      "tests.test_agent_text",
+      "tests.test_usage_stream_integration",
+      "tests.test_egress_policy",
+      "tests.test_distributed_cancellation",
+      "tests.test_distributed_gateway",
+      "tests.test_agent_isolation"
+    ],
+    "infrastructure": "Distributed cases use isolated real PostgreSQL, an HTTP S3 protocol fixture, distinct node roots, real subprocesses and Linux sandboxes; no live paid provider calls",
+    "skipped_tests": [],
+    "failed_tests": []
+  },
+  "merged_browser": {
+    "passed": true,
+    "actual_browser": true,
+    "actual_api_database_cache": true,
+    "scenarios": [
+      "profile selection",
+      "pending switch",
+      "withdraw",
+      "safe activation",
+      "input retained",
+      "reload persistence",
+      "foreign owner rejected"
+    ],
+    "page_errors": [],
+    "scope": "Two API processes, real PG and Redis, S3 HTTP fixture; no Agent executor/model runs in this browser scenario."
+  }
+}

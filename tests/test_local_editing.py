@@ -94,6 +94,22 @@ class LocalEditingTests(unittest.TestCase):
         self.assertLess(float(np.max(np.abs(before-after))),.0001)
         self.assertGreater(float(np.corrcoef(before,after)[0,1]),.99999)
 
+    def test_verification_decodes_actual_final_frame_at_fractional_timestamps(self):
+        from PIL import Image
+        for fps in (24,30,60):
+            with self.subTest(fps=fps):
+                source=self.root/'sources'/f'last-frame-{fps}.mp4'
+                ffmpeg('-f','lavfi','-i',f'color=red:s=160x120:r={fps}:d=2',
+                       '-vf',f"drawbox=x=0:y=0:w=iw:h=ih:color=blue:t=fill:enable='eq(n,{2*fps-1})'",
+                       '-c:v','libx264','-threads','1','-pix_fmt','yuv420p',source)
+                out,_=self.render(self.plan(sources={'a':str(source)},clips=[{'source':'a','end':2}],
+                    output={'width':160,'height':120,'fps':fps}),f'last-frame-{fps}.mp4')
+                self.assertEqual(probe(out)['fps'],f'{fps}/1')
+                first=np.asarray(Image.open(out.with_name(out.stem+'.verify_0.jpg')).convert('RGB')).mean(axis=(0,1))
+                last=np.asarray(Image.open(out.with_name(out.stem+'.verify_2.jpg')).convert('RGB')).mean(axis=(0,1))
+                self.assertGreater(first[0]-first[2],150)
+                self.assertGreater(last[2]-last[0],150,'Verification skipped the final blue frame')
+
     def test_speed_preserves_pitch_and_av_duration(self):
         for speed in (.25,.5,2,4):
             with self.subTest(speed=speed):

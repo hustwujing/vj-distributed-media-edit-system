@@ -22,6 +22,7 @@ from . import agent_sandbox, agent_store
 from .image_providers import ENDPOINTS
 from .provider_calls import request_time
 from .execution_metrics import measured
+from .paths import temporary_socket
 
 
 class StepFailure(RuntimeError):
@@ -44,6 +45,10 @@ class Adapter:
     def session(self):
         from .egress_policy import session
         return session()
+
+    def reuse(self,w,s,cancelled):
+        from .workflow_reuse import materialize
+        return materialize(self.store,w,s,self.environment(w),cancelled)
 
     @contextlib.contextmanager
     def input_environment(self,w,s):
@@ -383,7 +388,7 @@ class Adapter:
                 parent=parent/part
                 if parent.is_symlink():raise ValueError('Unsafe step output')
                 parent.mkdir(exist_ok=True,mode=0o700);os.chown(parent,env['uid'],env['gid'])
-        path = self.socket_dir/('workflow-'+uuid.uuid4().hex+'.sock')
+        path = temporary_socket(self.socket_dir)
         temporary = self.store.root/'tmp'
         temporary.mkdir(exist_ok=True)
         process = None
@@ -465,7 +470,7 @@ class Adapter:
         files=list(dict.fromkeys(spec.get('preflight',[])+spec.get('config_files',[])+[c['checker'] for c in spec.get('acceptance',[]) if c.get('checker')]+
             [a for a in spec.get('argv',[]) if a.startswith('edit/') and a.endswith(('.py','.json','.sh'))]))
         if not files:return {'passed':True,'files':{},'issues':[],'coverage':'No script inputs'}
-        path=self.socket_dir/(uuid.uuid4().hex+'.sock')
+        path=temporary_socket(self.socket_dir)
         try:
             with socket.socket(socket.AF_UNIX) as sock:
                 sock.bind(str(path));os.chown(path,env['uid'],env['gid']);path.chmod(0o600)
@@ -603,7 +608,7 @@ class Adapter:
                 if cancelled():return True
                 time.sleep(seconds)
                 return cancelled()
-        path=self.socket_dir/(uuid.uuid4().hex+'.sock')
+        path=temporary_socket(self.socket_dir)
         process=None
         deadline=time.monotonic()+s['spec']['timeout']
         try:
@@ -713,7 +718,7 @@ class Adapter:
     @measured('validate')
     def validate(self,w,s,files):
         env=self.environment(w)
-        path=self.socket_dir/(uuid.uuid4().hex+'.sock')
+        path=temporary_socket(self.socket_dir)
         try:
             with socket.socket(socket.AF_UNIX) as sock,tempfile.TemporaryFile() as output,tempfile.TemporaryFile() as errors:
                 sock.bind(str(path));os.chown(path,env['uid'],env['gid']);path.chmod(0o600)
@@ -762,7 +767,7 @@ class Adapter:
             if current:
                 for step in current['steps']:
                     if 'edit/'+item['name'] in step['result']+step['candidate']:
-                        item['source_step']=step['id'];item['source_revision']=step['revision']
+                        item['source_step']=step['id'];item['source_revision']=step['revision'];item['workflow_delivery']=False
                         item['output_roles']=[role for role,path in step['quality'].get('output_roles',{}).items() if path=='edit/'+item['name']]
                         break
         # Publishing a checkpoint does not mark the whole turn complete.

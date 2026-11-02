@@ -13,12 +13,15 @@ def main():
     progress=json.loads((DOC/'progress.json').read_text())
     manifest=json.loads((DOC/'cases.json').read_text())
     fingerprint=json.loads((DOC/'design-fingerprint.json').read_text())
-    immutable=[{key:case[key] for key in fingerprint['immutable_fields']} for case in manifest['cases']]
+    immutable=[{key:case[key] for key in fingerprint['immutable_fields']} for case in manifest['cases'] if case['id'][0] in ('S','C')]
     actual_digest=hashlib.sha256(json.dumps(immutable,ensure_ascii=False,sort_keys=True).encode()).hexdigest()
     if len(immutable)!=60 or actual_digest!=fingerprint['sha256']:raise ValueError('Original case requirements changed; cannot produce a final report')
 
+    from campaign_interventions import specification
+    specification()
     bugs=json.loads((DOC/'bugs.json').read_text())
-    complete=progress['counts'].get('passed')==60
+    total=len(manifest['cases'])
+    complete=progress['counts'].get('passed')==total
     details=[];providers=[]
     for entry in progress['results']:
         record=dict(entry);attempts=[]
@@ -54,13 +57,13 @@ def main():
                 record['primary_artifact']={'name':Path(primary['name']).name,'path':primary['local_file'],'sha256':verified.get('sha256')}
         record['had_repair_or_replan']=len(attempts)>1 or any(a['plan_revisions']>1 or any(q.get('action')=='repair' for q in a.get('quality_events',[]) or []) for a in attempts)
         details.append(record)
-    report={'complete':complete,'generated_at':time.time(),'counts':progress['counts'],'total':60,'cases':details,'bugs':bugs,'provider_calls':providers,'load_rules':manifest['rules'],
-        'integrity':'Real browser submissions and actual downloaded artifacts. No task-state seeding or mocked service outputs. Failed attempts retained.',
+    report={'complete':complete,'generated_at':time.time(),'counts':progress['counts'],'total':total,'cases':details,'bugs':bugs,'provider_calls':providers,'load_rules':manifest['rules'],
+        'integrity':'Original 60 and R17 use real browser submissions; R01-R16 seed planning fixtures with user authorization. All outputs and reuse are produced by real deployed executors. Failed attempts retained.',
         'timing_scope':'End-to-end includes user-review and queue waits. Agent non-tool estimate includes model and orchestration, not pure inference. Audio checks use waveform measurements and browser media loading, not subjective listening.'}
     suffix='final-report' if complete else 'running-report'
     (DOC/(suffix+'.json')).write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
-    lines=['# 60条真实场景测试'+('最终报告' if complete else '过程报告（尚未全部完成）'),'','完成状态：'+('60 / 60 条独立验收及内容复核通过。' if complete else f"已通过 {progress['counts'].get('passed',0)} / 60，其他状态见下表；不能据此宣称全量通过。"),'',
-           '测试通过真实浏览器上传、输入、确认，运行部署后的服务，下载实际产物；保留失败尝试、用户反馈、步骤修订、数据库诊断及日志关联。素材、原始需求和验收项见 [设计](design.md) 与 [用例清单](cases.json)。','',
+    lines=[f'# {total}条真实场景测试'+('最终报告' if complete else '过程报告（尚未全部完成）'),'','完成状态：'+(f'{total} / {total} 条已有验收证据；历史版本与当前版本范围见 JSON validation_scope。' if complete else f"已通过 {progress['counts'].get('passed',0)} / {total}，其他状态见下表；不能据此宣称全量通过。"),'',
+           '原始场景通过真实浏览器上传、输入、确认；R01–R16 按用户授权插库构造规划夹具并执行真实干预，R17 通过真实浏览器、Jev 与 Agent 重新规划，均运行部署后的服务，下载实际产物；保留失败尝试、用户反馈、步骤修订、数据库诊断及日志关联。素材、原始需求和验收项见 [设计](design.md) 与 [用例清单](cases.json)。','',
            '| Case | 场景 | 最终/当前状态 | 尝试次数 | 修复/改方案 | 端到端秒数 | 主交付 |','| --- | --- | --- | --- | --- | --- | --- |']
     for r in details:
         primary=r.get('primary_artifact');link=f"[{primary['name']}](<{primary['path']}>)" if primary else '—'

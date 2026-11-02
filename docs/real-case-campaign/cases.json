@@ -30,7 +30,13 @@
         "node_memory_mb": 24576,
         "evidence": "capacity-rollout.json"
       }
-    ]
+    ],
+    "entry_by_group": {
+      "simple": "original browser workflow",
+      "complex": "original browser workflow",
+      "intervention": "user-authorized database fixture setup; real deployed execution and controls; cleanup after every run"
+    },
+    "result_scope": "Reports distinguish historical passes, current-run passes, not-run, failed and cleanup failures."
   },
   "cases": [
     {
@@ -1662,6 +1668,961 @@
         "image.generate_from_text",
         "video.generate_from_image"
       ]
+    },
+    {
+      "id": "R01",
+      "complexity": "intervention",
+      "title": "待确认时改交付名称",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：待确认时改交付名称。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "planning",
+        "level": "low",
+        "variant": "rename"
+      },
+      "intervention_actions": [
+        "停止旧版",
+        "构造待确认新版",
+        "修改交付名称",
+        "确认最新版本"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R02",
+      "complexity": "intervention",
+      "title": "待确认时改尺寸与格式",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：待确认时改尺寸与格式。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 32,
+        "extension": ".webp"
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "planning",
+        "level": "medium",
+        "variant": "resize_format"
+      },
+      "intervention_actions": [
+        "停止旧版",
+        "构造待确认新版",
+        "改尺寸与格式",
+        "确认最新版本"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R03",
+      "complexity": "intervention",
+      "title": "待确认时改素材选择与顺序",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：待确认时改素材选择与顺序。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "planning",
+        "level": "high",
+        "variant": "reorder"
+      },
+      "intervention_actions": [
+        "停止旧版",
+        "构造待确认新版",
+        "替换待确认方案",
+        "验证旧确认被拒绝",
+        "确认最新版本"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R04",
+      "complexity": "intervention",
+      "title": "部分完成时追加输出格式",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：部分完成时追加输出格式。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64,
+        "min_images": 2
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "partial_execution",
+        "level": "low",
+        "variant": "add_format"
+      },
+      "intervention_actions": [
+        "等待上游成功与导出运行",
+        "停止旧版",
+        "追加JPEG",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R05",
+      "complexity": "intervention",
+      "title": "部分完成时重做一个分支参数",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：部分完成时重做一个分支参数。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "partial_execution",
+        "level": "medium",
+        "variant": "change_brightness"
+      },
+      "intervention_actions": [
+        "等待上游成功与导出运行",
+        "停止旧版",
+        "改变A分支亮度",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_b"
+      ],
+      "must_recompute": [
+        "prepare_a"
+      ],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R06",
+      "complexity": "intervention",
+      "title": "部分完成时替换一个分支素材",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：部分完成时替换一个分支素材。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "partial_execution",
+        "level": "high",
+        "variant": "replace_source"
+      },
+      "intervention_actions": [
+        "等待上游成功与导出运行",
+        "停止旧版",
+        "替换A分支素材",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_b"
+      ],
+      "must_recompute": [
+        "prepare_a"
+      ],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R07",
+      "complexity": "intervention",
+      "title": "导出过程中更换封面",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：导出过程中更换封面。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 128,
+        "height": 64,
+        "duration": 4
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "export_running",
+        "level": "low",
+        "variant": "cover"
+      },
+      "intervention_actions": [
+        "等待导出运行",
+        "停止旧版",
+        "更换封面",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R08",
+      "complexity": "intervention",
+      "title": "导出过程中改变字幕样式",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：导出过程中改变字幕样式。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 128,
+        "height": 64,
+        "duration": 4
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "export_running",
+        "level": "medium",
+        "variant": "caption"
+      },
+      "intervention_actions": [
+        "等待导出运行",
+        "停止旧版",
+        "字幕改黄色",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R09",
+      "complexity": "intervention",
+      "title": "导出过程中改画幅和时长",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：导出过程中改画幅和时长。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 64,
+        "height": 96,
+        "duration": 2
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "export_running",
+        "level": "high",
+        "variant": "portrait"
+      },
+      "intervention_actions": [
+        "等待导出运行",
+        "停止旧版",
+        "横版改竖版并缩短",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R10",
+      "complexity": "intervention",
+      "title": "交付后追加缩略图",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：交付后追加缩略图。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64,
+        "min_images": 2
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "delivered",
+        "level": "low",
+        "variant": "thumbnail"
+      },
+      "intervention_actions": [
+        "完成V1交付",
+        "追加缩略图",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R11",
+      "complexity": "intervention",
+      "title": "验收时拒绝局部效果并重做",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：验收时拒绝局部效果并重做。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "awaiting_review",
+        "level": "medium",
+        "variant": "feedback"
+      },
+      "intervention_actions": [
+        "等待人工验收",
+        "提交拒绝与反馈",
+        "停止旧版",
+        "修改边框",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R12",
+      "complexity": "intervention",
+      "title": "交付后改变整体交付目标",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：交付后改变整体交付目标。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 128,
+        "height": 64,
+        "duration": 4
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "delivered",
+        "level": "high",
+        "variant": "new_goal"
+      },
+      "intervention_actions": [
+        "完成V1交付",
+        "由静态封面改为短视频交付",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R13",
+      "complexity": "intervention",
+      "title": "暂停讨论后停止旧版并重做",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：暂停讨论后停止旧版并重做。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "running_to_paused",
+        "level": "medium",
+        "variant": "pause_replan"
+      },
+      "intervention_actions": [
+        "请求暂停",
+        "验证安全边界暂停",
+        "查询暂停状态",
+        "停止旧版",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R14",
+      "complexity": "intervention",
+      "title": "导出完成附近取消并重做",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：导出完成附近取消并重做。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "completion_race",
+        "level": "high",
+        "variant": "cancel_race"
+      },
+      "intervention_actions": [
+        "导出运行中取消",
+        "核对旧版终态与晚到结果",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R15",
+      "complexity": "intervention",
+      "title": "重做期间刷新与重新进入项目",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：重做期间刷新与重新进入项目。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "reconnect",
+        "level": "low",
+        "variant": "refresh"
+      },
+      "intervention_actions": [
+        "停止旧版",
+        "确认新版",
+        "刷新项目页面",
+        "核对来源与状态恢复"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R16",
+      "complexity": "intervention",
+      "title": "连续重做V1到V2到V3",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "对已确认的图片/视频制作方案进行用户干预并重做：连续重做V1到V2到V3。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "database_fixture_real_execution",
+      "fixture": {
+        "version": 1,
+        "planning": "seeded_explicit_versions",
+        "source_outputs": "real_registered_operations",
+        "stage": "multi_version",
+        "level": "high",
+        "variant": "chain"
+      },
+      "intervention_actions": [
+        "完成V1",
+        "确认V2并交付",
+        "确认V3并交付",
+        "核对固定复用链"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
+    },
+    {
+      "id": "R17",
+      "complexity": "intervention_real_browser",
+      "title": "真实 Jev 执行中修改并重新规划",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "真实浏览器确认 V1 后，在执行中提出修改要求，验证 Jev 识别 replan 并按 V2 重新执行。",
+      "expect": {
+        "kind": "image",
+        "width": 32,
+        "height": 24
+      },
+      "content_checks": [
+        "真实 Jev 控制意图为 replan",
+        "V1 执行轮被取消且不能覆盖 V2",
+        "V2 是关联旧轮的新 plan，重新确认后成功交付",
+        "usage run_id 保持父子关联",
+        "项目和对象清理完成",
+        "假设和否定消息不改变任务且输入保留",
+        "真实复用回执和产物哈希匹配，原操作不重复执行"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "real_replan",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_real_replan",
+      "fixture": {
+        "version": 2,
+        "stage": "awaiting_review",
+        "level": "high",
+        "variant": "jev_replan"
+      },
+      "intervention_actions": [
+        "浏览器确认 V1",
+        "V1 预处理完成且人工验收暂停时，从聊天框发送否定、假设及尺寸修改要求",
+        "真实 Jev 分类 replan",
+        "确认 V2 并下载结果"
+      ],
+      "must_reuse": [
+        "已完成且程序验收通过的 image.local_adjust 亮度1.1处理"
+      ],
+      "must_recompute": [
+        "受修改影响的导出步骤"
+      ],
+      "must_stop": [
+        "V1 execute"
+      ],
+      "cleanup": {
+        "scope": "unique_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "planned",
+      "attempts": []
     }
-  ]
+  ],
+  "collection_version": 2,
+  "total_count": 77,
+  "intervention_count": 16,
+  "replan_count": 1
 }

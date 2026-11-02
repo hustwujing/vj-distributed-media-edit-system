@@ -16,6 +16,7 @@ def initialize(db):
 
 def record(db,task,payload):
     if payload.get('actor') not in ACTORS or payload.get('status') not in ('running','completed','failed'):return
+    payload={**payload,'operation':str(payload.get('operation') or ''),'label':str(payload.get('label') or ''),'phase':str(payload.get('phase') or '')}
     context=payload.get('execution') or {}
     db.execute('''INSERT INTO execution_activities(task_id,id,attempt,actor,phase,label,status,started,updated,operation,step,sequence) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
       ON CONFLICT(task_id,id) DO UPDATE SET phase=excluded.phase,label=excluded.label,
@@ -63,7 +64,7 @@ class Activity:
             emit('execution.activity',task_id=self.lease.turn_id,activity_id=self.id,actor=self.actor,phase=phase,operation=self.operation,outcome=status)
         except Exception as exc:
             from .telemetry import emit
-            emit('activity.record_failed','WARNING',exception_type=type(exc).__name__)
+            emit('activity.record_failed','WARNING',exc=exc)
     def model_phase(self,phase):
         labels={'analysis':'模型分析中','responding':'生成回复','prepare_tool':'准备工具调用','writing':'生成文件修改'}
         self.update(phase,labels[phase])

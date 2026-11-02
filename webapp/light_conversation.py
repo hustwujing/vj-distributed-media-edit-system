@@ -139,6 +139,12 @@ def run(host,row):
     selected=[a['id'] for a in row.get('attachments',[])]
     summary={'pending_plan_id':candidate,'execution_authorized':False,'asset_count':store.query('SELECT COUNT(*) AS n FROM assets WHERE project=?',(row['project'],))[0]['n'],
              'saved_work_file_count':_saved_work(store,row['project'])['matching_count'],'selected_assets':selected,'selected_canvas_layer':(row.get('canvas_context') or {}).get('layer_id')}
+    from .continuation_context import snapshot as continuation_snapshot
+    continuation=continuation_snapshot(store,row['project'],task)
+    summary['continuation']={k:continuation[k] for k in ('parent_task_id','execution_authorized')}
+    if continuation['workflow']:
+        summary['continuation']['workflow_status']=continuation['workflow']['status']
+        summary['continuation']['source_task_id']=continuation['source_task_id']
     history=store.query("SELECT id,prompt,text,status,error FROM agent_turns WHERE project=? AND id<>? AND status IN ('succeeded','failed','cancelled') ORDER BY created DESC LIMIT 6",(row['project'],task))
     inputs=[{'role':'developer','content':'当前项目概况（任务数据）：'+json.dumps(summary,ensure_ascii=False)}]
     for old in reversed(history):

@@ -84,6 +84,42 @@ class DirectTranscriptionTests(unittest.TestCase):
 
 
 class TranscriptionClientTests(unittest.TestCase):
+    @unittest.skipUnless(os.geteuid()==0,'Requires real uid transition')
+    def test_new_transcript_created_by_unprivileged_gateway(self):
+        import pwd,subprocess,sys,tempfile
+        account=pwd.getpwnam('video-use')
+        with tempfile.TemporaryDirectory(prefix='transcript-new-') as directory:
+            root=Path(directory);root.chmod(0o755)
+            folder=root/'edit/transcripts';folder.mkdir(parents=True)
+            folder.parent.chmod(0o755)
+            os.chown(folder,account.pw_uid,account.pw_gid)
+            program='''import json,os,sys,threading,wave
+from pathlib import Path
+from unittest.mock import Mock,patch
+from webapp.agent_gateway import Gateway
+assert os.geteuid()!=0
+root=Path(sys.argv[1]);sys.path.insert(0,str(Path.cwd()/'helpers'))
+g=Gateway.__new__(Gateway);g.project_dir=root;g.mode='execute';g.transcribe_lock=threading.Lock()
+g.assets={'speech':{'id':'speech','name':'speech.wav','filename':'speech.wav','metadata':{'kind':'audio','duration':1,'audio_tracks':[{}]}}}
+g.notify=Mock();g.broker=Mock()
+def extract(filename,track,path):
+    with wave.open(str(path),'wb') as out:
+        out.setnchannels(1);out.setsampwidth(2);out.setframerate(16000);out.writeframes(b'\\x00\\x10'*16000)
+g.extract_audio=extract
+with patch.dict(os.environ,{'ELEVENLABS_API_KEY':'test-only'}),patch('transcribe.call_scribe',return_value={'text':'new','words':[]}) as provider:
+    reply=Mock();g.transcribe(reply,{'asset':'speech'})
+    assert reply.reply.call_args.args[0]==200,reply.reply.call_args
+    provider.assert_called_once()
+g.broker.request.assert_called_once_with('refresh_transcript',{'asset':'speech','track':0})
+path=root/'edit/transcripts/speech.json'
+assert json.loads(path.read_text())['text']=='new'
+assert path.stat().st_uid==os.geteuid()
+assert path.stat().st_mode&0o777==0o640
+'''
+            result=subprocess.run([sys.executable,'-c',program,str(root)],user=account.pw_uid,group=account.pw_gid,
+                                  extra_groups=[],capture_output=True,text=True,timeout=20)
+            self.assertEqual(result.returncode,0,result.stderr)
+
     def test_client_surfaces_safe_gateway_reason(self):
         import io,runpy,sys
         from urllib.error import HTTPError

@@ -52,7 +52,9 @@ def edit(ctx):
     source, transcript = ctx.source, ctx.transcript
     from .edit_tools import bind_plan
     from edit_media import render_plan
-    plan,normalized=bind_plan(p['edit_plan'],assets,project)
+    declared_transcripts=({(clip['asset'],clip.get('audio_track',0)):ctx.transcript(clip['asset'],clip.get('audio_track',0))
+                          for clip in p['edit_plan'].get('clips',[])} if ctx.explicit_inputs else None)
+    plan,normalized=bind_plan(p['edit_plan'],assets,project,transcript_paths=declared_transcripts)
     (output/'edit_plan.json').write_text(json.dumps(p['edit_plan'],ensure_ascii=False,indent=2))
     result=output/('final.'+normalized['output']['format'])
     render_plan(normalized,result)

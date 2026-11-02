@@ -8,7 +8,7 @@ export function qualityActions(step,execution){
 }
 export function lifecycleText(execution){
  if(!execution)return '';
- const wait={dependency:'等待前置步骤',resource:'等待计算资源',provider:'等待外部结果',retry:'等待重试',user:'等待你的决定',model_unconfigured:'模型未配置',node_limit:'等待节点执行槽',user_limit:'等待用户执行槽',project_busy:'项目正在处理其他任务',cleanup:'等待资源清理',paused:'已暂停'}[execution.scheduling?.wait_reason]||'';
+ const wait={dependency:'等待前置步骤',resource:'等待计算资源',provider:'等待外部结果',retry:'等待重试',user:'等待你的决定',model_unconfigured:'模型未配置',model_unavailable:'等待模型服务恢复',node_limit:'等待节点执行槽',user_limit:'等待用户执行槽',project_busy:'项目正在处理其他任务',cleanup:'等待资源清理',paused:'已暂停'}[execution.scheduling?.wait_reason]||'';
  const since=execution.scheduling?.wait_recorded_at;
  const waiting=wait&&since?`（本次等待已记录 ${Math.max(0,Math.floor(Date.now()/1000-since))} 秒）`:'';
  const cleanup=cleanupLabels[execution.cleanup?.state]||'';

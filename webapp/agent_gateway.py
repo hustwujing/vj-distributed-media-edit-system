@@ -50,13 +50,17 @@ class Gateway:
     lease = None
     broker = None
 
-    def __init__(self, socket_path, project_dir, assets, mode, model, base_url, key, uid, gid, notify, extract_audio, workspace=None,canvas_callback=None,workflow_callback=None,listener_fd=None,broker_client=None):
+    def __init__(self, socket_path, project_dir, assets, mode, model, base_url, key, uid, gid, notify, extract_audio, workspace=None,canvas_callback=None,workflow_callback=None,listener_fd=None,broker_client=None,profile=None):
         self.socket_path = Path(socket_path)
         self.project_dir = Path(project_dir)
         self.assets = {a['id']: a for a in assets}
         self.mode, self.model = mode, model
         self.uid, self.gid = uid, gid
         self.lease = CURRENT.get()
+        from .agent_profiles import current
+        from .model_adapters import get as model_adapter
+        self.profile=profile or current()
+        self.model_adapter=model_adapter(self.profile.protocol)
         self.broker=broker_client
         self.gateway_process=None
         self.allowed_paths=None
@@ -131,7 +135,16 @@ class Gateway:
                     if outer.allowed_paths is not None and path not in outer.allowed_paths:
                         self.reply(403,{'error':'This operation is not authorized for this task'})
                         return
-                    if path == '/transcribe':
+                    if path == '/context':
+                        if not outer.lease or outer.lease.kind != 'agent':
+                            self.reply(403, {'error':'Public context requires an active Agent task'})
+                        else:
+                            from .harness_context import lookup
+                            row=outer.lease.store.query('SELECT project FROM agent_turns WHERE id=?',(outer.lease.turn_id,))[0]
+                            result=lookup(outer.lease.store,row['project'],body)
+                            outer.check()
+                            self.reply(200,result)
+                    elif path == '/transcribe':
                         outer.transcribe(self, body)
                     elif path in ('/image-edit','/image-tools'):
                         outer.image_edit(self, body)
@@ -147,10 +160,17 @@ class Gateway:
                             except TaskQuotaReached:raise
                             except ValueError as exc:self.reply(422, {'error':str(exc)[:8000]})
                     elif path in ('/responses', '/v1/responses'):
-                        outer.forward(self, body)
+                        if outer.model_adapter.protocol!='responses':self.reply(400,{'error':'Model protocol does not match frozen task configuration'})
+                        else:outer.forward(self, body)
+                    elif path in ('/messages','/v1/messages','/chat/completions','/v1/chat/completions'):
+                        expected='anthropic' if path.endswith('/messages') else 'chat_completions'
+                        if outer.model_adapter.protocol!=expected:self.reply(400,{'error':'Model protocol does not match frozen task configuration'})
+                        else:outer.forward(self, body)
                     else:
                         self.reply(404, {'error':'Unsupported gateway endpoint'})
                 except TaskQuotaReached as exc:
+                    from .task_leases import record_quota
+                    if outer.lease:record_quota(outer.lease.store,outer.lease.turn_id,exc)
                     from .telemetry import emit
                     emit('gateway.quota_exhausted','WARNING',exc=exc,operation=exc.diagnostic.get('category'),calls=exc.diagnostic.get('used'))
                     self.reply(403,{'error':{'message':str(exc),**exc.diagnostic}})
@@ -160,11 +180,16 @@ class Gateway:
                     self.reply(422,{'error':{'code':'request_validation_failed','message':'请求参数或处理校验未通过，请检查任务诊断。'}})
                 except (requests.ConnectionError,requests.Timeout) as exc:
                     from .telemetry import emit
-                    if path in ('/responses','/v1/responses'):outer.note_model_unavailable()
+                    if path in ('/responses','/v1/responses','/messages','/v1/messages','/chat/completions','/v1/chat/completions'):outer.note_model_unavailable()
                     emit('gateway.transport_failed','ERROR',exc=exc)
                     self.reply(502,{'error':{'code':'provider_transport_failed','message':'服务连接暂时不可用。'}})
                 except (BrokenPipeError, ConnectionResetError):
                     pass
+                except PermissionError as exc:
+                    from .telemetry import emit
+                    from .gateway_process import FILE_PERMISSION_ERROR
+                    emit('gateway.filesystem_permission_failed','ERROR',exc=exc)
+                    self.reply(500,{'error':FILE_PERMISSION_ERROR})
                 except Exception as exc:
                     from .telemetry import emit
                     emit('gateway.request_failed','ERROR',exc=exc)
@@ -259,22 +284,24 @@ class Gateway:
     def forward(self, handler, body):
         self.check()
         from .egress_policy import model_input,provider_base,session,assert_no_credentials,denial
-        try:model_input(body);provider_base(self.base_url);assert_no_credentials(json.dumps(body),[self.key])
+        try:
+            body=self.model_adapter.prepare(body,self.model,self.profile.budget['max_output_tokens'],self.profile.reasoning_effort)
+            provider_base(self.base_url);assert_no_credentials(json.dumps(body),[self.key])
         except ValueError:
             denial(self.lease,'model_input_denied')
             handler.reply(403,{'error':'模型输入中的远程地址或外部能力不符合任务网络策略。'})
             return
-        if self.broker:
+        if self.broker and self.model_adapter.protocol=='responses':
             body=self.broker.request('normalize',body)
-        elif self.lease and self.lease.runtime:
+        elif self.lease and self.lease.runtime and self.model_adapter.protocol=='responses':
             self.normalize_model_images(body)
-        body['max_output_tokens'] = min(int(body.get('max_output_tokens', 16000)), 16000)
+        if self.model_adapter.protocol!='responses':self.normalize_native_images(body)
         with self.lock:
-            if self.calls>=40:
+            if self.calls>=self.profile.budget['run_models']:
                 if self.lease:
                     status=quota_status(self.lease.store,self.lease.turn_id,'model',model_call_limit())
                     if status['blocked']:raise quota_error(status)
-                raise quota_error({'category':'model','scope':'turn','used':self.calls,'limit':40})
+                raise quota_error({'category':'model','scope':'turn','used':self.calls,'limit':self.profile.budget['run_models']})
             from .planning_budget import check as check_plan
             check_plan(self.lease)
             from .planning_budget import reserve_model
@@ -283,16 +310,13 @@ class Gateway:
             self.calls += 1
         # The sandbox may only call the administrator-selected model and API path.
         body['model'] = self.model
-        body['store'] = False
-        body.pop('background', None)
-        body.pop('previous_response_id', None)
-        if 'tools' in body:
-            body['tools'] = [tool for tool in body['tools']
-                             if tool.get('type') in {'function','custom','namespace'}]
+        from .telemetry import emit
+        emit('model.request_configuration',model=self.model,harness=self.profile.harness,
+             protocol=self.profile.protocol,reasoning_effort=self.profile.reasoning_effort,
+             max_output_tokens=body.get('max_output_tokens',body.get('max_tokens')))
         from .task_usage import model_call
-        with model_call(self.lease,self.model,actor='sandbox_agent') as receipt, session() as client, client.post(self.base_url + '/responses', json=body,
-                           headers={'Authorization':'Bearer '+self.key, 'Content-Type':'application/json',
-                                    'Accept':'text/event-stream', 'User-Agent':'video-use-agent'},
+        with model_call(self.lease,self.model,actor='sandbox_agent',observer=self.model_adapter.receipt()) as receipt, session() as client, client.post(self.base_url + self.model_adapter.path, json=body,
+                           headers=self.model_adapter.headers(self.key),
                            stream=True, timeout=(15, 240),allow_redirects=False) as response:
             if response.status_code != 200:
                 receipt.status='failed'
@@ -317,13 +341,37 @@ class Gateway:
                         handler.wfile.write(safe);handler.wfile.flush()
             for safe in guard.finish():handler.wfile.write(safe);handler.wfile.flush()
 
+    def normalize_native_images(self,body):
+        """Normalize native inline media through the same isolated decoder."""
+        slots=[]
+        def visit(value):
+            if isinstance(value,list):
+                for child in value:visit(child)
+            elif isinstance(value,dict):
+                if value.get('type')=='image':
+                    source=value['source'];slots.append((value,'anthropic',{'type':'input_image','image_url':'data:'+source['media_type']+';base64,'+source['data']}))
+                elif value.get('type')=='image_url':
+                    url=value['image_url'];slots.append((value,'chat',{'type':'input_image','image_url':url['url'] if isinstance(url,dict) else url}))
+                else:
+                    for child in value.values():visit(child)
+        visit(body)
+        if not slots:return
+        canonical={'input':[slot[2] for slot in slots]}
+        if self.broker:canonical=self.broker.request('normalize',canonical)
+        elif self.lease and self.lease.runtime:self.normalize_model_images(canonical)
+        for (target,protocol,_),image in zip(slots,canonical['input']):
+            url=image['image_url']
+            if protocol=='anthropic':
+                mime,encoded=url.split(';base64,',1);target['source']={'type':'base64','media_type':mime[5:],'data':encoded}
+            else:target['image_url']={'url':url}
+
     def note_model_unavailable(self):
         if not self.lease:return
         from .task_lifecycle import TaskLimitReached
         try:
             self.lease.check()
-            self.lease.store.execute("INSERT INTO execution_model_health VALUES (?,'unavailable',?,?) ON CONFLICT(worker) DO UPDATE SET state='unavailable',next_retry=excluded.next_retry,updated=excluded.updated",
-                (self.lease.worker,self.lease.store.now()+30,self.lease.store.now()))
+            self.lease.store.execute("INSERT INTO execution_profile_health VALUES (?,?,'unavailable',?,?) ON CONFLICT(worker,digest) DO UPDATE SET state='unavailable',next_retry=excluded.next_retry,updated=excluded.updated",
+                (self.lease.worker,self.profile.digest,self.lease.store.now()+30,self.lease.store.now()))
         except (LeaseLost,TaskLimitReached):pass
         except Exception as exc:
             from .telemetry import emit
@@ -422,10 +470,14 @@ class Gateway:
                         self.check()
                         temporary.replace(path)
                 finally:temporary.unlink(missing_ok=True)
-            os.chmod(path, 0o640)
-            if self.broker:self.broker.request('refresh_transcript',{'asset':asset['id'],'track':track})
-            elif self.lease and self.lease.store.shared_files:
-                self.lease.store.artifacts.save_file(self.project_dir.name,'edit/transcripts/'+path.name)
+            if self.broker:
+                # Restored caches belong to the executor, not this unprivileged
+                # process. Only the lease-checked broker manages their mode.
+                self.broker.request('refresh_transcript',{'asset':asset['id'],'track':track})
+            else:
+                os.chmod(path, 0o640)
+                if self.lease and self.lease.store.shared_files:
+                    self.lease.store.artifacts.save_file(self.project_dir.name,'edit/transcripts/'+path.name)
             if self.lease and self.lease.runtime:
                 runtime = self.lease.runtime
                 os.chown(path,runtime.service_uid,runtime.service_gid)
@@ -475,7 +527,8 @@ class Gateway:
                 if runtime:
                     from .provider_relay import ImageRelay
                     from .image_sandbox import image_command, gpu_slot
-                    relay=ImageRelay(runtime.path/(uuid.uuid4().hex+'.sock'),task,self.lease,self.uid,self.gid)
+                    from .paths import temporary_socket
+                    relay=ImageRelay(temporary_socket(runtime.path),task,self.lease,self.uid,self.gid)
                     stack.callback(relay.close)
                     scope=runtime.scope()
                     gpu=stack.enter_context(gpu_slot(task.action,self.lease,self.image_cancel,scope))

@@ -26,6 +26,7 @@ web = [
     "redis>=5,<7",
 ]
 web-test = ["httpx>=0.28,<1", "moto[server]>=5,<6"]
+harnesses = ["claude-agent-sdk==0.2.176", "deepseek-harness-sdk==0.2.1rc2"]
 
 [build-system]
 requires = ["setuptools>=61.0"]

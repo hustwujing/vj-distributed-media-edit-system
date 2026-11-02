@@ -5,17 +5,17 @@ description: Install video-use into the current agent (Claude Code, Codex, Herme
 
 # vj-distributed-media-edit-system — Agent skill installation
 
-Use this file only for first-time install or reconnect. For daily editing, read `SKILL.md`. Always read `helpers/` — that's where the scripts live.
+Use this file for installing or reconnecting the **local Agent skill**. For daily editing, read [SKILL.md](SKILL.md); helper scripts live in `helpers/`. For the distributed Web service, use the [configuration guide](docs/distributed-execution-configuration.md) and [deployment guide](docs/cluster-operations.md). Registering the skill does not deploy the Web service.
 
 ## What you're doing
 
 You're setting up a conversation-driven video editor for the user. After install, the user drops raw footage into any folder, runs their agent (`claude`, `codex`, etc.) there, and says "edit these into a launch video." You do the rest by reading `SKILL.md`.
 
-Three things must exist on this machine:
+Local editing requires:
 
 1. The `video-use` repo cloned somewhere stable.
 2. `ffmpeg` on `$PATH` (plus optional `yt-dlp` for online sources).
-3. An ElevenLabs API key in `.env` at the repo root (for Scribe transcription).
+3. Python and the repository dependencies. An ElevenLabs API key is additionally required when creating new Scribe transcriptions; local edits and existing transcript inspection do not require it.
 
 And one thing must be true about the current agent:
 
@@ -26,7 +26,7 @@ And one thing must be true about the current agent:
 - Do everything yourself. Only ask the user for things you cannot generate — the ElevenLabs API key, and confirmation before `brew install`.
 - Prefer a stable clone path like `~/Developer/vj-distributed-media-edit-system` (not `/tmp`, not `~/Downloads`).
 - The skill references helpers by bare name (`transcribe.py`, `render.py`). That works because SKILL.md and `helpers/` ship together — keep them as siblings when you register the skill.
-- After install, verify by running one real command against one real file. Don't declare success on file-existence checks alone.
+- Verify the interpreter, helper entrypoints and FFmpeg. Report these as installation checks; claim media processing works only after processing and inspecting an actual output file.
 
 ## Steps
 
@@ -37,16 +37,20 @@ test -d ~/Developer/vj-distributed-media-edit-system || git clone https://github
 cd ~/Developer/vj-distributed-media-edit-system
 ```
 
-If the repo is already there, `git pull --ff-only` and continue.
+If the repo is already there, inspect `git status --short` first and preserve local changes. Update with `git pull --ff-only` when the checkout is ready to update.
 
 ### 2. Install Python deps
 
 ```bash
-# Prefer uv if available; fall back to pip.
-command -v uv >/dev/null && uv sync || pip install -e .
+# Preferred: use the locked dependencies.
+uv sync --locked
+
+# If uv is unavailable, use a dedicated virtual environment instead:
+# python3 -m venv .venv
+# .venv/bin/python -m pip install -e .
 ```
 
-`pyproject.toml` lists `requests`, `librosa`, `matplotlib`, `pillow`, `numpy`. No console scripts — helpers are invoked directly as `python helpers/<name>.py`.
+`pyproject.toml` lists `requests`, `librosa`, `matplotlib`, `pillow`, `numpy`. No console scripts — invoke helpers with `.venv/bin/python helpers/<name>.py`. If this checkout also serves Web development, preserve its extras with `uv sync --locked --extra web --extra web-test`; a base-only sync can remove optional Web dependencies.
 
 ### 3. Install ffmpeg (+ optional yt-dlp)
 
@@ -89,52 +93,29 @@ Figure out which agent you are running under, and register once. A symlink of th
 
 If you can't tell which agent you're in, ask the user once: "which agent am I running under — Claude Code, Codex, or something else?" Then pick the right target.
 
-### 5. ElevenLabs API key
+### 5. Configure transcription only when needed
 
-Scribe (ElevenLabs) does all transcription. Without a key, nothing transcribes.
+New Scribe transcription requires `ELEVENLABS_API_KEY`. Skip this step when the user only needs local media processing or existing transcripts.
 
-1. Check existing state in this order and stop at the first hit:
+The local helper currently checks the repository `.env` first, then the working-directory `.env`, then the environment. A matching empty entry in either file also takes precedence over an exported key. Check the actual files without printing values; if choosing an exported key, remove or update conflicting file entries first.
 
-    ```bash
-    # a) env var already exported
-    [ -n "$ELEVENLABS_API_KEY" ] && echo "env"
-    # b) .env at repo root already has it
-    grep -q '^ELEVENLABS_API_KEY=..' ~/Developer/vj-distributed-media-edit-system/.env 2>/dev/null && echo "dotenv"
-    ```
+When a key is needed and unavailable, ask the user to configure one from their ElevenLabs account. Update only the `ELEVENLABS_API_KEY` entry in the repository `.env`, preserve other settings, and set permissions to `600`. Do not overwrite the entire file: it may also contain Web control or stream configuration. Never echo a key in tool output or commit `.env`.
 
-2. If neither is set, ask the user exactly once:
+A key's presence is not a credential validity check. Validate transcription when the user requests their first transcription task; it consumes the configured account's quota.
 
-    > I need an ElevenLabs API key for transcription (word-level timestamps, speaker diarization, filler tagging). Grab one at https://elevenlabs.io/app/settings/api-keys and paste it here — I'll write it to `~/Developer/vj-distributed-media-edit-system/.env`. Or if you already have it exported as `ELEVENLABS_API_KEY`, say "use env" and I'll skip.
+### 6. Verify installation
 
-    When the user pastes a key, write it to `~/Developer/vj-distributed-media-edit-system/.env`:
-
-    ```bash
-    printf 'ELEVENLABS_API_KEY=%s\n' "$KEY" > ~/Developer/vj-distributed-media-edit-system/.env
-    chmod 600 ~/Developer/vj-distributed-media-edit-system/.env
-    ```
-
-    Never echo the key back in tool output. Never commit `.env`.
-
-3. Sanity check with a cheap, quota-free call:
-
-    ```bash
-    curl -s -o /dev/null -w '%{http_code}\n' \
-      -H "xi-api-key: $(sed -n 's/^ELEVENLABS_API_KEY=//p' ~/Developer/vj-distributed-media-edit-system/.env)" \
-      https://api.elevenlabs.io/v1/user
-    ```
-
-    `200` means the key works. `401` means the user pasted a wrong/expired key — ask once more and stop. Anything else (network, 5xx), move on and verify during first real transcription.
-
-### 6. Verify end-to-end
-
-Run one real thing. Prefer the lightest verification that still proves the pipeline is wired up:
+Use the installed interpreter, not an unrelated system Python:
 
 ```bash
-python ~/Developer/vj-distributed-media-edit-system/helpers/timeline_view.py --help >/dev/null && echo "helpers OK"
-ffprobe -version | head -1
+cd ~/Developer/vj-distributed-media-edit-system
+.venv/bin/python helpers/timeline_view.py --help
+.venv/bin/python helpers/render.py --help
+ffmpeg -version
+ffprobe -version
 ```
 
-Full transcription test is optional at install time — it burns Scribe credits. Better to wait until the user hands you their first clip.
+These commands verify helper loading and executable availability. They do not render media, validate API credentials or prove the Web sandbox works. If the user provided a local clip, an additional local render and `ffprobe` inspection can verify actual processing without a transcription call. Do not run a paid transcription merely to finish installation.
 
 ### 7. Hand off
 
@@ -148,7 +129,7 @@ Tell the user, in one short message:
 ## Keeping the skill current
 
 - `cd ~/Developer/vj-distributed-media-edit-system && git pull --ff-only` pulls the latest code. The symlink auto-picks it up on the next run.
-- If `pyproject.toml` changed deps, re-run `uv sync` / `pip install -e .` after pulling.
+- If `pyproject.toml` changed deps, re-run `uv sync --locked` (preserving any Web/animation extras used by this checkout) or `.venv/bin/python -m pip install -e .` after pulling.
 
 ## Cold-start reminders
 

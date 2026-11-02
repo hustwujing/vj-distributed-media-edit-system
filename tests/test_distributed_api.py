@@ -39,12 +39,34 @@ class DistributedApiTests(unittest.TestCase):
                     stored=backend.client.get_object(Bucket=backend.bucket,Key=record['object_key'])
                     try:self.assertTrue(stored['Body'].read().startswith(b'VUOBJ01\0'))
                     finally:stored['Body'].close()
+                    transcript=a.state.store.project_dir(project)/'edit/transcripts'/f'{asset}.track2.json'
+                    transcript.write_text('{"words":[]}')
+                    a.state.store.artifacts.save_file(project,f'edit/transcripts/{transcript.name}')
                     shutil.rmtree(root/'a')
                     response=second.get(f'/api/projects/{project}/assets/{asset}/file')
                     self.assertEqual(response.status_code,200,response.text)
                     self.assertEqual(response.content,image.getvalue())
                     self.assertEqual(stranger.get(f'/api/projects/{project}/assets/{asset}/file').status_code,404)
-                    self.assertEqual(second.get(f'/api/projects/{project}').status_code,200)
+                    detail=second.get(f'/api/projects/{project}')
+                    self.assertEqual(detail.status_code,200)
+                    self.assertEqual(detail.json()['assets'][0]['transcribed_tracks'],[2])
+                    self.assertTrue(b.state.store.has_file(project,f'edit/transcripts/{transcript.name}'))
+                    self.assertFalse((b.state.store.project_dir(project)/'edit/transcripts'/transcript.name).exists())
+                    # No worker is available after a node outage. Status and SSE
+                    # must remain readable by an API that cannot stat the private
+                    # runtime manifest; this also exercises the second API node.
+                    from webapp import agent_store
+                    task=agent_store.add_turn(b.state.store,project,'plan','hello')
+                    agent_store.finish(b.state.store,task,'succeeded','hello')
+                    with patch('webapp.runtime_image.fingerprint',side_effect=PermissionError('private manifest')) as fingerprint:
+                        response=second.get(f'/api/projects/{project}/agent')
+                        self.assertEqual(response.status_code,200,response.text)
+                        response=second.get(f'/api/projects/{project}/agent/{task}/stream')
+                        self.assertEqual(response.status_code,200,response.text)
+                        self.assertIn('event: done',response.text)
+                        self.assertIn('"status": "succeeded"',response.text)
+                        self.assertNotIn('private manifest',response.text)
+                        fingerprint.assert_not_called()
         finally:s3.close();pg.close()
 
 

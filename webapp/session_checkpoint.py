@@ -19,6 +19,10 @@ def persistent(path):
         if len(parts)>1 and parts[1] in ('skills','shell_snapshots','thread-writer-locks','log','logs','tmp','cache'):return False
         if parts[-1] in ('config.toml','auth.json','.sandbox_migration'):return False
         if parts[-1].startswith('logs_') or parts[-1].endswith(('-shm','.lock','.log')):return False
+    if parts[0] in ('claude','dsh'):
+        if any(part in ('cache','.cache','tmp','logs','debug','plugins','skills','profiles') for part in parts[1:]):return False
+        if parts[-1] in ('config.json','settings.json','settings.local.json','auth.json','.credentials.json'):return False
+        if parts[-1].endswith(('.lock','.log','-shm')):return False
     return True
 
 

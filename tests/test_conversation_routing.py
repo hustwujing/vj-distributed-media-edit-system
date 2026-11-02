@@ -45,6 +45,19 @@ class LightRoutingTests(unittest.TestCase):
         lease=self.coordinator.claim(task,'agent');self.assertIsNotNone(lease)
         with patch('webapp.agent_host.TaskRuntime',side_effect=AssertionError('Light task allocated a sandbox')) as runtime:self.host._execute_claim(lease)
         runtime.assert_not_called();return agent_store.turn(self.store,task)
+    def test_daily_planning_quota_has_precise_reason_and_no_upstream_request(self):
+        day=int(self.store.now()//86400)
+        self.store.execute('INSERT INTO execution_daily_usage VALUES (?,?,?,?)',('owner',day,'planning_model',40))
+        task=self.task('继续讨论');row=self.run_task(task)
+        self.assertEqual(row['status'],'failed');self.assertIn('规划模型',row['error']);self.assertNotIn('请重试',row['error'])
+        self.assertEqual(row['quota']['scope'],'daily');self.assertEqual(row['quota']['reset_at'],(day+1)*86400)
+        self.assertEqual(self.requests,[]);self.assertEqual(snapshot(self.store,task)['counts']['llm']['calls'],0)
+        self.assertEqual(self.store.query('SELECT runtime FROM execution_attempts')[0]['runtime'],'')
+        self.store.execute("UPDATE execution_daily_usage SET used=0 WHERE category='planning_model'")
+        self.assertIsNone(agent_store.turn(self.store,task)['quota'])
+        self.responses=[output('已恢复')];next_task=self.task('继续讨论')
+        self.assertEqual(self.run_task(next_task)['status'],'succeeded');self.assertEqual(len(self.requests),1)
+
     def test_greeting_one_model_request_no_sandbox_no_checkpoint(self):
         self.responses=[output()];task=self.task();row=self.run_task(task)
         self.assertEqual(row['status'],'succeeded');self.assertEqual(row['text'],'你好！');self.assertFalse(row['plan_readiness']['can_execute'])
@@ -143,6 +156,28 @@ class LightRoutingTests(unittest.TestCase):
         with patch('webapp.semantic_review.classify',side_effect=SemanticUnavailable()):row=self.run_task(task)
         self.assertEqual(row['mode'],'plan');self.assertEqual(row['status'],'succeeded');self.assertIn('无法明确判断',row['text'])
 
+class QuotaAdmissionTests(unittest.TestCase):
+    def test_api_rejects_daily_block_before_task_creation_and_recovers(self):
+        from webapp.app import create_app
+        with tempfile.TemporaryDirectory() as directory:
+            app=create_app(Path(directory),False)
+            with TestClient(app) as client:
+                store=app.state.store
+                (store.root/'agent-health.json').write_text(json.dumps({'ready':True,'updated':__import__('time').time()}))
+                project=client.post('/api/projects',json={'name':'quota admission'}).json()['id']
+                owner=store.query('SELECT owner FROM projects WHERE id=?',(project,))[0]['owner'];day=int(store.now()//86400)
+                store.execute('INSERT INTO execution_daily_usage VALUES (?,?,?,?)',(owner,day,'planning_model',40))
+                for _ in range(2):
+                    response=client.post(f'/api/projects/{project}/agent/messages',json={'message':'continue analysis'})
+                    self.assertEqual(response.status_code,429);self.assertEqual(response.json()['detail']['category'],'planning_model')
+                    self.assertEqual(response.json()['detail']['reset_at'],(day+1)*86400)
+                self.assertFalse(store.query('SELECT id FROM agent_turns WHERE project=?',(project,)))
+                store.execute("UPDATE execution_daily_usage SET day=day-1 WHERE owner=?",(owner,))
+                response=client.post(f'/api/projects/{project}/agent/messages',json={'message':'continue analysis'})
+                self.assertEqual(response.status_code,202,response.text)
+                self.assertEqual(len(store.query('SELECT id FROM agent_turns WHERE project=?',(project,))),1)
+
+
 class ReadinessTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.store=Store(Path(self.tmp.name));agent_store.initialize(self.store);self.project=self.store.add_project('owner','p')['id']
@@ -160,6 +195,29 @@ class ReadinessTests(unittest.TestCase):
         task=agent_store.add_turn(self.store,self.project,'plan','edit');ready_plan(self.store,task);self.assertTrue(plan_readiness.public(self.store,task)['can_execute'])
         self.store.add_asset(self.project,'new','new','new.png',{'kind':'image','width':1,'height':1});self.assertFalse(plan_readiness.public(self.store,task)['can_execute'])
         with self.assertRaises(ValueError):plan_readiness.require(self.store,self.project,task)
+    def test_pending_review_on_failed_or_cancelled_plan_is_not_still_running(self):
+        from webapp.execution_intent import declare
+        for status in ('failed','cancelled'):
+            with self.subTest(status=status):
+                task=agent_store.add_turn(self.store,self.project,'plan','make image')
+                self.store.execute("UPDATE agent_turns SET status='running' WHERE id=?",(task,))
+                declare(self.store,task,{'route':'single','operations':['script'],'goal':'make image','estimated_seconds':30})
+                self.assertEqual(plan_readiness.public(self.store,task)['state'],'pending')
+                agent_store.finish(self.store,task,status,'Stopped before review')
+                result=plan_readiness.public(self.store,task)
+                self.assertEqual(result['state'],'unavailable');self.assertIn('本轮已结束',result['reason'])
+                self.assertFalse(result['can_execute']);self.assertFalse(result['retry_available'])
+                with self.assertRaises(ValueError):plan_readiness.require(self.store,self.project,task)
+                with self.assertRaises(ValueError):plan_readiness.retry_review(self.store,task,result['digest'])
+
+    def test_pending_review_retry_on_successful_plan_remains_pending(self):
+        from webapp.execution_intent import declare
+        task=agent_store.add_turn(self.store,self.project,'plan','make image')
+        self.store.execute("UPDATE agent_turns SET status='running' WHERE id=?",(task,))
+        declare(self.store,task,{'route':'single','operations':['script'],'goal':'make image','estimated_seconds':30})
+        agent_store.finish(self.store,task,'succeeded','A retry may review this completed plan')
+        result=plan_readiness.public(self.store,task)
+        self.assertEqual(result['state'],'pending');self.assertFalse(result['can_execute'])
     def test_intent_change_stale_digest_and_duplicate_approval_rejected(self):
         t=agent_store.add_turn(self.store,self.project,'plan','edit');ready_plan(self.store,t);d=plan_readiness.public(self.store,t)['digest']
         with self.assertRaises(ValueError):plan_readiness.require(self.store,self.project,t,'0'*64)

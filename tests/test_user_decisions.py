@@ -17,6 +17,28 @@ class UserDecisionTests(unittest.TestCase):
         user_decisions.answer(self.f.store,self.f.turn,identifier,{'revision':0,'action':'answer','value':'横屏'},'owner')
         self.assertEqual(self.f.get()['agent_review']['purpose'],'diagnose')
         with self.assertRaises(ValueError):user_decisions.answer(self.f.store,self.f.turn,identifier,{'revision':0,'action':'answer','value':'横屏'},'owner')
+    def test_approval_cannot_be_combined_with_an_arbitrary_option_value(self):
+        identifier=user_decisions.create(self.f.store,self.w,self.s,{'kind':'plan_change','question':'Change the plan?',
+            'options':['Proceed','Stop','保持原状']})
+        for action in ('approve','reject'):
+            for choice in ('Proceed','Stop','保持原状','unrelated text'):
+                with self.subTest(action=action,choice=choice),self.assertRaises(ValueError):
+                    user_decisions.answer(self.f.store,self.f.turn,identifier,{'revision':0,'action':action,'value':choice},'owner')
+        self.assertEqual(self.f.get()['status'],'paused')
+        row=self.f.store.query('SELECT status FROM workflow_user_requests WHERE id=?',(identifier,))[0]
+        self.assertEqual(row['status'],'pending')
+        user_decisions.answer(self.f.store,self.f.turn,identifier,{'revision':0,'action':'reject','feedback':'Keep existing scope.'},'owner')
+        self.assertEqual(self.f.get()['status'],'paused')
+        row=self.f.store.query('SELECT answer FROM workflow_user_requests WHERE id=?',(identifier,))[0]
+        self.assertEqual(__import__('json').loads(row['answer'])['feedback'],'Keep existing scope.')
+
+    def test_explicit_replan_approval_does_not_execute_new_work(self):
+        identifier=user_decisions.create(self.f.store,self.w,self.s,{'kind':'plan_change','question':'Discuss a changed checker?'})
+        count=len(self.f.store.query('SELECT id FROM agent_turns'))
+        user_decisions.answer(self.f.store,self.f.turn,identifier,{'revision':0,'action':'approve'},'owner')
+        self.assertEqual(self.f.get()['status'],'cancelled')
+        self.assertEqual(len(self.f.store.query('SELECT id FROM agent_turns')),count)
+
     def test_external_approval_requires_explicit_proposal(self):
         identifier=user_decisions.create(self.f.store,self.w,self.s,{'kind':'external_call','question':'再生成一次？'})
         with self.assertRaises(ValueError):user_decisions.answer(self.f.store,self.f.turn,identifier,{'revision':0,'action':'approve'},'owner')

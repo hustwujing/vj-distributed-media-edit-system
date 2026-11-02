@@ -4,9 +4,10 @@ import os
 class PlanningLimit(RuntimeError):pass
 
 
-def limits():
-    return {name:max(1,int(os.environ.get('VIDEO_USE_PLAN_'+name.upper(),default))) for name,default in
-            [('seconds','240'),('models','14'),('tools','24'),('inspections','8')]}
+def limits(profile=None):
+    from .agent_profiles import current
+    budget=(profile or current()).budget
+    return {name:budget['plan_'+name] for name in ('seconds','models','tools','inspections')}
 
 
 def guidance():
@@ -21,7 +22,8 @@ def snapshot(store,task):
     started=store.query("SELECT MIN(started) started FROM execution_attempts WHERE turn_id=? AND runtime<>''",(task,))[0]['started']
     used={'seconds':max(0,(store.now() if row[0]['status'] in ('queued','running','cancelling') else row[0]['updated'])-started) if started else 0,'models':sum(r['n'] for r in counts if r['category']=='llm' and not r['operation'].startswith('review:')),
           'tools':sum(r['n'] for r in counts if r['category']=='tool'),'inspections':sum(r['n'] for r in counts if r['category']=='tool' and r['operation']=='imageView')}
-    cap=limits();return {'limits':cap,'guidance':guidance(),'used':used,'exhausted':[k for k in cap if used[k]>=cap[k]]}
+    from .agent_profiles import for_task
+    cap=limits(for_task(store,task));return {'limits':cap,'guidance':guidance(),'used':used,'exhausted':[k for k in cap if used[k]>=cap[k]]}
 
 
 def check(lease,admission=True):

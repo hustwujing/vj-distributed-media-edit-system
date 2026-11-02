@@ -49,19 +49,32 @@ def request(source,arguments,timeout):
     fd=os.open(source,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
     try:
         with socket.socket(socket.AF_UNIX) as client:
-            client.settimeout(timeout+10);client.connect(os.environ['VIDEO_USE_MEDIA_SOCKET'])
-            client.sendmsg([struct.pack('!I',len(payload))+payload],[(socket.SOL_SOCKET,socket.SCM_RIGHTS,array.array('i',[fd]))])
-            def exact(size):
-                output=bytearray()
-                while len(output)<size:
-                    chunk=client.recv(min(size-len(output),65536))
-                    if not chunk:raise OSError('Media decoder disconnected')
-                    output.extend(chunk)
-                return bytes(output)
-            size=struct.unpack('!I',exact(4))[0]
-            if size>48*1024**2:raise ValueError('Media decoder response too large')
-            value=json.loads(exact(size))
-            return subprocess.CompletedProcess(arguments,value['returncode'],base64.b64decode(value.get('stdout',''),validate=True),base64.b64decode(value.get('stderr',''),validate=True))
+            from .api_execution import install_interrupt,check_cancelled
+            def interrupt():
+                try:client.shutdown(socket.SHUT_RDWR)
+                except OSError:pass
+                client.close()
+            remove=install_interrupt(interrupt)
+            try:
+                check_cancelled();client.settimeout(timeout+10);client.connect(os.environ['VIDEO_USE_MEDIA_SOCKET'])
+                client.sendmsg([struct.pack('!I',len(payload))+payload],[(socket.SOL_SOCKET,socket.SCM_RIGHTS,array.array('i',[fd]))])
+                def exact(size):
+                    output=bytearray()
+                    while len(output)<size:
+                        check_cancelled()
+                        chunk=client.recv(min(size-len(output),65536))
+                        if not chunk:raise OSError('Media decoder disconnected')
+                        output.extend(chunk)
+                    return bytes(output)
+                size=struct.unpack('!I',exact(4))[0]
+                if size>48*1024**2:raise ValueError('Media decoder response too large')
+                value=json.loads(exact(size))
+                return subprocess.CompletedProcess(arguments,value['returncode'],base64.b64decode(value.get('stdout',''),validate=True),base64.b64decode(value.get('stderr',''),validate=True))
+            except (OSError,ValueError,KeyError,TypeError) as exc:
+                check_cancelled()
+                from .media_isolation import MediaDecoderUnavailable
+                raise MediaDecoderUnavailable('媒体解码服务暂不可用，请凭查询编号排查。') from exc
+            finally:remove()
     finally:os.close(fd)
 
 

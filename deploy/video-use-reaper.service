@@ -8,18 +8,18 @@ User=root
 RuntimeDirectory=video-use-agent
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
-WorkingDirectory=/data1/wujing03/video-use
-EnvironmentFile=-/data1/wujing03/video-use/.agent.env
-Environment=VIDEO_USE_DATA_DIR=/data1/wujing03/video-use/workspace
+WorkingDirectory=/data2/wujing03/video-use
+EnvironmentFile=-/data2/wujing03/video-use/.agent.env
+Environment=VIDEO_USE_DATA_DIR=/data2/wujing03/video-use/workspace
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/data1/wujing03/video-use/.venv/bin/python -m webapp.execution_reaper
+ExecStart=/data2/wujing03/video-use/.venv/bin/python -m webapp.execution_reaper
 Restart=always
 RestartSec=2
 KillMode=control-group
 UMask=0077
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/data1/wujing03/video-use/workspace /var/lib/video-use-executor /sys/fs/cgroup /run/video-use-agent
+ReadWritePaths=/data2/wujing03/video-use/workspace /data2/wujing03/video-use/.cluster/executors/legacy /sys/fs/cgroup /run/video-use-agent
 PrivateTmp=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

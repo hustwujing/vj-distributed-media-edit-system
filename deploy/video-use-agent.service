@@ -10,14 +10,14 @@ Group=video-use
 RuntimeDirectory=video-use-agent
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
-WorkingDirectory=/data1/wujing03/video-use
-EnvironmentFile=/data1/wujing03/video-use/.env
-EnvironmentFile=/data1/wujing03/video-use/.agent.env
-Environment=VIDEO_USE_DATA_DIR=/data1/wujing03/video-use/workspace
-Environment=TMPDIR=/data1/wujing03/video-use/workspace/tmp
+WorkingDirectory=/data2/wujing03/video-use
+EnvironmentFile=/data2/wujing03/video-use/.env
+EnvironmentFile=/data2/wujing03/video-use/.agent.env
+Environment=VIDEO_USE_DATA_DIR=/data2/wujing03/video-use/workspace
+Environment=TMPDIR=/data2/wujing03/video-use/workspace/tmp
 Environment=PYTHONDONTWRITEBYTECODE=1
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/data1/wujing03/video-use/.venv/bin/python -m webapp.agent_host
+ExecStart=/data2/wujing03/video-use/.venv/bin/python -m webapp.agent_host
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=960
@@ -30,7 +30,7 @@ NoNewPrivileges=false
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/data1/wujing03/video-use/workspace /data/wujing03/.media-gpu-leases /var/lib/video-use-executor /sys/fs/cgroup
+ReadWritePaths=/data2/wujing03/video-use/workspace /data/wujing03/.media-gpu-leases /data2/wujing03/video-use/.cluster/executors/legacy /sys/fs/cgroup
 ProtectKernelTunables=true
 ProtectKernelModules=true
 # The trusted launcher creates task cgroups; they are never mounted in sandboxes.

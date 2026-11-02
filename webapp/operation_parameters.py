@@ -27,6 +27,11 @@ class Render(Parameters):
 
 class Edit(Parameters):
     edit_plan:dict=Field(min_length=1)
+    @model_validator(mode='after')
+    def asset_references(self):
+        from .edit_tools import edit_asset_ids
+        edit_asset_ids(self.edit_plan)
+        return self
 
 
 class Analyze(Parameters):

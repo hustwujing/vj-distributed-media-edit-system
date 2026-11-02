@@ -103,6 +103,7 @@ class Store:
             db.row_factory = sqlite3.Row
             connection = Connection(db)
         self._connections.db = connection
+        notices=[];self._connections.notices=notices;committed=False
         try:
             with db:
                 from .task_leases import CURRENT
@@ -111,9 +112,26 @@ class Store:
                     connection.execute('BEGIN IMMEDIATE')
                     lease.validate(connection)
                 yield connection
+            committed=True
         finally:
             self._connections.db = None
+            self._connections.notices = None
             db.close()
+            if committed:
+                for notice in notices:self._notify(notice)
+
+    @staticmethod
+    def _notify(callback):
+        # Only best-effort notifications belong here, never business writes.
+        try:callback()
+        except Exception as exc:
+            from .telemetry import emit
+            emit('stream.transport_failed','WARNING',reason='after_commit',exception_type=type(exc).__name__)
+
+    def notify_after_commit(self,callback):
+        notices=getattr(self._connections,'notices',None)
+        if notices is not None:notices.append(callback)
+        else:self._notify(callback)
 
     def query(self, sql, args=()):
         with self.connect(readonly=True) as db:
@@ -146,6 +164,14 @@ class Store:
         from .artifact_store import logical_path
         logical_path(relative)
         return self.artifacts.load_file(project,relative) if self.shared_files else self.project_dir(project)/relative
+
+    def has_file(self,project,relative):
+        from .artifact_store import logical_path
+        logical_path(relative)
+        if self.shared_files:
+            return bool(self.query("SELECT f.path FROM artifact_files f JOIN artifact_objects o ON o.id=f.artifact AND o.project=f.project WHERE f.project=? AND f.path=? AND o.state IN ('staged','published')",(project,relative)))
+        path=self.project_dir(project)/relative
+        return path.is_file() and not path.is_symlink()
 
     def restore_files(self, project, prefix):
         if not self.shared_files:return

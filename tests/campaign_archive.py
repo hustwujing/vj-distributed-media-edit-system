@@ -8,7 +8,7 @@ import time
 
 def _archive(directory,db,observation):
     directory=Path(directory).resolve();root=Path(__file__).resolve().parents[1]/'.cluster/campaigns/20261031-real60/runs'
-    if not directory.is_relative_to(root):raise ValueError('Not a campaign attempt')
+    if not directory.is_relative_to(root.resolve()):raise ValueError('Not a campaign attempt')
     state=json.loads((directory/'state.json').read_text());ids={state.get('plan_id'),state.get('execute_id')}
     ids.update(p.stem for p in (directory/'plan-history').glob('*.json'))
     folder=directory/'trace-archive';folder.mkdir(mode=0o700,exist_ok=True)
@@ -42,7 +42,7 @@ def _archive(directory,db,observation):
 def archive(directory,db,observation):
     import fcntl
     directory=Path(directory).resolve();root=Path(__file__).resolve().parents[1]/'.cluster/campaigns/20261031-real60/runs'
-    if not directory.is_relative_to(root):raise ValueError('Not a campaign attempt')
+    if not directory.is_relative_to(root.resolve()):raise ValueError('Not a campaign attempt')
     with (directory/'trace-archive.lock').open('a') as lock:
         os.fchmod(lock.fileno(),0o600);fcntl.flock(lock,fcntl.LOCK_EX)
         return _archive(directory,db,observation)

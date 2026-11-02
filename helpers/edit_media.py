@@ -253,7 +253,10 @@ def finish(p,base,work):
         args+=['-map',f'[{current}]' if current!='0:v' else '0:v','-map','[audio]']
         if current=='0:v':args+=['-c:v','copy']
         else:args+=['-c:v','libx264','-preset','veryfast','-crf',out['crf'],'-pix_fmt','yuv420p','-threads','2']
-        args+=['-c:a','aac','-b:a','192k','-movflags','+faststart']
+        # Matroska intermediates round timestamps to milliseconds. Quantize the
+        # MP4 video track back onto the already-normalized CFR frame grid; this
+        # preserves stream-copy quality and exact rates such as 24/60 fps.
+        args+=['-video_track_timescale',out['fps'],'-c:a','aac','-b:a','192k','-movflags','+faststart']
     else:
         args+=['-map','[audio]','-vn']
         args+= {'wav':['-c:a','pcm_s16le'],'mp3':['-c:a','libmp3lame','-b:a','192k'],'m4a':['-c:a','aac','-b:a','192k','-movflags','+faststart']}[out['format']]
@@ -292,7 +295,12 @@ def render_plan(p,output,keep_work=False):
             if abs(float(Fraction(actual['fps']))-fps)>.01:raise RuntimeError('Output frame rate does not match the plan')
             for i,t in enumerate((0,p['_duration']/2,max(0,p['_duration']-1/fps))):
                 frame=work/f'verify_{i}.jpg'
-                run_ffmpeg(['-ss',t,'-i',result,'-frames:v','1','-vf','scale=640:-2','-q:v','3',frame],f'verify-frame:{i+1}',work)
+                # Seeking to duration - 1/fps can round past the final PTS at
+                # fractional frame intervals. Decode a bounded tail and select
+                # its actual last frame; scale first to bound reverse's memory.
+                seek=(['-sseof',-min(actual['duration'],max(1,3/fps))] if i==2 else ['-ss',t])
+                filters='scale=640:-2'+(',reverse' if i==2 else '')
+                run_ffmpeg([*seek,'-i',result,'-frames:v','1','-vf',filters,'-q:v','3',frame],f'verify-frame:{i+1}',work)
                 if not frame.is_file():raise RuntimeError('Could not decode a verification frame')
         report={'status':'verified','duration_expected':p['_duration'],'media':actual,
                 'checks':['duration','audio_track']+([] if p['output']['audio_only'] else ['dimensions','frame_rate','decoded_first_middle_last_frames']),

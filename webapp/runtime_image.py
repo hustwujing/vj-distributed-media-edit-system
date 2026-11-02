@@ -16,7 +16,7 @@ TOOLS=('bash','sh','env','cat','ls','find','sed','awk','sort','uniq','wc','head'
        'basename','dirname','readlink','realpath','stat','du','df','grep','xargs','tee',
        'ffmpeg','ffprobe','socat','setpriv','ldconfig','fc-match','fc-list','file','rg','uname','sleep','tr','true','false')
 CODEX_DEFAULT='/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex'
-TOOL_MODULES=('__init__.py','telemetry.py','worker.py','media_handlers.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
+TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
               'image_providers.py','image_models.py','image_replace.py','sam3_zim.py','models.py','edit_tools.py','quality_review.py')
 
 
@@ -45,8 +45,10 @@ def fingerprint():
     if not MANIFEST.is_file():return 'unbuilt'
     manifest=json.loads(MANIFEST.read_text())
     package=MANIFEST.parent/'tool-app/package.sha256'
-    value={key:manifest.get(key) for key in ('version','python_version','packages')}
+    value={key:manifest.get(key) for key in ('version','python_version','packages','harnesses')}
     value['tools']=package.read_text().strip() if package.is_file() else ''
+    value['harness_bridge']={name:hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()
+        for name in ('harness_adapters.py','harness_bridge.py','harness_sdk_events.py')}
     return hashlib.sha256(json.dumps(value,sort_keys=True).encode()).hexdigest()
 
 
@@ -64,6 +66,22 @@ def build():
     libraries[match[1]]=str(Path(match[1]).resolve())
     code_host=codex.with_name('codex-code-mode-host')
     native=set(executables.values())|{Path(sys.executable).resolve(),codex}
+    harnesses={'codex':{'sha256':hashlib.sha256(codex.read_bytes()).hexdigest()}}
+    # Only installed, pinned SDK distributions contribute native dependencies.
+    # Their executables stay under the existing read-only venv mount.
+    from importlib.util import find_spec
+    from importlib.metadata import version
+    for package,binary in (('claude_agent_sdk','_bundled/claude'),('deepseek_harness_runtime',None)):
+        found=find_spec(package)
+        if found:
+            if binary:path=Path(found.origin).parent/binary
+            else:
+                from deepseek_harness_runtime import bundled_runtime_path
+                path=bundled_runtime_path()
+            if not path.is_file():raise RuntimeError('Installed harness executable is unavailable: '+package)
+            native.add(path)
+            harnesses[package]={'version':version('claude-agent-sdk' if binary else 'deepseek-harness-runtime-bin'),
+                                'sha256':hashlib.sha256(path.read_bytes()).hexdigest()}
     if code_host.is_file():native.add(code_host)
     native.update((REPO/'.venv/lib').rglob('*.so*'))
     for name in ('reference_video_remix_ocr','sam3'):
@@ -86,7 +104,7 @@ def build():
                 libraries[str(resolved)]=str(resolved)
     from importlib.metadata import distributions
     packages=sorted((d.metadata.get('Name',''),d.version) for d in distributions())
-    result={'packages':packages,'version':2,'python':str(Path(sys.executable).resolve()),'prefix':str(prefix),
+    result={'packages':packages,'harnesses':harnesses,'version':2,'python':str(Path(sys.executable).resolve()),'prefix':str(prefix),
         'python_version':f'{sys.version_info.major}.{sys.version_info.minor}',
         'codex':str(codex),'code_host':str(code_host) if code_host.is_file() else None,'tools':{k:str(v) for k,v in executables.items()},'libraries':libraries}
     MANIFEST.parent.mkdir(parents=True,exist_ok=True)

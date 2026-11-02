@@ -46,6 +46,19 @@ def check(case, selected, images, audios, fixture, frame, pcm):
     if case=='C16':
         actual=pcm(target);source=pcm(fixture/'speech_noisy.wav');clean=pcm(fixture/'speech.wav')
         n=min(len(actual),len(source),len(clean));actual=actual[:n];source=source[:n];clean=clean[:n]
+        if not np.all(np.isfinite(actual)) or np.max(np.abs(actual),initial=0)<1e-9:
+            return checks,['Denoised audio has no finite nonzero speech signal']
+        # FFT filters can introduce a short fixed delay without changing the
+        # speech. Measure it explicitly; do not confuse phase alignment with
+        # speech preservation or allow arbitrary timeline warping.
+        from scipy.signal import correlate,correlation_lags
+        correlation=correlate(actual,clean,mode='full',method='fft')
+        lags=correlation_lags(n,n,mode='full');allowed=np.abs(lags)<=800  # 50ms at16kHz
+        lag=int(lags[allowed][np.argmax(correlation[allowed])])
+        checks['filter_delay_samples']=lag;checks['filter_delay_ms']=lag/16
+        if lag>0:actual=actual[lag:];source=source[:-lag];clean=clean[:-lag]
+        elif lag<0:actual=actual[:lag];source=source[-lag:];clean=clean[-lag:]
+        n=len(actual)
         # Exclude fade ends and compare only genuine original silence, avoiding speech removal as a noise metric.
         block=1600;quiet=[];voice=[]
         for start in range(16000,n-16000,block):
@@ -60,8 +73,8 @@ def check(case, selected, images, audios, fixture, frame, pcm):
             checks['quiet_region_noise_ratio_at_equal_voice_gain']=noise/max(abs(gain),1e-9)
             if checks['quiet_region_noise_ratio_at_equal_voice_gain']>=.85:errors.append('Noise relative to preserved speech was not substantially reduced')
         if voice:
-            corr=float(np.corrcoef(clean[voice],actual[voice])[0,1]);checks['voice_correlation']=corr
-            if corr<.65:errors.append('Denoising failed to preserve speech waveform')
+            corr=float(np.corrcoef(clean[voice],actual[voice])[0,1]);checks['voice_correlation']=corr if np.isfinite(corr) else None
+            if not np.isfinite(corr) or corr<.65:errors.append('Denoising failed to preserve speech waveform')
     if case=='C18' and audios:
         sound=pcm(Path(audios[0]['local_file']));source=pcm(fixture/'clip_a.mp4')[:12*16000];n=min(len(sound),len(source))
         ratio=float(np.sqrt(np.mean(sound[:n]**2))/np.sqrt(np.mean(source[:n]**2)));checks['audio_rms_ratio']=ratio

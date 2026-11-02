@@ -71,7 +71,7 @@ def verify(run_dir):
     import numpy as np
     from PIL import Image,ImageDraw,ImageOps
     run_dir=Path(run_dir).resolve()
-    if not run_dir.is_relative_to(ROOT/'runs'):raise ValueError('Invalid QA run directory')
+    if not run_dir.is_relative_to((ROOT/'runs').resolve()):raise ValueError('Invalid QA run directory')
     state=json.loads((run_dir/'state.json').read_text());spec=next(c for c in json.loads((REPO/'docs/real-case-campaign/cases.json').read_text())['cases'] if c['id']==state['case'])
     expected=spec['expect'];errors=[];items=[];images=[];videos=[];audios=[];texts=[];others=[]
     for artifact in state['artifacts']:
@@ -388,7 +388,7 @@ def main():
                 waits=[c for c in result['provider_calls'] if c['step'] in provider_steps and c['state'] in ('waiting','running','queued')]
                 if waits and len(sys.argv)>3:
                     target=Path(sys.argv[3]).resolve().parent
-                    if target.is_relative_to(ROOT/'runs'):
+                    if target.is_relative_to((ROOT/'runs').resolve()):
                         leases=db.query('SELECT slot FROM execution_leases WHERE turn_id=? AND active=1 AND expires>?',(value,db.now()))
                         snapshot={'at':time.time(),'task':value,'provider_calls':waits,'active_local_leases':len(leases),'attempts':result['qa_video_attempts']}
                         with (target/'async-resource-samples.jsonl').open('a') as out:out.write(json.dumps(snapshot,ensure_ascii=False)+'\n')
@@ -403,6 +403,10 @@ def main():
                 if not task or not task[0]['name'].startswith('REAL60-C29-'):raise ValueError('Only the designated fault case may interrupt a worker')
                 others=db.query("SELECT id FROM agent_turns WHERE id<>? AND status IN ('queued','running','waiting') UNION ALL SELECT id FROM jobs WHERE status IN ('queued','running')",(value,))
                 if others:raise ValueError('Other business tasks are active')
+                healthy=db.query('SELECT DISTINCT node FROM execution_workers WHERE draining=0 AND heartbeat>?',(db.now()-20,))
+                if len({row['node'] for row in healthy})<2:
+                    raise ValueError('Cross-node fault test requires at least two healthy distinct nodes')
+                result['healthy_nodes_before_fault']=[row['node'] for row in healthy]
                 from campaign_fault import stop_once
                 result=stop_once(ROOT/'fault-injections',value,result,cluster.run)
         else:raise ValueError('Unknown action')

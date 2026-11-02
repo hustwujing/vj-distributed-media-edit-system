@@ -284,6 +284,8 @@ class RuntimeIntegrationTests(unittest.TestCase):
     @unittest.skipUnless(os.geteuid()==0, 'AgentHost needs its launcher directory')
     def test_host_yields_to_workflow_then_resumes_same_conversation(self):
         from webapp.agent_host import AgentHost
+        settings=patch.dict(os.environ,{'VIDEO_USE_MODEL_REASONING_EFFORT':'high'})
+        settings.start();self.addCleanup(settings.stop)
         fixture=WorkflowTests();fixture.setUp()
         try:
             host=AgentHost(fixture.store.root)
@@ -320,15 +322,34 @@ class RuntimeIntegrationTests(unittest.TestCase):
                 def close(self):pass
                 def poll(self):return self.returncode
                 def wait(self,timeout=None):return self.returncode
-            with patch('webapp.agent_host.Gateway'), patch('webapp.agent_host.subprocess.Popen',side_effect=lambda *a,**kw:Process()):
-                host.run_turn(fixture.turn)
-                self.assertEqual(agent_store.turn(fixture.store,fixture.turn)['status'],'waiting')
-                fixture.tick();fixture.tick()
-                fixture.store.execute("UPDATE agent_turns SET status='running' WHERE id=?",(fixture.turn,))
-                host.run_turn(fixture.turn)
+            from webapp.execution_runtime import TaskRuntime
+            from webapp.execution_resources import IdentityPool
+            pool=IdentityPool(Path(fixture.tmp.name)/'host-identities',start=835000,size=2)
+            def run_host():
+                lease=host.coordinator.claim(fixture.turn,'agent');self.assertIsNotNone(lease)
+                runtime=None
+                try:
+                    with lease.bind():
+                        # Native RPC remains a fixture, but yielding/resuming must
+                        # cross a real committed checkpoint and a new attempt.
+                        runtime=TaskRuntime(lease,pool)
+                        with patch('webapp.agent_host.Gateway'),patch('webapp.agent_host.subprocess.Popen',side_effect=lambda *a,**kw:Process()):
+                            host.run_turn(fixture.turn)
+                finally:
+                    if runtime:runtime.close()
+                    lease.release()
+            run_host()
+            self.assertEqual(agent_store.turn(fixture.store,fixture.turn)['status'],'waiting')
+            checkpoint=fixture.store.query('SELECT path FROM execution_checkpoints WHERE project=?',(fixture.project,))[0]
+            from webapp.checkpoints import native_descriptor
+            self.assertEqual(native_descriptor(fixture.store,fixture.project,checkpoint['path'])['native']['native_session_id'],'same-thread')
+            fixture.tick();fixture.tick()
+            fixture.store.execute("UPDATE agent_turns SET status='running' WHERE id=?",(fixture.turn,))
+            run_host()
             self.assertEqual(agent_store.turn(fixture.store,fixture.turn)['status'],'succeeded')
             self.assertEqual(workflows.get(fixture.store,fixture.turn)['status'],'succeeded')
             self.assertEqual([r['method'] for r in requests if r.get('method','').startswith('thread/')],['thread/start','thread/resume'])
+            self.assertEqual([r['params']['effort'] for r in requests if r.get('method')=='turn/start'],['high','high'])
             stage=[r for r in requests if r.get('method')=='turn/start'][-1]['params']['input'][0]['text']
             self.assertIn('自动续跑',stage)
             self.assertEqual(fixture.adapter.calls.count(('local','package')),1)

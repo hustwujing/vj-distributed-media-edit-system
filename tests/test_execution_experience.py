@@ -106,6 +106,11 @@ class ExperienceTests(unittest.TestCase):
     def test_planning_limits_are_generic_and_do_not_limit_execute(self):
         from webapp.planning_budget import check,PlanningLimit
         from webapp.task_usage import start
+        from webapp.agent_profiles import for_task
+        # Configure this task before starting work. Environment changes no
+        # longer rewrite a task's already-frozen budget.
+        profile=for_task(self.s,self.t).snapshot();profile['budget']['plan_models']=1
+        self.s.execute('UPDATE agent_run_profiles SET configuration=? WHERE task_id=?',(json.dumps(profile),self.t))
         with self.s.connect() as db:start(db,self.t,'llm','test')
         with patch.dict('os.environ',{'VIDEO_USE_PLAN_MODELS':'1'}):
             with self.assertRaises(PlanningLimit):check(self.lease)

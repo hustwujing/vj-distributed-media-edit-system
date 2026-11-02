@@ -11,6 +11,18 @@ from pathlib import Path
 
 import requests
 
+class ModelResultError(RuntimeError):
+    """Completed inference with no usable result; identical replay cannot fix it."""
+
+
+def check_model_outcome(work):
+    outcome=Path(work)/'model-outcome.json'
+    if not outcome.is_file() or outcome.is_symlink() or outcome.stat().st_size>4096:return
+    try:record=json.loads(outcome.read_text())
+    except (ValueError,OSError):return
+    if record=={'schema':1,'code':'no_selection'}:
+        raise ModelResultError('模型未找到所描述的目标；请调整选择条件后再尝试。')
+
 ENDPOINTS={'edit':(os.environ.get('VIDEO_USE_IMAGE_EDIT_URL','http://127.0.0.1:8911'),'target_image'),
            'decompose':(os.environ.get('VIDEO_USE_IMAGE_DECOMPOSE_URL','http://127.0.0.1:8912'),'source_image')}
 
@@ -113,13 +125,16 @@ def model_image(action,source,output,parameters,work,cancel=None):
         env['CUDA_VISIBLE_DEVICES']=str(gpu)
     process=None
     try:
+        (work/'model-outcome.json').unlink(missing_ok=True)
         command=([interpreter,'-u',str(Path(__file__).with_name('sam3_zim.py')),str(request)] if action in ('segment_sam3','refine_zim') else [interpreter,'-u',str(Path(__file__).with_name('image_models.py')),action,str(request)])
         with (work/'model.log').open('w') as log:
             process=subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT,env=env,start_new_session=True,cwd=work)
             start=time.monotonic()
             while process.poll() is None:
                 if cancel.wait(.3) or time.monotonic()-start>max(10,min(3600,int(os.environ.get('VIDEO_USE_IMAGE_TIMEOUT','300')))):raise RuntimeError('图片模型任务已取消或超时')
-            if process.returncode:raise RuntimeError('图片模型执行失败：'+(work/'model.log').read_text(errors='replace')[-1200:])
+            if process.returncode:
+                check_model_outcome(work)
+                raise RuntimeError('图片模型执行失败：'+(work/'model.log').read_text(errors='replace')[-1200:])
     finally:
         if process and process.poll() is None:
             os.killpg(process.pid,signal.SIGTERM)

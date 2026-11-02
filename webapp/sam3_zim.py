@@ -11,6 +11,9 @@ SOURCE=PROJECT/'src'
 SAM3_CHECKPOINT=Path('/data/wujing03/models/sam3/sam3.pt')
 ZIM_CHECKPOINT=Path('/data/wujing03/models/ZIM/zim-anything-vitl/zim_vit_l_2092')
 
+class NoSelectionError(RuntimeError):
+    """Inference completed, but produced no object selection."""
+
 def request_json(url,payload,timeout=300):
     request=Request(url,data=json.dumps(payload).encode(),headers={'Content-Type':'application/json'},method='POST')
     with urlopen(request,timeout=timeout) as response:return json.load(response)
@@ -37,7 +40,7 @@ def run_sam3(req,work):
             result=request_json(endpoint+'/segment/text',{**payload,'labels':[req['prompt']],'build_material_groups':False,'confidence':req.get('confidence',.35)})
             data=json.loads(Path(result['detections']).read_text());records=[r for r in data['detections'] if r.get('recommended')]
             if not records:records=data['detections']
-            if not records:raise RuntimeError('SAM3 did not find the described object')
+            if not records:raise NoSelectionError('SAM3 did not find the described object')
             record=max(records,key=lambda r:(float(r.get('score',0)),int(r.get('mask_pixels',0))));mask=output/record['mask'];preview=output/record['preview']
         else:
             box=req.get('box');points=req.get('points') or []
@@ -45,6 +48,8 @@ def run_sam3(req,work):
             if points:payload['groups']=[{'points':[{'x':p[0],'y':p[1],'label':1} for p in points]}]
             result=request_json(endpoint+'/segment/points',payload);mask=output/result['mask'];preview=output/result['preview']
         shutil.copyfile(mask,work/'raw-mask.png');shutil.copyfile(preview,work/'sam3-preview.jpg')
+    except NoSelectionError:
+        raise
     except Exception as exc:
         log.flush()
         raise RuntimeError(str(exc)+': '+(work/'sam3.log').read_text(errors='replace')[-1600:]) from exc
@@ -73,4 +78,10 @@ def main():
     else:shutil.copyfile(raw,req['output']);metadata={'segmenter':'sam3','matting':'none'}
     Path(req['metadata']).write_text(json.dumps(metadata,ensure_ascii=False,indent=2))
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    try:main()
+    except NoSelectionError:
+        # A fixed, bounded outcome survives log truncation without parsing prose.
+        Path(sys.argv[1]).parent.joinpath('model-outcome.json').write_text(
+            json.dumps({'schema':1,'code':'no_selection'}))
+        raise SystemExit(2)

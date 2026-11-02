@@ -46,7 +46,7 @@ async function runCase(browser,spec){
  const start=Date.now();let stoppedWorker=null,lastProbe=0;
  if(resume)await persist();
  async function persist(){save(stateFile,state);await context.storageState({path:storage});fs.chmodSync(storage,0o600);}
- async function getTurns(){const r=await page.request.get(BASE+`/api/projects/${state.project}/agent`,{timeout:30000});if(!r.ok())throw Error('Agent state HTTP '+r.status());return (await r.json()).turns;}
+ async function getTurns(){const r=await page.request.get(BASE+`/api/projects/${state.project}/agent`,{timeout:30000});if(!r.ok()){const entry={at:new Date().toISOString(),method:'GET',path:`/video-use/api/projects/${state.project}/agent`,status:r.status(),request_id:r.headers()['x-request-id']||null,transport:'browser_request_context'};state.http_errors.push(entry);append(path.join(runDir,'http.jsonl'),entry);throw Error('Agent state HTTP '+r.status()+' request '+(entry.request_id||'unknown'));}return (await r.json()).turns;}
  async function submit(mode,override=null){
   const response=page.waitForResponse(r=>r.url().endsWith(`/api/projects/${state.project}/agent/messages`)&&r.request().method()==='POST',{timeout:60000});
   if(mode==='plan'){await page.locator('#agent-input').fill(override||spec.prompt);await page.locator('#agent-send').click();}

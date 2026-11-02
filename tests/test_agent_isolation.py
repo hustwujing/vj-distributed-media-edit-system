@@ -30,6 +30,19 @@ TEST_TMP = isolated_tmp_root()
 TEST_TMP.mkdir(parents=True, exist_ok=True)
 
 
+class AgentModelConfigurationTests(unittest.TestCase):
+    def test_reasoning_configuration_defaults_and_explicit_high(self):
+        from webapp.agent_sandbox import reasoning_effort
+        with patch.dict(os.environ,{},clear=True):self.assertEqual(reasoning_effort(),'medium')
+        with patch.dict(os.environ,{'VIDEO_USE_MODEL_REASONING_EFFORT':'high'}):self.assertEqual(reasoning_effort(),'high')
+
+    def test_invalid_reasoning_configuration_is_rejected_before_runtime_setup(self):
+        for value in ('','unknown','high\n[features]'):
+            with self.subTest(value=value),patch.dict(os.environ,{'VIDEO_USE_MODEL_REASONING_EFFORT':value}):
+                with self.assertRaisesRegex(ValueError,'VIDEO_USE_MODEL_REASONING_EFFORT'):
+                    prepare(None,'unused','gpt-5.6','plan')
+
+
 class AgentAccessTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory(prefix='agent-api-',dir=TEST_TMP)
@@ -190,6 +203,17 @@ class OutputIsolationTests(unittest.TestCase):
 
 @unittest.skipUnless(os.geteuid()==0 and shutil.which('bwrap'),'OS sandbox checks require the namespace launcher environment')
 class NamespaceIsolationTests(unittest.TestCase):
+    def test_configured_model_and_high_effort_reach_readonly_sandbox_config(self):
+        with tempfile.TemporaryDirectory(prefix='vua-',dir=TEST_TMP) as directory,patch.dict(os.environ,{'VIDEO_USE_MODEL_REASONING_EFFORT':'high'}):
+            root=Path(directory);store=Store(root);project=store.add_project('model-settings','configuration')
+            env=prepare(store,project['id'],'gpt-5.6','plan')
+            with socket.socket(socket.AF_UNIX) as sock:
+                path=root/'gateway.sock';sock.bind(str(path));os.chown(path,env['uid'],env['gid']);path.chmod(0o600)
+                script="import json,tomllib;from pathlib import Path;p=Path('/state/codex/config.toml');c=tomllib.loads(p.read_text());print(json.dumps({'model':c['model'],'effort':c['model_reasoning_effort']}))"
+                result=subprocess.run(command(env,path,['python','-c',script]),capture_output=True,text=True,timeout=20)
+                self.assertEqual(result.returncode,0,result.stderr)
+                self.assertEqual(json.loads(result.stdout),{'model':'gpt-5.6','effort':'high'})
+
     def test_plan_can_publish_only_preview_images_and_cannot_change_existing_edit(self):
         with tempfile.TemporaryDirectory(prefix='vua-',dir=TEST_TMP) as directory:
             root=Path(directory);store=Store(root);project=store.add_project('a','A')

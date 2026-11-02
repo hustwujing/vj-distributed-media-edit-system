@@ -17,7 +17,9 @@ class ObservationMiddleware:
         incoming=Headers(scope=scope).get('x-request-id','')
         incoming=incoming if re.fullmatch('[a-f0-9]{32}',incoming) else None
         match=re.search(r'/projects/([a-f0-9]{32})/(?:agent|jobs)/([a-f0-9]{32})(?:/|$)',scope['path'])
-        fields={'project_id':match[1],'task_id':match[2]} if match else {}
+        project=re.search(r'/projects/([a-f0-9]{32})(?:/|$)',scope['path'])
+        fields={'project_id':project[1]} if project else {}
+        if match:fields.update(task_id=match[2])
         started=time.monotonic();status=500;began=False;complete=False;sent=0;first_byte=None;outcome='succeeded'
         async def observed_send(message):
             nonlocal status,began,complete,sent,first_byte
@@ -33,9 +35,11 @@ class ObservationMiddleware:
         with bind(request_id=request_id,trace_id=trace,span_id=span,linked_request_id=incoming,**fields):
             try:
                 await self.app(scope,receive,observed_send)
-                if not complete:outcome='disconnected'
+                if not complete or status==499:outcome='disconnected'
             except asyncio.CancelledError:
-                outcome='disconnected';raise
+                outcome='disconnected'
+                if not began:status=499
+                raise
             except Exception as exc:
                 outcome='failed';emit('http.exception','ERROR',exc=exc,status=status)
                 if began:raise  # Headers are already on the wire; never fabricate another response.

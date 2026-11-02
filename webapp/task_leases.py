@@ -23,14 +23,16 @@ class LeaseLost(RuntimeError):
 
 
 class TaskQuotaReached(ValueError):
-    def __init__(self,message,*,category=None,scope=None,used=None,limit=None):
+    def __init__(self,message,*,category=None,scope=None,used=None,limit=None,reset_at=None):
         super().__init__(message)
         self.diagnostic={'code':(scope+'_quota_exhausted') if scope else 'quota_exhausted',
                          'category':category,'scope':scope,'used':used,'limit':limit}
+        if reset_at is not None:self.diagnostic['reset_at']=reset_at
 
 
 def model_call_limit():
-    return int(os.environ.get('VIDEO_USE_TASK_MODEL_CALLS','40'))
+    from .agent_profiles import current
+    return current().budget['task_models']
 
 
 def quota_status(store,task_id,category,limit):
@@ -39,18 +41,47 @@ def quota_status(store,task_id,category,limit):
     used=rows[0]['used'] if rows else 0
     if used>=limit:return {'category':category,'scope':'task','used':used,'limit':limit,'blocked':True}
     owners=store.query('SELECT p.owner FROM projects p JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.project=p.id WHERE t.id=?',(task_id,))
+    daily=daily_quota(store,owners[0]['owner'],category) if owners else None
+    return daily if daily else {'category':category,'scope':'task','used':used,'limit':limit,'blocked':False}
+
+
+def daily_quota(store,owner,category):
+    day=int(store.now()//86400)
     cap=int(os.environ.get('VIDEO_USE_USER_'+category.upper()+'_DAILY','200' if category=='model' else '40'))
-    daily=store.query('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owners[0]['owner'],int(store.now()//86400),category)) if owners else []
-    consumed=daily[0]['used'] if daily else 0
-    return {'category':category,'scope':'daily','used':consumed,'limit':cap,'blocked':True} if consumed>=cap else {'category':category,'scope':'task','used':used,'limit':limit,'blocked':False}
+    rows=store.query('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category))
+    used=rows[0]['used'] if rows else 0
+    return {'category':category,'scope':'daily','used':used,'limit':cap,'reset_at':(day+1)*86400,'blocked':True} if used>=cap else None
 
 
 def quota_error(state):
-    scope=state['scope'];label='模型' if state['category']=='model' else '工具'
+    from datetime import datetime,timezone
+    scope=state['scope']
+    label={'model':'模型','planning_model':'规划模型','image':'图片','local_image':'本地图片处理','video':'视频','transcribe':'转写'}.get(state['category'],'操作')
     prefix={'task':'本任务','daily':'今日','turn':'本轮'}.get(scope,'当前')
-    advice='请等待每日额度恢复或联系管理员。' if scope=='daily' else '已完成成果保留，请确认新的收尾方案。' if scope=='task' else '可在新一轮中继续检查。'
+    reset=state.get('reset_at')
+    advice=('额度将于 '+datetime.fromtimestamp(reset,timezone.utc).strftime('%Y-%m-%d %H:%M UTC')+' 恢复，恢复前重复提交无效。') if scope=='daily' and reset else '请等待每日额度恢复或联系管理员。' if scope=='daily' else '已完成成果保留，请确认新的收尾方案。' if scope=='task' else '可在新一轮中继续检查。'
     return TaskQuotaReached(f"{prefix}{label}调用额度已用完（{state['used']}/{state['limit']}）。{advice}",
-                            **{k:state[k] for k in ('category','scope','used','limit')})
+                            **{k:state.get(k) for k in ('category','scope','used','limit','reset_at')})
+
+
+def record_quota(store,task,exc):
+    from .agent_store import event
+    try:event(store,task,'quota',{**exc.diagnostic,'message':str(exc)})
+    except Exception as error:
+        # A receipt write must not suppress the original quota response.
+        from .telemetry import emit
+        emit('quota.record_failed','WARNING',exc=error)
+
+
+def blocked_quota(store,task):
+    rows=store.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind='quota' ORDER BY seq DESC LIMIT 1",(task,))
+    if not rows:return None
+    block=json.loads(rows[0]['payload'])
+    if block.get('scope')=='daily':
+        owners=store.query('SELECT p.owner FROM projects p JOIN agent_turns t ON t.project=p.id WHERE t.id=?',(task,))
+        state=daily_quota(store,owners[0]['owner'],block['category']) if owners else None
+    else:state=quota_status(store,task,block['category'],block['limit'])
+    return {**state,'message':str(quota_error(state))} if state and state['blocked'] else None
 
 
 def now(db):
@@ -201,7 +232,7 @@ class Lease:
             daily=db.execute('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category)).fetchone()
             consumed=daily['used'] if daily else 0
             cap=int(os.environ.get('VIDEO_USE_USER_'+category.upper()+'_DAILY', '200' if category=='model' else '40'))
-            if consumed>=cap:raise quota_error({'category':category,'scope':'daily','used':consumed,'limit':cap})
+            if consumed>=cap:raise quota_error({'category':category,'scope':'daily','used':consumed,'limit':cap,'reset_at':(day+1)*86400})
             db.execute('INSERT INTO execution_budgets VALUES (?,?,?) ON CONFLICT(turn_id,category) DO UPDATE SET used=excluded.used',
                        (self.turn_id, category, used + 1))
             db.execute('INSERT INTO execution_daily_usage VALUES (?,?,?,?) ON CONFLICT(owner,day,category) DO UPDATE SET used=excluded.used',
@@ -263,6 +294,9 @@ class Coordinator:
             if waiting and waiting['next_retry']>timestamp and turn and turn['status']!='cancelling':return None
             if not turn or turn['status'] in ('succeeded', 'failed', 'cancelled', 'paused'):
                 return None
+            if kind=='agent' and turn['status']!='cancelling':
+                from .harness_switching import pending
+                if pending(db,turn_id):return None
             pausing=db.execute('''SELECT c.turn_id FROM workflow_control c JOIN agent_workflows w ON w.turn_id=c.turn_id
                 WHERE c.turn_id=? AND c.pause_requested=1 AND w.status IN ('ready','reviewing','resuming')''',(turn_id,)).fetchone()
             if pausing and turn['status']!='cancelling':return None
@@ -376,6 +410,12 @@ class Coordinator:
                 control=self.store.query('SELECT pause_requested FROM workflow_control WHERE turn_id=?',(row['id'],))
                 if control and control[0]['pause_requested']:continue
             if row['workflow_status']=='ready':
+                if not active:
+                    from .workflow_review import reconcile
+                    if reconcile(self.store,row['id']):
+                        fresh=self.store.query('SELECT t.id,t.status,w.status AS workflow_status,w.id AS workflow FROM agent_turns t JOIN agent_workflows w ON w.turn_id=t.id WHERE t.id=?',(row['id'],))[0]
+                        if fresh['status'] in ('queued','running','waiting'):ready.append(fresh)
+                        continue
                 steps=available_steps(self.store,row['id'],timestamp)
                 ready.extend(dict(row,step_id=step) for step in steps)
                 if not steps and not active:

@@ -31,6 +31,20 @@ class ActivityTests(unittest.TestCase):
         with self.lease.bind():agent_store.event(self.store,self.t,'tool',{'id':'code','status':'running','category':'write','title':'编写脚本','started':self.store.now()})
         row=current(self.store,self.t)[0];self.assertEqual((row['actor'],row['phase']),('sandbox_agent','writing'))
         self.lease.release(interrupted=True);self.assertEqual(current(self.store,self.t)[0]['status'],'interrupted')
+    def test_serialized_script_null_operation_records_start_finish_and_failure(self):
+        from webapp.execution_metrics import measured
+        @measured('local')
+        def local(_,step):
+            running=[x for x in current(self.store,self.t) if x['status']=='running']
+            self.assertEqual(len(running),1);self.assertEqual(running[0]['operation'],'script')
+            if step['id']=='broken':raise ValueError('bad input')
+        with self.lease.bind():
+            local(None,{'id':'valid','revision':0,'spec':{'operation':None}})
+            with self.assertRaises(ValueError):local(None,{'id':'broken','revision':0,'spec':{'operation':None}})
+        rows=current(self.store,self.t);self.assertEqual({x['status'] for x in rows},{'completed','failed'})
+        self.assertTrue(all(x['actor']=='workflow_sandbox' for x in rows))
+        self.assertEqual(len(self.store.query("SELECT * FROM agent_events WHERE kind='work'")),4)
+
     def test_host_and_workflow_operations_keep_distinct_actor_and_step(self):
         from webapp.execution_metrics import measured
         @measured('local')

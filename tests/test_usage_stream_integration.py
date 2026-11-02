@@ -8,6 +8,25 @@ from webapp import agent_store,task_usage
 from webapp.store import Store
 
 class UsageStreamTests(unittest.TestCase):
+    def test_nested_rollback_never_broadcasts_uncommitted_events(self):
+        with tempfile.TemporaryDirectory() as folder:
+            store=Store(Path(folder));agent_store.initialize(store);project=store.add_project('owner','events')['id']
+            task=agent_store.add_turn(store,project,'plan','test')
+            with patch('webapp.agent_stream.bus') as bus:
+                with self.assertRaises(ValueError):
+                    with store.connect() as db:
+                        db.execute('BEGIN IMMEDIATE')
+                        agent_store.event(store,task,'progress',{'text':'not committed'})
+                        bus.return_value.publish.assert_not_called()
+                        raise ValueError('rollback')
+                bus.return_value.publish.assert_not_called()
+                self.assertEqual(store.query('SELECT seq FROM agent_events WHERE turn_id=?',(task,)),[])
+                with store.connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    agent_store.event(store,task,'progress',{'text':'committed'})
+                    bus.return_value.publish.assert_not_called()
+                self.assertEqual(bus.return_value.publish.call_count,1)
+
     def test_committed_tool_events_keep_stream_publication_and_one_usage_record(self):
         with tempfile.TemporaryDirectory() as folder:
             store=Store(Path(folder));agent_store.initialize(store);p=store.add_project('owner','stream')['id'];t=agent_store.add_turn(store,p,'plan','private')

@@ -2,6 +2,8 @@
 import json,time,uuid
 from pathlib import Path
 from fastapi import HTTPException,Request
+from fastapi.responses import JSONResponse
+from .api_execution import admission
 from pydantic import BaseModel,ConfigDict,Field
 
 class Note(BaseModel):
@@ -29,6 +31,7 @@ class BatchRequest(BaseModel):
  template:str=Field(min_length=32,max_length=32);assets:list[str]=Field(min_length=1,max_length=20)
 
 def register(app,store,own_project,lock,wake):
+ api_execution=app.state.api_execution
  with store.connect() as db:
   db.executescript('''CREATE TABLE IF NOT EXISTS edit_notes(id TEXT PRIMARY KEY,project TEXT NOT NULL,start REAL NOT NULL,"end" REAL,text TEXT NOT NULL,kind TEXT NOT NULL,created REAL NOT NULL);
  CREATE INDEX IF NOT EXISTS edit_notes_project ON edit_notes(project,created);
@@ -91,37 +94,63 @@ def register(app,store,own_project,lock,wake):
  def asset(project,asset_id):
   return next((a for a in store.assets(project) if a['id']==asset_id),None)
  @app.get('/api/projects/{project}/editorial/captions/{asset_id}')
- def captions(project:str,asset_id:str,request:Request,track:int=0):
-  own_project(project,request);a=asset(project,asset_id)
-  if not a:raise HTTPException(404,'字幕来源不存在')
-  if a['metadata']['kind']=='subtitle':
-   from helpers.edit_captions import parse_srt
-   try:cues=parse_srt(store.project_dir(project)/'sources'/a['filename'])
-   except (ValueError,OSError) as exc:raise HTTPException(422,str(exc)) from exc
-  elif a['metadata']['kind']=='video':
-   suffix=f'.track{track}' if track else '';path=store.project_dir(project)/'edit/transcripts'/f'{asset_id}{suffix}.json'
-   if not path.is_file():raise HTTPException(404,'请先转写该音轨')
-   words=[w for w in json.loads(path.read_text()).get('words',[]) if w.get('type')=='word' and w.get('start') is not None]
-   cues=[];group=[]
-   for w in words:
-    if group and (len(group)>=8 or w['start']-group[-1]['end']>.5 or w.get('speaker_id')!=group[-1].get('speaker_id')):
-     cues.append({'start':group[0]['start'],'end':group[-1]['end'],'text':''.join(x.get('text','') for x in group).strip()});group=[]
-    group.append(w)
-   if group:cues.append({'start':group[0]['start'],'end':group[-1]['end'],'text':''.join(x.get('text','') for x in group).strip()})
-  else:raise HTTPException(422,'请选择视频转写或 SRT')
-  return {'source':asset_id,'cues':[{'start':c['start'],'end':c['end'],'text':c['text']} for c in cues]}
+ async def captions(project:str,asset_id:str,request:Request,track:int=0):
+  def lookup():
+   own_project(project,request);a=asset(project,asset_id)
+   if not a:raise HTTPException(404,'字幕来源不存在')
+   return a
+  a=await api_execution.run('read',lookup)
+  def read_captions():
+   from .api_staging import text_file
+   if a['metadata']['kind']=='subtitle':
+    from helpers.edit_captions import parse_srt_text
+    cues=parse_srt_text(text_file(store,project,'sources/'+a['filename']))
+   elif a['metadata']['kind']=='video':
+    suffix=f'.track{track}' if track else ''
+    value=json.loads(text_file(store,project,f'edit/transcripts/{asset_id}{suffix}.json'))
+    if not isinstance(value,dict) or not isinstance(value.get('words',[]),list) or any(not isinstance(w,dict) for w in value.get('words',[])):
+     raise ValueError('Invalid transcript data')
+    words=[w for w in value.get('words',[]) if w.get('type')=='word' and w.get('start') is not None]
+    cues=[];group=[]
+    for w in words:
+     if group and (len(group)>=8 or w['start']-group[-1]['end']>.5 or w.get('speaker_id')!=group[-1].get('speaker_id')):
+      cues.append({'start':group[0]['start'],'end':group[-1]['end'],'text':''.join(x.get('text','') for x in group).strip()});group=[]
+     group.append(w)
+    if group:cues.append({'start':group[0]['start'],'end':group[-1]['end'],'text':''.join(x.get('text','') for x in group).strip()})
+   else:raise HTTPException(422,'请选择视频转写或 SRT')
+   return JSONResponse({'source':asset_id,'cues':[{'start':c['start'],'end':c['end'],'text':c['text']} for c in cues]})
+  try:return await api_execution.run('storage',read_captions)
+  except FileNotFoundError as exc:raise HTTPException(404,'字幕源不存在，请先转写对应音轨。') from exc
+  except OverflowError as exc:raise HTTPException(413,'字幕源超过编辑器读取上限，请先分段处理。') from exc
+  except (ValueError,TypeError,KeyError) as exc:raise HTTPException(422,'字幕源数据格式无效。') from exc
  @app.post('/api/projects/{project}/editorial/captions',status_code=201)
- def save_captions(project:str,body:CaptionSave,request:Request):
-  with lock:
-   own_project(project,request);previous=-1
+ @admission('upload')
+ async def save_captions(project:str,body:CaptionSave,request:Request):
+  from .api_staging import Staging
+  await api_execution.run('read',own_project,project,request)
+  stage=Staging(store.root);id=uuid.uuid4().hex;filename=id+'.srt'
+  def prepare():
+   previous=-1
    for cue in body.cues:
     if cue.end<=cue.start or cue.start<previous:raise HTTPException(422,'字幕时间必须递增且不能重叠')
     previous=cue.end
    from helpers.edit_captions import clock
    raw='\n\n'.join(f'{i+1}\n{clock(c.start)} --> {clock(c.end)}\n{c.text}' for i,c in enumerate(body.cues))+'\n'
-   id=uuid.uuid4().hex;filename=id+'.srt';path=store.project_dir(project)/'sources'/filename;path.write_text(raw,encoding='utf-8')
-   store.add_asset(project,id,body.name.strip()+'.srt',filename,{'kind':'subtitle','size':path.stat().st_size,'derived_from':'caption_editor'})
-  return {'id':id,'name':body.name.strip()+'.srt'}
+   data=raw.encode('utf-8');stage.write(filename,data);return len(data)
+  try:
+   size=await api_execution.run('storage',prepare)
+   uploaded=await api_execution.run('storage',store.artifacts.upload,project,stage.path/filename,check=stage.check) if store.shared_files else None
+   def publish():
+    with store.connect() as db:
+     db.execute('BEGIN IMMEDIATE');own_project(project,request)
+     if len(store.assets(project))>=50:raise HTTPException(409,'每个项目最多 50 个素材。')
+     store.check_storage(project,size);stage.move(filename,store.project_dir(project)/'sources'/filename)
+     store.add_asset(project,id,body.name.strip()+'.srt',filename,{'kind':'subtitle','size':size,'derived_from':'caption_editor'},artifact=uploaded)
+     stage.check()
+    return {'id':id,'name':body.name.strip()+'.srt'}
+   return await api_execution.run('write',stage.commit,publish)
+  except ValueError as exc:raise HTTPException(422,str(exc)) from exc
+  finally:await stage.finish(api_execution)
  @app.post('/api/projects/{project}/editorial/templates',status_code=201)
  def template(project:str,body:BrandTemplate,request:Request):
   with lock:
@@ -143,7 +172,7 @@ def register(app,store,own_project,lock,wake):
    for aid in targets:
     a=assets[aid]
     plan={'version':1,'clips':[{'asset':aid,'start':0,'end':a['metadata']['duration'],'fit':t['fit']}],'output':{'width':t['width'],'height':t['height'],'fps':30,'crf':20},'audio':{'normalize':t['normalize_audio']}}
-    if (store.project_dir(project)/'edit/transcripts'/(aid+'.json')).is_file():plan['subtitles']={'from_transcripts':True,'words_per_line':6,'size':t['subtitle_size'],'color':t['subtitle_color'],'position':t['subtitle_position'],'outline':2}
+    if store.has_file(project,'edit/transcripts/'+aid+'.json'):plan['subtitles']={'from_transcripts':True,'words_per_line':6,'size':t['subtitle_size'],'color':t['subtitle_color'],'position':t['subtitle_position'],'outline':2}
     jobs.append(store.add_job(project,'edit',{'kind':'edit','tool':'brand_batch','edit_plan':plan})['id'])
    wake.set()
   return {'jobs':jobs}

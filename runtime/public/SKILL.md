@@ -89,6 +89,11 @@ After execution, append truthful decisions and checks to `edit/project.md`.
 Deliver through `edit/deliverables.json`, naming existing files relative to
 `edit/`. Do not silently remove previous project files. Keep unverified
 candidates distinct from approved results and report uncertainty explicitly.
+Use a filename string list, for example
+`{"primary":"result.mp4","files":["result.mp4","captions.srt"]}`.
+Do not repeat the `edit/` prefix or put metadata objects in `files`. Every
+declared file must exist; an invalid declaration prevents successful delivery
+and retains generated files as candidates for correction.
 
 Generation operations: `image.generate_from_text` has no input image; `video.generate_from_text` has no reference; `video.generate_from_image` requires one owned `source` reference. Inspect current capability constraints before planning duration and dimensions. The backend selects the provider/model and owns submit/poll/download/cancel; never implement a provider HTTP loop in a local script. Upstream cancellation may be unsupported. Native generated video may differ from requested duration by one frame; declare a suitable frame-level tolerance, and never loop/freeze/stretch footage to hide unsupported durations.
 

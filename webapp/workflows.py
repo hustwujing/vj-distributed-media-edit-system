@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from . import agent_store
 from .quality_policy import Acceptance,Repair,validate_typed_output_targets
 from .operations import InputRef
+from .workflow_reuse import ReuseRef
 
 
 class Step(BaseModel):
@@ -28,6 +29,7 @@ class Step(BaseModel):
     kind: Literal['script','operation']
     operation: str | None = None
     implementation: str | None = None
+    reuse_from: ReuseRef | None = None
     contract_version: int = Field(default=1,ge=1,le=1)
     inputs: dict[str,InputRef] = Field(default_factory=dict,max_length=20)
     parameters: dict = Field(default_factory=dict)
@@ -79,6 +81,9 @@ class Step(BaseModel):
                 raise ValueError('输出角色必须引用声明的本地输出文件')
         for path in self.preflight+self.config_files:
             if not path.startswith('edit/') or '..' in Path(path).parts or Path(path).is_absolute():raise ValueError('脚本与配置必须位于 edit 目录')
+        if self.reuse_from:
+            from .workflow_reuse import eligible
+            if not eligible(self.model_dump()):raise ValueError('此步骤未声明完整的可复用操作契约；不能复用脚本或外部生成')
         return self
 
 
@@ -191,6 +196,8 @@ def initialize(store):
         initialize_manual(db)
         from .step_checkpoints import initialize as initialize_step_checkpoints
         initialize_step_checkpoints(db)
+        from .workflow_reuse import initialize as initialize_reuse
+        initialize_reuse(db)
         columns={r['name'] for r in db.execute('PRAGMA table_info(agent_steps)')}
         for name,definition in {'revision':'INTEGER NOT NULL DEFAULT 0','repair_count':'INTEGER NOT NULL DEFAULT 0',
                                 'candidate':"TEXT NOT NULL DEFAULT '[]'",'quality':"TEXT NOT NULL DEFAULT '{}'",
@@ -232,6 +239,16 @@ def get(store, turn_id):
     return w
 
 
+def resumable_step(s):
+    if s['error_code'] not in ('','poll','collect','local','validate','pre_submit'):return False
+    if s['error_code']=='local' and not (s['spec']['retry_safe'] and s['attempts']<3):return False
+    if s['status']=='paused':
+        from .operation_lifecycle import for_step
+        try:for_step(s['spec']).resume_state(s)
+        except ValueError:return False
+    return True
+
+
 def public(w):
     if not w:
         return None
@@ -240,11 +257,11 @@ def public(w):
         'agent_review': {k:w['agent_review'][k] for k in ('id','step','purpose','status','runs')} if w['agent_review'] else None,
         'steps': [{k: s[k] for k in ('id', 'status', 'attempts', 'error', 'error_code','revision','repair_count','quality','diagnostics','wait_reason')} |
                   {'name': s['spec']['name'], 'kind': s['spec']['kind'], 'operation':s['spec'].get('operation','script'), 'updated':s['updated'],
+                   'reuse_from':s['spec'].get('reuse_from'),'reuse':s.get('bindings',{}).get('_reuse'),
                    'wait_reason':s.get('wait_reason') or ('dependency' if s['status']=='pending' and any(parent['id'] in s['spec']['depends_on'] and parent['status']!='succeeded' for parent in w['steps']) else 'user' if s['status']=='awaiting_review' else ''),'preflight':s.get('bindings',{}).get('_preflight'),'depends_on': s['spec']['depends_on'], 'files': s['result'],'candidate_files':s['candidate']} for s in w['steps']],
         'resume_block':w.get('resume_block'),
         'resumable': w['status'] == 'paused' and not w.get('resume_block') and (bool(w['agent_review'] and w['agent_review']['runs']<3) or (not w['agent_review'] and all(
-            s['error_code'] in ('', 'poll', 'collect', 'local','validate','pre_submit') and
-            (s['error_code'] != 'local' or s['spec']['retry_safe'] and s['attempts'] < 3)
+            resumable_step(s)
             for s in w['steps'])))}
 
 
@@ -292,6 +309,10 @@ def submit(store, turn_id, raw):
         else:
             assets = {a['id']: a for a in store.assets(row['project'])}
             for step in plan.steps:
+                if step.reuse_from:
+                    from .workflow_reuse import source_receipt, compare_spec
+                    receipt=source_receipt(store,row['project'],step.reuse_from.model_dump())
+                    compare_spec(step.model_dump(),receipt)
                 for ref in step.inputs.values():
                     if ref.asset and ref.asset not in assets:raise ValueError('输入素材不属于当前项目')
             now = store.now()
@@ -315,8 +336,12 @@ def change(store, wid, sid, **values):
                 outcome='cancelled' if values['status']=='cancelled' else 'failed' if values['status'] in ('failed','paused','pending') else 'succeeded'
                 complete(db,call['task_id'],call['call_id'],outcome)
     keys = list(values)
-    store.execute('UPDATE agent_steps SET '+','.join(k+'=?' for k in keys)+' WHERE workflow=? AND id=?',
-                  tuple(json.dumps(values[k], ensure_ascii=False) if k in ('result','candidate','quality','spec','bindings') else values[k] for k in keys)+(wid, sid))
+    with store.connect() as db:
+        db.execute('UPDATE agent_steps SET '+','.join(k+'=?' for k in keys)+' WHERE workflow=? AND id=?',
+                      tuple(json.dumps(values[k], ensure_ascii=False) if k in ('result','candidate','quality','spec','bindings') else values[k] for k in keys)+(wid, sid))
+        if values.get('status')=='succeeded':
+            from .workflow_reuse import record_success
+            record_success(store,db,wid,sid)
     store.execute('UPDATE agent_workflows SET updated=? WHERE id=?', (store.now(), wid))
     store.execute('UPDATE agent_turns SET updated=? WHERE id=(SELECT turn_id FROM agent_workflows WHERE id=?)', (store.now(), wid))
 
@@ -404,7 +429,11 @@ def resume(store, turn_id):
         if w['agent_review']:
             workflow_review.recover(store,w)
             return
-        db.execute("UPDATE agent_steps SET status=CASE WHEN error_code='validate' THEN 'verifying' WHEN external_id IS NULL THEN 'pending' ELSE 'waiting' END,error='',error_code='',next_poll=0,failures=0,started=? WHERE workflow=? AND status='paused'", (store.now(), w['id']))
+        from .operation_lifecycle import for_step
+        for step in w['steps']:
+            if step['status']=='paused':
+                status=for_step(step['spec']).resume_state(step)
+                change(store,w['id'],step['id'],status=status,error='',error_code='',next_poll=0,failures=0,started=store.now())
         db.execute("UPDATE agent_workflows SET status='ready',error='',updated=? WHERE id=?", (store.now(), w['id']))
         db.execute("UPDATE agent_turns SET status='waiting',error='',updated=? WHERE id=?", (store.now(), turn_id))
 
@@ -490,12 +519,15 @@ def quality_action(store,turn_id,step_id,revision,action,actor,feedback='',repla
             if queue_auto_repair(store,w,s,report):state(store,turn_id,'ready',text='正在执行已声明的本地修复方案。')
             elif s['spec'].get('on_failure')=='diagnose':
                 from .workflow_review import queue
-                queue(store,get(store,turn_id),s,'diagnose')
+                if queue(store,get(store,turn_id),s,'diagnose') and get(store,turn_id)['status']=='paused':
+                    # A sibling already owns the reviewer. The explicit user
+                    # answer allows the scheduler to drain that durable queue.
+                    state(store,turn_id,'ready',text='已记录反馈，继续排队诊断。')
         elif action=='repair':
             if replacement is None:raise ValueError('请提供明确的修复步骤')
             spec=Step.model_validate(replacement).model_dump()
             original=Step.model_validate(s['spec']).model_dump()
-            if any(spec[k]!=original[k] for k in ('id','kind','depends_on','outputs','acceptance','goal','basic_reason','on_failure','retry_safe','timeout','repairs','operation','implementation','inputs','output_roles','preflight','config_files')):
+            if any(spec[k]!=original[k] for k in ('id','kind','depends_on','outputs','acceptance','goal','basic_reason','on_failure','retry_safe','timeout','repairs','operation','implementation','inputs','output_roles','preflight','config_files','reuse_from')):
                 raise ValueError('修复不能改变验收标准、需求、权限、依赖或输出契约')
             affected={step_id}
             for child in w['steps']:
@@ -519,7 +551,7 @@ def quality_action(store,turn_id,step_id,revision,action,actor,feedback='',repla
             db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),turn_id))
             quality_event(store,w,s,actor,'repair',json.dumps({'feedback':feedback,'replacement':spec,'affected':sorted(affected)},ensure_ascii=False))
             db.execute("UPDATE workflow_agent_reviews SET status='superseded',updated=? WHERE workflow=? AND status IN ('pending','running','staged')",(store.now(),w['id']))
-            db.execute("UPDATE workflow_user_requests SET status='superseded' WHERE workflow=? AND status='pending'",(w['id'],))
+            db.execute("UPDATE workflow_user_requests SET status='superseded' WHERE workflow=? AND status='pending' AND step IN ("+','.join('?' for _ in affected)+")",(w['id'],*sorted(affected)))
             state(store,turn_id,'ready',text='修复版本已确认，将重新计算受影响的步骤。')
         else:raise ValueError('未知验收操作')
     return public(get(store,turn_id))
@@ -567,28 +599,28 @@ class Runner:
                 if step_id is not None and s['id']!=step_id:continue
                 if s['status'] == 'paused':
                     uncertain = True
-                elif s['status'] == 'submitting':
-                    from .operations import for_step
-                    op=for_step(s['spec'])
-                    if op and op.executor in ('transcribe','image_sync'):
-                        calls=self.store.query('SELECT state,result FROM workflow_provider_calls WHERE request_key=?',(w['id']+':'+s['id']+':'+str(s['revision']),))
-                        if not calls:
-                            change(self.store,w['id'],s['id'],status='pending');continue
-                        if calls[0]['state']=='succeeded':
-                            if json.loads(calls[0]['result']):
-                                change(self.store,w['id'],s['id'],status='verifying',candidate=json.loads(calls[0]['result']));continue
-                            change(self.store,w['id'],s['id'],status='paused',error_code='result_unavailable',error='上游已返回，但结果尚未持久化；未自动再次调用。')
-                            uncertain=True;continue
-                    change(self.store, w['id'], s['id'], status='paused', error_code='submission_unknown',
-                           error='外部提交结果不确定，未自动重提；请核实服务端任务。')
-                    uncertain = True
-                elif s['status'] == 'running':
-                    safe = s['spec']['retry_safe'] and s['attempts'] < 3
-                    change(self.store, w['id'], s['id'], status='pending' if safe else 'paused',
-                           error_code='' if safe else 'local', error='' if safe else '本地步骤中断，未声明可安全重试。')
-                    uncertain |= not safe
-                elif s['status'] == 'collecting':
-                    change(self.store, w['id'], s['id'], status='waiting', next_poll=0)
+                elif s['status'] in ('pending','running','submitting','waiting','collecting','verifying'):
+                    from .operation_lifecycle import for_step
+                    updates=None
+                    try:
+                        implementation=for_step(s['spec'])
+                        phase=implementation.phase(s)
+                        receipt=None
+                        if phase=='sync' and implementation.records_calls and s['status']=='submitting':
+                            calls=self.store.query('SELECT state,result FROM workflow_provider_calls WHERE request_key=?',
+                                (w['id']+':'+s['id']+':'+str(s['revision']),))
+                            receipt=calls[0] if calls else None
+                        if s['status'] in ('running','submitting','waiting','collecting','verifying'):
+                            if s['spec'].get('reuse_from') and s['status']=='running':
+                                updates=({'status':'pending'} if s['attempts']<3 else
+                                         {'status':'paused','error_code':'reuse','error':'复用恢复次数已达上限，请重新规划。'})
+                            else:updates=implementation.recover(s,receipt=receipt)
+                    except ValueError:
+                        updates={'status':'paused','error_code':'lifecycle',
+                                 'error':'执行协议或阶段状态不受支持，未继续调用；请检查实现版本。'}
+                    if updates is not None:
+                        change(self.store,w['id'],s['id'],**updates)
+                        uncertain |= updates['status']=='paused'
             if uncertain:
                 state(self.store, w['turn_id'], 'paused', error='任务中断，已保留完成步骤；需要核实未完成操作。')
             elif w['status'] != 'resuming':
@@ -644,22 +676,28 @@ class Runner:
     def step(self, w, s):
         sid, wid, tid = s['id'], w['id'], w['turn_id']
         spec = s['spec']
-        from .operations import for_step
-        operation=for_step(spec)
-        from .operation_lifecycle import for_operation,Lifecycle
-        implementation=for_operation(operation) if operation else None
-        sync_provider=implementation is not None and implementation.lifecycle==Lifecycle.SYNC
-        phase = 'validate' if s['status']=='verifying' else 'poll' if s['external_id'] else 'sync' if sync_provider else 'local' if implementation is None or implementation.lifecycle==Lifecycle.LOCAL else 'submit'
+        from .operation_lifecycle import for_step
+        phase='lifecycle';implementation=None
         if self.interrupted(tid):
             return
         try:
+            implementation=for_step(spec)
+            phase=implementation.phase(s)
             if phase=='validate':
                 files=s['candidate']
+            elif spec.get('reuse_from'):
+                phase='reuse'
+                if not self.claim(w,s,'running'):return
+                from .workflow_reuse import bind_execution
+                bind_execution(self.store,w,s)
+                files=self.adapter.reuse(w,s,cancelled=lambda:self.interrupted(tid))
+                agent_store.event(self.store,tid,'progress',{'text':'已读取历史产物，正在按本版方案重新验收：'+spec['name']})
             elif phase == 'local':
                 if not self.claim(w, s, 'running'):return
+                from .workflow_reuse import eligible,bind_execution
+                if eligible(spec):bind_execution(self.store,w,s)
                 agent_store.event(self.store, tid, 'progress', {'text':'正在执行：'+spec['name']})
-                files = (implementation.invoke(self.adapter,'local',w,s,cancelled=lambda:self.interrupted(tid))
-                         if implementation else self.adapter.local(w,s,lambda:self.interrupted(tid)))
+                files = implementation.invoke(self.adapter,'local',w,s,cancelled=lambda:self.interrupted(tid))
             elif phase=='sync':
                 if not self.claim(w,s,'submitting'):return
                 files=implementation.invoke(self.adapter,'sync',w,s,cancelled=lambda:self.interrupted(tid))
@@ -673,7 +711,8 @@ class Runner:
                 change(self.store, wid, sid, status='waiting',wait_reason='provider', external_id=external_id, next_poll=self.store.now()+2)
                 agent_store.event(self.store, tid, 'progress', {'text':spec['name']+'已提交，后台等待结果；完成后将自动继续。'})
                 return
-            else:
+            elif phase in ('poll','collect'):
+                phase='poll'
                 if s['started'] and self.store.now()-s['started'] > 86400:
                     raise RuntimeError('外部任务等待超过 24 小时，请核实后继续查询')
                 record = implementation.invoke(self.adapter,'poll',w,s)
@@ -690,6 +729,9 @@ class Runner:
                 phase = 'collect'
                 change(self.store, wid, sid, status='collecting')
                 files = implementation.invoke(self.adapter,'collect',w,s,record=record,cancelled=lambda:self.interrupted(tid))
+            else:
+                from .operation_lifecycle import LifecycleError
+                raise LifecycleError('Unsupported Runner phase')
             change(self.store,wid,sid,status='verifying',wait_reason='',candidate=files)
             phase='validate'
             report=self.adapter.validate(w,s,files) if hasattr(self.adapter,'validate') else {'version':'legacy-test','technical_valid':True,'passed':True,'requires_review':False,'files':[],'checks':[]}
@@ -749,7 +791,7 @@ class Runner:
             if isinstance(exc,TaskQuotaReached):phase='quota'
             if phase in ('submit','sync') and getattr(exc,'diagnostic',{}).get('code')=='provider_rejected':phase='provider_failed'
             if getattr(exc,'diagnostic',{}).get('code')=='pre_submit':phase='pre_submit'
-            if phase=='sync':
+            if phase=='sync' and implementation.records_calls:
                 calls=self.store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(wid+':'+sid+':'+str(s['revision']),))
                 if not calls:phase='local'
                 elif calls[0]['state']=='succeeded':phase='provider_failed'
@@ -769,7 +811,9 @@ class Runner:
             if phase=='publish':
                 state(self.store,tid,'paused',error='步骤结果已保存，但发布未完成；请检查存储额度后继续，不会重新生成。')
                 return
-            messages = {'pre_submit':'提交前检查失败，本次未发起生成请求；可检查后继续。','quota':'工具调用额度已用完，本次未提交外部请求。','validate':'产物验收暂未完成，已暂停后续操作，可继续检查已有结果。',
+            messages = {'reuse':'历史产物复用校验失败，未重新执行原操作；请查看诊断并重新规划。',
+                        'lifecycle':'执行协议或阶段状态不受支持，未继续调用；请检查实现版本。',
+                        'pre_submit':'提交前检查失败，本次未发起生成请求；可检查后继续。','quota':'工具调用额度已用完，本次未提交外部请求。','validate':'产物验收暂未完成，已暂停后续操作，可继续检查已有结果。',
                         'sync':'同步服务请求中断，未自动重提，请核实已有结果。',
                         'submit':'外部提交结果不确定，未自动重提；请核实后停止或重新规划。',
                         'poll':'查询外部任务失败，任务 ID 已保存；可继续查询，不会重新生成。',
@@ -777,19 +821,20 @@ class Runner:
                         'local':'本地步骤未完成，已暂停后续操作；已完成结果保留。',
                         'provider_failed':'上游生成失败或取消，已暂停后续操作；不会自动重新生成。'}
             # Do not expose provider headers, credentials or host paths in errors.
-            message = messages[phase]
+            message = messages.get(phase,messages['lifecycle'])
             if phase == 'poll' and s['failures'] < 4 and (not s['started'] or self.store.now()-s['started'] <= 86400):
                 change(self.store, wid, sid, status='waiting', failures=s['failures']+1,
                        next_poll=self.store.now()+min(60, 5*2**s['failures']), error=message)
                 return
             from .execution_contracts import classify_error
             classification=classify_error(record,phase)
-            if phase == 'local' and spec['retry_safe'] and classification not in ('code','environment','parameters') and s['attempts']+1 < 3:
+            if classification=='model_result':message='模型未产出可用结果，已停止相同输入重试；请检查选择条件。'
+            if phase == 'local' and spec['retry_safe'] and classification not in ('code','environment','parameters','model_result') and s['attempts']+1 < 3:
                 change(self.store, wid, sid, status='pending',wait_reason='retry', next_poll=self.store.now()+2, error=message)
                 agent_store.event(self.store, tid, 'progress', {'text':spec['name']+'未完成，将在新输出目录重试。'})
                 return
             change(self.store, wid, sid, status='paused', error=message,
-                   error_code='submission_unknown' if phase in ('submit','sync') else phase)
+                   error_code='submission_unknown' if phase in ('submit','sync') else 'model_result' if classification=='model_result' else phase)
             if phase in ('local','validate','provider_failed','pre_submit') and spec.get('on_failure')=='diagnose':
                 from .workflow_review import queue
                 queue(self.store,get(self.store,tid),s,'diagnose')

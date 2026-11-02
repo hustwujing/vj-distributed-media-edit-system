@@ -13,7 +13,7 @@ export const activeStatus=s=>['queued','running','waiting','paused','cancelling'
 export function duration(seconds){const n=Math.max(0,Math.floor(seconds||0));return `${Math.floor(n/60).toString().padStart(2,'0')}:${(n%60).toString().padStart(2,'0')}`;}
 export function bytes(size){return size>1024**2?`${(size/1024**2).toFixed(1)} MB`:`${Math.round((size||0)/1024)} KB`;}
 export function date(timestamp){return new Date(timestamp*1000).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});}
-export function errorText(data,status,requestId){const detail=Array.isArray(data?.detail)?data.detail.map(x=>x.msg).join('；'):data?.detail||data?.error;return (detail||`请求失败（${status}）`)+(requestId?` · 查询编号：${requestId}`:'');}
+export function errorText(data,status,requestId){const detail=Array.isArray(data?.detail)?data.detail.map(x=>x.msg).join('；'):data?.detail||data?.error;return ((typeof detail==='object'?detail?.message:detail)||`请求失败（${status}）`)+(requestId?` · 查询编号：${requestId}`:'');}
 export async function api(path,options={}){
  const response=await fetch(href(path),{credentials:'same-origin',...options,headers:{...(options.body?{'Content-Type':'application/json'}:{}),...options.headers}});
  const data=await response.json().catch(()=>({}));
@@ -37,7 +37,9 @@ export async function newProject(mode='chat'){
 export function markdown(text,artifacts=[]){
  const code=[];let escaped=esc(text).replace(/```([^\n]*)\n?([\s\S]*?)```/g,(_,language,body)=>{code.push(`<pre><code>${body}</code></pre>`);return `\u0000${code.length-1}\u0000`;});
  escaped=escaped.replace(/(!?)\[([^\]\n]+)\]\(([^)\n]+)\)/g,(_,picture,label,target)=>{
-  const item=artifacts.find(a=>target===a.url||target.endsWith('/'+a.name)||target===a.name);
+  target=target.trim();
+  if(target.startsWith('&lt;')&&target.endsWith('&gt;'))target=target.slice(4,-4);
+  const item=artifacts.find(a=>(a.url&&target===esc(a.url))||(a.name&&(target.endsWith('/'+esc(a.name))||target===esc(a.name))));
   if(picture&&item&&(isPreviewImage(item)||item.type?.startsWith('video/'))){code.push(mediaCard(item,{compact:true}));return `\u0000${code.length-1}\u0000`;}
   if(item)return `<button type="button" class="inline-media-link" data-media-url="${esc(item.url)}">${label}</button>`;
   if(/^https?:\/\//i.test(target))return `<a href="${target}" target="_blank" rel="noopener noreferrer">${label}</a>`;
@@ -54,6 +56,7 @@ export function markdown(text,artifacts=[]){
 }
 export const isPreviewImage=item=>item.type?.startsWith('image/')&&!/\.(psd|tiff?|ora)$/i.test(item.name);
 export function mediaCard(item,{compact=false}={}){
+ if(item.source_step&&item.workflow_delivery!==true)item={...item,subtitle:'步骤成果 · 非最终交付'};
  if(item.quality_state==='pending')item={...item,subtitle:'候选结果 · 尚未验收'};
  if(item.quality_state==='superseded')item={...item,subtitle:'历史候选 · 已被修复版本替代'};
  const video=item.type?.startsWith('video/'),image=isPreviewImage(item);const poster=image?item.url:item.poster_url;
@@ -83,7 +86,7 @@ export function openMedia(item){const modal=dialog('media-modal');modal.classNam
 export function showText(title,text){const modal=dialog('text-modal');modal.className='text-modal';modal.innerHTML=`<button class="modal-close" aria-label="关闭">${icon('close')}</button><h2>${esc(title)}</h2><pre class="text-preview">${esc(text)}</pre>`;modal.querySelector('.modal-close').onclick=()=>modal.close();modal.showModal();}
 export class ResultBrowser{
  constructor(container,preview){this.container=container;this.preview=preview;this.signature=null;this.items=[];this.primary=null;}
- update(items){const sig=items.map(a=>a.url+':'+a.is_primary+':'+a.alternate_version).join('|');if(sig===this.signature)return;this.signature=sig;const oldFirst=this.items[0]?.url,oldPrimary=this.primary?.url;this.items=items;
+ update(items){const sig=JSON.stringify(items.map(a=>[a.url,a.is_primary,a.alternate_version,a.quality_state,a.workflow_delivery,a.is_process,a.source_step,a.role,a.subtitle]));if(sig===this.signature)return;this.signature=sig;const oldFirst=this.items[0]?.url,oldPrimary=this.primary?.url;this.items=items;
   const row=item=>`<button class="result-row" data-result="${esc(item.url)}"><span class="result-thumb">${item.poster_url||isPreviewImage(item)?`<img loading="lazy" src="${href(item.poster_url||item.url)}" alt="">`:icon(item.type?.startsWith('video/')?'film':'file',19)}</span><span><strong>${esc(item.name)}</strong><small>${esc(item.subtitle||'')}</small></span>${icon('chevron',14)}</button>`;
   const {primary,current,history,process}=resultSections(items);this.primary=primary;
   const label=primary?.type?.startsWith('video/')?'最新成片':primary?.type?.startsWith('audio/')?'最新音频':'最新预览';

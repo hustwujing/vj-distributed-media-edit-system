@@ -2,10 +2,12 @@
 from fastapi import HTTPException,Request
 from fastapi.responses import JSONResponse
 from .diagnostics import diagnose,resolve_request
+from .api_execution import lane
 
 
 def install(app,store,own_project):
     @app.get('/api/projects/{project_id}/diagnostics/{task_id}')
+    @lane('diagnostics')
     def task_diagnosis(project_id:str,task_id:str,request:Request,after:int=0,limit:int=100,download:bool=False):
         own_project(project_id,request)
         rows=store.query('SELECT id FROM agent_turns WHERE project=? AND id=? UNION ALL SELECT id FROM jobs WHERE project=? AND id=?',(project_id,task_id,project_id,task_id))
@@ -26,6 +28,7 @@ def install(app,store,own_project):
         return JSONResponse(report,headers={'Content-Disposition':'attachment; filename="diagnosis-'+task_id+'.json"'} if download else {})
 
     @app.get('/api/projects/{project_id}/diagnostic-requests/{request_id}')
+    @lane('diagnostics')
     def request_diagnosis(project_id:str,request_id:str,request:Request):
         own_project(project_id,request)
         try:ids=resolve_request(store,request_id)

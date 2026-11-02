@@ -63,7 +63,7 @@ def measured(name):
             from .telemetry import bind
             spec=next((a for a in args[1:] if isinstance(a,dict) and isinstance(a.get('spec'),dict)),None)
             fields={}
-            if spec:fields={'step_id':spec.get('id'),'revision':spec.get('revision'),'operation':spec['spec'].get('operation','script')}
+            if spec:fields={'step_id':spec.get('id'),'revision':spec.get('revision'),'operation':spec['spec'].get('operation') or 'script'}
             if spec and isinstance(spec['spec'].get('implementation'),dict):
                 fields.update(implementation=spec['spec']['implementation'].get('id'),implementation_version=spec['spec']['implementation'].get('version'))
             actor='host'

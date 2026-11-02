@@ -133,7 +133,9 @@ class ArtifactStore:
               CREATE INDEX IF NOT EXISTS artifact_object_project ON artifact_objects(project,state);''')
 
     @measured('output_upload')
-    def upload(self,project,path):
+    def upload(self,project,path,*,check=None):
+        check=check or (lambda:None)
+        check()
         if not self.store.query('SELECT id FROM projects WHERE id=?',(project,)):raise ValueError('Unknown artifact project')
         path=Path(path)
         fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
@@ -147,6 +149,7 @@ class ArtifactStore:
             digest=hashlib.sha256();size=0
             limit=int(os.environ.get('VIDEO_USE_ARTIFACT_MAX_BYTES',str(8*1024**3)))
             while chunk:=source.read(1024*1024):
+                check()
                 size+=len(chunk)
                 if size>limit:raise ValueError('Artifact exceeds size limit')
                 digest.update(chunk);frozen.write(chunk)
@@ -161,7 +164,9 @@ class ArtifactStore:
                 db.execute('INSERT INTO artifact_objects VALUES (?,?,?,?,?,?,?,?)',
                     (identifier,project,key,digest.hexdigest(),size,'uploading',now,now+3600))
             frozen.seek(0)
+            check()
             self.backend.put(key,frozen)
+            check()
         if not self.store.execute("UPDATE artifact_objects SET state='staged' WHERE id=? AND state='uploading'",(identifier,)):
             raise RuntimeError('Upload reservation expired')
         return {'id':identifier,'sha256':digest.hexdigest(),'size':size}

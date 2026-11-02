@@ -25,6 +25,10 @@ def available_steps(store,turn_id,now):
     from .workflows import get
     workflow=get(store,turn_id)
     if not workflow or workflow['status']!='ready':return []
+    # Claims recheck this too: a candidate selected before a review/quality
+    # transition cannot start new work before control-plane reconciliation.
+    if any(step['status'] in ('diagnosing','agent_review','awaiting_review','paused') for step in workflow['steps']):return []
+    if workflow.get('agent_review'):return []
     control=store.query('SELECT pause_requested FROM workflow_control WHERE turn_id=?',(turn_id,))
     if control and control[0]['pause_requested']:return []
     leases=store.query('SELECT slot FROM execution_leases WHERE turn_id=? AND active=1 AND expires>?',(turn_id,now))
@@ -40,11 +44,17 @@ def available_steps(store,turn_id,now):
 def candidates(coordinator,model_available):
     store=coordinator.store
     health=store.query('SELECT next_retry FROM execution_model_health WHERE worker=?',(coordinator.worker,))
-    model_available=model_available and not (health and health[0]['next_retry']>store.now())
+    scoped=store.query('SELECT digest,next_retry FROM execution_profile_health WHERE worker=?',(coordinator.worker,))
+    profile_health={r['digest']:r['next_retry'] for r in scoped}
+    legacy_available=model_available and not (health and health[0]['next_retry']>store.now())
     rows=[dict(r,manual=True) for r in coordinator.manual_candidates()]+coordinator.candidates()
     result=[]
     for row in rows:
-        if dispatch_kind(row)=='agent' and row['status']!='cancelling' and not model_available:continue
+        if dispatch_kind(row)=='agent' and row['status']!='cancelling':
+            from .agent_profiles import for_task
+            digest=for_task(store,row['id']).digest
+            eligible=model_available and (profile_health.get(digest,0)<=store.now()) if scoped else legacy_available
+            if not eligible:continue
         if row.get('step_id') and row['status']!='cancelling':
             details=store.query('SELECT spec,bindings,status FROM agent_steps WHERE workflow=? AND id=?',(row['workflow'],row['step_id']))
             if not details:continue
@@ -114,6 +124,7 @@ def initialize(db):
     db.executescript('''CREATE TABLE IF NOT EXISTS execution_operation_catalog(worker TEXT PRIMARY KEY,catalogue TEXT NOT NULL,updated REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS execution_scheduler_configs(worker TEXT PRIMARY KEY,settings TEXT NOT NULL,updated REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS execution_model_health(worker TEXT PRIMARY KEY,state TEXT NOT NULL,next_retry REAL NOT NULL,updated REAL NOT NULL);
+    CREATE TABLE IF NOT EXISTS execution_profile_health(worker TEXT NOT NULL,digest TEXT NOT NULL,state TEXT NOT NULL,next_retry REAL NOT NULL,updated REAL NOT NULL,PRIMARY KEY(worker,digest));
     CREATE TABLE IF NOT EXISTS execution_waits(task_id TEXT PRIMARY KEY,reason TEXT NOT NULL,next_retry REAL NOT NULL,updated REAL NOT NULL);
     CREATE TABLE IF NOT EXISTS execution_resource_claims(
       attempt TEXT PRIMARY KEY,task_id TEXT NOT NULL,node TEXT NOT NULL,cpu INTEGER NOT NULL,memory_mb INTEGER NOT NULL,
@@ -168,14 +179,14 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
     return need
 
 
-def limits():
+def limits(*, include_runtime_profile=True):
     from .runtime_image import fingerprint
     return {'worker':int(os.environ.get('VIDEO_USE_CONCURRENCY','2')),
         'operations':os.environ.get('VIDEO_USE_NODE_OPERATIONS','*').split(','),
         'node':int(os.environ.get('VIDEO_USE_NODE_CONCURRENCY',os.environ.get('VIDEO_USE_CONCURRENCY','2'))),
         'user':int(os.environ.get('VIDEO_USE_USER_CONCURRENCY','2')),'cpu_slots':int(os.environ.get('VIDEO_USE_NODE_CPU_SLOTS','4')),
         'memory_mb':int(os.environ.get('VIDEO_USE_NODE_MEMORY_MB','12288')),'provider':int(os.environ.get('VIDEO_USE_PROVIDER_CONCURRENCY','4')),
-        'gpu_devices':gpu_devices(),'runtime_profile':fingerprint()}
+        'gpu_devices':gpu_devices(),'runtime_profile':fingerprint() if include_runtime_profile else None}
 
 
 def snapshot(store,turn_id):
@@ -187,8 +198,10 @@ def snapshot(store,turn_id):
     workers=store.query('SELECT w.id,w.node,w.model,c.settings,h.next_retry FROM execution_workers w LEFT JOIN execution_scheduler_configs c ON c.worker=w.id LEFT JOIN execution_model_health h ON h.worker=w.id WHERE w.draining=0 AND w.heartbeat>? ORDER BY w.heartbeat DESC',(now-20,))
     models=[r for r in workers if r['model']]
     needs_model=bool((w and w['status'] in ('reviewing','resuming')) or (not w and store.query('SELECT id FROM agent_turns WHERE id=?',(turn_id,))))
+    if not workers and task and task[0]['status'] in ('queued','waiting'):reason='resource'
     if needs_model and task and task[0]['status']=='queued':
-        if not models:reason='model_unconfigured'
+        if not workers:reason='resource'
+        elif not models:reason='model_unconfigured'
         elif all((r['next_retry'] or 0)>now for r in models):reason='model_unavailable'
     if w:
         if w['status']=='paused':reason='user' if w.get('user_requests') or any(s['status']=='awaiting_review' for s in w['steps']) else 'paused'
@@ -212,8 +225,10 @@ def snapshot(store,turn_id):
         'limits_scope':{'worker':workers[0]['id'],'node':workers[0]['node']} if workers else None,'network_seconds':round(calls['network_seconds'],2),'provider_polls':calls['polls'],'attempts':attempts['n'],'dispatch_seconds':round(attempts['dispatch_seconds'],2),
         'age_seconds':round(elapsed,2),'wait_reason':reason,'wait_recorded_at':recorded[0]['updated'] if recorded else None,'next_retry':recorded[0]['next_retry'] if recorded else None,
         'phase_metrics':store.query('SELECT phase,SUM(seconds) AS seconds,SUM(calls) AS calls,SUM(failures) AS failures FROM execution_phase_metrics WHERE task_id=? GROUP BY phase',(turn_id,)),
-        'limits':json.loads(workers[0]['settings']) if workers and workers[0]['settings'] else limits(),
-        'limits_source':'worker' if workers else 'defaults','active_leases_all_nodes':occupied,'resources_all_nodes':usage}
+        # Read-only API processes cannot access the privileged runtime manifest.
+        # Defaults describe configured capacity, never an attested worker runtime.
+        'limits':json.loads(workers[0]['settings']) if workers and workers[0]['settings'] else limits(include_runtime_profile=False),
+        'limits_source':'worker' if workers and workers[0]['settings'] else 'defaults','active_leases_all_nodes':occupied,'resources_all_nodes':usage}
 
 
 def defer_resource(lease,seconds=5):

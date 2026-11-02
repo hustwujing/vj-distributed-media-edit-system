@@ -21,6 +21,14 @@ class Answer(BaseModel):
     model_config=ConfigDict(extra='forbid')
     action:Literal['approve','reject','answer']
     value:str=Field(default='',max_length=2000)
+    feedback:str=Field(default='',max_length=2000)
+    @model_validator(mode='after')
+    def unambiguous_action(self):
+        if self.action in ('approve','reject') and self.value:
+            raise ValueError('批准或拒绝不能同时提交选项值；请刷新页面后使用明确的决策按钮，说明请填写 feedback')
+        if self.action=='answer' and self.feedback:
+            raise ValueError('选项或补充回答请填写 value')
+        return self
     revision:int=Field(ge=0)
 
 
@@ -76,13 +84,13 @@ def answer(store,turn_id,request_id,raw,actor):
         if lease and lease['active'] and lease['expires']>store.now():raise ValueError('请等待当前执行资源回收')
         if row['kind']=='quality':
             if value.action not in ('approve','reject'):raise ValueError('质量请求需要明确确认或拒绝')
-            workflows.quality_action(store,turn_id,s['id'],s['revision'],value.action,actor,value.value)
+            workflows.quality_action(store,turn_id,s['id'],s['revision'],value.action,actor,value.feedback)
         elif row['kind']=='external_call':
             if value.action not in ('approve','reject'):raise ValueError('外部调用需明确批准或拒绝')
             if value.action=='approve':
                 proposal=json.loads(row['proposal'])
                 if not proposal:raise ValueError('没有明确外部重生成提案')
-                workflows.quality_action(store,turn_id,s['id'],s['revision'],'repair',actor,value.value,replacement=proposal,confirm_external=True)
+                workflows.quality_action(store,turn_id,s['id'],s['revision'],'repair',actor,value.feedback,replacement=proposal,confirm_external=True)
         elif row['kind']=='plan_change':
             if value.action=='approve':
                 workflows.cancel(store,turn_id)

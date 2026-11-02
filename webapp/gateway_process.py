@@ -15,9 +15,13 @@ import sys
 import tempfile
 import threading
 import select
+import stat
+from pydantic import ValidationError
 from .task_leases import TaskQuotaReached
 
 MAX_FRAME=384*1024**2
+FILE_PERMISSION_ERROR={'code':'filesystem_permission_denied',
+                       'message':'内部文件权限异常，工具操作未完成，请联系管理员检查任务诊断。'}
 
 
 def await_ready(process):
@@ -77,14 +81,17 @@ class Client:
             response=receive(self.socket)
         if response['status']!=200:
             error=response.get('body',{}).get('error','Task tool failed')
+            if isinstance(error,dict) and error.get('code')==FILE_PERMISSION_ERROR['code']:
+                raise PermissionError(FILE_PERMISSION_ERROR['message'])
             if isinstance(error,dict) and error.get('type')=='quota':
                 raise TaskQuotaReached(error.get('message','Task quota exhausted'),
-                    **{key:error.get(key) for key in ('category','scope','used','limit')})
+                    **{key:error.get(key) for key in ('category','scope','used','limit','reset_at')})
             raise ValueError(error.get('message','Task tool failed') if isinstance(error,dict) else error)
         return response['body']
     def relay(self,operation,body,handler):
         try:handler.reply(200,self.request(operation,body))
         except TaskQuotaReached as exc:handler.reply(403,{'error':{'type':'quota','message':str(exc),**exc.diagnostic}})
+        except PermissionError:handler.reply(500,{'error':FILE_PERMISSION_ERROR})
         except ValueError as exc:handler.reply(422,{'error':str(exc)})
 
 
@@ -137,13 +144,22 @@ class GatewayProcess:
                             if path.stat().st_size>256*1024**2:raise ValueError('Audio too large')
                             response={'status':200,'body':{'audio':base64.b64encode(path.read_bytes()).decode()}}
                     elif operation=='refresh_transcript':
+                        if gateway.allowed_paths is not None and '/transcribe' not in gateway.allowed_paths:raise ValueError('Transcription is not authorized')
                         asset=gateway.assets.get(body.get('asset'));track=body.get('track',0)
                         if not asset or not isinstance(track,int) or not 0<=track<len(asset['metadata'].get('audio_tracks',[])):
                             raise ValueError('Invalid project audio asset')
                         suffix=f'.track{track}' if track else ''
                         name=Path(asset['filename']).stem+suffix+'.json'
                         source=gateway.project_dir/'edit/transcripts'/name
-                        if source.is_symlink() or source.stat().st_size>32*1024**2:raise ValueError('Invalid transcript')
+                        if source.is_symlink():raise ValueError('Invalid transcript')
+                        descriptor=os.open(source,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+                        try:
+                            info=os.fstat(descriptor)
+                            if not stat.S_ISREG(info.st_mode) or info.st_nlink!=1 or info.st_size>32*1024**2:raise ValueError('Invalid transcript')
+                            # Cached downloads can be root-owned; newly generated
+                            # files can be service-owned. Keep ownership intact.
+                            os.fchmod(descriptor,0o640)
+                        finally:os.close(descriptor)
                         if gateway.lease.store.shared_files:
                             gateway.lease.store.artifacts.save_file(gateway.project_dir.name,'edit/transcripts/'+name)
                         target=gateway.lease.runtime.transcripts/name
@@ -159,13 +175,33 @@ class GatewayProcess:
                         response=reply.value
                     else:raise ValueError('Unknown privileged operation')
             except TaskQuotaReached as exc:
+                from .task_leases import record_quota
+                record_quota(gateway.lease.store,gateway.lease.turn_id,exc)
                 from .telemetry import emit
                 emit('gateway.quota_exhausted','WARNING',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
                 response={'status':403,'body':{'error':{'type':'quota','message':str(exc),**exc.diagnostic}}}
+            except ValidationError as exc:
+                from .telemetry import emit
+                emit('gateway.validation_failed','WARNING',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                # Do not echo input values, custom validator messages or context:
+                # these can contain credentials from a downstream adapter.
+                fields=['.'.join(str(part)[:80] for part in item['loc'])+': '+item['type']
+                        for item in exc.errors(include_input=False,include_context=False,include_url=False)[:20]]
+                response={'status':422,'body':{'error':{'code':'request_validation_failed',
+                    'message':'请求参数校验未通过，请修正字段后重试：'+'; '.join(fields)}}}
+            except PermissionError as exc:
+                from .telemetry import emit
+                emit('gateway.filesystem_permission_failed','ERROR',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                response={'status':500,'body':{'error':FILE_PERMISSION_ERROR}}
+            except ValueError as exc:
+                from .telemetry import emit
+                emit('gateway.validation_failed','WARNING',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                response={'status':422,'body':{'error':{'code':'request_validation_failed',
+                    'message':'请求参数或执行条件未通过校验，请检查任务诊断。'}}}
             except Exception as exc:
                 from .telemetry import emit
                 emit('gateway.operation_failed','ERROR',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
-                response={'status':422,'body':{'error':'工具操作未完成，或执行权限已失效。'}}
+                response={'status':422,'body':{'error':'工具操作未完成，请检查任务诊断。'}}
             try:send(self.server,response)
             except (OSError,ValueError):return
 
@@ -190,6 +226,7 @@ class GatewayProcess:
         config={'root':str(lease.store.root),'project':str(gateway.project_dir),'assets':list(gateway.assets.values()),
                 'storage_credentials':{k:os.environ[k] for k in ('AWS_ACCESS_KEY_ID','AWS_SECRET_ACCESS_KEY','AWS_SESSION_TOKEN','AWS_DEFAULT_REGION','VIDEO_USE_OBJECT_ENCRYPTION_KEY') if k in os.environ} if lease.store.shared_files else {},
                 'mode':gateway.mode,'model':gateway.model,'base_url':gateway.base_url,'key':gateway.key,
+                'agent_profile':gateway.profile.snapshot(),
                 'image_video_key':os.environ.get('VIDEO_USE_IMAGE_VIDEO_KEY',''),'generation_key':os.environ.get('VIDEO_USE_GENERATION_KEY',''),'image_generation_key':os.environ.get('VIDEO_USE_IMAGE_GENERATION_KEY',''),'eleven_key':os.environ.get('ELEVENLABS_API_KEY',''),'uid':gateway.uid,'gid':gateway.gid,
                 'socket':str(gateway.socket_path),'workflow':bool(gateway.workflow_callback),'canvas':bool(gateway.canvas_callback),
                 'workflow_review_id':getattr(gateway,'workflow_review_id',None),

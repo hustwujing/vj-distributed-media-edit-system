@@ -38,6 +38,122 @@ class AgentReviewTests(unittest.TestCase):
         return {'request_id':w['agent_review']['id'],'action':action,'reason':'Inspected actual output',
                 'evidence':[{'step_id':s['id'],'criterion':1,'files':s['candidate'] or s['result'],'observation':'Subject is intact'}],**kwargs}
 
+    def parallel_human_gate(self):
+        steps=[local_step('left'),local_step('right'),local_step('independent')]
+        steps[1]['on_failure']='diagnose'
+        self.fixture.submit(steps);initial=self.fixture.get()
+        self.fixture.adapter.validate=lambda w,step,files:{'technical_valid':True,'passed':True,
+            'requires_agent':step['id']=='left','requires_review':step['id']=='right','files':[],'checks':[]}
+        # Both branches start before either publishes its gate; the human
+        # branch finishes last, while the first Agent review is still queued.
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+        barrier=threading.Barrier(2);left_done=threading.Event()
+        def local(w,step,cancelled):
+            barrier.wait(timeout=5)
+            if step['id']=='right':self.assertTrue(left_done.wait(5))
+            return ['edit/workflows/'+step['id']+'/final.png']
+        self.fixture.adapter.local=local
+        def run(step):
+            try:self.fixture.runner.step(initial,step)
+            finally:
+                if step['id']=='left':left_done.set()
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            futures=[pool.submit(run,step) for step in initial['steps'][:2]]
+            for future in futures:future.result(timeout=10)
+        self.assertEqual(self.fixture.get()['status'],'paused')
+        return self.fixture.get()['agent_review']['id']
+
+    def test_user_approval_reactivates_existing_sibling_review(self):
+        from webapp.task_leases import Coordinator
+        request=self.parallel_human_gate()
+        workflows.quality_action(self.store,self.turn,'right',0,'approve','owner')
+        coordinator=Coordinator(self.store,'human-gate','test')
+        rows=coordinator.candidates()
+        self.assertEqual(self.fixture.get()['status'],'reviewing')
+        self.assertEqual(self.fixture.get()['agent_review']['id'],request)
+        self.assertTrue(any(r['id']==self.turn and r['workflow_status']=='reviewing' for r in rows))
+        self.assertEqual(len(self.store.query('SELECT id FROM workflow_agent_reviews')),1)
+
+    def test_user_rejection_preserves_and_wakes_both_pending_diagnoses(self):
+        from webapp.task_leases import Coordinator
+        request=self.parallel_human_gate()
+        workflows.quality_action(self.store,self.turn,'right',0,'reject','owner','Please inspect the result')
+        Coordinator(self.store,'human-gate','test').candidates()
+        self.assertEqual(self.fixture.get()['status'],'reviewing')
+        self.assertEqual(self.fixture.get()['agent_review']['id'],request)
+        self.assertEqual(self.fixture.get()['steps'][1]['status'],'diagnosing')
+
+    def test_stale_step_claim_cannot_bypass_pending_sibling_review(self):
+        from webapp.task_leases import Coordinator
+        self.parallel_human_gate()
+        workflows.quality_action(self.store,self.turn,'right',0,'approve','owner')
+        coordinator=Coordinator(self.store,'stale-candidate','test')
+        lease=coordinator.claim(self.turn,'workflow',step_id='independent')
+        try:self.assertIsNone(lease)
+        finally:
+            if lease:lease.release()
+
+    def test_parallel_diagnoses_are_durable_and_drained_without_rerunning_siblings(self):
+        from webapp.task_leases import Coordinator
+        steps=[local_step('left'),local_step('right'),local_step('join',['left','right'])]
+        for step in steps[:2]:step['on_failure']='diagnose'
+        self.fixture.submit(steps);w=self.fixture.get()
+        for step in w['steps'][:2]:
+            workflows.change(self.store,w['id'],step['id'],status='paused',error_code='local')
+            workflow_review.queue(self.store,self.fixture.get(),step,'diagnose')
+        self.assertEqual([s['status'] for s in self.fixture.get()['steps'][:2]],['diagnosing','diagnosing'])
+        self.assertEqual(len(self.store.query('SELECT id FROM workflow_agent_reviews')),1)
+        coordinator=Coordinator(self.store,'review-drain','test')
+        for name in ('left','right'):
+            self.begin();w=self.fixture.get();request=w['agent_review']
+            self.assertEqual(request['step'],name)
+            step=next(s for s in w['steps'] if s['id']==name)
+            workflow_review.stage(self.store,self.turn,{'request_id':request['id'],'action':'repair',
+                'reason':'Correct local command','step_id':name,'replacement':{**step['spec'],'argv':['python','edit/repaired.py']}})
+            workflow_review.commit(self.store,self.turn,self.fixture.adapter)
+            coordinator.candidates()
+        self.assertIsNone(self.fixture.get()['agent_review'])
+        for _ in range(3):self.fixture.tick()
+        self.assertEqual([s['status'] for s in self.fixture.get()['steps']],['succeeded']*3)
+        self.assertEqual([s['revision'] for s in self.fixture.get()['steps']],[1,1,2])
+        self.assertEqual([self.fixture.adapter.calls.count(('local',name)) for name in ('left','right','join')],[1,1,1])
+
+    def test_parallel_content_reviews_preserve_each_candidate(self):
+        from webapp.task_leases import Coordinator
+        self.fixture.submit([local_step('left'),local_step('right')]);w=self.fixture.get()
+        for step in w['steps']:
+            files=['edit/'+step['id']+'.png']
+            workflows.change(self.store,w['id'],step['id'],candidate=files,quality={
+                'technical_valid':True,'passed':True,'requires_agent':True,'files':[],'checks':[]})
+            workflow_review.queue(self.store,self.fixture.get(),step,'review')
+        self.assertEqual([s['status'] for s in self.fixture.get()['steps']],['agent_review']*2)
+        coordinator=Coordinator(self.store,'review-drain','test')
+        for name in ('left','right'):
+            self.begin();w=self.fixture.get();request=w['agent_review'];self.assertEqual(request['step'],name)
+            workflow_review.stage(self.store,self.turn,{'request_id':request['id'],'action':'pass','reason':'Checked actual candidate',
+                'evidence':[{'step_id':name,'files':['edit/'+name+'.png'],'observation':'Read candidate pixels'}]})
+            workflow_review.commit(self.store,self.turn,self.fixture.adapter)
+            coordinator.candidates()
+        self.assertEqual([s['result'] for s in self.fixture.get()['steps']],[['edit/left.png'],['edit/right.png']])
+        self.assertFalse(any(c[0]=='local' for c in self.fixture.adapter.calls))
+
+    def test_sibling_user_request_survives_repair_and_remains_a_gate(self):
+        from webapp.user_decisions import create,pending
+        self.submit_review(failure=True);w=self.fixture.get();second=w['steps'][1]
+        # An independent branch asks a question while the first reviewer runs.
+        second['spec']['depends_on']=[]
+        workflows.change(self.store,w['id'],'second',spec=second['spec'],status='awaiting_review',error='Choose a result')
+        identifier=create(self.store,w,second,{'kind':'clarification','question':'Choose a result'})
+        self.begin();first=self.fixture.get()['steps'][0]
+        workflow_review.stage(self.store,self.turn,self.decision('repair',replacement={**first['spec'],'argv':['python','edit/repaired.py']}))
+        workflow_review.commit(self.store,self.turn,self.fixture.adapter)
+        self.assertEqual(pending(self.store,w['id'])[0]['id'],identifier)
+        self.assertTrue(workflow_review.reconcile(self.store,self.turn))
+        self.assertEqual(self.fixture.get()['status'],'paused')
+        self.assertEqual(self.fixture.get()['steps'][1]['status'],'awaiting_review')
+        self.assertFalse(workflow_review.reconcile(self.store,self.turn))
+
     def test_content_review_blocks_downstream_then_commits(self):
         w=self.submit_review()
         self.assertEqual(w['steps'][0]['status'],'agent_review')

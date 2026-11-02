@@ -133,6 +133,8 @@ class CompletionIntentTests(unittest.TestCase):
             declare(fixture.store,fixture.plan,{'route':'single','operations':['image.local_adjust'],'goal':'adjust','estimated_seconds':30})
             fixture.store.execute("UPDATE agent_turns SET status='succeeded' WHERE id=?",(fixture.plan,))
             self.assertEqual(completion_problem(fixture.store,fixture.turn,[])[0],'failed')
+            self.assertEqual(completion_problem(fixture.store,fixture.turn,[{'name':'edit_plan.json'},{'name':'source_candidate.wav'}])[0],'failed')
+            self.assertEqual(completion_problem(fixture.store,fixture.turn,[{'name':'final.png','quality_state':'pending'}])[0],'failed')
             self.assertIsNone(completion_problem(fixture.store,fixture.turn,[{'name':'result.png'}]))
         finally:fixture.tearDown()
 

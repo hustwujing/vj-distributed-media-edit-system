@@ -17,6 +17,13 @@ PYTHON_PREFIX = Path('/data/wujing03/miniforge3')
 CODEX_BIN = '/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex'
 
 
+def reasoning_effort():
+    value=os.environ.get('VIDEO_USE_MODEL_REASONING_EFFORT','medium').strip().lower()
+    if value not in ('minimal','low','medium','high','xhigh'):
+        raise ValueError('Invalid VIDEO_USE_MODEL_REASONING_EFFORT')
+    return value
+
+
 def _initialize_project_memory(path, uid, gid):
     """Bootstrap optional session memory before mounting a read-only plan workspace."""
     try:
@@ -34,6 +41,9 @@ def _initialize_project_memory(path, uid, gid):
 
 
 def prepare(store, project_id, model, mode, turn_id=None, preview_id=None):
+    from .agent_profiles import for_task
+    execution_profile=for_task(store,turn_id) if turn_id else None
+    effort=execution_profile.reasoning_effort if execution_profile else reasoning_effort()
     from .task_leases import CURRENT
     lease = CURRENT.get()
     runtime = lease.runtime if lease else None
@@ -85,6 +95,10 @@ def prepare(store, project_id, model, mode, turn_id=None, preview_id=None):
     workflow_state = agent/'workflow-state.json'
     workflow_state.write_text(json.dumps(workflows.public(task), ensure_ascii=False))
     workflow_state.chmod(0o644)
+    from .continuation_context import snapshot as continuation_snapshot
+    continuation=agent/'continuation.json'
+    continuation.write_text(json.dumps(continuation_snapshot(store,project_id,turn_id),ensure_ascii=False));continuation.chmod(0o644)
+    fd=os.open(workspace/'continuation.json',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(fd)
     fd=os.open(workspace/'workflow-state.json',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(fd)
 
     placeholder = workspace/'assets.json'
@@ -97,7 +111,7 @@ def prepare(store, project_id, model, mode, turn_id=None, preview_id=None):
 model_provider = "video_use"
 approval_policy = "never"
 sandbox_mode = "danger-full-access"
-model_reasoning_effort = "medium"
+model_reasoning_effort = {json.dumps(effort)}
 web_search = "disabled"
 
 [model_providers.video_use]
@@ -115,6 +129,17 @@ multi_agent = false
 inherit = "all"
 ''')
     config.chmod(0o644)
+    harness_config=agent/'harness-config.json'
+    harness_config.write_text(json.dumps({'model':model,'reasoning_effort':effort,
+        'max_output_tokens':execution_profile.budget['max_output_tokens'] if execution_profile else 16000}))
+    harness_config.chmod(0o644)
+    from .harness_context import write as write_handoff
+    handoff=agent/'harness-context.json'
+    if store.query("SELECT name FROM sqlite_master WHERE name='agent_turns'") and store.query('SELECT id FROM agent_turns WHERE id=?',(turn_id,)):
+        write_handoff(store,project_id,turn_id,handoff)
+    else:handoff.write_text('{}');handoff.chmod(0o644)
+    placeholder=workspace/'harness-context.json'
+    descriptor=os.open(placeholder,os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(descriptor)
     descriptor=os.open(workspace/'capabilities.json',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(descriptor)
     # Minimal passwd/group files contain only the sandbox service identity.
     (agent/'passwd').write_text(f'video-use:x:{uid}:{gid}:Video Use:/state:/bin/bash\n')
@@ -125,6 +150,7 @@ inherit = "all"
             'preview_root':preview_root,'preview':preview,'preview_path':SANDBOX_WORKSPACE+'/edit/previews/'+preview_id,
             'uid':uid, 'gid':gid, 'assets':assets, 'mode':mode, 'runtime':runtime,
             'service_uid':account.pw_uid, 'service_gid':account.pw_gid,
+            'harness':execution_profile.harness if execution_profile else 'codex',
             'sources':runtime.sources if runtime else project/'sources',
             'transcripts':runtime.transcripts if runtime else project/'edit/transcripts'}
     if review_scratch:
@@ -171,12 +197,16 @@ def command(env, gateway_socket, executable=None):
              '--ro-bind', str(agent/'capabilities.json'),SANDBOX_WORKSPACE+'/capabilities.json',
              '--ro-bind', str(REPO/'references'), '/opt/video-use/references',
              '--ro-bind', str(REPO/'webapp/sandbox_entry.py'), '/opt/sandbox_entry.py',
+             '--ro-bind', str(REPO/'webapp/harness_bridge.py'), '/opt/harness_bridge.py',
+             '--ro-bind', str(REPO/'webapp/harness_sdk_events.py'), '/opt/harness_sdk_events.py',
+             '--ro-bind', str(agent/'harness-config.json'), '/opt/harness-config.json',
              '--ro-bind', str(REPO/'webapp/sandbox_limits.py'), '/opt/sandbox_limits.py',
              '--ro-bind', str(REPO/'webapp/canvas_pixels.py'), '/opt/canvas_pixels.py',
              '--ro-bind', str(REPO/'webapp/agent_transcribe.py'), '/opt/transcribe.py',
              '--ro-bind', str(REPO/'webapp/agent_image.py'), '/opt/image_ai.py',
              '--ro-bind', str(REPO/'webapp/agent_canvas.py'), '/opt/canvas_edit.py',
              '--ro-bind', str(REPO/'webapp/agent_workflow.py'), '/opt/workflow.py',
+             '--ro-bind', str(REPO/'webapp/agent_context_query.py'), '/opt/context.py',
              '--ro-bind', str(REPO/'webapp/workflow_io.py'), '/opt/workflow_io.py',
              '--ro-bind', str(REPO/'webapp/operation_io.py'), '/opt/operation_io.py',
              '--ro-bind', str(REPO/'webapp/script_preflight.py'), '/opt/script_preflight.py',
@@ -184,6 +214,7 @@ def command(env, gateway_socket, executable=None):
              '--ro-bind', str(REPO/'webapp/preview_export.py'), '/opt/preview_export.py',
              '--ro-bind', str(REPO/'webapp/validate_outputs.py'), '/opt/validate_outputs.py',
              '--ro-bind', str(REPO/'webapp/quality_check.py'), '/opt/quality_check.py',
+             '--ro-bind', str(REPO/'webapp/text_formats.py'), '/opt/text_formats.py',
              '--bind', str(env['state']), '/state',
              '--ro-bind', str(agent/'config.toml'), '/state/codex/config.toml',
              '--bind' if env['mode']=='execute' else '--ro-bind', str(env['workspace']), SANDBOX_WORKSPACE,
@@ -193,7 +224,9 @@ def command(env, gateway_socket, executable=None):
              '--ro-bind', str(agent/'assets.json'), SANDBOX_WORKSPACE+'/assets.json',
              '--ro-bind', str(agent/'image-document.json'), SANDBOX_WORKSPACE+'/image-document.json',
              '--ro-bind', str(agent/'workflow-state.json'), SANDBOX_WORKSPACE+'/workflow-state.json',
+             '--ro-bind', str(agent/'continuation.json'), SANDBOX_WORKSPACE+'/continuation.json',
              '--ro-bind', str(agent/'conversation.jsonl'), SANDBOX_WORKSPACE+'/conversation.jsonl',
+             '--ro-bind', str(agent/'harness-context.json'), SANDBOX_WORKSPACE+'/harness-context.json',
              '--ro-bind', str(env['transcripts']), SANDBOX_WORKSPACE+'/transcripts',
              # Keep old saved scripts/conversations usable after the path migration.
              '--symlink', SANDBOX_WORKSPACE+'/transcripts', '/transcripts',
@@ -248,7 +281,8 @@ def command(env, gateway_socket, executable=None):
         args[position:position]=['--setenv','PYTHONPATH','/opt/app',
                                  '--setenv','VIDEO_USE_ISOLATED','1']
     args += ['/opt/venv/bin/python', '/opt/sandbox_limits.py']
-    args += executable or ['/opt/venv/bin/python','/opt/sandbox_entry.py','/opt/codex']
+    from .harness_adapters import get as harness_adapter
+    args += executable or harness_adapter(env.get('harness','codex')).launch()
     return env['runtime'].wrap(args,env.get('resource_scope')) if env.get('runtime') else args
 
 
@@ -273,6 +307,10 @@ def snapshot_outputs(env):
     return files
 
 
+class DeliveryManifestError(ValueError):
+    pass
+
+
 def delivery_manifest(base,baseline,current):
     # A stale declaration from a previous turn must not pin an old result.
     if 'deliverables.json' not in current or (baseline is not None and current['deliverables.json']==baseline.get('deliverables.json')):
@@ -281,17 +319,28 @@ def delivery_manifest(base,baseline,current):
         fd=os.open(base/'deliverables.json',os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
         with os.fdopen(fd,'rb') as stream:
             info=os.fstat(stream.fileno())
-            if not stat.S_ISREG(info.st_mode) or not 0<info.st_size<=65536:return {},set()
+            if not stat.S_ISREG(info.st_mode) or not 0<info.st_size<=65536:
+                raise DeliveryManifestError('交付清单必须是非空普通 JSON 文件，且不超过 64 KiB。')
             declaration=json.load(stream)
-        if not isinstance(declaration,dict):return {},set()
+        if not isinstance(declaration,dict):raise DeliveryManifestError('交付清单必须包含 primary 和 files 的 JSON 对象。')
         names=declaration.get('files',[])
-        if not isinstance(names,list) or len(names)>40:return {},set()
+        if not isinstance(names,list) or any(not isinstance(name,str) for name in names):
+            raise DeliveryManifestError('交付清单 files 必须是相对于 edit/ 的文件名字符串列表。')
         primary=declaration.get('primary')
-        if not isinstance(primary,str):return {},set()
-        selected={name for name in [primary,*names] if isinstance(name,str) and name in current
-                  and not Path(name).is_absolute() and '..' not in Path(name).parts}
+        if not isinstance(primary,str) or not primary:
+            raise DeliveryManifestError('交付清单 primary 必须指向一个实际成果文件。')
+        selected=set([primary,*names])
+        if len(selected)>40:raise DeliveryManifestError('交付清单最多声明 40 个不同成果文件。')
+        if any(not name or Path(name).is_absolute() or '..' in Path(name).parts or name=='deliverables.json' for name in selected):
+            raise DeliveryManifestError('交付清单只能引用 edit/ 内的实际成果，不能引用自身或目录之外的路径。')
+        if any(name not in current for name in selected):
+            raise DeliveryManifestError('交付清单引用的文件不存在或不可导出；文件名相对于 edit/，不要重复添加 edit/ 前缀。')
+        if any(not 0<current[name][2]<=2*1024**3 for name in selected) or sum(current[name][2] for name in selected)>4*1024**3:
+            raise DeliveryManifestError('声明的成果为空或超过导出大小限制，未确认交付。')
         return declaration,selected
-    except (OSError,ValueError,TypeError):return {},set()
+    except DeliveryManifestError:raise
+    except (OSError,ValueError,TypeError) as exc:
+        raise DeliveryManifestError('交付清单不是有效、可读取的 JSON，未确认交付。') from exc
 
 
 def validate_generated(env,names):
@@ -319,14 +368,24 @@ def export_results(env,turn_id,text=''):
     from .artifacts import order_artifacts
     base=env['workspace']/'edit'
     current=snapshot_outputs(env);baseline=env.get('output_baseline')
-    declaration,selected=delivery_manifest(base,baseline,current)
+    env.pop('delivery_error',None)
+    try:declaration,selected=delivery_manifest(base,baseline,current)
+    except DeliveryManifestError as exc:
+        env['delivery_error']=str(exc);declaration,selected={},set()
     candidates=[]
     for name,fingerprint in current.items():
+        # The bad declaration stays in the checkpoint for repair. Export valid
+        # generated files as candidates, preserving useful work without success.
+        if env.get('delivery_error') and name=='deliverables.json':continue
         if baseline is not None and fingerprint==baseline.get(name) and name not in selected:continue
         if not 0<fingerprint[2]<=2*1024**3:continue
         candidates.append({'name':name,'type':mimetypes.guess_type(name)[0] or 'text/plain',
-                           'source_modified':fingerprint[3]/1e9,'role':'deliverable' if name in selected else 'output'})
+                           'source_modified':fingerprint[3]/1e9,'role':'deliverable' if name in selected else 'output',
+                           **({'quality_state':'pending'} if env.get('delivery_error') else {})})
     candidates=order_artifacts(candidates,text,declaration.get('primary'))
+    # The count/byte budget must preserve every explicitly requested delivery,
+    # including reports, before incidental previews or other changed files.
+    candidates.sort(key=lambda item:item['name'] not in selected)
     validate_generated(env,[item['name'] for item in candidates[:40]])
     output=env['project']/'edit'/'agent_exports'/turn_id
     output.mkdir(parents=True,exist_ok=True);os.chown(output,env.get('service_uid',env['uid']),env.get('service_gid',env['gid']));output.chmod(0o750)
@@ -352,6 +411,9 @@ def export_results(env,turn_id,text=''):
                               'url':f'api/projects/{env["project"].name}/agent/{turn_id}/files/{filename}'})
             if env.get('runtime') and runtime.store.shared_files:
                 artifacts[-1]['artifact_id']=runtime.store.artifacts.save_file(env['project'].name,str(destination.relative_to(env['project'])))['id']
+    if selected-{item['name'] for item in artifacts}:
+        env['delivery_error']='声明的成果未能全部导出，已保留可读取文件，未确认完整交付。'
+        artifacts=order_artifacts([dict(item,role='output',quality_state='pending') for item in artifacts],text)
     return artifacts
 
 

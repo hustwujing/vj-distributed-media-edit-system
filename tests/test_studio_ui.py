@@ -165,7 +165,7 @@ class StudioTests(unittest.TestCase):
 
 
     def test_redis_terminal_snapshot_flushes_body_and_recovers_database_fallback(self):
-        from unittest.mock import patch
+        from unittest.mock import patch,AsyncMock
         from types import SimpleNamespace
         store=self.app.state.store;task=agent_store.add_turn(store,self.pid,'plan','stream')
         store.execute("UPDATE agent_turns SET status='running',text='我' WHERE id=?",(task,))
@@ -178,9 +178,10 @@ class StudioTests(unittest.TestCase):
                 agent_store.finish(store,task,'succeeded','完整说明已经结束')
                 return [{'id':'999-0','kind':'terminal','payload':{'status':'succeeded'}}]
             return []
-        fake=SimpleNamespace(url='redis://fixture',enabled=True,read=read)
-        with patch('webapp.agent_api.agent_stream_bus',return_value=fake):
+        fake=SimpleNamespace(url='redis://fixture',enabled=True,read=AsyncMock(side_effect=read),aclose=AsyncMock())
+        with patch('webapp.agent_api.agent_stream_bus',return_value=fake),patch('webapp.agent_stream.AsyncStreamReader',return_value=fake):
             result=self.a.get(f'/api/projects/{self.pid}/agent/{task}/stream')
+        fake.aclose.assert_awaited_once()
         self.assertEqual(result.status_code,200)
         turns=[json.loads(frame.split('data: ',1)[1]) for frame in result.text.split('\n\n') if 'event: turn\n' in frame]
         self.assertTrue(any(t.get('stream_transport')=='database' for t in turns))

@@ -157,6 +157,21 @@ class ObservationTests(unittest.TestCase):
         self.assertEqual(before,self.store.query('SELECT * FROM agent_turns'))
         self.assertFalse(any(isinstance(v,dict) and 'error_code' in v for v in value['views'].values()))
 
+    def test_capacity_snapshot_expires_instead_of_reporting_stale_capacity_as_healthy(self):
+        from webapp.observation_collector import sample
+        from tests.test_api_capacity import snapshot
+        archive=Archive(self.root/'capacity')
+        row=snapshot('api.pool.snapshot','read',active=6,workers=6,queued=12,queue_capacity=12)
+        archive.ingest(json.dumps(row))
+        stale=dict(snapshot('api.pool.snapshot','storage',active=4),time=time.time()-25)
+        archive.ingest(json.dumps(stale))
+        with patch.dict(os.environ,{'VIDEO_USE_OBSERVATION_API_PORTS':''}),patch('webapp.observation_collector.storage_health',return_value='available'),patch('webapp.observation_collector.gpu_health',return_value={}):
+            value=sample(self.store,archive)
+        self.assertEqual([p['name'] for p in value['views']['api_capacity']['pools']],['read'])
+        self.assertEqual(value['gauges']['api_pools_saturated'],1)
+        self.assertEqual(value['gauges']['api_capacity_observed_instances'],0)
+        self.assertTrue(value['views']['api_capacity']['gaps'])
+
     def test_metric_write_failure_keeps_completed_span_correlation(self):
         from types import SimpleNamespace
         from webapp.execution_metrics import phase

@@ -17,6 +17,8 @@ class DeploymentTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         root=patch.object(cluster,'ROOT',Path(temporary.name))
         root.start();self.addCleanup(root.stop)
+        executors=patch.object(cluster,'EXECUTORS',Path(temporary.name)/'executors')
+        executors.start();self.addCleanup(executors.stop)
 
     def test_private_environment_roundtrip_preserves_literal_secrets(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -55,5 +57,7 @@ class DeploymentTests(unittest.TestCase):
             self.assertIn('/.storage.env',value);self.assertIn('/.distributed.env',value)
             self.assertNotIn('AWS_SECRET_ACCESS_KEY=',value)
         self.assertIn('node-%i',cluster.worker_unit())
-        self.assertIn('/var/lib/vu-%i',cluster.reaper_unit())
+        self.assertIn(str(cluster.ROOT/'executors/%i'),cluster.reaper_unit())
+        self.assertTrue(cluster.registry('a').is_relative_to(cluster.ROOT))
+        self.assertIn(str(cluster.ROOT/'media-%i'),cluster.media_unit())
         self.assertIn('15432',str(cluster.DB_PORT))

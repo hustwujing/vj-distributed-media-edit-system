@@ -5,6 +5,99 @@ from webapp.egress_policy import model_input,provider_base,session
 
 
 class EgressTests(unittest.TestCase):
+    def test_broker_permission_failure_keeps_type_and_hides_paths(self):
+        import contextlib
+        from unittest.mock import Mock
+        from webapp.gateway_process import Client,GatewayProcess
+        gateway=Mock();gateway.mode='execute';gateway.workflow_review_id=None
+        gateway.lease.bind.side_effect=lambda:contextlib.nullcontext()
+        gateway.workflow_callback.side_effect=PermissionError('PRIVATE /host/path')
+        process=GatewayProcess(gateway);client=Client(process.client.detach());process.thread.start()
+        try:
+            with self.assertRaises(PermissionError) as error:client.request('workflow_preflight',{'action':'preflight'})
+            self.assertNotIn('PRIVATE',str(error.exception))
+            reply=Mock();client.relay('workflow_preflight',{'action':'preflight'},reply)
+            status,body=reply.reply.call_args.args
+            self.assertEqual(status,500)
+            self.assertEqual(body['error']['code'],'filesystem_permission_denied')
+            self.assertNotIn('PRIVATE',str(body))
+        finally:
+            client.socket.close();process.thread.join(timeout=2);process.server.close()
+        self.assertFalse(process.thread.is_alive())
+
+    def test_transcript_refresh_rejects_unscoped_files_before_changing_permissions(self):
+        import contextlib,os,tempfile
+        from pathlib import Path
+        from unittest.mock import Mock
+        from webapp.gateway_process import Client,GatewayProcess
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);folder=root/'edit/transcripts';folder.mkdir(parents=True)
+            outside=root/'outside';outside.write_text('{}');outside.chmod(0o600)
+            source=folder/'speech.json';source.symlink_to(outside)
+            gateway=Mock();gateway.allowed_paths=None;gateway.project_dir=root
+            gateway.assets={'speech':{'id':'speech','filename':'speech.wav','metadata':{'audio_tracks':[{}]}}}
+            gateway.lease.bind.side_effect=lambda:contextlib.nullcontext()
+            process=GatewayProcess(gateway);client=Client(process.client.detach());process.thread.start()
+            try:
+                for body in ({'asset':'foreign'},{'asset':'speech','track':2},{'asset':'speech'}):
+                    with self.subTest(body=body),self.assertRaises(ValueError):client.request('refresh_transcript',body)
+                source.unlink();os.link(outside,source)
+                with self.assertRaises(ValueError):client.request('refresh_transcript',{'asset':'speech'})
+                self.assertEqual(outside.stat().st_mode&0o777,0o600)
+                source.unlink();source.write_text('{}');source.chmod(0o600)
+                gateway.allowed_paths={'/image-tools'}
+                with self.assertRaises(ValueError):client.request('refresh_transcript',{'asset':'speech'})
+                self.assertEqual(source.stat().st_mode&0o777,0o600)
+                gateway.lease.store.artifacts.save_file.assert_not_called()
+            finally:
+                client.socket.close();process.thread.join(timeout=2);process.server.close()
+
+    def test_broker_distinguishes_validation_conditions_from_runtime_failure(self):
+        import contextlib
+        from unittest.mock import Mock
+        from webapp.gateway_process import GatewayProcess,send,receive
+        for kind in ('validation','planning_scope','runtime'):
+            with self.subTest(kind=kind):
+                gateway=Mock();gateway.mode='plan' if kind=='planning_scope' else 'execute';gateway.workflow_review_id=None
+                gateway.lease.bind.side_effect=lambda:contextlib.nullcontext()
+                gateway.workflow_callback.side_effect=ValueError('PRIVATE invalid graph') if kind=='validation' else RuntimeError('PRIVATE internal failure')
+                process=GatewayProcess(gateway);process.thread.start()
+                try:
+                    send(process.client,{'operation':'workflow_preflight','body':{'action':'preflight'}})
+                    response=receive(process.client)
+                    self.assertEqual(response['status'],422)
+                    self.assertNotIn('PRIVATE',str(response));self.assertNotIn('权限已失效',str(response))
+                    if kind!='runtime':self.assertEqual(response['body']['error']['code'],'request_validation_failed')
+                    if kind=='planning_scope':gateway.workflow_callback.assert_not_called()
+                finally:
+                    process.client.close();process.thread.join(timeout=2);process.server.close()
+                self.assertFalse(process.thread.is_alive())
+
+    def test_broker_preflight_reports_invalid_fields_without_private_values(self):
+        import contextlib
+        from unittest.mock import Mock
+        from pydantic import BaseModel, ConfigDict, ValidationError
+        from webapp.gateway_process import Client,GatewayProcess
+        class Request(BaseModel):
+            model_config=ConfigDict(extra='forbid')
+            count:int
+        try:Request.model_validate({'count':'PRIVATE input value','unknown':'PRIVATE extra value'})
+        except ValidationError as exc:failure=exc
+        gateway=Mock();gateway.mode='execute';gateway.workflow_review_id=None
+        gateway.lease.bind.side_effect=lambda:contextlib.nullcontext()
+        gateway.workflow_callback.side_effect=failure
+        process=GatewayProcess(gateway);client=Client(process.client.detach());process.thread.start()
+        try:
+            with self.assertRaises(ValueError) as error:client.request('workflow_preflight',{'action':'preflight'})
+            message=str(error.exception)
+            self.assertIn('count: int_parsing',message);self.assertIn('unknown: extra_forbidden',message)
+            self.assertNotIn('PRIVATE',message);self.assertNotIn('权限',message)
+            gateway.workflow_callback.side_effect=None;gateway.workflow_callback.return_value={'passed':True}
+            self.assertEqual(client.request('workflow_preflight',{'action':'preflight'}),{'passed':True})
+        finally:
+            client.socket.close();process.thread.join(timeout=2);process.server.close()
+        self.assertFalse(process.thread.is_alive())
+
     def test_broker_preserves_typed_quota_across_process_protocol(self):
         import contextlib
         from unittest.mock import Mock
@@ -49,7 +142,10 @@ class EgressTests(unittest.TestCase):
         from webapp.agent_gateway import Gateway
         from webapp.task_leases import TaskQuotaReached
         gateway=object.__new__(Gateway);gateway.check=Mock();gateway.broker=None
-        gateway.lease=Mock();gateway.lease.runtime=None;gateway.lock=threading.Lock();gateway.calls=40
+        from webapp.agent_profiles import AgentProfile
+        from webapp.model_adapters import ResponsesAdapter
+        gateway.profile=AgentProfile();gateway.model_adapter=ResponsesAdapter()
+        gateway.lease=Mock();gateway.lease.runtime=None;gateway.lock=threading.Lock();gateway.calls=gateway.profile.budget['run_models']
         gateway.model='model';gateway.base_url='https://provider.invalid';gateway.key='test-key'
         with patch('webapp.agent_gateway.quota_status',return_value={'blocked':False}),self.assertRaises(TaskQuotaReached) as error:
             gateway.forward(Mock(),{'input':[]})
@@ -61,6 +157,9 @@ class EgressTests(unittest.TestCase):
         from webapp.agent_gateway import Gateway
         from webapp.task_leases import LeaseLost
         gateway=object.__new__(Gateway);gateway.check=Mock();gateway.broker=None;gateway.lease=None
+        from webapp.agent_profiles import AgentProfile
+        from webapp.model_adapters import ResponsesAdapter
+        gateway.profile=AgentProfile();gateway.model_adapter=ResponsesAdapter()
         gateway.lock=threading.Lock();gateway.calls=0;gateway.model='model';gateway.base_url='https://provider.invalid';gateway.key='test-key';gateway.note_model_unavailable=Mock()
         client=Mock();client.__enter__=Mock(return_value=client);client.__exit__=Mock(return_value=False)
         response=Mock();response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False);client.post.return_value=response

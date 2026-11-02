@@ -25,6 +25,16 @@ class DeliveryOrderTests(unittest.TestCase):
         self.assertEqual(len(result),5)
         self.assertEqual(files[0]['name'],'final.mp4')
 
+    def test_workflow_build_documents_are_intermediate_until_declared_delivery(self):
+        row={'id':'t','project':'p','mode':'execute','prompt':'execute','status':'paused','text':'Needs review',
+             'error':'','created':1,'updated':2,'workflow':{'status':'paused'},
+             'artifacts':[{'name':'arbitrary-construction.json','type':'application/json','is_primary':True},
+                          {**video('candidate.mp4'),'quality_state':'pending'}]}
+        result=public(row)['artifacts']
+        self.assertTrue(all(x['is_process'] and not x['is_primary'] for x in result))
+        row['status']='succeeded';row['workflow']['status']='succeeded';row['artifacts'][0]['workflow_delivery']=True
+        result=public(row)['artifacts'];self.assertEqual(result[0]['name'],'arbitrary-construction.json');self.assertTrue(result[0]['is_primary'])
+
     def test_numeric_versions_and_explicit_rollback(self):
         files=[video('final-v9.mp4'),video('final.mp4'),video('final-v10.mp4')]
         self.assertEqual(order_artifacts(files)[0]['name'],'final-v10.mp4')
@@ -86,6 +96,61 @@ class ChangedOutputTests(unittest.TestCase):
             artifacts=export_results(env,'limit')
             self.assertEqual(len(artifacts),40)
             self.assertEqual(artifacts[0]['name'],'final-v5.mp4')
+
+    def test_invalid_changed_manifest_preserves_files_without_claiming_delivery(self):
+        invalid=[{'primary':'edit/result.txt','files':[{'path':'edit/result.txt'}]},
+                 {'primary':'missing.txt','files':['result.txt']},
+                 {'primary':'result.txt','files':['../secret.txt']},
+                 {'primary':'result.txt','files':['result.txt','missing.txt']},
+                 '{broken-json']
+        for declaration in invalid:
+            with self.subTest(declaration=declaration),tempfile.TemporaryDirectory(dir=isolated_tmp_root()) as directory:
+                env=self.environment(Path(directory));edit=env['workspace']/'edit';env['output_baseline']=snapshot_outputs(env)
+                (edit/'result.txt').write_text('Actual generated content')
+                (edit/'deliverables.json').write_text(declaration if isinstance(declaration,str) else json.dumps(declaration))
+                artifacts=export_results(env,'invalid','已完成，交付 result.txt')
+                self.assertTrue(env.get('delivery_error'))
+                candidate=next(a for a in artifacts if a['name']=='result.txt')
+                self.assertEqual(candidate['quality_state'],'pending');self.assertFalse(candidate['is_primary'])
+                self.assertTrue(candidate['is_process'])
+                self.assertEqual((env['project']/'edit/agent_exports/invalid'/candidate['file']).read_text(),'Actual generated content')
+                self.assertTrue((edit/'deliverables.json').exists())
+
+    def test_old_invalid_manifest_does_not_poison_new_output_or_explicit_repair(self):
+        with tempfile.TemporaryDirectory(dir=isolated_tmp_root()) as directory:
+            env=self.environment(Path(directory));edit=env['workspace']/'edit'
+            (edit/'deliverables.json').write_text('{bad');env['output_baseline']=snapshot_outputs(env)
+            (edit/'result.txt').write_text('content')
+            artifacts=export_results(env,'new');self.assertFalse(env.get('delivery_error'))
+            self.assertTrue(artifacts[0]['is_primary'])
+            env['output_baseline']=snapshot_outputs(env)
+            (edit/'deliverables.json').write_text(json.dumps({'primary':'result.txt','files':['result.txt']}))
+            artifacts=export_results(env,'repair');self.assertEqual(artifacts[0]['name'],'result.txt')
+            self.assertEqual(artifacts[0]['role'],'deliverable');self.assertTrue(artifacts[0]['is_primary'])
+
+    def test_every_declared_delivery_precedes_incidental_files_at_export_limit(self):
+        with tempfile.TemporaryDirectory(dir=isolated_tmp_root()) as directory:
+            env=self.environment(Path(directory));edit=env['workspace']/'edit'
+            for number in range(45):(edit/f'preview-{number}.png').write_bytes(b'preview')
+            (edit/'result.mp4').write_bytes(b'video');(edit/'required-report.txt').write_text('report')
+            (edit/'deliverables.json').write_text(json.dumps({'primary':'result.mp4','files':['result.mp4','required-report.txt']}))
+            artifacts=export_results(env,'many')
+            self.assertEqual(len(artifacts),40)
+            self.assertEqual({a['name'] for a in artifacts if a['role']=='deliverable'},{'result.mp4','required-report.txt'})
+
+    def test_declared_file_becoming_unreadable_cannot_silently_complete(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory(dir=isolated_tmp_root()) as directory:
+            env=self.environment(Path(directory));edit=env['workspace']/'edit'
+            target=edit/'result.txt';target.write_text('generated')
+            (edit/'deliverables.json').write_text(json.dumps({'primary':'result.txt','files':['result.txt']}))
+            original=os.open
+            def changed(path,*args,**kwargs):
+                if path==target:raise FileNotFoundError('source disappeared after validation')
+                return original(path,*args,**kwargs)
+            with patch('webapp.agent_sandbox.os.open',side_effect=changed):artifacts=export_results(env,'missing')
+            self.assertTrue(env.get('delivery_error'))
+            self.assertTrue(all(not a['is_primary'] and a['is_process'] for a in artifacts))
 
 
 if __name__=='__main__':unittest.main()

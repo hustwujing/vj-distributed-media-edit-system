@@ -16,7 +16,7 @@ def main():
     sys.path.insert(0,str(Path('tests').resolve()))
     from tests.run_workflow_suite import source_digest
     before=source_digest()
-    with tempfile.TemporaryDirectory(prefix='vu-distributed-suite-') as folder:
+    with tempfile.TemporaryDirectory(prefix='vt-') as folder:
         root=Path(folder);root.chmod(0o755)
         from tests.isolation import isolate_environment,isolate_network
         isolate_environment(root,root/'runtime')

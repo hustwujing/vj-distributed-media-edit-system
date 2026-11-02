@@ -99,6 +99,11 @@ def queue(store, w, step=None, purpose='final'):
         live = workflows.get(store, w['turn_id'])
         if live['status'] in ('cancelled','cancelling','succeeded'):
             return False
+        # The single active reviewer serializes Agent work, not review intent.
+        # A concurrently finishing sibling must retain its own durable request.
+        if step:
+            step=next(item for item in live['steps'] if item['id']==step['id'])
+            workflows.change(store,w['id'],step['id'],status='diagnosing' if purpose=='diagnose' else 'agent_review')
         if current(store, w['id']):
             return True
         count = db.execute('SELECT COUNT(*) AS n FROM workflow_agent_reviews WHERE workflow=?', (w['id'],)).fetchone()['n']
@@ -114,6 +119,42 @@ def queue(store, w, step=None, purpose='final'):
         workflows.state(store,w['turn_id'],'resuming' if purpose=='final' else 'reviewing',
                         text={'final':'后台步骤已完成，正在进行最终验收。','review':'正在由 Agent 验收步骤内容。','diagnose':'正在由 Agent 分析步骤问题。'}[purpose])
     return True
+
+
+def reconcile(store, turn_id):
+    """Schedule deferred sibling reviews at an idle, non-user-paused boundary."""
+    from . import workflows
+    with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        w=workflows.get(store,turn_id)
+        if not w or w['status']!='ready':return False
+        turn=db.execute('SELECT status FROM agent_turns WHERE id=?',(turn_id,)).fetchone()
+        if not turn or turn['status'] not in ('queued','running','waiting'):return False
+        control=db.execute('SELECT pause_requested FROM workflow_control WHERE turn_id=?',(turn_id,)).fetchone()
+        if control and control['pause_requested']:return False
+        active=db.execute('SELECT attempt FROM execution_leases WHERE turn_id=? AND active=1 AND expires>? LIMIT 1',
+                          (turn_id,store.now())).fetchone()
+        cleaning=db.execute("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete' LIMIT 1",(turn_id,)).fetchone()
+        if active or cleaning:return False
+        limits=db.execute('SELECT deadline_at,termination_reason FROM execution_limits WHERE task_id=?',(turn_id,)).fetchone()
+        if limits and (limits['termination_reason'] or limits['deadline_at']<=store.now()):return False
+        # A sibling may have asked for user input while another review was in
+        # flight. Applying that other decision must never bypass the human gate.
+        blockers=[s for s in w['steps'] if s['status'] in ('awaiting_review','paused')]
+        automatic=lambda s:s['status']=='paused' and s['spec'].get('on_failure')=='diagnose' and s['error_code'] in (
+            'local','validate','provider_failed','pre_submit','model_result')
+        human=next((s for s in blockers if not automatic(s)),None)
+        if human:
+            workflows.state(store,turn_id,'paused',error=human['error'] or '此步骤需要用户确认。')
+            return True
+        request=current(store,w['id'])
+        if request:
+            return workflows.state(store,turn_id,'resuming' if request['purpose']=='final' else 'reviewing',
+                                   text='继续尚未完成的 Agent 验收或诊断。')
+        for step in w['steps']:
+            if step['status'] in ('diagnosing','agent_review') or automatic(step):
+                return queue(store,w,step,'review' if step['status']=='agent_review' else 'diagnose')
+    return False
 
 
 def begin(store, turn_id):

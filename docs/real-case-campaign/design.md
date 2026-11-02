@@ -1,6 +1,6 @@
-# 60 条真实长程场景测试设计
+# 77 条真实场景测试集合（原 60 条＋16 条插库干预回归＋1 条真实 Jev 重规划）
 
-执行前固定：30 条简单、30 条复杂。所有 case 均从浏览器上传素材、发送需求、确认方案后执行；不向数据库写成功状态，不使用模拟服务结果。复杂 case 要求至少三个持久化步骤。
+原始集合固定：30 条简单、30 条复杂。原 60 条 case 均从浏览器上传素材、发送需求、确认方案后执行；不向数据库写成功状态，不使用模拟服务结果。复杂 case 要求至少三个持久化步骤。
 
 输入文件及哈希见 fixtures-manifest.json；具体用户原文与结构化预期见 [cases.json](cases.json)。除已知需静音的场景外检查声音；所有实际产物必须下载并验证，图片/视频还需内容复核。
 
@@ -76,3 +76,22 @@
 重接两个已超时的观察器时，浏览器上下文峰值为8；第一阶段后端为两台逻辑执行节点、每节点1个调度槽位。后续根据实际轮询排队情况，将每节点并发提高到2、CPU槽位6、内存预算24GiB，并设置28GiB/600%/1024任务的服务硬限制。切换时原节点活动租约、运行尝试及待清理记录均为0，详见capacity-rollout.json；未中断现有任务。源码完整回归测试与部分真实case同期运行，端到端时间可能包含共享机器资源竞争，不能直接作为生产性能基准。
 
 真实长程队列中40分钟观察窗口不足，后续观察窗口调整为每阶段3小时；这只影响QA持续观察，业务任务原有执行预算、截止时间、重试和费用限制保持不变。旧观察器到期时复用原task ID重接，不产生新请求。
+
+
+## 可重复执行的新增干预回归
+
+新增 R01–R16 的位置、强度、预期复用和重做节点见 [干预场景设计](intervention-design.md)，R17 使用 [真实 Jev 重规划驱动](../../tests/campaign_replan_real.cjs)。完整定义仍在 [统一用例清单](cases.json)。原始 60 条的指纹保持不变；R01–R16 使用插库构造规划/初始状态，R17 不插入规划成功状态，完全通过浏览器和真实 Jev 入口。两组都使用部署后的真实操作、控制接口、存储、验收和交付，结束后清理唯一测试项目及对象。
+
+统一入口（在当前项目根目录运行）：
+
+```bash
+.venv/bin/python tests/campaign_suite.py list --group all
+.venv/bin/python tests/campaign_suite.py run --group intervention --cases R01,R05,R16 --jobs 2
+.venv/bin/python tests/campaign_suite.py run --group intervention --repeat 2 --jobs 2
+.venv/bin/python tests/campaign_suite.py cleanup --run-id <失败运行ID>
+.venv/bin/python tests/campaign_suite.py report
+```
+
+`--group original` 调用原浏览器驱动并创建新的 attempt；`--group all` 执行全部 76 条。原组保留方案审阅步骤，显式传 `--approve-original-plans` 时才启用已有的方案契约自动检查路径。原组可能调用真实付费供应商；R组不调用外部图片/视频生成，最终验收仍由实际部署的 Agent 完成。
+
+每次运行都会记录新的 run ID、源码发布版本、构造状态、真实状态推进、输入输出哈希、固定复用链、最终文件及清理结果。重跑不覆盖失败尝试；清理失败不计通过，保留受保护会话供 `cleanup` 重试，清理成功后删除会话文件。组合报告按 `validation_scope` 区分当前版本与历史版本，未执行不能记为当前通过。

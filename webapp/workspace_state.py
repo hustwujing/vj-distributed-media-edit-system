@@ -49,5 +49,10 @@ def effective_manifest(store,project):
 
 
 def proposal_content(store,project):
-    return {name:record['sha256'] for name,record in effective_manifest(store,project).items()
+    # Background steps commit independent snapshots. A later Agent restores
+    # them before writing its project checkpoint; moving identical bytes into
+    # that checkpoint must not invalidate the proposal's content identity.
+    from .step_checkpoints import current_agent_rows,records_for
+    manifest={**effective_manifest(store,project),**records_for(current_agent_rows(store,project))}
+    return {name:record['sha256'] for name,record in manifest.items()
             if name.startswith('edit/') and not name.startswith('edit/previews/') and name!='edit/project.md'}

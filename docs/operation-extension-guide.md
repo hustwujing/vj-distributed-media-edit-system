@@ -1,6 +1,10 @@
 # 新 operation 接入
 
+开发任务先读 [新增与扩展 operation](development/add-operation.md)，按步骤完成实现、装载与验证；本文提供注册接口和代码模板。
+
 operation 表示业务能力，implementation 表示版本固定的实现，lifecycle 表示通用执行流程。普通能力接入不应修改调度器或 Runner 的分支。
+
+本文的注册模板复用已有生命周期。新增生命周期或修改阶段协议属于框架扩展，必须另按 [operation 生命周期开发说明](development/change-operation-lifecycle.md)接通状态推进、持久化、恢复、取消和调度。
 
 ## 定义与注册
 
@@ -49,9 +53,11 @@ register(
 
 同步能力使用 `remote_sync` / `sync` 处理阶段；异步能力使用 `remote_async` 的 `submit`、`poll`、`collect` 阶段。处理器可以提供已注册的回调，不需要向中央 Adapter 增加任意业务分支。
 
-提交外部副作用前必须保存调用意图；返回任务 ID 后持久化供应商句柄。供应商协议通过 `generation_service.register_provider()` 注册 `submit`、`poll`、`download`，可选择实现 `cancel`。不支持取消时明确报告，不伪造取消成功。现有供应商句柄查询及取消不会根据新的默认配置悄悄换供应商。
+同步实现可在完成调用记录契约后声明 `Implementation(..., records_calls=True)`：每次外部副作用前保存调用意图，结果形成可恢复检查点后保存产物列表。Runner 使用该证据恢复已有结果；默认未声明时，缺少记录仍按提交未知暂停。该字段不会替实现自动写入记录，详细要求及恢复动作见[生命周期规范](development/change-operation-lifecycle.md)。
 
-不得让 Agent 指定 executable、URL、凭据或任意导入路径。任务中保存实现 ID/版本，只有服务端注册且与 operation 匹配的实现可用。配置与原供应商凭据路由不一致时，应停止调用并显示明确原因。
+提交外部副作用前保存调用意图；返回任务 ID 后持久化供应商句柄。`generation_service.register_provider()` 注册 submit/poll/download 和可选 cancel 的协议分派，准备、认证及清理仍需单独接通。完整接线和验证见[外部服务与供应商接入](development/change-external-providers.md)。
+
+operation 参数不得让 Agent 指定 executable、服务 URL、凭据或任意导入路径。任务中保存实现 ID/版本，只有服务端注册且与 operation 匹配的实现可用。配置与原供应商凭据路由不一致时，应停止调用并显示明确原因；`script` 步骤的受限本地命令是另一种契约。
 
 ## 输出与验收
 
@@ -63,15 +69,16 @@ register(
 
 结果路径是本次输出目录下的文件名。禁止路径穿越、重复路径和歧义角色。宿主核验实际文件、大小、哈希和媒体类型；处理器或 Agent 的声明不能代替技术验收。需要内容判断时再进入 Agent/用户验收，只有通过验收的指定版本才能被下游消费。
 
-## 必须验证的情况
+## 验证入口
 
-- 参数缺失、越界、额外字段及输入角色/类型不匹配。
-- 实现版本未知，或将另一个能力的实现强行用于本 operation。
-- 正常执行、输出角色正确、内容不符时拒绝验收。
-- 排队、启动窗口、运行、收取、上传及验收阶段的取消。
-- 本地子进程不响应正常终止，HTTP 阻塞，数据库观察阻塞和连接断开。
-- 外部提交结果未知、晚到任务 ID、重复清理、过期执行器和清理器提交。
-- 跨节点恢复输入和输出，输入哈希/修订变化，不允许重复收费生成。
-- 独立分支并行、资源额度和下游依赖验收。
+按[新增与扩展 operation 的验收矩阵](development/add-operation.md#7-验证与完成标准)选择测试；取消、租约和跨节点机制改动另按[分布式执行说明](development/change-distributed-execution.md)。只有现有生命周期无法表达新能力时才扩展通用 Runner，并为新增状态转换补充竞争及恢复测试。
 
-只在现有生命周期无法表达新能力时扩展通用 Runner，并为新增状态转换补充竞争及恢复测试。
+### 声明严格产物复用
+
+`Operation(..., reuse_safe=True)` 是受信任实现作者的完整依赖声明，不等于 `retry_safe`。
+只有本地生命周期、无 provider、model_profile 为 none、输入完整通过角色声明且不读取隐含项目状态的
+实现才可启用。替代实现通过 `register_implementation(..., reuse_safe=True)` 单独声明，默认关闭。
+框架匹配规范参数、输入角色顺序/哈希/元数据、实现和运行环境，在独立输出范围复制已验收来源，
+再按新版 acceptance 检查。带任意 preflight/config_files 或仅排序而无输入绑定的依赖不支持。
+更改输出相关配置时必须纳入契约/运行时版本；不能因为实现仍叫 `@1` 就假定历史输出可复用。
+完整协议见 [工作流契约](workflow-contracts.md#跨方案严格复用)。

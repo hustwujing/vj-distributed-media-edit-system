@@ -33,6 +33,7 @@ class Archive:
                 CREATE TABLE IF NOT EXISTS metadata(key TEXT PRIMARY KEY,value TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS alerts(rule TEXT PRIMARY KEY,state TEXT NOT NULL,since REAL NOT NULL,updated REAL NOT NULL,detail TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS alert_history(seq INTEGER PRIMARY KEY AUTOINCREMENT,rule TEXT,state TEXT,time REAL,detail TEXT);
+                CREATE TABLE IF NOT EXISTS api_capacity(instance TEXT NOT NULL,metric TEXT NOT NULL,time REAL NOT NULL,body TEXT NOT NULL,PRIMARY KEY(instance,metric));
                 CREATE INDEX IF NOT EXISTS events_time ON events(time,seq);''')
             for field in FILTERS:db.execute(f'CREATE INDEX IF NOT EXISTS events_{field} ON events({field},seq)')
         self.path.chmod(0o600)
@@ -58,8 +59,13 @@ class Archive:
             encoded=json.dumps(body,separators=(',',':'))
             fields=sorted(FILTERS)
             with self.lock,self.connect() as db:
-                db.execute('INSERT OR IGNORE INTO events(event_id,time,body,'+','.join(fields)+') VALUES ('+','.join('?' for _ in range(3+len(fields)))+')',
-                           (body['event_id'],body['time'],encoded,*(body.get(k) for k in fields)))
+                inserted=db.execute('INSERT OR IGNORE INTO events(event_id,time,body,'+','.join(fields)+') VALUES ('+','.join('?' for _ in range(3+len(fields)))+')',
+                           (body['event_id'],body['time'],encoded,*(body.get(k) for k in fields))).rowcount
+                from .api_capacity import metric_key
+                metric=metric_key(body)
+                if metric and inserted and body['time']<=time.time()+5:
+                    db.execute('INSERT INTO api_capacity VALUES (?,?,?,?) ON CONFLICT(instance,metric) DO UPDATE SET time=excluded.time,body=excluded.body WHERE excluded.time>=api_capacity.time',
+                               (body['instance'],metric,body['time'],encoded))
                 if cursor:db.execute("INSERT INTO metadata VALUES ('cursor',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",(cursor,))
             self.last_ingest=time.time();return True
         except Exception:
@@ -82,6 +88,7 @@ class Archive:
 
     def prune(self):
         with self.lock,self.connect() as db:
+            db.execute('DELETE FROM api_capacity WHERE time<?',(time.time()-300,))
             db.execute('DELETE FROM events WHERE time<?',(time.time()-self.retention,))
             row=db.execute('SELECT seq FROM events ORDER BY seq DESC LIMIT 1 OFFSET ?',(self.max_rows,)).fetchone()
             if row:db.execute('DELETE FROM events WHERE seq<=?',(row['seq'],))
@@ -224,6 +231,17 @@ def sample(store,archive):
         data['gauges'].update(host_memory_available_bytes=mem['MemAvailable'],host_memory_total_bytes=mem['MemTotal'])
     except (OSError,ValueError,KeyError):pass
     data['views']['http']={'window_seconds':300,'capped_at':10000,'requests':len(http),'errors':data['gauges']['http_5xx_5m']}
+    from .api_capacity import views
+    with archive.lock,archive.connect() as db:
+        capacities=db.execute('SELECT body FROM api_capacity WHERE time>? ORDER BY instance,metric',(now-20,)).fetchall()
+    capacity=views([json.loads(r['body']) for r in capacities]);data['views']['api_capacity']=capacity
+    observed=set(capacity['complete_instances'])
+    data['gauges']['api_capacity_observed_instances']=len(observed)
+    data['gauges']['api_capacity_missing_instances']=max(0,len(api_states)-len(observed))
+    data['gauges']['api_pools_saturated']=sum(r['active']>=r['workers'] and r['queued']>=r['queue_capacity'] for r in capacity['pools'])
+    if capacity['loops']:data['gauges']['api_loop_lag_max_seconds']=max(r['lag_seconds'] for r in capacity['loops'])
+    data['gauges']['api_overload_rejections_5m']=sum(e.get('event')=='api.pool.unavailable' and e.get('reason') in ('queue_full','queue_timeout') for e in errors)
+    data['gauges']['api_cleanup_deferred_5m']=sum(e.get('event')=='api.cleanup_deferred' for e in errors)
     return data
 
 
@@ -240,6 +258,8 @@ def prometheus(archive):
     for row in archive.snapshot.get('views',{}).get('phases',[]):
         if row['phase'] in allowed:
             for field in ('seconds','calls','failures'):lines.append(f'video_use_phase_{field}{{phase="{row["phase"]}"}} {row[field]}')
+    from .api_capacity import exposition
+    lines.extend(exposition(archive.snapshot.get('views',{}).get('api_capacity',{})))
     return '\n'.join(lines)+'\n'
 
 
@@ -262,6 +282,10 @@ def monitor(archive,store,stop):
                 'collector_stale':{'seconds':time.time()-archive.last_ingest} if archive.last_ingest and time.time()-archive.last_ingest>120 else None,
                 'disk_capacity':{'used_ratio':gauges['disk_used_ratio']} if gauges['disk_used_ratio']>.9 else None,
                 'telemetry_dropped':{'count':archive.dropped,'producers':gauges['telemetry_dropped_5m']} if (archive.dropped and time.time()-archive.last_drop<300) or gauges['telemetry_dropped_5m'] else None,
+                'api_capacity_telemetry_missing':{'instances':gauges['api_capacity_missing_instances']} if gauges['api_capacity_missing_instances'] else None,
+                'api_dependency_overloaded':{'pools':gauges['api_pools_saturated'],'rejections':gauges['api_overload_rejections_5m']} if gauges['api_pools_saturated'] or gauges['api_overload_rejections_5m']>=5 else None,
+                'api_event_loop_delayed':{'seconds':gauges.get('api_loop_lag_max_seconds')} if gauges.get('api_loop_lag_max_seconds',0)>.5 else None,
+                'api_cache_cleanup_delayed':{'events':gauges['api_cleanup_deferred_5m']} if gauges['api_cleanup_deferred_5m'] else None,
             }
             for detail in conditions.values():
                 if detail:

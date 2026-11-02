@@ -18,6 +18,7 @@ import time
 import threading
 import uuid
 import select
+from contextlib import contextmanager
 from .process_handles import open_pid,send_signal
 
 
@@ -146,6 +147,16 @@ class Identity:
 
 
 class IdentityPool:
+    @contextmanager
+    def control_lock(self, uid):
+        # Separate from the lifetime identity lease: the watchdog must be able
+        # to revoke a live owner, but must not recreate files during teardown.
+        fd=os.open(self.root/'identities'/f'{int(uid)}.control',os.O_CREAT|os.O_RDWR|os.O_NOFOLLOW,0o600)
+        try:
+            fcntl.flock(fd,fcntl.LOCK_EX)
+            yield
+        finally:os.close(fd)
+
     def __init__(self, root=None, start=None, size=None, reconcile=True):
         self.root = Path(root or os.environ.get('VIDEO_USE_EXECUTOR_ROOT', '/var/lib/video-use-executor')).resolve()
         self.start = int(start or os.environ.get('VIDEO_USE_UID_START', '300000'))
@@ -207,7 +218,8 @@ class IdentityPool:
                 raise RuntimeError('Invalid attempt directory')
             if os.path.ismount(path/'data'):
                 subprocess.run(['umount', str(path/'data')], check=True, capture_output=True,timeout=10)
-            if path.exists():shutil.rmtree(path)
+            with self.control_lock(uid):
+                if path.exists():shutil.rmtree(path)
             if record.get('gateway_temp'):
                 gateway=Path(record['gateway_temp'])
                 if gateway!=Path('/run/video-use-agent/client-temp')/record['attempt']:raise RuntimeError('Invalid gateway cleanup path')

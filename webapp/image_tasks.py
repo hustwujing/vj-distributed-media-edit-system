@@ -79,7 +79,10 @@ def execute_image(raw,assets,project,output,cancel=None,progress=None):
             with Image.open(reference) as im:ref=np.asarray(ImageOps.exif_transpose(im).convert('RGB')).astype('float32')
             src=np.asarray(image.convert('RGB')).astype('float32');sm,ss=src.reshape(-1,3).mean(0),src.reshape(-1,3).std(0);rm,rs=ref.reshape(-1,3).mean(0),ref.reshape(-1,3).std(0);matched=(src-sm)*rs/np.maximum(ss,1)+rm;strength=max(0,min(1,float(task.parameters.get('strength',1))));result=np.clip(src*(1-strength)+matched*strength,0,255).astype('uint8');Image.fromarray(result).save(output/'image.png');return ['image.png']
         if task.action in ('product_layout','batch_export'):
-            p=task.parameters;w,h=p['width'],p['height'];background=p.get('background','#ffffff');canvas=Image.new('RGBA',(w,h),background);margin=max(0,min(w//3,h//3,int(p.get('margin',round(min(w,h)*.08)))))
+            p=task.parameters;w,h=p['width'],p['height'];background=p.get('background','#ffffff');canvas=Image.new('RGBA',(w,h),background)
+            # Export fits the complete canvas. Product-layout padding must not
+            # rescale an already composed image or move its labels on export.
+            margin=max(0,min(w//3,h//3,int(p.get('margin',round(min(w,h)*.08))))) if task.action=='product_layout' else 0
             subject=(ImageOps.fit(image,(w,h),Image.Resampling.LANCZOS) if task.action=='batch_export' and p.get('fit')=='cover' else ImageOps.contain(image,(max(1,w-2*margin),max(1,h-2*margin)),Image.Resampling.LANCZOS));x=(w-subject.width)//2;y=(h-subject.height)//2
             if task.action=='product_layout' and p.get('shadow',True):
                 alpha=subject.getchannel('A');shadow=Image.new('RGBA',(w,h));mask=Image.new('L',(w,h));mask.paste(alpha,(x+int(p.get('shadow_x',8)),y+int(p.get('shadow_y',12))));mask=mask.filter(ImageFilter.GaussianBlur(float(p.get('shadow_blur',18))));shadow.putalpha(mask.point(lambda v:round(v*.35)));canvas=Image.alpha_composite(canvas,shadow)

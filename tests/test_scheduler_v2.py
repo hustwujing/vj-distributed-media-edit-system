@@ -10,6 +10,52 @@ class SchedulingTests(unittest.TestCase):
     def setUp(self):
         self.f=fixtures.WorkflowTests();self.f.setUp();self.coordinator=Coordinator(self.f.store,'test','test')
     def tearDown(self):self.f.tearDown()
+    def test_orphan_diagnosis_reconciles_after_restart_and_is_idempotent(self):
+        step=local_step('failed');step['on_failure']='diagnose'
+        self.f.submit([step,local_step('downstream',['failed'])]);w=self.f.get()
+        workflows.change(self.f.store,w['id'],'failed',status='paused',error_code='local')
+        rows=self.coordinator.candidates()
+        self.assertEqual(rows[0]['workflow_status'],'reviewing')
+        self.assertEqual(self.f.get()['agent_review']['step'],'failed')
+        self.assertEqual(self.f.get()['steps'][1]['status'],'pending')
+        for _ in range(3):self.coordinator.candidates()
+        self.assertEqual(len(self.f.store.query('SELECT id FROM workflow_agent_reviews')),1)
+
+    def test_orphan_review_reconciliation_respects_user_pause_and_active_lease(self):
+        from webapp.workflow_review import reconcile
+        step=local_step('failed');step['on_failure']='diagnose'
+        self.f.submit([step]);w=self.f.get()
+        lease=self.coordinator.claim(self.f.turn,'workflow',step_id='failed')
+        workflows.change(self.f.store,w['id'],'failed',status='paused',error_code='local')
+        try:self.assertFalse(reconcile(self.f.store,self.f.turn))
+        finally:lease.release()
+        self.f.store.execute('INSERT INTO workflow_control VALUES (?,1)',(self.f.turn,))
+        self.assertFalse(reconcile(self.f.store,self.f.turn))
+        self.assertIsNone(self.f.get()['agent_review'])
+        workflows.cancel(self.f.store,self.f.turn)
+        self.assertFalse(reconcile(self.f.store,self.f.turn))
+
+    def test_readonly_snapshot_without_worker_does_not_read_private_manifest(self):
+        from webapp.scheduling import snapshot,limits
+        self.f.store.execute('UPDATE execution_workers SET draining=1')
+        self.f.store.execute("UPDATE agent_turns SET status='queued' WHERE id=?",(self.f.turn,))
+        with patch('webapp.runtime_image.fingerprint',side_effect=PermissionError('private manifest')) as fingerprint:
+            value=snapshot(self.f.store,self.f.turn)
+            self.assertEqual(value['limits_source'],'defaults')
+            self.assertIsNone(value['limits']['runtime_profile'])
+            self.assertEqual(value['wait_reason'],'resource')
+            fingerprint.assert_not_called()
+            with self.assertRaises(PermissionError):limits()
+
+    def test_worker_without_recorded_config_uses_unattested_defaults(self):
+        from webapp.scheduling import snapshot
+        self.coordinator.heartbeat(False)
+        self.f.store.execute('DELETE FROM execution_scheduler_configs')
+        with patch('webapp.runtime_image.fingerprint',side_effect=PermissionError('private manifest')):
+            value=snapshot(self.f.store,self.f.turn)
+        self.assertEqual(value['limits_source'],'defaults')
+        self.assertIsNone(value['limits']['runtime_profile'])
+
     def test_model_missing_still_schedules_local_workflow_and_cancel(self):
         self.f.submit([local_step()])
         self.assertIn(self.f.turn,[r['id'] for r in candidates(self.coordinator,False)])

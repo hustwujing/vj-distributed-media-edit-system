@@ -11,6 +11,17 @@ class ActivityTracker:
         self.items={}
         self.last_output={}
 
+    def handle_event(self,event):
+        """Shared UI projection; adapters supply only public normalized data."""
+        if event.kind in ('tool.started','tool.completed'):
+            self.handle('item/started' if event.kind=='tool.started' else 'item/completed',event.data)
+        elif event.kind=='tool.output':
+            self.handle('item/commandExecution/outputDelta',{'itemId':event.id,**event.data})
+        elif event.kind=='plan.updated':
+            self.handle('turn/plan/updated',event.data)
+        elif event.kind=='message.completed' and event.data.get('phase')=='commentary':
+            self.emit('note',{'id':event.id,'text':event.data.get('text','')[:5000]})
+
     def display(self,text):
         text=str(text)
         for filename,name in self.names.items():text=text.replace(filename,name)

@@ -18,6 +18,8 @@ def lookup(store,project,current,selection='recent',query='',before_id=''):
 def write_snapshot(store,project,current,path,limit=16*1024**2):
     """Read-only on-demand context for the sandbox, rebuilt from PostgreSQL."""
     size=0;after_time=-1.;after_id=''
+    from .egress_policy import scrub,secrets
+    protected=secrets()
     with path.open('w') as output:
         if not store.query("SELECT name FROM sqlite_master WHERE name='agent_turns'"):return
         while True:
@@ -28,5 +30,5 @@ def write_snapshot(store,project,current,path,limit=16*1024**2):
                 data=json.dumps(row,ensure_ascii=False)+'\n';size+=len(data.encode())
                 if size>limit:
                     output.write(json.dumps({'history_truncated':True,'reason':'Historical content exceeds snapshot limit'})+'\n');return
-                output.write(data)
+                output.write(scrub(data,protected))
             after_time=rows[-1]['created'];after_id=rows[-1]['id']

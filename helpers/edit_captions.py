@@ -29,7 +29,11 @@ def clock(t, ass=False):
 
 
 def parse_srt(path):
-    text = Path(path).read_text(encoding='utf-8-sig').replace('\r\n','\n').strip()
+    return parse_srt_text(Path(path).read_text(encoding='utf-8-sig'))
+
+
+def parse_srt_text(text):
+    text = text.replace('\r\n','\n').strip()
     cues = []
     pattern = r'(\d+):(\d{2}):(\d{2})[,.](\d{3})'
     def seconds(groups):

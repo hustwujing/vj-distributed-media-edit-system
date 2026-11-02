@@ -1,13 +1,15 @@
 # Execution isolation and restart recovery
 
+Current development rules are in [distributed execution development](development/change-distributed-execution.md), configuration in [distributed execution configuration](distributed-execution-configuration.md), and deployment in [cluster operations](cluster-operations.md). The dated implementation and design sections below are historical context, not proof of current deployment or test results.
+
 ## Deployment boundary
 
-SQLite is deliberately retained. Multiple API and executor processes may share
-the same **local** SQLite database. Do not place SQLite/WAL files on NFS, and do
-not configure separate databases on different machines and expect coordinated
-ownership. Multi-host rollout requires replacing the Store/lease transaction
-implementation with MySQL or PostgreSQL and providing shared durable artifacts.
-The task/attempt/worker protocol does not depend on process-local locks.
+Distributed mode uses a shared PostgreSQL database and S3-compatible encrypted
+object storage. API and executor data directories are independent local caches;
+Redis is optional realtime transport, not the authority for task ownership.
+SQLite remains a local compatibility path. Do not put SQLite/WAL on NFS or use
+separate databases and expect coordinated ownership. The built-in deployment is
+single-host, multi-instance; it does not provide whole-host disaster recovery.
 
 The API no longer launches manual jobs or changes running tasks at startup.
 `python -m webapp.agent_host` handles both manual jobs and Agent workflows. It
@@ -38,7 +40,9 @@ alone never authorizes local UID reuse.
 
 ## Files, privileges and resources
 
-Each execution receives a separate bounded tmpfs with a file-count limit. Input
+Each execution receives a separate bounded workspace with a file-count limit.
+The default is tmpfs; the optional disk backend uses a size-bounded ext4 image
+and fails if its mount/quota prerequisites are unavailable. Input
 assets, transcript cache and the latest committed workspace/state checkpoint are
 copied into it. Staging copies run inside the task cgroup so tmpfs pages are not
 charged to the long-lived coordinator. No mutable working directory is shared
@@ -85,15 +89,23 @@ Provider URLs are configured by the operator, not returned by a model.
 
 Main model/transcription credentials remain in the trusted gateway. Calls are
 fenced and counted transactionally per task and per business user/day. These are
-call budgets, not an implementation of financial billing or token accounting.
+call budgets, not measured consumption. Token receipts and usage reporting are
+handled separately by the [usage ledger](development/change-observability-usage.md);
+neither is a financial billing system.
 
 ## Claim, heartbeat and fencing
 
-`task_leases.Coordinator` is the ownership repository. SQLite uses short
-`BEGIN IMMEDIATE` transactions and the database clock. Claim and renewal verify
+`task_leases.Coordinator` is the ownership repository. PostgreSQL uses short
+control transactions serialized by a transaction-scoped advisory lock; the local
+SQLite path uses `BEGIN IMMEDIATE`. Both use the database clock. Claim and renewal verify
 the owner, attempt, generation and unexpired lease. Multiple scanners may race;
 only one transaction wins. Per-owner concurrency and project exclusion span
 manual jobs and Agent tasks.
+
+Each lease slot has at most one valid owner. Independent workflow steps have
+separate slots; root Agent/review execution excludes step business execution.
+Cancellation control has a separate revocation path. Task identity alone is not
+a sufficient uniqueness key for concurrent workflow attempts.
 
 Binding a Lease makes Store transactions validate that generation under the
 same write lock as the mutation. Gateway handler threads explicitly bind the
@@ -106,10 +118,10 @@ Submission intent, external IDs and provider idempotency guarantees remain
 necessary. A lost DB connection fails execution closed; it is not permission to
 continue locally or take ownership without a transaction.
 
-When replacing SQLite, preserve these transaction semantics with row locks/CAS,
-database time, uniqueness constraints and atomic publication. A read followed by
-an unconditional UPDATE is not a valid replacement. Schema migrations must be
-serialized; shared metadata and files must not depend on node-local paths.
+When changing database transport or lock scope, preserve database time,
+uniqueness and atomic publication. A read followed by an unconditional UPDATE
+is not a valid replacement. Schema migrations must be serialized; shared
+metadata and files must not depend on node-local paths.
 
 ## Checkpoints and recovery
 
@@ -119,21 +131,25 @@ directories are flushed before the fenced DB pointer is committed. Checksums
 and sizes are verified when restoring. The latest three checkpoint versions are retained by default (configurable
 from two to ten); expired versions are removed only after a new pointer commits.
 Deletion of prior edit files is blocked at checkpoint publication. The version
-API supports explicit rollback after task resources have been reclaimed. Legacy project workspaces are imported on
-first execution and left in place for migration/rollback.
+API supports explicit rollback after task resources have been reclaimed.
+Eligible seed workspaces can be imported on first execution; this does not
+migrate an old SQLite project's metadata into the deployed PostgreSQL cluster.
 
 Local steps checkpoint before marking themselves succeeded. External downloads
 are checkpointed before dependent steps can run. Paid jobs with known upstream
 IDs resume polling; ambiguous submission windows pause. Interrupted unrestricted
-Agent execution/final review is not automatically replayed. Safe plan/local
-operations can be retried. Manual image jobs reuse a recorded upstream ID after
-takeover; unknown submissions and interrupted synchronous transcription jobs
-are stopped rather than risking an unrecorded duplicate charge.
+Agent work cannot be assumed safe to replay. Structured Agent review requests
+use their own bounded recovery path and revalidate snapshots before applying a
+decision. Local steps retry only under their declared safety and attempt limits.
+Synchronous calls reuse a saved result when available; an accepted call without
+a durable result or a reliable upstream handle is not submitted again.
 
 Recovery is at step boundaries, not at arbitrary Python instructions or video
 frames. A partially encoded monolithic video may need to be rendered again.
-Checkpoints need durable shared storage for cross-host recovery; losing a local
-disk without a durable checkpoint cannot be repaired by the lease protocol.
+Distributed checkpoints use shared objects and committed manifests. Parallel
+steps save separate step/revision snapshots; they do not replace the project
+snapshot. Losing a local disk without a durable checkpoint cannot be repaired
+by the lease protocol.
 
 Outputs are copied to service-owned publication directories outside task
 mounts. Manual jobs publish an attempt-directory pointer and completion together.
@@ -142,7 +158,7 @@ Cancelled tasks cannot be changed to successful by a late completion.
 
 ## 本轮实现与部署边界（2026-10-30）
 
-以下是已进入代码的能力，部署后的实际配置仍需按安装步骤核验：
+从本节起至 “Release and shutdown” 之前保留 2026-10-30 实施与后续设计记录，包含当时的待办、限制和测试结果。当前修改按[专项开发索引](development/README.md)选择规则；这些历史条目不代表当前代码仍缺失相应能力，也不是当前验收通过的证明。
 
 | 范围 | 实现及可验证行为 |
 |---|---|
@@ -160,7 +176,7 @@ Cancelled tasks cannot be changed to successful by a late completion.
 系统仍共享宿主内核；未接入 gVisor/microVM，未宣称可以完全隐藏内核/库版本，
 也未进行完整渗透测试。宿主补丁、镜像更新及节点物理容量仍须运维维护。
 工作流的主观验收依赖用户，没有新增收费的自动视觉评审。
-SQLite 继续使用；当前验证多进程接管，真正跨主机需服务型数据库及共享成果存储。
+当时使用 SQLite 并验证多进程接管；此历史限制已由当前 PostgreSQL 与共享对象存储方案替代，实际部署仍需区分单机多实例与跨机容灾。
 
 ## 安全策略补充与对抗性验证
 
@@ -264,7 +280,7 @@ SQLite 继续使用；当前验证多进程接管，真正跨主机需服务型�
 ## 任务总时限、累计预算与清理期限
 
 实现更新：2026-10-30。`task_lifecycle.py` 持久化截止时间、时间片和回收状态，
-`execution_reaper.py` 独立回收。SQLite 保持不变，接管协议不依赖进程内状态。
+当时设计采用 `execution_reaper.py` 独立回收并保留 SQLite；当前共享数据库配置见本文开头，接管协议仍不依赖进程内状态。
 
 ### 现有边界
 
@@ -406,24 +422,28 @@ drain deadline it interrupts them and leaves durable recovery intent. Shutdown
 is distinct from a user cancellation.
 
 Use immutable release directories/images and set `VIDEO_USE_RELEASE` explicitly
-for production. A task already claimed by another release is not automatically
-executed with different code. Keep compatible old-release workers until their
-tasks finish, or perform an explicit reviewed migration of those tasks. Do not
+for production. This release label records provenance; it is not itself a hard
+takeover compatibility check. Local/script steps bind a runtime fingerprint
+during claim, and model operations retain their selected implementation. Check
+those bindings and persisted contracts before recovery or migration. Do not
 change installed Python/tools underneath active workers.
 
 The first migration from the old launcher requires draining/stopping **all old
 launchers and embedded API workers** before starting the new version. Old code
 does not honor execution leases and cannot safely coexist with the new protocol.
 
-For subsequent releases: start new workers, verify readiness, drain old worker
-IDs, wait for completion/step recovery, then stop old instances. API restarts do
-not own or kill worker task processes.
+The built-in deployment freezes and verifies source, backs up state, drains and
+stops the old services, then updates and starts the new release as documented in
+[cluster operations](cluster-operations.md). It is not an automatic rolling
+upgrade. API restarts do not own or kill worker task processes.
 
 ## Installation and operations
 
 Prerequisites: Linux namespaces, bubblewrap, socat, libseccomp, ACL tools, FFmpeg,
-and writable task cgroups for the trusted launcher. API media sandboxes require
-unprivileged user namespaces. Missing isolation prerequisites fail closed.
+and writable task cgroups for the trusted launcher. The API may use the configured
+fixed media service through `VIDEO_USE_MEDIA_SOCKET` when unprivileged user
+namespaces are disabled; that service still decodes in a restricted sandbox.
+Missing isolation prerequisites fail closed.
 
 ```sh
 # Root: provision the node registry and read-only runtime ACLs.
@@ -431,7 +451,7 @@ bash deploy/prepare-executor.sh
 # On nodes serving the configured local image models:
 bash deploy/prepare-executor.sh --models
 
-# Use the same VIDEO_USE_DATA_DIR as the service; no secrets are printed.
+# Load the service's database/storage configuration and use its local data directory.
 .venv/bin/python -m webapp.executor_admin status
 .venv/bin/python -m webapp.executor_admin drain WORKER_UUID
 ```
@@ -443,26 +463,38 @@ the service user, using inherited private channels for fixed privileged tools.
 The launcher and workflow coordinator remain trusted control-plane code; this
 is neither a remote privileged-launcher service nor a VM boundary.
 
-The new `video-use-reaper.service` must run independently before the launcher;
-the launcher unit declares this dependency. Both preserve `/run/video-use-agent`
-across restarts until verified cleanup. Install all units together and reload
-systemd as part of the drained release. The preparation script rebuilds the
-curated runtime manifest after dependency changes. Runtime prerequisites are
-fail-closed; do not bypass the reaper or fall back to unsandboxed execution.
+Transcript caches restored from shared storage may be owned by root. The
+unprivileged gateway reads these caches without changing their ownership or
+mode; it sets the initial mode only for files it creates. The existing
+`refresh_transcript` broker operation rechecks the lease, operation scope and
+asset, rejects links and non-regular files, normalizes the cache mode to `0640`,
+and publishes/stages the transcript using the existing storage and sandbox
+paths. The sandbox copy remains owned by the task UID with mode `0600`.
+Filesystem permission failures return HTTP 500 with
+`filesystem_permission_denied`, without host paths or raw exception messages;
+they are not reported as an upstream 502 or retried automatically.
+
+Run the node reaper independently of the executor. The built-in cluster uses
+`video-use-watchdog@a/b` with the corresponding executor instances; use the units
+and directory layout from the deployment script. Preserve live runtime records
+until verified cleanup. The preparation script rebuilds the curated runtime
+manifest after dependency changes. Runtime prerequisites are fail-closed; do not
+bypass the reaper or fall back to unsandboxed execution.
 
 On cleanup quarantine, inspect the registry's `records/` and `runs/`, cgroup
 membership and watchdog journal first. Restore connectivity/killability or
 mount cleanup, then let the reaper reconcile. Only after resources are verified
 gone may an administrator remove the node's `node-quarantined` marker and start
 a fresh worker. Never clear identity records to force reuse of a live UID/GPU.
-Journal events `cleanup_quarantined` and `reaper_error` are intended for the
-operator's alert collector; no external alert platform is auto-configured.
+Use structured reaper/cleanup events and the existing collector as described in
+[observability operations](observability-operations.md). External notification
+recipients are not automatically configured.
 
 | Configuration | Default | Meaning |
 |---|---:|---|
-| `VIDEO_USE_DATA_DIR` | repository workspace | Durable DB, project files and checkpoints |
+| `VIDEO_USE_DATA_DIR` | repository workspace | Local cache in distributed mode; local DB/files in compatibility mode |
 | `VIDEO_USE_EXECUTOR_ROOT` | `/var/lib/video-use-executor` | Private node-local identity registry and scratch mounts |
-| `VIDEO_USE_RELEASE` | `local-v1` | Explicit runtime compatibility identifier |
+| `VIDEO_USE_RELEASE` | `local-v1` | Release provenance label; runtime compatibility uses separate bindings |
 | `VIDEO_USE_CONCURRENCY` | 2 | Executing actions per worker |
 | `VIDEO_USE_NODE_CONCURRENCY` | worker concurrency | Shared active-action ceiling across replicas on one node |
 | `VIDEO_USE_USER_CONCURRENCY` | 2 | Active actions per business user across workers |
@@ -480,7 +512,8 @@ operator's alert collector; no external alert platform is auto-configured.
 | `VIDEO_USE_DRAIN_SECONDS` | 900 | Graceful release deadline |
 | `VIDEO_USE_UID_START` / `VIDEO_USE_UID_COUNT` | 300000 / 128 | Reserved node-local identity pool |
 | `VIDEO_USE_TASK_MEMORY_BYTES` | 12 GiB | Task cgroup memory limit |
-| `VIDEO_USE_TASK_DISK_BYTES` | 8 GiB | tmpfs scratch limit, consumes memory |
+| `VIDEO_USE_WORKSPACE_STORAGE` | tmpfs | Bounded tmpfs or disk workspace backend |
+| `VIDEO_USE_TASK_DISK_BYTES` | 8 GiB | Workspace byte limit; tmpfs consumes memory, disk preallocates an ext4 image |
 | `VIDEO_USE_TASK_CPUS` / `VIDEO_USE_TASK_PIDS` | 2 / 128 | CPU quota and process/thread ceiling |
 | `VIDEO_USE_USER_STORAGE_BYTES` | 20 GiB | Application quota for registered assets, checkpoints and new published results |
 | `VIDEO_USE_TASK_MODEL_CALLS` | 40 | Model calls per Agent turn |
@@ -488,9 +521,9 @@ operator's alert collector; no external alert platform is auto-configured.
 | `VIDEO_USE_USER_IMAGE_DAILY` | 40 | Image-tool calls per user/UTC day |
 | `VIDEO_USE_IMAGE_EDIT_URL` / `VIDEO_USE_IMAGE_DECOMPOSE_URL` | local providers | Operator-selected upstream services |
 
-Size memory/scratch/concurrency together. tmpfs is a bounded implementation for
-the current host, not cheap disk capacity: larger production datasets should use
-a provisioned per-task filesystem quota backend with the same cleanup contract.
+Size memory/scratch/concurrency together. tmpfs consumes memory; the disk backend
+requires loop mounts, ext4 tools and sufficient provisioned space, with the same
+cleanup contract. Deployment overrides can differ from the code defaults above.
 Long-term storage lifecycle and cluster-wide physical capacity still require
 operator provisioning. The application retention quota is checked transactionally
 when committing uploads/checkpoints/results, not a filesystem reservation for
@@ -516,6 +549,10 @@ Frontend tests keep unaccepted candidates out of primary delivery and distinguis
 local cleanup completion from unconfirmed upstream cancellation.
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -p 'test_*.py'
+.venv/bin/python -m tests.run_distributed_suite
 node --test tests/*.test.mjs
 ```
+
+Use the isolated runner and prerequisites in [development and testing](development.md).
+The test descriptions above identify coverage areas, not results for the current
+working tree.

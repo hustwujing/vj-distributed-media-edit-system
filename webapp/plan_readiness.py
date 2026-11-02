@@ -42,6 +42,10 @@ def public(store,task):
     if not rows:return {'state':'none','can_execute':False}
     row=rows[0];state=row['state'];reason=row['reason']
     turn=store.query('SELECT status FROM agent_turns WHERE id=?',(task,))[0]
+    # An interrupted plan can retain its declared intent without ever reaching
+    # the reviewer. Derive the public state for old records as well as new ones.
+    if state=='pending' and turn['status'] in ('failed','cancelled'):
+        state='unavailable';reason='本轮已结束，方案检查未完成，请重新讨论'
     intent=store.query('SELECT digest FROM execution_intents WHERE turn_id=?',(task,))
     if state=='ready' and (not intent or intent[0]['digest']!=row['digest'] or fingerprint(store,row['project'])!=row['fingerprint']):
         state='stale';reason='方案或项目内容已变化，请重新讨论方案'

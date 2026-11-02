@@ -19,6 +19,7 @@ REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO))
 RELEASE=REPO
 ROOT=REPO/'.cluster'
+EXECUTORS=REPO.parent/'vu-exec'
 CONF=Path('/etc/video-use-cluster')
 PG_BIN=Path('/usr/lib/postgresql/16/bin')
 DB_PORT=15432
@@ -70,7 +71,7 @@ def environment(node='a'):
     return result
 
 
-def registry(node):return Path('/var/lib')/('vu-'+node)
+def registry(node):return EXECUTORS/node
 def data(role,node):return ROOT/(role+'-'+node)
 
 
@@ -134,7 +135,7 @@ ExecStart={RELEASE}/.venv/bin/python -m webapp.agent_host
 RuntimeDirectory=video-use-agent
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
-ReadWritePaths={ROOT}/node-%i /var/lib/vu-%i /run/video-use-agent /sys/fs/cgroup /data/wujing03/.media-gpu-leases
+ReadWritePaths={ROOT}/node-%i {registry('%i')} /run/video-use-agent /sys/fs/cgroup /data/wujing03/.media-gpu-leases
 NoNewPrivileges=false
 ProtectControlGroups=false
 RestrictSUIDSGID=true
@@ -158,8 +159,8 @@ ExecStart={RELEASE}/.venv/bin/python -m webapp.execution_reaper
 RuntimeDirectory=video-use-agent
 RuntimeDirectoryMode=0700
 RuntimeDirectoryPreserve=yes
-ReadWritePaths={ROOT}/node-%i /var/lib/vu-%i /run/video-use-agent /sys/fs/cgroup
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_PTRACE CAP_KILL CAP_DAC_OVERRIDE CAP_FOWNER CAP_CHOWN CAP_SETUID CAP_SETGID CAP_SETPCAP
+ReadWritePaths={ROOT}/node-%i {registry('%i')} /run/video-use-agent /sys/fs/cgroup
+CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SYS_PTRACE CAP_KILL CAP_DAC_OVERRIDE CAP_FOWNER CAP_CHOWN CAP_SETUID CAP_SETGID CAP_SETPCAP
 TasksMax=256
 MemoryMax=768M
 CPUQuota=100%
@@ -215,7 +216,7 @@ Environment=VIDEO_USE_RELEASE={RELEASE.name}
 Environment=VIDEO_USE_INSTANCE=%n
 LogNamespace=video-use
 Environment=PYTHONDONTWRITEBYTECODE=1
-UnsetEnvironment=TMPDIR
+EnvironmentFile={CONF}/media-%i.env
 RuntimeDirectory=vu-media-%i
 RuntimeDirectoryMode=0750
 ExecStart={RELEASE}/.venv/bin/python -m webapp.media_service
@@ -226,7 +227,7 @@ TimeoutStopSec=50
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/run/vu-media-%i
+ReadWritePaths=/run/vu-media-%i {ROOT}/media-%i
 ProtectKernelTunables=true
 ProtectKernelModules=true
 CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_NET_ADMIN
@@ -322,7 +323,7 @@ def stage_release():
         if temporary.exists():shutil.rmtree(temporary)
         run(['cp','-a','--reflink=auto',REPO/'.venv',temporary],timeout=180)
         temporary.rename(dependency)
-    base=Path('/opt/vu/r');base.mkdir(mode=0o755,parents=True,exist_ok=True)
+    base=ROOT/'releases';base.mkdir(mode=0o755,parents=True,exist_ok=True)
     for path in (base.parent,base):run(['setfacl','-m','u:video-use:--x',path])
     before=digest(REPO);target=base/before[:12]
     if not target.exists():
@@ -346,16 +347,18 @@ def stage_release():
     except (FileNotFoundError,RuntimeError):
         log=RELEASE/'verification.log'
         print('Running complete verification; log:',log,flush=True)
+        # UNIX sockets in privileged fixtures need a short absolute parent.
+        test_tmp=REPO.parent/'vu-tmp';test_tmp.mkdir(mode=0o711,exist_ok=True);test_tmp.chmod(0o711)
         with log.open('w') as output:
             result=subprocess.run([RELEASE/'.venv/bin/python','-m','tests.run_distributed_suite'],cwd=RELEASE,
-                env={**os.environ,'VIDEO_USE_TEST_REAL_MODELS':'1'},stdout=output,stderr=subprocess.STDOUT,timeout=1200)
+                env={**os.environ,'TMPDIR':str(test_tmp),'VIDEO_USE_TEST_REAL_MODELS':'1'},stdout=output,stderr=subprocess.STDOUT,timeout=1200)
         if result.returncode:raise RuntimeError('Frozen release verification failed; inspect '+str(log))
         gate(RELEASE)
     shutil.copyfile(RELEASE/'docs/test-evidence/distributed-suite.json',REPO/'docs/test-evidence/cluster-release-tests.json')
 
 
 def backup():
-    folder=Path('/var/backups/video-use')/('cluster-'+time.strftime('%Y%m%dT%H%M%SZ',time.gmtime()))
+    folder=ROOT/'backups'/('cluster-'+time.strftime('%Y%m%dT%H%M%SZ',time.gmtime()))
     folder.mkdir(parents=True,mode=0o700)
     run(['tar','--exclude=__pycache__','--exclude=*.pyc','-czf',folder/'source.tar.gz','-C',RELEASE,'webapp','helpers','runtime/public','references','deploy','deploy.sh','pyproject.toml','uv.lock'])
     for name in ('.env','.agent.env','.storage.env','.distributed.env'):
@@ -391,7 +394,6 @@ EnvironmentFile={CONF}/node-a.env
 EnvironmentFile={CONF}/observation.env
 Environment=VIDEO_USE_SERVICE=observer
 Environment=VIDEO_USE_RELEASE={RELEASE.name}
-UnsetEnvironment=TMPDIR
 ExecStart={RELEASE}/.venv/bin/python -m webapp.observation_collector --root {ROOT}/observability
 Restart=on-failure
 RestartSec=3
@@ -421,6 +423,8 @@ def configure():
         private_env(observation,{'VIDEO_USE_OBSERVATION_TOKEN':secrets.token_hex(32),'VIDEO_USE_OBSERVATION_URL':'http://127.0.0.1:18768',
             'VIDEO_USE_TELEMETRY_ENABLED':'1','VIDEO_USE_OBSERVATION_MAX_ROWS':'200000','VIDEO_USE_OBSERVATION_RETENTION_SECONDS':'604800'})
     (ROOT/'observability').mkdir(mode=0o700,exist_ok=True)
+    (ROOT/'observability/tmp').mkdir(mode=0o700,exist_ok=True)
+    private_env(observation,{**env_file(observation),'TMPDIR':ROOT/'observability/tmp'})
     Path('/etc/systemd/journald@video-use.conf').write_text('[Journal]\nStorage=persistent\nSystemMaxUse=512M\nRuntimeMaxUse=64M\nSystemKeepFree=1G\nMaxRetentionSec=7day\nRateLimitIntervalSec=30s\nRateLimitBurst=10000\n')
     config=REPO/'.distributed.env'
     if not config.exists():
@@ -430,7 +434,7 @@ def configure():
             'VIDEO_USE_DRAIN_SECONDS':'30','VIDEO_USE_CONCURRENCY':'1','VIDEO_USE_NODE_CONCURRENCY':'1',
             'VIDEO_USE_USER_CONCURRENCY':'2','VIDEO_USE_NODE_CPU_SLOTS':'3','VIDEO_USE_NODE_MEMORY_MB':'12288',
             'VIDEO_USE_TASK_MEMORY_BYTES':str(12*1024**3),'VIDEO_USE_TASK_DISK_BYTES':str(2*1024**3),
-            'VIDEO_USE_GPU_LEASE_ROOT':'/data/wujing03/.media-gpu-leases','VIDEO_USE_WORKSPACE_STORAGE':'tmpfs'})
+            'VIDEO_USE_GPU_LEASE_ROOT':'/data/wujing03/.media-gpu-leases','VIDEO_USE_WORKSPACE_STORAGE':'disk'})
     postgres=pwd.getpwnam('postgres');service=pwd.getpwnam('video-use')
     for path in (ROOT,REPO,REPO.parent):run(['setfacl','-m','u:postgres:--x',path])
     run(['setfacl','-m','u:video-use:--x',ROOT])
@@ -444,7 +448,9 @@ def configure():
             if role=='api':os.chown(path,service.pw_uid,service.pw_gid)
             (path/'tmp').mkdir(mode=0o700,exist_ok=True)
             if role=='api':os.chown(path/'tmp',service.pw_uid,service.pw_gid)
-        registry(node).mkdir(mode=0o700,exist_ok=True)
+        registry(node).mkdir(mode=0o700,parents=True,exist_ok=True)
+        (ROOT/('media-'+node)/'tmp').mkdir(mode=0o700,parents=True,exist_ok=True)
+        private_env(CONF/f'media-{node}.env',{'TMPDIR':ROOT/('media-'+node)/'tmp'})
         private_env(CONF/f'api-{node}.env',{'VIDEO_USE_DATA_DIR':data('api',node),'TMPDIR':data('api',node)/'tmp','VIDEO_USE_API_PORT':port,
                                          'VIDEO_USE_MEDIA_SOCKET':f'/run/vu-media-{node}/decoder.sock'})
         private_env(CONF/f'node-{node}.env',{'VIDEO_USE_DATA_DIR':data('node',node),'TMPDIR':data('node',node)/'tmp',

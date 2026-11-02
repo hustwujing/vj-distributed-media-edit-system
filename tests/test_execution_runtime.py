@@ -94,7 +94,7 @@ class RuntimeTests(unittest.TestCase):
         plan=agent_store.add_turn(self.store,self.project,'plan','adjust image')
         self.store.execute("UPDATE agent_turns SET status='running' WHERE id=?",(plan,))
         from webapp.execution_intent import declare
-        smoke_operation={'test_real_birefnet_cutout':'image.remove_background','test_real_sam2_segment':'image.segment','test_real_ocr':'image.ocr','test_real_sam3_segment':'image.segment_sam3'}.get(self._testMethodName,'image.local_adjust')
+        smoke_operation={'test_real_birefnet_cutout':'image.remove_background','test_real_sam2_segment':'image.segment','test_real_ocr':'image.ocr','test_real_sam3_segment':'image.segment_sam3','test_real_sam3_empty_selection':'image.segment_sam3'}.get(self._testMethodName,'image.local_adjust')
         if self._testMethodName=='test_native_cutout_adapter_checkpoints_outputs_and_releases_scope':smoke_operation='image.remove_background'
         declare(self.store,plan,{'route':'single','operations':[smoke_operation],'goal':'adjust brightness','estimated_seconds':30})
         agent_store.finish(self.store,plan,'succeeded','approved single adjustment')
@@ -460,7 +460,7 @@ Image.new('L',(8,8),128).save(out/'mask.png')
             self.fail(json.dumps(getattr(exc,'diagnostic',{'error':str(exc)}),ensure_ascii=False))
         self.assertTrue(adapter.validate(w,w['steps'][0],files)['passed'])
 
-    def real_image_operation(self,operation,parameters):
+    def real_image_operation(self,operation,parameters,expected_error=None):
         from webapp import workflows
         from webapp.workflow_runtime import Adapter
         from PIL import Image,ImageDraw
@@ -475,6 +475,14 @@ Image.new('L',(8,8),128).save(out/'mask.png')
             'basic_reason':'Smoke checks output validity, not semantic accuracy','acceptance':[{'kind':'file'}]}
         workflows.submit(self.store,self.turn,{'key':'model-smoke','name':'model-smoke','steps':[spec]})
         w=workflows.get(self.store,self.turn);adapter=Adapter(self.store,'test',self.runtime.path)
+        if expected_error:
+            from webapp.workflow_runtime import StepFailure
+            from webapp.execution_contracts import classify_error
+            with self.assertRaises(StepFailure) as caught:
+                adapter.fixed_image(w,w['steps'][0],lambda:False)
+            self.assertEqual(classify_error(caught.exception.diagnostic,'local'),expected_error,
+                             caught.exception.diagnostic)
+            return
         try:files=adapter.fixed_image(w,w['steps'][0],lambda:False)
         except Exception as exc:self.fail(json.dumps(getattr(exc,'diagnostic',{'error':str(exc)}),ensure_ascii=False))
         self.assertTrue(adapter.validate(w,w['steps'][0],files)['passed'])
@@ -490,6 +498,13 @@ Image.new('L',(8,8),128).save(out/'mask.png')
     @unittest.skipUnless(os.environ.get('VIDEO_USE_TEST_REAL_MODELS')=='1','Explicit real SAM3 smoke')
     def test_real_sam3_segment(self):
         self.real_image_operation('image.segment_sam3',{'box':[40,40,170,170],'parameters':{'refine':True}})
+
+    @unittest.skipUnless(os.environ.get('VIDEO_USE_TEST_REAL_MODELS')=='1','Explicit real SAM3 smoke')
+    def test_real_sam3_empty_selection(self):
+        # The synthetic input is a blue rectangle with text, not an elephant.
+        self.real_image_operation('image.segment_sam3',
+            {'prompt':'elephant','parameters':{'refine':False,'confidence':.99}},
+            expected_error='model_result')
 
     def test_registered_media_operation_reuses_worker_in_real_sandbox(self):
         from webapp import workflows

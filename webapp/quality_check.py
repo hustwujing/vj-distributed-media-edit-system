@@ -9,6 +9,7 @@ import tempfile
 import os
 import subprocess
 import sys
+from text_formats import read_text,validate_subtitle,FormatError,TEXT_SUFFIXES,SUBTITLE_SUFFIXES
 
 resource.setrlimit(resource.RLIMIT_AS,(2*1024**3,2*1024**3))
 resource.setrlimit(resource.RLIMIT_CPU,(30,30))
@@ -47,6 +48,10 @@ def inspect(name):
     elif path.suffix.lower()=='.json':
         if size>2*1024**2:raise ValueError('JSON exceeds limit')
         parsed=json.loads(path.read_text());value.update(kind='json',keys=list(parsed) if isinstance(parsed,dict) else [])
+    elif path.suffix.lower() in SUBTITLE_SUFFIXES:
+        # Downstream operations consume this attested type, not just the file
+        # suffix or the success of an optional acceptance rule.
+        value.update(kind='subtitle',**validate_subtitle(path))
     return value
 
 
@@ -60,6 +65,9 @@ def main():
         report['checks'].append({'passed':False,'code':'missing','reason':'没有输出文件'})
     for name in files:
         try:report['files'].append(inspect(name))
+        except FormatError as exc:
+            report['technical_valid']=False;report['passed']=False
+            report['checks'].append({'file':name,'passed':False,'reason':str(exc),'code':exc.code,'codes':[exc.code]})
         except Exception:
             report['technical_valid']=False;report['passed']=False
             report['checks'].append({'file':name,'passed':False,'reason':'文件完整性或媒体格式检查失败','code':'integrity'})
@@ -74,6 +82,9 @@ def main():
             continue
         selected=[f for f in report['files'] if (rule.get('file','*')=='*' or Path(f['name']).name==rule['file'])
                   and (rule['kind'] not in ('image','media') or f['kind']==rule['kind'])]
+        if rule.get('file','*')=='*' and rule['kind'] in ('text','subtitle','json'):
+            allowed={'text':TEXT_SUFFIXES,'subtitle':SUBTITLE_SUFFIXES,'json':{'.json'}}[rule['kind']]
+            selected=[f for f in selected if Path(f['name']).suffix.lower() in allowed]
         if not selected:
             if rule.get('severity')!='signal':report['passed']=False
             report['checks'].append({'passed':False,'reason':'没有符合验收条件的输出文件','code':'missing','criterion':index})
@@ -101,10 +112,9 @@ def main():
                 if value['size']>2*1024**2:failed.append('文本过大');codes.append('max_bytes')
                 else:
                     try:
-                        if Path(value['name']).suffix.lower() not in ('.txt','.md','.json','.srt','.vtt','.csv','.log'):raise ValueError('Not a text format')
-                        text=Path(value['name']).read_text()
+                        text=read_text(value['name'])
                         if any(token not in text for token in rule.get('contains',[])):failed.append('缺少要求的文本');codes.append('contains')
-                    except (ValueError,UnicodeError):failed.append('文本格式或编码无效');codes.append('integrity')
+                    except FormatError as exc:failed.append(str(exc));codes.append(exc.code)
             if rule.get('has_alpha') is not None and value.get('has_alpha')!=rule['has_alpha']:failed.append('透明通道不符');codes.append('alpha')
             if rule.get('min_transparent_fraction') is not None and value.get('transparent_fraction',-1)<rule['min_transparent_fraction']:failed.append('透明区域不足');codes.append('alpha')
             if rule.get('fps') is not None and abs(value.get('fps',0)-rule['fps'])>.02:failed.append('帧率不符');codes.append('fps')
@@ -113,13 +123,8 @@ def main():
                 except Exception:failed.append('完整解码失败或超出检查时限');codes.append('decode')
             if rule['kind']=='json' and (value['kind']!='json' or not set(rule.get('required_keys',[])).issubset(value.get('keys',[]))):failed.append('JSON 结构不符');codes.append('schema')
             if rule['kind']=='subtitle':
-                try:
-                    if value['size']>2*1024**2:raise ValueError('Subtitle too large')
-                    content=Path(value['name']).read_text()
-                    stamps=re.findall(r'(\d{2}):(\d{2}):(\d{2})[,.](\d{3})',content)
-                    times=[int(h)*3600+int(m)*60+int(sec)+int(ms)/1000 for h,m,sec,ms in stamps]
-                    if not times or len(times)%2 or any(times[i]>=times[i+1] for i in range(0,len(times),2)) or any(times[i]>times[i+2] for i in range(0,len(times)-2,2)):raise ValueError('Invalid cues')
-                except Exception:failed.append('字幕时间范围无效');codes.append('subtitle')
+                try:validate_subtitle(value['name'])
+                except FormatError as exc:failed.append(str(exc));codes.append(exc.code)
             report['checks'].append({'file':value['name'],'severity':rule.get('severity','required'),'passed':not failed,'codes':codes,'criterion':index,'reason':'；'.join(failed) or '通过','actual':value,'expected':rule})
             if failed and rule.get('severity')!='signal':report['passed']=False
     print(json.dumps(report,ensure_ascii=False))

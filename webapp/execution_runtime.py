@@ -182,9 +182,8 @@ class TaskRuntime:
                     expected['state']=unpack(bundle,restored_state,self.limit)
             for name, target in (('workspace', self.workspace), ('state', self.state)):
                 if name=='state':
-                    from .checkpoints import profile
-                    profiles=self.store.query('SELECT profile FROM execution_session_profiles WHERE project=?',(turn['project'],))
-                    if not profiles or profiles[0]['profile']!=profile():
+                    from .checkpoints import state_compatible
+                    if not checkpoint or not state_compatible(self.store,turn['project'],checkpoint[0]['path']):
                         target.mkdir(mode=0o700);os.chown(target,self.uid,self.gid)
                         continue
                 manifest=expected[name] if expected else initial_workspace if name=='workspace' else None
@@ -305,7 +304,7 @@ class TaskRuntime:
                 restored=copy_tree(self.store.root/prior[0]['path']/'workspace',target/'workspace',self.service_uid,self.service_gid,self.limit,
                                    {k:previous[k] for k in blocked},blocked)
                 records['workspace'].update(restored)
-            permitted={'assets.json','image-document.json','workflow-state.json','capabilities.json','conversation.jsonl'}
+            permitted={'assets.json','image-document.json','workflow-state.json','continuation.json','capabilities.json','conversation.jsonl','harness-context.json'}
             rejected=[name for name in records['workspace'] if not name.startswith('edit/') and name not in permitted]
             # These read-only indexes are rebuilt from authoritative project
             # metadata by prepare(); their workspace inodes are only placeholders.
@@ -351,6 +350,7 @@ class TaskRuntime:
                 expired=[r for r in history if r not in retained]
                 for item in expired:
                     db.execute('DELETE FROM execution_checkpoint_versions WHERE id=?',(item['id'],))
+                    db.execute('DELETE FROM execution_native_descriptors WHERE project=? AND path=?',(self.project.name,item['path']))
                     if self.store.shared_files:
                         old_path=self.store.root/item['path']
                         if old_path.parent==folder:
@@ -369,6 +369,8 @@ class TaskRuntime:
                 thread=db.execute('SELECT thread_id FROM agent_sessions WHERE project=?',(self.project.name,)).fetchone()
                 db.execute('INSERT INTO execution_checkpoint_versions VALUES (?,?,?,?,?,?,?,?,?)',
                     (uuid.uuid4().hex,self.project.name,self.lease.attempt,relative,json.dumps(records),json.dumps(changes),profile(),thread['thread_id'] if thread else None,now(db)))
+                from .checkpoints import save_native_descriptor
+                save_native_descriptor(self.store,db,self.project.name,relative,records,profile())
             for item in expired:
                 previous_path=self.store.root/item['path']
                 if previous_path.parent==folder and previous_path!=target:shutil.rmtree(previous_path,ignore_errors=True)

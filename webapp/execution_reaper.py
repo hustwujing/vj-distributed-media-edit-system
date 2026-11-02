@@ -70,7 +70,7 @@ class Reaper:
         run=self.pool.root/'runs'/record['attempt']
         marker=run/'revoked'
         if not run.exists() and not (self.pool.root/'records'/f'{record["uid"]}.json').exists():state='complete';error=''
-        if marker.exists():
+        with self.pool.control_lock(record['uid']):
             try:
                 control=json.loads(marker.read_text())
                 retries=control.get('retries',0)+1
@@ -99,13 +99,14 @@ class Reaper:
     def launch(self,record):
         attempt=record['attempt']
         run=self.pool.root/'runs'/attempt
-        if run.is_dir():
-            try:
-                with (run/'revoked').open('x') as stream:
-                    deadline=time.monotonic()+float(os.environ.get('VIDEO_USE_CLEANUP_SECONDS','60'))
-                    if record.get('boot_id')==self.boot:deadline=min(deadline,record.get('cleanup_deadline',deadline))
-                    stream.write(json.dumps({'deadline':deadline,'boot':self.boot}))
-            except FileExistsError:pass
+        with self.pool.control_lock(record['uid']):
+            if run.is_dir():
+                try:
+                    with (run/'revoked').open('x') as stream:
+                        deadline=time.monotonic()+float(os.environ.get('VIDEO_USE_CLEANUP_SECONDS','60'))
+                        if record.get('boot_id')==self.boot:deadline=min(deadline,record.get('cleanup_deadline',deadline))
+                        stream.write(json.dumps({'deadline':deadline,'boot':self.boot}))
+                except FileExistsError:pass
         env={'PATH':'/usr/bin:/bin','PYTHONPATH':str(Path(__file__).resolve().parents[1]),
              'VIDEO_USE_EXECUTOR_ROOT':str(self.pool.root),'VIDEO_USE_UID_START':str(self.pool.start),'VIDEO_USE_UID_COUNT':str(self.pool.size)}
         for key in ('VIDEO_USE_DATABASE_URL','VIDEO_USE_DISTRIBUTED'):
@@ -169,7 +170,10 @@ class Reaper:
             if code is not None:
                 if code==0:self.mark(record,'complete')
                 elif code==3:self.mark(record,'cleaning','等待原执行器释放身份锁。')
-                else:self.mark(record,'quarantined','资源清理失败，身份保持隔离。')
+                # A failed cleanup keeps this identity unavailable. Allow the
+                # bounded retry window before draining the entire node; deadline
+                # enforcement below remains fail-closed even without the DB.
+                else:self.mark(record,'cleaning','资源清理暂未完成，身份保持隔离并等待重试。')
                 del self.children[attempt]
             elif time.monotonic()-started>15:
                 try:os.killpg(process.pid,signal.SIGKILL)

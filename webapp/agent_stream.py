@@ -7,6 +7,7 @@ Redis is not configured or temporarily unavailable.
 from __future__ import annotations
 
 import json
+import asyncio
 import os
 import queue
 import threading
@@ -84,6 +85,8 @@ class StreamBus:
                         try:
                             with bind(task_id=task,attempt_id=(body.get('execution') or {}).get('attempt_id')):
                                 self.publish(task,event,body)
+                        except Exception as exc:
+                            self.failed('publish_queue',exc)
                         finally:self._events.task_done()
                 self._publisher=threading.Thread(target=dispatch,daemon=True);self._publisher.start()
             try:self._events.put_nowait((turn_id,kind,payload))
@@ -111,6 +114,45 @@ class StreamBus:
         except Exception as exc:
             self.failed('read',exc)
             return None
+
+
+class AsyncStreamReader:
+    """One bounded native asyncio connection owned by a live SSE response."""
+    def __init__(self,transport):
+        self.transport=transport;self.url=transport.url;self._client=None
+
+    @property
+    def enabled(self):return self.transport.enabled
+
+    async def read(self,turn_id,after,count=200,block_ms=200):
+        if not self.enabled:return None
+        try:
+            if self._client is None:
+                import redis.asyncio as redis_async
+                self._client=redis_async.Redis.from_url(self.url,decode_responses=True,
+                    socket_connect_timeout=1,socket_timeout=2,max_connections=1)
+            rows=await self._client.xread({self.transport.key(turn_id):after},count=count,block=block_ms)
+            result=[]
+            for _,records in rows:
+                for message_id,fields in records:
+                    try:payload=json.loads(fields.get('payload','{}'))
+                    except (TypeError,ValueError):payload={'text':'消息内容无法解析。'}
+                    result.append({'id':str(message_id),'kind':fields.get('kind','activity'),'payload':payload})
+            return result
+        except asyncio.CancelledError:raise
+        except Exception as exc:
+            self.transport.failed('async_read',exc)
+            await self.aclose()
+            return None
+
+    async def aclose(self):
+        client,self._client=self._client,None
+        if client is not None:
+            try:
+                async with asyncio.timeout(2):await client.aclose()
+            except Exception as exc:
+                from .telemetry import emit
+                emit('stream.transport_failed','WARNING',reason='async_close',exception_type=type(exc).__name__)
 
 
 def bus() -> StreamBus:

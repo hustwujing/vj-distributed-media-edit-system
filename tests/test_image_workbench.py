@@ -141,6 +141,38 @@ class ImageWorkbenchTests(unittest.TestCase):
         batch=self.a.post(f'/api/projects/{self.pid}/image-batch',json={'assets':[self.aid,mask_id],'width':128,'height':128,'format':'png','watermark':'测试'})
         self.assertEqual(batch.status_code,202,batch.text);self.assertEqual(len(batch.json()['jobs']),2)
 
+    def test_batch_contain_preserves_same_size_pixels_and_full_available_area(self):
+        store=self.app.state.store;project=store.project_dir(self.pid);assets=store.assets(self.pid)
+        source=Image.new('RGB',(120,80),'#385939')
+        ImageDraw.Draw(source).rectangle((0,0,119,4),fill='red')
+        ImageDraw.Draw(source).rectangle((55,74,65,79),fill='blue')
+        source.save(project/'sources'/next(a['filename'] for a in assets if a['id']==self.aid))
+        for width,height,fit in ((120,80,None),(240,160,'contain'),(120,120,'contain')):
+            with self.subTest(width=width,height=height,fit=fit):
+                parameters={'width':width,'height':height,'format':'png'}
+                if fit:parameters['fit']=fit
+                out=project/f'edit/contain-{width}-{height}'
+                execute_image({'action':'batch_export','asset':self.aid,'parameters':parameters},assets,project,out)
+                actual=np.asarray(Image.open(out/'image.png').convert('RGB'))
+                if (width,height)==(120,80):self.assertTrue(np.array_equal(actual,np.asarray(source)))
+                elif width==240:
+                    self.assertTrue(np.array_equal(actual,np.asarray(source.resize((240,160),Image.Resampling.LANCZOS))))
+                else:
+                    self.assertTrue(np.array_equal(actual[20:100],np.asarray(source)))
+                    self.assertTrue(np.all(actual[:20]==255));self.assertTrue(np.all(actual[100:]==255))
+
+    def test_batch_cover_and_product_layout_keep_distinct_geometry(self):
+        store=self.app.state.store;project=store.project_dir(self.pid);assets=store.assets(self.pid)
+        for action,parameters,expected_box in (
+            ('batch_export',{'width':120,'height':120,'fit':'cover'},(0,0,120,120)),
+            ('product_layout',{'width':120,'height':80,'shadow':False},(9,6,111,74)),
+            ('product_layout',{'width':120,'height':80,'margin':10,'shadow':False},(15,10,105,70))):
+            with self.subTest(action=action,parameters=parameters):
+                out=project/f'edit/geometry-{action}-{parameters.get("margin",0)}'
+                execute_image({'action':action,'asset':self.aid,'parameters':parameters},assets,project,out)
+                a=np.asarray(Image.open(out/'image.png').convert('RGB'));ys,xs=np.where(np.any(a!=255,axis=2))
+                self.assertEqual((int(xs.min()),int(ys.min()),int(xs.max()+1),int(ys.max()+1)),expected_box)
+
     def test_nondestructive_adjustment_blend_clip_and_text_effects_render(self):
         assets={a['id']:a for a in self.app.state.store.assets(self.pid)};project=self.app.state.store.project_dir(self.pid)
         doc=Document.model_validate({'width':120,'height':80,'background':'#ffffff','layers':[
