@@ -47,11 +47,11 @@ async function stopTask(){
   if(!confirmed){stopRequests.delete(turn.id);status();if(!$('agent-stop').hidden&&!$('agent-stop').disabled)$('agent-stop').focus();return;}
   const current=turns.find(t=>t.id===turn.id);
   if(!current||!activeStatus(current.status)||current.status==='cancelling'){showControlFeedback('任务状态已更新','该任务已结束或正在停止，请查看对应任务。',current);return;}
-  stopRequests.set(turn.id,'submitting');status();$('agent-progress').focus();
+  ++controlFeedbackVersion;stopRequests.set(turn.id,'submitting');status();$('agent-progress').focus();
   const result=await api(path(`/agent/${turn.id}/cancel`),{method:'POST'});
   stopRequests.set(turn.id,'awaiting');await refresh();
-  const latest=turns.find(t=>t.id===turn.id)||current,state=stopState(latest,stopRequests.get(turn.id));showControlFeedback(result.cancelled===false?'任务状态已更新':'停止请求已提交',state.description,latest);
- }catch(error){stopRequests.delete(turn.id);showControlFeedback('停止请求未完成',error.message,turn,{error:true});toast(error.message,true);}
+  ++controlFeedbackVersion;const latest=turns.find(t=>t.id===turn.id)||current,state=stopState(latest,stopRequests.get(turn.id));showControlFeedback(result.cancelled===false?'任务状态已更新':'停止请求已提交',state.description,latest);
+ }catch(error){++controlFeedbackVersion;stopRequests.delete(turn.id);showControlFeedback('停止请求未完成',error.message,turn,{error:true});toast(error.message,true);}
  finally{if(stopRequests.get(turn.id)==='confirming')stopRequests.delete(turn.id);status();}
 }
 
@@ -152,7 +152,7 @@ async function taskControl(message=''){
    if(result.turn&&activeStatus(result.turn.status)&&result.turn.status!=='paused')connect(result.turn);
    showControlFeedback(!message||result.action==='status'?'任务进度':'操作结果',result.summary,result.turn);
   }
- }catch(error){if(version===controlFeedbackVersion)showControlFeedback(message?'操作未完成':'进度查询失败',error.message,turn,{error:true});throw error;}
+ }catch(error){if(version!==controlFeedbackVersion&&!message)return;if(version===controlFeedbackVersion)showControlFeedback(message?'操作未完成':'进度查询失败',error.message,turn,{error:true});throw error;}
 }
 async function queryProgress(){
  const button=$('agent-progress');button.disabled=true;button.textContent='查询中…';button.setAttribute('aria-busy','true');
