@@ -184,15 +184,27 @@ def register(app, store, own_project, lock):
     async def control(project_id:str,turn_id:str,body:ControlMessage,request:Request):
         row=await api_execution.run('critical',owned_turn,project_id,turn_id,request)
         action=body.action
+        classification_context=None
         if body.message:
             # No project/database lock is held while waiting for classification.
             try:
                 known=exact_action(body.message)
                 if known:action=known
                 else:
+                    from .control_context import build as control_context
+                    classification_context=await api_execution.run('read',control_context,store,turn_id)
                     def classify_control():
                         from .task_usage import control_target
-                        with control_target(store,turn_id):return classifier.resolve(body.message,row['status'])
+                        with control_target(store,turn_id):
+                            try:
+                                result=classifier.resolve(body.message,row['status'],classification_context)
+                            except (UnrecognizedControl,ControlUnavailable) as exc:
+                                agent_store.event(store,turn_id,'control_classification',{'outcome':'unrecognized' if isinstance(exc,UnrecognizedControl) else 'unavailable',
+                                    'binding_digest':classification_context['binding_digest'],'evidence':getattr(exc,'evidence',{})})
+                                raise
+                            agent_store.event(store,turn_id,'control_classification',{'outcome':str(result),
+                                'binding_digest':classification_context['binding_digest'],'evidence':getattr(result,'evidence',{})})
+                            return result
                     action=await api_execution.run('control',classify_control)
             except UnrecognizedControl:
                 raise HTTPException(409,'未识别到明确的任务控制操作，未改变任务。可以查询进度、暂停、继续、取消，或明确说明要修改什么以重新规划。')
@@ -209,6 +221,10 @@ def register(app, store, own_project, lock):
                 row=owned_turn(project_id,turn_id,request)
                 if row['status'] not in ('queued','running','waiting','paused'):
                     raise HTTPException(409,'本轮任务已结束或正在停止，未执行新的控制操作。')
+                if classification_context is not None:
+                    from .control_context import build as control_context
+                    if control_context(store,turn_id)['binding_digest']!=classification_context['binding_digest']:
+                        raise HTTPException(409,'判定期间方案、步骤版本或待回答问题已变化，未改变任务；请刷新后重新操作。')
                 if action=='replan':
                     message=body.message.strip()
                     if not message:raise HTTPException(422,'重新规划需要说明要修改的内容。')

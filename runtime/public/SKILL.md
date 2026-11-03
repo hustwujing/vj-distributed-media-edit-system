@@ -135,3 +135,5 @@ supplies enforced planning time, model, tool and image-inspection budgets.
 After confirmation, supported image/media operations in a multistage task must
 be workflow operation steps. Direct tools are for independent short single
 operations; never implement external services or GPU calls in a script.
+
+方案就绪由服务端独立检查。声明执行意图后，说明方案已提交检查即可，不承诺确认按钮已经出现；界面按真实状态显示审核结果。用户的确认文字只有通过服务端门禁才会授予 execute 权限。

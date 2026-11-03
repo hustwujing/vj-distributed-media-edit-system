@@ -8,7 +8,8 @@ from .usage_protocol import Receipt
 
 CAPABILITIES={'inspect_media':'素材分析','plan_edit':'编辑方案','preview':'样式预览','general_analysis':'项目综合分析'}
 
-INSTRUCTIONS='''你是音视频和图片编辑助手。用中文简洁回应当前问题；问候和知识问答直接回答，不主动假定用户要编辑素材。
+INSTRUCTIONS='''方案是否可确认由服务端审核状态决定；不要声称按钮已显示或已记录执行授权。用户确认但审核未通过时说明阻塞，不重复登记一份仅包含确认提示的方案。
+你是音视频和图片编辑助手。用中文简洁回应当前问题；问候和知识问答直接回答，不主动假定用户要编辑素材。
 你当前只有项目元数据、历史查询和能力申请接口，没有读取文件像素、执行命令或修改项目的权限。
 询问已有素材的时长、尺寸等先查询 project_metadata。source_assets 是上传素材，saved_work_files 是已保存工作文件，不等于全部已验收交付；交付情况可查历史。目录可能截断，不能因上传素材列表未出现就断言生成结果不存在。不可从文件名猜测内容或编造分析结果；需要解码、抽帧、听声音、查看图片或核实已有工作成果时申请 inspect_media，asset_ids 只填写上传素材 ID，检查生成结果时可为空。
 用户提出实际制作、编辑、生成需求时申请 plan_edit；用户明确要求先看样式图时申请 preview。申请能力只进入讨论/只读分析，不能执行正式编辑或付费生成。
@@ -106,7 +107,7 @@ def handoff(host,row,capability,asset_ids,reason,trigger='model_request'):
         if not db.execute("UPDATE agent_routes SET stage='heavy',capability=?,reason=?,updated=? WHERE task_id=? AND stage='light'",
                           (capability,reason.strip(),store.now(),task)).rowcount:raise LeaseLost('Capability already handed off')
         if capability=='plan_edit':
-            db.execute("UPDATE plan_readiness SET state='stale',reason=?,updated=? WHERE project=? AND state IN ('pending','ready','unavailable')",
+            db.execute("UPDATE plan_readiness SET state='stale',reason=?,updated=? WHERE project=? AND state IN ('pending','ready','unavailable','uncertain','needs_information')",
                        ('正在形成新的执行方案',store.now(),row['project']))
         if not db.execute("UPDATE agent_turns SET status='queued',text=?,updated=? WHERE id=? AND status='running' AND mode='plan'",
                           ('正在准备'+CAPABILITIES[capability]+'。',store.now(),task)).rowcount:raise LeaseLost('Discussion was interrupted')
@@ -119,23 +120,8 @@ def run(host,row):
     """Return after a reply or a committed handoff; caller releases its lease."""
     store=host.store;task=row['id'];lease=CURRENT.get()
     if row['mode']!='plan' or row.get('workflow'):raise ValueError('Light routing is only for unexecuted discussion')
-    from .semantic_review import classify,SemanticUnavailable
-    candidate=plan_readiness.current(store,row['project'])
-    if candidate:
-        plan=agent_store.turn(store,candidate)
-        if not plan_readiness.selection_matches(plan,row):
-            plan_readiness.invalidate(store,row['project'],'所选素材或画布目标已变化')
-            candidate=None
-    if candidate:
-        plan=agent_store.turn(store,candidate)
-        store.execute('UPDATE agent_routes SET candidate=? WHERE task_id=?',(candidate,task))
-        try:decision=classify(store,task,'confirmation',{'message':row['prompt'],'proposal':plan['text'][:14000],'intent':plan['execution_intent']})
-        except SemanticUnavailable:
-            agent_store.finish(store,task,'succeeded','暂时无法明确判断是否确认了当前方案。你可以点击方案的确认按钮执行，或继续说明要调整的内容。');return
-        if decision=='confirm':
-            plan_readiness.promote_confirmation(store,task,candidate)
-            host.notify(task,'progress',{'text':'已确认当前方案，正在安排执行。'});return
-        if decision in ('revise','reject'):plan_readiness.invalidate(store,row['project'],'用户修改或撤回了方案')
+    handled,candidate=plan_readiness.handle_confirmation(host,row)
+    if handled:return
     selected=[a['id'] for a in row.get('attachments',[])]
     summary={'pending_plan_id':candidate,'execution_authorized':False,'asset_count':store.query('SELECT COUNT(*) AS n FROM assets WHERE project=?',(row['project'],))[0]['n'],
              'saved_work_file_count':_saved_work(store,row['project'])['matching_count'],'selected_assets':selected,'selected_canvas_layer':(row.get('canvas_context') or {}).get('layer_id')}

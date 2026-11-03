@@ -25,7 +25,7 @@ def fingerprint(store,project):
 
 
 def invalidate(store,project,reason,except_turn=''):
-    store.execute("UPDATE plan_readiness SET state='stale',reason=?,updated=? WHERE project=? AND turn_id<>? AND state IN ('pending','ready','unavailable')",
+    store.execute("UPDATE plan_readiness SET state='stale',reason=?,updated=? WHERE project=? AND turn_id<>? AND state IN ('pending','ready','unavailable','uncertain','needs_information')",
                   (reason,store.now(),project,except_turn))
 
 
@@ -47,16 +47,63 @@ def public(store,task):
     if state=='pending' and turn['status'] in ('failed','cancelled'):
         state='unavailable';reason='本轮已结束，方案检查未完成，请重新讨论'
     intent=store.query('SELECT digest FROM execution_intents WHERE turn_id=?',(task,))
-    if state=='ready' and (not intent or intent[0]['digest']!=row['digest'] or fingerprint(store,row['project'])!=row['fingerprint']):
+    if state in ('ready','uncertain','unavailable','needs_information') and (not intent or intent[0]['digest']!=row['digest'] or fingerprint(store,row['project'])!=row['fingerprint']):
         state='stale';reason='方案或项目内容已变化，请重新讨论方案'
     return {'state':state,'can_execute':state=='ready' and turn['status']=='succeeded',
-            'plan_id':task,'digest':row['digest'],'reason':reason,'retry_available':state=='unavailable' and turn['status']=='succeeded' and retry_count(store,task)<2}
+            'plan_id':task,'digest':row['digest'],'reason':reason,'retry_available':state in ('unavailable','uncertain','needs_information') and turn['status']=='succeeded' and retry_count(store,task)<2}
+
+
+def candidate(store,project,before=None):
+    params=[project]
+    clause=''
+    if before:
+        clause=' AND t.created<(SELECT created FROM agent_turns WHERE id=? AND project=?)';params.extend([before,project])
+    rows=store.query("SELECT p.turn_id,p.state FROM plan_readiness p JOIN agent_turns t ON t.id=p.turn_id WHERE p.project=?"+clause+" ORDER BY t.created DESC LIMIT 1",tuple(params))
+    if rows and rows[0]['state']!='consumed':
+        return rows[0]['turn_id']
+    return None
 
 
 def current(store,project):
-    rows=store.query("SELECT turn_id FROM plan_readiness WHERE project=? AND state='ready' ORDER BY updated DESC LIMIT 1",(project,))
-    if rows and public(store,rows[0]['turn_id'])['can_execute']:return rows[0]['turn_id']
-    return None
+    task=candidate(store,project)
+    return task if task and public(store,task)['can_execute'] else None
+
+
+def handle_confirmation(host,row):
+    """Resolve against an existing proposal; uncertain review never consumes consent."""
+    from . import agent_store
+    from .semantic_review import classify,SemanticUnavailable
+    store=host.store;task=row['id']
+    target=candidate(store,row['project'],before=task)
+    if not target:return False,None
+    plan=agent_store.turn(store,target)
+    if not selection_matches(plan,row):
+        invalidate(store,row['project'],'所选素材或画布目标已变化');return False,None
+    try:
+        decision=classify(store,task,'confirmation',{'message':row['prompt'],'proposal':plan['text'][:14000],
+                         'original_request':plan['prompt'][:8000],'intent':plan['execution_intent'],
+                         'proposal_readiness':plan['plan_readiness']['state'],'selected_assets':plan.get('attachments',[]),
+                         'canvas_target':{k:plan['canvas_context'].get(k) for k in ('revision','layer_id')} if plan.get('canvas_context') else None})
+    except SemanticUnavailable:
+        state=public(store,target)
+        message='暂时无法明确判断这条消息是否确认原方案，本轮没有执行。'
+        message+=('可点击已就绪方案的确认按钮，或说明修改要求。' if state['can_execute'] else '原方案尚未通过检查，请先查看方案检查状态；也可说明修改要求。')
+        # This failed classification does not establish a safe retry association.
+        agent_store.finish(store,task,'succeeded',message);return True,target
+    if decision=='confirm':
+        store.execute('UPDATE agent_routes SET candidate=? WHERE task_id=?',(target,task))
+        state=public(store,target)
+        if state['can_execute']:
+            promote_confirmation(store,task,target)
+            host.notify(task,'progress',{'text':'已确认当前方案，正在安排执行。'})
+        else:
+            message='本次确认尚未生效，本轮没有执行。'+state.get('reason','原方案检查尚未完成。')
+            message+=(' 请在原方案卡片点击“重新检查方案”；检查通过后需要再次确认。' if state.get('retry_available') else ' 请先核对原方案状态，必要时补充需求或重新讨论。')
+            agent_store.finish(store,task,'succeeded',message)
+        return True,target
+    if decision in ('revise','reject'):
+        invalidate(store,row['project'],'用户修改或撤回了方案')
+    return False,target
 
 
 def require(store,project,task,digest=None):
@@ -84,20 +131,42 @@ def review(store,task,text):
     row=rows[0]
     from .semantic_review import classify,SemanticUnavailable,SemanticUncertain
     state='unavailable';reason='方案检查暂不可用，请重新核对方案后再执行'
+    from .plan_review_context import build,digest
+    context=build(store,task,text,intent)
+    evidence={}
     try:
-        answer=classify(store,task,'plan',{
-            'user_request':store.query('SELECT prompt FROM agent_turns WHERE id=?',(task,))[0]['prompt'],
-            'proposal':text[:16000],'intent':intent,
-            'available_results':[a.get('name') for r in store.query("SELECT artifacts FROM agent_turns WHERE project=? AND status='succeeded' ORDER BY created DESC LIMIT 6",(row['project'],)) for a in json.loads(r['artifacts']) if a.get('quality_state') not in ('pending','superseded')][:80],
-            'assets':[{'id':a['id'],'name':a['name'],**{k:v for k,v in a['metadata'].items() if k in ('kind','width','height','duration')}} for a in store.assets(row['project'])][:100]})
-        state={'ready':'ready','needs_information':'needs_information','discussion':'discussion'}.get(answer,'needs_information')
-        reason='' if state=='ready' else '尚需补充明确的目标、输入、关键参数或交付内容'
-    except SemanticUncertain:
-        state='needs_information';reason='方案是否完整尚不明确，请补充输入、参数或交付内容'
-    except SemanticUnavailable:pass
-    if fingerprint(store,row['project'])!=row['fingerprint']:state='stale';reason='审核期间项目内容已变化'
-    store.execute('UPDATE plan_readiness SET state=?,reason=?,updated=? WHERE turn_id=? AND digest=? AND state IN (\'pending\',\'unavailable\')',
-                  (state,reason,store.now(),task,row['digest']))
+        answer=classify(store,task,'plan',context)
+        evidence=getattr(answer,'evidence',{})
+        # A categorical "missing" answer alone cannot tell users what to supply.
+        if answer=='needs_information' and not evidence.get('missing_items'):
+            from .semantic_review import secondary
+            answer=secondary(store,task,context,evidence)
+            evidence=getattr(answer,'evidence',{})
+        state={'ready':'ready','needs_information':'needs_information','discussion':'discussion'}.get(answer,'uncertain')
+        reason='' if state=='ready' else ('请补充：'+'；'.join(evidence['missing_items']) if state=='needs_information' else '本轮尚未形成可供确认的执行方案')
+    except SemanticUncertain as exc:
+        state='uncertain';reason='方案审核暂不能确定，请重新检查；当前没有已确认的缺失项'
+        evidence=exc.evidence
+    except SemanticUnavailable as exc:evidence=exc.evidence
+    started_fingerprint=row['fingerprint']
+    current_fingerprint=fingerprint(store,row['project'])
+    with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        lease=CURRENT.get()
+        if lease:lease.validate(db)
+        status=db.execute('SELECT status FROM agent_turns WHERE id=?',(task,)).fetchone()
+        if not status or status['status'] not in ('running','succeeded'):return
+        newer=db.execute('SELECT t.id,r.candidate FROM agent_turns t LEFT JOIN agent_routes r ON r.task_id=t.id WHERE t.project=? AND t.created>(SELECT created FROM agent_turns WHERE id=?)',(row['project'],task)).fetchall()
+        if any(r['candidate']!=task for r in newer):
+            state='stale';reason='审核期间有新的需求或对话，请重新核对方案'
+        if current_fingerprint!=started_fingerprint or fingerprint(store,row['project'])!=started_fingerprint:
+            state='stale';reason='审核期间项目内容已变化'
+        applied=db.execute("UPDATE plan_readiness SET state=?,reason=?,updated=? WHERE turn_id=? AND digest=? AND updated=? AND state IN ('pending','unavailable')",
+                          (state,reason,store.now(),task,row['digest'],row['updated'])).rowcount
+        if applied:
+            payload={'state':state,'reason':reason,'digest':row['digest'],'input_digest':digest(context),'coverage':context['coverage'],
+                     'saved_file_count':len(context['saved_files']),'history_tasks':[r['task_id'] for r in context['prior_conversation']],'evidence':evidence}
+            db.execute('INSERT INTO agent_events(turn_id,kind,payload,created) VALUES (?,?,?,?)',(task,'plan_review',json.dumps(payload,ensure_ascii=False),store.now()))
 
 
 def register(store,task,stage='light'):
@@ -150,10 +219,12 @@ def retry_review(store,task,digest):
         db.execute('BEGIN IMMEDIATE')
         row=db.execute('SELECT * FROM agent_turns WHERE id=?',(task,)).fetchone()
         ready=db.execute('SELECT * FROM plan_readiness WHERE turn_id=?',(task,)).fetchone()
-        if not row or row['status']!='succeeded' or not ready or ready['state']!='unavailable' or ready['digest']!=digest:
+        if not row or row['status']!='succeeded' or not ready or ready['state'] not in ('unavailable','uncertain','needs_information') or ready['digest']!=digest:
             raise ValueError('当前方案不支持重试检查')
         if fingerprint(store,row['project'])!=ready['fingerprint']:raise ValueError('项目内容已变化，请重新讨论方案')
-        if db.execute('SELECT id FROM agent_turns WHERE project=? AND created>? LIMIT 1',(row['project'],row['created'])).fetchone():raise ValueError('已有更新的对话，请使用最新方案')
+        if candidate(store,row['project'])!=task:raise ValueError('已有更新的方案，请使用最新方案')
+        newer=db.execute('SELECT t.id,r.candidate FROM agent_turns t LEFT JOIN agent_routes r ON r.task_id=t.id WHERE t.project=? AND t.created>?',(row['project'],row['created'])).fetchall()
+        if any(r['candidate']!=task for r in newer):raise ValueError('已有更新的对话，请先核对最新需求')
         if retry_count(store,task)>=2:raise ValueError('方案检查已达到两次重试上限，请稍后重新讨论')
         db.execute('INSERT INTO plan_review_retries VALUES (?,1) ON CONFLICT(turn_id) DO UPDATE SET used=plan_review_retries.used+1',(task,))
         db.execute("UPDATE plan_readiness SET state='pending',reason='',updated=? WHERE turn_id=?",(store.now(),task))

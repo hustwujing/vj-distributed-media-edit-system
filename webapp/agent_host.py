@@ -540,6 +540,15 @@ class AgentHost:
                             error=str(exc) if isinstance(exc,TaskQuotaReached) else '回复暂未完成，请重试；本轮未执行编辑或外部生成。'
                             agent_store.finish(self.store,lease.turn_id,'failed',error=error)
                         return
+                    # Non-light Harnesses share the same confirmation gate before
+                    # creating their full task sandbox. Heavy handoffs already checked it.
+                    from .plan_readiness import route,handle_confirmation
+                    routing=route(self.store,lease.turn_id)
+                    if row['mode']=='plan' and routing and routing['stage']=='light':
+                        if not self.store.execute("UPDATE agent_turns SET status='running',updated=? WHERE id=? AND status IN ('queued','running')",(self.store.now(),lease.turn_id)):return
+                        lease.start_compute()
+                        handled,_=handle_confirmation(self,agent_store.turn(self.store,lease.turn_id))
+                        if handled:return
                     from .scheduling import requirements,defer_resource
                     if requirements(self.store,lease.turn_id,'agent')['gpu']:
                         from .image_sandbox import allocation_for

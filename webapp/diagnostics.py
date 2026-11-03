@@ -70,6 +70,30 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
     except Exception as exc:
         report['gaps'].append({'source':'usage','error_code':type(exc).__name__})
         report['complete']=False
+    report['plan_readiness']=query('plan_readiness','SELECT state,digest,updated FROM plan_readiness WHERE turn_id=?',(task_id,))
+    report['plan_reviews']=[]
+    for item in query('plan_reviews',"SELECT seq,payload,created FROM agent_events WHERE turn_id=? AND kind='plan_review' ORDER BY seq DESC LIMIT 3",(task_id,)):
+        try:
+            value=json.loads(item['payload']);evidence=value.get('evidence',{})
+            def scores(source):
+                result={k:source[k] for k in ('source','choice','confidence','threshold','required_margin','error') if k in source}
+                result['scores']={k:v for k,v in source.get('scores',{}).items() if k in ('ready','needs_information','discussion')}
+                result['checks']={k:v for k,v in source.get('checks',{}).items() if k in ('requested_work','inputs_identified','parameters_resolved','deliverable_defined')}
+                return result
+            report['plan_reviews'].append({'seq':item['seq'],'created':item['created'],
+                **{k:value[k] for k in ('state','digest','input_digest','saved_file_count','coverage') if k in value},
+                'reviewer':scores(evidence),'primary':scores(evidence.get('primary',{}))})
+        except (ValueError,TypeError,AttributeError):
+            report['complete']=False;report['gaps'].append({'source':'plan_reviews','error_code':'InvalidMetadata'})
+    report['control_classifications']=[]
+    for item in query('control_classifications',"SELECT seq,payload,created FROM agent_events WHERE turn_id=? AND kind='control_classification' ORDER BY seq DESC LIMIT 10",(task_id,)):
+        try:
+            value=json.loads(item['payload']);evidence=value.get('evidence',{})
+            report['control_classifications'].append({'seq':item['seq'],'created':item['created'],
+                'outcome':value.get('outcome'),'binding_digest':value.get('binding_digest'),
+                'evidence':{k:evidence[k] for k in ('source','choice','confidence','scores','threshold','required_margin') if k in evidence}})
+        except (ValueError,TypeError,AttributeError):
+            report['complete']=False;report['gaps'].append({'source':'control_classifications','error_code':'InvalidMetadata'})
     report['browser_render']=query('browser_render','SELECT generation,sequence,render_ms,created FROM agent_render_observations WHERE task_id=? ORDER BY created DESC LIMIT ?',(task_id,limit))
     report['logs']=[]
     if include_logs:

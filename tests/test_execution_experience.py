@@ -133,7 +133,7 @@ class ExperienceTests(unittest.TestCase):
         from unittest.mock import Mock
         fields={'requested_work':True,'inputs_identified':True,'parameters_resolved':True,'deliverable_defined':False}
         response=Mock();response.status_code=200;response.content=b'{}';response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False)
-        response.json.return_value={'status':'completed','id':'resp_fixture','usage':{'input_tokens':10,'output_tokens':5,'total_tokens':15},'output':[{'type':'message','content':[{'type':'output_text','text':json.dumps({'decision':'ready','confidence':.99,**fields})}]}]}
+        response.json.return_value={'status':'completed','id':'resp_fixture','usage':{'input_tokens':10,'output_tokens':5,'total_tokens':15},'output':[{'type':'message','content':[{'type':'output_text','text':json.dumps({'decision':'ready','confidence':.99,'reason':'检查四项条件','missing_items':[],**fields})}]}]}
         with patch.dict('os.environ',{'VIDEO_USE_MODEL_BASE_URL':'https://provider.invalid','VIDEO_USE_MODEL_API_KEY':'fixture-key'}),patch('webapp.egress_policy.session') as session:
             session.return_value.__enter__.return_value.post.return_value=response
             with self.assertRaises(SemanticUnavailable):fallback_plan(self.s,self.t,{})

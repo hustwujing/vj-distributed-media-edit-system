@@ -21,3 +21,10 @@ test('terminal plans never claim an unfinished review is still running',()=>{
  assert.equal(planNotice({status:'succeeded',plan_readiness:{state:'pending'}}),'方案正在检查');
  assert.equal(planNotice({status:'failed',plan_readiness:{state:'unavailable',reason:'本轮已结束，方案检查未完成'}}),'本轮已结束，方案检查未完成');
 });
+
+test('uncertain review and concrete missing input have distinct notices',()=>{
+ assert.match(planNotice({plan_readiness:{state:'uncertain'}}),/不能确定/);
+ assert.equal(planNotice({plan_readiness:{state:'needs_information',reason:'请选择输入素材'}}),'请选择输入素材');
+ assert.match(planNotice({plan_readiness:{state:'ready',can_execute:true}}),/检查通过/);
+ assert.equal(executablePlan([{mode:'plan',status:'succeeded',plan_readiness:{state:'uncertain',can_execute:false}}]),null);
+});

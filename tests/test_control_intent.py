@@ -50,6 +50,16 @@ class ClassifierTests(unittest.TestCase):
         for body in cases:
             with self.subTest(body=body), self.assertRaises(ControlUnavailable):parse_action(body)
 
+    def test_context_is_forwarded_as_data_and_scores_are_retained(self):
+        from unittest.mock import Mock
+        reply=Mock();reply.status_code=200;reply.json.return_value=response('replan');reply.__enter__=Mock(return_value=reply);reply.__exit__=Mock(return_value=False)
+        context={'task_id':'task','approved_plan':{'proposal':'合成视频和配乐'},'steps':[{'name':'添加配乐'}]}
+        with patch('webapp.control_intent.requests.Session') as session:
+            post=session.return_value.__enter__.return_value.post;post.return_value=reply
+            result=self.classifier.resolve('这一项不要了，其他保持原方案','running',context)
+        self.assertEqual(result,'replan');self.assertEqual(result.evidence['confidence'],.99)
+        self.assertEqual(post.call_args.kwargs['json']['state']['task_context'],context)
+
     def test_timeout_opens_circuit_without_retrying_or_falling_back_to_action(self):
         with patch('webapp.control_intent.requests.Session') as session:
             post=session.return_value.__enter__.return_value.post
@@ -113,6 +123,45 @@ class ControlApiTests(unittest.TestCase):
     def send_model(self, text, result, **kwargs):
         with patch.object(self.app.state.control_intents,'resolve',return_value=result):
             return self.client.post(self.url,json={'message':text,**kwargs})
+
+    def test_classifier_receives_only_selected_tasks_plan_steps_and_pending_questions(self):
+        from webapp.user_decisions import create
+        w=workflows.get(self.store,self.turn)
+        create(self.store,w,w['steps'][0],{'kind':'selection','question':'选择背景','options':['蓝色','黄色']})
+        other=self.store.add_project('other-owner','private')['id']
+        private=agent_store.add_turn(self.store,other,'plan','FOREIGN SECRET');agent_store.finish(self.store,private,'succeeded','FOREIGN SECRET')
+        with patch.object(self.app.state.control_intents,'resolve',return_value='status') as resolve:
+            result=self.client.post(self.url,json={'message':'刚才那一步现在如何了'})
+        self.assertEqual(result.status_code,200,result.text)
+        context=resolve.call_args.args[2]
+        self.assertEqual(context['approved_plan']['task_id'],self.plan)
+        self.assertEqual(context['pending_questions'][0]['question'],'选择背景')
+        self.assertTrue(context['steps']);self.assertNotIn('FOREIGN SECRET',json.dumps(context))
+        from webapp.diagnostics import diagnose
+        diagnostic=diagnose(self.store,self.turn,include_logs=False)
+        self.assertEqual(diagnostic['control_classifications'][0]['outcome'],'status')
+        self.assertEqual(diagnostic['control_classifications'][0]['binding_digest'],context['binding_digest'])
+        self.assertNotIn('选择背景',json.dumps(diagnostic))
+
+    def test_changed_step_revision_during_classification_rejects_action(self):
+        w=workflows.get(self.store,self.turn)
+        def decide(*_):
+            self.store.execute('UPDATE agent_steps SET revision=revision+1 WHERE workflow=?',(w['id'],));return 'cancel'
+        with patch.object(self.app.state.control_intents,'resolve',side_effect=decide):
+            result=self.client.post(self.url,json={'message':'这次不用做了'})
+        self.assertEqual(result.status_code,409,result.text)
+        self.assertEqual(agent_store.turn(self.store,self.turn)['status'],'waiting')
+        self.assertFalse(self.store.query('SELECT * FROM execution_cancel_requests'))
+
+    def test_changed_pending_question_during_classification_rejects_action(self):
+        from webapp.user_decisions import create
+        w=workflows.get(self.store,self.turn)
+        def decide(*_):
+            create(self.store,w,w['steps'][0],{'kind':'external_call','question':'是否额外付费重试？'});return 'resume'
+        with patch.object(self.app.state.control_intents,'resolve',side_effect=decide):
+            result=self.client.post(self.url,json={'message':'按原样接着处理'})
+        self.assertEqual(result.status_code,409,result.text)
+        self.assertIn('待回答问题已变化',result.text)
 
     def test_natural_status_does_not_create_turn_or_change_workflow(self):
         result=self.send_model('做到哪里了呀','status')
