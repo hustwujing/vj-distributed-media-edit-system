@@ -10,6 +10,7 @@ let project,turns=[],library,preview,results,available=false,connection='idle',s
 let selectedAttachments=new Set(),lastLibrary='',posting=false,canvasContext=null,contextInvalid=false,contextResultSeen=null,composerTouched=false;
 const continuationKey='task-continuation:'+id;
 let continuationTask=sessionStorage.getItem(continuationKey);
+let controlFeedbackVersion=0;
 function rememberContinuation(task){continuationTask=task;if(task)sessionStorage.setItem(continuationKey,task);else sessionStorage.removeItem(continuationKey);}
 const nodes=new Map(),activities=new Map();
 const profileSelector=mountAgentProfiles($('agent-profile-panel'),id,()=>turns,refresh);
@@ -102,10 +103,29 @@ function renderWorkflow(node,turn){
  });
  const button=box.querySelector('[data-resume-workflow]');if(button)button.onclick=async()=>{button.disabled=true;try{const next=await api(path(`/agent/${turn.id}/resume`),{method:'POST'});updateTurn(next);connect(next);}catch(error){toast(error.message,true);button.disabled=false;}};
 }
+function showControlFeedback(title,text,turn=null,{error=false,loading=false}={}){
+ const box=$('control-feedback');box.hidden=false;box.classList.toggle('error',error);box.setAttribute('aria-busy',String(loading));
+ $('control-feedback-title').textContent=title;$('control-feedback-text').textContent=text;
+ $('control-feedback-time').textContent=loading?'':`${turn?(turn.mode==='execute'?'执行任务':'讨论任务')+' · ':''}${new Date().toLocaleTimeString()} 返回的结果`;
+ const locate=$('control-feedback-task');locate.hidden=!turn||loading;
+ locate.onclick=()=>{const target=nodes.get(turn?.id);if(!target)return;target.tabIndex=-1;target.focus({preventScroll:true});target.scrollIntoView({behavior:'smooth',block:'start'});};
+}
 async function taskControl(message=''){
- const turn=turns.find(t=>activeStatus(t.status))||turns.at(-1);if(!turn){toast('当前还没有任务');return;}
- const result=message?await api(path(`/agent/${turn.id}/control`),{method:'POST',body:JSON.stringify({message})}):await api(path(`/agent/${turn.id}/status`));
- if(result.old_turn)updateTurn(result.old_turn);updateTurn(result.turn);if(result.replanned_from)rememberContinuation(result.turn.id);if(result.turn&&activeStatus(result.turn.status))connect(result.turn);$('control-feedback').hidden=false;$('control-feedback').textContent=result.summary;
+ const version=++controlFeedbackVersion,turn=turns.find(t=>activeStatus(t.status))||turns.at(-1);
+ if(!turn){showControlFeedback('任务进度','当前还没有任务，请先发送消息。');return;}
+ showControlFeedback(message?'正在处理请求':'正在查询进度',message?'正在获取任务操作结果…':'正在获取任务和步骤的最新状态…',turn,{loading:true});
+ try{
+  const result=message?await api(path(`/agent/${turn.id}/control`),{method:'POST',body:JSON.stringify({message})}):await api(path(`/agent/${turn.id}/status`));
+  if(result.old_turn)updateTurn(result.old_turn);updateTurn(result.turn);if(result.replanned_from)rememberContinuation(result.turn.id);
+  if(version===controlFeedbackVersion){
+   if(result.turn&&activeStatus(result.turn.status)&&result.turn.status!=='paused')connect(result.turn);
+   showControlFeedback(!message||result.action==='status'?'任务进度':'操作结果',result.summary,result.turn);
+  }
+ }catch(error){if(version===controlFeedbackVersion)showControlFeedback(message?'操作未完成':'进度查询失败',error.message,turn,{error:true});throw error;}
+}
+async function queryProgress(){
+ const button=$('agent-progress');button.disabled=true;button.textContent='查询中…';button.setAttribute('aria-busy','true');
+ try{await taskControl();}catch(error){toast(error.message,true);}finally{button.disabled=false;button.textContent='查进度';button.removeAttribute('aria-busy');}
 }
 async function projectVersions(){
  try{
@@ -150,4 +170,4 @@ document.querySelectorAll('[data-library]').forEach(b=>b.onclick=()=>{document.q
 setInterval(()=>{for(const activity of activities.values())activity.tick();for(const turn of turns)nodes.get(turn.id)?.querySelector('.assistant-text')?.classList.toggle('streaming-text',isTyping(turn));if(project)status();},500);
 window.addEventListener('pagehide',()=>{stream?.close();clearTimeout(pollTimer);clearTimeout(saveTimer);if(project&&$('agent-input'))fetch(href(path('/draft')),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({preset:project.draft.preset,prompt:$('agent-input').value,editor:'chat'}),keepalive:true}).catch(()=>{});});
 
-on('agent-progress',()=>taskControl().catch(error=>toast(error.message,true)));on('project-versions',projectVersions);
+on('agent-progress',queryProgress);on('project-versions',projectVersions);
