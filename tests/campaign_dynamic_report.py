@@ -56,7 +56,7 @@ def attempt(directory,current):
             'failure_classification':failure_classification(state,internal,review) if verdict in ('program_failed','artifact_failed','handled_failure','blocked') else None,
             'version':version,'started_at':state.get('started_at'),'finished_at':state.get('finished_at'),
             'outcome':state.get('outcome'),'error':state.get('error'),'issues':issues,'gaps':gaps,
-            'workflow_ids':state.get('workflow_ids',[]),'project':state.get('project'),
+            'run_ids':state.get('run_ids',[]),'project':state.get('project'),
             'events':[e for e in state.get('events',[]) if e.get('action')!='snapshot'],
             'base_url':state.get('base_url'),'authorizations':state.get('authorizations',[]),
             'faults':state.get('faults',[]),'error_codes':state.get('error_codes',[]),
@@ -139,7 +139,7 @@ def report():
             if item['authorizations']:
                 lines.extend(['','实际确认的执行轮次：',''])
                 for authorization in item['authorizations']:
-                    lines.append('- `'+authorization['workflow_id']+'`：'+authorization['goal']+'；Token上限 '+str(authorization['model_token_budget'])+'；外部调用上限 `'+json.dumps(authorization['provider_call_budget'],ensure_ascii=False)+'`。')
+                    lines.append('- `'+authorization['run_id']+'`：'+authorization['goal']+'；Token上限 '+str(authorization['model_token_budget'])+'；外部调用上限 `'+json.dumps(authorization['provider_call_budget'],ensure_ascii=False)+'`。')
     target=REPO/'docs/real-case-campaign/dynamic-test-report.md';target.write_text('\n'.join(lines)+'\n')
     print(json.dumps({'complete':result['complete'],'counts':counts,'report':str(target)},ensure_ascii=False))
     return result

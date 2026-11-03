@@ -79,6 +79,29 @@ def resolve_review(decision,snapshot,inspections):
         'primary':inspections[decision['primary']] if decision.get('primary') else ''}).model_dump()
 
 
+def validate_resolved_review(decision, snapshot, inspections):
+    """Controller-side check; worker-resolved refs are still untrusted input."""
+    criteria=set(review_criteria(snapshot))
+    actual={item['criterion'] for item in decision['evidence']}
+    if not actual<=criteria:
+        raise ValueError('Review evidence introduces an unfrozen criterion')
+    for item in decision['evidence']:
+        if inspections.get(item['inspection_id']) != item['ref']:
+            raise ValueError('Inspection identity does not match this attempt and reference')
+    if decision['verdict']=='pass' and not criteria<=actual:
+        raise ValueError('Review must cover every frozen criterion')
+    if snapshot['review_scope']=='task':
+        if decision['deliverables'] or decision['primary']:
+            raise ValueError('Task review cannot select final deliverables')
+    elif snapshot['review_scope']=='final' and decision['verdict']=='pass':
+        selected=set(decision['deliverables'])
+        approved={ref for task in snapshot['tasks'] for ref in task['accepted_result']}
+        if not selected or not selected<=approved or not selected<=set(inspections.values()):
+            raise ValueError('Final selection must contain inspected approved candidates')
+        if len(selected)>1 and not decision['primary']:
+            raise ValueError('Multiple final deliverables require an explicit primary')
+
+
 class Diagnosis(Contract):
     facts:list[str]=Field(max_length=40)
     uncertainties:list[str]=Field(max_length=40)

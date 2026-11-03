@@ -91,7 +91,7 @@ def inspect(directory,final=False):
     report['collector_file_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     expected=state.get('helper_sha256',{}).get('campaign_dynamic_probe.py')
     if expected and expected!=report['collector_file_sha256']:raise ValueError('Frozen collector source changed')
-    runs=[graph.get(store,row['id']) for row in store.query('SELECT id FROM workflow_runs WHERE project_id=? ORDER BY created_at',(project,))]
+    runs=[graph.get(store,row['id']) for row in store.query('SELECT id FROM runs WHERE project_id=? ORDER BY created_at',(project,))]
     report['database']={'runs':runs,'turns':tasks}
     checks=report['dimensions']['database']={'checked':True,'invariants':[]}
     def check(name,passed,detail=None):
@@ -100,17 +100,17 @@ def inspect(directory,final=False):
         checks['invariants'].append(item)
         if not passed:report['program_issues'].append(name)
     check('owned_project_exists_for_audit',bool(store.query('SELECT id FROM projects WHERE id=?',(project,))))
-    check('browser_and_database_workflow_identity',set(state.get('workflow_ids',[]))=={run['id'] for run in runs})
+    check('browser_and_database_run_identity',set(state.get('run_ids',[]))=={run['id'] for run in runs})
     task_ids=[row['id'] for row in tasks]
     diagnostics=[];all_cleanup=[]
     for run in runs:
         wid=run['id'];taskmap={t['id']:t for t in run['tasks']}
-        events=store.query('SELECT seq,kind,graph_version,payload_json,created_at FROM workflow_graph_events WHERE workflow_id=? ORDER BY seq',(wid,))
+        events=store.query('SELECT seq,kind,graph_version,payload_json,created_at FROM workflow_graph_events WHERE run_id=? ORDER BY seq',(wid,))
         applied=[e for e in events if e['kind']=='proposal_applied']
         check('graph_versions_monotonic:'+wid,[e['graph_version'] for e in applied]==list(range(1,run['graph_version']+1)))
         for dependency in run['dependencies']:
             check('owned_dependency:'+dependency['downstream_task_id'],dependency['upstream_task_id'] in taskmap and dependency['downstream_task_id'] in taskmap)
-        proposals=store.query("SELECT proposal_json,applied_graph_version,base_graph_version,status FROM planner_runs WHERE workflow_id=? AND status='applied' ORDER BY applied_graph_version",(wid,))
+        proposals=store.query("SELECT proposal_json,applied_graph_version,base_graph_version,status FROM planner_runs WHERE run_id=? AND status='applied' ORDER BY applied_graph_version",(wid,))
         expected={}
         for proposal in proposals:
             for task in json.loads(proposal['proposal_json'])['add_tasks']:
@@ -119,7 +119,7 @@ def inspect(directory,final=False):
         for task in run['tasks']:
             if task['internal']:continue
             revisions=store.query('''SELECT revision,spec_json,created_graph_version,repair_root,supersedes_revision
-                FROM workflow_task_revisions WHERE workflow_id=? AND task_id=? ORDER BY revision''',(wid,task['id']))
+                FROM workflow_task_revisions WHERE run_id=? AND task_id=? ORDER BY revision''',(wid,task['id']))
             decoded=[{**row,'spec':json.loads(row['spec_json'])} for row in revisions]
             check('immutable_task_revision_history:'+task['id'],bool(decoded) and [row['revision'] for row in decoded]==list(range(task['revision']+1))
                   and decoded[0]['spec']==expected.get(task['id']) and decoded[-1]['spec']==task['spec'])
@@ -127,23 +127,23 @@ def inspect(directory,final=False):
             for prior,current in zip(decoded,decoded[1:]):
                 check(f'revision_supersedes:{task["id"]}:{current["revision"]}',current['supersedes_revision']==prior['revision'])
             if task['status']=='succeeded':check('technical_acceptance:'+task['id'],task['quality'].get('technical_valid') and bool(task['accepted_result']))
-        selected=store.query('SELECT task_id,task_revision FROM workflow_plan_tasks WHERE workflow_id=? AND graph_version=?',(wid,run['graph_version']))
+        selected=store.query('SELECT task_id,task_revision FROM workflow_plan_tasks WHERE run_id=? AND graph_version=?',(wid,run['graph_version']))
         selection={row['task_id']:row['task_revision'] for row in selected}
         check('current_plan_revision_selection:'+wid,selection=={t['id']:t['revision'] for t in run['tasks'] if not t['internal']})
-        leases=store.query('SELECT slot,attempt,generation,active,expires FROM execution_leases WHERE turn_id=?',(run['turn_id'],))
+        leases=store.query('SELECT slot,attempt,generation,active,expires FROM execution_leases WHERE turn_id=?',(run['id'],))
         active=[l for l in leases if l['active'] and l['expires']>store.now()]
-        cleanup=store.query('SELECT attempt,state,node,updated FROM execution_cleanup WHERE task_id=?',(run['turn_id'],));all_cleanup+=cleanup
+        cleanup=store.query('SELECT attempt,state,node,updated FROM execution_cleanup WHERE task_id=?',(run['id'],));all_cleanup+=cleanup
         provider=store.query('SELECT request_key,operation,state,external_id,attempt_id,generation,authorization,usage,cost FROM workflow_provider_calls WHERE workflow=?',(wid,))
         usage={}
         for row in provider:usage[row['operation']]=usage.get(row['operation'],0)+1
         check('provider_budget:'+wid,all(count<=run['authorization']['provider_call_budget'].get(op,0) for op,count in usage.items()),usage)
-        results=store.query('SELECT task_id,task_revision,lease_id,lease_generation,status,outcome,created_at,committed_at FROM task_results WHERE workflow_id=?',(wid,))
+        results=store.query('SELECT task_id,task_revision,lease_id,lease_generation,status,outcome,created_at,committed_at FROM task_results WHERE run_id=?',(wid,))
         for result in results:
             if result['status']!='committed':continue
             newer=store.query('SELECT id FROM execution_attempts WHERE turn_id=? AND step_id=? AND generation>? AND started<?',
-                              (run['turn_id'],result['task_id'],result['lease_generation'],result['committed_at']))
+                              (run['id'],result['task_id'],result['lease_generation'],result['committed_at']))
             check('no_stale_result_commit:'+result['lease_id'],not newer)
-        reconcile_failures=store.query('SELECT reconcile_generation,exception_type,error_code,created_at FROM workflow_reconcile_failures WHERE workflow_id=?',(wid,))
+        reconcile_failures=store.query('SELECT reconcile_generation,exception_type,error_code,created_at FROM workflow_reconcile_failures WHERE run_id=?',(wid,))
         check('no_reconcile_failures:'+wid,not reconcile_failures,reconcile_failures)
         if run['status']=='succeeded':
             check('sealed_before_delivery:'+wid,run['sealed'] and run['delivered_at'] is not None)
@@ -151,36 +151,36 @@ def inspect(directory,final=False):
             check('one_delivery:'+wid,len([e for e in events if e['kind']=='delivered'])==1)
             check('no_active_lease_at_terminal:'+wid,not active)
             check('no_unknown_provider_at_success:'+wid,all(p['state'] in ('succeeded','failed','cancelled','rejected') for p in provider))
-            reviews=store.query("SELECT status,graph_version,decision_json FROM workflow_reviews WHERE workflow_id=? AND purpose='final' AND status='passed'",(wid,))
+            reviews=store.query("SELECT status,graph_version,decision_json FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status='passed'",(wid,))
             check('final_review_matches_graph:'+wid,any(r['graph_version']==run['graph_version'] for r in reviews))
         if final and run['status'] in graph.TERMINAL:
             check('local_cleanup_complete:'+wid,all(c['state']=='complete' for c in cleanup))
         if not run['sealed']:check('open_graph_not_delivered:'+wid,run['delivered_at'] is None)
         run['audit']={'leases':leases,'cleanup':cleanup,'provider_calls':provider,'results':results,'events':events}
-        diagnostics.append(diagnose(store,run['turn_id'],limit=200,include_logs=True))
+        diagnostics.append(diagnose(store,run['id'],limit=200,include_logs=True))
     report['diagnostics']=diagnostics
     report['execution_attempts']=store.query('''SELECT a.id,a.turn_id,a.step_id,a.kind,a.generation,a.status,
         a.started,a.finished,a.exit_reason,a.uid,a.task_revision,w.node,w.release
         FROM execution_attempts a LEFT JOIN execution_workers w ON w.id=a.worker
         WHERE a.turn_id IN (SELECT id FROM agent_turns WHERE project=?) ORDER BY a.started''',(project,))
     check('execution_release_matches_case',all(a['release']==Path(state['release']['source']).name for a in report['execution_attempts']))
-    report['review_records']=store.query('SELECT r.* FROM workflow_reviews r JOIN workflow_runs w ON w.id=r.workflow_id WHERE w.project_id=? ORDER BY r.created_at',(project,))
+    report['review_records']=store.query('SELECT r.* FROM workflow_reviews r JOIN runs w ON w.id=r.run_id WHERE w.project_id=? ORDER BY r.created_at',(project,))
     for row in report['review_records']:
         row['snapshot']=json.loads(row.pop('snapshot_json'));row['decision']=json.loads(row.pop('decision_json'))
     report['usage']=store.query('''SELECT call_id,task_id,attempt_id,step_id,category,operation,status,
         input_tokens,output_tokens,total_tokens,receipt,error_code FROM usage_calls
         WHERE task_id IN (SELECT id FROM agent_turns WHERE project=?) ORDER BY seq''',(project,))
     report['model_reservations']=store.query('''SELECT m.* FROM workflow_model_reservations m
-        JOIN workflow_runs w ON w.id=m.workflow_id WHERE w.project_id=?''',(project,))
+        JOIN runs w ON w.id=m.run_id WHERE w.project_id=?''',(project,))
     if state['case']=='D13':check('budget_rejected_before_model_submission',not any(call['category']=='llm' for call in report['usage']) and not report['model_reservations'])
     report['reuse']=store.query('SELECT * FROM workflow_asset_reuse WHERE project_id=?',(project,))
     assets={asset['id']:asset for asset in store.assets(project)}
     for item in report['reuse']:
         asset=assets.get(item['asset_id'],{})
         check('immutable_reuse:'+item['asset_id'],asset.get('metadata',{}).get('provenance',{})=={
-            'workflow_id':item['workflow_id'],'task_id':item['task_id'],'revision':item['revision'],'sha256':item['sha256']})
+            'run_id':item['run_id'],'task_id':item['task_id'],'revision':item['revision'],'sha256':item['sha256']})
     report['inspections']=store.query('''SELECT i.* FROM workflow_inspections i
-        JOIN workflow_runs w ON w.id=i.workflow_id WHERE w.project_id=?''',(project,))
+        JOIN runs w ON w.id=i.run_id WHERE w.project_id=?''',(project,))
     # Preserve bounded failure logs before authenticated project cleanup removes
     # its checkpoints. These are private QA evidence, never service telemetry.
     failure_logs=[]
@@ -197,9 +197,9 @@ def inspect(directory,final=False):
                         location=store.artifacts.materialize(project,record['artifact'])
                         with location.open('rb') as stream:
                             stream.seek(max(0,location.stat().st_size-16384));tail=stream.read(16384).decode(errors='replace')
-                        failure_logs.append({'workflow_id':run['id'],'task_id':task['id'],'path':name,
+                        failure_logs.append({'run_id':run['id'],'task_id':task['id'],'path':name,
                             'sha256':record['sha256'],'tail':scrub(tail,secrets())})
-                    except Exception as exc:failure_logs.append({'workflow_id':run['id'],'task_id':task['id'],'path':name,'error_type':type(exc).__name__})
+                    except Exception as exc:failure_logs.append({'run_id':run['id'],'task_id':task['id'],'path':name,'error_type':type(exc).__name__})
     save(directory/'runtime-evidence.json',failure_logs)
     report['runtime_evidence']='runtime-evidence.json'
     # Candidate bytes remain necessary even when a model rejects delivery.
@@ -215,7 +215,7 @@ def inspect(directory,final=False):
             manifest=json.loads(rows[0]['manifest']) if rows else {}
             for name in sorted(names):
                 record=manifest.get(name,{})
-                item={'workflow_id':run['id'],'task_id':task['id'],'revision':task['revision'],'logical_path':name,
+                item={'run_id':run['id'],'task_id':task['id'],'revision':task['revision'],'logical_path':name,
                       'state':'accepted' if name in task['accepted_result'] else 'candidate','sha256':record.get('sha256')}
                 try:
                     identifier=record['artifact']

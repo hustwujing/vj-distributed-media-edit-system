@@ -14,7 +14,7 @@ class DynamicAPITests(unittest.TestCase):
         self.a.__enter__();self.b.__enter__()
         self.addCleanup(self.a.__exit__,None,None,None);self.addCleanup(self.b.__exit__,None,None,None)
         self.project=self.a.post('/api/projects',json={'name':'dynamic API'}).json()['id']
-        self.prefix='/api/projects/'+self.project+'/workflows'
+        self.prefix='/api/projects/'+self.project+'/runs'
     def body(self):
         import uuid
         capabilities=self.a.get(self.prefix+'/capabilities').json()
@@ -29,10 +29,10 @@ class DynamicAPITests(unittest.TestCase):
         self.assertEqual(first.status_code,202,first.text)
         second=self.a.post(self.prefix,json=body)
         self.assertEqual(second.json()['id'],first.json()['id'])
-        self.assertEqual(self.a.get(self.prefix).json()['workflows'][0]['graph_version'],0)
+        self.assertEqual(self.a.get(self.prefix).json()['runs'][0]['graph_version'],0)
         self.assertEqual(self.b.get(self.prefix+'/'+first.json()['id']).status_code,404)
         self.assertEqual(self.b.get(self.prefix+'/'+first.json()['id']+'/events').status_code,404)
-        self.assertEqual(len(self.app.state.store.query('SELECT id FROM agent_turns')),1)
+        self.assertEqual(len(self.app.state.store.query('SELECT id FROM agent_turns')),0)
     def test_stale_content_creates_no_task(self):
         body=self.body();body['authorization']['content_fingerprint']='0'*64
         response=self.a.post(self.prefix,json=body)
@@ -44,13 +44,13 @@ class DynamicAPITests(unittest.TestCase):
         request={'request_id':uuid.uuid4().hex,'action':'cancel'}
         self.assertEqual(self.b.post(self.prefix+'/'+run['id']+'/commands',json=request).status_code,404)
         self.assertEqual(self.a.post(self.prefix+'/'+run['id']+'/commands',json=request).status_code,202)
-        self.assertEqual(self.app.state.store.query('SELECT status FROM workflow_runs')[0]['status'],'planning')
+        self.assertEqual(self.app.state.store.query('SELECT status FROM runs')[0]['status'],'ACTIVE')
         controller=Orchestrator(self.app.state.store)
         for claim in controller.claim_due():controller.reconcile(*claim)
-        self.assertEqual(self.a.get(self.prefix+'/'+run['id']).json()['status'],'cancelled')
+        self.assertEqual(self.a.get(self.prefix+'/'+run['id']).json()['state'],'CANCELLED')
         result=self.a.delete('/api/projects/'+self.project)
         self.assertEqual(result.status_code,200,result.text)
-        for table in ('workflow_runs','workflow_tasks','planner_runs','workflow_commands','workflow_graph_events','workflow_start_requests'):
+        for table in ('runs','run_tasks','planner_runs','workflow_commands','workflow_graph_events','workflow_start_requests'):
             self.assertFalse(self.app.state.store.query('SELECT * FROM '+table),table)
     def test_chat_page_has_project_and_deployment_prefix(self):
         with TestClient(self.app,root_path='/distributed-agent-system') as client:
@@ -62,7 +62,7 @@ class DynamicAPITests(unittest.TestCase):
 
     def test_legacy_control_cannot_start_a_second_planner_for_dynamic_runs(self):
         run=self.a.post(self.prefix,json=self.body()).json()
-        response=self.a.post('/api/projects/'+self.project+'/agent/'+run['turn_id']+'/control',json={'action':'replan','message':'change the goal'})
-        self.assertEqual(response.status_code,410)
-        self.assertEqual(len(self.app.state.store.query('SELECT id FROM agent_turns')),1)
+        response=self.a.post('/api/projects/'+self.project+'/agent/'+run['id']+'/control',json={'action':'replan','message':'change the goal'})
+        self.assertEqual(response.status_code,404)
+        self.assertEqual(len(self.app.state.store.query('SELECT id FROM agent_turns')),0)
         self.assertFalse(self.app.state.store.query('SELECT id FROM workflow_commands'))

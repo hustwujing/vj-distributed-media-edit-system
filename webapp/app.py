@@ -366,7 +366,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
             raise HTTPException(409,'执行资源尚未回收完成，请稍后删除。')
         if store.query("SELECT id FROM execution_external_cleanup WHERE state IN ('pending','running') AND task_id IN ("+tasks+")",(project_id,project_id)):
             raise HTTPException(409,'正在确认外部任务停止，请等待收尾完成后删除。')
-        if store.query('SELECT l.turn_id FROM execution_leases l JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.id=l.turn_id WHERE t.project=? AND l.active=1 AND l.expires>'+CLOCK,(project_id,)):
+        if store.query('SELECT l.turn_id FROM execution_leases l JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.turn_id WHERE t.project=? AND l.active=1 AND l.expires>'+CLOCK,(project_id,)):
             raise HTTPException(409,'任务仍在退出和清理，请稍后删除。')
         active = store.job(current['id']) if current.get('id') else None
         if store.query("SELECT id FROM agent_turns WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')", (project_id,)):
@@ -404,15 +404,15 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM jobs WHERE project=?', (project_id,))
         store.execute('DELETE FROM agent_steps WHERE workflow IN (SELECT id FROM agent_workflows WHERE project=?)', (project_id,))
         store.execute('DELETE FROM agent_workflows WHERE project=?', (project_id,))
-        for table in ('workflow_dependencies','workflow_tasks','planner_runs','task_results','workflow_commands',
+        for table in ('workflow_dependencies','run_tasks','planner_runs','task_results','workflow_commands',
                       'workflow_decisions','workflow_reviews','workflow_graph_events','workflow_model_reservations','workflow_inspections'):
-            store.execute(f'DELETE FROM {table} WHERE workflow_id IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
-        store.execute('DELETE FROM workflow_agent_outputs WHERE workflow_id IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
-        store.execute('DELETE FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
-        store.execute('DELETE FROM workflow_diagnostics WHERE workflow IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
+            store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM workflow_agent_outputs WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM workflow_diagnostics WHERE workflow IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
         store.execute('DELETE FROM workflow_start_requests WHERE project_id=?',(project_id,))
         store.execute('DELETE FROM workflow_asset_reuse WHERE project_id=?',(project_id,))
-        store.execute('DELETE FROM workflow_runs WHERE project_id=?',(project_id,))
+        store.execute('DELETE FROM runs WHERE project_id=?',(project_id,))
         for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
             store.execute(f'DELETE FROM {table} WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_checkpoints WHERE project=?',(project_id,))

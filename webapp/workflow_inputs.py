@@ -94,7 +94,7 @@ def resolve(store,w,s,env):
             from .workflows import change
             import json
             with store.connect() as db:
-                latest=db.execute(('SELECT bindings_json AS bindings,revision FROM workflow_tasks WHERE workflow_id=? AND id=?'
+                latest=db.execute(('SELECT bindings_json AS bindings,revision FROM run_tasks WHERE run_id=? AND id=?'
                     if w.get('dynamic') else 'SELECT bindings,revision FROM agent_steps WHERE workflow=? AND id=?'),(w['id'],s['id'])).fetchone()
                 if not latest or latest['revision']!=s['revision']:raise ValueError('Input revision changed')
                 bindings=json.loads(latest['bindings'])

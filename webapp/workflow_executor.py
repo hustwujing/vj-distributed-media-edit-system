@@ -24,7 +24,7 @@ def validate_candidate(adapter,workflow,step,files):
 
 def execute(host,lease):
     from .task_usage import execution_call
-    run=graph.get(host.store,lease.turn_id);task=next(t for t in run['tasks'] if t['id']==lease.step_id)
+    run=graph.get(host.store,lease.turn_id);task=next(t for t in graph.work_items(run) if t['id']==lease.step_id)
     operation=task['spec'].get('operation') or task['spec'].get('profile') or 'script'
     with execution_call(lease,'workflow',operation,revision=task['revision'],label='执行工作流阶段') as receipt:
         result=_execute(host,lease)
@@ -35,7 +35,7 @@ def execute(host,lease):
 
 def _execute(host,lease):
     store=lease.store;run=graph.get(store,lease.turn_id)
-    task=next(t for t in run['tasks'] if t['id']==lease.step_id)
+    task=next(t for t in graph.work_items(run) if t['id']==lease.step_id)
     phase=task['phase'];adapter=host.workflow_runner.adapter
     try:
         if task['type']=='agent':
@@ -97,7 +97,7 @@ def _execute(host,lease):
             diagnostic.update(request_sent=False,cause_type=detail.get('cause_type',''))
         store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',
                       (uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],graph.encode(diagnostic),store.now()))
-        if lease.runtime and lease.runtime.env is not None and not task['internal']:
+        if lease.runtime and lease.runtime.env is not None and not task.get('control_kind'):
             try:lease.runtime.checkpoint()
             except (LeaseLost,TaskLimitReached):raise
             except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.turn_id,step_id=lease.step_id)
@@ -109,7 +109,7 @@ def _execute(host,lease):
         except ImportError:transient_model=isinstance(exc,TimeoutError)
         if isinstance(exc,ModelServiceError):
             status=exc.diagnostic.get('http_status');transient_model=status==429 or isinstance(status,int) and status>=500
-        transient_model=bool(task['internal'] and task['type']=='agent' and transient_model)
+        transient_model=bool(task.get('control_kind') and task['type']=='agent' and transient_model)
         if isinstance(exc,TaskQuotaReached):code='budget_exhausted'
         elif classification=='pre_submit':code='pre_submit'
         elif classification=='model_result':code='model_result'
@@ -120,5 +120,5 @@ def _execute(host,lease):
         elif phase=='collect':code='collect_failed'
         elif phase=='validate':code='technical_validation_failed'
         else:code='execution_failed'
-        stage_result(store,lease,'failed',{'error_code':code,'phase':'execute' if phase in ('local','sync','submit') else phase,
+        stage_result(store,lease,'failed',{'error_code':code,'phase':phase,
                                          'classification':classification,'transient':transient_model})

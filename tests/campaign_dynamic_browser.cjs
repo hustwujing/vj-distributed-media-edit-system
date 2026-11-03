@@ -38,7 +38,7 @@ async function runCase(browser,spec){
  const directory=path.join(parent,'attempt-'+String(number).padStart(3,'0'));fs.mkdirSync(directory,{mode:0o700});fs.mkdirSync(path.join(directory,'output'));
  const state={case:spec.id,title:spec.title,run_id:new Date().toISOString().replace(/[-:.]/g,'')+'-'+uid().slice(0,8),
   status:'running',started_at:Date.now()/1000,base_url:BASE,release:currentRelease(),driver_sha256:DRIVER_SHA,
-  requests:[],events:[],page_errors:[],console_errors:[],browser_assertions:[],artifacts:[],task_ids:[],workflow_ids:[],faults:[]};
+  requests:[],events:[],page_errors:[],console_errors:[],browser_assertions:[],artifacts:[],task_ids:[],run_ids:[],faults:[]};
  assert.equal(state.release.namespace,'dynamic-agent');
  save(path.join(directory,'case-definition.json'),spec);fs.writeFileSync(path.join(directory,'driver-snapshot.cjs'),DRIVER_SOURCE);
  const harness=path.join(directory,'harness');fs.mkdirSync(harness,{mode:0o700});state.helper_sha256={};
@@ -56,7 +56,7 @@ async function runCase(browser,spec){
   const body=await response.json().catch(()=>({}));const databaseUnavailable=response.status()===503&&body.code==='API_DATABASE_UNAVAILABLE';
   if(method==='GET'&&databaseUnavailable&&Date.now()+1500<deadline){state.events.push({action:'database_read_retry',path:suffix,request_id:body.request_id,at:Date.now()/1000});persist();await page.waitForTimeout(1500);continue;}
   if(!response.ok())throw Object.assign(Error(`HTTP ${response.status()} ${suffix}: ${JSON.stringify(body)}`),{dependency:databaseUnavailable});return body;}};
- const read=async()=>api('GET',`/api/projects/${state.project}/workflows/${state.workflow_id}`);
+ const read=async()=>api('GET',`/api/projects/${state.project}/workflows/${state.run_id}`);
  const helperEnvironment={...process.env,DYNAMIC_CAMPAIGN_REPO:REPO};
  const probe=async(action)=>{for(let attempt=1;attempt<=3;attempt++){persist();try{const {stdout}=await execute(PY,[path.join(harness,'campaign_dynamic_probe.py'),action,directory],{cwd:REPO,env:helperEnvironment,timeout:600000,maxBuffer:8*1024*1024});return JSON.parse(stdout.trim().split('\n').at(-1));}
   catch(error){if(!['inspect','final'].includes(action)||attempt===3||!String(error.stderr||error.message).includes('psycopg.OperationalError'))throw error;
@@ -77,14 +77,14 @@ async function runCase(browser,spec){
   await page.locator('#dynamic-start').waitFor({state:'visible'});await page.locator('#dynamic-goal').fill(prompt);await page.locator('#dynamic-targets').fill(targets);
   await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
   for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
-  await capture('authorization-'+state.workflow_ids.length);
+  await capture('authorization-'+state.run_ids.length);
   const response=page.waitForResponse(r=>r.url().endsWith(`/api/projects/${state.project}/workflows`)&&r.request().method()==='POST',{timeout:60000});
   await page.locator('#dynamic-submit').click();
   let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
-  if(!result){await capture('authorization-content-refresh-'+state.workflow_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-submit').click();result=await response;}
+  if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-submit').click();result=await response;}
   assert.equal(result.status(),202,await result.text());run=await result.json();
-  state.workflow_id=run.id;state.execute_id=run.turn_id;state.workflow_ids.push(run.id);state.task_ids.push(run.turn_id);persist();
-  (state.authorizations??=[]).push({workflow_id:run.id,goal:run.goal,delivery_targets:run.authorization.delivery_targets,
+  state.run_id=run.id;state.execute_id=run.turn_id;state.run_ids.push(run.id);state.task_ids.push(run.turn_id);persist();
+  (state.authorizations??=[]).push({run_id:run.id,goal:run.goal,delivery_targets:run.authorization.delivery_targets,
    allowed_assets:run.authorization.allowed_assets,provider_call_budget:run.authorization.provider_call_budget,
    model_token_budget:run.authorization.model_token_budget});persist();
   for(const operation of spec.allowed_external_operations||[])assert.equal(run.authorization.provider_call_budget[operation],1,'The confirmed provider limit was lost: '+operation);
@@ -96,7 +96,7 @@ async function runCase(browser,spec){
  const reuse=async(task)=>{const file=task.quality.output_roles?.primary_image||task.quality.output_roles?.video||task.accepted_result[0];
   const button=page.locator(`[data-reuse="${file}"][data-task="${task.id}"]`).first();await button.waitFor({state:'visible'});
   const response=page.waitForResponse(r=>r.url().endsWith('/reuse')&&r.request().method()==='POST');await button.click();const result=await response;assert.equal(result.status(),201,await result.text());const asset=await result.json();
-  (state.reuse_links??=[]).push({source_workflow:state.workflow_id,task_id:task.id,revision:task.revision,asset_id:asset.id,sha256:asset.metadata.provenance.sha256});persist();return asset.id;};
+  (state.reuse_links??=[]).push({source_workflow:state.run_id,task_id:task.id,revision:task.revision,asset_id:asset.id,sha256:asset.metadata.provenance.sha256});persist();return asset.id;};
  async function observeTerminal(){
   const end=Date.now()+Number(process.env.DYNAMIC_CASE_TIMEOUT_SECONDS||10800)*1000;let resumed=0;
   while(Date.now()<end){run=await read();state.last_status=run.status;
@@ -235,7 +235,7 @@ async function runCase(browser,spec){
     if(['R10','R12','R16'].includes(spec.id)){
      run=await observeTerminal();
      if(run.status!=='succeeded'||!run.delivery?.length){const error=new Error('Required prior delivery was not completed before intervention: '+run.status);error.boundary=true;throw error;}
-     state.prior_delivery_boundary={workflow_id:run.id,status:run.status,delivery:run.delivery.map(x=>({file:x.file,sha256:x.sha256}))};persist();
+     state.prior_delivery_boundary={run_id:run.id,status:run.status,delivery:run.delivery.map(x=>({file:x.file,sha256:x.sha256}))};persist();
     }
     else if(gated)run=await wait(w=>w.status==='waiting_user',600);
     else if(['R04','R05','R06'].includes(spec.id))run=await wait(w=>w.tasks.some(t=>t.id==='staging'&&t.status==='running'),600);

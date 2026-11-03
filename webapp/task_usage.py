@@ -218,8 +218,8 @@ def _snapshot(store,task,scope,after,limit,provider_after):
     repairs=store.query(f'SELECT COALESCE(SUM(s.repair_count),0) AS n FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id IN ({marks})',ids)[0]['n']
     providers=store.query(f'''SELECT p.request_key,p.operation,p.state,p.usage,p.cost,p.poll_count,p.network_seconds,p.step,p.revision,
         p.attempt_id,p.created,p.updated FROM workflow_provider_calls p LEFT JOIN agent_workflows w ON w.id=p.workflow
-        LEFT JOIN workflow_runs dw ON dw.id=p.workflow
-        WHERE COALESCE(dw.turn_id,w.turn_id,p.workflow) IN ({marks}) ORDER BY p.created''',ids)
+        LEFT JOIN runs dw ON dw.id=p.workflow
+        WHERE COALESCE(dw.id,w.turn_id,p.workflow) IN ({marks}) ORDER BY p.created''',ids)
     for row in providers:
         row['usage']=numeric_tree(json.loads(row['usage']))
         cost=json.loads(row['cost']);row['cost']=None

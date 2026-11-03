@@ -55,6 +55,7 @@ class DistributedRaceTests(unittest.TestCase):
             self.assertIsNone(self.cb.claim(self.task,'workflow',step_id='right'))
             self.a.execute('''INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,external_id,inputs,created,updated)
               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',(w['id']+':left:0',w['id'],'left',0,1,'https://provider.invalid','image.edit','waiting','job','{}',0,0))
+            self.a.execute('UPDATE workflow_provider_calls SET implementation=? WHERE workflow=?',(json.dumps({'concurrency_group':'edit'}),w['id']))
             workflows.change(self.a,w['id'],'left',status='waiting',external_id='job',next_poll=0)
             first.release()
             self.assertIsNone(self.cb.claim(self.task,'workflow',step_id='right'))
@@ -69,7 +70,7 @@ class DistributedRaceTests(unittest.TestCase):
         from webapp.operation_lifecycle import Implementation,Lifecycle,register,IMPLEMENTATIONS
         identifier='alternative_image_provider@2'
         register(Implementation(identifier,Lifecycle.ASYNC))
-        operations.register_implementation('image.edit',identifier,provider='alternative-provider')
+        operations.register_implementation('image.edit',identifier,concurrency_group='alternative-provider',provider_identity='alternative-provider')
         first=None
         try:
             w=self.submit(remote=True,implementation=identifier)
@@ -83,7 +84,7 @@ class DistributedRaceTests(unittest.TestCase):
                     workflows.change(self.a,w['id'],'left',status='waiting',external_id='existing-job')
                 first.release();first=None
                 record=self.a.query('SELECT implementation FROM workflow_provider_calls WHERE workflow=?',(w['id'],))[0]
-                self.assertEqual(json.loads(record['implementation'])['provider_class'],'alternative-provider')
+                self.assertEqual(json.loads(record['implementation'])['concurrency_group'],'alternative-provider')
                 self.assertIsNone(self.cb.claim(self.task,'workflow',step_id='right'))
         finally:
             if first:first.release()

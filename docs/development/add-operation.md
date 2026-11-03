@@ -39,7 +39,7 @@ operation 是业务能力，implementation 是固定版本的实现，lifecycle 
 - 参数使用 Pydantic 模型，设置 `extra='forbid'`，限制字符串/集合长度、数值范围和跨字段关系；数值参数拒绝 NaN/Infinity。能力目录 schema 与执行校验复用同一模型。
 - 声明必需和允许的输入角色、输入数量及类型。输入通过 `asset` 或 `step + role` 引用；字幕、转写、蒙版、参考图也要显式声明，不能猜测其他节点的缓存路径。
 - 声明输出角色及主产物；文件名固定时可填写 `output_files`，动态输出仍需提供明确的角色映射。
-- 显式审视 `cpu`、`memory_mb`、`gpu`、`timeout`、`provider`、`model_profile` 和 `retry_safe`。`Operation` 的 `retry_safe` 默认值为真，外部副作用尤其不能直接沿用默认值；只有证明重执行安全时才声明可安全重试。
+- 显式审视 `cpu`、`memory_mb`、`gpu`、`timeout`、`external_side_effects`、`budget_group`、`concurrency_group`、`route_adapter`、`provider_identity`、`cleanup_category`、`model_profile` 和 `retry_safe`。`Operation` 的 `retry_safe` 默认值为真，外部副作用尤其不能直接沿用默认值；只有证明重执行安全时才声明可安全重试。
 - 不把任意命令、URL、凭据或 Python 导入路径开放为业务参数。改变现有契约时检查已有方案、步骤和检查点的兼容性；不兼容变化不能静默复用旧实现版本。
 
 参数合法不等于输入已获授权；项目归属、修订和哈希仍由框架在解析与执行时校验。

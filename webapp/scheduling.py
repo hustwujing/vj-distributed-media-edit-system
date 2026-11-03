@@ -56,7 +56,7 @@ def candidates(coordinator,model_available):
     result=[]
     for row in rows:
         if row.get('dynamic'):
-            detail=store.query('SELECT type,spec_json FROM workflow_tasks WHERE workflow_id=? AND id=?',(row['workflow'],row['step_id']))
+            detail=store.query('SELECT type,spec_json FROM run_tasks WHERE run_id=? AND id=?',(row['workflow'],row['step_id']))
             if not detail:continue
             if detail[0]['type']=='agent' and not model_available:continue
             if detail[0]['type']=='operation':
@@ -114,8 +114,8 @@ def requirements(store,turn_id,kind,step_id=None):
         if job and job['kind']=='image' and job['payload'].get('image_task'):
             from .operations import for_image
             if job['payload']['image_task']['action']!='export':
-                op=for_image(job['payload']['image_task']['action']);cpu=op.cpu;memory=op.memory_mb;provider=op.provider;gpu=op.gpu
-                if op.provider:cpu=op.cpu;memory=op.memory_mb
+                op=for_image(job['payload']['image_task']['action']);cpu=op.cpu;memory=op.memory_mb;provider=op.concurrency_group;gpu=op.gpu
+                if op.concurrency_group:cpu=op.cpu;memory=op.memory_mb
     if kind=='workflow':
         from .workflows import get
         w=get(store,turn_id)
@@ -130,7 +130,7 @@ def requirements(store,turn_id,kind,step_id=None):
         if s:
             op=for_step(s['spec'])
             if op:
-                provider=op.provider;gpu=op.gpu;cpu=op.cpu;memory=op.memory_mb
+                provider=op.concurrency_group;gpu=op.gpu;cpu=op.cpu;memory=op.memory_mb
                 if op.executor.endswith('async') or op.executor=='image_remote':
                     cpu=op.cpu;memory=op.memory_mb
             if s['status'] in ('waiting','verifying'):gpu=False
@@ -166,8 +166,8 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
         from .operations import get
         polling=False
         if kind=='workflow' and need['step_id']:
-            selected=db.execute('SELECT s.phase FROM workflow_tasks s JOIN workflow_runs w ON w.id=s.workflow_id WHERE w.turn_id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
-            if selected:polling=selected['phase']!='execute'
+            selected=db.execute('SELECT s.phase FROM run_work_items s JOIN runs w ON w.id=s.run_id WHERE w.id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
+            if selected:polling=selected['phase'] in ('poll','collect','validate')
             else:
                 selected=db.execute('SELECT s.status FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
                 polling=bool(selected and selected['status']!='pending')
@@ -179,11 +179,8 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
             count=0
             for row in rows:
                 binding=json.loads(row['implementation'])
-                if 'provider_class' in binding:category=binding['provider_class']
-                else:
-                    try:category=get(row['operation']).provider
-                    except ValueError:category=None
-                if category is None or category==need['provider']:count+=1
+                category=binding['concurrency_group']
+                if category==need['provider']:count+=1
             # Reserve a provider slot during claim, before submission intent is
             # written. Once an intent exists its state is counted above instead.
             reservations=db.execute('''SELECT r.provider FROM execution_resource_claims r
@@ -191,8 +188,8 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
               JOIN execution_leases l ON l.attempt=r.attempt
               LEFT JOIN agent_workflows w ON w.turn_id=r.task_id
               LEFT JOIN agent_steps s ON s.workflow=w.id AND s.id=a.step_id
-              LEFT JOIN workflow_runs dw ON dw.turn_id=r.task_id
-              LEFT JOIN workflow_tasks ds ON ds.workflow_id=dw.id AND ds.id=a.step_id
+              LEFT JOIN runs dw ON dw.id=r.task_id
+              LEFT JOIN run_work_items ds ON ds.run_id=dw.id AND ds.id=a.step_id
               WHERE l.active=1 AND l.expires>? AND NOT EXISTS (
                 SELECT 1 FROM workflow_provider_calls c
                 WHERE c.workflow=COALESCE(dw.id,w.id,r.task_id)

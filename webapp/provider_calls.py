@@ -39,6 +39,10 @@ def restore_session(store,w,s,session):
 
 
 def intent(store,w,s,provider,operation,implementation=None):
+    from . import operations
+    from .provider_metadata import metadata
+    selected=operations.for_step(s['spec']) if s.get('spec',{}).get('kind')=='operation' else operations.get(operation)
+    if not selected.external_side_effects:raise ValueError('Local operation cannot submit a provider call')
     key=w['id']+':'+s['id']+':'+str(s['revision'])
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -49,18 +53,21 @@ def intent(store,w,s,provider,operation,implementation=None):
         if w.get('dynamic'):
             from .workflow_graph import get as graph_get
             dynamic=graph_get(store,w['id'])
-            if not lease or not dynamic or lease.turn_id!=dynamic['turn_id'] or lease.step_id!=s['id']:
+            if not lease or not dynamic or lease.turn_id!=dynamic['id'] or lease.step_id!=s['id']:
                 raise ValueError('Provider call is outside the leased graph task')
             task=next(t for t in dynamic['tasks'] if t['id']==s['id'])
             if task['spec'].get('operation')!=operation or operation not in dynamic['authorization']['allowed_operations']:
                 raise ValueError('Provider operation was not authorized')
-            lease.consume('provider:'+operation,dynamic['authorization']['provider_call_budget'].get(operation,0))
-        if lease and w.get('origin')!='direct':
+            from .workflow_graph import digest
+            if dynamic['authorization']['operation_policy_digests'].get(operation)!=digest(metadata(selected)):
+                raise ValueError('Provider policy changed after authorization')
+            lease.consume('provider:'+selected.budget_group,dynamic['authorization']['provider_call_budget'].get(selected.budget_group,0))
+        if lease and not w.get('dynamic') and w.get('origin')!='direct':
             import os
             category='video' if operation.startswith('video.') else 'transcribe' if operation=='audio.transcribe' else 'image'
             limit=int(os.environ.get('VIDEO_USE_TASK_VIDEO_CALLS','2')) if category=='video' else 50 if category=='transcribe' else 4
             lease.consume(category,limit)
-        step=db.execute('SELECT attempts FROM workflow_tasks WHERE workflow_id=? AND id=?' if w.get('dynamic') else 'SELECT attempts FROM agent_steps WHERE workflow=? AND id=?',(w['id'],s['id'])).fetchone()
+        step=db.execute('SELECT attempts FROM run_tasks WHERE run_id=? AND id=?' if w.get('dynamic') else 'SELECT attempts FROM agent_steps WHERE workflow=? AND id=?',(w['id'],s['id'])).fetchone()
         attempt=max(1,step['attempts']) if step else s['attempts']+1
         encoded=scrub(json.dumps(s.get('bindings',{}),ensure_ascii=False),secrets())
         db.execute('INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,inputs,created,updated) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
@@ -68,14 +75,12 @@ def intent(store,w,s,provider,operation,implementation=None):
         from .execution_intent import get
         authorization={'origin':'manual' if w.get('manual') else w.get('origin','workflow'),'plan_id':w.get('plan_id'),'confirmed_intent':get(store,w['turn_id'])}
         if w.get('dynamic'):
-            authorization={'origin':'dynamic_workflow','workflow_id':dynamic['id'],
+            authorization={'origin':'dynamic_workflow','run_id':dynamic['id'],
                 'authorization_version':dynamic['authorization_version'],'content_fingerprint':dynamic['authorization']['content_fingerprint'],
-                'operation':operation,'provider_call_budget':dynamic['authorization']['provider_call_budget'].get(operation,0)}
+                'operation':operation,'budget_group':selected.budget_group,'provider_call_budget':dynamic['authorization']['provider_call_budget'].get(selected.budget_group,0)}
         db.execute('UPDATE workflow_provider_calls SET authorization=? WHERE request_key=?',(json.dumps(authorization),key))
-        from . import operations
         from .operation_lifecycle import for_operation
-        selected=operations.for_step(s['spec']) if s.get('spec',{}).get('kind')=='operation' else operations.get(operation)
-        binding={**(implementation or {}),'implementation_id':for_operation(selected).id,'provider_class':selected.provider}
+        binding={**(implementation or {}),'implementation_id':for_operation(selected).id,**metadata(selected)}
         db.execute('UPDATE workflow_provider_calls SET implementation=? WHERE request_key=?',(json.dumps(binding),key))
         db.execute('UPDATE workflow_provider_calls SET parameters=?,attempt_id=?,generation=? WHERE request_key=?',
                    (scrub(json.dumps(s.get('spec',{}).get('parameters',{}),ensure_ascii=False),secrets()),lease.attempt if lease else '',lease.generation if lease else 0,key))
@@ -123,7 +128,7 @@ def late_receipt(store,task_id,key,state,external_id,record,cookies=None):
         row=db.execute('SELECT * FROM workflow_provider_calls WHERE request_key=?',(key,)).fetchone()
         if not row:raise ValueError('Receipt has no prior submission intent')
         if row['workflow']!=task_id:
-            workflow=db.execute('SELECT turn_id FROM agent_workflows WHERE id=? UNION ALL SELECT turn_id FROM workflow_runs WHERE id=?',(row['workflow'],row['workflow'])).fetchone()
+            workflow=db.execute('SELECT turn_id FROM agent_workflows WHERE id=? UNION ALL SELECT id FROM runs WHERE id=?',(row['workflow'],row['workflow'])).fetchone()
             if not workflow or workflow['turn_id']!=task_id:raise ValueError('Receipt belongs to another task')
         if row['external_id'] and external_id and row['external_id']!=external_id:
             raise ValueError('Conflicting late provider ID')

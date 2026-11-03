@@ -17,7 +17,7 @@ import uuid
 
 CONTEXT = ContextVar('observation_context', default={})
 IDENTIFIER = re.compile(r'^[A-Za-z0-9_.:@/-]{1,160}$')
-FIELDS = set('event_sequence message_id actor activity_id level call_id run_id request_id trace_id span_id parent_span_id linked_request_id project_id task_id workflow_id step_id revision attempt_id generation worker node operation implementation implementation_version phase outcome error_code exception_type native_dependency stack service instance release method route status duration_seconds first_byte_seconds bytes_sent returncode signal oom_kill provider external_id provider_request_id request_key calls failures dropped reason old_state new_state entity entity_id event_id'.split())
+FIELDS = set('event_sequence message_id actor activity_id level call_id run_id request_id trace_id span_id parent_span_id linked_request_id project_id task_id run_id step_id revision attempt_id generation worker node operation implementation implementation_version phase outcome error_code exception_type native_dependency stack service instance release method route status duration_seconds first_byte_seconds bytes_sent returncode signal oom_kill provider external_id provider_request_id request_key calls failures dropped reason old_state new_state entity entity_id event_id'.split())
 from .api_capacity import FIELDS as API_CAPACITY_FIELDS
 FIELDS.update(API_CAPACITY_FIELDS)
 FIELDS.update({'harness','model','protocol','reasoning_effort','max_output_tokens','configuration_digest','switch_id'})

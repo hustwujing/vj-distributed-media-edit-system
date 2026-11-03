@@ -12,6 +12,7 @@ class ExternalCleanupTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.store=Store(Path(self.temp.name))
         agent_store.initialize(self.store)
         self.store.execute("INSERT INTO execution_external_cleanup(id,task_id,provider,external_id,state) VALUES ('one','task','http://127.0.0.1:9898','job123','pending')")
+        self.store.execute("INSERT INTO execution_provider_calls VALUES ('one','task','attempt','waiting','job123','http://127.0.0.1:9898')")
     def tearDown(self):self.temp.cleanup()
     def test_cancel_then_poll_confirms_without_generation_resubmission(self):
         client=MagicMock();client.__enter__.return_value=client
@@ -50,7 +51,7 @@ class UnsupportedCancellationTests(unittest.TestCase):
 
     def test_saved_wan_adapter_reports_unsupported_without_generic_cancel(self):
         self.store.execute("INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,external_id,inputs,created,updated,implementation) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                           ('one','workflow','video',0,1,'http://127.0.0.1:9898','video.generate_from_image','waiting','job123','{}',0,0,json.dumps({'protocol':'wan-video-v1','provider':'http://127.0.0.1:9898'})))
+                           ('one','workflow','video',0,1,'http://127.0.0.1:9898','video.generate_from_image','waiting','job123','{}',0,0,json.dumps({'protocol':'wan-video-v1','provider':'http://127.0.0.1:9898','route_adapter':'generation','cleanup_category':'generation_protocol'})))
         client=MagicMock();client.__enter__.return_value=client
         with patch('webapp.external_cleanup.session',return_value=client):external_cleanup.run(self.store,'one')
         row=self.store.query('SELECT state,attempts FROM execution_external_cleanup')[0]

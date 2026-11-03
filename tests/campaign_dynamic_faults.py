@@ -46,7 +46,7 @@ def progress(directory):
     directory,state,release,store=configure(directory)
     rows=store.query('''SELECT a.id,a.step_id,a.generation,a.status,a.started,a.finished,a.uid,w.node,
         t.type,t.internal,t.spec_json FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker
-        JOIN workflow_runs r ON r.turn_id=a.turn_id JOIN workflow_tasks t ON t.workflow_id=r.id AND t.id=a.step_id
+        JOIN runs r ON r.turn_id=a.turn_id JOIN run_tasks t ON t.run_id=r.id AND t.id=a.step_id
         WHERE r.project_id=? ORDER BY a.started DESC LIMIT 200''',(state['project'],))
     for row in rows:
         spec=json.loads(row.pop('spec_json'));row['retry_safe']=spec.get('retry_policy')=='safe_once'
@@ -55,15 +55,15 @@ def progress(directory):
             path=cluster.registry(node)/'node-id'
             if path.exists() and path.read_text().strip()==row['node']:row['unit']=f'{cluster.NAMESPACE}-executor@{node}.service'
     result={'attempts':rows,'at':time.time()}
-    result['submitting']=store.query("SELECT p.request_key,p.attempt_id,p.operation FROM workflow_provider_calls p JOIN workflow_runs w ON w.id=p.workflow WHERE w.project_id=? AND p.state='submitting'",(state['project'],))
-    result['staged_results']=store.query("SELECT COUNT(*) AS n FROM task_results WHERE workflow_id IN (SELECT id FROM workflow_runs WHERE project_id=?) AND status='staged'",(state['project'],))[0]['n']
-    result['staged_business_success']=store.query("SELECT COUNT(*) AS n FROM task_results r JOIN workflow_tasks t ON t.workflow_id=r.workflow_id AND t.id=r.task_id JOIN workflow_runs w ON w.id=r.workflow_id WHERE w.project_id=? AND r.status='staged' AND r.outcome='succeeded' AND t.internal=0",(state['project'],))[0]['n']
-    result['quiescent']=not store.query("SELECT l.attempt FROM execution_leases l JOIN workflow_runs w ON w.turn_id=l.turn_id WHERE w.project_id=? AND l.active=1 AND l.expires>?",(state['project'],store.now())) and not store.query("SELECT c.attempt FROM execution_cleanup c JOIN workflow_runs w ON w.turn_id=c.task_id WHERE w.project_id=? AND c.state<>'complete'",(state['project'],))
-    result['diagnostics']=[json.loads(row['record']) for row in store.query('SELECT d.record FROM workflow_diagnostics d JOIN workflow_runs w ON w.id=d.workflow WHERE w.project_id=? ORDER BY d.created DESC LIMIT 20',(state['project'],))]
+    result['submitting']=store.query("SELECT p.request_key,p.attempt_id,p.operation FROM workflow_provider_calls p JOIN runs w ON w.id=p.workflow WHERE w.project_id=? AND p.state='submitting'",(state['project'],))
+    result['staged_results']=store.query("SELECT COUNT(*) AS n FROM task_results WHERE run_id IN (SELECT id FROM runs WHERE project_id=?) AND status='staged'",(state['project'],))[0]['n']
+    result['staged_business_success']=store.query("SELECT COUNT(*) AS n FROM task_results r JOIN run_tasks t ON t.run_id=r.run_id AND t.id=r.task_id JOIN runs w ON w.id=r.run_id WHERE w.project_id=? AND r.status='staged' AND r.outcome='succeeded' AND t.internal=0",(state['project'],))[0]['n']
+    result['quiescent']=not store.query("SELECT l.attempt FROM execution_leases l JOIN runs w ON w.turn_id=l.turn_id WHERE w.project_id=? AND l.active=1 AND l.expires>?",(state['project'],store.now())) and not store.query("SELECT c.attempt FROM execution_cleanup c JOIN runs w ON w.turn_id=c.task_id WHERE w.project_id=? AND c.state<>'complete'",(state['project'],))
+    result['diagnostics']=[json.loads(row['record']) for row in store.query('SELECT d.record FROM workflow_diagnostics d JOIN runs w ON w.id=d.workflow WHERE w.project_id=? ORDER BY d.created DESC LIMIT 20',(state['project'],))]
     result['orchestrators']=store.query('SELECT id,heartbeat,draining FROM workflow_orchestrators WHERE heartbeat>?',(store.now()-20,))
     if state['case']=='D14':
         from webapp.diagnostics import diagnose
-        result['integrity_errors']=[event for item in store.query('SELECT turn_id FROM workflow_runs WHERE project_id=?',(state['project'],)) for event in diagnose(store,item['turn_id'],include_logs=True).get('facts',{}).get('latest_errors',[]) if any(frame.get('file')=='object_encryption.py' and frame.get('function')=='decrypt' for frame in event.get('stack',[]))]
+        result['integrity_errors']=[event for item in store.query('SELECT turn_id FROM runs WHERE project_id=?',(state['project'],)) for event in diagnose(store,item['turn_id'],include_logs=True).get('facts',{}).get('latest_errors',[]) if any(frame.get('file')=='object_encryption.py' and frame.get('function')=='decrypt' for frame in event.get('stack',[]))]
 
     result['output_ready_events']=store.query("SELECT seq,turn_id,created,payload FROM agent_events WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?) AND kind='progress' AND payload LIKE ? ORDER BY seq",
         (state['project'],'%QA_EXPORT_OUTPUT_READY%'))
@@ -74,7 +74,7 @@ def act(directory,action,unit=None):
     directory,state,release,store=configure(directory)
     restoring=action.startswith('start_') or action in ('stop_second_orchestrator','restore_object','release_workers')
     if not restoring:
-        other=store.query("SELECT id FROM workflow_runs WHERE project_id<>? AND status NOT IN ('succeeded','failed','cancelled')",(state['project'],))
+        other=store.query("SELECT id FROM runs WHERE project_id<>? AND status NOT IN ('succeeded','failed','cancelled')",(state['project'],))
         if other:raise ValueError('Fault injection requires other workflows to be quiescent')
         if release['sha256']!=state['release']['sha256']:raise ValueError('Deployment changed during this case')
     before={name:cluster.active(name) for name in cluster.SERVICES}
@@ -114,9 +114,9 @@ def act(directory,action,unit=None):
         else:cluster.run(['systemctl','start',unit])
         result={'action':action,'unit':unit}
     elif action=='corrupt_object':
-        rows=store.query("""SELECT c.manifest,t.id,t.accepted_result_json FROM execution_step_checkpoints c JOIN workflow_tasks t
-            ON t.workflow_id=c.workflow AND t.id=c.step AND t.revision=c.revision
-            JOIN workflow_runs w ON w.id=t.workflow_id WHERE w.project_id=? AND t.status='succeeded'
+        rows=store.query("""SELECT c.manifest,t.id,t.accepted_result_json FROM execution_step_checkpoints c JOIN run_tasks t
+            ON t.run_id=c.workflow AND t.id=c.step AND t.revision=c.revision
+            JOIN runs w ON w.id=t.run_id WHERE w.project_id=? AND t.status='succeeded'
             AND t.internal=0 ORDER BY t.updated_at LIMIT 1""",(state['project'],))
         if not rows:raise ValueError('No accepted QA object to corrupt')
         records=json.loads(rows[0]['manifest'])

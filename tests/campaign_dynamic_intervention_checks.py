@@ -11,8 +11,8 @@ def check(state,spec,images,videos,database,fixture,frame,run_dir):
     from webapp import workflow_graph as graph
     errors=[];checks={};case=state['case'];project=state['project']
     if case in ('R10','R12','R16'):
-        previous=[graph.get(database,wid) for wid in state.get('workflow_ids',[])[:-1]]
-        checks['prior_deliveries']=[{'workflow_id':w['id'],'status':w['status'],'delivery_count':len(w['delivery'])} for w in previous]
+        previous=[graph.get(database,wid) for wid in state.get('run_ids',[])[:-1]]
+        checks['prior_deliveries']=[{'run_id':w['id'],'status':w['status'],'delivery_count':len(w['delivery'])} for w in previous]
         expected=2 if case=='R16' else 1
         if len(previous)!=expected or any(w['status']!='succeeded' or not w['delivery'] for w in previous):
             errors.append('Required prior successful delivery boundary was not reached')
@@ -22,7 +22,7 @@ def check(state,spec,images,videos,database,fixture,frame,run_dir):
         rows=database.query('SELECT * FROM workflow_asset_reuse WHERE asset_id=? AND project_id=?',(item['asset_id'],project))
         if len(rows)!=1:errors.append('Missing immutable reuse receipt: '+item['task_id']);continue
         row=rows[0]
-        if (row['workflow_id'],row['task_id'],row['revision'],row['sha256'])!=(item['source_workflow'],item['task_id'],item['revision'],item['sha256']):
+        if (row['run_id'],row['task_id'],row['revision'],row['sha256'])!=(item['source_workflow'],item['task_id'],item['revision'],item['sha256']):
             errors.append('Reuse identity or hash changed: '+item['task_id']);continue
         file=database.artifacts.materialize(project,row['artifact_id'])
         target=reference/(row['task_id']+Path(row['path']).suffix)
@@ -30,7 +30,7 @@ def check(state,spec,images,videos,database,fixture,frame,run_dir):
     expected_reuse={'prepare_b'} if case in ('R05','R06') else {'prepare_a'} if case=='R17' else {'prepare_a','prepare_b'}
     if spec['expect']['kind']=='video':expected_reuse.add('clip')
     if not expected_reuse<=sources.keys():errors.append('Required accepted sources were not reused: '+','.join(sorted(expected_reuse-sources.keys())))
-    current=graph.get(database,state['workflow_id'])
+    current=graph.get(database,state['run_id'])
     from webapp.operations import get
     operations=[t for t in current['tasks'] if not t['internal'] and t['spec'].get('operation')
                 and get(t['spec']['operation'],t['spec'].get('implementation')).executor=='fixed_image']
@@ -89,5 +89,5 @@ def check(state,spec,images,videos,database,fixture,frame,run_dir):
                 if yellow<12:errors.append('Yellow QA caption missing')
     if case=='R14' and not state.get('output_completion_boundary'):errors.append('Actual output completion boundary was not observed')
     if case=='R15' and not any('Re-entered' in value for value in state.get('browser_assertions',[])):errors.append('Browser re-entry was not verified')
-    if case=='R16' and len(state.get('workflow_ids',[]))!=3:errors.append('Three actual workflow versions were not executed')
+    if case=='R16' and len(state.get('run_ids',[]))!=3:errors.append('Three actual workflow versions were not executed')
     return checks,errors

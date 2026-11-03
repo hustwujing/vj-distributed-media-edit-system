@@ -17,7 +17,7 @@ class ProfileSkillTests(unittest.TestCase):
    self.assertEqual(first['skill_digests']['media-editing'],hashlib.sha256(path.read_bytes()).hexdigest())
    path.write_text('Use actual bounded local evidence. VERSION_TWO')
    self.assertNotEqual(first,profile.snapshot());self.assertIn('VERSION_TWO',model_instructions(profile))
-   self.assertEqual(first['tools'],profile.snapshot()['tools'],'Skill content cannot change the tool grant')
+   self.assertEqual(first['action_capabilities'],profile.snapshot()['action_capabilities'],'Skill content cannot change the tool grant')
  def test_unregistered_skill_is_rejected_at_registration(self):
   with self.assertRaisesRegex(ValueError,'skill'):
    profiles.register(replace(profiles.get('editing_implementer'),id='untrusted_skill_test',skills=('user-selected-file',)))

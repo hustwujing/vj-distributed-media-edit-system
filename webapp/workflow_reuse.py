@@ -49,7 +49,7 @@ def eligible(spec):
     from .operations import for_step
     from .operation_lifecycle import for_operation,Lifecycle
     op=for_step(spec)
-    return bool(op and op.reuse_safe and not op.provider and op.model_profile=='none'
+    return bool(op and op.reuse_safe and not op.external_side_effects and op.model_profile=='none'
                 and for_operation(op).lifecycle==Lifecycle.LOCAL
                 and not spec.get('preflight') and not spec.get('config_files')
                 # Ordering-only dependencies can carry undeclared semantics.

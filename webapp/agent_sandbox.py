@@ -42,7 +42,7 @@ def _initialize_project_memory(path, uid, gid):
                      '尚无 Session 章节时，表示暂无剪辑历史。\n')
 
 
-def prepare(store, project_id, model, mode, turn_id=None, preview_id=None):
+def prepare(store, project_id, model, mode=None, turn_id=None, preview_id=None, *, workspace_policy=None):
     from .agent_profiles import for_task
     execution_profile=for_task(store,turn_id) if turn_id else None
     effort=execution_profile.reasoning_effort if execution_profile else reasoning_effort()
@@ -167,8 +167,12 @@ inherit = "all"
         result['repair_dir']=workspace/'edit/repairs'/preview_id
         result['repair_path']=SANDBOX_WORKSPACE+'/edit/repairs/'+preview_id
     from .operations import catalog
-    from .execution_contracts import profile
-    if lease and lease.kind=='manual':permission=profile(mode,fixed=True)
+    from .execution_contracts import profile,WorkspacePolicy
+    if workspace_policy is not None:
+        permission=WorkspacePolicy(workspace_policy)
+        result['workspace_policy']=permission
+        result.pop('mode')
+    elif lease and lease.kind=='manual':permission=profile(mode,fixed=True)
     elif lease and lease.kind=='workflow':
         step=next((s for s in task['steps'] if s['id']==lease.step_id),None) if task else None
         permission=profile(mode,step=True,fixed=bool(step and step['spec']['kind']!='script'))
@@ -185,8 +189,13 @@ inherit = "all"
 def command(env, gateway_socket, executable=None):
     """Only this trusted function constructs mount paths and executable arguments."""
     project, agent = env['project'], env['agent']
-    from .execution_contracts import profile
-    permission=profile(env['mode'],review=bool(env.get('repair_dir')),step=bool(env.get('step_output')),fixed=bool(env.get('image_action')))
+    from .execution_contracts import profile,WorkspacePolicy
+    policy=WorkspacePolicy(env['workspace_policy']) if 'workspace_policy' in env else None
+    permission=policy or profile(env['mode'],review=bool(env.get('repair_dir')),step=bool(env.get('step_output')),fixed=bool(env.get('image_action')))
+    editable=policy==WorkspacePolicy.FULL_PROJECT_EDIT if policy else env['mode']=='execute'
+    scratch=policy==WorkspacePolicy.REVIEW_SCRATCH_ONLY if policy else True
+    if policy==WorkspacePolicy.WORKSPACE_READ_ONLY and (env.get('step_output') or env.get('repair_dir')):
+        raise ValueError('Read-only workspace cannot mount writable outputs')
     from .task_leases import CURRENT
     lease=CURRENT.get()
     if lease:lease.store.execute("UPDATE execution_attempts SET permission_profile=? WHERE id=? AND permission_profile=''",(str(permission),lease.attempt))
@@ -224,9 +233,9 @@ def command(env, gateway_socket, executable=None):
              '--ro-bind', str(REPO/'webapp/text_formats.py'), '/opt/text_formats.py',
              '--bind', str(env['state']), '/state',
              '--ro-bind', str(agent/'config.toml'), '/state/codex/config.toml',
-             '--bind' if env['mode']=='execute' else '--ro-bind', str(env['workspace']), SANDBOX_WORKSPACE,
+             '--bind' if editable else '--ro-bind', str(env['workspace']), SANDBOX_WORKSPACE,
              '--ro-bind', str(env['preview_root']), SANDBOX_WORKSPACE+'/edit/previews',
-             '--bind', str(env['preview']), env['preview_path'],
+             '--bind' if scratch else '--ro-bind', str(env['preview']), env['preview_path'],
              '--ro-bind', str(env['sources']), SANDBOX_WORKSPACE+'/sources',
              '--ro-bind', str(agent/'assets.json'), SANDBOX_WORKSPACE+'/assets.json',
              # Mount metadata after its workspace parent so placeholders cannot hide it.
@@ -258,6 +267,8 @@ def command(env, gateway_socket, executable=None):
              '--no-new-privs', '--bounding-set=-all']
     capabilities=json.loads((REPO/'runtime/public/capabilities.json').read_text())
     if env.get('repair_dir'):
+        if policy and policy!=WorkspacePolicy.REVIEW_SCRATCH_ONLY:
+            raise ValueError('Repair scratch requires explicit review workspace policy')
         position=args.index('--chdir')
         args[position:position]=['--bind',str(env['repair_dir']),env['repair_path']]
     if gateway_socket is None:

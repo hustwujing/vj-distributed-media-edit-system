@@ -14,9 +14,13 @@ class DynamicGatewayTests(unittest.TestCase):
         self.fixture=fixtures.DynamicGraphTests();self.fixture.setUp()
         self.addCleanup(self.fixture.tearDown)
         self.store=self.fixture.store;self.run=self.fixture.tick()
-        self.task=next(t for t in self.run['tasks'] if t['internal'])
-        self.lease=Coordinator(self.store,'gateway-protocol','test').claim(self.run['turn_id'],'workflow',step_id=self.task['id'])
+        self.task=next(t for t in graph.work_items(self.run) if t.get('control_kind'))
+        self.lease=Coordinator(self.store,'gateway-protocol','test').claim(self.run['id'],'workflow',step_id=self.task['id'])
         self.assertIsNotNone(self.lease);self.addCleanup(self.lease.release)
+
+    def bind_reply(self,reply):
+        if not isinstance(reply,dict) or reply.get('action')!='proposal':return reply
+        return {**reply,'proposal':fixtures.envelope(self.store,self.task['spec']['request_id'],reply['proposal'])}
 
     def test_still_jpeg_inspection_decodes_real_bytes_without_timestamp_seek(self):
         from PIL import Image
@@ -67,7 +71,7 @@ class DynamicGatewayTests(unittest.TestCase):
             if remaining_images<=0:raise InspectionInputError('Inspection image budget exhausted')
             return {'ref':'asset','media':True,'image':'bounded-image'}
         host=SimpleNamespace(store=self.store,stop=threading.Event())
-        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=model), \
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=lambda *a,**kw:self.bind_reply(model(*a,**kw))), \
              patch('webapp.workflow_agents.inspect',return_value={'ref':'asset','media':True}), \
              patch('webapp.workflow_agents.inspect_media',side_effect=inspect_media):
             execute(host,self.lease,self.run,self.task)
@@ -93,7 +97,7 @@ class DynamicGatewayTests(unittest.TestCase):
         conversations=[]
         def model(*args,**kwargs):conversations.append(args[4]);return replies.pop(0)
         host=SimpleNamespace(store=self.store,stop=threading.Event())
-        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=model), \
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=lambda *a,**kw:self.bind_reply(model(*a,**kw))), \
              patch('webapp.workflow_agents.inspect',return_value={'ref':'asset','text':'evidence'}) as reader:
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(reader.call_count,1)
@@ -113,7 +117,7 @@ class DynamicGatewayTests(unittest.TestCase):
         host=SimpleNamespace(store=self.store,stop=threading.Event())
         with self.lease.bind(),patch('webapp.workflow_agents.inputs',return_value=allowed), \
              patch('webapp.workflow_agents.inspect_media') as media, \
-             patch('webapp.workflow_agents.model',side_effect=[{'action':'inspect','ref':reference},{'action':'proposal','proposal':proposal}]) as model:
+             patch('webapp.workflow_agents.model',side_effect=[{'action':'inspect','ref':reference},self.bind_reply({'action':'proposal','proposal':proposal})]) as model:
             execute(host,self.lease,self.run,self.task)
         media.assert_not_called();self.assertIn('archive_directory',model.call_args_list[1].args[4])
         evidence=json.loads(self.store.query('SELECT evidence_json FROM workflow_inspections')[0]['evidence_json'])
@@ -145,12 +149,12 @@ class DynamicGatewayTests(unittest.TestCase):
         bad=json.loads(json.dumps(proposal));bad['add_tasks'][0]['inputs']['source']['asset']='invented-asset'
         replies=[{'action':'proposal','proposal':bad},{'action':'proposal','proposal':proposal}]
         host=SimpleNamespace(store=self.store,stop=threading.Event())
-        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=replies) as model:
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=[self.bind_reply(reply) for reply in replies]) as model:
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(model.call_count,2)
         self.assertIn('Unknown input asset',model.call_args_list[1].args[4])
         stored=json.loads(self.store.query('SELECT proposal_json FROM planner_runs')[0]['proposal_json'])
-        self.assertEqual(stored['add_tasks'][0]['inputs']['source']['asset'],'asset')
+        self.assertEqual(stored['proposal']['add_tasks'][0]['inputs']['source']['asset'],'asset')
         self.assertEqual(len(self.store.query('SELECT * FROM task_results')),1)
         self.assertFalse(self.store.query('SELECT id FROM workflow_decisions'))
 
@@ -187,11 +191,11 @@ class DynamicGatewayTests(unittest.TestCase):
         proposal={'proposal_id':'manager-http','base_graph_version':0,'reason':'Authorized next task',
                   'add_tasks':[fixtures.script()],'sealed':True}
         for _ in range(2):
-            status,body=post('/workflow/proposal',{'proposal':proposal})
+            status,body=post('/workflow/proposal',{'proposal':fixtures.envelope(self.store,self.task['spec']['request_id'],proposal)})
             self.assertEqual(status,200,body);self.assertTrue(body['staged'])
         current=graph.get(self.store,self.run['id'])
         self.assertEqual(current['graph_version'],0)
-        self.assertFalse([t for t in current['tasks'] if not t['internal']])
+        self.assertFalse([t for t in graph.work_items(current) if not t.get('control_kind')])
         self.assertFalse(self.store.query('SELECT id FROM task_results'))
         self.assertEqual(self.store.query('SELECT COUNT(*) AS n FROM planner_runs')[0]['n'],1)
 
@@ -199,7 +203,7 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.workflow_agents import model_budget
         from webapp.usage_protocol import Receipt
         self.run['authorization']['model_token_budget']=1024
-        self.store.execute('UPDATE workflow_runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
         receipt=Receipt();receipt.usage={'input_tokens':2,'output_tokens':3,'total_tokens':None}
         with self.lease.bind(),model_budget(self.lease,self.run,20,receipt):pass
         row=self.store.query('SELECT state,used_tokens FROM workflow_model_reservations')[0]
@@ -241,8 +245,8 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.workflow_agents import execute,proposal_feedback
         invalid={'proposal_id':'corrected','base_graph_version':0,'reason':'next',
                  'add_tasks':[fixtures.script()], 'sealed':'invalid SECRET input'}
-        errors=proposal_feedback(invalid)
-        self.assertEqual(errors[0]['path'],'sealed')
+        errors=proposal_feedback(self.bind_reply({'action':'proposal','proposal':invalid})['proposal'])
+        self.assertEqual(errors[0]['path'],'proposal.sealed')
         self.assertNotIn('SECRET',json.dumps(errors))
         valid={**invalid,'sealed':True}
         calls=[]
@@ -252,7 +256,7 @@ class DynamicGatewayTests(unittest.TestCase):
             self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
             return {'action':'proposal','proposal':invalid if len(calls)==1 else valid}
         host=SimpleNamespace(store=self.store,stop=threading.Event())
-        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=model):
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=lambda *a,**kw:self.bind_reply(model(*a,**kw))):
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(len(calls),2)
         self.assertIn('Schema validation errors',calls[1])
@@ -270,7 +274,7 @@ class DynamicGatewayTests(unittest.TestCase):
         replies=[{'action':'inspect','ref':'/etc/shadow'}, {'action':'inspect','ref':'asset'},
                  {'action':'proposal','proposal':proposal}]
         host=SimpleNamespace(store=self.store,stop=threading.Event())
-        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=replies), \
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=[self.bind_reply(reply) for reply in replies]), \
              patch('webapp.workflow_agents.inspect',return_value={'ref':'asset','text':'authorized'}) as reader:
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(reader.call_count,1)
@@ -283,7 +287,7 @@ class DynamicGatewayTests(unittest.TestCase):
         from unittest.mock import patch
         from webapp.workflow_agents import execute
         from webapp.specialist_profiles import get
-        task={**self.task,'internal':False,'profile':get('visual_quality_reviewer').snapshot(),
+        task={**self.task,'control_kind':'','profile':get('visual_quality_reviewer').snapshot(),
               'spec':{'profile':'visual_quality_reviewer','inputs':{'source':{'asset':'asset'}},
                       'output_roles':{'report':'review.json'},'timeout_seconds':900}}
         calls=0
@@ -316,7 +320,7 @@ class DynamicGatewayTests(unittest.TestCase):
             with self.assertRaises(AgentReplyError):decode_reply(raw)
         proposal={'proposal_id':'correct-json','base_graph_version':0,'reason':'next','add_tasks':[fixtures.script()],'sealed':True}
         host=SimpleNamespace(store=self.store,stop=threading.Event())
-        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=[AgentReplyError('{invalid'),{'action':'proposal','proposal':proposal}]):
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=[AgentReplyError('{invalid'),self.bind_reply({'action':'proposal','proposal':proposal})]):
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(len(self.store.query('SELECT id FROM task_results')),1)
         row=self.store.query('SELECT record FROM workflow_diagnostics')[0]

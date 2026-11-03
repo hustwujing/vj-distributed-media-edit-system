@@ -40,6 +40,10 @@ class Adapter:
         lease = CURRENT.get()
         if lease and lease.runtime is None:
             lease.runtime = lease.runtime_factory()
+        if w.get('dynamic'):
+            from .execution_contracts import WorkspacePolicy
+            return agent_sandbox.prepare(self.store,w['project'],self.model,turn_id=w['turn_id'],
+                                         workspace_policy=WorkspacePolicy.TASK_OUTPUT_ONLY)
         return agent_sandbox.prepare(self.store, w['project'], self.model, 'execute', w['turn_id'])
 
     def session(self):
@@ -93,10 +97,8 @@ class Adapter:
             if saved:return saved[0]['provider'],'source_image'
         from .operations import for_step
         op=for_step(s['spec'])
-        if op.provider=='generation':
-            from .generation_provider import endpoint
-            return endpoint(),'source_image'
-        return ENDPOINTS['decompose' if op.action=='decompose' else 'edit']
+        from .provider_metadata import route
+        return route(op.route_adapter).endpoint()
 
     @measured('submit')
     def submit(self,w,s):
@@ -338,7 +340,7 @@ class Adapter:
 
     def provider_headers(self,s):
         from .operations import for_step
-        if for_step(s['spec']).provider=='generation':
+        if for_step(s['spec']).route_adapter=='generation_jobs':
             from .generation_provider import headers,endpoint
             if s.get('workflow'):
                 saved=self.store.query('SELECT provider FROM workflow_provider_calls WHERE request_key=?',(s['workflow']+':'+s['id']+':'+str(s['revision']),))

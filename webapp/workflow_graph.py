@@ -8,12 +8,14 @@ import hashlib
 import json
 import re
 import uuid
+from contextlib import contextmanager
 from typing import Literal
 from pydantic import BaseModel,ConfigDict,Field,model_validator
 from .quality_policy import Acceptance
 from .operations import InputRef
 
 TERMINAL={'succeeded','failed','cancelled'}
+RUN_TERMINAL={'SUCCEEDED','FAILED','CANCELLED'}
 
 
 class AuthorizationRequired(ValueError):pass
@@ -21,6 +23,24 @@ class AuthorizationRequired(ValueError):pass
 
 def encode(value):return json.dumps(value,ensure_ascii=False,sort_keys=True,separators=(',',':'))
 def digest(value):return hashlib.sha256(encode(value).encode()).hexdigest()
+
+
+@contextmanager
+def atomic_effect(store):
+    """A rejected command must roll back even inside a reconcile transaction."""
+    with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        name='effect_'+uuid.uuid4().hex
+        notices=getattr(store._connections,'notices',[]);count=len(notices)
+        db.execute('SAVEPOINT '+name)
+        try:
+            yield db
+        except BaseException:
+            db.execute('ROLLBACK TO SAVEPOINT '+name)
+            db.execute('RELEASE SAVEPOINT '+name)
+            del notices[count:]
+            raise
+        else:db.execute('RELEASE SAVEPOINT '+name)
 
 
 class Contract(BaseModel):
@@ -33,6 +53,7 @@ class Authorization(Contract):
     allowed_operations:list[str]=Field(max_length=100)
     allowed_agent_profiles:list[str]=Field(default_factory=list,max_length=20)
     operation_implementations:dict[str,str]=Field(default_factory=dict,max_length=100)
+    operation_policy_digests:dict[str,str]=Field(default_factory=dict,max_length=100)
     agent_profile_digests:dict[str,str]=Field(default_factory=dict,max_length=20)
     provider_call_budget:dict[str,int]=Field(default_factory=dict,max_length=50)
     cost_budget:float|None=Field(default=None,ge=0)
@@ -51,8 +72,9 @@ class Authorization(Contract):
         for op in self.allowed_operations:
             if op!='script':get(op)
         for name in self.allowed_agent_profiles:profile(name)
+        groups={get(op,self.operation_implementations.get(op)).budget_group for op in self.allowed_operations if op!='script' and get(op,self.operation_implementations.get(op)).external_side_effects}
         for name,limit in self.provider_call_budget.items():
-            if name not in self.allowed_operations or type(limit)!=int or not 0<=limit<=100:
+            if name not in groups or type(limit)!=int or not 0<=limit<=100:
                 raise ValueError('Invalid authorized provider budget')
         if any(not item.strip() for item in self.delivery_targets):raise ValueError('Empty delivery target')
         return self
@@ -61,9 +83,17 @@ class Authorization(Contract):
 class DecisionAnswer(Contract):
     decision_id:str=Field(pattern=r'^[a-f0-9]{32}$')
     snapshot_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
-    action:Literal['approve','reject']
+    action:Literal['approve','revise','reject']
     authorization:Authorization|None=None
     feedback:str=Field(default='',max_length=4000)
+    attachments:list[str]=Field(default_factory=list,max_length=20)
+    upstream_tasks:list[str]=Field(default_factory=list,max_length=64)
+
+    @model_validator(mode='after')
+    def feedback_required(self):
+        if self.action=='revise' and not self.feedback.strip():raise ValueError('Revise requires nonempty feedback')
+        if self.action!='revise' and (self.attachments or self.upstream_tasks):raise ValueError('Only revise can introduce inputs')
+        return self
 
 
 class SubjectSemantics(Contract):
@@ -197,11 +227,39 @@ class Proposal(Contract):
     sealed:bool=False
 
 
+class ManagerResult(Contract):
+    kind:Literal['CONTINUE','APPLY_PLAN','REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','COMPLETE','NEW_RUN_REQUIRED']
+    snapshot_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+    base_graph_version:int=Field(ge=0)
+    authorization_version:int=Field(ge=1)
+    input_through_sequence:int=Field(default=0,ge=0)
+    proposal:Proposal|None=None
+    reason:str=Field(min_length=1,max_length=2000)
+    question:str=Field(default='',max_length=2000)
+    options:list[str]=Field(default_factory=list,max_length=8)
+    authorization:Authorization|None=None
+    new_goal:str=Field(default='',max_length=8000)
+
+    @model_validator(mode='after')
+    def shape(self):
+        requires_proposal=self.kind in ('APPLY_PLAN','COMPLETE')
+        if requires_proposal != (self.proposal is not None):raise ValueError('Only APPLY_PLAN and COMPLETE carry a Proposal')
+        if self.proposal and self.proposal.base_graph_version!=self.base_graph_version:raise ValueError('Proposal version differs from result envelope')
+        if self.kind=='COMPLETE' and not self.proposal.sealed:raise ValueError('COMPLETE requires a sealed Proposal and independent final review')
+        if self.kind=='REQUEST_AUTHORIZATION' and self.authorization is None:raise ValueError('Authorization request requires the complete proposed scope')
+        if self.kind=='REQUEST_USER_INPUT' and not self.question.strip():raise ValueError('User input request requires an explicit question')
+        if self.kind=='NEW_RUN_REQUIRED' and not self.new_goal.strip():raise ValueError('Successor request requires an explicit new goal')
+        return self
+
+
 def initialize(store):
     with store.connect() as db:
         db.executescript('''
-        CREATE TABLE IF NOT EXISTS workflow_runs(
-          id TEXT PRIMARY KEY,project_id TEXT NOT NULL,turn_id TEXT NOT NULL UNIQUE,
+        CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,created_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS session_messages(id TEXT PRIMARY KEY,session_id TEXT NOT NULL,run_id TEXT,role TEXT NOT NULL,content TEXT NOT NULL,created_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS runs(
+          id TEXT PRIMARY KEY,project_id TEXT NOT NULL,session_id TEXT NOT NULL,parent_run_id TEXT,
+          input_sequence INTEGER NOT NULL DEFAULT 0,input_barrier_sequence INTEGER,
           goal TEXT NOT NULL,status TEXT NOT NULL,graph_version INTEGER NOT NULL DEFAULT 0,
           sealed INTEGER NOT NULL DEFAULT 0,authorization_json TEXT NOT NULL,
           authorization_version INTEGER NOT NULL DEFAULT 1,replan_after_json TEXT NOT NULL DEFAULT '[]',
@@ -211,113 +269,143 @@ def initialize(store):
           created_at REAL NOT NULL,updated_at REAL NOT NULL,terminal_reason TEXT NOT NULL DEFAULT '',
           delivery_json TEXT NOT NULL DEFAULT '[]',delivered_at REAL);
         CREATE TABLE IF NOT EXISTS workflow_asset_reuse(
-          id TEXT PRIMARY KEY,project_id TEXT NOT NULL,workflow_id TEXT NOT NULL,task_id TEXT NOT NULL,
+          id TEXT PRIMARY KEY,project_id TEXT NOT NULL,run_id TEXT NOT NULL,task_id TEXT NOT NULL,
           revision INTEGER NOT NULL,path TEXT NOT NULL,artifact_id TEXT NOT NULL,sha256 TEXT NOT NULL,
           asset_id TEXT NOT NULL,created_at REAL NOT NULL);
-        CREATE INDEX IF NOT EXISTS workflow_due ON workflow_runs(next_reconcile_at,status);
-        CREATE TABLE IF NOT EXISTS workflow_tasks(
-          workflow_id TEXT NOT NULL,id TEXT NOT NULL,type TEXT NOT NULL,spec_json TEXT NOT NULL,
+        CREATE INDEX IF NOT EXISTS workflow_due ON runs(next_reconcile_at,status);
+        CREATE TABLE IF NOT EXISTS run_tasks(
+          run_id TEXT NOT NULL,id TEXT NOT NULL,type TEXT NOT NULL,spec_json TEXT NOT NULL,
           profile_json TEXT NOT NULL DEFAULT '{}',
-          status TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'execute',internal INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'local',
           created_graph_version INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
-          repair_count INTEGER NOT NULL DEFAULT 0,
+          repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
+          repair_context_json TEXT NOT NULL DEFAULT '{}',
           attempts INTEGER NOT NULL DEFAULT 0,next_run_at REAL NOT NULL DEFAULT 0,
           wait_reason TEXT NOT NULL DEFAULT '',candidate_result_json TEXT NOT NULL DEFAULT '[]',
           accepted_result_json TEXT NOT NULL DEFAULT '[]',quality_json TEXT NOT NULL DEFAULT '{}',
           bindings_json TEXT NOT NULL DEFAULT '{}',external_id TEXT NOT NULL DEFAULT '',
           error_code TEXT NOT NULL DEFAULT '',error_detail TEXT NOT NULL DEFAULT '',
           lease_id TEXT NOT NULL DEFAULT '',lease_generation INTEGER NOT NULL DEFAULT 0,
-          created_at REAL NOT NULL,updated_at REAL NOT NULL,PRIMARY KEY(workflow_id,id));
+          created_at REAL NOT NULL,updated_at REAL NOT NULL,PRIMARY KEY(run_id,id));
+        CREATE TABLE IF NOT EXISTS control_jobs(
+          run_id TEXT NOT NULL,id TEXT NOT NULL,type TEXT NOT NULL DEFAULT 'agent',control_kind TEXT NOT NULL,snapshot_json TEXT NOT NULL,snapshot_digest TEXT NOT NULL,spec_json TEXT NOT NULL,
+          profile_json TEXT NOT NULL DEFAULT '{}',
+          status TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'local',
+          created_graph_version INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
+          repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
+          repair_context_json TEXT NOT NULL DEFAULT '{}',
+          attempts INTEGER NOT NULL DEFAULT 0,next_run_at REAL NOT NULL DEFAULT 0,
+          wait_reason TEXT NOT NULL DEFAULT '',candidate_result_json TEXT NOT NULL DEFAULT '[]',
+          accepted_result_json TEXT NOT NULL DEFAULT '[]',quality_json TEXT NOT NULL DEFAULT '{}',
+          bindings_json TEXT NOT NULL DEFAULT '{}',external_id TEXT NOT NULL DEFAULT '',
+          error_code TEXT NOT NULL DEFAULT '',error_detail TEXT NOT NULL DEFAULT '',
+          lease_id TEXT NOT NULL DEFAULT '',lease_generation INTEGER NOT NULL DEFAULT 0,
+          created_at REAL NOT NULL,updated_at REAL NOT NULL,PRIMARY KEY(run_id,id));
         CREATE TABLE IF NOT EXISTS workflow_task_revisions(
-          workflow_id TEXT NOT NULL,task_id TEXT NOT NULL,revision INTEGER NOT NULL,spec_json TEXT NOT NULL,
+          run_id TEXT NOT NULL,task_id TEXT NOT NULL,revision INTEGER NOT NULL,spec_json TEXT NOT NULL,
           created_graph_version INTEGER NOT NULL,repair_root INTEGER NOT NULL DEFAULT 0,
           supersedes_revision INTEGER,reason TEXT NOT NULL DEFAULT '',created_at REAL NOT NULL,
-          PRIMARY KEY(workflow_id,task_id,revision));
+          PRIMARY KEY(run_id,task_id,revision));
         CREATE TABLE IF NOT EXISTS workflow_plan_tasks(
-          workflow_id TEXT NOT NULL,graph_version INTEGER NOT NULL,task_id TEXT NOT NULL,task_revision INTEGER NOT NULL,
-          selected_at REAL NOT NULL,PRIMARY KEY(workflow_id,graph_version,task_id));
-        CREATE INDEX IF NOT EXISTS workflow_ready ON workflow_tasks(status,next_run_at);
+          run_id TEXT NOT NULL,graph_version INTEGER NOT NULL,task_id TEXT NOT NULL,task_revision INTEGER NOT NULL,
+          selected_at REAL NOT NULL,PRIMARY KEY(run_id,graph_version,task_id));
+        CREATE INDEX IF NOT EXISTS workflow_ready ON run_tasks(status,next_run_at);
         CREATE TABLE IF NOT EXISTS workflow_dependencies(
-          workflow_id TEXT NOT NULL,upstream_task_id TEXT NOT NULL,downstream_task_id TEXT NOT NULL,
-          created_graph_version INTEGER NOT NULL,PRIMARY KEY(workflow_id,upstream_task_id,downstream_task_id));
+          run_id TEXT NOT NULL,upstream_task_id TEXT NOT NULL,downstream_task_id TEXT NOT NULL,
+          created_graph_version INTEGER NOT NULL,PRIMARY KEY(run_id,upstream_task_id,downstream_task_id));
         CREATE TABLE IF NOT EXISTS planner_runs(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,task_id TEXT NOT NULL,base_graph_version INTEGER NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,base_graph_version INTEGER NOT NULL,
           authorization_version INTEGER NOT NULL,trigger_json TEXT NOT NULL,snapshot_json TEXT NOT NULL,
           snapshot_digest TEXT NOT NULL,status TEXT NOT NULL,proposal_json TEXT NOT NULL DEFAULT '{}',
           lease_id TEXT NOT NULL DEFAULT '',lease_generation INTEGER NOT NULL DEFAULT 0,
           proposal_id TEXT,applied_graph_version INTEGER,attempts INTEGER NOT NULL DEFAULT 0,
           created_at REAL NOT NULL,updated_at REAL NOT NULL,error_code TEXT NOT NULL DEFAULT '',
-          UNIQUE(workflow_id,task_id));
-        CREATE UNIQUE INDEX IF NOT EXISTS one_active_planner ON planner_runs(workflow_id)
+          UNIQUE(run_id,task_id));
+        CREATE UNIQUE INDEX IF NOT EXISTS one_active_planner ON planner_runs(run_id)
           WHERE status IN ('pending','running','staged');
-        CREATE UNIQUE INDEX IF NOT EXISTS unique_graph_proposal ON planner_runs(workflow_id,proposal_id)
+        CREATE UNIQUE INDEX IF NOT EXISTS unique_graph_proposal ON planner_runs(run_id,proposal_id)
           WHERE proposal_id IS NOT NULL;
         CREATE TABLE IF NOT EXISTS workflow_commands(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,actor TEXT NOT NULL,action TEXT NOT NULL,
           payload_json TEXT NOT NULL,status TEXT NOT NULL,created_at REAL NOT NULL,applied_at REAL,
           error_code TEXT NOT NULL DEFAULT '');
         CREATE TABLE IF NOT EXISTS task_results(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,task_id TEXT NOT NULL,task_revision INTEGER NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,task_revision INTEGER NOT NULL,
           lease_id TEXT NOT NULL,lease_generation INTEGER NOT NULL,outcome TEXT NOT NULL,result_json TEXT NOT NULL,
           artifact_manifest TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'staged',created_at REAL NOT NULL,committed_at REAL,
-          UNIQUE(workflow_id,task_id,task_revision,lease_generation));
+          UNIQUE(run_id,task_id,task_revision,lease_generation));
         CREATE TABLE IF NOT EXISTS workflow_decisions(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,kind TEXT NOT NULL,graph_version INTEGER NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,kind TEXT NOT NULL,graph_version INTEGER NOT NULL,
           authorization_version INTEGER NOT NULL,snapshot_digest TEXT NOT NULL,request_json TEXT NOT NULL,
           answer_json TEXT NOT NULL DEFAULT '{}',status TEXT NOT NULL,created_at REAL NOT NULL,updated_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_reviews(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,task_id TEXT NOT NULL,purpose TEXT NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,purpose TEXT NOT NULL,
           subject_task TEXT NOT NULL DEFAULT '',graph_version INTEGER NOT NULL,snapshot_json TEXT NOT NULL,
           snapshot_digest TEXT NOT NULL,status TEXT NOT NULL,decision_json TEXT NOT NULL DEFAULT '{}',
           created_at REAL NOT NULL,updated_at REAL NOT NULL);
-        CREATE UNIQUE INDEX IF NOT EXISTS one_active_graph_review ON workflow_reviews(workflow_id,purpose,subject_task)
+        CREATE UNIQUE INDEX IF NOT EXISTS one_active_graph_review ON workflow_reviews(run_id,purpose,subject_task)
           WHERE status IN ('pending','running','staged');
         CREATE TABLE IF NOT EXISTS workflow_graph_events(
-          seq INTEGER PRIMARY KEY AUTOINCREMENT,workflow_id TEXT NOT NULL,kind TEXT NOT NULL,
+          seq INTEGER PRIMARY KEY AUTOINCREMENT,run_id TEXT NOT NULL,kind TEXT NOT NULL,
           graph_version INTEGER NOT NULL,payload_json TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_model_reservations(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
           reserved_tokens INTEGER NOT NULL,used_tokens INTEGER,state TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_orchestrators(
           id TEXT PRIMARY KEY,release TEXT NOT NULL,heartbeat REAL NOT NULL,draining INTEGER NOT NULL DEFAULT 0,
           reconciles INTEGER NOT NULL DEFAULT 0,failures INTEGER NOT NULL DEFAULT 0,last_duration REAL NOT NULL DEFAULT 0);
         CREATE TABLE IF NOT EXISTS workflow_reconcile_failures(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,reconcile_generation INTEGER NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,reconcile_generation INTEGER NOT NULL,
           exception_type TEXT NOT NULL,error_code TEXT NOT NULL DEFAULT '',created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_inspections(
-          id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,task_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
+          id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
           reference TEXT NOT NULL,snapshot_digest TEXT NOT NULL,evidence_json TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_agent_outputs(
-          lease_id TEXT PRIMARY KEY,workflow_id TEXT NOT NULL,task_id TEXT NOT NULL,
+          lease_id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,
           generation INTEGER NOT NULL,payload_json TEXT NOT NULL,created_at REAL NOT NULL);
         ''')
+    with store.connect() as db:
+        from .run_inputs import initialize as initialize_inputs
+        initialize_inputs(db)
+        view_ddl='CREATE OR REPLACE VIEW ' if store.dsn else 'CREATE VIEW IF NOT EXISTS '
+        fields=','.join(row['name'] for row in db.execute('PRAGMA table_info(run_tasks)'))
+        db.execute(view_ddl+"run_work_items AS SELECT "+fields+",'' AS control_kind FROM run_tasks UNION ALL SELECT "+fields+",control_kind FROM control_jobs")
+        db.execute(view_ddl+"""execution_subjects AS
+            SELECT id,project,status,created,updated,'agent' AS kind FROM agent_turns WHERE id NOT IN (SELECT id FROM runs)
+            UNION ALL SELECT id,project,status,created,updated,'manual' AS kind FROM jobs
+            UNION ALL SELECT id,project_id AS project,
+              CASE WHEN status IN ('ACTIVE','WAITING_USER') THEN 'waiting' ELSE lower(status) END AS status,
+              created_at AS created,updated_at AS updated,'run' AS kind FROM runs""")
     store._dynamic_schema=True
 
 
 def get(store,identifier):
     if not hasattr(store,'_dynamic_schema'):
-        store._dynamic_schema=bool(store.query("SELECT name FROM sqlite_master WHERE name='workflow_runs'"))
+        store._dynamic_schema=bool(store.query("SELECT name FROM sqlite_master WHERE name='runs'"))
     if not store._dynamic_schema:return None
-    rows=store.query('SELECT * FROM workflow_runs WHERE id=? OR turn_id=?',(identifier,identifier))
+    rows=store.query('SELECT * FROM runs WHERE id=?',(identifier,))
     if not rows:return None
     run=rows[0]
     for field in ('authorization','replan_after','repair_context','delivery'):run[field]=json.loads(run.pop(field+'_json'))
     run['sealed']=bool(run['sealed'])
-    run['tasks']=store.query('SELECT * FROM workflow_tasks WHERE workflow_id=? ORDER BY created_graph_version,created_at,id',(run['id'],))
-    for task in run['tasks']:
-        for field in ('spec','profile','candidate_result','accepted_result','quality','bindings'):
+    run['tasks']=store.query('SELECT * FROM run_tasks WHERE run_id=? ORDER BY created_graph_version,created_at,id',(run['id'],))
+    run['control_jobs']=store.query('SELECT * FROM control_jobs WHERE run_id=? ORDER BY created_at,id',(run['id'],))
+    for task in work_items(run):
+        for field in ('spec','profile','candidate_result','accepted_result','quality','bindings','repair_context'):
             task[field]=json.loads(task.pop(field+'_json'))
-    run['dependencies']=store.query('SELECT upstream_task_id,downstream_task_id FROM workflow_dependencies WHERE workflow_id=?',(run['id'],))
+    run['dependencies']=store.query('SELECT upstream_task_id,downstream_task_id FROM workflow_dependencies WHERE run_id=?',(run['id'],))
+    run['drain_set']=store.query('SELECT task_id,revision,barrier_sequence FROM run_input_drain WHERE run_id=?',(run['id'],))
+    run['activity']=activity(run)
     return run
 
 
 def event(store,run,kind,payload=None):
-    store.execute('INSERT INTO workflow_graph_events(workflow_id,kind,graph_version,payload_json,created_at) VALUES (?,?,?,?,?)',
+    store.execute('INSERT INTO workflow_graph_events(run_id,kind,graph_version,payload_json,created_at) VALUES (?,?,?,?,?)',
                   (run['id'],kind,run['graph_version'],encode(payload or {}),store.now()))
     from .agent_store import event as agent_event
     from .telemetry import emit
-    agent_event(store,run['turn_id'],'workflow_graph',{'workflow_id':run['id'],'graph_version':run['graph_version'],'kind':kind,**(payload or {})})
-    fields={'task_id':run['turn_id'],'workflow_id':run['id'],'graph_version':run['graph_version'],
+    agent_event(store,run['id'],'workflow_graph',{'run_id':run['id'],'graph_version':run['graph_version'],'kind':kind,**(payload or {})})
+    fields={'task_id':run['id'],'run_id':run['id'],'graph_version':run['graph_version'],
             'sealed':run['sealed'],'project_id':run['project_id']}
     for key in ('proposal_id','error_code','revision','outcome'):
         if key in (payload or {}) and payload[key]!='':fields[key]=payload[key]
@@ -332,31 +420,48 @@ def content_fingerprint(store,project):
     return fingerprint(store,project)
 
 
-def create(store,project,turn,raw):
-    authorization=bind_authorization(raw)
+def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None):
+    from .workflow_planning import bind_scope
+    authorization=bind_scope(store,raw)
+    identifier=identifier or uuid.uuid4().hex
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        row=db.execute('SELECT project,mode FROM agent_turns WHERE id=?',(turn,)).fetchone()
-        if not row or row['project']!=project or row['mode']!='execute':raise ValueError('Workflow requires an owned execute turn')
-        existing=db.execute('SELECT id,authorization_json FROM workflow_runs WHERE turn_id=?',(turn,)).fetchone()
+        if not db.execute('SELECT id FROM projects WHERE id=?',(project,)).fetchone():raise ValueError('Unknown project')
+        existing=db.execute('SELECT id,authorization_json FROM runs WHERE id=?',(identifier,)).fetchone()
         if existing:
-            if existing['authorization_json']!=encode(authorization.model_dump()):raise ValueError('Workflow authorization is immutable')
+            if existing['authorization_json']!=encode(authorization.model_dump()):raise ValueError('Run authorization is immutable')
             return get(store,existing['id'])
+        parent=get(store,parent_run_id) if parent_run_id else None
+        if parent_run_id and (not parent or parent['project_id']!=project):raise ValueError('Foreign parent Run')
+        session_id=session_id or (parent['session_id'] if parent else uuid.uuid4().hex)
+        session=db.execute('SELECT project_id FROM sessions WHERE id=?',(session_id,)).fetchone()
+        if session and session['project_id']!=project:raise ValueError('Foreign Session')
+        if parent and session_id!=parent['session_id']:raise ValueError('Successor must stay in the same Session')
+        if db.execute("SELECT id FROM runs WHERE session_id=? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(session_id,)).fetchone():
+            raise ValueError('Session already has an active Run')
         owned={r['id'] for r in db.execute('SELECT id FROM assets WHERE project=?',(project,))}
         if not set(authorization.allowed_assets)<=owned:raise ValueError('Asset outside project')
         if authorization.content_fingerprint!=content_fingerprint(store,project):raise ValueError('Approved content has changed')
-        identifier=uuid.uuid4().hex;now=store.now()
-        db.execute('''INSERT INTO workflow_runs(id,project_id,turn_id,goal,status,authorization_json,next_reconcile_at,created_at,updated_at)
-            VALUES (?,?,?,?,'planning',?,?,?,?)''',(identifier,project,turn,authorization.goal,encode(authorization.model_dump()),now,now,now))
+        now=store.now()
+        db.execute('INSERT OR IGNORE INTO sessions(id,project_id,created_at) VALUES (?,?,?)',(session_id,project,now))
+        db.execute("INSERT INTO runs(id,project_id,session_id,parent_run_id,goal,status,authorization_json,next_reconcile_at,created_at,updated_at) VALUES (?,?,?,?,?,'ACTIVE',?,?,?,?)",
+            (identifier,project,session_id,parent_run_id,authorization.goal,encode(authorization.model_dump()),now,now,now))
         from .task_lifecycle import ensure
-        ensure(db,turn,now)
+        ensure(db,identifier,now)
         db.execute('UPDATE execution_limits SET deadline_at=?,budget_seconds=? WHERE task_id=?',
-                   (now+authorization.wall_time_budget,authorization.wall_time_budget,turn))
-        db.execute("UPDATE agent_turns SET status='waiting',updated=? WHERE id=?",(now,turn))
+                   (now+authorization.wall_time_budget,authorization.wall_time_budget,identifier))
+        from .agent_profiles import freeze
+        if not db.execute('SELECT task_id FROM agent_run_profiles WHERE task_id=?',(identifier,)).fetchone():freeze(db,identifier,project,now,parent_run_id)
+        from .task_usage import attach
+        attach(db,identifier,project,now)
+        from .observation_schema import register
+        register(db,identifier,project,now)
+        db.execute('INSERT INTO session_messages(id,session_id,run_id,role,content,created_at) VALUES (?,?,?,?,?,?)',
+            (uuid.uuid4().hex,session_id,identifier,'user',authorization.goal,now))
         run=get(store,identifier);event(store,run,'created');return run
 
 
-def bind_authorization(raw,*,implementations=None):
+def bind_authorization(raw,*,implementations=None,policies=None):
     authorization=Authorization.model_validate(raw)
     from .operations import get as operation
     from .operation_lifecycle import for_operation
@@ -371,6 +476,11 @@ def bind_authorization(raw,*,implementations=None):
         raise ValueError('Requested operation implementation is no longer current')
     if any(profiles.get(name)!=value for name,value in authorization.agent_profile_digests.items()):
         raise ValueError('Requested Agent policy is no longer current')
+    from .provider_metadata import metadata
+    policies={name:policies[name] if policies is not None else digest(metadata(operation(name,implementation))) for name,implementation in implementations.items()}
+    if any(policies.get(name)!=value for name,value in authorization.operation_policy_digests.items()):
+        raise ValueError('Operation side-effect policy changed; renewed authorization required')
+    authorization.operation_policy_digests=policies
     authorization.operation_implementations=implementations
     authorization.agent_profile_digests=profiles
     return authorization
@@ -384,24 +494,24 @@ def command(store,identifier,actor,action,payload=None,request_id=None):
         if not run:raise ValueError('Unknown workflow')
         previous=db.execute('SELECT * FROM workflow_commands WHERE id=?',(request_id,)).fetchone()
         if previous:
-            if (previous['workflow_id'],previous['actor'],previous['action'],previous['payload_json'])!=(run['id'],actor,action,encode(payload)):
+            if (previous['run_id'],previous['actor'],previous['action'],previous['payload_json'])!=(run['id'],actor,action,encode(payload)):
                 raise ValueError('Command identity was reused with different content')
             return dict(previous)
-        error='workflow_terminal' if run['status'] in TERMINAL else 'cancellation_in_progress' if run['status']=='cancelling' and action!='cancel' else ''
-        db.execute('''INSERT INTO workflow_commands(id,workflow_id,actor,action,payload_json,status,created_at,applied_at,error_code)
+        error='workflow_terminal' if run['status'] in RUN_TERMINAL else 'cancellation_in_progress' if run['status']=='CANCELLING' and action!='cancel' else ''
+        db.execute('''INSERT INTO workflow_commands(id,run_id,actor,action,payload_json,status,created_at,applied_at,error_code)
             VALUES (?,?,?,?,?,?,?,?,?)''',
             (request_id,run['id'],actor,action,encode(payload),'rejected' if error else 'pending',store.now(),store.now() if error else None,error))
-        db.execute('UPDATE workflow_runs SET next_reconcile_at=? WHERE id=?',(store.now(),run['id']))
+        db.execute('UPDATE runs SET next_reconcile_at=? WHERE id=?',(store.now(),run['id']))
         return {'id':request_id,'status':'rejected' if error else 'pending','error_code':error}
 
 
-def validate_proposal(store,run,raw,repair_scope=None):
+def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     proposal=Proposal.model_validate(raw)
-    if run['sealed'] or run['status'] not in ('planning','running'):raise ValueError('Workflow cannot accept proposals')
+    if run['sealed'] or run['status'] not in ('ACTIVE',):raise ValueError('Workflow cannot accept proposals')
     if proposal.base_graph_version!=run['graph_version']:raise ValueError('Stale graph version')
     authorization=Authorization.model_validate(run['authorization'])
     known_assets={asset['id'] for asset in store.assets(run['project_id'])}
-    existing={t['id']:t for t in run['tasks'] if not t['internal']}
+    existing={t['id']:t for t in run['tasks'] if not t.get('control_kind')}
     added={task.id:task for task in proposal.add_tasks}
     revised={task.id:task for task in proposal.revise_tasks}
     if len(added)!=len(proposal.add_tasks) or set(added)&set(existing):raise ValueError('Task IDs must be unique for the whole workflow')
@@ -421,38 +531,46 @@ def validate_proposal(store,run,raw,repair_scope=None):
         order.extend(ready);remaining.difference_update(ready)
     from .operations import get as operation
     if revised:
-        if repair_scope is None:raise ValueError('Task revisions require a frozen repair trigger')
+        if repair_scope is None and user_revision_scope is None:raise ValueError('Task revisions require a frozen repair trigger')
         allowed=set(existing) if repair_scope=='' else set()
         pending=[repair_scope] if repair_scope else []
         while pending:
             current_id=pending.pop()
             if current_id in allowed:continue
             allowed.add(current_id);pending.extend(upstream for upstream,downstream in edges if downstream==current_id)
-        if not set(revised)<=allowed:raise ValueError('Repair revisions are limited to the failed task or dependency ancestors')
+        if user_revision_scope is not None:allowed=set(user_revision_scope)
+        if not set(revised)<=allowed:raise ValueError('Repair revisions are outside the frozen affected scope')
     specs={key:Task.model_validate(t['spec']) for key,t in existing.items()}
     for identifier,replacement in revised.items():
         current=specs[identifier];row=existing[identifier]
-        if row['status'] not in ('paused','succeeded'):
+        if row['status'] not in (('paused','succeeded','ready','blocked','failed') if user_revision_scope is not None else ('paused','succeeded')):
             raise ValueError('Only a failed task or accepted dependency ancestor can be revised')
         if row['lease_id']:
             active=store.query('SELECT attempt FROM execution_leases WHERE attempt=? AND active=1 AND expires>?',(row['lease_id'],store.now()))
             cleaning=store.query("SELECT attempt FROM execution_cleanup WHERE attempt=? AND state<>'complete'",(row['lease_id'],))
             if active or cleaning:raise ValueError('Task revision must wait for execution and cleanup to finish')
-        if row.get('repair_count',0)>=2:raise ValueError('Task repair budget exhausted')
+        counter='user_revision_count' if user_revision_scope is not None else 'repair_count'
+        if row[counter]>=(5 if user_revision_scope is not None else 2):raise ValueError('Task revision budget exhausted')
         frozen=('id','type','name','objective','profile','operation','implementation','inputs','output_roles','acceptance','semantics','delivery_stage',
                 'outputs','preflight','config_files','timeout_seconds','retry_policy','on_failure','basic_reason')
+        if user_revision_scope is not None:frozen=tuple(name for name in frozen if name not in ('objective','inputs','acceptance','semantics'))
         if any(getattr(current,name)!=getattr(replacement,name) for name in frozen):
             raise ValueError('A repair revision cannot change objective, authorization, inputs, outputs, acceptance or execution policy')
         if current.type=='script':
             if replacement.parameters!=current.parameters:raise ValueError('Script repair changes argv only')
         elif current.type=='operation':
             if replacement.argv!=current.argv:raise ValueError('Operation repair changes parameters only')
-            if not operation(current.operation,current.implementation).retry_safe:
+            if user_revision_scope is None and not operation(current.operation,current.implementation).retry_safe:
                 raise ValueError('An external or non-idempotent operation requires a new authorized task')
-        else:raise ValueError('Agent policy revisions require a new task')
+        else:
+            if replacement.argv!=current.argv or replacement.parameters!=current.parameters:raise ValueError('Agent revision cannot change action permissions')
         specs[identifier]=replacement
     specs.update(added)
     calls={}
+    submitted=set()
+    for call in store.query('SELECT step,revision,implementation FROM workflow_provider_calls WHERE workflow=?',(run['id'],)):
+        group=json.loads(call['implementation'])['budget_group'];calls[group]=calls.get(group,0)+1
+        submitted.add((call['step'],call['revision']))
     for task in specs.values():
         if task.on_failure=='diagnose' and 'media_failure_diagnostician' not in authorization.allowed_agent_profiles:
             raise AuthorizationRequired('Failure diagnosis requires an authorized diagnostic Agent')
@@ -469,8 +587,15 @@ def validate_proposal(store,run,raw,repair_scope=None):
             if name not in authorization.allowed_operations:raise AuthorizationRequired('Operation requires additional authorization')
             if task.type=='operation' and authorization.operation_implementations.get(name)!=task.implementation:
                 raise AuthorizationRequired('Operation implementation requires renewed authorization')
-            if task.type=='operation' and operation(task.operation,task.implementation).provider:
-                calls[name]=calls.get(name,0)+1
+            if task.type=='operation':
+                from .provider_metadata import metadata
+                if name not in authorization.operation_policy_digests:
+                    raise AuthorizationRequired('Operation side-effect policy was not frozen')
+            if task.type=='operation' and operation(task.operation,task.implementation).external_side_effects:
+                group=operation(task.operation,task.implementation).budget_group
+                existing_task=existing.get(task.id)
+                if task.id in added or task.id in revised or existing_task and existing_task['status']!='succeeded' and (task.id,existing_task['revision']) not in submitted:
+                    calls[group]=calls.get(group,0)+1
                 if authorization.cost_budget is not None:
                     raise AuthorizationRequired('A finite cost budget requires a verified provider price bound; unavailable')
         for ref in task.inputs.values():
@@ -501,10 +626,10 @@ def execution_view(run):
     """Stable execution adapter shape; it confers no mutation authority."""
     steps=[]
     for task in run['tasks']:
-        if task['internal']:continue
+        if task.get('control_kind'):continue
         dependencies=[d['upstream_task_id'] for d in run['dependencies'] if d['downstream_task_id']==task['id']]
         spec=Task.model_validate(task['spec']).execution_spec(dependencies)
-        phase_status={'execute':'pending','poll':'waiting','collect':'waiting','validate':'verifying'}.get(task['phase'],'pending')
+        phase_status={'local':'pending','sync':'pending','submit':'pending','poll':'waiting','collect':'collecting','validate':'verifying'}.get(task['phase'],'pending')
         steps.append({'id':task['id'],'workflow':run['id'],'spec':spec,
             'status':'succeeded' if task['status']=='succeeded' else phase_status,
             'revision':task['revision'],'attempts':task['attempts'],'failures':task['attempts'],
@@ -513,8 +638,41 @@ def execution_view(run):
             'started':task['created_at'],'updated':task['updated_at'],'error':task['error_detail'],
             'error_code':task['error_code'],'wait_reason':task['wait_reason'],'repair_count':task.get('repair_count',0),
             'diagnostics':[],'task_status':task['status']})
-    return {'id':run['id'],'project':run['project_id'],'turn_id':run['turn_id'],'name':run['goal'],
-            'status':run['status'],'steps':steps,'dynamic':True,'graph_version':run['graph_version'],'sealed':run['sealed'],
+    return {'id':run['id'],'project':run['project_id'],'turn_id':run['id'],'name':run['goal'],
+            'status':run['status'].lower(),'steps':steps,'dynamic':True,'graph_version':run['graph_version'],'sealed':run['sealed'],
             'agent_review':None,'user_requests':[],'error':run['terminal_reason'],'plan_id':'',
             'created':run['created_at'],'updated':run['updated_at'],
             'definition':{'key':run['id'],'name':run['goal'],'steps':[s['spec'] for s in steps]}}
+
+
+def initial_phase(task):
+    if task.type!='operation':return 'local'
+    from .operations import get
+    from .operation_lifecycle import for_operation
+    return for_operation(get(task.operation,task.implementation)).protocol.state_phases['pending']
+
+
+def work_items(run):
+    return run['tasks']+run['control_jobs']
+
+
+def work_item(run,identifier):
+    return next((item for item in work_items(run) if item['id']==identifier),None)
+
+
+def work_table(item):
+    return 'control_jobs' if item.get('control_kind') else 'run_tasks'
+
+
+def write_work(store,item,sql,parameters):
+    if not sql.startswith('UPDATE run_tasks '):raise ValueError('Expected work item update')
+    return store.execute(sql.replace('UPDATE run_tasks ','UPDATE '+work_table(item)+' ',1),parameters)
+
+
+def activity(run):
+    if run['status']!='ACTIVE':return 'IDLE'
+    active=[job for job in run['control_jobs'] if job['status'] in ('ready','running','retry_wait')]
+    if any(job['control_kind']=='PLAN' for job in active):return 'PLANNING'
+    if any(job['control_kind'] in ('REVIEW','DIAGNOSE') for job in active):return 'REVIEWING'
+    if any(task['lease_id'] or task['status'] in ('ready','waiting','retry_wait') for task in run['tasks']):return 'EXECUTING'
+    return 'IDLE'

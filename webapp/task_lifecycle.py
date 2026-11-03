@@ -68,7 +68,7 @@ def cancel_task(store,task_id,reason='user'):
     import uuid
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        task=db.execute('SELECT status FROM agent_turns WHERE id=? UNION ALL SELECT status FROM jobs WHERE id=?',(task_id,task_id)).fetchone()
+        task=db.execute('SELECT status FROM execution_subjects WHERE id=?',(task_id,)).fetchone()
         if not task:raise ValueError('Unknown task')
         if task['status'] in ('succeeded','failed'):return {'cancelled':False,'status':task['status']}
         request=db.execute('SELECT request_id FROM execution_cancel_requests WHERE task_id=?',(task_id,)).fetchone()
@@ -133,7 +133,7 @@ def reserve(db,lease):
 
 def terminate(db,task_id,reason):
     ensure(db,task_id)
-    current=db.execute('SELECT status FROM agent_turns WHERE id=? UNION ALL SELECT status FROM jobs WHERE id=?',(task_id,task_id)).fetchone()
+    current=db.execute('SELECT status FROM execution_subjects WHERE id=?',(task_id,)).fetchone()
     cancelling=bool(current and current['status'] in ('cancelled','cancelling'))
     if cancelling:reason='cancelled'
     db.execute("UPDATE execution_limits SET termination_reason=? WHERE task_id=? AND termination_reason=''",(reason,task_id))
@@ -141,6 +141,7 @@ def terminate(db,task_id,reason):
     if reason=='security':message='多次请求违反任务安全策略，已停止执行并安排资源清理。'
     if cancelling:message='用户已停止任务，已提交成果保留，资源正在回收。'
     now=clock(db)
+    db.execute("UPDATE runs SET status='CANCELLING',terminal_reason='deadline_or_budget',next_reconcile_at=? WHERE id=? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(now,task_id))
     for table in ('agent_turns','jobs'):
         db.execute(f"UPDATE {table} SET status=?,error=?,updated=? WHERE id=? AND status IN ('queued','running','waiting','paused','cancelling')",
                    ('cancelled' if cancelling else 'failed',message,now,task_id))
@@ -160,7 +161,7 @@ def request_cleanup(db,task_id,attempt_id=None,external=True):
         db.execute('INSERT OR IGNORE INTO execution_external_cleanup(id,task_id,provider,external_id,state,error) VALUES (?,?,?,?,?,?)',
                    (row['id'],task_id,row['provider'],row['external_id'],'pending' if row['external_id'] else 'unknown',
                     '' if row['external_id'] else '提交结果未知，无法确认上游是否仍在运行。'))
-    for row in db.execute("SELECT request_key,provider,external_id,state FROM workflow_provider_calls WHERE (workflow=? OR workflow IN (SELECT id FROM workflow_runs WHERE turn_id=?)) AND state NOT IN ('succeeded','failed','cancelled','rejected')",(task_id,task_id)).fetchall():
+    for row in db.execute("SELECT request_key,provider,external_id,state FROM workflow_provider_calls WHERE (workflow=? OR workflow IN (SELECT id FROM runs WHERE id=?)) AND state NOT IN ('succeeded','failed','cancelled','rejected')",(task_id,task_id)).fetchall():
         db.execute('INSERT OR IGNORE INTO execution_external_cleanup(id,task_id,provider,external_id,state,error) VALUES (?,?,?,?,?,?)',(row['request_key'],task_id,row['provider'],row['external_id'],'pending' if row['external_id'] else 'unknown','' if row['external_id'] else '提交结果未知，未重复调用'))
     task=db.execute('SELECT status FROM agent_turns WHERE id=?',(task_id,)).fetchone()
     if task and task['status'] in ('failed','cancelled','cancelling'):
@@ -171,12 +172,10 @@ def request_cleanup(db,task_id,attempt_id=None,external=True):
             from .operations import for_step
             op=for_step(spec)
             if not op:continue
-            if op.provider=='generation':base=os.environ.get('VIDEO_USE_GENERATION_URL','')
-            elif op.provider=='openai_images':base=os.environ.get('VIDEO_USE_IMAGE_GENERATION_URL') or os.environ.get('VIDEO_USE_MODEL_BASE_URL','')
-            elif op.provider=='elevenlabs':base='https://api.elevenlabs.io'
-            else:base=ENDPOINTS['decompose' if op.provider=='decompose' else 'edit'][0]
             saved=db.execute('SELECT provider FROM workflow_provider_calls WHERE request_key=?',(row['workflow']+':'+row['id']+':'+str(row['revision']),)).fetchone()
-            if saved:base=saved['provider']
+            # Only a persisted intent can identify an external effect to clean up.
+            if not saved:continue
+            base=saved['provider']
             db.execute('INSERT OR IGNORE INTO execution_external_cleanup(id,task_id,provider,external_id,state,error) VALUES (?,?,?,?,?,?)',
                        (row['workflow']+':'+row['id']+':'+str(row['revision']),task_id,base,row['external_id'] or '',
                         'pending' if row['external_id'] else 'unknown','' if row['external_id'] else '提交结果未知，无法确认上游是否仍在运行。'))
@@ -184,7 +183,7 @@ def request_cleanup(db,task_id,attempt_id=None,external=True):
 
 def sweep(db):
     now=clock(db)
-    rows=db.execute("SELECT x.task_id FROM execution_limits x JOIN (SELECT id,status FROM agent_turns UNION ALL SELECT id,status FROM jobs) t ON t.id=x.task_id WHERE x.deadline_at<=? AND x.termination_reason='' AND t.status IN ('queued','running','waiting','paused')",(now,)).fetchall()
+    rows=db.execute("SELECT x.task_id FROM execution_limits x JOIN (SELECT id,status FROM execution_subjects) t ON t.id=x.task_id WHERE x.deadline_at<=? AND x.termination_reason='' AND t.status IN ('queued','running','waiting','paused')",(now,)).fetchall()
     for row in rows:terminate(db,row['task_id'],'deadline')
 
 
@@ -196,7 +195,7 @@ def snapshot(store,task_id):
         active=db.execute('SELECT accounted_at,reserved FROM execution_time_slices WHERE task_id=? AND computing=1',(task_id,)).fetchall()
         spent=limit['used_seconds']+sum(min(r['reserved'],max(0,now-r['accounted_at'])) for r in active)
         cleanup=db.execute('SELECT c.state,c.error,c.updated FROM execution_cleanup c JOIN execution_attempts a ON a.id=c.attempt WHERE c.task_id=? ORDER BY a.generation DESC LIMIT 1',(task_id,)).fetchone()
-        task=db.execute('SELECT status FROM agent_turns WHERE id=? UNION ALL SELECT status FROM jobs WHERE id=?',(task_id,task_id)).fetchone()
+        task=db.execute('SELECT status FROM execution_subjects WHERE id=?',(task_id,)).fetchone()
         return {'deadline_at':limit['deadline_at'],'budget_seconds':limit['budget_seconds'],
                 'used_seconds':round(spent,2),'remaining_seconds':max(0,round(limit['budget_seconds']-spent,2)),
                 'termination_reason':limit['termination_reason'] or ('cancelled' if task and task['status']=='cancelled' else ''),

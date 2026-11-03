@@ -59,7 +59,7 @@ def get(store,turn_id):
         'image.refine_zim':'边缘精修','image.ocr':'文字识别','image.decompose':'图片分层','image.erase':'选区擦除','image.edit_region':'选区重绘',
         'media.render':'视频合成','media.edit':'音视频编辑','media.timeline':'时间线预览','media.analyze':'画面分析','media.review':'成片检查','media.pack':'整理转写'}
     from .operations import get as operation
-    external=sum(name!='script' and bool(operation(name,value.get('implementations',{}).get(name)).provider) for name in value['operations'])
+    external=sum(name!='script' and bool(operation(name,value.get('implementations',{}).get(name)).external_side_effects) for name in value['operations'])
     return {**value,'digest':records[0]['digest'],'summary':{'operation_count':len(value['operations']),'external_calls':external,
         'labels':[labels.get(name,'图片处理' if name.startswith('image.') else '媒体处理') for name in value['operations']]}}
 

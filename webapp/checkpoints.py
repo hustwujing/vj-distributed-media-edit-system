@@ -86,7 +86,7 @@ def rollback(store,project,version):
         busy=db.execute("SELECT id FROM agent_turns WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling') UNION ALL SELECT id FROM jobs WHERE project=? AND status IN ('queued','running')",(project,project)).fetchone()
         if busy:raise ValueError('请先停止当前任务，再恢复项目版本')
         resources=db.execute('''SELECT l.turn_id FROM execution_leases l
-          JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.id=l.turn_id
+          JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.turn_id
           WHERE t.project=? AND (l.active=1 OR EXISTS(
             SELECT 1 FROM execution_cleanup c WHERE c.task_id=t.id AND c.state<>'complete')) LIMIT 1''',(project,)).fetchone()
         if resources:raise ValueError('请等待执行资源回收完成，再恢复项目版本')

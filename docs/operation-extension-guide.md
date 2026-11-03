@@ -76,7 +76,7 @@ operation 参数不得让 Agent 指定 executable、服务 URL、凭据或任意
 ### 声明严格产物复用
 
 `Operation(..., reuse_safe=True)` 是受信任实现作者的完整依赖声明，不等于 `retry_safe`。
-只有本地生命周期、无 provider、model_profile 为 none、输入完整通过角色声明且不读取隐含项目状态的
+只有本地生命周期、`external_side_effects=False`、model_profile 为 none、输入完整通过角色声明且不读取隐含项目状态的
 实现才可启用。替代实现通过 `register_implementation(..., reuse_safe=True)` 单独声明，默认关闭。
 框架匹配规范参数、输入角色顺序/哈希/元数据、实现和运行环境，在独立输出范围复制已验收来源，
 再按新版 acceptance 检查。带任意 preflight/config_files 或仅排序而无输入绑定的依赖不支持。

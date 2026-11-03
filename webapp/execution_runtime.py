@@ -144,16 +144,17 @@ class TaskRuntime:
             self.agent = self.path/'agent'
             self.agent.mkdir(mode=0o700)
             self.workspace, self.state = data/'workspace', data/'state'
-            table = 'jobs' if lease.kind == 'manual' else 'agent_turns'
+            table = 'execution_subjects'
             turn = self.store.query(f'SELECT project FROM {table} WHERE id=?', (lease.turn_id,))[0]
             self.project = self.store.project_dir(turn['project'])
             from .workflow_graph import get as graph_get
             dynamic=graph_get(self.store,lease.turn_id)
             allowed_scripts=None
             if dynamic:
-                selected=next(t for t in dynamic['tasks'] if t['id']==lease.step_id)
-                self.dynamic_context={'workflow_id':dynamic['id'],'task_id':selected['id'],'goal':dynamic['goal']}
-                self.source_asset_ids=(set(dynamic['authorization']['allowed_assets']) if selected['internal'] else
+                from .workflow_graph import work_item
+                selected=work_item(dynamic,lease.step_id)
+                self.dynamic_context={'run_id':dynamic['id'],'task_id':selected['id'],'goal':dynamic['goal']}
+                self.source_asset_ids=(set(dynamic['authorization']['allowed_assets']) if selected.get('control_kind') else
                     {ref['asset'] for ref in selected['spec'].get('inputs',{}).values() if ref.get('asset')})
                 spec=selected['spec']
                 allowed_scripts=set(spec.get('preflight',[])+spec.get('config_files',[])+
@@ -265,7 +266,7 @@ class TaskRuntime:
         try:
             while process.poll() is None:
                 self.lease.check()
-                table='jobs' if self.lease.kind=='manual' else 'agent_turns'
+                table='execution_subjects'
                 status=self.store.query(f'SELECT status FROM {table} WHERE id=?',(self.lease.turn_id,))[0]['status']
                 if (status in ('cancelled','cancelling') and self.lease.kind!='workflow') or time.monotonic()>deadline:
                     raise RuntimeError('Task preparation cancelled or timed out')

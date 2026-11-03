@@ -40,7 +40,7 @@ def quota_status(store,task_id,category,limit):
     rows=store.query('SELECT used FROM execution_budgets WHERE turn_id=? AND category=?',(task_id,category))
     used=rows[0]['used'] if rows else 0
     if used>=limit:return {'category':category,'scope':'task','used':used,'limit':limit,'blocked':True}
-    owners=store.query('SELECT p.owner FROM projects p JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.project=p.id WHERE t.id=?',(task_id,))
+    owners=store.query('SELECT p.owner FROM projects p JOIN (SELECT id,project FROM execution_subjects) t ON t.project=p.id WHERE t.id=?',(task_id,))
     daily=daily_quota(store,owners[0]['owner'],category) if owners else None
     return daily if daily else {'category':category,'scope':'task','used':used,'limit':limit,'blocked':False}
 
@@ -78,7 +78,7 @@ def blocked_quota(store,task):
     if not rows:return None
     block=json.loads(rows[0]['payload'])
     if block.get('scope')=='daily':
-        owners=store.query('SELECT p.owner FROM projects p JOIN agent_turns t ON t.project=p.id WHERE t.id=?',(task,))
+        owners=store.query('SELECT p.owner FROM projects p JOIN execution_subjects t ON t.project=p.id WHERE t.id=?',(task,))
         state=daily_quota(store,owners[0]['owner'],block['category']) if owners else None
     else:state=quota_status(store,task,block['category'],block['limit'])
     return {**state,'message':str(quota_error(state))} if state and state['blocked'] else None
@@ -183,13 +183,13 @@ class Lease:
         from .task_lifecycle import check
         check(db,self.turn_id,self.attempt)
         if self.kind=='workflow' and self.step_id:
-            scoped=db.execute('''SELECT s.revision,s.lease_id,a.task_revision FROM workflow_tasks s
-                JOIN workflow_runs w ON w.id=s.workflow_id JOIN execution_attempts a ON a.id=?
-                WHERE w.turn_id=? AND s.id=?''',(self.attempt,self.turn_id,self.step_id)).fetchone()
+            scoped=db.execute('''SELECT s.revision,s.lease_id,a.task_revision FROM run_work_items s
+                JOIN runs w ON w.id=s.run_id JOIN execution_attempts a ON a.id=?
+                WHERE w.id=? AND s.id=?''',(self.attempt,self.turn_id,self.step_id)).fetchone()
             if scoped and (scoped['lease_id']!=self.attempt or scoped['revision']!=scoped['task_revision']):
                 self.lost.set();raise LeaseLost('Workflow task revision or owner was replaced')
         if not self.control_only:
-            table='jobs' if self.kind=='manual' else 'agent_turns'
+            table='execution_subjects'
             task=db.execute(f'SELECT status FROM {table} WHERE id=?',(self.turn_id,)).fetchone()
             if not task or task['status'] in ('cancelling','cancelled','failed'):
                 self.lost.set()
@@ -237,7 +237,7 @@ class Lease:
             used = row['used'] if row else 0
             if used >= limit:
                 raise quota_error({'category':category,'scope':'task','used':used,'limit':limit})
-            owner=db.execute('SELECT p.owner FROM projects p JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.project=p.id WHERE t.id=?',(self.turn_id,)).fetchone()['owner']
+            owner=db.execute('SELECT p.owner FROM projects p JOIN (SELECT id,project FROM execution_subjects) t ON t.project=p.id WHERE t.id=?',(self.turn_id,)).fetchone()['owner']
             day=int(now(db)//86400)
             daily=db.execute('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category)).fetchone()
             consumed=daily['used'] if daily else 0
@@ -256,7 +256,7 @@ class Lease:
             if not row or row['attempt']!=self.attempt or row['worker']!=self.worker:
                 raise LeaseLost('Execution was replaced')
             settle(db,self.attempt,interrupted)
-            task=db.execute('SELECT status FROM agent_turns WHERE id=? UNION ALL SELECT status FROM jobs WHERE id=?',(self.turn_id,self.turn_id)).fetchone()
+            task=db.execute('SELECT status FROM execution_subjects WHERE id=?',(self.turn_id,)).fetchone()
             limits=db.execute('SELECT termination_reason FROM execution_limits WHERE task_id=?',(self.turn_id,)).fetchone()
             reason=(limits['termination_reason'] if limits else '') or ('resource_wait' if getattr(self,'waiting_for_resource',False) else 'interrupted' if interrupted else task['status'] if task and task['status'] in ('failed','cancelled') else '')
             db.execute('UPDATE execution_attempts SET exit_reason=? WHERE id=?',(reason,self.attempt))
@@ -287,7 +287,7 @@ class Coordinator:
             db.execute('INSERT OR IGNORE INTO execution_operation_catalog VALUES (?,?,?)',(self.worker,self.operation_catalog,now(db)))
             from .scheduling import limits
             db.execute('INSERT INTO execution_scheduler_configs VALUES (?,?,?) ON CONFLICT(worker) DO UPDATE SET settings=excluded.settings,updated=excluded.updated',(self.worker,json.dumps(limits()),now(db)))
-            expired=db.execute('SELECT l.attempt,l.turn_id FROM execution_leases l JOIN (SELECT id,status FROM agent_turns UNION ALL SELECT id,status FROM jobs) t ON t.id=l.turn_id WHERE l.active=1 AND l.expires<=? AND t.status IN (\'cancelled\',\'failed\',\'succeeded\')',(now(db),)).fetchall()
+            expired=db.execute('SELECT l.attempt,l.turn_id FROM execution_leases l JOIN (SELECT id,status FROM execution_subjects) t ON t.id=l.turn_id WHERE l.active=1 AND l.expires<=? AND t.status IN (\'cancelled\',\'failed\',\'succeeded\')',(now(db),)).fetchall()
             for row in expired:
                 db.execute('UPDATE execution_leases SET active=0 WHERE attempt=?',(row['attempt'],))
                 db.execute("UPDATE execution_attempts SET status='expired',finished=? WHERE id=?",(now(db),row['attempt']))
@@ -301,7 +301,7 @@ class Coordinator:
             if dynamic and (kind!='workflow' or not step_id):return None
             own=db.execute('SELECT draining FROM execution_workers WHERE id=?',(self.worker,)).fetchone()
             if own and own['draining']:return None
-            table = 'jobs' if kind == 'manual' else 'agent_turns'
+            table = 'execution_subjects'
             turn = db.execute(f'SELECT t.*,p.owner FROM {table} t JOIN projects p ON p.id=t.project WHERE t.id=?', (turn_id,)).fetchone()
             waiting=db.execute('SELECT next_retry FROM execution_waits WHERE task_id=?',(turn_id,)).fetchone()
             if waiting and waiting['next_retry']>timestamp and turn and turn['status']!='cancelling':return None
@@ -331,7 +331,8 @@ class Coordinator:
                     from .operation_lifecycle import for_operation,Lifecycle
                     from .runtime_image import fingerprint
                     if dynamic:
-                        task=next(t for t in dynamic['tasks'] if t['id']==step_id)
+                        from .workflow_graph import work_item,work_table
+                        task=work_item(dynamic,step_id)
                         if task['type']=='operation':
                             from .operations import get as operation_get
                             operation=operation_get(task['spec']['operation'],task['spec']['implementation'])
@@ -368,7 +369,7 @@ class Coordinator:
             if not control_only and node_count>=int(os.environ.get('VIDEO_USE_NODE_CONCURRENCY',os.environ.get('VIDEO_USE_CONCURRENCY','2'))):
                 db.execute("INSERT INTO execution_waits VALUES (?,'node_limit',0,?) ON CONFLICT(task_id) DO UPDATE SET reason='node_limit',updated=excluded.updated",(turn_id,timestamp))
                 return None
-            count = db.execute('SELECT COUNT(*) AS n FROM execution_leases l JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.id=l.turn_id JOIN projects p ON p.id=t.project WHERE l.active=1 AND l.expires>? AND p.owner=?',
+            count = db.execute('SELECT COUNT(*) AS n FROM execution_leases l JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.turn_id JOIN projects p ON p.id=t.project WHERE l.active=1 AND l.expires>? AND p.owner=?',
                                (timestamp, turn['owner'])).fetchone()['n']
             if not control_only and count >= per_user:
                 db.execute("INSERT INTO execution_waits VALUES (?,'user_limit',0,?) ON CONFLICT(task_id) DO UPDATE SET reason='user_limit',updated=excluded.updated",(turn_id,timestamp))
@@ -377,10 +378,10 @@ class Coordinator:
                 return None
             # Mutual exclusion spans Agent and manual jobs, including the window
             # where an API has marked a task cancelled but cleanup is still live.
-            busy = db.execute('SELECT l.turn_id FROM execution_leases l JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.id=l.turn_id WHERE t.project=? AND l.active=1 AND l.expires>? AND l.turn_id<>?',
+            busy = db.execute('SELECT l.turn_id FROM execution_leases l JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.turn_id WHERE t.project=? AND l.active=1 AND l.expires>? AND l.turn_id<>?',
                               (turn['project'],timestamp,turn_id)).fetchone()
             cleaning=db.execute("""SELECT c.task_id FROM execution_cleanup c
-              JOIN (SELECT id,project FROM agent_turns UNION ALL SELECT id,project FROM jobs) t ON t.id=c.task_id
+              JOIN (SELECT id,project FROM execution_subjects) t ON t.id=c.task_id
               JOIN execution_attempts a ON a.id=c.attempt JOIN execution_workers ew ON ew.id=a.worker
               WHERE t.project=? AND c.task_id<>? AND c.state<>'complete'
               AND (c.node=? OR ew.heartbeat>?) LIMIT 1""",
@@ -393,7 +394,7 @@ class Coordinator:
                 return None
             if kind == 'workflow':
                 w = dynamic or db.execute('SELECT status FROM agent_workflows WHERE turn_id=?', (turn_id,)).fetchone()
-                if not w or w['status'] not in (('planning','running','reviewing') if dynamic else ('ready', 'staged', 'cancelling', 'resuming')):
+                if not w or w['status'] not in (('ACTIVE',) if dynamic else ('ready', 'staged', 'cancelling', 'resuming')):
                     return None
             recovered = bool(prior and (prior['active'] or prior['interrupted'])) or bool(not prior and turn['status']=='running')
             generation = db.execute('SELECT COALESCE(MAX(generation),0)+1 AS next FROM execution_attempts WHERE turn_id=?',(turn_id,)).fetchone()['next']
@@ -402,7 +403,7 @@ class Coordinator:
             if resources is None:
                 db.execute("INSERT INTO execution_waits VALUES (?,'resource',0,?) ON CONFLICT(task_id) DO UPDATE SET reason='resource',updated=excluded.updated",(turn_id,timestamp))
                 return None
-            if environment_binding:db.execute('UPDATE workflow_tasks SET bindings_json=? WHERE workflow_id=? AND id=?' if dynamic else 'UPDATE agent_steps SET bindings=? WHERE workflow=? AND id=?',environment_binding)
+            if environment_binding:db.execute(f'UPDATE {work_table(task)} SET bindings_json=? WHERE run_id=? AND id=?' if dynamic else 'UPDATE agent_steps SET bindings=? WHERE workflow=? AND id=?',environment_binding)
             attempt = uuid.uuid4().hex
             db.execute('INSERT INTO execution_resource_claims VALUES (?,?,?,?,?,?,?)',(attempt,turn_id,self.node,resources['cpu'],resources['memory_mb'],resources['provider'],timestamp))
             db.execute('INSERT INTO execution_leases VALUES (?,?,?,?,?,?,1,0,?,?) ON CONFLICT(slot) DO UPDATE SET worker=excluded.worker,attempt=excluded.attempt,generation=excluded.generation,kind=excluded.kind,expires=excluded.expires,active=1,interrupted=0,release=excluded.release',
@@ -422,7 +423,7 @@ class Coordinator:
         rows=self.store.query("""SELECT t.id,t.status,w.status AS workflow_status,w.id AS workflow
           FROM agent_turns t LEFT JOIN agent_workflows w ON w.turn_id=t.id
           WHERE t.status IN ('queued','running','waiting','cancelling')
-          AND NOT EXISTS(SELECT 1 FROM workflow_runs dw WHERE dw.turn_id=t.id) ORDER BY t.created LIMIT 100""")
+          AND NOT EXISTS(SELECT 1 FROM runs dw WHERE dw.id=t.id) ORDER BY t.created LIMIT 100""")
         timestamp=self.store.now();ready=[]
         from .scheduling import available_steps
         for row in rows:

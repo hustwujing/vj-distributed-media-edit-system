@@ -143,8 +143,8 @@ class Plan(BaseModel):
                         raise ValueError(f'{step.id} 的输入 {name} 引用了 {ref.step} 未声明的输出角色 {ref.role}；请先声明 output_roles，每个角色对应一个输出文件')
             seen[step.id]=step
         operations=[for_step(s.model_dump()) for s in self.steps]
-        if sum(bool(op and op.provider and op.id.startswith('image.')) for op in operations)>4:raise ValueError('每个执行轮最多安排4次外部图片调用')
-        if sum(bool(op and op.provider and op.id.startswith('video.')) for op in operations)>int(os.environ.get('VIDEO_USE_TASK_VIDEO_CALLS','2')):raise ValueError('视频生成超过本任务调用额度')
+        if sum(bool(op and op.external_side_effects and op.id.startswith('image.')) for op in operations)>4:raise ValueError('每个执行轮最多安排4次外部图片调用')
+        if sum(bool(op and op.external_side_effects and op.id.startswith('video.')) for op in operations)>int(os.environ.get('VIDEO_USE_TASK_VIDEO_CALLS','2')):raise ValueError('视频生成超过本任务调用额度')
         return self
 
 
@@ -214,7 +214,7 @@ def initialize(store):
 
 def get(store, turn_id):
     from .workflow_graph import get as graph_get,execution_view
-    if store.query("SELECT name FROM sqlite_master WHERE name='workflow_runs'"):
+    if store.query("SELECT name FROM sqlite_master WHERE name='runs'"):
         dynamic=graph_get(store,turn_id)
         if dynamic:return execution_view(dynamic)
     try:rows = store.query('SELECT * FROM agent_workflows WHERE turn_id=?', (turn_id,))
@@ -317,7 +317,7 @@ def submit(store, turn_id, raw):
                 if step.kind!='operation':continue
                 approved=intent.get('implementations',{}).get(step.operation)
                 if approved and approved!=step.implementation:raise ValueError('工作流实现与已确认意图不一致，请重新规划')
-                if for_step(step.model_dump()).provider:paid.add(step.operation)
+                if for_step(step.model_dump()).external_side_effects:paid.add(step.operation)
             if any(requested[name]>allowed[name] for name in paid):
                 raise ValueError('工作流超出已确认的外部调用次数')
         existing = db.execute('SELECT definition FROM agent_workflows WHERE turn_id=?', (turn_id,)).fetchone()
@@ -353,11 +353,11 @@ def change(store, wid, sid, **values):
         if set(values)!={'bindings'}:raise ValueError('Dynamic task state is orchestrator-owned')
         from .task_leases import CURRENT
         lease=CURRENT.get()
-        if not lease or lease.turn_id!=dynamic['turn_id'] or lease.step_id!=sid:
+        if not lease or lease.turn_id!=dynamic['id'] or lease.step_id!=sid:
             raise ValueError('Input binding requires the current task lease')
         with store.connect() as db:
             lease.validate(db)
-            db.execute('UPDATE workflow_tasks SET bindings_json=?,updated_at=? WHERE workflow_id=? AND id=?',
+            db.execute('UPDATE run_tasks SET bindings_json=?,updated_at=? WHERE run_id=? AND id=?',
                        (encode(values['bindings']),store.now(),wid,sid))
         return
     values['updated'] = store.now()

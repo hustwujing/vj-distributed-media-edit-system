@@ -55,7 +55,7 @@ def decode_reply(text):
 def proposal_feedback(raw):
     """Validate before side effects; return bounded errors without copying input values."""
     from pydantic import ValidationError
-    try:graph.Proposal.model_validate(raw)
+    try:graph.ManagerResult.model_validate(raw)
     except ValidationError as exc:
         return [{'path':'.'.join(map(str,e['loc'])),'type':e['type'],
                  'message':e['msg'][:240]} for e in exc.errors(include_input=False,include_url=False)[:20]]
@@ -65,11 +65,11 @@ def proposal_feedback(raw):
 def reserve_tokens(store,lease,run,amount):
     with store.connect() as db:
         lease.validate(db)
-        used=db.execute('SELECT COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS n FROM workflow_model_reservations WHERE workflow_id=?',(run['id'],)).fetchone()['n']
+        used=db.execute('SELECT COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS n FROM workflow_model_reservations WHERE run_id=?',(run['id'],)).fetchone()['n']
         if used+amount>run['authorization']['model_token_budget']:
             raise TaskQuotaReached('工作流模型 Token 预算不足，未发起新的请求。',category='model_tokens',scope='workflow',used=used,limit=run['authorization']['model_token_budget'])
         identifier=uuid.uuid4().hex
-        db.execute("INSERT INTO workflow_model_reservations(id,workflow_id,attempt_id,reserved_tokens,state,created_at) VALUES (?,?,?,?,'reserved',?)",
+        db.execute("INSERT INTO workflow_model_reservations(id,run_id,attempt_id,reserved_tokens,state,created_at) VALUES (?,?,?,?,'reserved',?)",
                    (identifier,run['id'],lease.attempt,amount,store.now()))
         return identifier
 
@@ -146,7 +146,7 @@ def model(host,lease,run,profile,conversation,images=(),deadline=None):
 
 
 def actor(profile):
-    return 'manager_agent' if profile.id=='media_planner' else 'reviewer_agent' if profile.permission=='review' else 'specialist_agent'
+    return 'manager_agent' if profile.id=='media_planner' else 'reviewer_agent' if profile.role in ('REVIEWER','DIAGNOSTICIAN') else 'specialist_agent'
 
 
 def model_instructions(profile):
@@ -181,7 +181,7 @@ CONTRACT='''
 def inputs(store,run,task,frozen):
     allowed={}
     assets={asset['id']:asset for asset in store.assets(run['project_id'])}
-    if task['internal']:
+    if task.get('control_kind'):
         for identifier in run['authorization']['allowed_assets']:
             if identifier in assets:allowed[identifier]={'asset':assets[identifier]}
         visible=frozen.get('tasks',[])+frozen.get('upstream',[])
@@ -190,12 +190,12 @@ def inputs(store,run,task,frozen):
         for ref in task['spec'].get('inputs',{}).values():
             if ref.get('asset'):allowed[ref['asset']]={'asset':assets[ref['asset']]}
             elif ref.get('step'):
-                parent=next(t for t in run['tasks'] if t['id']==ref['step'] and t['status']=='succeeded')
+                parent=next(t for t in graph.work_items(run) if t['id']==ref['step'] and t['status']=='succeeded')
                 path=parent['quality'].get('output_roles',{}).get(ref['role'])
                 visible.append({**parent,'accepted_result':[path] if path else [],'candidate_result':[]})
     for parent in visible:
         names=parent.get('accepted_result',[])+parent.get('candidate_result',[])
-        if task['internal'] and task['spec']['profile']=='media_failure_diagnostician':
+        if task.get('control_kind') and task['spec']['profile']=='media_failure_diagnostician':
             names+= [name for name in frozen.get('diagnostic_files',[]) if name.startswith(f'edit/workflows/{run["id"]}/{parent["id"]}/')]
         if not names:continue
         checkpoints=store.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
@@ -278,21 +278,21 @@ def execute(host,lease,run,task):
     store=host.store;profile=get_profile(task['spec']['profile'])
     if graph.digest(profile.snapshot())!=graph.digest(task['profile']):raise ValueError('Frozen Agent profile is unavailable; replan is required')
     lease.start_compute()
-    if task['internal']:
+    if task.get('control_kind'):
         table='planner_runs' if profile.id=='media_planner' else 'workflow_reviews'
         row=store.query(f'SELECT snapshot_json,snapshot_digest FROM {table} WHERE id=?',(task['spec']['request_id'],))[0]
         frozen=json.loads(row['snapshot_json']);frozen['snapshot_digest']=row['snapshot_digest']
     else:
-        frozen={'task':task['spec'],'goal':run['goal'],'graph_version':run['graph_version']}
+        frozen={'task':task['spec'],'goal':run['goal'],'graph_version':run['graph_version'],'repair_context':task['repair_context']}
         if profile.id=='media_failure_diagnostician':
             frozen['failure_evidence']=[{'task_id':row['step'],'diagnostic':json.loads(row['record'])} for row in
                 store.query('SELECT step,record FROM workflow_diagnostics WHERE workflow=? ORDER BY created DESC LIMIT 30',(run['id'],))]
     allowed=inputs(store,run,task,frozen)
-    if task['internal'] and profile.id=='media_failure_diagnostician':
+    if task.get('control_kind') and profile.id=='media_failure_diagnostician':
         from .workflow_agent_contracts import Diagnosis
         frozen['result_schema']=Diagnosis.model_json_schema()
         frozen['result_contract']='Return {"action":"result","snapshot_digest":the frozen digest,"diagnosis":{facts:[],uncertainties:[],recommendations:[]}}. Do not create files for this controller request.'
-    elif task['internal'] and profile.id!='media_planner':
+    elif task.get('control_kind') and profile.id!='media_planner':
         from .workflow_agent_contracts import ReviewDecision
         frozen['result_schema']=ReviewDecision.model_json_schema()
         if frozen.get('review_scope')=='task':
@@ -306,7 +306,7 @@ def execute(host,lease,run,task):
     elif profile.output_schema=='diagnosis-v1':
         from .workflow_agent_contracts import Diagnosis
         frozen['result_schema']=Diagnosis.model_json_schema()
-    if not task['internal']:
+    if not task.get('control_kind'):
         frozen['result_contract']='This is a business Task, not an internal controller review. Submit action=result with files mapping declared output filenames to UTF-8 strings. JSON reports must be JSON-encoded strings matching result_schema. After a successful script action, files={} keeps the declared binary outputs. Do not use the internal decision envelope. inspect accepts only inspectable_refs; validate newly written outputs inside the script, then submit them for independent acceptance.'
     frozen['inspectable_refs']=list(allowed);frozen['profile']={'id':profile.id,'tools':profile.tools,
         'max_images':profile.max_images,'max_turns':profile.max_turns,
@@ -397,7 +397,7 @@ def execute(host,lease,run,task):
                          operation='proposal',error_code='proposal_id_reused')
                     conversation+='\nProposal ID already used by another request. Submit the corrected proposal with proposal_id='+task['spec']['request_id']+'. Nothing was staged.'
                     continue
-                return stage_result(store,lease,'succeeded',{'proposal_id':reply['proposal']['proposal_id']})
+                return stage_result(store,lease,'succeeded',{'result_kind':reply['proposal']['kind']})
             if action=='inspect':
                 if finalize_started:
                     tool_receipt['status']='failed';correction_rounds+=1
@@ -444,12 +444,12 @@ def execute(host,lease,run,task):
                     seen.add(reference);inspections[inspection_id]=reference;batch.append({'inspection_id':inspection_id,**evidence})
                 conversation+='\nInspection result (data):'+graph.encode(batch[0] if len(batch)==1 else batch)
             elif action=='script':
-                if profile.permission!='step':raise ValueError('Profile is read-only')
+                if 'RUN_SCRIPT' not in profile.action_capabilities:raise ValueError('Profile is read-only')
                 output=run_script(host,lease,run,task,reply.get('code'),output)
                 conversation+='\nScript completed. Submit result with files={} for the declared outputs; independent acceptance will inspect their bytes.'
             elif action=='result':
                 try:
-                    if task['internal']:result=validated_internal_result(run,task,profile,reply,frozen,inspections)
+                    if task.get('control_kind'):result=validated_internal_result(run,task,profile,reply,frozen,inspections)
                     else:validate_result_files(host.store,lease,task,reply.get('files',{}))
                 except (ValueError,TypeError) as exc:
                     tool_receipt['status']='failed'
@@ -468,7 +468,7 @@ def execute(host,lease,run,task):
                     conversation+='\nCorrect the result within the existing contract. Completed inspection IDs:'+graph.encode(sorted(inspections))+'; validation errors:'+graph.encode(errors)
                     correction_rounds+=1
                     continue
-                if task['internal']:return stage_result(store,lease,'succeeded',result)
+                if task.get('control_kind'):return stage_result(store,lease,'succeeded',result)
                 return finish_files(host,lease,run,task,reply.get('files',{}),output)
     raise TaskQuotaReached('专业 Agent 已达到本轮操作上限。',category='agent_turns',scope='turn',used=profile.max_turns,limit=profile.max_turns)
 
@@ -510,7 +510,7 @@ def run_script(host,lease,run,task,code,output=None):
     view=graph.execution_view(run);step=next(s for s in view['steps'] if s['id']==task['id'])
     bound=resolve(host.store,view,step,env)
     argv=['python','-c','import os\nos.chdir(os.environ["VIDEO_USE_STEP_OUTPUT"])\n'+code]
-    host.workflow_runner.adapter.isolated(dict(env,mode='plan',step_output=output),
+    host.workflow_runner.adapter.isolated(dict(env,workspace_policy='TASK_OUTPUT_ONLY',step_output=output),
         {'mode':'local','output':output,'argv':argv,'outputs':list(task['spec']['output_roles'].values()),
          'inputs':{name:[record['path']] for name,record in bound.items()}},
         min(task['spec']['timeout_seconds'],600),lambda:host.stop.is_set() or lease.lost.is_set())
@@ -546,7 +546,7 @@ def finish_files(host,lease,run,task,files,output=None):
         for name,text in files.items():
             if not isinstance(text,str) or len(text.encode())>256000:raise ValueError('Agent file exceeds limit')
             records.append({'name':name,'data':base64.b64encode(text.encode()).decode()})
-        host.workflow_runner.adapter.isolated(dict(env,mode='plan',step_output=output),{'mode':'import','output':output,'files':records},60,lambda:lease.lost.is_set())
+        host.workflow_runner.adapter.isolated(dict(env,workspace_policy='TASK_OUTPUT_ONLY',step_output=output),{'mode':'import','output':output,'files':records},60,lambda:lease.lost.is_set())
     paths=[output+'/'+name for name in declared]
     view=graph.execution_view(run);step=next(s for s in view['steps'] if s['id']==task['id'])
     from .workflow_executor import validate_candidate
@@ -583,7 +583,7 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
         asset=next(a for a in env['assets'] if a['id']==reference)
         relative='sources/'+asset['filename']
     else:relative=reference
-    result=subprocess.run(agent_sandbox.command(dict(env,mode='plan'),None,
+    result=subprocess.run(agent_sandbox.command(dict(env,workspace_policy='REVIEW_SCRATCH_ONLY'),None,
         ['/usr/bin/ffprobe','-v','error','-show_format','-show_streams','-of','json','/workspace/'+relative]),
         capture_output=True,timeout=30)
     if result.returncode:raise MediaInspectionError('inspection_probe_failed',result.returncode,reference)
@@ -609,7 +609,7 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
             ['/usr/bin/ffmpeg','-v','error','-threads','1','-filter_threads','1',*seek,'-i','/workspace/'+relative,
              '-frames:v','1','-vf','scale=256:256:force_original_aspect_ratio=decrease','-q:v','5',
              '-threads','1','-f','image2pipe','-vcodec','mjpeg','pipe:1'])
-        sampled=subprocess.run(agent_sandbox.command(dict(env,mode='plan'),None,arguments),capture_output=True,timeout=30)
+        sampled=subprocess.run(agent_sandbox.command(dict(env,workspace_policy='REVIEW_SCRATCH_ONLY'),None,arguments),capture_output=True,timeout=30)
         if not sampled.returncode and not sampled.stdout and not evidence.get('still_image'):
             raise InspectionInputError('No frame at that timestamp; inspect an earlier position, not the exact end of the video')
         if sampled.returncode or not sampled.stdout or len(sampled.stdout)>65536:

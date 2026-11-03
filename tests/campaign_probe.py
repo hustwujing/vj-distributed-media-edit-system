@@ -302,11 +302,11 @@ def verify(run_dir):
         sheet.save(run_dir/'contact-sheet.jpg')
     if spec.get('allowed_external_operations'):
         db=store()
-        calls=db.query("""SELECT request_key,step,revision,provider,operation,state,external_id,network_seconds,poll_count FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM workflow_runs WHERE turn_id=?) OR workflow=? ORDER BY created""",(state['execute_id'],state['execute_id']))
+        calls=db.query("""SELECT request_key,step,revision,provider,operation,state,external_id,network_seconds,poll_count FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE turn_id=?) OR workflow=? ORDER BY created""",(state['execute_id'],state['execute_id']))
         for reuse in state.get('reuse_evidence',[]):
             owned=db.query('SELECT project FROM agent_turns WHERE id=?',(reuse['task'],))
             if not owned or owned[0]['project']!=state['project']:raise ValueError('Reused provider task outside project')
-            previous=db.query("SELECT request_key,workflow,step,revision,provider,operation,state,external_id,network_seconds,poll_count,result FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM workflow_runs WHERE turn_id=?) AND operation=? AND state='succeeded'",(reuse['task'],reuse['operation']))
+            previous=db.query("SELECT request_key,workflow,step,revision,provider,operation,state,external_id,network_seconds,poll_count,result FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE turn_id=?) AND operation=? AND state='succeeded'",(reuse['task'],reuse['operation']))
             linked=[]
             for receipt in previous:
                 # Async receipts describe the provider job; its downloaded
@@ -335,7 +335,7 @@ def candidate(db,task):
     rows=db.query("SELECT a.id,a.worker,a.step_id,a.runtime,a.started,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id=? AND a.kind='workflow' AND a.status='running' AND a.runtime<>'' ORDER BY a.started DESC",(task,))
     for row in rows:
         if time.time()-row['started']<2:continue
-        specs=db.query('SELECT s.spec_json AS spec FROM workflow_tasks s JOIN workflow_runs w ON w.id=s.workflow_id WHERE w.turn_id=? AND s.id=?',(task,row['step_id']))
+        specs=db.query('SELECT s.spec_json AS spec FROM run_tasks s JOIN runs w ON w.id=s.run_id WHERE w.turn_id=? AND s.id=?',(task,row['step_id']))
         if not specs or not (json.loads(specs[0]['spec']).get('retry_policy')=='safe_once'):continue
         for node in cluster.PORTS:
             registry=cluster.registry(node)

@@ -9,8 +9,8 @@ MODEL_PATHS={'/responses','/v1/responses','/messages','/v1/messages','/chat/comp
 def context(lease):
     if not lease or lease.kind!='workflow' or not lease.step_id:raise ValueError('A delegated Agent task lease is required')
     lease.check();run=graph.get(lease.store,lease.turn_id)
-    if not run or run['status'] in ('cancelling',*graph.TERMINAL):raise ValueError('Workflow no longer accepts Agent submissions')
-    task=next((t for t in run['tasks'] if t['id']==lease.step_id and t['type']=='agent'),None)
+    if not run or run['status'] in ('CANCELLING',*graph.RUN_TERMINAL):raise ValueError('Workflow no longer accepts Agent submissions')
+    task=next((t for t in graph.work_items(run) if t['id']==lease.step_id and t['type']=='agent'),None)
     if not task:raise ValueError('Agent task outside lease scope')
     policy=profile(task['spec']['profile'])
     if graph.digest(policy.snapshot())!=graph.digest(task['profile']):raise ValueError('Agent policy changed')
@@ -38,11 +38,11 @@ def submit(lease,kind,body):
         if kind=='proposal':
             if policy.id!='media_planner' or set(body)!={'proposal'}:raise ValueError('Proposal outside Manager scope')
             planning.stage(lease.store,lease,task['spec']['request_id'],body['proposal'])
-            return {'staged':True,'workflow_id':run['id'],'base_graph_version':run['graph_version']}
+            return {'staged':True,'run_id':run['id'],'base_graph_version':run['graph_version']}
         if kind!='result' or 'result' not in policy.tools or set(body)!={'result'}:raise ValueError('Result outside Agent scope')
         result=body['result']
         if not isinstance(result,dict):raise ValueError('Agent result must be an object')
-        if task['internal']:
+        if task.get('control_kind'):
             from .workflow_agent_contracts import ReviewDecision,Diagnosis
             if policy.id=='media_failure_diagnostician':
                 if set(result)!={'snapshot_digest','diagnosis'}:raise ValueError('Diagnostic result must be structured')
@@ -61,14 +61,14 @@ def submit(lease,kind,body):
         if previous and previous['payload_json']!=encoded:raise ValueError('Agent result already staged with different content')
         db.execute('INSERT OR IGNORE INTO workflow_agent_outputs VALUES (?,?,?,?,?,?)',
                    (lease.attempt,run['id'],task['id'],lease.generation,encoded,lease.store.now()))
-        return {'staged':True,'validation_required':True,'workflow_id':run['id'],'task_id':task['id']}
+        return {'staged':True,'validation_required':True,'run_id':run['id'],'task_id':task['id']}
 
 
 def inspect(gateway,body):
     run,task,policy=context(gateway.lease)
     if 'inspect' not in policy.tools or set(body)-{'ref','offset'}:raise ValueError('Inspection outside profile scope')
     from .workflow_agents import inputs,inspect as inspect_file,inspect_media
-    if task['internal']:
+    if task.get('control_kind'):
         table='planner_runs' if policy.id=='media_planner' else 'workflow_reviews'
         row=gateway.lease.store.query(f'SELECT snapshot_json,snapshot_digest FROM {table} WHERE id=?',(task['spec']['request_id'],))[0]
         frozen=json.loads(row['snapshot_json']);snapshot_digest=row['snapshot_digest']

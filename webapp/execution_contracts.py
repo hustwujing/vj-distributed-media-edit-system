@@ -1,6 +1,12 @@
 """Shared vocabulary. Persisted v1 names are retained at compatibility boundaries."""
 from enum import StrEnum
 
+class WorkspacePolicy(StrEnum):
+    WORKSPACE_READ_ONLY='WORKSPACE_READ_ONLY'
+    TASK_OUTPUT_ONLY='TASK_OUTPUT_ONLY'
+    REVIEW_SCRATCH_ONLY='REVIEW_SCRATCH_ONLY'
+    FULL_PROJECT_EDIT='FULL_PROJECT_EDIT'
+
 class PermissionProfile(StrEnum):
     PLANNING='planning'
     EXECUTION='execution'

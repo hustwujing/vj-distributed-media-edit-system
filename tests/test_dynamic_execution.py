@@ -77,16 +77,21 @@ class DynamicExecutionTests(unittest.TestCase):
                     return {'action':'result','decision':{'snapshot_digest':frozen['snapshot_digest'],'verdict':'pass',
                         'evidence':[{'criterion_index':0,'observation':'Read the combined report text','inspection_id':inspection}],
                         'deliverables':[inspection]}}
-                with patch('webapp.workflow_agents.model',side_effect=model):
+                from tests.test_dynamic_graph import envelope
+                def bound_model(host,lease,*args,**kwargs):
+                    reply=model(host,lease,*args,**kwargs)
+                    if reply.get('action')=='proposal':reply={**reply,'proposal':envelope(host.store,lease.step_id,reply['proposal'])}
+                    return reply
+                with patch('webapp.workflow_agents.model',side_effect=bound_model):
                     for _ in range(20):
                         # Recover a later stage from a distinct local root.
                         index=1 if 'first' in executed else 0
                         host=hosts[index];controller=controllers[index];store=host.store
-                        store.execute('UPDATE workflow_runs SET next_reconcile_at=0 WHERE id=?',(run['id'],))
+                        store.execute('UPDATE runs SET next_reconcile_at=0 WHERE id=?',(run['id'],))
                         for claim in controller.claim_due():controller.reconcile(*claim)
                         current=graph.get(store,run['id'])
-                        if current['status']=='succeeded':break
-                        self.assertNotIn(current['status'],('paused','waiting_user','failed'),current)
+                        if current['status']=='SUCCEEDED':break
+                        self.assertNotIn(current['status'],('WAITING_USER','FAILED'),current)
                         for row in workers[index].candidates():
                             if not row.get('dynamic'):continue
                             lease=workers[index].claim(turn,'workflow',step_id=row['step_id'])
@@ -96,7 +101,7 @@ class DynamicExecutionTests(unittest.TestCase):
                                     lease.runtime_factory=lambda:TaskRuntime(lease,pools[index])
                                     execute(host,lease)
                                     staged=graph.get(store,run['id'])
-                                    task=next(t for t in staged['tasks'] if t['id']==lease.step_id)
+                                    task=next(t for t in graph.work_items(staged) if t['id']==lease.step_id)
                                     self.assertNotEqual(task['status'],'succeeded','Executor cannot commit business success')
                             finally:
                                 if lease.runtime:lease.runtime.close()
@@ -106,9 +111,9 @@ class DynamicExecutionTests(unittest.TestCase):
                                 self.assertFalse(graph.get(store,run['id'])['sealed'])
                                 self.assertFalse(store.query("SELECT id FROM workflow_reviews WHERE purpose='final'"))
                                 shutil.rmtree(stores[0].project_dir(project))
-                    else:self.fail('Workflow did not converge: '+repr([(t['id'],t['status'],t['phase'],t['error_code']) for t in current['tasks']]))
+                    else:self.fail('Workflow did not converge: '+repr([(t['id'],t['status'],t['phase'],t['error_code']) for t in graph.work_items(current)]))
                 self.assertEqual(current['graph_version'],2)
-                self.assertEqual(current['status'],'succeeded')
+                self.assertEqual(current['status'],'SUCCEEDED')
                 self.assertEqual(len(current['delivery']),1)
                 final=store.file(project,'edit/agent_exports/'+turn+'/'+current['delivery'][0]['file'])
                 self.assertEqual(final.read_text(),'first report extended')

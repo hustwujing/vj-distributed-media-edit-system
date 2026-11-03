@@ -184,12 +184,12 @@ def sample(store,archive):
     orchestrators=query('orchestrators','SELECT id,release,heartbeat,draining,reconciles,failures,last_duration FROM workflow_orchestrators ORDER BY heartbeat DESC LIMIT 20')
     data['views']['orchestrators']=orchestrators
     data['gauges']['orchestrators_available']=sum(now-r['heartbeat']<15 and not r['draining'] for r in orchestrators)
-    workflows=query('dynamic_workflows',"SELECT status,COUNT(*) AS n,MIN(next_reconcile_at) AS due FROM workflow_runs GROUP BY status")
+    workflows=query('dynamic_workflows',"SELECT status,COUNT(*) AS n,MIN(next_reconcile_at) AS due FROM runs GROUP BY status")
     data['views']['dynamic_workflows']=workflows
     data['gauges']['workflow_scan_lag_seconds']=max([max(0,now-r['due']) for r in workflows if r['status'] not in ('succeeded','failed','cancelled')]+[0])
     data['gauges']['workflow_reconcile_failures']=sum(r['failures'] for r in orchestrators)
     data['gauges']['workflow_reconcile_last_seconds']=max([r['last_duration'] for r in orchestrators]+[0])
-    data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM workflow_tasks GROUP BY type,status')
+    data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM run_tasks GROUP BY type,status')
     data['views']['planning']=query('planning','SELECT status,COUNT(*) AS n FROM planner_runs GROUP BY status')
     late=query('late_results',"SELECT COUNT(*) AS n FROM task_results WHERE status='late'")
     data['gauges']['workflow_late_results_total']=late[0]['n'] if late else 0

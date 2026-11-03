@@ -33,7 +33,15 @@ def run(store,identifier):
         calls=store.query('SELECT implementation FROM workflow_provider_calls WHERE request_key=?',(identifier,))
         handle=json.loads(calls[0]['implementation']) if calls else {}
         from . import generation_service
-        if handle.get('protocol') in generation_service.PROVIDERS:
+        if calls:
+            from .provider_metadata import route
+            policy=route(handle['route_adapter']).cleanup_category
+            if policy!=handle['cleanup_category']:raise ValueError('Invalid saved cleanup policy')
+        else:
+            direct=store.query('SELECT id FROM execution_provider_calls WHERE id=?',(identifier,))
+            if not direct:raise ValueError('Cleanup has no frozen provider call')
+            policy='job_api'
+        if policy=='generation_protocol':
             with session() as client:
                 result=(generation_service.cancel(client,handle,row['external_id']) if method=='POST'
                         else generation_service.poll(client,handle,row['external_id']))
@@ -41,8 +49,10 @@ def run(store,identifier):
                 state='complete';row['_provider_terminal']=result['status']
                 row['_usage']=result.get('usage');row['_cost']=result.get('cost')
             elif method=='GET':next_phase='cancel'
-        else:
-            state,error,next_phase=legacy_cleanup(store,row,base,method,url,state,error,next_phase)
+        elif policy=='unqueryable_sync':
+            raise NotImplementedError('Synchronous provider has no queryable cancellation handle')
+        elif policy=='job_api':
+            state,error,next_phase=job_api_cleanup(store,row,base,method,url,state,error,next_phase)
     except NotImplementedError:
         state='unsupported';error='该上游接口不支持已验证的取消能力，任务可能继续运行。'
     except Exception as exc:
@@ -65,11 +75,14 @@ def run(store,identifier):
                        (parts[0],parts[1],int(parts[2]),row['external_id']))
 
 
-def legacy_cleanup(store,row,base,method,url,state,error,next_phase):
+def job_api_cleanup(store,row,base,method,url,state,error,next_phase):
     with session() as client:
         saved=store.query('SELECT cookies FROM workflow_provider_calls WHERE provider=? AND external_id=? ORDER BY created DESC LIMIT 1',(base,row['external_id']))
         if saved:client.cookies.update(json.loads(saved[0]['cookies']))
-        if base==__import__('os').environ.get('VIDEO_USE_GENERATION_URL'):
+        calls=store.query('SELECT implementation FROM workflow_provider_calls WHERE request_key=?',(row['id'],))
+        if calls and json.loads(calls[0]['implementation'])['route_adapter']=='generation_jobs':
+            from .generation_provider import endpoint
+            if base!=endpoint():raise ValueError('Restore the original generation credential route')
             from .generation_provider import headers
             client.headers.update(headers())
         with client.request(method,url,timeout=(3,5),allow_redirects=False,stream=True) as response:

@@ -67,10 +67,10 @@ def current_agent_rows(store,project):
         JOIN agent_workflows w ON w.id=c.workflow AND w.project=c.project
         JOIN agent_steps s ON s.workflow=c.workflow AND s.id=c.step AND s.revision=c.revision
         WHERE c.project=? ORDER BY c.workflow,c.step''',(project,))
-    if store.query("SELECT name FROM sqlite_master WHERE name='workflow_runs'"):
+    if store.query("SELECT name FROM sqlite_master WHERE name='runs'"):
         rows+=store.query('''SELECT c.workflow,c.step,c.manifest FROM execution_step_checkpoints c
-            JOIN workflow_runs w ON w.id=c.workflow AND w.project_id=c.project
-            JOIN workflow_tasks s ON s.workflow_id=w.id AND s.id=c.step AND s.revision=c.revision
+            JOIN runs w ON w.id=c.workflow AND w.project_id=c.project
+            JOIN run_tasks s ON s.run_id=w.id AND s.id=c.step AND s.revision=c.revision
             WHERE c.project=? ORDER BY c.workflow,c.step''',(project,))
     return rows
 
@@ -98,7 +98,7 @@ def restore(runtime):
         workflow=get(store,lease.turn_id)
         if not workflow:return
         by_id={s['id']:s for s in workflow['steps']}
-        required=set(by_id) if not lease.step_id or workflow.get('dynamic') and lease.step_id.startswith('__') else {lease.step_id}
+        required=set(by_id) if not lease.step_id or workflow.get('dynamic') and self_control(store,lease) else {lease.step_id}
         pending=list(required)
         while pending:
             for parent in by_id[pending.pop()]['spec']['depends_on']:
@@ -109,10 +109,10 @@ def restore(runtime):
             rows.extend(store.query('SELECT workflow,step,manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=? AND project=?',
                          (workflow['id'],step_id,step['revision'],runtime.project.name)))
         if workflow.get('dynamic'):
-            from .workflow_graph import get as graph_get
-            graph=graph_get(store,lease.turn_id);selected=next(t for t in graph['tasks'] if t['id']==lease.step_id)
+            from .workflow_graph import get as graph_get,work_item
+            graph=graph_get(store,lease.turn_id);selected=work_item(graph,lease.step_id)
             permitted=set()
-            if selected['internal']:
+            if selected.get('control_kind'):
                 table='planner_runs' if selected['spec']['profile']=='media_planner' else 'workflow_reviews'
                 request=store.query(f'SELECT snapshot_json FROM {table} WHERE id=?',(selected['spec']['request_id'],))[0]
                 frozen=json.loads(request['snapshot_json'])
@@ -160,3 +160,10 @@ def restore(runtime):
         parent=target.parent
         while parent!=runtime.workspace:
             os.chown(parent,runtime.uid,runtime.gid);parent.chmod(0o700);parent=parent.parent
+
+
+def self_control(store,lease):
+    from .workflow_graph import get,work_item
+    run=get(store,lease.turn_id)
+    item=work_item(run,lease.step_id) if run else None
+    return bool(item and item.get('control_kind'))

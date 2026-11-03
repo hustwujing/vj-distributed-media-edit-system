@@ -59,11 +59,20 @@ class Operation:
     cpu:int=2
     memory_mb:int=2048
     timeout:int=900
-    provider:str=''
+    external_side_effects:bool=False
+    budget_group:str=''
+    concurrency_group:str=''
+    route_adapter:str=''
+    provider_identity:str=''
+    cleanup_category:str=''
     model_profile:str='none'
     implementation_id:str=''
     output_files:tuple[str,...]|None=None
     reuse_safe:bool=False
+    def __post_init__(self):
+        from .provider_metadata import validate
+        validate(self)
+
     def public(self):
         result=asdict(self)
         from .operation_lifecycle import for_operation
@@ -75,7 +84,7 @@ class Operation:
         if self.id=='image.generate_from_text':supported.add('image_sync@1')
         result['implementations']=sorted(supported)
         result['permissions']={'read_declared_inputs':True,'write_attempt_outputs':True,
-            'network':'registered_provider' if self.provider else 'none','external_side_effects':bool(self.provider),
+            'network':'registered_provider' if self.external_side_effects else 'none','external_side_effects':self.external_side_effects,
             'arbitrary_commands':False,'model_profile':self.model_profile}
         result['output_contract']={'roles':list(self.outputs),'primary':self.outputs[0] if self.outputs else None,
                                    'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':list(self.output_files) if self.output_files is not None else None}
@@ -98,10 +107,10 @@ class Operation:
         elif self.id=='media.render':
             result['constraints']={'long_edge_by_quality':{'draft':1280,'preview':1920,'final':1920},
                                    'preserves_input_resolution':False,'custom_geometry_operation':'media.edit'}
-        elif self.provider=='edit':
+        elif self.route_adapter=='image_edit':
             from .image_providers import EDITOR_CONTRACT
             result['constraints']=dict(EDITOR_CONTRACT)
-        result.update(available=self.available(),availability='configured_unverified' if self.provider and self.available() else 'unconfigured' if not self.available() else 'local_registered',input_schema=InputRef.model_json_schema(),
+        result.update(available=self.available(),availability='configured_unverified' if self.external_side_effects and self.available() else 'unconfigured' if not self.available() else 'local_registered',input_schema=InputRef.model_json_schema(),
                       parameters_schema=parameter_schema,implementation_version='workflow-operations-v4',
                       recovery='retry_step' if self.retry_safe else 'reuse_saved_result_or_pause_unknown' if self.executor in ('transcribe','image_sync') else 'query_existing_or_pause_unknown',
                       cancellation='terminate_scope' if self.executor in ('fixed_image','fixed_media') else 'abort_request_upstream_unknown' if self.executor in ('transcribe','image_sync') else 'provider_dependent')
@@ -146,7 +155,12 @@ for action in _ACTIONS:
                  'image_async' if action in ('generate','decompose') else 'image_remote' if external else 'fixed_image',
                  outputs=roles,gpu=action in _GPU,retry_safe=not external,
                  memory_mb=8192 if action in _GPU else 2048,
-                 provider='decompose' if action=='decompose' else 'edit' if external else '',
+                 external_side_effects=external,
+                 budget_group=_ALIASES.get(action,'image.'+action) if external else '',
+                 concurrency_group=('decompose' if action=='decompose' else 'edit') if external else '',
+                 route_adapter=('image_decompose' if action=='decompose' else 'image_edit') if external else '',
+                 provider_identity=('qwen-decompose' if action=='decompose' else 'qwen-image-editor') if external else '',
+                 cleanup_category='job_api' if external else '',
                  model_profile=_GPU.get(action,'ocr' if action in ('ocr','replace_text') else 'none'),
                  reuse_safe=action in ('refine_mask','perspective','color_match','local_adjust','batch_export','product_layout'),
                  output_files=_FIXED_OUTPUT_FILES.get(action))
@@ -159,10 +173,10 @@ for action in ('render','edit','timeline','analyze','review','pack','concat_sequ
     REGISTRY[op.id]=op
 REGISTRY['audio.process']=Operation('audio.process','audio_process','fixed_media',('audio','video'),('audio','report'),
     memory_mb=2048,timeout=1800,reuse_safe=True)
-REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,provider='elevenlabs',output_files=('transcript.json',))
-REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,provider='generation')
-REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,provider='generation',timeout=3600)
-REGISTRY['video.generate_from_text']=Operation('video.generate_from_text','text_to_video','generation_async',(),('video',),retry_safe=False,provider='generation',timeout=3600)
+REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,external_side_effects=True,budget_group='audio.transcribe',concurrency_group='elevenlabs',route_adapter='elevenlabs',provider_identity='elevenlabs',cleanup_category='unqueryable_sync',output_files=('transcript.json',))
+REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,external_side_effects=True,budget_group='image.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api')
+REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_image',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)
+REGISTRY['video.generate_from_text']=Operation('video.generate_from_text','text_to_video','generation_async',(),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)
 
 
 @dataclass(frozen=True)
@@ -191,7 +205,7 @@ def register_implementation(operation_id,implementation,**resources):
     from .operation_lifecycle import get as implementation_by_id,for_operation
     if operation_id not in REGISTRY:raise ValueError('Register operation before implementations')
     selected=implementation_by_id(implementation)
-    allowed={'cpu','memory_mb','gpu','timeout','provider','model_profile','retry_safe','reuse_safe'}
+    allowed={'cpu','memory_mb','gpu','timeout','external_side_effects','budget_group','concurrency_group','route_adapter','provider_identity','cleanup_category','model_profile','retry_safe','reuse_safe'}
     if set(resources)-allowed:raise ValueError('Implementation cannot override the business contract')
     variants=_IMPLEMENTATION_BINDINGS.setdefault(operation_id,{})
     if implementation in variants or implementation==for_operation(REGISTRY[operation_id]).id:raise ValueError('Duplicate operation implementation')
@@ -240,9 +254,19 @@ def get(operation,implementation=None):
         if operation=='image.generate_from_text':allowed.add('image_sync@1')
         if selected.id not in allowed:raise ValueError('Implementation does not implement this operation')
         executor=selected.id.rsplit('@',1)[0]
-        return replace(op,executor=executor,implementation_id=selected.id,provider='openai_images' if executor=='image_sync' else op.provider)
+        return resolved_provider(replace(op,executor=executor,implementation_id=selected.id))
     if operation=='image.generate_from_text' and os.environ.get('VIDEO_USE_IMAGE_GENERATION_BACKEND','auto')!='jobs' and (os.environ.get('VIDEO_USE_IMAGE_GENERATION_URL') or os.environ.get('VIDEO_USE_MODEL_BASE_URL')):
-        return replace(op,executor='image_sync',provider='openai_images')
+        return resolved_provider(replace(op,executor='image_sync'))
+    return resolved_provider(op)
+
+
+def resolved_provider(op):
+    if op.executor=='image_sync':
+        return replace(op,route_adapter='openai_images',provider_identity='openai-images',concurrency_group='openai_images',cleanup_category='unqueryable_sync')
+    if op.route_adapter in ('generation','generation_jobs'):
+        identity=('wan' if op.id=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan'
+                  else 'ark' if os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark' else 'generation-jobs')
+        return replace(op,provider_identity=identity,route_adapter='generation_jobs' if identity=='generation-jobs' else 'generation',cleanup_category='job_api' if identity=='generation-jobs' else 'generation_protocol')
     return op
 
 
