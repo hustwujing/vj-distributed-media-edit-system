@@ -159,7 +159,7 @@ inherit = "all"
             folder.mkdir(exist_ok=True,mode=0o700);os.chown(folder,uid,gid)
         result['repair_dir']=workspace/'edit/repairs'/preview_id
         result['repair_path']=SANDBOX_WORKSPACE+'/edit/repairs/'+preview_id
-    from .operations import catalog
+    from .operations import catalog_index
     from .execution_contracts import profile
     if lease and lease.kind=='manual':permission=profile(mode,fixed=True)
     elif lease and lease.kind=='workflow':
@@ -169,7 +169,7 @@ inherit = "all"
     result['permission_profile']=str(permission)
     if lease:store.execute("UPDATE execution_attempts SET permission_profile=? WHERE id=? AND permission_profile=''",(str(permission),lease.attempt))
     capabilities=json.loads((REPO/'runtime/public/capabilities.json').read_text())
-    (agent/'capabilities.json').write_text(json.dumps({**capabilities,**catalog()},ensure_ascii=False))
+    (agent/'capabilities.json').write_text(json.dumps({**capabilities,**catalog_index()},ensure_ascii=False))
     (agent/'capabilities.json').chmod(0o644)
     if runtime:runtime.env = result
     return result

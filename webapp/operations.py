@@ -307,5 +307,16 @@ def catalog(names=None):
             'dispatch_kinds':['agent','manual','workflow'],'conversation_modes':['plan','execute']}
 
 
+def catalog_index():
+    """Small discovery view; exact schemas remain explicit per-operation queries."""
+    value=catalog()
+    value['view']='index'
+    value['operation_count']=len(value['operations'])
+    value['detail_query']='python /opt/workflow.py capabilities --operation OPERATION_ID; --full for all schemas'
+    keys=('id','action','available','availability','input_contract','output_contract')
+    value['operations']=[{k:op[k] for k in keys if k in op} for op in value['operations']]
+    return value
+
+
 from .operation_extensions import load as _load_extensions
 _load_extensions()

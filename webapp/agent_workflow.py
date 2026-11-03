@@ -12,12 +12,15 @@ def main():
     parser.add_argument('plan', nargs='?')
     parser.add_argument('--operation',action='append',dest='operations',help='Filter capability schemas by operation ID (repeatable)')
     parser.add_argument('--step',action='append',dest='steps',help='Read full details of selected workflow steps (repeatable)')
+    parser.add_argument('--full',action='store_true',help='Return all operation schemas instead of the discovery index')
     args = parser.parse_args()
+    if args.full and (args.action!='capabilities' or args.operations):parser.error('--full requires unfiltered capabilities')
     if args.operations and args.action!='capabilities':parser.error('--operation requires capabilities')
     if args.steps and args.action!='status':parser.error('--step requires status')
     if args.action in ('submit','validate','decision','intent','preflight') and not args.plan:
         parser.error('This action requires a JSON file')
     body = {'action':args.action}
+    if args.action=='capabilities' and not args.operations:body['compact']=not args.full
     if args.operations:body['operations']=args.operations
     if args.steps:body['steps']=args.steps
     if args.action in ('submit','validate','decision','intent','preflight'):

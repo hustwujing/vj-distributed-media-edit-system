@@ -52,6 +52,18 @@ class PromptContextTests(unittest.TestCase):
         for names in (['invented'],[],['media.edit']*9,'media.edit'):
             with self.assertRaises(ValueError):catalog(names)
 
+    def test_discovery_index_omits_bulk_schemas_but_preserves_exact_lookup(self):
+        from webapp.operations import catalog,catalog_index
+        index=catalog_index();full=catalog()
+        self.assertEqual([o['id'] for o in index['operations']],[o['id'] for o in full['operations']])
+        self.assertTrue(all('parameters_schema' not in o for o in index['operations']))
+        self.assertLess(len(json.dumps(index)),len(json.dumps(full))*.4)
+        value=workflow_review.dispatch(self.s,self.t,{'action':'capabilities','compact':True},'plan')
+        self.assertEqual(value['view'],'index')
+        exact=workflow_review.dispatch(self.s,self.t,{'action':'capabilities','operations':['media.edit']},'plan')
+        self.assertIn('edit_plan',exact['operations'][0]['parameters_schema']['properties'])
+        with self.assertRaises(ValueError):workflow_review.dispatch(self.s,self.t,{'action':'capabilities','compact':'yes'},'plan')
+
     def test_intent_contracts_include_only_declared_operations(self):
         self.s.execute('INSERT INTO execution_intents VALUES (?,?,?,?)',(self.fixture.plan,json.dumps({'route':'single','operations':['media.edit'],'implementations':{},'goal':'edit','estimated_seconds':20}),'d'*64,1.))
         contract=selected_contracts(self.s,self.t);self.assertEqual(len(contract),1)

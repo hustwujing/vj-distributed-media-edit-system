@@ -43,7 +43,9 @@ def dispatch(store,turn_id,body,mode,review_id=None):
         from .execution_intent import declare
         return declare(store,turn_id,body.get('intent'))
     if action=='capabilities':
-        from .operations import catalog
+        from .operations import catalog,catalog_index
+        if type(body.get('compact',False)) is not bool:raise ValueError('compact 必须是布尔值')
+        if body.get('compact') and body.get('operations') is None:return catalog_index()
         return catalog(body.get('operations'))
     if action=='preflight':
         if mode!='execute' or review_id:raise ValueError('正式脚本预检查需要确认执行阶段')

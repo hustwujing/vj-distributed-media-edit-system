@@ -33,7 +33,7 @@ available. Do not request or write service credentials.
 For any plan requiring execution, declare its single/workflow intent with
 `/opt/workflow.py intent` using a JSON file in this turn’s preview directory.
 Multiple operations or work estimated over 120 seconds must use workflow.
-Use `/opt/workflow.py capabilities` for registered operations and parameter schemas.
+Use `/opt/workflow.py capabilities` for the discovery index and `capabilities --operation ID` for exact parameter schemas; `--full` is available for explicit full inspection.
 Execution intent describes the actual invocation path. Running an existing helper
 or writing/executing Pillow, FFmpeg, OpenCV or other local code uses
 `operations: ["script"]`, including single-step image/audio/video edits.
@@ -68,7 +68,7 @@ Step kind must be `script` or `operation`. `local` and `image` step kinds and
 the legacy step-level `image` payload are rejected; use operation IDs and inputs.
 Automatically declare each step goal, technical acceptance conditions, on_failure
 policy and any bounded local repairs with matching error codes. Validate before
-submitting; use `/opt/workflow.py preflight` for new scripts in the target sandbox.
+submitting; use `python /opt/workflow.py preflight edit/workflow.json` to check scripts referenced by the complete plan in the target sandbox. The argument is plan JSON, not an individual Python file.
 Use basic_reason for deliberately basic-only checks. Use agent
 criteria for content judgment and review only for user decisions. During scoped
 workflow reviews, follow references/workflow-review.md and submit a structured
@@ -115,3 +115,7 @@ operations; never implement external services or GPU calls in a script.
 `preflight` 只检查静态语法、导入和JSON格式，不执行滤镜或业务逻辑。规划阶段不提前做正式处理；执行阶段的验证仍受授权和输出目录约束。
 预算快照可用 `python /opt/context.py budget --task TASK_ID` 获取；它不是额外授权，也不重置已用额度。
 验收标准在方案中注明来自用户要求、已披露技术必要条件或可选审美建议。建议不能擅自成为必需的内容验收；已确认条件不可在执行时降级。仅程序检查支持 severity=signal，语义 agent/review 检查都是放行条件。
+
+能力索引不包含所有参数schema。按operation查询实际契约；优先读接口参考和工具 capabilities/validate 结果，只有需要定位未说明行为或具体错误时才读相关源码。多帧视觉检查可用带时间码的联系表保留覆盖，再对疑点检查原分辨率局部，不能以节省调用为由遗漏关键事件。
+
+沙盒仅提供登记的命令，不要假设完整系统工具集。文件字节比较与 SHA-256 校验可直接使用 Python pathlib/hashlib；命令缺失先检查能力或用已提供的 Python 标准库。
