@@ -1,3 +1,4 @@
+import {stopState} from './task_stop.js';
 import {mergeTurn,applyText,isTyping} from './text_stream.js';
 import {executablePlan,planNotice} from './plan_readiness.js';
 import {mountUsage} from './task_usage.js';
@@ -11,6 +12,7 @@ let selectedAttachments=new Set(),lastLibrary='',posting=false,canvasContext=nul
 const continuationKey='task-continuation:'+id;
 let continuationTask=sessionStorage.getItem(continuationKey);
 let controlFeedbackVersion=0;
+const stopRequests=new Map();
 function rememberContinuation(task){continuationTask=task;if(task)sessionStorage.setItem(continuationKey,task);else sessionStorage.removeItem(continuationKey);}
 const nodes=new Map(),activities=new Map();
 const profileSelector=mountAgentProfiles($('agent-profile-panel'),id,()=>turns,refresh);
@@ -20,10 +22,39 @@ function toBottom(force=false){if(force||nearBottom())scroll.scrollTop=scroll.sc
 scroll.addEventListener('scroll',()=>$('scroll-latest').hidden=nearBottom());$('scroll-latest').onclick=()=>toBottom(true);
 async function health(){healthAt=Date.now();try{const h=await api('api/agent/health');available=h.available;}catch{available=false;}status();}
 function status(){if(!$('agent-status'))return;profileSelector.update();const active=turns.find(t=>activeStatus(t.status));$('agent-status').className='connection-status '+(available?'online':'offline');$('agent-status').textContent=!available?'Agent 暂不可用':active?(connection==='reconnecting'?'连接恢复中…':(active.stream_transport==='database'?'快照同步 · ':'实时连接 · ')+(active.routing?.stage==='light'?'对话中':active.mode==='plan'?'讨论方案':'执行剪辑')):'Agent 已就绪';
- $('agent-send').disabled=posting||(!active&&!available)||contextInvalid;$('agent-input').placeholder=active?'可询问进度，或要求暂停、继续、取消当前任务':'描述你想要的画面、节奏或风格…';$('agent-stop').hidden=!active;$('agent-stop').disabled=active?.status==='cancelling';$('agent-execute').disabled=posting||!available;
+ $('agent-send').disabled=posting||(!active&&!available)||contextInvalid;$('agent-input').placeholder=active?'可询问进度，或要求暂停、继续、取消当前任务':'描述你想要的画面、节奏或风格…';renderStop(active);$('agent-execute').disabled=posting||!available;
  const latest=executablePlan(turns);$('agent-confirmation').hidden=!!active||!latest;$('live-status').hidden=!active;
  if(active){const activity=activities.get(active.id);const label=connection==='reconnecting'?'状态连接中断 · 最后收到更新 '+(active._lastEventAt?new Date(active._lastEventAt).toLocaleTimeString():'未知'):active.status==='paused'?(pauseReason(active.workflow)||(active.workflow?.resumable?'任务已暂停，可继续安全步骤或停止':'任务已暂停，请检查原因或停止并重新规划')):active.status==='waiting'?'后台按已确认方案处理中':active.status==='queued'?'等待处理':active.status==='cancelling'?'正在停止当前操作':activity?.current()||(active.routing?.stage==='light'?'正在回复':'正在连接并读取项目信息');$('live-status').innerHTML=`<span class="live-indicator"></span><span>${esc(label)}</span><b>${duration(Date.now()/1000-active.created)}</b>`;}
 }
+function renderStop(active){
+ for(const [task,phase] of stopRequests){const turn=turns.find(t=>t.id===task);if(phase==='awaiting'&&turn&&!activeStatus(turn.status))stopRequests.delete(task);}
+ const target=active||turns.at(-1),state=stopState(target,stopRequests.get(target?.id));
+ const button=$('agent-stop');button.hidden=!state.visible;button.disabled=state.disabled;button.textContent=state.label;button.title=state.description;button.setAttribute('aria-busy',String(state.busy));
+ const dialog=document.querySelector('.task-stop-dialog');if(dialog){const turn=turns.find(t=>t.id===dialog.dataset.task);const unavailable=!turn||!activeStatus(turn.status)||turn.status==='cancelling';dialog.querySelector('[data-stop-confirm]').disabled=unavailable;dialog.querySelector('[data-stop-ended]').hidden=!unavailable;}
+}
+function confirmStop(turn){
+ return new Promise(resolve=>{
+  const dialog=document.createElement('dialog');dialog.className='task-stop-dialog';dialog.dataset.task=turn.id;dialog.setAttribute('aria-labelledby','stop-dialog-title');dialog.setAttribute('aria-describedby','stop-dialog-description');
+  dialog.innerHTML=`<button type="button" class="modal-close" aria-label="关闭停止确认">${icon('close',17)}</button><div class="stop-dialog-heading"><span class="stop-dialog-symbol">${icon('stop',22)}</span><div><small>停止任务</small><h3 id="stop-dialog-title">要停止当前任务吗？</h3></div></div><p id="stop-dialog-description">确认后将停止后续执行。已经保存的成果会保留。</p><div class="stop-dialog-target"><small>${turn.mode==='execute'?'执行任务':'讨论任务'}</small><p>${esc(turn.prompt.slice(0,140))}${turn.prompt.length>140?'…':''}</p></div><p class="stop-dialog-note">外部服务的停止可能需要时间确认，具体状态会显示在任务进度中。</p><p data-stop-ended hidden>这个任务已结束或正在停止，无需再次提交。</p><form method="dialog" class="stop-dialog-actions"><button class="button secondary" value="cancel" data-stop-back>暂不停止</button><button class="button stop-confirm" value="confirm" data-stop-confirm>确认停止</button></form>`;
+  dialog.querySelector('.modal-close').onclick=()=>dialog.close('cancel');dialog.addEventListener('close',()=>{const confirmed=dialog.returnValue==='confirm';dialog.remove();resolve(confirmed);},{once:true});document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-stop-back]').focus();
+ });
+}
+async function stopTask(){
+ const turn=turns.find(t=>activeStatus(t.status));if(!turn||stopRequests.has(turn.id)||turn.status==='cancelling')return;
+ stopRequests.set(turn.id,'confirming');status();
+ try{
+  const confirmed=await confirmStop(turn);
+  if(!confirmed){stopRequests.delete(turn.id);status();if(!$('agent-stop').hidden&&!$('agent-stop').disabled)$('agent-stop').focus();return;}
+  const current=turns.find(t=>t.id===turn.id);
+  if(!current||!activeStatus(current.status)||current.status==='cancelling'){showControlFeedback('任务状态已更新','该任务已结束或正在停止，请查看对应任务。',current);return;}
+  stopRequests.set(turn.id,'submitting');status();$('agent-progress').focus();
+  const result=await api(path(`/agent/${turn.id}/cancel`),{method:'POST'});
+  stopRequests.set(turn.id,'awaiting');await refresh();
+  const latest=turns.find(t=>t.id===turn.id)||current,state=stopState(latest,stopRequests.get(turn.id));showControlFeedback(result.cancelled===false?'任务状态已更新':'停止请求已提交',state.description,latest);
+ }catch(error){stopRequests.delete(turn.id);showControlFeedback('停止请求未完成',error.message,turn,{error:true});toast(error.message,true);}
+ finally{if(stopRequests.get(turn.id)==='confirming')stopRequests.delete(turn.id);status();}
+}
+
 function renderAttachments(){const items=sourceItems(project).filter(a=>selectedAttachments.has(a.id));$('composer-attachments').innerHTML=items.map(a=>`<div class="attachment-chip">${a.poster_url?`<img src="${href(a.poster_url)}" alt="">`:icon('file',17)}<button type="button" data-attachment-preview="${a.id}" title="预览 ${esc(a.name)}">${esc(a.name)}</button><button type="button" data-attachment-remove="${a.id}" aria-label="移除附件">${icon('close',12)}</button></div>`).join('');$('composer-attachments').querySelectorAll('[data-attachment-remove]').forEach(b=>b.onclick=()=>{selectedAttachments.delete(b.dataset.attachmentRemove);renderAttachments();});$('composer-attachments').querySelectorAll('[data-attachment-preview]').forEach(b=>b.onclick=()=>openMedia(items.find(a=>a.id===b.dataset.attachmentPreview)));}
 function attach(item){selectedAttachments.add(item.id);renderAttachments();$('agent-input').focus();}
 function selectPreview(item){preview.show(item);}
@@ -160,7 +191,7 @@ function showCanvasContext(){const box=$('canvas-context');box.hidden=!canvasCon
 async function initializeContext(){const query=new URLSearchParams(location.search),layerId=query.get('layer'),revision=Number(query.get('revision'));if(!layerId||!Number.isInteger(revision)||revision<1)return;const data=await api(path('/image-document'));const l=data.document.layers.find(l=>l.id===layerId);canvasContext={revision,layer_id:layerId,layer:l||{name:'原选中图层'},locked_layers:data.document.layers.filter(x=>x.locked)};contextInvalid=data.document.revision!==revision||!l||l.locked;showCanvasContext();}
 async function advanceContext(){if(!canvasContext)return;const changed=[...turns].reverse().find(t=>t.canvas_result&&t.canvas_context?.layer_id===canvasContext.layer_id);if(!changed||contextResultSeen===changed.id)return;contextResultSeen=changed.id;const result=changed.canvas_result;if(result.before!==canvasContext.revision)return;const data=await api(path('/image-document'));const l=data.document.layers.find(l=>l.id===canvasContext.layer_id);if(data.document.revision!==result.after||!l||l.locked){contextInvalid=true;}else{canvasContext={...canvasContext,revision:result.after,layer:l};contextInvalid=false;history.replaceState(null,'',editorHref('chat',id)+`?layer=${encodeURIComponent(l.id)}&revision=${result.after}`);}showCanvasContext();}
 $('agent-form').onsubmit=e=>{e.preventDefault();send();};$('agent-input').addEventListener('input',()=>{composerTouched=true;scheduleSave();});$('agent-input').onkeydown=e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}};
-$('agent-execute').onclick=()=>{const latest=executablePlan(turns);if(latest)send('execute',latest.id);};on('agent-stop',async()=>{const active=turns.find(t=>activeStatus(t.status));if(active){await api(path(`/agent/${active.id}/cancel`),{method:'POST'});await refresh();}});
+$('agent-execute').onclick=()=>{const latest=executablePlan(turns);if(latest)send('execute',latest.id);};$('agent-stop').onclick=stopTask;
 on('attach-files',()=>library.input.click());on('delete-project',()=>removeProject(id));
 $('show-assets').onclick=()=>document.body.classList.add('assets-open');$('close-assets').onclick=()=>document.body.classList.remove('assets-open');$('show-preview').onclick=()=>document.body.classList.add('preview-open');$('close-preview').onclick=()=>document.body.classList.remove('preview-open');
 document.querySelectorAll('[data-library]').forEach(b=>b.onclick=()=>{document.querySelectorAll('[data-library]').forEach(x=>x.classList.toggle('selected',x===b));$('result-list').hidden=b.dataset.library!=='results';$('source-previews').hidden=b.dataset.library!=='sources';});
