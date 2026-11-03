@@ -143,7 +143,9 @@ async function runCase(browser,spec){
    if(deciding(run)){
     const quality=run.decisions.find(d=>d.kind==='quality');
     if(quality){state.pending_quality=quality.id;persist();throw Object.assign(Error('Unplanned quality decision requires independent content review'),{model:true});}
-    throw Object.assign(Error('Unplanned authorization expansion was correctly paused'),{model:true});
+    const decision=run.decisions[0];state.pending_decision={id:decision.id,kind:decision.kind,reason:decision.request.reason};persist();
+    throw Object.assign(Error(['plan_change','successor_authorization','new_run'].includes(decision.kind)?
+     'Unplanned authorization expansion was correctly paused':'Workflow requested user input or feedback after bounded processing: '+decision.kind),{model:true});
    }
    if(paused(run)){
     if(controlActive(run,'DIAGNOSE')){await page.waitForTimeout(1000);continue;}
@@ -409,6 +411,10 @@ async function runCase(browser,spec){
    if(state.artifacts.length&&spec.expect.kind!=='protocol')state.artifact_verification=await probe('verify');
   }
  }catch(error){state.error=error.message;state.outcome=error.boundary?'boundary_not_reached':error.dependency?'dependency_blocked':error.model?'model_or_policy_pause':error.observation?'observation_timeout':'test_failed';
+  if(state.run_id){
+   try{const latest=await read();await page.waitForFunction(({id,status,version})=>{const node=document.querySelector('#dynamic-current');return node?.dataset.runId===id&&node.dataset.status===status&&Number(node.dataset.graphVersion)>=version;},{id:latest.id,status:latest.state,version:latest.graph_version},{timeout:10000});}
+   catch{await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('中断'),null,{timeout:6000}).catch(()=>{});}
+  }
   try{await capture('failure-browser');state.browser_observation={url:page.url(),error:await page.locator('#dynamic-error').textContent().catch(()=>''),status:await page.locator('#dynamic-status').textContent().catch(()=>'')};state.browser_checked=true;}catch{}persist();}
  finally{
   if(state.unified_boundary?.route_switched){try{await fault('restore_provider_route');state.unified_boundary.route_restored=true;}catch(e){state.restore_error=e.message;}}
