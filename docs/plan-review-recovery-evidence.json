@@ -1,0 +1,998 @@
+{
+  "date": "2026-11-03 11:57:11 CST",
+  "release": {
+    "source": "/data2/wujing03/video-use/.cluster/releases/104943e9e307",
+    "sha256": "104943e9e3077115ec26baacacfe33847e37ffc32e4ffaae92b9dce46b673d97",
+    "deployed_at": 1793677756.8422627
+  },
+  "full_python": {
+    "passed": true,
+    "tests": 706,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 508.07,
+    "source_sha256": "104943e9e3077115ec26baacacfe33847e37ffc32e4ffaae92b9dce46b673d97",
+    "source_changed_during_run": false,
+    "selection": [
+      "all Python tests"
+    ],
+    "infrastructure": "Distributed cases use isolated real PostgreSQL, an HTTP S3 protocol fixture, distinct node roots, real subprocesses and Linux sandboxes; no live paid provider calls",
+    "skipped_tests": [],
+    "failed_tests": []
+  },
+  "frontend": {
+    "tests": 44,
+    "passed": 44
+  },
+  "isolated_browser": {
+    "passed": true,
+    "scope": "Actual browser, two APIs, PostgreSQL and Redis; semantic/Agent classification fixture, no media execution.",
+    "checks": [
+      "uncertain is not missing input",
+      "no premature confirmation button",
+      "natural confirmation preserves original plan",
+      "retry original after blocked confirmation",
+      "ready persists after reload",
+      "retry does not execute",
+      "fresh explicit confirmation",
+      "duplicate rejected",
+      "foreign owner rejected",
+      "mobile UI"
+    ],
+    "page_errors": []
+  },
+  "real_reviews": {
+    "passed": true,
+    "cases": [
+      {
+        "case": "original_uncertain_input",
+        "decision": "ready",
+        "expected": "ready",
+        "passed": true,
+        "evidence": {
+          "source": "independent",
+          "model": "gpt-5.6",
+          "confidence": 0.97,
+          "reason": "用户明确要求整理两段已有转写；方案已确定输入素材及顺序、按说话人变化或超过0.5秒停顿分段的规则、音乐事件处理、输出格式与文件路径，并包含缺失或冲突字段的失败处理。当前仅待用户确认执行，不属于信息缺失。",
+          "missing_items": [],
+          "checks": {
+            "requested_work": true,
+            "inputs_identified": true,
+            "parameters_resolved": true,
+            "deliverable_defined": true
+          },
+          "primary": {
+            "source": "jev",
+            "choice": "ready",
+            "confidence": 0.8356888408049222,
+            "scores": {
+              "ready": 0.8356888408049222,
+              "needs_information": 0.1641136790836133,
+              "discussion": 0.00019748011146442912
+            },
+            "threshold": 0.9,
+            "required_margin": 0.2
+          }
+        },
+        "seconds": 3.39,
+        "calls": [
+          {
+            "category": "llm",
+            "operation": "review:plan:jev-latest",
+            "status": "succeeded",
+            "input_tokens": 2595,
+            "output_tokens": 8,
+            "total_tokens": null,
+            "error_code": "SemanticUncertain"
+          },
+          {
+            "category": "llm",
+            "operation": "review:plan_fallback:gpt-5.6",
+            "status": "succeeded",
+            "input_tokens": 1042,
+            "output_tokens": 119,
+            "total_tokens": 1161,
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "enriched_saved_files",
+        "decision": "ready",
+        "expected": "ready",
+        "passed": true,
+        "evidence": {
+          "source": "jev",
+          "choice": "ready",
+          "confidence": 0.9956015240144636,
+          "scores": {
+            "ready": 0.9956015240144636,
+            "needs_information": 0.004268047504017801,
+            "discussion": 0.00013042848151852173
+          },
+          "threshold": 0.9,
+          "required_margin": 0.2
+        },
+        "seconds": 0.29,
+        "calls": [
+          {
+            "category": "llm",
+            "operation": "review:plan:jev-latest",
+            "status": "succeeded",
+            "input_tokens": 3456,
+            "output_tokens": 8,
+            "total_tokens": null,
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "missing_required_asset",
+        "decision": "needs_information",
+        "expected": "needs_information",
+        "passed": true,
+        "evidence": {
+          "source": "independent",
+          "model": "gpt-5.6",
+          "confidence": 0.99,
+          "reason": "用户明确要求将指定视频剪成10秒，但源视频尚未上传，缺少执行所必需的输入素材。",
+          "missing_items": [
+            "需要用户上传待剪辑的源视频。"
+          ],
+          "checks": {
+            "requested_work": true,
+            "inputs_identified": true,
+            "parameters_resolved": true,
+            "deliverable_defined": true
+          },
+          "primary": {
+            "source": "jev",
+            "choice": "needs_information",
+            "confidence": 0.9999024563338977,
+            "scores": {
+              "ready": 9.626833018070623e-05,
+              "needs_information": 0.9999024563338977,
+              "discussion": 1.2753359215480228e-06
+            },
+            "threshold": 0.8,
+            "required_margin": 0.2
+          }
+        },
+        "seconds": 2.47,
+        "calls": [
+          {
+            "category": "llm",
+            "operation": "review:plan:jev-latest",
+            "status": "succeeded",
+            "input_tokens": 553,
+            "output_tokens": 8,
+            "total_tokens": null,
+            "error_code": ""
+          },
+          {
+            "category": "llm",
+            "operation": "review:plan_fallback:gpt-5.6",
+            "status": "succeeded",
+            "input_tokens": 501,
+            "output_tokens": 88,
+            "total_tokens": 589,
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "greeting",
+        "decision": "discussion",
+        "expected": "discussion",
+        "passed": true,
+        "evidence": {
+          "source": "jev",
+          "choice": "discussion",
+          "confidence": 0.9991784636259574,
+          "scores": {
+            "ready": 0.00036125994734117963,
+            "needs_information": 0.00046027642670131363,
+            "discussion": 0.9991784636259574
+          },
+          "threshold": 0.8,
+          "required_margin": 0.2
+        },
+        "seconds": 0.06,
+        "calls": [
+          {
+            "category": "llm",
+            "operation": "review:plan:jev-latest",
+            "status": "succeeded",
+            "input_tokens": 336,
+            "output_tokens": 8,
+            "total_tokens": null,
+            "error_code": ""
+          }
+        ]
+      }
+    ]
+  },
+  "real_followup": {
+    "passed": true,
+    "cases": [
+      {
+        "case": "followup_with_original_plan",
+        "decision": "ready",
+        "expected": "ready",
+        "passed": true,
+        "evidence": {
+          "source": "jev",
+          "choice": "ready",
+          "confidence": 0.9984348687771771,
+          "scores": {
+            "ready": 0.9984348687771771,
+            "needs_information": 0.0013486951225609525,
+            "discussion": 0.00021643610026183697
+          },
+          "threshold": 0.9,
+          "required_margin": 0.2
+        },
+        "seconds": 0.34,
+        "calls": [
+          {
+            "category": "llm",
+            "operation": "review:plan:jev-latest",
+            "status": "succeeded",
+            "input_tokens": 4003,
+            "output_tokens": 8,
+            "total_tokens": null,
+            "error_code": ""
+          }
+        ]
+      }
+    ]
+  },
+  "real_control": {
+    "safe": true,
+    "results": [
+      {
+        "case": "progress",
+        "variant": "old_without_context",
+        "action": "status",
+        "evidence": {
+          "source": "jev",
+          "choice": "status",
+          "confidence": 0.9980504989901191,
+          "scores": {
+            "status": 0.9980504989901191,
+            "pause": 0.00027291604424298764,
+            "resume": 5.085315425813754e-06,
+            "cancel": 2.377701294617682e-05,
+            "replan": 0.00015947649310408873,
+            "other": 0.0014882461441617764
+          },
+          "threshold": 0.8,
+          "required_margin": 0.2
+        },
+        "expected": "status",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.085,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "progress",
+        "variant": "with_context",
+        "action": "status",
+        "evidence": {
+          "source": "jev",
+          "choice": "status",
+          "confidence": 0.9994360325014575,
+          "scores": {
+            "status": 0.9994360325014575,
+            "pause": 0.0003574204677493699,
+            "resume": 2.5412600651846307e-06,
+            "cancel": 2.867179995453446e-05,
+            "replan": 6.817703862432892e-05,
+            "other": 0.00010715693214897966
+          },
+          "threshold": 0.8,
+          "required_margin": 0.2
+        },
+        "expected": "status",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.116,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "pause",
+        "variant": "old_without_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "pause",
+          "confidence": 0.8534346390578262,
+          "scores": {
+            "status": 0.0017714695937093852,
+            "pause": 0.8534346390578262,
+            "resume": 0.0129375339179136,
+            "cancel": 0.003912070564565175,
+            "replan": 0.028477630910211923,
+            "other": 0.09946665595577357
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "pause",
+        "matched": false,
+        "safe": true,
+        "seconds": 0.081,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      },
+      {
+        "case": "pause",
+        "variant": "with_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "pause",
+          "confidence": 0.795106945261599,
+          "scores": {
+            "status": 0.0069862861054587316,
+            "pause": 0.795106945261599,
+            "resume": 0.0835416091654159,
+            "cancel": 0.005073241297058299,
+            "replan": 0.021686440707716928,
+            "other": 0.08760547746275124
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "pause",
+        "matched": false,
+        "safe": true,
+        "seconds": 0.112,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      },
+      {
+        "case": "resume",
+        "variant": "old_without_context",
+        "action": "resume",
+        "evidence": {
+          "source": "jev",
+          "choice": "resume",
+          "confidence": 0.9891585568804654,
+          "scores": {
+            "status": 0.0008348561386070551,
+            "pause": 0.0003913653295672889,
+            "resume": 0.9891585568804654,
+            "cancel": 0.0005744446971583908,
+            "replan": 0.003378392331995387,
+            "other": 0.005662384622206494
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "resume",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.055,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "resume",
+        "variant": "with_context",
+        "action": "resume",
+        "evidence": {
+          "source": "jev",
+          "choice": "resume",
+          "confidence": 0.9956860450069361,
+          "scores": {
+            "status": 0.00039797011523562534,
+            "pause": 0.0007943409669278293,
+            "resume": 0.9956860450069361,
+            "cancel": 0.0003706045296795584,
+            "replan": 0.0009079067214682378,
+            "other": 0.0018431326597525997
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "resume",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.09,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "partial_replan",
+        "variant": "old_without_context",
+        "action": "replan",
+        "evidence": {
+          "source": "jev",
+          "choice": "replan",
+          "confidence": 0.9626766907776105,
+          "scores": {
+            "status": 0.00022049126924942293,
+            "pause": 5.2128598043043947e-05,
+            "resume": 1.95067601179671e-06,
+            "cancel": 0.00020208886474273822,
+            "replan": 0.9626766907776105,
+            "other": 0.03684664981434257
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "replan",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.056,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "partial_replan",
+        "variant": "with_context",
+        "action": "replan",
+        "evidence": {
+          "source": "jev",
+          "choice": "replan",
+          "confidence": 0.9905861828720576,
+          "scores": {
+            "status": 0.000434422510391753,
+            "pause": 0.00011028825138652145,
+            "resume": 1.325538723746928e-05,
+            "cancel": 0.00017668406574037978,
+            "replan": 0.9905861828720576,
+            "other": 0.008679166913186322
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "replan",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.091,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "cancel",
+        "variant": "old_without_context",
+        "action": "cancel",
+        "evidence": {
+          "source": "jev",
+          "choice": "cancel",
+          "confidence": 0.9968186855407064,
+          "scores": {
+            "status": 2.673527532272847e-05,
+            "pause": 1.038666314593021e-05,
+            "resume": 0.0017719320798327178,
+            "cancel": 0.9968186855407064,
+            "replan": 0.00036612154663762656,
+            "other": 0.001006138894354454
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "cancel",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.055,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "cancel",
+        "variant": "with_context",
+        "action": "cancel",
+        "evidence": {
+          "source": "jev",
+          "choice": "cancel",
+          "confidence": 0.9975543238538417,
+          "scores": {
+            "status": 4.2890863002798236e-05,
+            "pause": 5.967063011400185e-05,
+            "resume": 0.00030413611501344125,
+            "cancel": 0.9975543238538417,
+            "replan": 0.00012252659217168102,
+            "other": 0.0019164519458563253
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "cancel",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.089,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": ""
+          }
+        ]
+      },
+      {
+        "case": "question_answer",
+        "variant": "old_without_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "other",
+          "confidence": 0.9866307378200926,
+          "scores": {
+            "status": 0.0024968422060917834,
+            "pause": 0.0043086098403817006,
+            "resume": 0.0004250231461650562,
+            "cancel": 0.0014265692619524776,
+            "replan": 0.004712217725316342,
+            "other": 0.9866307378200926
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "other",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.052,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      },
+      {
+        "case": "question_answer",
+        "variant": "with_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "resume",
+          "confidence": 0.5476129207081136,
+          "scores": {
+            "status": 0.0005771921201821662,
+            "pause": 0.008760222655853689,
+            "resume": 0.5476129207081136,
+            "cancel": 0.0013195236326920086,
+            "replan": 0.0013195236326920086,
+            "other": 0.44041061725046643
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "other",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.128,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      },
+      {
+        "case": "hypothetical",
+        "variant": "old_without_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "status",
+          "confidence": 0.5747428001473902,
+          "scores": {
+            "status": 0.5747428001473902,
+            "pause": 0.011946463382387383,
+            "resume": 0.00015202591586244932,
+            "cancel": 0.0006296073107370027,
+            "replan": 0.0047546040125613885,
+            "other": 0.4077744992310616
+          },
+          "threshold": 0.8,
+          "required_margin": 0.2
+        },
+        "expected": "other",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.06,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      },
+      {
+        "case": "hypothetical",
+        "variant": "with_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "status",
+          "confidence": 0.6280825503340235,
+          "scores": {
+            "status": 0.6280825503340235,
+            "pause": 0.0031783535744465633,
+            "resume": 0.0004526784886460379,
+            "cancel": 0.0029944557297326953,
+            "replan": 0.008295315986982328,
+            "other": 0.35699664588616875
+          },
+          "threshold": 0.8,
+          "required_margin": 0.2
+        },
+        "expected": "other",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.098,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      },
+      {
+        "case": "negated",
+        "variant": "old_without_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "other",
+          "confidence": 0.977254406256324,
+          "scores": {
+            "status": 0.003724689868112136,
+            "pause": 0.003724689868112136,
+            "resume": 0.00027599609805379943,
+            "cancel": 0.0008613752738159267,
+            "replan": 0.01415884263558197,
+            "other": 0.977254406256324
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "other",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.081,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      },
+      {
+        "case": "negated",
+        "variant": "with_context",
+        "action": "unrecognized",
+        "evidence": {
+          "choice": "other",
+          "confidence": 0.9523501491122787,
+          "scores": {
+            "status": 0.02487629163099717,
+            "pause": 0.005117548451133574,
+            "resume": 0.012000032918135334,
+            "cancel": 0.0014323551137170032,
+            "replan": 0.004223622773738365,
+            "other": 0.9523501491122787
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "expected": "other",
+        "matched": true,
+        "safe": true,
+        "seconds": 0.09,
+        "calls": [
+          {
+            "operation": "control:jev-latest",
+            "status": "succeeded",
+            "error_code": "UnrecognizedControl"
+          }
+        ]
+      }
+    ],
+    "scope": "Real Jev requests in disposable PostgreSQL; context/no-context variants use the SAME NEW classification instructions, not a full old-version A/B comparison. No control actions applied."
+  },
+  "deployed_demo": {
+    "passed": true,
+    "scope": "Real browser, deployed Agent/Jev, database, saved demo transcripts and local execution; own project only.",
+    "release": {
+      "source": "/data2/wujing03/video-use/.cluster/releases/104943e9e307",
+      "sha256": "104943e9e3077115ec26baacacfe33847e37ffc32e4ffaae92b9dce46b673d97",
+      "deployed_at": 1793677756.8422627
+    },
+    "page_errors": [],
+    "turns": [
+      {
+        "id": "85615fc6d2cf430fa8fa3f9a9ddfef56",
+        "status": "succeeded",
+        "mode": "plan",
+        "seconds": 65.235,
+        "readiness": {
+          "state": "ready",
+          "can_execute": true,
+          "plan_id": "85615fc6d2cf430fa8fa3f9a9ddfef56",
+          "digest": "6dc4f4c27da4ab019f3210e1e8213e02252107911a95cda028d2922e16b1dd71",
+          "reason": "",
+          "retry_available": false
+        },
+        "error": ""
+      },
+      {
+        "id": "82570250d93a41c5b7ecfb6f4723d5ca",
+        "status": "succeeded",
+        "mode": "execute",
+        "seconds": 81.25,
+        "readiness": {
+          "state": "none",
+          "can_execute": false
+        },
+        "error": ""
+      }
+    ],
+    "project": "acffed4dac3f442399361fa7dd293681",
+    "plan": "85615fc6d2cf430fa8fa3f9a9ddfef56",
+    "execution": "82570250d93a41c5b7ecfb6f4723d5ca",
+    "output": {
+      "name": "合并文字稿.md",
+      "bytes": 271,
+      "sha256": "8e50315fe07276ca222dacfe27968ec3aa637c2933828880f767f30b1685a6e0"
+    },
+    "verifier_correction": {
+      "reason": "User requested a text transcript and confirmed Markdown output; original assertion added an unrequested txt-only restriction.",
+      "same_artifact_rechecked": true,
+      "no_additional_execution": true,
+      "original_failure": "report-before-format-check-correction.json"
+    }
+  },
+  "independent_transcript_check": {
+    "passed": true,
+    "checks": [
+      {
+        "asset": "对白片段 A · 提问.mp4",
+        "dialogue_words": 9,
+        "segments": 1,
+        "max_gap": 0.08000000000000007,
+        "text_matches": true
+      },
+      {
+        "asset": "对白片段 B · 回答.mp4",
+        "dialogue_words": 4,
+        "segments": 1,
+        "max_gap": 0.08000000000000007,
+        "text_matches": true
+      }
+    ],
+    "format_matches_confirmed_plan": true,
+    "no_new_transcription": true,
+    "usage": {
+      "llm": {
+        "calls": 7,
+        "states": {
+          "succeeded": 7
+        }
+      },
+      "tool": {
+        "calls": 9,
+        "states": {
+          "failed": 1,
+          "succeeded": 8
+        }
+      },
+      "workflow": {
+        "calls": 0,
+        "states": {}
+      },
+      "provider_submit": {
+        "calls": 0,
+        "states": {}
+      },
+      "provider_poll": {
+        "calls": 0,
+        "states": {}
+      },
+      "provider_collect": {
+        "calls": 0,
+        "states": {}
+      }
+    },
+    "cleanup_complete": true
+  },
+  "deployed_replan": {
+    "passed": true,
+    "release": {
+      "source": "/data2/wujing03/video-use/.cluster/releases/104943e9e307",
+      "sha256": "104943e9e3077115ec26baacacfe33847e37ffc32e4ffaae92b9dce46b673d97",
+      "deployed_at": 1793677756.8422627
+    },
+    "elapsed_seconds": 381.6909999847412,
+    "checks": [
+      "negative inputs do not mutate",
+      "real browser replan",
+      "old turn cancelled",
+      "parent run retained",
+      "fresh confirmation required",
+      "V1 output reused",
+      "32x24 PNG decoded",
+      "no browser errors"
+    ],
+    "reuse": {
+      "passed": true,
+      "source": {
+        "workflow": "09cfc780245044958b8cb6d69b571a5c",
+        "step": "adjust_brightness",
+        "revision": 0,
+        "attempt": "76813f45792044a9a5e41a2edd17d255",
+        "plan_id": "2327ac89100140ffba62d92ea11ed6d1",
+        "receipt_digest": "ccc0b6aac8fa4a012ac66bbcb13e19d0923b6c090cad9ff54f53a78bd58eb35c",
+        "execution_digest": "3ce8190f5796f837b9b8f93b7d491c6fadf83bf2530b880573aba5500c001d4a"
+      },
+      "sha256": [
+        "e4e676a09d4192acc6d4d745719f66918616566ab7847ea3d2b1069aa0ef75e1"
+      ],
+      "local_image_calls": 0,
+      "expected_local_image_calls": 0,
+      "real_control_calls": [
+        {
+          "operation": "control:jev-latest",
+          "status": "succeeded"
+        },
+        {
+          "operation": "control:jev-latest",
+          "status": "succeeded"
+        },
+        {
+          "operation": "control:jev-latest",
+          "status": "succeeded"
+        }
+      ],
+      "pixel_mae_by_resampler": {
+        "LANCZOS": 0,
+        "BICUBIC": 1.8180338541666667,
+        "BILINEAR": 5.001302083333333
+      }
+    },
+    "page_errors": [],
+    "cleanup": {
+      "passed": true,
+      "project_removed": "d712d5e57e47457386d59798c087634f",
+      "tasks_removed": 4,
+      "objects_removed": 32
+    },
+    "evidence": ".cluster/campaigns/20261031-real60/runs/R17/attempt-004",
+    "control_decisions": [
+      {
+        "outcome": "unrecognized",
+        "binding_digest": "0d941cb03720086e0607d59766a95ddfb9a5988f4b677d0a72db9cb61e4f3263",
+        "evidence": {
+          "choice": "other",
+          "confidence": 0.9781356122955819,
+          "scores": {
+            "status": 0.016504265480054667,
+            "pause": 0.0014072991542032824,
+            "resume": 4.176693979977982e-05,
+            "cancel": 2.1708218808416338e-05,
+            "replan": 0.003889347911551947,
+            "other": 0.9781356122955819
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "event_id": "f199d6e0d16d43ef894025286df75ff2"
+      },
+      {
+        "outcome": "resume",
+        "binding_digest": "0d941cb03720086e0607d59766a95ddfb9a5988f4b677d0a72db9cb61e4f3263",
+        "evidence": {
+          "source": "jev",
+          "choice": "resume",
+          "confidence": 0.9669270803164706,
+          "scores": {
+            "status": 0.002505852605856091,
+            "pause": 0.012808857346094297,
+            "resume": 0.9669270803164706,
+            "cancel": 0.0016094851529577928,
+            "replan": 0.0033398672325268526,
+            "other": 0.012808857346094297
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "event_id": "4206b9b70adb4f7fa6e67eb3a3c3782a"
+      },
+      {
+        "outcome": "replan",
+        "binding_digest": "0d941cb03720086e0607d59766a95ddfb9a5988f4b677d0a72db9cb61e4f3263",
+        "evidence": {
+          "source": "jev",
+          "choice": "replan",
+          "confidence": 0.9959922027968502,
+          "scores": {
+            "status": 0.0003843689127310921,
+            "pause": 3.5130660500267216e-05,
+            "resume": 0.00033137325885150364,
+            "cancel": 0.00011220475095481228,
+            "replan": 0.9959922027968502,
+            "other": 0.0031447196201121698
+          },
+          "threshold": 0.95,
+          "required_margin": 0.2
+        },
+        "event_id": "ea8cdb62806f4b46ac7e140ebea0edf9"
+      }
+    ]
+  },
+  "user_project_review": {
+    "before_state": "needs_information",
+    "after_state": "ready",
+    "can_execute": true,
+    "seconds": 0.582,
+    "calls": [
+      {
+        "operation": "review:plan:jev-latest",
+        "status": "succeeded",
+        "error_code": ""
+      }
+    ],
+    "execution_created": false
+  },
+  "limits": [
+    "Actual Jev controls use same new instructions with/without context; not a full previous-version A/B.",
+    "One pause expression remained below threshold; no control action was applied.",
+    "Saved files establish existence/references, not semantic correctness of file contents.",
+    "This patch runs full isolated Python/frontend suites and relevant real cases, not all historical 77 cases again."
+  ],
+  "development_issues": [
+    "Three unprivileged source-tree tests failed due to read permissions; release runtime preparation and full frozen validation are authoritative.",
+    "Static review found non-light confirmation code in wrong dispatch branch before deployment; corrected and added both Claude/DeepSeek dispatch regression tests; initial full run interrupted and replaced."
+  ]
+}

@@ -61,7 +61,7 @@
 
 | 文档 | 范围 |
 | --- | --- |
-| [方案审核不确定与确认恢复](plan-review-recovery.md) | 审核上下文、有界独立复核、同方案重试、确认门禁与诊断 |
+| [方案审核不确定与确认恢复](plan-review-recovery.md)、[验收报告](plan-review-recovery-report.md) | 审核上下文、有界独立复核、同方案重试、确认门禁与诊断 |
 | [Agent 执行体验清单](agent-execution-experience-todo.md) | 正文与活动、规划预算、用量说明和方案检查 |
 | [Harness 与模型适配、Agent 切换 TODO](harness-adapters-todo.md) | 已实现范围及保留项：公开接口适配、统一上下文、不透明原生快照、跨 Agent 接管及验收 |
 | [文字流与示例库](stream-activity-and-demos.md) | 实时更新、共享示例目录及跨节点导入 |
