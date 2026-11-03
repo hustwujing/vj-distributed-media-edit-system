@@ -208,7 +208,9 @@ def inspect(directory,final=False):
         if run['status']=='SUCCEEDED':check('no_unapplied_inputs_at_delivery:'+wid,run['input_barrier_sequence'] is None and not any(item['status'] in ('ACCEPTED','PLANNING') for item in inputs))
         check('control_jobs_are_separate:'+wid,not ({item['id'] for item in run['tasks']}&{item['id'] for item in run['control_jobs']}))
         run['audit']={'leases':leases,'cleanup':cleanup,'provider_calls':provider,'results':results,'events':events,'inputs':inputs,'drain_set':run['drain_set'],
-                      'authorizations':grants,'planner_snapshots':planner_snapshots,'barrier_intervals':intervals}
+                      'authorizations':grants,'planner_snapshots':planner_snapshots,'barrier_intervals':intervals,
+                      'task_revisions':store.query('SELECT * FROM workflow_task_revisions WHERE run_id=? ORDER BY task_id,revision',(wid,)),
+                      'plan_selections':store.query('SELECT * FROM workflow_plan_tasks WHERE run_id=? ORDER BY graph_version,task_id',(wid,))}
         diagnostics.append(diagnose(store,run['id'],limit=200,include_logs=True))
     report['diagnostics']=diagnostics
     report['execution_attempts']=store.query('''SELECT a.id,a.run_id,a.step_id,a.kind,a.generation,a.status,
@@ -239,9 +241,8 @@ def inspect(directory,final=False):
     from webapp.egress_policy import scrub,secrets
     for run in runs:
         for task in run['tasks']:
-            if not task.get('error_code'):continue
-            rows=store.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
-                             (run['id'],task['id'],task['revision']))
+            rows=store.query('SELECT revision,manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? ORDER BY revision',
+                             (run['id'],task['id']))
             for row in rows:
                 for name,record in json.loads(row['manifest']).items():
                     if not name.endswith('.log') or not record.get('artifact'):continue
@@ -249,7 +250,7 @@ def inspect(directory,final=False):
                         location=store.artifacts.materialize(project,record['artifact'])
                         with location.open('rb') as stream:
                             stream.seek(max(0,location.stat().st_size-16384));tail=stream.read(16384).decode(errors='replace')
-                        failure_logs.append({'run_id':run['id'],'task_id':task['id'],'path':name,
+                        failure_logs.append({'run_id':run['id'],'task_id':task['id'],'revision':row['revision'],'path':name,
                             'sha256':record['sha256'],'tail':scrub(tail,secrets())})
                     except Exception as exc:failure_logs.append({'run_id':run['id'],'task_id':task['id'],'path':name,'error_type':type(exc).__name__})
     save(directory/'runtime-evidence.json',failure_logs)
@@ -260,29 +261,30 @@ def inspect(directory,final=False):
     candidate_records=[];copied={};archive_bytes=0;archive_errors=[]
     for run in runs:
         for task in run['tasks']:
-            names=set(task['candidate_result'])|set(task['accepted_result'])
-            if not names:continue
-            rows=store.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
-                             (run['id'],task['id'],task['revision']))
-            manifest=json.loads(rows[0]['manifest']) if rows else {}
-            for name in sorted(names):
-                record=manifest.get(name,{})
-                item={'run_id':run['id'],'task_id':task['id'],'revision':task['revision'],'logical_path':name,
-                      'state':'accepted' if name in task['accepted_result'] else 'candidate','sha256':record.get('sha256')}
-                try:
-                    identifier=record['artifact']
-                    if identifier not in copied:
-                        if archive_bytes+record['size']>1024**3:raise ValueError('Candidate archive exceeds 1 GiB budget')
-                        source=store.artifacts.materialize(project,identifier)
-                        target=archive/(identifier+Path(name).suffix)
-                        shutil.copyfile(source,target);target.chmod(0o600)
-                        with target.open('rb') as stream:actual=hashlib.file_digest(stream,'sha256').hexdigest()
-                        if actual!=record['sha256']:raise ValueError('Candidate archive hash mismatch')
-                        copied[identifier]=str(target.relative_to(directory));archive_bytes+=target.stat().st_size
-                    item['file']=copied[identifier]
-                except Exception as exc:
-                    item['error_type']=type(exc).__name__;archive_errors.append(item)
-                candidate_records.append(item)
+            rows=store.query('SELECT revision,manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? ORDER BY revision',
+                             (run['id'],task['id']))
+            for checkpoint in rows:
+                manifest=json.loads(checkpoint['manifest'])
+                names={name for name in manifest if '/output/' in name and not name.endswith('.log')}
+                if checkpoint['revision']==task['revision']:names.update(task['candidate_result']);names.update(task['accepted_result'])
+                for name in sorted(names):
+                    record=manifest.get(name,{})
+                    item={'run_id':run['id'],'task_id':task['id'],'revision':checkpoint['revision'],'logical_path':name,
+                          'state':('accepted' if name in task['accepted_result'] else 'candidate') if checkpoint['revision']==task['revision'] else 'historical_checkpoint','sha256':record.get('sha256')}
+                    try:
+                        identifier=record['artifact']
+                        if identifier not in copied:
+                            if archive_bytes+record['size']>1024**3:raise ValueError('Candidate archive exceeds 1 GiB budget')
+                            source=store.artifacts.materialize(project,identifier)
+                            target=archive/(identifier+Path(name).suffix)
+                            shutil.copyfile(source,target);target.chmod(0o600)
+                            with target.open('rb') as stream:actual=hashlib.file_digest(stream,'sha256').hexdigest()
+                            if actual!=record['sha256']:raise ValueError('Candidate archive hash mismatch')
+                            copied[identifier]=str(target.relative_to(directory));archive_bytes+=target.stat().st_size
+                        item['file']=copied[identifier]
+                    except Exception as exc:
+                        item['error_type']=type(exc).__name__;archive_errors.append(item)
+                    candidate_records.append(item)
     save(directory/'candidate-archive.json',candidate_records)
     report['dimensions']['candidate_archive']={'checked':not archive_errors,'complete':not archive_errors,
         'manifest':'candidate-archive.json','files':len(copied),'bytes':archive_bytes,'errors':archive_errors}
