@@ -2,8 +2,8 @@
   "campaign": "dynamic-plan-independent-deployment",
   "version": 2,
   "source_count": 77,
-  "new_count": 39,
-  "total_count": 116,
+  "new_count": 40,
+  "total_count": 117,
   "rules": {
     "entry": "Real browser authorization and deployed services; no success-state seeding or mocked live provider results",
     "default_parallel_cases": 2,
@@ -6016,12 +6016,52 @@
       "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
       "status": "not_run",
       "attempts": []
+    },
+    {
+      "id": "D39",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "合法替代失败节点与历史读取",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "失败revision保留",
+        "修复根计数一次",
+        "下游使用新revision",
+        "无关授权不扩大"
+      ],
+      "workflow_min_steps": 2,
+      "dynamic_hook": "legal_replacement",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "实际触发合法replacement后旧节点详情读取，覆盖F49，同时验证原失败保留、下游重绑和新交付。",
+      "status": "not_run",
+      "attempts": []
     }
   ],
   "unified_run_review": {
     "baseline_cases": 99,
-    "new_cases": 17,
-    "defined_cases": 116,
-    "live_validation": "not_started"
+    "new_cases": 18,
+    "defined_cases": 117,
+    "live_validation": "in_progress"
   }
 }

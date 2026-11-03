@@ -170,3 +170,7 @@ D01–D21 全部保留。分别更新：Manager/Reviewer/Diagnosis 改为 contro
 | D36 | 人物抠图候选在人工 Review 后通过反馈收缩边缘 | 原候选保留、同 Run 新 revision、原图不重做、Alpha 实际变化且受限 |
 | D37 | 双图拼图在人工 Review 后交换左右构图 | 两张上游不重做，输出像素与原候选交换左右后的参考一致 |
 | D38 | Wan 提交前、参考图处理在途时更换已授权参考素材 | 原处理排空、新参考 revision、生成零提前提交、最终只有一个 Provider request key |
+
+| D39 | 诊断后显式合法替代失败Task，并自动重绑下游 | 原失败节点仍能通过API/浏览器查看，保持原revision与错误；新Agent Task覆盖原要求；下游新revision只消费替代节点；旧节点不再阻塞当前交付 |
+
+D39用于确定性覆盖F49的历史节点读取路径，不能依赖D28/D38的模型偶然选择replacement。保留原D21的同一逻辑Task修订目标；当前总计117条。

@@ -12,7 +12,7 @@ function selectedTask(run,identifier){
 }
 const hooks=new Set(['identity','drain_local','drain_agent','planning_inputs','drain_wan','unknown_input',
  'feedback_idempotency','no_waiver','mask_boundary','temporal_boundary','publish_input','successor_inputs','drain_sync','frozen_route',
- 'feedback_cutout','feedback_layout','reference_before_wan']);
+ 'feedback_cutout','feedback_layout','reference_before_wan','legal_replacement']);
 
 async function before(c){
  const {spec,state,page,read,wait,appendInput,feedback,approve,api,fault,capture,persist,observeTerminal,control}=c;
@@ -145,6 +145,15 @@ async function after(c){
  if(hook==='reference_before_wan'){
   const task=selectedTask(run,'reference');assert.ok(task&&(task.revision>boundary.reference_revision||task.id!=='reference'&&task.user_revision_count>0));
   const calls=(await fault('progress')).provider_calls;assert.equal(calls.length,1);boundary.provider_after=calls[0];
+ }
+ if(hook==='legal_replacement'){
+  const old=run.tasks.find(t=>t.id==='render'),replacement=selectedTask(run,'render'),child=run.tasks.find(t=>t.id==='package');
+  assert.ok(old&&!old.selected&&old.error_code==='execution_failed'&&old.revision===0);
+  assert.ok(replacement&&replacement.id==='render_fixed'&&replacement.type==='agent'&&replacement.status==='succeeded');
+  assert.ok(child?.revision>0&&child.status==='succeeded');
+  assert.ok(Object.values(child.spec.inputs).some(ref=>ref.step===replacement.id));
+  assert.ok((run.replacements||[]).some(item=>item.old_task_id===old.id&&item.new_task_id===replacement.id));
+  boundary.observed=true;boundary.replacement={old:old.id,current:replacement.id,child_revision:child.revision};
  }
  if(!boundary.observed)throw Object.assign(Error('Required unified Run boundary was not observed'),{boundary:true});
  persist();
