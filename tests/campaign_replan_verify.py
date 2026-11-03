@@ -25,7 +25,7 @@ def verify(directory):
     hashes=sorted(r['sha256'] for r in receipt['manifest'].values())
     assert sorted(f['sha256'] for f in target['quality']['files'])==hashes
     assert all(f.startswith(f'edit/workflows/{new["id"]}/{target["id"]}/') for f in target['result'])
-    budget=store.query("SELECT used FROM execution_budgets WHERE turn_id=? AND category='local_image'",(state['execute_id'],))
+    budget=store.query("SELECT used FROM execution_budgets WHERE run_id=? AND category='local_image'",(state['execute_id'],))
     expected=sum(s['spec']['operation']=='image.local_adjust' and not s['spec'].get('reuse_from') for s in new['steps'] if s['spec']['kind']=='operation')
     assert (budget[0]['used'] if budget else 0)==expected,'Reuse repeated original operation'
     calls=store.query("SELECT operation,status FROM usage_calls WHERE task_id=? AND category='llm' AND operation LIKE 'control:%'",(state['old_execute'],))
@@ -56,9 +56,9 @@ def capture(directory):
       'readiness':store.query('SELECT * FROM plan_readiness WHERE project=?',(project,)),
       'project_checkpoints':store.query('SELECT * FROM execution_checkpoints WHERE project=?',(project,)),
       'step_checkpoints':store.query('SELECT * FROM execution_step_checkpoints WHERE project=?',(project,)),
-      'workflow_definitions':store.query('SELECT id,turn_id,status,definition FROM agent_workflows WHERE project=?',(project,)),
+      'workflow_definitions':store.query('SELECT id,run_id,status,definition FROM agent_workflows WHERE project=?',(project,)),
       'receipts':store.query('SELECT * FROM workflow_reuse_receipts WHERE project=?',(project,)),
-      'events':store.query('SELECT e.* FROM agent_events e JOIN agent_turns t ON t.id=e.turn_id WHERE t.project=? ORDER BY e.seq LIMIT 3000',(project,))}
+      'events':store.query('SELECT e.* FROM agent_events e JOIN agent_turns t ON t.id=e.run_id WHERE t.project=? ORDER BY e.seq LIMIT 3000',(project,))}
     save(directory/'database-evidence.json',result);return {'captured':True}
 
 if __name__=='__main__':print(json.dumps(capture(sys.argv[1]) if '--capture' in sys.argv else verify(sys.argv[1])))

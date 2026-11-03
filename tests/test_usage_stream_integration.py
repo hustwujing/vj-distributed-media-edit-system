@@ -20,7 +20,7 @@ class UsageStreamTests(unittest.TestCase):
                         bus.return_value.publish.assert_not_called()
                         raise ValueError('rollback')
                 bus.return_value.publish.assert_not_called()
-                self.assertEqual(store.query('SELECT seq FROM agent_events WHERE turn_id=?',(task,)),[])
+                self.assertEqual(store.query('SELECT seq FROM agent_events WHERE run_id=?',(task,)),[])
                 with store.connect() as db:
                     db.execute('BEGIN IMMEDIATE')
                     agent_store.event(store,task,'progress',{'text':'committed'})

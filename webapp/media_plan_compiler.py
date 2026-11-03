@@ -60,8 +60,11 @@ def compile_sequence(paths,output,workdir,*,width=None,height=None,fps=None,crf=
     if resources['estimated_temporary_bytes']>available:
         raise MediaCompileError('media_temporary_space_insufficient','Insufficient temporary disk for declared sequence')
     normalized=[];commands=[]
-    direct=(resources['strategy']=='concat_demuxer' and width is None and height is None and fps is None
-            and audio_mode=='preserve')
+    direct=(resources['strategy']=='concat_demuxer' and width is None and height is None and fps is None)
+    if not direct and len(paths)>1:
+        raise MediaCompileError('media_normalization_required',
+            'Incompatible streams require independent media.normalize_clip Tasks with the same width, height, fps and audio mode. '
+            'Commit and validate each clip before joining their video roles with media.concat_sequence.')
     if direct:normalized=paths
     else:
         first=records[0]['signature']['video'];target_width=width or first['width'];target_height=height or first['height']
@@ -72,7 +75,7 @@ def compile_sequence(paths,output,workdir,*,width=None,height=None,fps=None,crf=
             command=['ffmpeg','-nostdin','-v','error','-y','-threads',str(threads),'-i',str(path)]
             if audio_mode=='preserve' and record['signature']['audio'] is None:
                 command+=['-f','lavfi','-i','anullsrc=r=48000:cl=stereo']
-            command+=['-map','0:v:0','-vf',f'scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={target_fps},format=yuv420p',
+            command+=['-filter_threads',str(threads),'-map','0:v:0','-vf',f'scale={target_width}:{target_height}:force_original_aspect_ratio=decrease,pad={target_width}:{target_height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={target_fps},format=yuv420p',
                       '-c:v','libx264','-preset','veryfast','-crf',str(crf),'-threads',str(threads)]
             if audio_mode=='remove':command+=['-an']
             else:
@@ -84,7 +87,7 @@ def compile_sequence(paths,output,workdir,*,width=None,height=None,fps=None,crf=
     if audio_mode!='remove':command+=['-map','0:a:0?']
     command+=['-c','copy',str(output)]
     _run(command,'media_concat_failed');commands.append({'phase':'concat','argv_sha256':hashlib.sha256('\0'.join(command).encode()).hexdigest()})
-    return {'version':1,'resources':resources,'strategy':resources['strategy'] if not direct else 'concat_demuxer',
+    return {'version':1,'resources':resources,'strategy':'normalize_single_clip' if not direct else 'concat_demuxer',
             'inputs':[{'sha256':file_digest(path),'duration':record['duration'],'signature':record['signature']} for path,record in zip(paths,records)],
             'commands':commands,'output':probe(output)}
 def file_digest(path):
@@ -92,4 +95,3 @@ def file_digest(path):
     with Path(path).open('rb') as stream:
         while chunk:=stream.read(1024*1024):digest.update(chunk)
     return digest.hexdigest()
-

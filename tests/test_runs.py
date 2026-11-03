@@ -30,7 +30,7 @@ class RunIdentityTests(unittest.TestCase):
     def test_root_has_session_and_no_agent_turn_or_internal_task(self):
         self.assertEqual(self.run['status'],'ACTIVE')
         self.assertEqual(self.run['activity'],'IDLE')
-        self.assertNotIn('turn_id',self.run)
+        self.assertNotIn('run_id',self.run)
         self.assertFalse(self.store.query('SELECT id FROM agent_turns'))
         run=self.tick()
         self.assertEqual(run['activity'],'PLANNING')

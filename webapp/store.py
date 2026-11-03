@@ -224,7 +224,7 @@ class Store:
 
     def admit_tasks(self, project, count=1):
         """Call inside the submission transaction; limits span all queue types."""
-        rows=self.query("SELECT p.owner FROM projects p JOIN (SELECT project FROM agent_turns WHERE status IN ('queued','running','waiting') UNION ALL SELECT project FROM jobs WHERE status IN ('queued','running')) t ON t.project=p.id")
+        rows=self.query("SELECT p.owner FROM projects p JOIN execution_subjects t ON t.project=p.id WHERE t.status IN ('queued','running','waiting')")
         owner=self.query('SELECT owner FROM projects WHERE id=?',(project,))[0]['owner']
         if len(rows)+count>int(os.environ.get('VIDEO_USE_QUEUE_LIMIT','100')):
             raise ValueError('任务队列已满，请稍后重试。')

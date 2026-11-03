@@ -3,7 +3,7 @@
 适用于专业 Agent 的执行引擎，以及现有 SDK Agent 引擎的扩展。首先区分两个入口：
 
 - `profile_harnesses.py` 承载动态 Task 的策略执行引擎。当前默认是服务端受控的
-  `structured-profile-v1`，执行明确的 inspect/script/proposal/result 循环。
+  `structured-profile-v2`，执行明确的 inspect/script/proposal/result 循环。
 - `harness_adapters.py` 承载 Codex、Claude Code、DeepSeek 等 SDK/子进程协议。
   它们已有启动、会话、事件和恢复机制；需要用 SDK 实现一个专业 Agent harness 时复用这些实现，
   不得把 SDK 可用性直接当作已满足专业 Agent 权限契约。
@@ -40,3 +40,5 @@
 不能只以“可 import”“SDK 返回一句话”或模块名存在判定接入完成。
 
 新能力同时更新 Profile 目录、运行包/依赖清单、诊断投影、接入说明和真机用例；发布遵循冻结版本门禁。
+
+统一 Run 接入还必须验证：Control Job 不创建业务 Task；运行中输入只建立派发屏障，不取消当前模型/工具循环；所有结果仍绑定原 revision/lease。业务报告使用 report 对象，控制角色使用专属 envelope。实际调用记入 specialist_attempt_profiles，不能根据项目默认配置猜测执行的 harness。

@@ -146,7 +146,7 @@ class DistributedCancellationTests(unittest.TestCase):
         self.cancel()
         with self.api.connect() as db:terminate(db,self.task,'cancelled')
         with self.lease.bind(),self.assertRaises((TaskLimitReached,LeaseLost)):
-            provider_calls.update(self.store,{'id':self.task,'turn_id':self.task},{'id':'image','revision':0},'waiting','late-job')
+            provider_calls.update(self.store,{'id':self.task,'run_id':self.task},{'id':'image','revision':0},'waiting','late-job')
         receipt=self.api.query('SELECT external_id FROM workflow_provider_calls WHERE request_key=?',(key,))[0]
         self.assertEqual(receipt['external_id'],'late-job')
         cleanup=self.api.query('SELECT external_id,state FROM execution_external_cleanup WHERE id=?',(key,))[0]

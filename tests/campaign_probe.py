@@ -73,7 +73,7 @@ def verify(run_dir):
     from PIL import Image,ImageDraw,ImageOps
     run_dir=Path(run_dir).resolve()
     if not run_dir.is_relative_to((ROOT/'runs').resolve()):raise ValueError('Invalid QA run directory')
-    state=json.loads((run_dir/'state.json').read_text());spec=next(c for c in json.loads((REPO/'docs/real-case-campaign/dynamic-cases.json').read_text())['cases'] if c['id']==state['case'])
+    state=json.loads((run_dir/'state.json').read_text());spec=json.loads((run_dir/'case-definition.json').read_text())
     expected=spec['expect'];errors=[];items=[];images=[];videos=[];audios=[];texts=[];others=[]
     for artifact in state['artifacts']:
         path=Path(artifact['local_file']).resolve()
@@ -288,6 +288,10 @@ def verify(run_dir):
         from campaign_dynamic_intervention_checks import check as intervention_check
         extra_checks,extra_errors=intervention_check(state,spec,images,videos,store(),fixture,frame,run_dir)
         checks.update(extra_checks);errors.extend(extra_errors)
+    if state['case'] in ('D28','D30','D31','D36','D37','D38'):
+        from campaign_unified_checks import check as unified_check
+        extra_checks,extra_errors=unified_check(state,images,videos,store(),frame)
+        checks.update(extra_checks);errors.extend(extra_errors)
     # Contact sheet is independent evidence for required human/vision review.
     previews=[]
     if selected and kind in ('video','video_variants'):
@@ -302,11 +306,11 @@ def verify(run_dir):
         sheet.save(run_dir/'contact-sheet.jpg')
     if spec.get('allowed_external_operations'):
         db=store()
-        calls=db.query("""SELECT request_key,step,revision,provider,operation,state,external_id,network_seconds,poll_count FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE turn_id=?) OR workflow=? ORDER BY created""",(state['execute_id'],state['execute_id']))
+        calls=db.query("""SELECT request_key,step,revision,provider,operation,state,external_id,network_seconds,poll_count FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE run_id=?) OR workflow=? ORDER BY created""",(state['execute_id'],state['execute_id']))
         for reuse in state.get('reuse_evidence',[]):
             owned=db.query('SELECT project FROM agent_turns WHERE id=?',(reuse['task'],))
             if not owned or owned[0]['project']!=state['project']:raise ValueError('Reused provider task outside project')
-            previous=db.query("SELECT request_key,workflow,step,revision,provider,operation,state,external_id,network_seconds,poll_count,result FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE turn_id=?) AND operation=? AND state='succeeded'",(reuse['task'],reuse['operation']))
+            previous=db.query("SELECT request_key,workflow,step,revision,provider,operation,state,external_id,network_seconds,poll_count,result FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE run_id=?) AND operation=? AND state='succeeded'",(reuse['task'],reuse['operation']))
             linked=[]
             for receipt in previous:
                 # Async receipts describe the provider job; its downloaded
@@ -332,10 +336,10 @@ def verify(run_dir):
 
 
 def candidate(db,task):
-    rows=db.query("SELECT a.id,a.worker,a.step_id,a.runtime,a.started,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id=? AND a.kind='workflow' AND a.status='running' AND a.runtime<>'' ORDER BY a.started DESC",(task,))
+    rows=db.query("SELECT a.id,a.worker,a.step_id,a.runtime,a.started,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.run_id=? AND a.kind='workflow' AND a.status='running' AND a.runtime<>'' ORDER BY a.started DESC",(task,))
     for row in rows:
         if time.time()-row['started']<2:continue
-        specs=db.query('SELECT s.spec_json AS spec FROM run_tasks s JOIN runs w ON w.id=s.run_id WHERE w.turn_id=? AND s.id=?',(task,row['step_id']))
+        specs=db.query('SELECT s.spec_json AS spec FROM run_tasks s JOIN runs w ON w.id=s.run_id WHERE w.run_id=? AND s.id=?',(task,row['step_id']))
         if not specs or not (json.loads(specs[0]['spec']).get('retry_policy')=='safe_once'):continue
         for node in cluster.PORTS:
             registry=cluster.registry(node)
@@ -370,7 +374,7 @@ def main():
         db=store()
         if action=='task':
             result=diagnose(db,value,limit=200)
-            records=db.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind='tool' ORDER BY seq",(value,))
+            records=db.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='tool' ORDER BY seq",(value,))
             latest={}
             for row in records:
                 item=json.loads(row['payload'])
@@ -391,16 +395,16 @@ def main():
                 'agent_non_tool_seconds_estimate':round(max(0,agent_seconds-tools_seconds),3),
                 'estimate_scope':'model communication/reasoning plus orchestration and setup; not pure inference or CPU time',
                 'phase_metrics':result['metrics'],'tools':commands}
-            result['qa_operation_budgets']=db.query('SELECT category,used FROM execution_budgets WHERE turn_id=?',(value,))
+            result['qa_operation_budgets']=db.query('SELECT category,used FROM execution_budgets WHERE run_id=?',(value,))
             provider_steps={c['step'] for c in result.get('provider_calls',[]) if c['operation'].startswith('video.')}
             if provider_steps:
-                records=db.query("SELECT step_id,status,started,finished,runtime FROM execution_attempts WHERE turn_id=? AND kind='workflow' ORDER BY started",(value,))
+                records=db.query("SELECT step_id,status,started,finished,runtime FROM execution_attempts WHERE run_id=? AND kind='workflow' ORDER BY started",(value,))
                 result['qa_video_attempts']=[{k:v for k,v in a.items() if k!='runtime'} | {'task_runtime_allocated':bool(a['runtime'])} for a in records if a['step_id'] in provider_steps]
                 waits=[c for c in result['provider_calls'] if c['step'] in provider_steps and c['state'] in ('waiting','running','queued')]
                 if waits and len(sys.argv)>3:
                     target=Path(sys.argv[3]).resolve().parent
                     if target.is_relative_to((ROOT/'runs').resolve()):
-                        leases=db.query('SELECT slot FROM execution_leases WHERE turn_id=? AND active=1 AND expires>?',(value,db.now()))
+                        leases=db.query('SELECT slot FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(value,db.now()))
                         snapshot={'at':time.time(),'task':value,'provider_calls':waits,'active_local_leases':len(leases),'attempts':result['qa_video_attempts']}
                         with (target/'async-resource-samples.jsonl').open('a') as out:out.write(json.dumps(snapshot,ensure_ascii=False)+'\n')
 

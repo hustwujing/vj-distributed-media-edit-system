@@ -22,7 +22,7 @@ def resolve(error_code,phase='local',classification='') -> Resolution:
     if error_code in ('poll_failed','collect_failed'):
         return Resolution('retry_same_revision','The existing external handle can be queried or collected again')
     if error_code in ('technical_validation_failed','quality_failed','model_result','pre_submit','execution_failed',
-                      'provider_failed','agent_failed','invalid_result_manifest','missing_proposal'):
+                      'provider_failed','agent_failed','review_incomplete','invalid_result_manifest','missing_proposal'):
         return Resolution('manager_revision','A new plan or immutable task revision is required within the frozen authorization')
     return Resolution('stop','No automatic recovery policy is registered for this error')
 

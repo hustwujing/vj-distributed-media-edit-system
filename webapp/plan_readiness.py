@@ -6,10 +6,10 @@ from .task_leases import CURRENT
 
 def initialize(db):
     db.executescript('''CREATE TABLE IF NOT EXISTS plan_readiness(
-      turn_id TEXT PRIMARY KEY,project TEXT NOT NULL,digest TEXT NOT NULL,fingerprint TEXT NOT NULL,
+      run_id TEXT PRIMARY KEY,project TEXT NOT NULL,digest TEXT NOT NULL,fingerprint TEXT NOT NULL,
       state TEXT NOT NULL,reason TEXT NOT NULL DEFAULT '',consumed_by TEXT NOT NULL DEFAULT '',updated REAL NOT NULL);
       CREATE INDEX IF NOT EXISTS plan_readiness_project ON plan_readiness(project,state);
-      CREATE TABLE IF NOT EXISTS plan_review_retries(turn_id TEXT PRIMARY KEY,used INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS plan_review_retries(run_id TEXT PRIMARY KEY,used INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS agent_routes(
       task_id TEXT PRIMARY KEY,stage TEXT NOT NULL,capability TEXT NOT NULL DEFAULT '',
       reason TEXT NOT NULL DEFAULT '',candidate TEXT NOT NULL DEFAULT '',context TEXT NOT NULL DEFAULT '[]',updated REAL NOT NULL);
@@ -25,20 +25,20 @@ def fingerprint(store,project):
 
 
 def invalidate(store,project,reason,except_turn=''):
-    store.execute("UPDATE plan_readiness SET state='stale',reason=?,updated=? WHERE project=? AND turn_id<>? AND state IN ('pending','ready','unavailable')",
+    store.execute("UPDATE plan_readiness SET state='stale',reason=?,updated=? WHERE project=? AND run_id<>? AND state IN ('pending','ready','unavailable')",
                   (reason,store.now(),project,except_turn))
 
 
 def declared(store,task,digest):
     project=store.query('SELECT project FROM agent_turns WHERE id=?',(task,))[0]['project']
     invalidate(store,project,'已有更新的方案',task)
-    store.execute('''INSERT INTO plan_readiness(turn_id,project,digest,fingerprint,state,updated) VALUES (?,?,?,?,'pending',?)
-      ON CONFLICT(turn_id) DO UPDATE SET digest=excluded.digest,fingerprint=excluded.fingerprint,state='pending',reason='',consumed_by='',updated=excluded.updated''',
+    store.execute('''INSERT INTO plan_readiness(run_id,project,digest,fingerprint,state,updated) VALUES (?,?,?,?,'pending',?)
+      ON CONFLICT(run_id) DO UPDATE SET digest=excluded.digest,fingerprint=excluded.fingerprint,state='pending',reason='',consumed_by='',updated=excluded.updated''',
       (task,project,digest,fingerprint(store,project),store.now()))
 
 
 def public(store,task):
-    rows=store.query('SELECT * FROM plan_readiness WHERE turn_id=?',(task,))
+    rows=store.query('SELECT * FROM plan_readiness WHERE run_id=?',(task,))
     if not rows:return {'state':'none','can_execute':False}
     row=rows[0];state=row['state'];reason=row['reason']
     turn=store.query('SELECT status FROM agent_turns WHERE id=?',(task,))[0]
@@ -46,7 +46,7 @@ def public(store,task):
     # the reviewer. Derive the public state for old records as well as new ones.
     if state=='pending' and turn['status'] in ('failed','cancelled'):
         state='unavailable';reason='本轮已结束，方案检查未完成，请重新讨论'
-    intent=store.query('SELECT digest FROM execution_intents WHERE turn_id=?',(task,))
+    intent=store.query('SELECT digest FROM execution_intents WHERE run_id=?',(task,))
     if state=='ready' and (not intent or intent[0]['digest']!=row['digest'] or fingerprint(store,row['project'])!=row['fingerprint']):
         state='stale';reason='方案或项目内容已变化，请重新讨论方案'
     return {'state':state,'can_execute':state=='ready' and turn['status']=='succeeded',
@@ -54,8 +54,8 @@ def public(store,task):
 
 
 def current(store,project):
-    rows=store.query("SELECT turn_id FROM plan_readiness WHERE project=? AND state='ready' ORDER BY updated DESC LIMIT 1",(project,))
-    if rows and public(store,rows[0]['turn_id'])['can_execute']:return rows[0]['turn_id']
+    rows=store.query("SELECT run_id FROM plan_readiness WHERE project=? AND state='ready' ORDER BY updated DESC LIMIT 1",(project,))
+    if rows and public(store,rows[0]['run_id'])['can_execute']:return rows[0]['run_id']
     return None
 
 
@@ -71,7 +71,7 @@ def require(store,project,task,digest=None):
 def consume(store,project,plan,task,digest=None):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE');require(store,project,plan,digest)
-        if not db.execute("UPDATE plan_readiness SET state='consumed',consumed_by=?,updated=? WHERE turn_id=? AND state='ready'",
+        if not db.execute("UPDATE plan_readiness SET state='consumed',consumed_by=?,updated=? WHERE run_id=? AND state='ready'",
                           (task,store.now(),plan)).rowcount:raise ValueError('该方案已经确认过')
 
 
@@ -79,7 +79,7 @@ def review(store,task,text):
     from .execution_intent import get
     intent=get(store,task)
     if not intent:return
-    rows=store.query('SELECT * FROM plan_readiness WHERE turn_id=?',(task,))
+    rows=store.query('SELECT * FROM plan_readiness WHERE run_id=?',(task,))
     if not rows:return
     row=rows[0]
     from .semantic_review import classify,SemanticUnavailable,SemanticUncertain
@@ -96,7 +96,7 @@ def review(store,task,text):
         state='needs_information';reason='方案是否完整尚不明确，请补充输入、参数或交付内容'
     except SemanticUnavailable:pass
     if fingerprint(store,row['project'])!=row['fingerprint']:state='stale';reason='审核期间项目内容已变化'
-    store.execute('UPDATE plan_readiness SET state=?,reason=?,updated=? WHERE turn_id=? AND digest=? AND state IN (\'pending\',\'unavailable\')',
+    store.execute('UPDATE plan_readiness SET state=?,reason=?,updated=? WHERE run_id=? AND digest=? AND state IN (\'pending\',\'unavailable\')',
                   (state,reason,store.now(),task,row['digest']))
 
 
@@ -141,7 +141,7 @@ def promote_confirmation(store,task,plan):
 
 
 def retry_count(store,task):
-    rows=store.query('SELECT used FROM plan_review_retries WHERE turn_id=?',(task,))
+    rows=store.query('SELECT used FROM plan_review_retries WHERE run_id=?',(task,))
     return rows[0]['used'] if rows else 0
 
 
@@ -149,12 +149,12 @@ def retry_review(store,task,digest):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         row=db.execute('SELECT * FROM agent_turns WHERE id=?',(task,)).fetchone()
-        ready=db.execute('SELECT * FROM plan_readiness WHERE turn_id=?',(task,)).fetchone()
+        ready=db.execute('SELECT * FROM plan_readiness WHERE run_id=?',(task,)).fetchone()
         if not row or row['status']!='succeeded' or not ready or ready['state']!='unavailable' or ready['digest']!=digest:
             raise ValueError('当前方案不支持重试检查')
         if fingerprint(store,row['project'])!=ready['fingerprint']:raise ValueError('项目内容已变化，请重新讨论方案')
         if db.execute('SELECT id FROM agent_turns WHERE project=? AND created>? LIMIT 1',(row['project'],row['created'])).fetchone():raise ValueError('已有更新的对话，请使用最新方案')
         if retry_count(store,task)>=2:raise ValueError('方案检查已达到两次重试上限，请稍后重新讨论')
-        db.execute('INSERT INTO plan_review_retries VALUES (?,1) ON CONFLICT(turn_id) DO UPDATE SET used=plan_review_retries.used+1',(task,))
-        db.execute("UPDATE plan_readiness SET state='pending',reason='',updated=? WHERE turn_id=?",(store.now(),task))
+        db.execute('INSERT INTO plan_review_retries VALUES (?,1) ON CONFLICT(run_id) DO UPDATE SET used=plan_review_retries.used+1',(task,))
+        db.execute("UPDATE plan_readiness SET state='pending',reason='',updated=? WHERE run_id=?",(store.now(),task))
     review(store,task,row['text'])

@@ -194,8 +194,19 @@ def concat_sequence(ctx):
     if any(role not in ctx.input_roles for role in roles):raise ValueError('Sequence references an undeclared input role')
     paths=[ctx.source(ctx.input_roles[role]) for role in roles]
     report=compile_sequence(paths,ctx.output/'final.mp4',ctx.output/'compiler-work',
-        width=ctx.parameters.get('width'),height=ctx.parameters.get('height'),fps=ctx.parameters.get('fps'),
-        crf=ctx.parameters['crf'],audio_mode=ctx.parameters['audio_mode'],threads=ctx.parameters['threads'])
+        audio_mode=ctx.parameters['audio_mode'],threads=ctx.parameters['threads'])
+    (ctx.output/'compiler-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+    shutil.rmtree(ctx.output/'compiler-work',ignore_errors=True)
+    return ['final.mp4','compiler-report.json']
+
+
+@register('normalize_clip')
+def normalize_clip(ctx):
+    from .media_plan_compiler import compile_sequence
+    if set(ctx.input_roles)!={'source'}:raise ValueError('Normalization requires exactly one source video')
+    p=ctx.parameters
+    report=compile_sequence([ctx.source(ctx.input_roles['source'])],ctx.output/'final.mp4',ctx.output/'compiler-work',
+        **{key:p[key] for key in ('width','height','fps','crf','audio_mode','threads')})
     (ctx.output/'compiler-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
     shutil.rmtree(ctx.output/'compiler-work',ignore_errors=True)
     return ['final.mp4','compiler-report.json']
@@ -244,3 +255,13 @@ def audio_process(ctx):
         report.update(status='failed',error_code='audio_render_failed',stderr_tail=rendered.stderr[-8000:]);_atomic_report(report_path,report);raise ValueError('Audio processing failed')
     report.update(status='succeeded',output=audio_evidence(output));_atomic_report(report_path,report)
     return [output.name,report_path.name]
+
+
+@register('evidence')
+def collect_evidence(ctx):
+    from .media_evidence_operation import collect
+    source=ctx.input_roles.get('source')
+    if source not in ctx.assets:raise ValueError('Evidence source must be explicitly bound')
+    reference=ctx.input_roles.get('reference')
+    return collect(ctx.source(source),ctx.assets[source]['metadata']['kind'],ctx.output,ctx.parameters,
+                   reference=ctx.source(reference) if reference else None)

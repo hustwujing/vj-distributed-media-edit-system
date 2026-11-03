@@ -15,7 +15,7 @@ class WorkflowContractRepairTests(unittest.TestCase):
         downstream=fixtures.local_step('assemble',['extract']);downstream['inputs']={'clip':{'step':'extract','role':'video'}}
         with self.assertRaisesRegex(ValueError,'未声明的输出角色'):
             self.fixture.submit([upstream,downstream])
-        self.assertFalse(self.store.query('SELECT id FROM agent_workflows WHERE turn_id=?',(self.turn,)))
+        self.assertFalse(self.store.query('SELECT id FROM agent_workflows WHERE run_id=?',(self.turn,)))
         self.assertEqual(self.fixture.adapter.calls,[])
         upstream['output_roles']={'video':'final.png'}
         self.fixture.submit([upstream,downstream]);self.assertIsNotNone(self.fixture.get())

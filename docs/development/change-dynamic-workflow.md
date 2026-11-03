@@ -4,13 +4,13 @@
 协议目标见[设计](../../video-use-dynamic-agent-workflow-design.md)，实施与验收记录见
 [实施记录](../dynamic-plan-implementation.md)。开发任务不得运行旧集群脚本操作 main。
 
-统一 Run/Control Job、Provider 元数据拆分、用户反馈和运行中输入的后续重构，以[已确认方案与实施边界](../dynamic-plan-todo.md)为准，实施前必读并核对文末五项边界。本页下列入口描述现有实现，不代表后续目标模型已经落地。
+统一 Run/Control Job、Provider 元数据拆分、用户反馈和运行中输入的后续重构，以[已确认方案与实施边界](../dynamic-plan-todo.md)为准，实施前必读并核对文末五项边界。当前实现与验证进度分别记录于[实施记录](../unified-run-progress.md)，源码实现不等于已部署验收。
 
 ## 实现入口与权威记录
 
 | 职责 | 实现 | 权威记录 |
 | --- | --- | --- |
-| Task、授权和 Proposal 契约 | `workflow_graph.py` | `workflow_runs`、`workflow_tasks`、`workflow_task_revisions`、`workflow_plan_tasks`、`workflow_dependencies` |
+| Task、授权和 Proposal 契约 | `workflow_graph.py` | `runs`、`run_tasks`、`workflow_task_revisions`、`workflow_plan_tasks`、`workflow_dependencies` |
 | 冻结规划与提案 | `workflow_planning.py` | `planner_runs` |
 | 正式状态、恢复和交付 | `workflow_orchestrator.py` | reconcile generation、命令、审批、验收及交付事务 |
 | 资源选择与领取 | `workflow_dispatch.py`、`scheduling.py`、`task_leases.py` | 既有 execution lease、attempt、资源和清理表 |
@@ -31,7 +31,7 @@
 
 ## 必须保持的不变量
 
-- Manager 只提交 Proposal；专业 Agent 的 JSON 或进程退出码不构成业务成功。
+- Manager 提交绑定 snapshot、授权版本、graph 版本与输入 cutoff 的 ManagerResult。结果仅限 CONTINUE、APPLY_PLAN、REQUEST_AUTHORIZATION、REQUEST_USER_INPUT、COMPLETE、NEW_RUN_REQUIRED；只有 APPLY_PLAN/COMPLETE 携带 Proposal；专业 Agent 的 JSON 或进程退出码不构成业务成功。
 - 只有 Orchestrator 提交正式 Task/Workflow 状态、批准产物和最终交付。
 - 领取必须同时满足 `ready` 和空 `lease_id`。执行器提交结果后，调度器不得在控制面处理之前
   重领；没有结果的中断也必须先经过确定性恢复判断。
@@ -75,3 +75,17 @@ Planner 首轮只接收冻结能力摘要；完整 operation 契约通过 `contr
 模型失败已正确处理、依赖阻塞、程序缺陷、未触发边界和未执行，不把采样缺口计为通过。
 
 共享基础设施的systemd生命周期不得控制独立业务实例：共享PostgreSQL使用Wants/After，不使用Requires/BindsTo/PartOf形成连带停止。自身media/watchdog仍按实际需要保持强依赖。新增依赖须以专用临时服务验证停止与恢复行为，不能通过重启main共享服务做回归。
+
+## 输入、修订与冻结授权
+
+Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLAN/REVIEW/DIAGNOSE 只写 control_jobs，不创建 internal 业务 Task 或 agent_turn。调度和取消监控读取 execution_subjects 的统一身份，不能漏掉 Run。
+
+所有运行中输入和质量 revise 都写 run_inputs。claim、首条输入屏障与发布在同一控制事务内确定先后。drain set 中的原 revision 正常完成，包括外部句柄查询、候选检查点、验收和诊断；屏障外不领取新业务任务。Manager 冻结输入 sequence 上界；规划期间的新输入留给下一轮，禁止丢失或抢先发布旧图。
+
+授权追加写 run_authorizations；已有 Task 保留原 grant，新建或修订 Task 使用当前 grant。增加预算不能丢弃历史使用或未知预留。已交付输入建立 scope_confirmed=false 的 successor；未完整确认不得规划业务执行。
+
+质量决策携带候选摘要与快照，重复请求幂等、过期请求拒绝。只有原本声明的人工 Review 可 approve，不能批准技术失败或 Agent 拒绝。用户可指定修改根，服务器计算后代闭包；无关节点保持 revision、哈希和验收记录。自动修复不得改变原授权/要求。replacement 必须显式声明，被替代失败和历史 plan selection 保留。
+
+失败候选通过 RepairCandidateRef 的 revision/artifact/hash/role 冻结引用，只供 repair/evidence Task 读取。media.evidence 的真实输出与源/参考/预览哈希绑定。review_again 只接受新增且已验收的证据，不能把技术失败改成通过。相同候选内容、验收标准和证据不因重命名或递增 revision 而重新抽取审查结论。
+
+异构片段使用独立 media.normalize_clip Task，统一明确规格并保存验收检查点，media.concat_sequence 只负责兼容流顺序汇合。禁止在单一脚本中隐藏大量解码器或让一次失败重做所有片段。

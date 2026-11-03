@@ -188,7 +188,7 @@ else:raise AssertionError('Unexpected network access')
         Image.new('RGB',(8,8),'blue').save(target)
         os.chown(target,self.runtime.uid,self.runtime.gid)
         adapter=Adapter(self.store,'test',self.runtime.path)
-        workflow={'project':self.project,'turn_id':self.turn}
+        workflow={'project':self.project,'run_id':self.turn}
         report=adapter.validate(workflow,{'spec':{'kind':'script','acceptance':[
             {'kind':'image','file':'candidate.png','width':16},
             {'kind':'review','criterion':'主体完整，风格符合用户确认的方案'}]}},['edit/candidate.png'])
@@ -207,7 +207,7 @@ else:raise AssertionError('Unexpected network access')
                         '-c:v','libx264','-threads','1','-c:a','pcm_s16le','-shortest',str(target)],check=True,capture_output=True)
         os.chown(target,self.runtime.uid,self.runtime.gid)
         adapter=Adapter(self.store,'test',self.runtime.path)
-        workflow={'project':self.project,'turn_id':self.turn}
+        workflow={'project':self.project,'run_id':self.turn}
         step={'spec':{'kind':'script','acceptance':[{'kind':'media','file':'candidate.mkv','width':160,'height':120,
              'audio_track_present':True,'video':True,'fps':10,'min_duration':.95,'max_duration':1.1,'decode':True}]}}
         report=adapter.validate(workflow,step,['edit/candidate.mkv'])

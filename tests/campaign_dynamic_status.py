@@ -1,5 +1,7 @@
 """Count distinct cases on the deployed version, keeping attempts separate."""
 import json
+import hashlib
+from functools import lru_cache
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -9,6 +11,16 @@ ROOT=REPO/'.cluster/campaigns/dynamic-plan'
 def read(path):
     try:return json.loads(path.read_text())
     except (FileNotFoundError,json.JSONDecodeError):return {}
+@lru_cache(maxsize=32)
+def source_hash(path):
+    try:return hashlib.sha256(path.read_bytes()).hexdigest()
+    except FileNotFoundError:return None
+
+def matches_definition(state,spec,directory):
+    if read(directory/'case-definition.json')!=spec:return False
+    if state.get('driver_sha256')!=source_hash(REPO/'tests/campaign_dynamic_browser.cjs'):return False
+    helpers=state.get('helper_sha256',{})
+    return bool(helpers) and all(value==source_hash(REPO/'tests'/name) for name,value in helpers.items())
 def failure_classification(state,internal,review):
     if review.get('outcome')=='program_failed' or internal.get('program_issues') or state.get('restore_error'):
         return 'program_error'
@@ -22,7 +34,7 @@ def status():
     for case in read(REPO/'docs/real-case-campaign/dynamic-cases.json')['cases']:
         attempts=sorted((ROOT/'runs'/case['id']).glob('attempt-*/state.json'))
         source=attempts[-1] if attempts else None;state=read(source) if source else {}
-        if state.get('release',{}).get('sha256')!=release['sha256']:
+        if state.get('release',{}).get('sha256')!=release['sha256'] or not source or not matches_definition(state,case,source.parent):
             groups['not_run'].append(case['id']);continue
         if state.get('status')!='finished':groups['running'].append(case['id']);continue
         directory=source.parent;review=read(directory/'review.json');artifact=read(directory/'artifact-verification.json');internal=read(directory/'internal-final.json');cleanup=read(directory/'cleanup.json')

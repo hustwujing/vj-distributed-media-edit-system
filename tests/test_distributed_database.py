@@ -65,7 +65,7 @@ class DistributedDatabaseTests(unittest.TestCase):
     def test_takeover_fences_old_node_and_nested_transaction_rolls_back(self):
         ca, cb = [Coordinator(s, str(s.root), 'distributed-test') for s in (self.a, self.b)]
         first = ca.claim(self.task, 'agent')
-        self.a.execute('UPDATE execution_leases SET expires=0 WHERE turn_id=?', (self.task,))
+        self.a.execute('UPDATE execution_leases SET expires=0 WHERE run_id=?', (self.task,))
         second = cb.claim(self.task, 'agent')
         self.assertEqual(second.generation, first.generation+1)
         with first.bind(), self.assertRaises(LeaseLost):

@@ -163,4 +163,4 @@ class ExperienceDeletionTests(unittest.TestCase):
                 store.execute('INSERT INTO agent_render_observations VALUES (?,1,1,2,?)',(task,store.now()))
                 store.execute('INSERT INTO plan_review_retries VALUES (?,1)',(task,))
                 response=client.delete('/api/projects/'+project);self.assertEqual(response.status_code,200,response.text)
-                for table,key in [('agent_messages','task_id'),('agent_render_observations','task_id'),('plan_review_retries','turn_id')]:self.assertFalse(store.query(f'SELECT * FROM {table} WHERE {key}=?',(task,)))
+                for table,key in [('agent_messages','task_id'),('agent_render_observations','task_id'),('plan_review_retries','run_id')]:self.assertFalse(store.query(f'SELECT * FROM {table} WHERE {key}=?',(task,)))

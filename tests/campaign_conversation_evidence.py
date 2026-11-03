@@ -7,9 +7,9 @@ from webapp.task_usage import snapshot
 s=store();root=Path('.cluster/campaigns/20261101-conversation');turns=[]
 for file in sorted(root.glob('*-turn.json')):
     row=json.loads(file.read_text());task=row['id'];project=row['project']
-    attempts=s.query('SELECT id,worker,status,runtime,uid,checkpoint,started,finished FROM execution_attempts WHERE turn_id=? ORDER BY started',(task,))
+    attempts=s.query('SELECT id,worker,status,runtime,uid,checkpoint,started,finished FROM execution_attempts WHERE run_id=? ORDER BY started',(task,))
     metrics=s.query('SELECT attempt,phase,calls,seconds,failures FROM execution_phase_metrics WHERE task_id=?',(task,))
-    checkpoints=s.query('SELECT attempt,manifest FROM execution_checkpoint_versions WHERE attempt IN (SELECT id FROM execution_attempts WHERE turn_id=?)',(task,))
+    checkpoints=s.query('SELECT attempt,manifest FROM execution_checkpoint_versions WHERE attempt IN (SELECT id FROM execution_attempts WHERE run_id=?)',(task,))
     result={'case':file.stem.removesuffix('-turn'),'task':task,'project':project,'status':row['status'],'mode':row['mode'],'routing':row['routing'],'attempts':attempts,'metrics':metrics,'checkpoints':[]}
     for cp in checkpoints:
         manifest=json.loads(cp['manifest']);result['checkpoints'].append({'attempt':cp['attempt'],'workspace_files':list(manifest.get('workspace',{})),'state':manifest.get('state',{})})

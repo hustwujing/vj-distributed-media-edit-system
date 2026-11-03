@@ -110,7 +110,7 @@
 
 - [ ] Orchestrator 仅在以下条件同时满足时进入输入安全点：drain set 没有 active lease、没有未完成 cleanup、没有 staged result 等待提交、没有仍需 poll/collect/validate 的外部 Task、没有由 drain set 派生且尚未完成的 Review/Diagnosis/Decision。
 - [ ] 到达安全点前不解锁下游：`advance()` 和 Scheduler 都必须检查 barrier。上游 Task 即使正常 succeeded，其 blocked 下游也保持不可领取，避免新输入到达后旧 DAG 继续扩散。
-- [ ] 到达安全点后，Orchestrator 解除 sealed、将全部 ACCEPTED 输入标记为 PLANNING，创建且只创建一个 PLAN control job（当前结构下为 Manager Task）；其冻结快照包含输入序列、刚完成的 Task/候选/验收/诊断、当前 graph 和 authorization version、剩余预算及未终结外部事实。
+- [ ] 到达安全点后，Orchestrator 解除 sealed、将全部 ACCEPTED 输入标记为 PLANNING，创建且只创建一个 PLAN control job（独立控制工作，不是业务 Task）；其冻结快照包含输入序列、刚完成的 Task/候选/验收/诊断、当前 graph 和 authorization version、剩余预算及未终结外部事实。
 - [ ] Manager 可以保留刚完成结果、修订已有 Task、增加新 Task、调整后续依赖或请求扩权；在新 Proposal 应用前，现有成功结果保持正式且可审计，不预先清空。只有 Proposal 明确产生新 revision 时，旧 revision 才按既有 revision 规则被替代并重跑受影响下游。
 - [ ] Proposal 成功应用后，将本批输入原子标记为 APPLIED 并记录 applied graph version，清除或推进 barrier；若规划期间又收到新输入，保留新 sequence 的 barrier，在本轮 Proposal 应用后再次排空并规划，不丢失输入。
 - [ ] 如果 Run 在屏障处理前已满足旧图交付条件，禁止发布；先进入统一安全点。已经完成正式交付后到达的新输入创建同 Session 的 successor Run，不回写已 delivered Run。
@@ -148,6 +148,6 @@
 | 规划期间再次输入 | 每个 PLAN control job 冻结本批输入 ID 和明确的 sequence 上界；只提交该批处理结果，后到输入保留 ACCEPTED 状态及屏障。 | 后到输入不被旧 Proposal 消费或覆盖；本轮结果应用后继续处理下一批，期间没有业务 Task 偷跑或旧图抢先交付。 |
 | 排空遇到外部未知或用户决策 | 保留屏障，按原句柄核实外部状态；公开具体等待原因、所需决策和已有进展。未知提交不得自动重放，安全恢复须有界。 | 在途 Wan 继续原 external ID；待用户决策或外部核实不能长期伪装成正常执行，也不能通过超时直接清除屏障。 |
 | 修复替代与旧节点关系 | 新 plan 显式记录选中的 Task revision、仍必需的逻辑任务及合法替代关系；替代必须保留原目标覆盖、授权和验收，旧历史保持不可变。 | 被合法替代的旧失败 revision 不再阻塞当前交付；仍必需且未修复的失败节点禁止封口/交付。仅新增相似节点不能自动消除旧要求。 |
-| 相同证据的重复审查 | 以候选内容哈希、验收标准摘要和证据集合身份识别审查对象；仅在出现新证据或新 revision 时允许新的内容审查。传输恢复、格式纠正归同一审查请求并有界。 | 空 Proposal、单纯增加 graph version、改 Task 名或重建 Reviewer 不得重审同一对象碰运气；无新依据时进入明确的待用户处理状态，不能豁免技术或 Agent Review 失败。 |
+| 相同证据的重复审查 | 以候选内容哈希、验收标准摘要和证据集合身份识别审查对象；仅在出现新证据，或新 revision 实际改变候选内容/验收时允许新的内容审查。传输恢复、格式纠正归同一审查请求并有界。 | 空 Proposal、单纯增加 graph version、改 Task 名或重建 Reviewer 不得重审同一对象碰运气；无新依据时进入明确的待用户处理状态，不能豁免技术或 Agent Review 失败。 |
 
 跨上述边界统一验证多节点竞争、事务中断、旧 generation/快照晚到和进程重启；证据需关联 Run、input sequence、plan version、Task revision、control job、attempt/lease 与发布记录。

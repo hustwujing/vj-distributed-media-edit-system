@@ -15,7 +15,7 @@ from .paths import SANDBOX_WORKSPACE
 def run(host, lease):
     from .agent_host import Shutdown, terminate
     store, runtime = host.store, lease.runtime
-    job=store.job(lease.turn_id)
+    job=store.job(lease.run_id)
     if job['status']=='cancelled':return
     with store.connect() as db:
         if not db.execute("UPDATE jobs SET status='running' WHERE id=? AND status IN ('queued','running')",(job['id'],)).rowcount:return

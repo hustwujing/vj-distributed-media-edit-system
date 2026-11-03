@@ -8,7 +8,7 @@ MODEL_PATHS={'/responses','/v1/responses','/messages','/v1/messages','/chat/comp
 
 def context(lease):
     if not lease or lease.kind!='workflow' or not lease.step_id:raise ValueError('A delegated Agent task lease is required')
-    lease.check();run=graph.get(lease.store,lease.turn_id)
+    lease.check();run=graph.get(lease.store,lease.run_id)
     if not run or run['status'] in ('CANCELLING',*graph.RUN_TERMINAL):raise ValueError('Workflow no longer accepts Agent submissions')
     task=next((t for t in graph.work_items(run) if t['id']==lease.step_id and t['type']=='agent'),None)
     if not task:raise ValueError('Agent task outside lease scope')
@@ -52,8 +52,11 @@ def submit(lease,kind,body):
                 snapshot=ReviewDecision.model_validate(result['decision']).snapshot_digest
             if snapshot!=task['spec']['snapshot_digest']:raise ValueError('Review snapshot changed')
         else:
-            files=result.get('files')
-            if set(result)!={'files'} or not isinstance(files,dict) or not set(files)<=set(task['spec']['output_roles'].values()):
+            from .workflow_agents import coerce_result_files,validate_result_files
+            files=coerce_result_files(task,result)
+            validate_result_files(lease.store,lease,task,files)
+            result={'files':files}
+            if not set(files)<=set(task['spec']['output_roles'].values()):
                 raise ValueError('Agent outputs do not match the declared roles')
             if any(not isinstance(text,str) or len(text.encode())>256000 for text in files.values()):raise ValueError('Agent output exceeds size limit')
         encoded=graph.encode(result)

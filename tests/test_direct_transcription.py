@@ -60,7 +60,7 @@ class DirectTranscriptionTests(unittest.TestCase):
     def test_wrong_intent_is_actionable_and_never_calls_provider(self):
         # Immutable intent mismatch is rejected before decode/network; it is not malformed JSON.
         raw={'route':'single','operations':['script'],'goal':'local','estimated_seconds':30}
-        self.f.store.execute('UPDATE execution_intents SET intent=? WHERE turn_id=?',(json.dumps(raw),self.f.plan))
+        self.f.store.execute('UPDATE execution_intents SET intent=? WHERE run_id=?',(json.dumps(raw),self.f.plan))
         with self.lease.bind(),patch('transcribe.call_scribe') as provider:
             response=Reply();self.g.transcribe(response,{'asset':'speech'})
         self.assertEqual(response.status,422)

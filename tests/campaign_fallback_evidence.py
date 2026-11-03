@@ -14,7 +14,7 @@ if len(sys.argv)>1:
  print('Snapshot verified:',sys.argv[1]);raise SystemExit
 reports=[]
 for name,task in [('greeting',state['greeting']),('fallback',state['task'])]:
- attempts=s.query('SELECT a.id,a.status,a.runtime,a.uid,a.started,a.finished,w.node,w.release FROM execution_attempts a LEFT JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id=? ORDER BY a.started',(task,))
+ attempts=s.query('SELECT a.id,a.status,a.runtime,a.uid,a.started,a.finished,w.node,w.release FROM execution_attempts a LEFT JOIN execution_workers w ON w.id=a.worker WHERE a.run_id=? ORDER BY a.started',(task,))
  route=s.query('SELECT * FROM agent_routes WHERE task_id=?',(task,))[0];u=snapshot(s,task,limit=200)
  if name=='greeting':assert all(not x['runtime'] and x['uid'] is None for x in attempts)
  else:

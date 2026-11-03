@@ -70,10 +70,10 @@ def main():
     if worker.is_alive():host.stop.set();worker.join(timeout=15)
     if worker.is_alive():raise RuntimeError('Isolated worker did not stop')
    for task in host.store.query('SELECT id,status,mode FROM agent_turns'):
-    task['attempts']=host.store.query('SELECT id,status,runtime,uid FROM execution_attempts WHERE turn_id=?',(task['id'],))
+    task['attempts']=host.store.query('SELECT id,status,runtime,uid FROM execution_attempts WHERE run_id=?',(task['id'],))
     from webapp.task_usage import snapshot
     task['usage']=snapshot(host.store,task['id'],limit=200)
-    task['events']=host.store.query('SELECT kind,payload,created FROM agent_events WHERE turn_id=? ORDER BY seq',(task['id'],));evidence.setdefault('tasks',[]).append(task)
+    task['events']=host.store.query('SELECT kind,payload,created FROM agent_events WHERE run_id=? ORDER BY seq',(task['id'],));evidence.setdefault('tasks',[]).append(task)
    evidence['passed']=result.returncode==0 and 'fixture_error' not in evidence
    (output/'isolated-evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n')
    print(json.dumps({'passed':evidence['passed'],'fixture_cases':len(evidence['fixtures']),'tasks':len(evidence.get('tasks',[]))}),flush=True)

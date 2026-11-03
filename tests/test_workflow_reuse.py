@@ -250,7 +250,7 @@ class ReuseTests(unittest.TestCase):
         self.assertEqual(result['steps'][0]['error_code'],'reuse')
         task,w=self.task()
         def expire():
-            self.store.execute('UPDATE execution_leases SET expires=0 WHERE turn_id=?',(task,))
+            self.store.execute('UPDATE execution_leases SET expires=0 WHERE run_id=?',(task,))
         with self.assertRaises(LeaseLost):self.run_reuse(task,w,after_checkpoint=expire)
         self.assertFalse(workflows.get(self.store,task)['steps'][0]['candidate'])
 

@@ -152,7 +152,7 @@ def initialize(store):
     with store.connect() as db:
         db.executescript('''
         CREATE TABLE IF NOT EXISTS agent_workflows (
-          id TEXT PRIMARY KEY, project TEXT NOT NULL, turn_id TEXT NOT NULL UNIQUE,
+          id TEXT PRIMARY KEY, project TEXT NOT NULL, run_id TEXT NOT NULL UNIQUE,
           plan_id TEXT NOT NULL, request_key TEXT NOT NULL, name TEXT NOT NULL,
           definition TEXT NOT NULL, status TEXT NOT NULL, error TEXT NOT NULL DEFAULT '',
           created REAL NOT NULL, updated REAL NOT NULL
@@ -165,7 +165,7 @@ def initialize(store):
           next_poll REAL NOT NULL DEFAULT 0, started REAL, updated REAL NOT NULL,
           PRIMARY KEY(workflow,id)
         );
-        CREATE TABLE IF NOT EXISTS workflow_control(turn_id TEXT PRIMARY KEY,pause_requested INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS workflow_control(run_id TEXT PRIMARY KEY,pause_requested INTEGER NOT NULL DEFAULT 0);
         CREATE INDEX IF NOT EXISTS agent_workflow_status ON agent_workflows(status);
         CREATE TABLE IF NOT EXISTS workflow_step_versions(
           workflow TEXT NOT NULL,step TEXT NOT NULL,revision INTEGER NOT NULL,
@@ -212,12 +212,12 @@ def initialize(store):
         initialize_graph(store)
 
 
-def get(store, turn_id):
+def get(store, run_id):
     from .workflow_graph import get as graph_get,execution_view
     if store.query("SELECT name FROM sqlite_master WHERE name='runs'"):
-        dynamic=graph_get(store,turn_id)
+        dynamic=graph_get(store,run_id)
         if dynamic:return execution_view(dynamic)
-    try:rows = store.query('SELECT * FROM agent_workflows WHERE turn_id=?', (turn_id,))
+    try:rows = store.query('SELECT * FROM agent_workflows WHERE run_id=?', (run_id,))
     except sqlite3.OperationalError as exc:
         if 'no such table: agent_workflows' in str(exc):return None
         raise
@@ -244,7 +244,7 @@ def get(store, turn_id):
     w['user_requests']=pending(store,w['id'])
     if w['status']=='paused' and w['agent_review']:
         from .task_leases import quota_status,model_call_limit
-        quota=quota_status(store,turn_id,'model',model_call_limit())
+        quota=quota_status(store,run_id,'model',model_call_limit())
         if quota['blocked']:w['resume_block']=quota
     return w
 
@@ -281,11 +281,11 @@ def public(w):
             for s in w['steps'])))}
 
 
-def submit(store, turn_id, raw):
+def submit(store, run_id, raw):
     if os.environ.get('VIDEO_USE_DYNAMIC_WORKFLOW')=='1':
         raise ValueError('静态工作流提交入口已停用，请使用动态工作流的授权和提案协议。')
     from .execution_intent import get as get_intent
-    intent=get_intent(store,turn_id)
+    intent=get_intent(store,run_id)
     if intent and isinstance(raw,dict) and isinstance(raw.get('steps'),list):
         import copy
         raw=copy.deepcopy(raw)
@@ -297,7 +297,7 @@ def submit(store, turn_id, raw):
     definition = plan.model_dump_json()
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        row = db.execute('SELECT * FROM agent_turns WHERE id=?', (turn_id,)).fetchone()
+        row = db.execute('SELECT * FROM agent_turns WHERE id=?', (run_id,)).fetchone()
         if not row or row['mode'] != 'execute' or row['status'] != 'running' or not row['plan_id']:
             raise ValueError('只有已确认方案的执行轮可以安排后台步骤')
         approved = db.execute("SELECT id FROM agent_turns WHERE id=? AND project=? AND mode='plan' AND status='succeeded'",
@@ -305,7 +305,7 @@ def submit(store, turn_id, raw):
         if not approved:
             raise ValueError('已确认方案不存在')
         from .execution_intent import get as get_intent
-        intent=get_intent(store,turn_id)
+        intent=get_intent(store,run_id)
         if intent:
             from collections import Counter
             from .operations import for_step,get as get_operation
@@ -320,7 +320,7 @@ def submit(store, turn_id, raw):
                 if for_step(step.model_dump()).external_side_effects:paid.add(step.operation)
             if any(requested[name]>allowed[name] for name in paid):
                 raise ValueError('工作流超出已确认的外部调用次数')
-        existing = db.execute('SELECT definition FROM agent_workflows WHERE turn_id=?', (turn_id,)).fetchone()
+        existing = db.execute('SELECT definition FROM agent_workflows WHERE run_id=?', (run_id,)).fetchone()
         if existing:
             if Plan.model_validate_json(existing['definition']).model_dump_json() != definition:
                 raise ValueError('本轮已提交后台计划，不能替换或重复安排；请查询状态')
@@ -336,12 +336,12 @@ def submit(store, turn_id, raw):
             now = store.now()
             wid = uuid.uuid4().hex
             db.execute('INSERT INTO agent_workflows VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-                       (wid, row['project'], turn_id, row['plan_id'], plan.key, plan.name,
+                       (wid, row['project'], run_id, row['plan_id'], plan.key, plan.name,
                         definition, 'staged', '', now, now))
             for i, step in enumerate(plan.steps):
                 db.execute('INSERT INTO agent_steps(workflow,id,position,spec,status,updated) VALUES (?,?,?,?,?,?)',
                            (wid, step.id, i, step.model_dump_json(), 'pending', now))
-    return public(get(store, turn_id))
+    return public(get(store, run_id))
 
 
 def change(store, wid, sid, **values):
@@ -353,7 +353,7 @@ def change(store, wid, sid, **values):
         if set(values)!={'bindings'}:raise ValueError('Dynamic task state is orchestrator-owned')
         from .task_leases import CURRENT
         lease=CURRENT.get()
-        if not lease or lease.turn_id!=dynamic['id'] or lease.step_id!=sid:
+        if not lease or lease.run_id!=dynamic['id'] or lease.step_id!=sid:
             raise ValueError('Input binding requires the current task lease')
         with store.connect() as db:
             lease.validate(db)
@@ -364,7 +364,7 @@ def change(store, wid, sid, **values):
     if values.get('status') in ('verifying','waiting','succeeded','failed','paused','pending','cancelled'):
         from .task_usage import complete
         with store.connect() as db:
-            calls=db.execute("SELECT call_id,task_id FROM usage_calls WHERE category='workflow' AND status='running' AND step_id=? AND task_id=(SELECT turn_id FROM agent_workflows WHERE id=?)",(sid,wid)).fetchall()
+            calls=db.execute("SELECT call_id,task_id FROM usage_calls WHERE category='workflow' AND status='running' AND step_id=? AND task_id=(SELECT run_id FROM agent_workflows WHERE id=?)",(sid,wid)).fetchall()
             for call in calls:
                 outcome='cancelled' if values['status']=='cancelled' else 'failed' if values['status'] in ('failed','paused','pending') else 'succeeded'
                 complete(db,call['task_id'],call['call_id'],outcome)
@@ -376,94 +376,94 @@ def change(store, wid, sid, **values):
             from .workflow_reuse import record_success
             record_success(store,db,wid,sid)
     store.execute('UPDATE agent_workflows SET updated=? WHERE id=?', (store.now(), wid))
-    store.execute('UPDATE agent_turns SET updated=? WHERE id=(SELECT turn_id FROM agent_workflows WHERE id=?)', (store.now(), wid))
+    store.execute('UPDATE agent_turns SET updated=? WHERE id=(SELECT run_id FROM agent_workflows WHERE id=?)', (store.now(), wid))
 
 
-def state(store, turn_id, status, text=None, error=''):
+def state(store, run_id, status, text=None, error=''):
     now = store.now()
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        row = db.execute('SELECT status FROM agent_turns WHERE id=?', (turn_id,)).fetchone()
+        row = db.execute('SELECT status FROM agent_turns WHERE id=?', (run_id,)).fetchone()
         # Cancellation wins over a concurrently finishing step or Agent response.
         if not row or row['status'] in ('cancelling', 'cancelled','failed'):
             return False
-        db.execute('UPDATE agent_workflows SET status=?,error=?,updated=? WHERE turn_id=?',
-                   (status, error, now, turn_id))
+        db.execute('UPDATE agent_workflows SET status=?,error=?,updated=? WHERE run_id=?',
+                   (status, error, now, run_id))
         turn_status = {'ready':'waiting', 'paused':'paused', 'resuming':'queued', 'reviewing':'queued', 'succeeded':'succeeded','failed':'failed'}[status]
-        db.execute('UPDATE agent_turns SET status=?,error=?,updated=? WHERE id=?', (turn_status, error, now, turn_id))
+        db.execute('UPDATE agent_turns SET status=?,error=?,updated=? WHERE id=?', (turn_status, error, now, run_id))
         if text is not None:
-            db.execute('UPDATE agent_turns SET text=? WHERE id=?', (text, turn_id))
+            db.execute('UPDATE agent_turns SET text=? WHERE id=?', (text, run_id))
         if status=='failed':
-            db.execute("UPDATE workflow_agent_reviews SET status='cancelled' WHERE workflow IN (SELECT id FROM agent_workflows WHERE turn_id=?) AND status IN ('pending','running','staged')",(turn_id,))
-            db.execute("UPDATE workflow_user_requests SET status='cancelled' WHERE workflow IN (SELECT id FROM agent_workflows WHERE turn_id=?) AND status='pending'",(turn_id,))
+            db.execute("UPDATE workflow_agent_reviews SET status='cancelled' WHERE workflow IN (SELECT id FROM agent_workflows WHERE run_id=?) AND status IN ('pending','running','staged')",(run_id,))
+            db.execute("UPDATE workflow_user_requests SET status='cancelled' WHERE workflow IN (SELECT id FROM agent_workflows WHERE run_id=?) AND status='pending'",(run_id,))
             from .task_lifecycle import request_cleanup
-            request_cleanup(db,turn_id)
-    agent_store.event(store, turn_id, 'progress', {'text': text or error or {
+            request_cleanup(db,run_id)
+    agent_store.event(store, run_id, 'progress', {'text': text or error or {
         'ready':'继续执行后续步骤。','succeeded':'最终验收通过，成果已交付。','paused':'任务已暂停，已有成果保留。',
         'reviewing':'正在验收或诊断当前步骤。','resuming':'后台步骤已完成，正在最终验收。','failed':'任务已终止，已保存成果保留。'}[status]})
     return True
 
 
-def cancel(store, turn_id):
+def cancel(store, run_id):
     from .workflow_graph import get as graph_get,command
-    if graph_get(store,turn_id):return command(store,turn_id,'user','cancel')
+    if graph_get(store,run_id):return command(store,run_id,'user','cancel')
     from .task_lifecycle import cancel_task
-    return cancel_task(store,turn_id)
+    return cancel_task(store,run_id)
 
 
-def pause(store,turn_id):
+def pause(store,run_id):
     from .workflow_graph import get as graph_get,command
-    if graph_get(store,turn_id):return command(store,turn_id,'user','pause')
-    w=get(store,turn_id)
+    if graph_get(store,run_id):return command(store,run_id,'user','pause')
+    w=get(store,run_id)
     if not w or w['status'] in ('succeeded','failed','cancelled','cancelling'):raise ValueError('当前工作流不能暂停')
-    store.execute('INSERT INTO workflow_control VALUES (?,1) ON CONFLICT(turn_id) DO UPDATE SET pause_requested=1',(turn_id,))
-    agent_store.event(store,turn_id,'progress',{'text':'已请求在当前安全边界暂停；不会取消已提交的上游任务。'})
-    settle_pauses(store,turn_id)
+    store.execute('INSERT INTO workflow_control VALUES (?,1) ON CONFLICT(run_id) DO UPDATE SET pause_requested=1',(run_id,))
+    agent_store.event(store,run_id,'progress',{'text':'已请求在当前安全边界暂停；不会取消已提交的上游任务。'})
+    settle_pauses(store,run_id)
 
 
-def settle_pauses(store,turn_id=None):
+def settle_pauses(store,run_id=None):
     """A safe pause is control-plane work and must not wait for a compute slot."""
-    candidates=store.query('''SELECT c.turn_id FROM workflow_control c
-      JOIN agent_workflows w ON w.turn_id=c.turn_id JOIN agent_turns t ON t.id=c.turn_id
+    candidates=store.query('''SELECT c.run_id FROM workflow_control c
+      JOIN agent_workflows w ON w.run_id=c.run_id JOIN agent_turns t ON t.id=c.run_id
       WHERE c.pause_requested=1 AND w.status IN ('ready','reviewing','resuming')
       AND t.status IN ('queued','running','waiting')
-      AND NOT EXISTS(SELECT 1 FROM execution_leases l WHERE l.turn_id=c.turn_id AND l.active=1 AND l.expires>?)
-      AND NOT EXISTS(SELECT 1 FROM execution_cleanup x WHERE x.task_id=c.turn_id AND x.state<>'complete')'''+(' AND c.turn_id=?' if turn_id else '')+' LIMIT 100',
-      (store.now(),turn_id) if turn_id else (store.now(),))
+      AND NOT EXISTS(SELECT 1 FROM execution_leases l WHERE l.run_id=c.run_id AND l.active=1 AND l.expires>?)
+      AND NOT EXISTS(SELECT 1 FROM execution_cleanup x WHERE x.task_id=c.run_id AND x.state<>'complete')'''+(' AND c.run_id=?' if run_id else '')+' LIMIT 100',
+      (store.now(),run_id) if run_id else (store.now(),))
     changed=0
     for candidate in candidates:
-        tid=candidate['turn_id']
+        tid=candidate['run_id']
         with store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            eligible=db.execute('''SELECT c.turn_id FROM workflow_control c
-              JOIN agent_workflows w ON w.turn_id=c.turn_id JOIN agent_turns t ON t.id=c.turn_id
-              WHERE c.turn_id=? AND c.pause_requested=1 AND w.status IN ('ready','reviewing','resuming')
+            eligible=db.execute('''SELECT c.run_id FROM workflow_control c
+              JOIN agent_workflows w ON w.run_id=c.run_id JOIN agent_turns t ON t.id=c.run_id
+              WHERE c.run_id=? AND c.pause_requested=1 AND w.status IN ('ready','reviewing','resuming')
               AND t.status IN ('queued','running','waiting')''',(tid,)).fetchone()
             if not eligible:continue
-            active=db.execute('SELECT attempt FROM execution_leases WHERE turn_id=? AND active=1 AND expires>? LIMIT 1',(tid,store.now())).fetchone()
+            active=db.execute('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>? LIMIT 1',(tid,store.now())).fetchone()
             cleaning=db.execute("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete' LIMIT 1",(tid,)).fetchone()
             if active or cleaning:continue
             changed+=bool(state(store,tid,'paused',error='已在安全边界暂停，上游已提交任务可能继续运行。'))
     return changed
 
 
-def resume(store, turn_id):
+def resume(store, run_id):
     from .workflow_graph import get as graph_get,command
-    if graph_get(store,turn_id):return command(store,turn_id,'user','resume')
+    if graph_get(store,run_id):return command(store,run_id,'user','resume')
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        w = get(store, turn_id)
+        w = get(store, run_id)
         if w and w.get('resume_block'):
             from .task_leases import quota_error
             raise quota_error(w['resume_block'])
         if not w or not public(w)['resumable']:
             raise ValueError('此任务不能安全重试；外部提交结果不确定或生成失败时，请先停止并核实结果')
-        row = db.execute('SELECT status FROM agent_turns WHERE id=?', (turn_id,)).fetchone()
+        row = db.execute('SELECT status FROM agent_turns WHERE id=?', (run_id,)).fetchone()
         if row['status'] != 'paused':
             raise ValueError('任务已在继续或停止')
         from .task_lifecycle import check
-        check(db,turn_id)
-        db.execute('UPDATE workflow_control SET pause_requested=0 WHERE turn_id=?',(turn_id,))
+        check(db,run_id)
+        db.execute('UPDATE workflow_control SET pause_requested=0 WHERE run_id=?',(run_id,))
         from . import workflow_review
         if w['agent_review']:
             workflow_review.recover(store,w)
@@ -474,7 +474,7 @@ def resume(store, turn_id):
                 status=for_step(step['spec']).resume_state(step)
                 change(store,w['id'],step['id'],status=status,error='',error_code='',next_poll=0,failures=0,started=store.now())
         db.execute("UPDATE agent_workflows SET status='ready',error='',updated=? WHERE id=?", (store.now(), w['id']))
-        db.execute("UPDATE agent_turns SET status='waiting',error='',updated=? WHERE id=?", (store.now(), turn_id))
+        db.execute("UPDATE agent_turns SET status='waiting',error='',updated=? WHERE id=?", (store.now(), run_id))
 
 
 def quality_event(store,w,s,actor,action,feedback):
@@ -485,7 +485,7 @@ def quality_event(store,w,s,actor,action,feedback):
 def queue_auto_repair(store,w,s,report):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        live=get(store,w['turn_id'])
+        live=get(store,w['run_id'])
         current=next(x for x in live['steps'] if x['id']==s['id'])
         if current['revision']!=s['revision']:return False
         options=current['spec'].get('repairs',[]);count=current['repair_count']
@@ -513,22 +513,22 @@ def queue_auto_repair(store,w,s,report):
             change(store,w['id'],child['id'],spec=spec,revision=child['revision']+1,repair_count=child['repair_count']+int(child['id']==s['id']),
                 status='pending',attempts=0,result=[],candidate=[],quality={},bindings={},external_id=None,
                 wait_reason='',error='',error_code='',next_poll=0,started=None)
-        row=agent_store.turn(store,w['turn_id'])
+        row=agent_store.turn(store,w['run_id'])
         artifacts=[dict(a,quality_state='superseded',purpose='quality_candidate') if a['name'] in stale else a for a in row['artifacts']]
-        db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),w['turn_id']))
+        db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),w['run_id']))
         quality_event(store,w,s,'policy','repair',json.dumps({'option':choice,'reason':options[choice]['reason'],'affected':sorted(affected)}))
-        agent_store.event(store,w['turn_id'],'progress',{'text':s['spec']['name']+'未通过验收，正在按匹配的本地方案修复：'+options[choice]['reason']})
+        agent_store.event(store,w['run_id'],'progress',{'text':s['spec']['name']+'未通过验收，正在按匹配的本地方案修复：'+options[choice]['reason']})
     return True
 
 
-def quality_action(store,turn_id,step_id,revision,action,actor,feedback='',replacement=None,confirm_external=False,_agent_commit=False):
+def quality_action(store,run_id,step_id,revision,action,actor,feedback='',replacement=None,confirm_external=False,_agent_commit=False):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         from .task_lifecycle import check
-        check(db,turn_id)
-        w=get(store,turn_id)
+        check(db,run_id)
+        w=get(store,run_id)
         if not w or w['status']!='paused':raise ValueError('任务尚未暂停，不能修改验收状态')
-        active=db.execute('SELECT active,expires FROM execution_leases WHERE turn_id=? AND active=1 AND expires>? LIMIT 1',(turn_id,store.now())).fetchone()
+        active=db.execute('SELECT active,expires FROM execution_leases WHERE run_id=? AND active=1 AND expires>? LIMIT 1',(run_id,store.now())).fetchone()
         if not _agent_commit and active and active['active'] and active['expires']>store.now():raise ValueError('正在完成本次资源回收，请稍后操作')
         s=next((x for x in w['steps'] if x['id']==step_id),None)
         if not s or s['revision']!=revision:raise ValueError('步骤版本已更新，请刷新后查看')
@@ -543,25 +543,25 @@ def quality_action(store,turn_id,step_id,revision,action,actor,feedback='',repla
                     'checks':[dict(c,passed=True,reviewer='user') if c.get('kind') in ('review','agent') else c for c in s['quality'].get('checks',[])]}
             change(store,w['id'],step_id,status='succeeded',result=s['candidate'],quality=report,error='',error_code='')
             names={str(Path(f).relative_to('edit')) for f in s['candidate']}
-            row=agent_store.turn(store,turn_id)
+            row=agent_store.turn(store,run_id)
             for artifact in row['artifacts']:
                 if artifact['name'] in names:
                     artifact.pop('purpose',None);artifact['quality_state']='approved'
-            db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(row['artifacts']),turn_id))
+            db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(row['artifacts']),run_id))
             quality_event(store,w,s,actor,'approve',feedback)
-            state(store,turn_id,'ready',text='此步骤质量已确认，继续后续处理。')
+            state(store,run_id,'ready',text='此步骤质量已确认，继续后续处理。')
         elif action=='reject':
             if s['status']!='awaiting_review':raise ValueError('该步骤当前不等待质量确认')
             quality_event(store,w,s,actor,'reject',feedback)
             change(store,w['id'],step_id,quality={**s['quality'],'review':'rejected','feedback':feedback},error=feedback or '用户未认可当前效果')
             report={**s['quality'],'review':'rejected'}
-            if queue_auto_repair(store,w,s,report):state(store,turn_id,'ready',text='正在执行已声明的本地修复方案。')
+            if queue_auto_repair(store,w,s,report):state(store,run_id,'ready',text='正在执行已声明的本地修复方案。')
             elif s['spec'].get('on_failure')=='diagnose':
                 from .workflow_review import queue
-                if queue(store,get(store,turn_id),s,'diagnose') and get(store,turn_id)['status']=='paused':
+                if queue(store,get(store,run_id),s,'diagnose') and get(store,run_id)['status']=='paused':
                     # A sibling already owns the reviewer. The explicit user
                     # answer allows the scheduler to drain that durable queue.
-                    state(store,turn_id,'ready',text='已记录反馈，继续排队诊断。')
+                    state(store,run_id,'ready',text='已记录反馈，继续排队诊断。')
         elif action=='repair':
             if replacement is None:raise ValueError('请提供明确的修复步骤')
             spec=Step.model_validate(replacement).model_dump()
@@ -585,15 +585,15 @@ def quality_action(store,turn_id,step_id,revision,action,actor,feedback='',repla
                 change(store,w['id'],child['id'],status='pending',spec=spec if child['id']==step_id else child['spec'],
                        revision=child['revision']+1,repair_count=child['repair_count']+int(child['id']==step_id),attempts=0,external_id=None,
                        result=[],candidate=[],quality={},bindings={},wait_reason='',error='',error_code='',next_poll=0,started=None)
-            turn=agent_store.turn(store,turn_id)
+            turn=agent_store.turn(store,run_id)
             artifacts=[dict(a,quality_state='superseded',purpose='quality_candidate') if a['name'] in stale else a for a in turn['artifacts']]
-            db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),turn_id))
+            db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),run_id))
             quality_event(store,w,s,actor,'repair',json.dumps({'feedback':feedback,'replacement':spec,'affected':sorted(affected)},ensure_ascii=False))
             db.execute("UPDATE workflow_agent_reviews SET status='superseded',updated=? WHERE workflow=? AND status IN ('pending','running','staged')",(store.now(),w['id']))
             db.execute("UPDATE workflow_user_requests SET status='superseded' WHERE workflow=? AND status='pending' AND step IN ("+','.join('?' for _ in affected)+")",(w['id'],*sorted(affected)))
-            state(store,turn_id,'ready',text='修复版本已确认，将重新计算受影响的步骤。')
+            state(store,run_id,'ready',text='修复版本已确认，将重新计算受影响的步骤。')
         else:raise ValueError('未知验收操作')
-    return public(get(store,turn_id))
+    return public(get(store,run_id))
 
 
 class Runner:
@@ -601,15 +601,15 @@ class Runner:
     def __init__(self, store, adapter, stop):
         self.store, self.adapter, self.stop = store, adapter, stop
 
-    def recover(self, turn_id=None,step_id=None):
+    def recover(self, run_id=None,step_id=None):
         # Production calls this only after atomically acquiring an expired lease.
         # The unscoped form remains available for offline maintenance/tests.
-        query = "SELECT turn_id FROM agent_workflows WHERE status NOT IN ('succeeded','cancelled')"
-        for row in self.store.query(query + (' AND turn_id=?' if turn_id else ''), (turn_id,) if turn_id else ()):
-            w = get(self.store, row['turn_id'])
-            turn = agent_store.turn(self.store, w['turn_id'])
+        query = "SELECT run_id FROM agent_workflows WHERE status NOT IN ('succeeded','cancelled')"
+        for row in self.store.query(query + (' AND run_id=?' if run_id else ''), (run_id,) if run_id else ()):
+            w = get(self.store, row['run_id'])
+            turn = agent_store.turn(self.store, w['run_id'])
             if w['status'] == 'cancelling' or turn['status'] in ('cancelling', 'cancelled'):
-                cancel(self.store, w['turn_id'])
+                cancel(self.store, w['run_id'])
                 continue
             from . import workflow_review
             if w['status'] in ('reviewing','resuming') and w['agent_review']:
@@ -617,7 +617,7 @@ class Runner:
                 continue
             if w['status'] == 'resuming' and turn['status'] == 'running':
                 # An interrupted unrestricted Agent might have made side effects.
-                state(self.store, w['turn_id'], 'paused', error='结果已保留；最终检查曾中断，可继续检查，勿重复生成。')
+                state(self.store, w['run_id'], 'paused', error='结果已保留；最终检查曾中断，可继续检查，勿重复生成。')
                 continue
             if w['status'] == 'paused':
                 continue
@@ -625,13 +625,13 @@ class Runner:
                 from .task_leases import CURRENT
                 lease=CURRENT.get()
                 if lease and any(s['spec']['kind']=='script' for s in w['steps']):
-                    previous=self.store.query('SELECT checkpoint FROM execution_attempts WHERE turn_id=? AND generation<? ORDER BY generation DESC LIMIT 1',
-                                              (w['turn_id'],lease.generation))
+                    previous=self.store.query('SELECT checkpoint FROM execution_attempts WHERE run_id=? AND generation<? ORDER BY generation DESC LIMIT 1',
+                                              (w['run_id'],lease.generation))
                     if not previous or not previous[0]['checkpoint']:
                         for step in w['steps']:
                             change(self.store,w['id'],step['id'],status='paused',error_code='checkpoint_missing',
                                    error='步骤计划已保存，但执行脚本尚未形成完整检查点；请停止并重新规划。')
-                        state(self.store,w['turn_id'],'paused',error='执行器在保存脚本前中断，未自动提交后续任务。')
+                        state(self.store,w['run_id'],'paused',error='执行器在保存脚本前中断，未自动提交后续任务。')
                         continue
             uncertain = False
             for s in w['steps']:
@@ -661,17 +661,17 @@ class Runner:
                         change(self.store,w['id'],s['id'],**updates)
                         uncertain |= updates['status']=='paused'
             if uncertain:
-                state(self.store, w['turn_id'], 'paused', error='任务中断，已保留完成步骤；需要核实未完成操作。')
+                state(self.store, w['run_id'], 'paused', error='任务中断，已保留完成步骤；需要核实未完成操作。')
             elif w['status'] != 'resuming':
-                state(self.store, w['turn_id'], 'ready', text='正在从已保存的步骤继续处理。')
+                state(self.store, w['run_id'], 'ready', text='正在从已保存的步骤继续处理。')
 
-    def interrupted(self, turn_id):
-        return self.stop.is_set() or agent_store.turn(self.store, turn_id)['status'] in ('cancelling', 'cancelled')
+    def interrupted(self, run_id):
+        return self.stop.is_set() or agent_store.turn(self.store, run_id)['status'] in ('cancelling', 'cancelled')
 
     def claim(self, w, s, status):
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            active = db.execute("SELECT w.id FROM agent_workflows w JOIN agent_turns t ON w.turn_id=t.id WHERE w.id=? AND w.status='ready' AND t.status='waiting'", (w['id'],)).fetchone()
+            active = db.execute("SELECT w.id FROM agent_workflows w JOIN agent_turns t ON w.run_id=t.id WHERE w.id=? AND w.status='ready' AND t.status='waiting'", (w['id'],)).fetchone()
             if not active or self.stop.is_set():
                 return False
             claimed=bool(db.execute("UPDATE agent_steps SET status=?,wait_reason='',attempts=attempts+1,started=?,updated=? WHERE workflow=? AND id=? AND status='pending'",
@@ -680,21 +680,21 @@ class Runner:
                 from .task_usage import start
                 from .task_leases import CURRENT
                 lease=CURRENT.get()
-                start(db,w['turn_id'],'workflow',s['spec'].get('operation','script'),attempt=lease.attempt if lease else '',step=s['id'],revision=s['revision'])
+                start(db,w['run_id'],'workflow',s['spec'].get('operation','script'),attempt=lease.attempt if lease else '',step=s['id'],revision=s['revision'])
             return claimed
 
-    def tick(self, turn_id,step_id=None):
-        w = get(self.store, turn_id)
+    def tick(self, run_id,step_id=None):
+        w = get(self.store, run_id)
         if not w or self.stop.is_set():
             return
-        if agent_store.turn(self.store, turn_id)['status'] in ('cancelling', 'cancelled') or w['status'] == 'cancelling':
+        if agent_store.turn(self.store, run_id)['status'] in ('cancelling', 'cancelled') or w['status'] == 'cancelling':
             self.cancel_steps(w)
             return
         if w['status'] != 'ready':
             return
-        control=self.store.query('SELECT pause_requested FROM workflow_control WHERE turn_id=?',(turn_id,))
+        control=self.store.query('SELECT pause_requested FROM workflow_control WHERE run_id=?',(run_id,))
         if control and control[0]['pause_requested']:
-            settle_pauses(self.store,turn_id)
+            settle_pauses(self.store,run_id)
             return
         self.store.execute('UPDATE agent_workflows SET updated=? WHERE id=?', (self.store.now(), w['id']))
         completed = {s['id'] for s in w['steps'] if s['status'] == 'succeeded'}
@@ -713,7 +713,7 @@ class Runner:
             return
 
     def step(self, w, s):
-        sid, wid, tid = s['id'], w['id'], w['turn_id']
+        sid, wid, tid = s['id'], w['id'], w['run_id']
         spec = s['spec']
         from .operation_lifecycle import for_step
         phase='lifecycle';implementation=None
@@ -886,19 +886,19 @@ class Runner:
             from .task_leases import LeaseLost
             from .task_lifecycle import TaskLimitReached
             if isinstance(exc,(LeaseLost,TaskLimitReached)):raise
-            agent_store.event(self.store,w['turn_id'],'progress',{'text':'已完成检查点保留；部分结果暂未发布，不影响停止后续操作。'})
+            agent_store.event(self.store,w['run_id'],'progress',{'text':'已完成检查点保留；部分结果暂未发布，不影响停止后续操作。'})
         for s in w['steps']:
             if s['status'] in ('succeeded', 'cancelled'):
                 continue
             message = ''
             if s['external_id']:
                 from .task_lifecycle import request_cleanup
-                with self.store.connect() as db:request_cleanup(db,w['turn_id'])
+                with self.store.connect() as db:request_cleanup(db,w['run_id'])
                 message = '已停止下游步骤，正在独立核实上游取消结果。'
             elif s['status'] == 'submitting' or s['error_code'] == 'submission_unknown':
                 message = '外部提交结果不确定，上游可能仍在运行；未重新提交。'
             change(self.store, w['id'], s['id'], status='cancelled', error=message)
         self.store.execute("UPDATE agent_workflows SET status='cancelled',updated=? WHERE id=?", (self.store.now(), w['id']))
-        row = agent_store.turn(self.store, w['turn_id'])
-        agent_store.finish(self.store, w['turn_id'], 'cancelled', '已停止后续步骤，已完成的结果仍可预览和下载。', row['artifacts'])
-        agent_store.event(self.store, w['turn_id'], 'progress', {'text':'后台任务已停止。'})
+        row = agent_store.turn(self.store, w['run_id'])
+        agent_store.finish(self.store, w['run_id'], 'cancelled', '已停止后续步骤，已完成的结果仍可预览和下载。', row['artifacts'])
+        agent_store.event(self.store, w['run_id'], 'progress', {'text':'后台任务已停止。'})

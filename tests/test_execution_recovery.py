@@ -69,7 +69,7 @@ class RecoveryTests(unittest.TestCase):
                     old_attempt,uid=receiver.recv()
                 finally:
                     process.kill();process.join(timeout=10)
-                store.execute('UPDATE execution_leases SET expires=0 WHERE turn_id=?',(turn,))
+                store.execute('UPDATE execution_leases SET expires=0 WHERE run_id=?',(turn,))
                 from webapp.agent_host import AgentHost
                 host=AgentHost(store.root)
                 lease=host.coordinator.claim(turn,'workflow')

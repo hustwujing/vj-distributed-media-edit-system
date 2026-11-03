@@ -179,17 +179,18 @@ def sample(store,archive):
     data['views']['gpu']=gpu_health()
     active=[w for w in workers if now-w['heartbeat']<30 and not w['draining']]
     data['gauges']['workers_available']=len({w['node'] for w in active})
-    queue=query('queue',"SELECT status,COUNT(*) AS n,MIN(created) AS oldest FROM (SELECT status,created FROM agent_turns UNION ALL SELECT status,created FROM jobs) t GROUP BY status")
+    queue=query('queue',"SELECT status,COUNT(*) AS n,MIN(created) AS oldest FROM execution_subjects GROUP BY status")
     data['views']['queue']=queue
     orchestrators=query('orchestrators','SELECT id,release,heartbeat,draining,reconciles,failures,last_duration FROM workflow_orchestrators ORDER BY heartbeat DESC LIMIT 20')
     data['views']['orchestrators']=orchestrators
     data['gauges']['orchestrators_available']=sum(now-r['heartbeat']<15 and not r['draining'] for r in orchestrators)
     workflows=query('dynamic_workflows',"SELECT status,COUNT(*) AS n,MIN(next_reconcile_at) AS due FROM runs GROUP BY status")
     data['views']['dynamic_workflows']=workflows
-    data['gauges']['workflow_scan_lag_seconds']=max([max(0,now-r['due']) for r in workflows if r['status'] not in ('succeeded','failed','cancelled')]+[0])
+    data['gauges']['workflow_scan_lag_seconds']=max([max(0,now-r['due']) for r in workflows if r['status'] not in ('SUCCEEDED','FAILED','CANCELLED')]+[0])
     data['gauges']['workflow_reconcile_failures']=sum(r['failures'] for r in orchestrators)
     data['gauges']['workflow_reconcile_last_seconds']=max([r['last_duration'] for r in orchestrators]+[0])
-    data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM run_tasks GROUP BY type,status')
+    data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM run_tasks WHERE selected=1 GROUP BY type,status')
+    data['views']['control_jobs']=query('control_jobs','SELECT control_kind,status,COUNT(*) AS n FROM control_jobs GROUP BY control_kind,status')
     data['views']['planning']=query('planning','SELECT status,COUNT(*) AS n FROM planner_runs GROUP BY status')
     late=query('late_results',"SELECT COUNT(*) AS n FROM task_results WHERE status='late'")
     data['gauges']['workflow_late_results_total']=late[0]['n'] if late else 0
@@ -202,7 +203,7 @@ def sample(store,archive):
     external=query('external_cleanup',"SELECT state,COUNT(*) AS n FROM execution_external_cleanup GROUP BY state")
     data['views']['external_cleanup']=external
     data['gauges']['external_cleanup_unconfirmed']=sum(r['n'] for r in external if r['state'] in ('unknown','unconfirmed'))
-    data['views']['affected_tasks']=query('affected_tasks',"SELECT id,status,updated FROM (SELECT id,status,updated FROM agent_turns UNION ALL SELECT id,status,updated FROM jobs) t WHERE status IN ('failed','paused','queued') ORDER BY updated DESC LIMIT 5")
+    data['views']['affected_tasks']=query('affected_tasks',"SELECT id,status,updated FROM execution_subjects WHERE status IN ('failed','paused','queued') ORDER BY updated DESC LIMIT 5")
     providers=query('providers','SELECT provider,operation,state,COUNT(*) AS n,SUM(network_seconds) AS seconds,SUM(poll_count) AS polls,MIN(created) AS oldest FROM workflow_provider_calls GROUP BY provider,operation,state')
     data['views']['providers']=providers
     data['gauges']['provider_unknown']=sum(r['n'] for r in providers if r['state']=='unknown' or (r['state']=='submitting' and now-r['oldest']>600))

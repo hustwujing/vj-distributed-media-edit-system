@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from webapp.media_plan_compiler import compile_sequence,probe,resource_plan
+from webapp.media_plan_compiler import compile_sequence,probe,resource_plan,MediaCompileError
 from webapp.operations import catalog,validate_parameters
 
 
@@ -23,15 +23,32 @@ class CompilerTests(unittest.TestCase):
             self.assertGreater(probe(root/'final.mp4')['duration'],.7)
             self.assertLessEqual(report['resources']['estimated_peak_tasks'],16)
 
-    def test_incompatible_inputs_are_normalized_sequentially(self):
+    def test_incompatible_inputs_require_independent_normalization_before_concat(self):
         with tempfile.TemporaryDirectory() as root:
             root=Path(root);first=root/'a.mp4';second=root/'b.mp4';make_clip(first);make_clip(second,'80x60',660)
-            report=compile_sequence([first,second],root/'final.mp4',root/'work',width=64,height=48,fps='10',threads=1)
-            self.assertEqual(report['strategy'],'normalize_then_concat')
+            with self.assertRaises(MediaCompileError) as rejected:
+                compile_sequence([first,second],root/'final.mp4',root/'work',threads=1)
+            self.assertEqual(rejected.exception.diagnostic['code'],'media_normalization_required')
+            self.assertFalse((root/'final.mp4').exists())
+            normalized=[]
+            for index,source in enumerate((first,second)):
+                output=root/f'normalized-{index}.mp4'
+                clip=compile_sequence([source],output,root/f'work-{index}',width=64,height=48,fps='25',threads=1)
+                self.assertEqual(clip['strategy'],'normalize_single_clip');normalized.append(output)
+            report=compile_sequence(normalized,root/'final.mp4',root/'work',threads=1)
+            self.assertEqual(report['strategy'],'concat_demuxer')
             output=probe(root/'final.mp4')
             self.assertEqual(output['signature']['video']['width'],64)
             self.assertEqual(output['signature']['video']['height'],48)
-            self.assertEqual(len([item for item in report['commands'] if item['phase']=='normalize']),2)
+            self.assertEqual([item['phase'] for item in report['commands']],['concat'])
+
+    def test_normalization_has_a_single_typed_input_and_explicit_profile(self):
+        scope={'source':{'asset':'clip'}}
+        params={'width':64,'height':48,'fps':'25'}
+        self.assertEqual(validate_parameters('media.normalize_clip',params,scope)['threads'],2)
+        with self.assertRaises(ValueError):validate_parameters('media.normalize_clip',params,{**scope,'extra':{'asset':'other'}})
+        with self.assertRaises(ValueError):validate_parameters('media.normalize_clip',{'width':64,'height':48},scope)
+        with self.assertRaises(ValueError):validate_parameters('media.concat_sequence',{'roles':['source'],'width':64},scope)
 
     def test_operation_roles_must_match_inputs(self):
         inputs={'first':{'asset':'a'},'second':{'asset':'b'}}

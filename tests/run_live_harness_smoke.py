@@ -138,7 +138,7 @@ def main():
             started=time.monotonic();host.execute_claim(lease);row=agent_store.turn(host.store,task)
             descriptor=host.store.query('SELECT harness,restore_mode FROM agent_native_sessions WHERE project=?',(project,))[0]
             usage=host.store.query('SELECT category,status,COUNT(*) n FROM usage_calls WHERE task_id=? GROUP BY category,status',(task,))
-            tools=[json.loads(r['payload']) for r in host.store.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind='tool' ORDER BY seq",(task,))]
+            tools=[json.loads(r['payload']) for r in host.store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='tool' ORDER BY seq",(task,))]
             latest_tools={v['id']:v for v in tools}
             stdout_proof=any(marker in v.get('output','') and v['status']=='completed' for v in latest_tools.values())
             item={'task':task,'node':host.identities.node,'status':row['status'],'error':row['error'],'public_reply':row['text'],
@@ -181,7 +181,7 @@ def main():
             assert not runner.is_alive(),'Cancelled native process did not stop'
             cleanup=host.store.query('SELECT state FROM execution_cleanup WHERE task_id=?',(task,))
             assert cleanup and all(r['state']=='complete' for r in cleanup),cleanup
-            assert not host.store.query('SELECT attempt FROM execution_leases WHERE turn_id=? AND active=1',(task,))
+            assert not host.store.query('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1',(task,))
             report['cancellations'].append({'harness':name,'task':task,'seconds':round(time.monotonic()-began,3),
                                            'status':agent_store.turn(host.store,task)['status'],'cleanup':cleanup,
                                            'upstream_cancellation_confirmed':False})

@@ -8,9 +8,9 @@ from pathlib import Path
 import time
 from datetime import datetime,timezone,timedelta
 try:
-    from .campaign_dynamic_status import failure_classification
+    from .campaign_dynamic_status import failure_classification,matches_definition
 except ImportError:
-    from campaign_dynamic_status import failure_classification
+    from campaign_dynamic_status import failure_classification,matches_definition
 
 REPO=Path(__file__).resolve().parents[1]
 ROOT=REPO/'.cluster/campaigns/dynamic-plan'
@@ -25,7 +25,7 @@ def read(path,default=None):
 def timestamp(value):
     return datetime.fromtimestamp(value,timezone(timedelta(hours=8))).isoformat(timespec='seconds') if isinstance(value,(int,float)) else '未结束'
 
-def attempt(directory,current):
+def attempt(directory,current,spec):
     state=read(directory/'state.json');internal=read(directory/'internal-final.json');cleanup=read(directory/'cleanup.json')
     artifact=read(directory/'artifact-verification.json');review=read(directory/'review.json')
     issues=list(internal.get('program_issues',[]))
@@ -46,7 +46,7 @@ def attempt(directory,current):
         verdict='passed' if (state.get('outcome')=='protocol_passed' or artifact.get('passed')) else 'blocked'
     else:verdict='blocked'
     version=state.get('release',{}).get('sha256')
-    valid_current=bool(version and version==current.get('sha256'))
+    valid_current=bool(version and version==current.get('sha256') and matches_definition(state,spec,directory))
     evidence=[]
     for file in sorted(directory.rglob('*')):
         if file.is_file() and not any(part.startswith('private-') for part in file.parts) and file.name!='browser-state.json':
@@ -68,7 +68,7 @@ def report():
     validation=read(Path(current['source'])/'docs/test-evidence/distributed-suite.json') if current.get('source') else {}
     rows=[]
     for spec in manifest['cases']:
-        attempts=[attempt(directory,current) for directory in sorted((ROOT/'runs'/spec['id']).glob('attempt-*'))]
+        attempts=[attempt(directory,current,spec) for directory in sorted((ROOT/'runs'/spec['id']).glob('attempt-*'))]
         last=attempts[-1] if attempts else None
         verdict=last['verdict'] if last else 'not_run'
         if last and not last['current_release']:verdict='obsolete'

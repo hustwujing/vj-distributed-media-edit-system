@@ -16,11 +16,12 @@ def initialize(store):
         ''')
         tables={r['name'] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         specs=[('agent_turns','id','id','status'),('jobs','id','id','status'),
-               ('execution_attempts','turn_id','id','status'),('execution_cleanup','task_id','attempt','state'),
+               ('execution_attempts','run_id','id','status'),('execution_cleanup','task_id','attempt','state'),
                ('execution_external_cleanup','task_id','id','state'),
-               ('agent_steps',"(SELECT turn_id FROM agent_workflows WHERE id=NEW.workflow)",'id','status'),
-               ('workflow_provider_calls',"COALESCE((SELECT id FROM runs WHERE id=NEW.workflow),(SELECT turn_id FROM agent_workflows WHERE id=NEW.workflow),NEW.workflow)",'request_key','state'),
+               ('agent_steps',"(SELECT run_id FROM agent_workflows WHERE id=NEW.workflow)",'id','status'),
+               ('workflow_provider_calls',"COALESCE((SELECT id FROM runs WHERE id=NEW.workflow),(SELECT run_id FROM agent_workflows WHERE id=NEW.workflow),NEW.workflow)",'request_key','state'),
                ('runs','id','id','status'),
+               ('run_inputs','run_id','id','status'),
                ('control_jobs',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),
                ('run_tasks',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),
                ('planner_runs',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),

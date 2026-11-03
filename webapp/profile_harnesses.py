@@ -8,7 +8,7 @@ class ProfileHarness(Protocol):
 
 
 class StructuredProfileHarness:
-    id='structured-profile-v1'
+    id='structured-profile-v2'
     def fingerprint(self):
         from pathlib import Path
         import hashlib

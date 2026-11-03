@@ -35,11 +35,13 @@ class Command(graph.Contract):
 
 
 def public(store,run):
-    value={k:run[k] for k in ('id','project_id','session_id','parent_run_id','goal','status','graph_version','sealed','authorization',
+    value={k:run[k] for k in ('id','project_id','session_id','parent_run_id','scope_confirmed','goal','status','graph_version','sealed','authorization',
                              'authorization_version','replan_after','repair_context','created_at','updated_at','terminal_reason','delivery','delivered_at','input_sequence','input_barrier_sequence')}
     value['state']=value.pop('status')
+    successors=store.query('SELECT id FROM runs WHERE parent_run_id=? ORDER BY created_at DESC LIMIT 1',(run['id'],))
+    value['successor_run_id']=successors[0]['id'] if successors else None
     value['activity']=run['activity']
-    value['tasks']=[{k:task[k] for k in ('id','type','spec','status','phase','revision','repair_count','attempts',
+    value['tasks']=[{k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','user_revision_count','attempts',
         'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
         for task in run['tasks']]
     value['control_jobs']=[{key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','created_at','updated_at')} for job in run['control_jobs']]
@@ -64,7 +66,8 @@ def public(store,run):
     value['token_usage']['remaining']=max(0,value['token_usage']['limit']-committed)
     value['cleanup_pending']=sum(1 for item in value['external_cleanup'] if item['state']!='complete')+store.query("SELECT COUNT(*) AS n FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],))[0]['n']
     for artifact in value['delivery']:
-        artifact['url']=f'api/projects/{run["project_id"]}/agent/{run["id"]}/files/{artifact["file"]}'
+        from urllib.parse import quote
+        artifact['url']=f'api/projects/{run["project_id"]}/runs/{run["id"]}/files/{quote(artifact["file"],safe="")}'
     return value
 
 
@@ -96,7 +99,7 @@ def register(app,store,own_project):
     @app.get('/api/projects/{project_id}/runs')
     def list_runs(project_id:str,request:Request):
         own_project(project_id,request)
-        return {'runs':store.query('''SELECT id,session_id,parent_run_id,goal,status,graph_version,sealed,created_at,updated_at
+        return {'runs':store.query('''SELECT id,session_id,parent_run_id,goal,status AS state,graph_version,sealed,created_at,updated_at
             FROM runs WHERE project_id=? ORDER BY created_at DESC LIMIT 50''',(project_id,))}
 
     @app.post('/api/projects/{project_id}/runs',status_code=202)
@@ -112,7 +115,6 @@ def register(app,store,own_project):
                     return public(store,graph.get(store,previous['run_id']))
                 if db.execute("SELECT id FROM execution_subjects WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')",(project_id,)).fetchone():
                     raise ValueError('项目中已有活动任务，请先完成或取消')
-                store.admit_tasks(project_id,1)
                 parent=own_run(project_id,body.parent_run_id,request) if body.parent_run_id else None
                 identifier=uuid.uuid4().hex
                 run=graph.create(store,project_id,identifier,raw,parent_run_id=parent['id'] if parent else None)
@@ -124,6 +126,20 @@ def register(app,store,own_project):
     @app.get('/api/projects/{project_id}/runs/{run_id}')
     def detail(project_id:str,run_id:str,request:Request):
         return public(store,own_run(project_id,run_id,request))
+
+    @app.get('/api/projects/{project_id}/runs/{run_id}/files/{filename}')
+    async def delivery_file(project_id:str,run_id:str,filename:str,request:Request):
+        def resolve():
+            run=own_run(project_id,run_id,request)
+            item=next((item for item in run['delivery'] if item['file']==filename),None)
+            if run['delivered_at'] is None or item is None:raise HTTPException(404,'文件不属于已发布成果。')
+            return item
+        item=await app.state.api_execution.run('read',resolve)
+        location=await app.state.api_execution.run('storage',store.artifacts.materialize,project_id,item['artifact_id'])
+        active=item['type'] in ('text/html','image/svg+xml','application/xhtml+xml','application/xml','text/xml')
+        return FileResponse(location,media_type=item['type'],filename=item['name'],
+            content_disposition_type='attachment' if active else 'inline',
+            headers={'Content-Security-Policy':"sandbox; default-src 'none'"} if active else {})
 
     @app.get('/api/projects/{project_id}/runs/{run_id}/tasks/{task_id}/file')
     async def task_file(project_id:str,run_id:str,task_id:str,file:str,request:Request):

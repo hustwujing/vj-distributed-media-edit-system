@@ -27,7 +27,7 @@ class ObservationTests(unittest.TestCase):
 
     def test_provider_failure_evidence_survives_without_driving_business_state(self):
         from webapp import provider_calls
-        w={'id':self.task,'turn_id':self.task,'manual':True};step={'id':'image','revision':0,'attempts':0}
+        w={'id':self.task,'run_id':self.task,'manual':True};step={'id':'image','revision':0,'attempts':0}
         provider_calls.intent(self.store,w,step,'https://fixture.invalid','image.edit')
         with patch.dict(os.environ,{'PROVIDER_TEST_KEY':'private-provider-key-123'}):
             provider_calls.update(self.store,w,step,'failed','job-one',record={'error':{'code':'InvalidInput','message':'Input rejected private-provider-key-123'}})
@@ -178,7 +178,7 @@ class ObservationTests(unittest.TestCase):
         from webapp.task_leases import CURRENT
         events=[]
         def collect(event,level='INFO',exc=None,**fields):events.append(telemetry.record(event,level,exc,**fields))
-        token=CURRENT.set(SimpleNamespace(store=self.store,turn_id=self.task,attempt='metric-attempt',worker='w',generation=1,step_id=None))
+        token=CURRENT.set(SimpleNamespace(store=self.store,run_id=self.task,attempt='metric-attempt',worker='w',generation=1,step_id=None))
         try:
             with telemetry.bind(task_id=self.task,span_id='1'*16),patch('webapp.telemetry.emit',side_effect=collect),patch('webapp.store.Store',side_effect=TimeoutError('metrics budget')):
                 with phase('input_download'):business_result='downloaded'
@@ -288,7 +288,7 @@ class PostgresObservationTests(unittest.TestCase):
                 from types import SimpleNamespace
                 from webapp.task_leases import CURRENT
                 a.timeout=1
-                lease=SimpleNamespace(store=a,attempt='metric-attempt',turn_id=t,step_id=None,worker='w',generation=1)
+                lease=SimpleNamespace(store=a,attempt='metric-attempt',run_id=t,step_id=None,worker='w',generation=1)
                 with b.connect():
                     token=CURRENT.set(lease);started=time.monotonic()
                     try:

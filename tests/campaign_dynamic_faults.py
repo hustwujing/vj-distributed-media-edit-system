@@ -45,8 +45,8 @@ def dependency_probe():
 def progress(directory):
     directory,state,release,store=configure(directory)
     rows=store.query('''SELECT a.id,a.step_id,a.generation,a.status,a.started,a.finished,a.uid,w.node,
-        t.type,t.internal,t.spec_json FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker
-        JOIN runs r ON r.turn_id=a.turn_id JOIN run_tasks t ON t.run_id=r.id AND t.id=a.step_id
+        t.type,t.control_kind,t.spec_json FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker
+        JOIN runs r ON r.id=a.run_id JOIN run_work_items t ON t.run_id=r.id AND t.id=a.step_id
         WHERE r.project_id=? ORDER BY a.started DESC LIMIT 200''',(state['project'],))
     for row in rows:
         spec=json.loads(row.pop('spec_json'));row['retry_safe']=spec.get('retry_policy')=='safe_once'
@@ -55,26 +55,31 @@ def progress(directory):
             path=cluster.registry(node)/'node-id'
             if path.exists() and path.read_text().strip()==row['node']:row['unit']=f'{cluster.NAMESPACE}-executor@{node}.service'
     result={'attempts':rows,'at':time.time()}
+    result['provider_calls']=[]
+    for row in store.query('SELECT p.request_key,p.operation,p.state,p.external_id,p.implementation FROM workflow_provider_calls p JOIN runs r ON r.id=p.workflow WHERE r.project_id=?',(state['project'],)):
+        binding=json.loads(row.pop('implementation'))
+        result['provider_calls'].append({**row,**{name:binding.get(name) for name in ('provider_identity','route_adapter','budget_group','concurrency_group')},
+            'implementation_digest':hashlib.sha256(json.dumps(binding,sort_keys=True).encode()).hexdigest()})
     result['submitting']=store.query("SELECT p.request_key,p.attempt_id,p.operation FROM workflow_provider_calls p JOIN runs w ON w.id=p.workflow WHERE w.project_id=? AND p.state='submitting'",(state['project'],))
     result['staged_results']=store.query("SELECT COUNT(*) AS n FROM task_results WHERE run_id IN (SELECT id FROM runs WHERE project_id=?) AND status='staged'",(state['project'],))[0]['n']
-    result['staged_business_success']=store.query("SELECT COUNT(*) AS n FROM task_results r JOIN run_tasks t ON t.run_id=r.run_id AND t.id=r.task_id JOIN runs w ON w.id=r.run_id WHERE w.project_id=? AND r.status='staged' AND r.outcome='succeeded' AND t.internal=0",(state['project'],))[0]['n']
-    result['quiescent']=not store.query("SELECT l.attempt FROM execution_leases l JOIN runs w ON w.turn_id=l.turn_id WHERE w.project_id=? AND l.active=1 AND l.expires>?",(state['project'],store.now())) and not store.query("SELECT c.attempt FROM execution_cleanup c JOIN runs w ON w.turn_id=c.task_id WHERE w.project_id=? AND c.state<>'complete'",(state['project'],))
+    result['staged_business_success']=store.query("SELECT COUNT(*) AS n FROM task_results r JOIN run_tasks t ON t.run_id=r.run_id AND t.id=r.task_id JOIN runs w ON w.id=r.run_id WHERE w.project_id=? AND r.status='staged' AND r.outcome='succeeded' AND t.selected=1",(state['project'],))[0]['n']
+    result['quiescent']=not store.query("SELECT l.attempt FROM execution_leases l JOIN runs w ON w.id=l.run_id WHERE w.project_id=? AND l.active=1 AND l.expires>?",(state['project'],store.now())) and not store.query("SELECT c.attempt FROM execution_cleanup c JOIN runs w ON w.id=c.task_id WHERE w.project_id=? AND c.state<>'complete'",(state['project'],))
     result['diagnostics']=[json.loads(row['record']) for row in store.query('SELECT d.record FROM workflow_diagnostics d JOIN runs w ON w.id=d.workflow WHERE w.project_id=? ORDER BY d.created DESC LIMIT 20',(state['project'],))]
     result['orchestrators']=store.query('SELECT id,heartbeat,draining FROM workflow_orchestrators WHERE heartbeat>?',(store.now()-20,))
     if state['case']=='D14':
         from webapp.diagnostics import diagnose
-        result['integrity_errors']=[event for item in store.query('SELECT turn_id FROM runs WHERE project_id=?',(state['project'],)) for event in diagnose(store,item['turn_id'],include_logs=True).get('facts',{}).get('latest_errors',[]) if any(frame.get('file')=='object_encryption.py' and frame.get('function')=='decrypt' for frame in event.get('stack',[]))]
+        result['integrity_errors']=[event for item in store.query('SELECT id AS run_id FROM runs WHERE project_id=?',(state['project'],)) for event in diagnose(store,item['run_id'],include_logs=True).get('facts',{}).get('latest_errors',[]) if any(frame.get('file')=='object_encryption.py' and frame.get('function')=='decrypt' for frame in event.get('stack',[]))]
 
-    result['output_ready_events']=store.query("SELECT seq,turn_id,created,payload FROM agent_events WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?) AND kind='progress' AND payload LIKE ? ORDER BY seq",
+    result['output_ready_events']=store.query("SELECT seq,run_id,created,payload FROM agent_events WHERE run_id IN (SELECT id FROM runs WHERE project_id=?) AND kind='progress' AND payload LIKE ? ORDER BY seq",
         (state['project'],'%QA_EXPORT_OUTPUT_READY%'))
     return result
 
 
 def act(directory,action,unit=None):
     directory,state,release,store=configure(directory)
-    restoring=action.startswith('start_') or action in ('stop_second_orchestrator','restore_object','release_workers')
+    restoring=action.startswith('start_') or action in ('stop_second_orchestrator','restore_object','release_workers','restore_provider_route')
     if not restoring:
-        other=store.query("SELECT id FROM runs WHERE project_id<>? AND status NOT IN ('succeeded','failed','cancelled')",(state['project'],))
+        other=store.query("SELECT id FROM runs WHERE project_id<>? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(state['project'],))
         if other:raise ValueError('Fault injection requires other workflows to be quiescent')
         if release['sha256']!=state['release']['sha256']:raise ValueError('Deployment changed during this case')
     before={name:cluster.active(name) for name in cluster.SERVICES}
@@ -106,18 +111,45 @@ def act(directory,action,unit=None):
         if unit not in cluster.WORKERS:raise ValueError('Worker outside dedicated deployment')
         if action=='stop_worker':
             observed=progress(directory);submitting={p['attempt_id'] for p in observed['submitting']}
-            assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['internal']
-                      and (row['retry_safe'] or state['case']=='D16' and row['id'] in submitting)]
+            assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['control_kind']
+                      and (row['retry_safe'] or state['case'] in ('D16','D27') and row['id'] in submitting)]
             if not assigned:raise ValueError('No replay-safe QA task is running on this worker')
             cluster.run(['systemctl','kill','--kill-who=main','--signal=SIGKILL',unit])
             cluster.run(['systemctl','stop',unit],timeout=150)
         else:cluster.run(['systemctl','start',unit])
         result={'action':action,'unit':unit}
+    elif action in ('switch_provider_route','restore_provider_route'):
+        if state['case']!='D35':raise ValueError('Route fault is reserved for the isolated frozen-route case')
+        env=directory/'private-route-override.env'
+        paths=[Path('/etc/systemd/system')/(unit+'.d')/'90-dynamic-qa-route.conf' for unit in cluster.WORKERS]
+        expected='[Service]\nEnvironmentFile='+str(env)+'\n'
+        if action=='switch_provider_route':
+            calls=progress(directory)['provider_calls']
+            if len(calls)!=1 or calls[0]['provider_identity']!='wan' or not calls[0]['external_id']:
+                raise ValueError('Route switch requires one already-submitted actual Wan request')
+            if any(path.exists() for path in paths):raise ValueError('A route override already exists')
+            env.write_text('VIDEO_USE_IMAGE_VIDEO_URL=http://127.0.0.1:1\n');env.chmod(0o600)
+            created=[]
+            try:
+                for path in paths:
+                    path.parent.mkdir(exist_ok=True);path.write_text(expected);path.chmod(0o644);created.append(path)
+                cluster.run(['systemctl','daemon-reload'])
+                cluster.run(['systemctl','restart',*cluster.WORKERS],timeout=150)
+            except BaseException:
+                for path in created:path.unlink(missing_ok=True)
+                cluster.run(['systemctl','daemon-reload']);cluster.run(['systemctl','restart',*cluster.WORKERS],timeout=150)
+                raise
+        else:
+            if any(path.exists() and path.read_text()!=expected for path in paths):raise ValueError('Route override ownership changed')
+            for path in paths:path.unlink(missing_ok=True)
+            env.unlink(missing_ok=True)
+            cluster.run(['systemctl','daemon-reload']);cluster.run(['systemctl','restart',*cluster.WORKERS],timeout=150)
+        result={'action':action,'units':cluster.WORKERS,'override':'unreachable_loopback','original_provider_receipt_retained':True}
     elif action=='corrupt_object':
         rows=store.query("""SELECT c.manifest,t.id,t.accepted_result_json FROM execution_step_checkpoints c JOIN run_tasks t
             ON t.run_id=c.workflow AND t.id=c.step AND t.revision=c.revision
             JOIN runs w ON w.id=t.run_id WHERE w.project_id=? AND t.status='succeeded'
-            AND t.internal=0 ORDER BY t.updated_at LIMIT 1""",(state['project'],))
+            AND t.selected=1 ORDER BY t.updated_at LIMIT 1""",(state['project'],))
         if not rows:raise ValueError('No accepted QA object to corrupt')
         records=json.loads(rows[0]['manifest'])
         accepted=json.loads(rows[0]['accepted_result_json'])

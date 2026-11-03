@@ -35,13 +35,13 @@ class Decision(BaseModel):
     deliveries: list[str] = Field(default_factory=list, max_length=40)
 
 
-def dispatch(store,turn_id,body,mode,review_id=None):
+def dispatch(store,run_id,body,mode,review_id=None):
     """Shared by the launcher and the actual unprivileged HTTP gateway."""
     from . import workflows
     action=body['action']
     if action=='intent':
         from .execution_intent import declare
-        return declare(store,turn_id,body.get('intent'))
+        return declare(store,run_id,body.get('intent'))
     if action=='capabilities':
         from .operations import catalog
         return catalog()
@@ -52,28 +52,28 @@ def dispatch(store,turn_id,body,mode,review_id=None):
         lease=CURRENT.get()
         if not lease or not lease.runtime:raise ValueError('预检查需要当前隔离执行环境')
         plan=workflows.validate_plan(body.get('plan'))
-        project=store.query('SELECT project FROM agent_turns WHERE id=?',(turn_id,))[0]['project']
+        project=store.query('SELECT project FROM agent_turns WHERE id=?',(run_id,))[0]['project']
         from .deployment_identity import socket_root
         adapter=Adapter(store,'',socket_root())
         reports={}
         for step in plan.steps:
             if step.kind=='script':
                 from . import agent_store
-                agent_store.event(store,turn_id,'progress',{'text':'正在预检查：'+step.name})
-                try:reports[step.id]=adapter.preflight({'id':'preflight','project':project,'turn_id':turn_id},{'id':step.id,'spec':step.model_dump(),'bindings':{}})
+                agent_store.event(store,run_id,'progress',{'text':'正在预检查：'+step.name})
+                try:reports[step.id]=adapter.preflight({'id':'preflight','project':project,'run_id':run_id},{'id':step.id,'spec':step.model_dump(),'bindings':{}})
                 except StepFailure as exc:reports[step.id]={'passed':False,**exc.diagnostic}
         return {'passed':all(r.get('passed') for r in reports.values()),'reports':reports}
     if action=='validate':return {'valid':True,'plan':workflows.validate_plan(body.get('plan')).model_dump()}
     if action=='decision':
         if not review_id or body.get('decision',{}).get('request_id')!=review_id:
             raise ValueError('当前执行器没有此验收请求的提交权限')
-        return stage(store,turn_id,body['decision'])
+        return stage(store,run_id,body['decision'])
     if action=='submit':
         if mode!='execute' or review_id:raise ValueError('只有已确认的普通执行轮可以提交新工作流')
-        return workflows.submit(store,turn_id,body.get('plan'))
+        return workflows.submit(store,run_id,body.get('plan'))
     if action!='status':raise ValueError('未知工作流操作')
-    public=workflows.public(workflows.get(store,turn_id))
-    return {**public,'review_context':context(store,turn_id)} if public else None
+    public=workflows.public(workflows.get(store,run_id))
+    return {**public,'review_context':context(store,run_id)} if public else None
 
 
 def current(store, wid):
@@ -96,8 +96,8 @@ def queue(store, w, step=None, purpose='final'):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         from .task_lifecycle import check
-        check(db,w['turn_id'])
-        live = workflows.get(store, w['turn_id'])
+        check(db,w['run_id'])
+        live = workflows.get(store, w['run_id'])
         if live['status'] in ('cancelled','cancelling','succeeded'):
             return False
         # The single active reviewer serializes Agent work, not review intent.
@@ -109,7 +109,7 @@ def queue(store, w, step=None, purpose='final'):
             return True
         count = db.execute('SELECT COUNT(*) AS n FROM workflow_agent_reviews WHERE workflow=?', (w['id'],)).fetchone()['n']
         if count >= int(os.environ.get('VIDEO_USE_MAX_AGENT_REVIEWS', '24')):
-            workflows.state(store,w['turn_id'],'failed',error='自动验收与诊断次数已用完，请检查已有结果。')
+            workflows.state(store,w['run_id'],'failed',error='自动验收与诊断次数已用完，请检查已有结果。')
             if step:workflows.change(store,w['id'],step['id'],status='paused',error_code='review_limit')
             return False
         rid = uuid.uuid4().hex
@@ -117,27 +117,27 @@ def queue(store, w, step=None, purpose='final'):
                    (rid,w['id'],step['id'] if step else None,purpose,'pending',json.dumps(snapshot(live)),store.now(),store.now()))
         if step:
             workflows.change(store,w['id'],step['id'],status='diagnosing' if purpose=='diagnose' else 'agent_review')
-        workflows.state(store,w['turn_id'],'resuming' if purpose=='final' else 'reviewing',
+        workflows.state(store,w['run_id'],'resuming' if purpose=='final' else 'reviewing',
                         text={'final':'后台步骤已完成，正在进行最终验收。','review':'正在由 Agent 验收步骤内容。','diagnose':'正在由 Agent 分析步骤问题。'}[purpose])
     return True
 
 
-def reconcile(store, turn_id):
+def reconcile(store, run_id):
     """Schedule deferred sibling reviews at an idle, non-user-paused boundary."""
     from . import workflows
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        w=workflows.get(store,turn_id)
+        w=workflows.get(store,run_id)
         if not w or w['status']!='ready':return False
-        turn=db.execute('SELECT status FROM agent_turns WHERE id=?',(turn_id,)).fetchone()
+        turn=db.execute('SELECT status FROM agent_turns WHERE id=?',(run_id,)).fetchone()
         if not turn or turn['status'] not in ('queued','running','waiting'):return False
-        control=db.execute('SELECT pause_requested FROM workflow_control WHERE turn_id=?',(turn_id,)).fetchone()
+        control=db.execute('SELECT pause_requested FROM workflow_control WHERE run_id=?',(run_id,)).fetchone()
         if control and control['pause_requested']:return False
-        active=db.execute('SELECT attempt FROM execution_leases WHERE turn_id=? AND active=1 AND expires>? LIMIT 1',
-                          (turn_id,store.now())).fetchone()
-        cleaning=db.execute("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete' LIMIT 1",(turn_id,)).fetchone()
+        active=db.execute('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>? LIMIT 1',
+                          (run_id,store.now())).fetchone()
+        cleaning=db.execute("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete' LIMIT 1",(run_id,)).fetchone()
         if active or cleaning:return False
-        limits=db.execute('SELECT deadline_at,termination_reason FROM execution_limits WHERE task_id=?',(turn_id,)).fetchone()
+        limits=db.execute('SELECT deadline_at,termination_reason FROM execution_limits WHERE task_id=?',(run_id,)).fetchone()
         if limits and (limits['termination_reason'] or limits['deadline_at']<=store.now()):return False
         # A sibling may have asked for user input while another review was in
         # flight. Applying that other decision must never bypass the human gate.
@@ -146,11 +146,11 @@ def reconcile(store, turn_id):
             'local','validate','provider_failed','pre_submit','model_result')
         human=next((s for s in blockers if not automatic(s)),None)
         if human:
-            workflows.state(store,turn_id,'paused',error=human['error'] or '此步骤需要用户确认。')
+            workflows.state(store,run_id,'paused',error=human['error'] or '此步骤需要用户确认。')
             return True
         request=current(store,w['id'])
         if request:
-            return workflows.state(store,turn_id,'resuming' if request['purpose']=='final' else 'reviewing',
+            return workflows.state(store,run_id,'resuming' if request['purpose']=='final' else 'reviewing',
                                    text='继续尚未完成的 Agent 验收或诊断。')
         for step in w['steps']:
             if step['status'] in ('diagnosing','agent_review') or automatic(step):
@@ -158,13 +158,13 @@ def reconcile(store, turn_id):
     return False
 
 
-def begin(store, turn_id):
+def begin(store, run_id):
     from . import workflows
     from .task_lifecycle import check
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        check(db,turn_id)
-        w=workflows.get(store,turn_id)
+        check(db,run_id)
+        w=workflows.get(store,run_id)
         if not w or w['status'] not in ('reviewing','resuming'):return None
         request=current(store,w['id'])
         if not request:
@@ -181,10 +181,10 @@ def begin(store, turn_id):
                        (json.dumps(snapshot(w)),request['id']))
         if request['runs']>=3:
             db.execute("UPDATE workflow_agent_reviews SET status='exhausted' WHERE id=?",(request['id'],))
-            workflows.state(store,turn_id,'failed',error='本次 Agent 验收多次中断，请重新规划。')
+            workflows.state(store,run_id,'failed',error='本次 Agent 验收多次中断，请重新规划。')
             return None
         db.execute("UPDATE workflow_agent_reviews SET status='running',decision='{}',runs=runs+1,updated=? WHERE id=?",(store.now(),request['id']))
-        db.execute("UPDATE agent_turns SET status='running' WHERE id=? AND status='queued'",(turn_id,))
+        db.execute("UPDATE agent_turns SET status='running' WHERE id=? AND status='queued'",(run_id,))
         return current(store,w['id'])
 
 
@@ -200,9 +200,9 @@ def repairable_steps(w,request):
     return allowed
 
 
-def context(store, turn_id):
+def context(store, run_id):
     from . import workflows
-    w=workflows.get(store,turn_id)
+    w=workflows.get(store,run_id)
     request=current(store,w['id']) if w else None
     if not request:return None
     return {'request_id':request['id'],'purpose':request['purpose'],'step_id':request['step'],
@@ -290,13 +290,13 @@ def validate_decision(w, request, raw):
     return decision
 
 
-def stage(store, turn_id, raw):
+def stage(store, run_id, raw):
     from . import workflows
     from .task_lifecycle import check
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        check(db,turn_id)
-        w=workflows.get(store,turn_id)
+        check(db,run_id)
+        w=workflows.get(store,run_id)
         request=current(store,w['id']) if w else None
         if not request or request['status'] not in ('running','staged') or w['status'] not in ('reviewing','resuming'):
             raise ValueError('当前没有正在执行的 Agent 验收')
@@ -308,15 +308,15 @@ def stage(store, turn_id, raw):
     return {'accepted':True,'request_id':request['id'],'message':'结论已保存，结束本轮后由服务端校验并应用；尚未完成交付。'}
 
 
-def commit(store, turn_id, adapter):
+def commit(store, run_id, adapter):
     """Called after the review sandbox stopped and its new scripts checkpointed."""
     from . import workflows,agent_store
     from .task_lifecycle import check
-    w=workflows.get(store,turn_id)
+    w=workflows.get(store,run_id)
     request=current(store,w['id']) if w else None
     if not request or request['status']!='staged':
         if w and w['status'] in ('reviewing','resuming'):
-            workflows.state(store,turn_id,'paused',error='Agent 未提交结构化验收结论，成果保留，可继续检查。')
+            workflows.state(store,run_id,'paused',error='Agent 未提交结构化验收结论，成果保留，可继续检查。')
         return False
     decision=validate_decision(w,request,request['decision'])
     # Recheck real bytes before approving. The model cannot attest away a failing
@@ -331,8 +331,8 @@ def commit(store, turn_id, adapter):
                 raise ValueError('产物已变化或技术复验失败，请重新检查')
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        check(db,turn_id)
-        w=workflows.get(store,turn_id)
+        check(db,run_id)
+        w=workflows.get(store,run_id)
         live=current(store,w['id'])
         if w['status'] not in ('reviewing','resuming') or not live or live['id']!=request['id']:
             raise ValueError('任务已停止或验收已失效')
@@ -340,13 +340,13 @@ def commit(store, turn_id, adapter):
         db.execute("UPDATE workflow_agent_reviews SET status='applied',updated=? WHERE id=?",(store.now(),request['id']))
         s=next((s for s in w['steps'] if s['id']==request['step']),None)
         if decision.action=='pass' and request['purpose']=='final':
-            row=agent_store.turn(store,turn_id)
+            row=agent_store.turn(store,run_id)
             delivered={str(Path(f).relative_to('edit')) for f in decision.deliveries}
             primary=str(Path(decision.deliveries[0]).relative_to('edit'))
             artifacts=[dict(a,workflow_delivery=a['name'] in delivered,is_primary=a['name']==primary,
                             role='deliverable' if a['name'] in delivered else 'intermediate') for a in row['artifacts']]
-            db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),turn_id))
-            workflows.state(store,turn_id,'succeeded',text='最终验收通过，已完成交付。\n\n'+decision.reason)
+            db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),run_id))
+            workflows.state(store,run_id,'succeeded',text='最终验收通过，已完成交付。\n\n'+decision.reason)
         elif decision.action=='pass':
             report={**s['quality'],'requires_agent':False,'agent_review':decision.model_dump(),
                     'checks':[dict(c,passed=True) if c.get('kind')=='agent' else c for c in s['quality'].get('checks',[])]}
@@ -354,12 +354,12 @@ def commit(store, turn_id, adapter):
             workflows.change(store,w['id'],s['id'],quality=report,status='awaiting_review' if human else 'succeeded',
                              result=[] if human else s['candidate'],error_code='quality' if human else '',
                              error='请确认此步骤效果。' if human else '')
-            workflows.state(store,turn_id,'paused' if human else 'ready',error='此步骤需要用户确认。' if human else '')
+            workflows.state(store,run_id,'paused' if human else 'ready',error='此步骤需要用户确认。' if human else '')
         elif decision.action=='repair':
             # Reuse version invalidation, budget and input-contract checks. The
             # active lease belongs to this server commit, not a concurrent user.
-            workflows.state(store,turn_id,'paused')
-            workflows.quality_action(store,turn_id,decision.step_id,
+            workflows.state(store,run_id,'paused')
+            workflows.quality_action(store,run_id,decision.step_id,
                 next(x['revision'] for x in w['steps'] if x['id']==decision.step_id),'repair','agent',
                 feedback=decision.reason,replacement=decision.replacement,_agent_commit=True)
         else:
@@ -368,16 +368,16 @@ def commit(store, turn_id, adapter):
             if s:
                 human=decision.action=='needs_user'
                 names={str(Path(f).relative_to('edit')) for f in s['result']+s['candidate']}
-                row=agent_store.turn(store,turn_id)
+                row=agent_store.turn(store,run_id)
                 artifacts=[dict(a,quality_state='pending',purpose='quality_candidate') if a['name'] in names else a for a in row['artifacts']]
-                db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),turn_id))
+                db.execute('UPDATE agent_turns SET artifacts=? WHERE id=?',(json.dumps(artifacts),run_id))
                 workflows.change(store,w['id'],s['id'],status='awaiting_review' if human else 'paused',
                                  candidate=s['result'] or s['candidate'],result=[],
                                  error_code='quality' if human else 'agent_stopped',error=decision.reason)
             if decision.action=='needs_user' and s:
                 from .user_decisions import create
                 create(store,w,s,decision.user_request or {'kind':'quality','question':decision.reason},decision.replacement)
-            workflows.state(store,turn_id,'failed' if decision.action=='stop' else 'paused',error=decision.reason)
+            workflows.state(store,run_id,'failed' if decision.action=='stop' else 'paused',error=decision.reason)
         if s:workflows.quality_event(store,w,s,'agent',decision.action,decision.model_dump_json())
     if decision.action=='pass' and s and not s['quality'].get('requires_review'):
         adapter.publish(w,s['candidate'])
@@ -392,7 +392,7 @@ def recover(store, w):
     store.execute("UPDATE workflow_agent_reviews SET status='pending',decision='{}',updated=? WHERE id=?",(store.now(),request['id']))
     if request['runs']>=3:
         store.execute("UPDATE workflow_agent_reviews SET status='exhausted' WHERE id=?",(request['id'],))
-        workflows.state(store,w['turn_id'],'failed',error='Agent 验收多次中断，请重新规划。')
+        workflows.state(store,w['run_id'],'failed',error='Agent 验收多次中断，请重新规划。')
     else:
-        workflows.state(store,w['turn_id'],'resuming' if request['purpose']=='final' else 'reviewing',text='正在恢复未完成的 Agent 验收；已完成步骤不会重跑。')
+        workflows.state(store,w['run_id'],'resuming' if request['purpose']=='final' else 'reviewing',text='正在恢复未完成的 Agent 验收；已完成步骤不会重跑。')
     return True

@@ -1,5 +1,5 @@
 import {api,esc} from './common.js';
-const labels={llm:'模型请求',tool:'Agent 工具',workflow:'持久化工作流步骤执行',provider_submit:'外部业务服务提交尝试',provider_poll:'外部业务服务查询尝试',provider_collect:'外部业务服务结果收取',succeeded:'成功',failed:'失败',cancelled:'已取消',unknown:'未知',running:'进行中',incomplete:'未完整返回'};
+const labels={llm:'模型请求',tool:'Agent 工具',workflow:'业务任务阶段',control:'规划、审查与诊断',provider_submit:'外部业务服务提交尝试',provider_poll:'外部业务服务查询尝试',provider_collect:'外部业务服务结果收取',succeeded:'成功',failed:'失败',cancelled:'已取消',unknown:'未知',running:'进行中',incomplete:'未完整返回'};
 export function tokenText(value){return value.known===null?'未知':value.known.toLocaleString()+(value.missing_calls?`（另 ${value.missing_calls} 次未回报）`:'');}
 export function usageHtml(data){
  const row=(a,b)=>`<tr><th style="text-align:left;padding:4px 16px 4px 0">${esc(a)}</th><td>${esc(String(b))}</td></tr>`;

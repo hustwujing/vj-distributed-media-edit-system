@@ -20,7 +20,7 @@ class ObservationMiddleware:
         project=re.search(r'/projects/([a-f0-9]{32})(?:/|$)',scope['path'])
         fields={'project_id':project[1]} if project else {}
         if match:fields.update(task_id=match[2])
-        workflow=re.search(r'/projects/[a-f0-9]{32}/workflows/([a-f0-9]{32})(?:/|$)',scope['path'])
+        workflow=re.search(r'/projects/[a-f0-9]{32}/runs/([a-f0-9]{32})(?:/|$)',scope['path'])
         if workflow:fields['run_id']=workflow[1]
         started=time.monotonic();status=500;began=False;complete=False;sent=0;first_byte=None;outcome='succeeded'
         async def observed_send(message):

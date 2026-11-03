@@ -150,7 +150,7 @@ class StudioTests(unittest.TestCase):
     def test_event_stream_replays_and_resumes_without_leaking_other_users(self):
         store=self.app.state.store;tid=agent_store.add_turn(store,self.pid,'plan','test stream')
         agent_store.event(store,tid,'tool',{'id':'one','title':'读取素材','status':'running'})
-        first=store.query('SELECT seq FROM agent_events WHERE turn_id=?',(tid,))[0]['seq']
+        first=store.query('SELECT seq FROM agent_events WHERE run_id=?',(tid,))[0]['seq']
         agent_store.event(store,tid,'tool',{'id':'one','title':'读取素材','status':'completed'})
         agent_store.finish(store,tid,'succeeded',text='完成计划')
         path=f'/api/projects/{self.pid}/agent/{tid}/stream'

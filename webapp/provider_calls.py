@@ -53,13 +53,16 @@ def intent(store,w,s,provider,operation,implementation=None):
         if w.get('dynamic'):
             from .workflow_graph import get as graph_get
             dynamic=graph_get(store,w['id'])
-            if not lease or not dynamic or lease.turn_id!=dynamic['id'] or lease.step_id!=s['id']:
+            if not lease or not dynamic or lease.run_id!=dynamic['id'] or lease.step_id!=s['id']:
                 raise ValueError('Provider call is outside the leased graph task')
             task=next(t for t in dynamic['tasks'] if t['id']==s['id'])
-            if task['spec'].get('operation')!=operation or operation not in dynamic['authorization']['allowed_operations']:
+            from .workflow_graph import authority_for
+            scope=authority_for(store,dynamic,task)
+            if not dynamic['scope_confirmed']:raise ValueError('Business scope is not confirmed')
+            if task['spec'].get('operation')!=operation or operation not in scope['allowed_operations']:
                 raise ValueError('Provider operation was not authorized')
             from .workflow_graph import digest
-            if dynamic['authorization']['operation_policy_digests'].get(operation)!=digest(metadata(selected)):
+            if scope['operation_policy_digests'].get(operation)!=digest(metadata(selected)):
                 raise ValueError('Provider policy changed after authorization')
             lease.consume('provider:'+selected.budget_group,dynamic['authorization']['provider_call_budget'].get(selected.budget_group,0))
         if lease and not w.get('dynamic') and w.get('origin')!='direct':
@@ -73,10 +76,10 @@ def intent(store,w,s,provider,operation,implementation=None):
         db.execute('INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,inputs,created,updated) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
             (key,w['id'],s['id'],s['revision'],attempt,provider,operation,'submitting',encoded,store.now(),store.now()))
         from .execution_intent import get
-        authorization={'origin':'manual' if w.get('manual') else w.get('origin','workflow'),'plan_id':w.get('plan_id'),'confirmed_intent':get(store,w['turn_id'])}
+        authorization={'origin':'manual' if w.get('manual') else w.get('origin','workflow'),'plan_id':w.get('plan_id'),'confirmed_intent':get(store,w['run_id'])}
         if w.get('dynamic'):
             authorization={'origin':'dynamic_workflow','run_id':dynamic['id'],
-                'authorization_version':dynamic['authorization_version'],'content_fingerprint':dynamic['authorization']['content_fingerprint'],
+                'authorization_version':task['authorization_version'],'budget_authorization_version':dynamic['authorization_version'],'content_fingerprint':scope['content_fingerprint'],
                 'operation':operation,'budget_group':selected.budget_group,'provider_call_budget':dynamic['authorization']['provider_call_budget'].get(selected.budget_group,0)}
         db.execute('UPDATE workflow_provider_calls SET authorization=? WHERE request_key=?',(json.dumps(authorization),key))
         from .operation_lifecycle import for_operation
@@ -113,7 +116,7 @@ def update(store,w,s,state,external_id='',record=None,cookies=None):
     except (LeaseLost,TaskLimitReached):
         # Receipt-only authority after revocation: record the external side effect
         # and arrange cleanup. This path never changes steps or publishes results.
-        late_receipt(store,w['turn_id'],key,state,external_id,record,cookies=cookies)
+        late_receipt(store,w['run_id'],key,state,external_id,record,cookies=cookies)
         raise
 
 
@@ -128,8 +131,8 @@ def late_receipt(store,task_id,key,state,external_id,record,cookies=None):
         row=db.execute('SELECT * FROM workflow_provider_calls WHERE request_key=?',(key,)).fetchone()
         if not row:raise ValueError('Receipt has no prior submission intent')
         if row['workflow']!=task_id:
-            workflow=db.execute('SELECT turn_id FROM agent_workflows WHERE id=? UNION ALL SELECT id FROM runs WHERE id=?',(row['workflow'],row['workflow'])).fetchone()
-            if not workflow or workflow['turn_id']!=task_id:raise ValueError('Receipt belongs to another task')
+            workflow=db.execute('SELECT run_id FROM agent_workflows WHERE id=? UNION ALL SELECT id FROM runs WHERE id=?',(row['workflow'],row['workflow'])).fetchone()
+            if not workflow or workflow['run_id']!=task_id:raise ValueError('Receipt belongs to another task')
         if row['external_id'] and external_id and row['external_id']!=external_id:
             raise ValueError('Conflicting late provider ID')
         identifier=external_id or row['external_id']
@@ -157,7 +160,7 @@ def request_time(store,w,s,phase):
     from .task_lifecycle import administrative
     lease=CURRENT.get();state='succeeded'
     with store.connect() as db:
-        call=start(db,w['turn_id'],'provider_'+phase,s.get('spec',{}).get('operation') or phase,
+        call=start(db,w['run_id'],'provider_'+phase,s.get('spec',{}).get('operation') or phase,
                    attempt=lease.attempt if lease else '',step=s['id'],revision=s['revision'])
     try:yield
     except BaseException:
@@ -165,7 +168,7 @@ def request_time(store,w,s,phase):
     finally:
         # Revocation cannot erase an attempted network request. Receipt-only write.
         with administrative(),store.connect() as db:
-            complete(db,w['turn_id'],call,state)
+            complete(db,w['run_id'],call,state)
         from .task_leases import LeaseLost
         from .task_lifecycle import TaskLimitReached
         try:

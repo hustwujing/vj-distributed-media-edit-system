@@ -16,7 +16,7 @@ TOOLS=('bash','sh','env','cat','ls','find','sed','awk','sort','uniq','wc','head'
        'basename','dirname','readlink','realpath','stat','du','df','grep','xargs','tee',
        'ffmpeg','ffprobe','socat','setpriv','ldconfig','fc-match','fc-list','file','rg','uname','sleep','tr','true','false')
 CODEX_DEFAULT='/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex'
-TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','media_plan_compiler.py','media_evidence.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
+TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','media_plan_compiler.py','media_evidence.py','media_evidence_operation.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
               'image_providers.py','image_models.py','image_replace.py','sam3_zim.py','models.py','edit_tools.py','quality_review.py')
 
 

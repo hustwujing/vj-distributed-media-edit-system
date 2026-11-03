@@ -22,6 +22,7 @@ from .api_capacity import FIELDS as API_CAPACITY_FIELDS
 FIELDS.update(API_CAPACITY_FIELDS)
 FIELDS.update({'harness','model','protocol','reasoning_effort','max_output_tokens','configuration_digest','switch_id'})
 FIELDS.update({'graph_version','authorization_version','sealed','proposal_id','planner_run_id','reconcile_generation','profile_id','snapshot_digest','task_count','scan_lag_seconds'})
+FIELDS.update({'input_id','input_sequence','through_sequence','next_barrier_sequence','control_job_id','result_kind','source','review_identity','previous_review_id','successor_run_id','payload_type','top_level_keys','text_characters','text_sha256','choices_items','output_items','content_items'})
 _QUEUE = queue.Queue(maxsize=1024)
 _LOCK = threading.Lock()
 _THREAD = None
@@ -50,6 +51,8 @@ def clean(fields):
             out[key]=value
         elif key=='stack' and isinstance(value,list):
             out[key]=[{k:identifier(v) for k,v in frame.items() if k in ('file','function','line','type')} for frame in value[:24] if isinstance(frame,dict)]
+        elif key=='top_level_keys' and isinstance(value,list):
+            out[key]=[identifier(item) for item in value[:30] if isinstance(item,str)]
         elif isinstance(value,str):
             # No free-text fields, source lines, messages, URLs, headers or locals.
             out[key]=identifier(value)
@@ -60,9 +63,9 @@ def context():
     result = dict(CONTEXT.get())
     module=sys.modules.get('webapp.task_leases');lease=module.CURRENT.get() if module else None
     if lease:
-        result.update(task_id=lease.turn_id,attempt_id=lease.attempt,worker=lease.worker,
+        result.update(task_id=lease.run_id,attempt_id=lease.attempt,worker=lease.worker,
                       generation=lease.generation,step_id=lease.step_id,
-                      trace_id=result.get('trace_id') or hashlib.sha256(lease.turn_id.encode()).hexdigest()[:32])
+                      trace_id=result.get('trace_id') or hashlib.sha256(lease.run_id.encode()).hexdigest()[:32])
     if result.get('task_id') and not result.get('trace_id'):
         result['trace_id']=hashlib.sha256(result['task_id'].encode()).hexdigest()[:32]
     return result

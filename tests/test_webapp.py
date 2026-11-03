@@ -46,7 +46,7 @@ class WebTests(unittest.TestCase):
         lease=Coordinator(store,'test-delete','test').claim(turn,'agent')
         store.execute("INSERT INTO execution_cleanup(attempt,task_id,node,state,updated) VALUES (?,?,?,'quarantined',?)",(lease.attempt,turn,'test-delete',store.now()))
         store.execute("UPDATE agent_turns SET status='cancelled' WHERE id=?",(turn,))
-        store.execute('UPDATE execution_leases SET active=0,expires=0 WHERE turn_id=?',(turn,))
+        store.execute('UPDATE execution_leases SET active=0,expires=0 WHERE run_id=?',(turn,))
         endpoint=f'/api/projects/{self.project}'
         self.assertEqual(self.client.delete(endpoint).status_code,409)
         store.execute("UPDATE execution_cleanup SET state='complete' WHERE task_id=?",(turn,))

@@ -116,7 +116,7 @@ class UsageTests(unittest.TestCase):
         s=task_usage.snapshot(self.store,self.task);self.assertEqual(s['coverage']['historical_tasks'],[self.task]);self.assertIsNone(s['tokens']['total_tokens']['known'])
     def test_provider_numbers_only_and_poll_not_generation(self):
         from webapp import provider_calls
-        w={'id':self.task,'turn_id':self.task,'manual':True};step={'id':'image','revision':0,'attempts':0}
+        w={'id':self.task,'run_id':self.task,'manual':True};step={'id':'image','revision':0,'attempts':0}
         provider_calls.intent(self.store,w,step,'https://private.invalid','image.edit')
         for phase in ('submit','poll','poll'):
             with provider_calls.request_time(self.store,w,step,phase):pass

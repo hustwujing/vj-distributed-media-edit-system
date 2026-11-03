@@ -22,11 +22,23 @@ def validate_candidate(adapter,workflow,step,files):
     return report
 
 
+def record_phase(lease,task,name,files=None):
+    if name not in ('local','sync','submit','poll','collect','validate'):raise ValueError('Unknown Task lifecycle phase')
+    with lease.bind(),lease.store.connect() as db:
+        lease.validate(db)
+        if not db.execute(f'UPDATE {graph.work_table(task)} SET phase=?,updated_at=? WHERE run_id=? AND id=? AND revision=? AND lease_id=? AND lease_generation=?',
+            (name,lease.store.now(),lease.run_id,task['id'],task['revision'],lease.attempt,lease.generation)).rowcount:
+            raise LeaseLost('Lifecycle phase belongs to a replaced attempt')
+        if files is not None:
+            db.execute(f'UPDATE {graph.work_table(task)} SET candidate_result_json=? WHERE run_id=? AND id=?',
+                (graph.encode(list(files)),lease.run_id,task['id']))
+
+
 def execute(host,lease):
     from .task_usage import execution_call
-    run=graph.get(host.store,lease.turn_id);task=next(t for t in graph.work_items(run) if t['id']==lease.step_id)
+    run=graph.get(host.store,lease.run_id);task=next(t for t in graph.work_items(run) if t['id']==lease.step_id)
     operation=task['spec'].get('operation') or task['spec'].get('profile') or 'script'
-    with execution_call(lease,'workflow',operation,revision=task['revision'],label='执行工作流阶段') as receipt:
+    with execution_call(lease,'control' if task.get('control_kind') else 'workflow',operation,revision=task['revision'],phase=task['phase'],actor='manager_agent' if task.get('control_kind')=='PLAN' else 'reviewer_agent' if task.get('control_kind') else 'specialist_agent' if task['type']=='agent' else 'workflow_sandbox',label='执行控制任务' if task.get('control_kind') else '执行业务任务阶段') as receipt:
         result=_execute(host,lease)
         rows=host.store.query('SELECT outcome FROM task_results WHERE lease_id=?',(lease.attempt,))
         receipt['status']='failed' if rows and rows[0]['outcome']=='failed' else 'succeeded'
@@ -34,7 +46,7 @@ def execute(host,lease):
 
 
 def _execute(host,lease):
-    store=lease.store;run=graph.get(store,lease.turn_id)
+    store=lease.store;run=graph.get(store,lease.run_id)
     task=next(t for t in graph.work_items(run) if t['id']==lease.step_id)
     phase=task['phase'];adapter=host.workflow_runner.adapter
     try:
@@ -54,6 +66,7 @@ def _execute(host,lease):
             if record['status']!='succeeded':
                 return stage_result(store,lease,'waiting',{'external_id':task['external_id'],'poll_after':5})
             phase='collect'
+            record_phase(lease,task,phase)
             files=implementation.invoke(adapter,'collect',view,step,record=record,cancelled=cancelled)
         else:
             phase=implementation.phase(step)
@@ -63,6 +76,8 @@ def _execute(host,lease):
             if phase not in ('local','sync'):raise ValueError('Unsupported execution phase')
             files=implementation.invoke(adapter,phase,view,step,cancelled=cancelled)
         phase='validate'
+        if lease.runtime:lease.runtime.checkpoint()
+        record_phase(lease,task,phase,files)
         report=validate_candidate(adapter,view,step,files)
         from .workflow_inputs import roles
         report['input_versions']={s['id']:s['revision'] for s in view['steps'] if s['id'] in step['spec']['depends_on']}
@@ -74,8 +89,10 @@ def _execute(host,lease):
         return stage_result(store,lease,'succeeded',{'files':list(files),'quality':report,'output_roles':role_map},json.loads(checkpoints[0]['manifest']))
     except (LeaseLost,TaskLimitReached):raise
     except Exception as exc:
+        current=graph.work_item(graph.get(store,run['id']),task['id'])
+        if current:phase=current['phase']
         from .telemetry import emit
-        emit('workflow.execution_failed','ERROR',exc=exc,task_id=lease.turn_id,step_id=lease.step_id,attempt_id=lease.attempt)
+        emit('workflow.execution_failed','ERROR',exc=exc,task_id=lease.run_id,step_id=lease.step_id,attempt_id=lease.attempt)
         if host.stop.is_set():raise LeaseLost('Executor is stopping') from exc
         from .execution_contracts import classify_error
         detail=getattr(exc,'diagnostic',{'error_type':type(exc).__name__})
@@ -86,7 +103,7 @@ def _execute(host,lease):
                     'returncode':detail.get('exit_code') if isinstance(detail,dict) else None,
                     'code':detail.get('code','') if isinstance(detail,dict) else ''}
         if isinstance(detail,dict) and type(detail.get('http_status'))==int:diagnostic['http_status']=detail['http_status']
-        runtime_tail=detail.get('log_tail') or detail.get('runtime_error') if isinstance(detail,dict) else None
+        runtime_tail=detail.get('log_tail') or detail.get('runtime_error') or detail.get('stderr_tail') if isinstance(detail,dict) else None
         if isinstance(runtime_tail,str):
             from .egress_policy import scrub,secrets
             diagnostic['log_tail']=scrub(runtime_tail[-4000:],secrets())
@@ -100,7 +117,7 @@ def _execute(host,lease):
         if lease.runtime and lease.runtime.env is not None and not task.get('control_kind'):
             try:lease.runtime.checkpoint()
             except (LeaseLost,TaskLimitReached):raise
-            except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.turn_id,step_id=lease.step_id)
+            except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.run_id,step_id=lease.step_id)
         calls=store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(run['id']+':'+task['id']+':'+str(task['revision']),))
         from .workflow_agents import ModelServiceError
         try:
@@ -110,7 +127,8 @@ def _execute(host,lease):
         if isinstance(exc,ModelServiceError):
             status=exc.diagnostic.get('http_status');transient_model=status==429 or isinstance(status,int) and status>=500
         transient_model=bool(task.get('control_kind') and task['type']=='agent' and transient_model)
-        if isinstance(exc,TaskQuotaReached):code='budget_exhausted'
+        if isinstance(exc,TaskQuotaReached):
+            code=('review_incomplete' if task.get('control_kind')=='REVIEW' and exc.diagnostic.get('category') in ('agent_turns','agent_seconds') else 'budget_exhausted')
         elif classification=='pre_submit':code='pre_submit'
         elif classification=='model_result':code='model_result'
         elif task['type']=='agent':code='agent_failed'

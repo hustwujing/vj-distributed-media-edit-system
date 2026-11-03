@@ -44,8 +44,8 @@ def main():
         row=agent_store.turn(store,turn)
         result={'status':row['status'],'steps':[{'id':s['id'],'status':s['status']} for s in row['workflow']['steps']],
                 'agent_reviews':store.query('SELECT purpose,status,runs FROM workflow_agent_reviews'),
-                'agent_text':row['text'],'tools':store.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind IN ('tool','tool_output') ORDER BY seq DESC LIMIT 6",(turn,)),'artifacts':len(row['artifacts']),'error':row['error'],'diagnostics':row['workflow']['steps'][0]['diagnostics'],
-                'last_events':store.query("SELECT kind,payload FROM agent_events WHERE turn_id=? AND kind='progress' ORDER BY seq DESC LIMIT 4",(turn,))}
+                'agent_text':row['text'],'tools':store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind IN ('tool','tool_output') ORDER BY seq DESC LIMIT 6",(turn,)),'artifacts':len(row['artifacts']),'error':row['error'],'diagnostics':row['workflow']['steps'][0]['diagnostics'],
+                'last_events':store.query("SELECT kind,payload FROM agent_events WHERE run_id=? AND kind='progress' ORDER BY seq DESC LIMIT 4",(turn,))}
         if row['status']!='succeeded':
             checkpoint=store.query('SELECT path FROM execution_checkpoints WHERE project=?',(project,))
             outputs=[]

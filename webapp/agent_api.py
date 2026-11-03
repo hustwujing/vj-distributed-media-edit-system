@@ -100,26 +100,26 @@ def register(app, store, own_project, lock):
         except ValueError as exc:raise HTTPException(409,str(exc)) from exc
         return profile.public()
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/harness-switch',status_code=202)
+    @app.post('/api/projects/{project_id}/agent/{run_id}/harness-switch',status_code=202)
     @lane('control')
-    def switch_harness(project_id:str,turn_id:str,body:HarnessSwitch,request:Request):
-        row=owned_turn(project_id,turn_id,request)
+    def switch_harness(project_id:str,run_id:str,body:HarnessSwitch,request:Request):
+        row=owned_turn(project_id,run_id,request)
         if (row.get('workflow') or {}).get('dynamic'):
             raise HTTPException(409,'动态工作流使用已冻结的模型和 Agent 策略；请在新一轮授权前选择新的模型配置。')
         from .harness_switching import request as request_switch
-        try:return request_switch(store,project_id,turn_id,body.profile,body.request_key,body.expected_digest)
+        try:return request_switch(store,project_id,run_id,body.profile,body.request_key,body.expected_digest)
         except ValueError as exc:raise HTTPException(409,str(exc)) from exc
 
-    @app.delete('/api/projects/{project_id}/agent/{turn_id}/harness-switch/{switch_id}')
+    @app.delete('/api/projects/{project_id}/agent/{run_id}/harness-switch/{switch_id}')
     @lane('control')
-    def cancel_switch(project_id:str,turn_id:str,switch_id:str,request:Request):
-        owned_turn(project_id,turn_id,request)
+    def cancel_switch(project_id:str,run_id:str,switch_id:str,request:Request):
+        owned_turn(project_id,run_id,request)
         from .harness_switching import cancel
-        try:return cancel(store,project_id,turn_id,switch_id)
+        try:return cancel(store,project_id,run_id,switch_id)
         except ValueError as exc:raise HTTPException(409,str(exc)) from exc
-    def owned_turn(project_id, turn_id, request):
+    def owned_turn(project_id, run_id, request):
         own_project(project_id, request)
-        row = agent_store.turn(store, turn_id)
+        row = agent_store.turn(store, run_id)
         if not row or row['project'] != project_id:
             raise HTTPException(404, '对话不存在或不属于当前用户。')
         return row
@@ -147,27 +147,27 @@ def register(app, store, own_project, lock):
         elif any(x['state'] in ('pending','running') for x in external):text+='正在向上游确认停止状态。'
         return text
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/render-observation')
-    def render_observation(project_id:str,turn_id:str,body:RenderObservation,request:Request):
-        row=owned_turn(project_id,turn_id,request)
+    @app.post('/api/projects/{project_id}/agent/{run_id}/render-observation')
+    def render_observation(project_id:str,run_id:str,body:RenderObservation,request:Request):
+        row=owned_turn(project_id,run_id,request)
         if body.generation>row.get('text_generation',0):return {'recorded':False}
         with store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            if db.execute('SELECT COUNT(*) n FROM agent_render_observations WHERE task_id=?',(turn_id,)).fetchone()['n']>=200:return {'recorded':False}
-            inserted=db.execute('INSERT OR IGNORE INTO agent_render_observations VALUES (?,?,?,?,?)',(turn_id,body.generation,body.sequence,body.render_ms,store.now())).rowcount
+            if db.execute('SELECT COUNT(*) n FROM agent_render_observations WHERE task_id=?',(run_id,)).fetchone()['n']>=200:return {'recorded':False}
+            inserted=db.execute('INSERT OR IGNORE INTO agent_render_observations VALUES (?,?,?,?,?)',(run_id,body.generation,body.sequence,body.render_ms,store.now())).rowcount
         if not inserted:return {'recorded':False}
         from .telemetry import emit
-        emit('stream.browser_render',task_id=turn_id,generation=body.generation,event_sequence=body.sequence,duration_seconds=body.render_ms/1000)
+        emit('stream.browser_render',task_id=run_id,generation=body.generation,event_sequence=body.sequence,duration_seconds=body.render_ms/1000)
         return {'recorded':True}
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/review-retry')
+    @app.post('/api/projects/{project_id}/agent/{run_id}/review-retry')
     @lane('control')
-    def retry_review(project_id:str,turn_id:str,body:ReviewRetry,request:Request):
-        owned_turn(project_id,turn_id,request)
+    def retry_review(project_id:str,run_id:str,body:ReviewRetry,request:Request):
+        owned_turn(project_id,run_id,request)
         from .plan_readiness import retry_review as retry
-        try:retry(store,turn_id,body.digest)
+        try:retry(store,run_id,body.digest)
         except ValueError as exc:raise HTTPException(409,str(exc)) from exc
-        return agent_store.public(agent_store.turn(store,turn_id))
+        return agent_store.public(agent_store.turn(store,run_id))
 
     @app.get('/api/projects/{project_id}/capabilities')
     def capabilities(project_id:str,request:Request):
@@ -176,15 +176,15 @@ def register(app, store, own_project, lock):
         active=store.query('SELECT c.catalogue FROM execution_operation_catalog c JOIN execution_workers w ON w.id=c.worker WHERE w.draining=0 AND w.heartbeat>? ORDER BY w.heartbeat DESC LIMIT 1',(store.now()-20,))
         return json.loads(active[0]['catalogue']) if active else catalog()
 
-    @app.get('/api/projects/{project_id}/agent/{turn_id}/status')
+    @app.get('/api/projects/{project_id}/agent/{run_id}/status')
     @lane('critical')
-    def task_status(project_id:str,turn_id:str,request:Request):
-        row=owned_turn(project_id,turn_id,request)
+    def task_status(project_id:str,run_id:str,request:Request):
+        row=owned_turn(project_id,run_id,request)
         return {'summary':summary(row),'turn':agent_store.public(row)}
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/control')
-    async def control(project_id:str,turn_id:str,body:ControlMessage,request:Request):
-        row=await api_execution.run('critical',owned_turn,project_id,turn_id,request)
+    @app.post('/api/projects/{project_id}/agent/{run_id}/control')
+    async def control(project_id:str,run_id:str,body:ControlMessage,request:Request):
+        row=await api_execution.run('critical',owned_turn,project_id,run_id,request)
         if (row.get('workflow') or {}).get('dynamic'):
             raise HTTPException(410,'请使用动态工作流的命令和授权入口。')
         action=body.action
@@ -196,7 +196,7 @@ def register(app, store, own_project, lock):
                 else:
                     def classify_control():
                         from .task_usage import control_target
-                        with control_target(store,turn_id):return classifier.resolve(body.message,row['status'])
+                        with control_target(store,run_id):return classifier.resolve(body.message,row['status'])
                     action=await api_execution.run('control',classify_control)
             except UnrecognizedControl:
                 raise HTTPException(409,'未识别到明确的任务控制操作，未改变任务。可以查询进度、暂停、继续、取消，或明确说明要修改什么以重新规划。')
@@ -205,19 +205,19 @@ def register(app, store, own_project, lock):
             if 'action' in body.model_fields_set and body.action!=action:
                 raise HTTPException(409,'文字与指定操作不一致，未改变任务。请只发送一种明确操作。')
         def apply_control():
-            if action=='status':return owned_turn(project_id,turn_id,request)
+            if action=='status':return owned_turn(project_id,run_id,request)
             with lock, store.connect() as db:
                 db.execute('BEGIN IMMEDIATE')
                 # The original target may finish while the model is answering. Never
                 # redirect its command to a newer turn in the same project.
-                row=owned_turn(project_id,turn_id,request)
+                row=owned_turn(project_id,run_id,request)
                 if row['status'] not in ('queued','running','waiting','paused'):
                     raise HTTPException(409,'本轮任务已结束或正在停止，未执行新的控制操作。')
                 if action=='replan':
                     message=body.message.strip()
                     if not message:raise HTTPException(422,'重新规划需要说明要修改的内容。')
-                    previous=agent_store.turn(store,turn_id)
-                    cancel(project_id,turn_id,request)
+                    previous=agent_store.turn(store,run_id)
+                    cancel(project_id,run_id,request)
                     # Cancellation and admission share this transaction. Rejection
                     # must roll back the old task as well as the new planning turn.
                     try:store.admit_tasks(project_id)
@@ -236,19 +236,19 @@ def register(app, store, own_project, lock):
                     from .plan_readiness import register as register_route,invalidate
                     invalidate(store,project_id,'用户已提出修改，需重新规划并确认')
                     new_id=agent_store.add_turn(store,project_id,'plan',message,
-                        previous.get('attachments',[]),context,parent_task_id=turn_id)
+                        previous.get('attachments',[]),context,parent_task_id=run_id)
                     register_route(store,new_id,'light')
-                    agent_store.event(store,turn_id,'replan_requested',{'child_task_id':new_id,'message':message[:2000]})
+                    agent_store.event(store,run_id,'replan_requested',{'child_task_id':new_id,'message':message[:2000]})
                     agent_store.event(store,new_id,'progress',{'text':'已停止上一版方案，正在根据修改要求重新规划。'})
-                    return {'old':agent_store.public(agent_store.turn(store,turn_id)),
+                    return {'old':agent_store.public(agent_store.turn(store,run_id)),
                             'new':agent_store.public(agent_store.turn(store,new_id)),
-                            'replanned_from':turn_id}
-                if action=='cancel':cancel(project_id,turn_id,request)
-                elif action=='resume':resume(project_id,turn_id,request)
+                            'replanned_from':run_id}
+                if action=='cancel':cancel(project_id,run_id,request)
+                elif action=='resume':resume(project_id,run_id,request)
                 elif action=='pause':
-                    try:workflows.pause(store,turn_id)
+                    try:workflows.pause(store,run_id)
                     except ValueError as exc:raise HTTPException(409,str(exc)) from exc
-            return owned_turn(project_id,turn_id,request)
+            return owned_turn(project_id,run_id,request)
         row=await api_execution.run('critical',apply_control)
         if action=='replan':
             return {'action':action,'summary':'已停止上一版方案，正在根据修改要求重新规划。','turn':row['new'],
@@ -256,22 +256,22 @@ def register(app, store, own_project, lock):
         receipt={'status':'','pause':'已请求暂停后续步骤。','resume':'已请求继续未完成步骤。','cancel':'已请求停止任务。'}[action]
         return {'action':action,'summary':receipt+summary(row),'turn':agent_store.public(row)}
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/quality')
-    def quality(project_id:str,turn_id:str,body:QualityAction,request:Request):
-        owned_turn(project_id,turn_id,request)
+    @app.post('/api/projects/{project_id}/agent/{run_id}/quality')
+    def quality(project_id:str,run_id:str,body:QualityAction,request:Request):
+        owned_turn(project_id,run_id,request)
         from .task_lifecycle import TaskLimitReached
-        try:workflows.quality_action(store,turn_id,body.step_id,body.revision,body.action,request.state.owner,
+        try:workflows.quality_action(store,run_id,body.step_id,body.revision,body.action,request.state.owner,
                                      body.feedback,body.replacement,body.confirm_external)
         except (ValueError,TaskLimitReached) as exc:raise HTTPException(409,str(exc)) from exc
-        return agent_store.public(agent_store.turn(store,turn_id))
+        return agent_store.public(agent_store.turn(store,run_id))
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/decisions/{request_id}')
-    def user_decision(project_id:str,turn_id:str,request_id:str,body:dict,request:Request):
-        owned_turn(project_id,turn_id,request)
+    @app.post('/api/projects/{project_id}/agent/{run_id}/decisions/{request_id}')
+    def user_decision(project_id:str,run_id:str,request_id:str,body:dict,request:Request):
+        owned_turn(project_id,run_id,request)
         from .user_decisions import answer
-        try:answer(store,turn_id,request_id,body,request.state.owner)
+        try:answer(store,run_id,request_id,body,request.state.owner)
         except ValueError as exc:raise HTTPException(409,str(exc)) from exc
-        return agent_store.public(agent_store.turn(store,turn_id))
+        return agent_store.public(agent_store.turn(store,run_id))
 
     @app.get('/api/projects/{project_id}/checkpoints')
     def project_versions(project_id:str,request:Request):
@@ -375,48 +375,48 @@ def register(app, store, own_project, lock):
                     attachments.append({'id':asset_id,'name':a['name'],'type':'video/mp4' if is_video else a['metadata'].get('mime','text/plain'),
                         'url':f'api/projects/{project_id}/assets/{asset_id}/file',
                         'poster_url':f'api/projects/{project_id}/assets/{asset_id}/thumbnail' if kind in ('video','image') else None})
-                turn_id = agent_store.add_turn(store, project_id, body.mode, body.message.strip(),attachments,context,body.plan_id if body.mode=='execute' else None,parent_task_id=body.parent_task_id)
+                run_id = agent_store.add_turn(store, project_id, body.mode, body.message.strip(),attachments,context,body.plan_id if body.mode=='execute' else None,parent_task_id=body.parent_task_id)
             except INTEGRITY_ERRORS as exc:
                 raise HTTPException(409, '当前项目已经有一轮对话正在处理。') from exc
             from .plan_readiness import register as register_route,consume
-            register_route(store,turn_id,'heavy' if body.mode=='execute' else 'light')
-            if body.mode=='execute':consume(store,project_id,body.plan_id,turn_id,body.plan_digest)
-            return agent_store.public(agent_store.turn(store, turn_id))
+            register_route(store,run_id,'heavy' if body.mode=='execute' else 'light')
+            if body.mode=='execute':consume(store,project_id,body.plan_id,run_id,body.plan_digest)
+            return agent_store.public(agent_store.turn(store, run_id))
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/cancel')
+    @app.post('/api/projects/{project_id}/agent/{run_id}/cancel')
     @lane('critical')
-    def cancel(project_id: str, turn_id: str, request: Request):
-        row = owned_turn(project_id, turn_id, request)
-        if workflows.get(store, turn_id):
-            return workflows.cancel(store, turn_id)
+    def cancel(project_id: str, run_id: str, request: Request):
+        row = owned_turn(project_id, run_id, request)
+        if workflows.get(store, run_id):
+            return workflows.cancel(store, run_id)
         from .task_lifecycle import cancel_task
-        return cancel_task(store,turn_id)
+        return cancel_task(store,run_id)
 
-    @app.post('/api/projects/{project_id}/agent/{turn_id}/resume')
+    @app.post('/api/projects/{project_id}/agent/{run_id}/resume')
     @lane('critical')
-    def resume(project_id: str, turn_id: str, request: Request):
+    def resume(project_id: str, run_id: str, request: Request):
         with lock:
-            owned_turn(project_id, turn_id, request)
+            owned_turn(project_id, run_id, request)
             from .task_lifecycle import TaskLimitReached
-            try:workflows.resume(store, turn_id)
+            try:workflows.resume(store, run_id)
             except (ValueError,TaskLimitReached) as exc:raise HTTPException(409, str(exc)) from exc
-            return agent_store.public(agent_store.turn(store, turn_id))
+            return agent_store.public(agent_store.turn(store, run_id))
 
-    @app.get('/api/projects/{project_id}/agent/{turn_id}/events')
-    def events(project_id: str, turn_id: str, request: Request, after: int = 0):
-        owned_turn(project_id, turn_id, request)
-        rows = store.query('SELECT seq,kind,payload,created FROM agent_events WHERE turn_id=? AND seq>? ORDER BY seq LIMIT 200',
-                           (turn_id, max(0, after)))
+    @app.get('/api/projects/{project_id}/agent/{run_id}/events')
+    def events(project_id: str, run_id: str, request: Request, after: int = 0):
+        owned_turn(project_id, run_id, request)
+        rows = store.query('SELECT seq,kind,payload,created FROM agent_events WHERE run_id=? AND seq>? ORDER BY seq LIMIT 200',
+                           (run_id, max(0, after)))
         return [{'seq':row['seq'], 'kind':row['kind'], 'payload':json.loads(row['payload']),'created':row['created']} for row in rows]
 
-    @app.get('/api/projects/{project_id}/agent/{turn_id}/stream',response_class=StreamingResponse)
-    async def stream(project_id: str, turn_id: str, request: Request, after: int = 0):
+    @app.get('/api/projects/{project_id}/agent/{run_id}/stream',response_class=StreamingResponse)
+    async def stream(project_id: str, run_id: str, request: Request, after: int = 0):
         from .agent_stream import AsyncStreamReader
         permit=await api_execution.streams.acquire()
         try:
             def authorize():
                 own_project(project_id,request)
-                if not store.query('SELECT id FROM agent_turns WHERE id=? AND project=?',(turn_id,project_id)):
+                if not store.query('SELECT id FROM agent_turns WHERE id=? AND project=?',(run_id,project_id)):
                     raise HTTPException(404,'对话不存在或不属于当前用户。')
             await api_execution.run('auth',authorize)
         except BaseException:
@@ -426,8 +426,8 @@ def register(app, store, own_project, lock):
         cursor=header_cursor or (str(max(0,after)) if after else '')
 
         def snapshot(position, with_events=True):
-            row=agent_store.turn(store,turn_id)
-            records=store.query('SELECT seq,kind,payload,created FROM agent_events WHERE turn_id=? AND seq>? ORDER BY seq LIMIT 200',(turn_id,position)) if with_events else []
+            row=agent_store.turn(store,run_id)
+            records=store.query('SELECT seq,kind,payload,created FROM agent_events WHERE run_id=? AND seq>? ORDER BY seq LIMIT 200',(run_id,position)) if with_events else []
             return row,records
 
         async def generate():
@@ -472,7 +472,7 @@ def register(app, store, own_project, lock):
                         snapshot_cursor=row.get('stream_cursor') or ''
                         redis_position='0-0'
                         initial=False
-                    live=await redis_bus.read(turn_id,redis_position,200,200)
+                    live=await redis_bus.read(run_id,redis_position,200,200)
                     if live is None:
                         redis_mode=False
                         db_position=0;signature=None;last_snapshot=0
@@ -522,24 +522,24 @@ def register(app, store, own_project, lock):
                     finally:permit.release()
         return ManagedStream(generate(),media_type='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
 
-    @app.get('/api/projects/{project_id}/agent/{turn_id}/files/{name}')
-    async def artifact(project_id: str, turn_id: str, name: str, request: Request, download: bool = False):
-        row=await api_execution.run('read',owned_turn,project_id,turn_id,request)
+    @app.get('/api/projects/{project_id}/agent/{run_id}/files/{name}')
+    async def artifact(project_id: str, run_id: str, name: str, request: Request, download: bool = False):
+        row=await api_execution.run('read',owned_turn,project_id,run_id,request)
         record = next((a for a in row['artifacts'] if a['file'] == name), None)
         if not record:
             raise HTTPException(404, '结果文件不存在。')
-        path=await api_execution.run('storage',store.file,project_id,f'edit/agent_exports/{turn_id}/{name}')
+        path=await api_execution.run('storage',store.file,project_id,f'edit/agent_exports/{run_id}/{name}')
         active=record['type'] in ('text/html','image/svg+xml','application/xhtml+xml','application/xml','text/xml')
         return FileResponse(path, filename=record['name'] if download or active else None,
                             media_type=record['type'],headers={'Content-Security-Policy':"sandbox; default-src 'none'"} if active else {})
 
-    @app.get('/api/projects/{project_id}/agent/{turn_id}/files/{name}/thumbnail')
-    async def artifact_thumbnail(project_id: str, turn_id: str, name: str, request: Request):
-        row=await api_execution.run('read',owned_turn,project_id,turn_id,request)
+    @app.get('/api/projects/{project_id}/agent/{run_id}/files/{name}/thumbnail')
+    async def artifact_thumbnail(project_id: str, run_id: str, name: str, request: Request):
+        row=await api_execution.run('read',owned_turn,project_id,run_id,request)
         record=next((a for a in row['artifacts'] if a['file']==name),None)
         if not record or not record['type'].startswith('video/'):
             raise HTTPException(404,'无视频封面。')
-        source=await api_execution.run('storage',store.file,project_id,f'edit/agent_exports/{turn_id}/{name}')
+        source=await api_execution.run('storage',store.file,project_id,f'edit/agent_exports/{run_id}/{name}')
         try:path=await api_execution.run('media',thumbnail,source,store.project_dir(project_id)/'edit/cache/posters')
         except (ValueError,subprocess.TimeoutExpired) as exc:raise HTTPException(422,'视频封面暂不可用。') from exc
         return FileResponse(path,media_type='image/jpeg')

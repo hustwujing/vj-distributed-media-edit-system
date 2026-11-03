@@ -42,9 +42,9 @@ def _initialize_project_memory(path, uid, gid):
                      '尚无 Session 章节时，表示暂无剪辑历史。\n')
 
 
-def prepare(store, project_id, model, mode=None, turn_id=None, preview_id=None, *, workspace_policy=None):
+def prepare(store, project_id, model, mode=None, run_id=None, preview_id=None, *, workspace_policy=None):
     from .agent_profiles import for_task
-    execution_profile=for_task(store,turn_id) if turn_id else None
+    execution_profile=for_task(store,run_id) if run_id else None
     effort=execution_profile.reasoning_effort if execution_profile else reasoning_effort()
     from .task_leases import CURRENT
     lease = CURRENT.get()
@@ -56,11 +56,11 @@ def prepare(store, project_id, model, mode=None, turn_id=None, preview_id=None, 
     project = store.project_dir(project_id)
     agent = runtime.agent if runtime else project / 'agent'
     workspace, state = (runtime.workspace, runtime.state) if runtime else (agent/'workspace', agent/'state')
-    turn_id=turn_id or uuid.uuid4().hex
-    if len(turn_id)!=32 or any(c not in '0123456789abcdef' for c in turn_id):
+    run_id=run_id or uuid.uuid4().hex
+    if len(run_id)!=32 or any(c not in '0123456789abcdef' for c in run_id):
         raise ValueError('Invalid preview turn identifier')
     review_scratch=preview_id is not None
-    preview_id=preview_id or turn_id
+    preview_id=preview_id or run_id
     if not re.fullmatch('[a-f0-9]{32}',preview_id):raise ValueError('Invalid preview identifier')
     preview_root=runtime.preview_root if runtime else agent/'previews';preview=preview_root/preview_id
     for path in (agent, workspace, workspace/'edit', workspace/'edit/previews',workspace/'edit/transcripts', workspace/'sources', workspace/'transcripts', state, state/'codex', state/'cache',preview_root,preview):
@@ -81,7 +81,7 @@ def prepare(store, project_id, model, mode=None, turn_id=None, preview_id=None, 
                                         if not p.is_symlink()]})
     from .conversation_history import write_snapshot
     history=agent/'conversation.jsonl'
-    write_snapshot(store,project_id,turn_id,history);history.chmod(0o644)
+    write_snapshot(store,project_id,run_id,history);history.chmod(0o644)
     descriptor=os.open(workspace/'conversation.jsonl',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(descriptor)
     # Write trusted manifest atomically, avoiding any agent-created symlink.
     inventory = agent/'assets.json'
@@ -94,13 +94,13 @@ def prepare(store, project_id, model, mode=None, turn_id=None, preview_id=None, 
     canvas.write_text(documents[0]['document'] if documents else '{}');canvas.chmod(0o644)
     fd=os.open(workspace/'image-document.json',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(fd)
     from . import workflows
-    task = workflows.get(store, turn_id)
+    task = workflows.get(store, run_id)
     workflow_state = agent/'workflow-state.json'
     workflow_state.write_text(json.dumps(workflows.public(task), ensure_ascii=False))
     workflow_state.chmod(0o644)
     from .continuation_context import snapshot as continuation_snapshot
     continuation=agent/'continuation.json'
-    continuation.write_text(json.dumps(continuation_snapshot(store,project_id,turn_id),ensure_ascii=False));continuation.chmod(0o644)
+    continuation.write_text(json.dumps(continuation_snapshot(store,project_id,run_id),ensure_ascii=False));continuation.chmod(0o644)
     fd=os.open(workspace/'continuation.json',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(fd)
     fd=os.open(workspace/'workflow-state.json',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(fd)
 
@@ -138,8 +138,8 @@ inherit = "all"
     harness_config.chmod(0o644)
     from .harness_context import write as write_handoff
     handoff=agent/'harness-context.json'
-    if store.query("SELECT name FROM sqlite_master WHERE name='agent_turns'") and store.query('SELECT id FROM agent_turns WHERE id=?',(turn_id,)):
-        write_handoff(store,project_id,turn_id,handoff)
+    if store.query("SELECT name FROM sqlite_master WHERE name='agent_turns'") and store.query('SELECT id FROM agent_turns WHERE id=?',(run_id,)):
+        write_handoff(store,project_id,run_id,handoff)
     else:handoff.write_text('{}');handoff.chmod(0o644)
     placeholder=workspace/'harness-context.json'
     if runtime and hasattr(runtime,'dynamic_context'):
@@ -381,7 +381,7 @@ def validate_generated(env,names):
         finally:socket_path.unlink(missing_ok=True)
 
 
-def export_results(env,turn_id,text=''):
+def export_results(env,run_id,text=''):
     """Publish changed outputs and explicit deliveries after the Agent exits."""
     import hashlib
     import mimetypes
@@ -407,7 +407,7 @@ def export_results(env,turn_id,text=''):
     # including reports, before incidental previews or other changed files.
     candidates.sort(key=lambda item:item['name'] not in selected)
     validate_generated(env,[item['name'] for item in candidates[:40]])
-    output=env['project']/'edit'/'agent_exports'/turn_id
+    output=env['project']/'edit'/'agent_exports'/run_id
     output.mkdir(parents=True,exist_ok=True);os.chown(output,env.get('service_uid',env['uid']),env.get('service_gid',env['gid']));output.chmod(0o750)
     artifacts=[];total=0
     for item in candidates:
@@ -428,7 +428,7 @@ def export_results(env,turn_id,text=''):
                 copy_public(stream,target,digest)
             destination.chmod(0o640);os.chown(destination,env.get('service_uid',env['uid']),env.get('service_gid',env['gid']));total+=info.st_size
             artifacts.append({**item,'file':filename,'size':info.st_size,'sha256':digest.hexdigest(),
-                              'url':f'api/projects/{env["project"].name}/agent/{turn_id}/files/{filename}'})
+                              'url':f'api/projects/{env["project"].name}/agent/{run_id}/files/{filename}'})
             if env.get('runtime') and runtime.store.shared_files:
                 artifacts[-1]['artifact_id']=runtime.store.artifacts.save_file(env['project'].name,str(destination.relative_to(env['project'])))['id']
     if selected-{item['name'] for item in artifacts}:
@@ -437,7 +437,7 @@ def export_results(env,turn_id,text=''):
     return artifacts
 
 
-def export_previews(env,turn_id,gateway_socket):
+def export_previews(env,run_id,gateway_socket):
     """Inspect after the Agent exits, then copy only this turn's regular images."""
     if not any(env['preview'].iterdir()):return []
     inspected=subprocess.run(command(env,gateway_socket,[
@@ -445,7 +445,7 @@ def export_previews(env,turn_id,gateway_socket):
         capture_output=True,text=True,timeout=45,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
     if inspected.returncode:raise RuntimeError('样式预览图片检查失败：'+inspected.stderr[-1000:])
     records=json.loads(inspected.stdout)
-    output=env['project']/'edit'/'agent_exports'/turn_id
+    output=env['project']/'edit'/'agent_exports'/run_id
     artifacts=[];total=0
     for record in records[:12]:
         relative=Path(record['name'])
@@ -475,5 +475,5 @@ def export_previews(env,turn_id,gateway_socket):
             artifacts.append({'name':relative.as_posix(),
                               'file':filename,'size':info.st_size,'width':record['width'],'height':record['height'],
                               'type':mime,'purpose':'style_preview',
-                              'url':f'api/projects/{env["project"].name}/agent/{turn_id}/files/{filename}'})
+                              'url':f'api/projects/{env["project"].name}/agent/{run_id}/files/{filename}'})
     return artifacts

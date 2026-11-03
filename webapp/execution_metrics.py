@@ -52,7 +52,7 @@ def phase(name,actor='host',label=None,operation=''):
                     db.execute('''INSERT INTO execution_phase_metrics VALUES (?,?,?,?,1,?,?)
                       ON CONFLICT(attempt,phase) DO UPDATE SET calls=execution_phase_metrics.calls+1,
                       seconds=execution_phase_metrics.seconds+excluded.seconds,failures=execution_phase_metrics.failures+excluded.failures''',
-                      (lease.attempt,lease.turn_id,lease.step_id or '',name,time.monotonic()-started,int(failed)))
+                      (lease.attempt,lease.run_id,lease.step_id or '',name,time.monotonic()-started,int(failed)))
             except Exception as exc:emit('telemetry.phase_accounting_failed','WARNING',exc=exc,phase=name,**span_fields)
 
 

@@ -55,13 +55,13 @@ class Activity:
             # This observation never changes business state and must not wait on
             # the scheduler's global control lock or an expired business fence.
             with administrative(),measurement_connection(observer) as db:
-                db.execute('INSERT INTO agent_events(turn_id,kind,payload,created) VALUES (?,?,?,?)',
-                           (self.lease.turn_id,'work',json.dumps(payload,ensure_ascii=False),time.time()))
-                record(db,self.lease.turn_id,payload)
+                db.execute('INSERT INTO agent_events(run_id,kind,payload,created) VALUES (?,?,?,?)',
+                           (self.lease.run_id,'work',json.dumps(payload,ensure_ascii=False),time.time()))
+                record(db,self.lease.run_id,payload)
             from .agent_stream import bus
-            bus().publish_async(self.lease.turn_id,'work',payload)
+            bus().publish_async(self.lease.run_id,'work',payload)
             from .telemetry import emit
-            emit('execution.activity',task_id=self.lease.turn_id,activity_id=self.id,actor=self.actor,phase=phase,operation=self.operation,outcome=status)
+            emit('execution.activity',task_id=self.lease.run_id,activity_id=self.id,actor=self.actor,phase=phase,operation=self.operation,outcome=status)
         except Exception as exc:
             from .telemetry import emit
             emit('activity.record_failed','WARNING',exc=exc)

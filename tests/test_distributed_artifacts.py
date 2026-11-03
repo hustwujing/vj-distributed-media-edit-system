@@ -46,7 +46,7 @@ class DistributedArtifactTests(unittest.TestCase):
         first=ca.claim(task,'agent')
         with first.bind():uploaded=self.files_a.upload(self.project,self.path)
         with self.assertRaises(FileNotFoundError):self.files_b.resolve(self.project,'edit/output.bin')
-        self.a.execute('UPDATE execution_leases SET expires=0 WHERE turn_id=?',(task,))
+        self.a.execute('UPDATE execution_leases SET expires=0 WHERE run_id=?',(task,))
         second=cb.claim(task,'agent')
         with first.bind(),self.assertRaises(LeaseLost):self.files_a.publish(self.project,'edit/output.bin',uploaded['id'])
         with second.bind():self.files_b.publish(self.project,'edit/output.bin',uploaded['id'],expected_revision=0)

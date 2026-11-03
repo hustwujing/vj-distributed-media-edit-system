@@ -148,7 +148,7 @@ def run(host,row):
     history=store.query("SELECT id,prompt,text,status,error FROM agent_turns WHERE project=? AND id<>? AND status IN ('succeeded','failed','cancelled') ORDER BY created DESC LIMIT 6",(row['project'],task))
     inputs=[{'role':'developer','content':'当前项目概况（任务数据）：'+json.dumps(summary,ensure_ascii=False)}]
     for old in reversed(history):
-        inputs.extend([{'role':'developer','content':json.dumps({'history_turn_id':old['id'],'status':old['status'],'excerpt':len(old['prompt'])>1200 or len(old['text'])>1800,'error':old['error'][:500]},ensure_ascii=False)},{'role':'user','content':old['prompt'][:1200]},{'role':'assistant','content':old['text'][:1800] or '（本轮未完成回复）'}])
+        inputs.extend([{'role':'developer','content':json.dumps({'history_run_id':old['id'],'status':old['status'],'excerpt':len(old['prompt'])>1200 or len(old['text'])>1800,'error':old['error'][:500]},ensure_ascii=False)},{'role':'user','content':old['prompt'][:1200]},{'role':'assistant','content':old['text'][:1800] or '（本轮未完成回复）'}])
     inputs.append({'role':'user','content':row['prompt']})
     from .egress_policy import secrets,assert_no_credentials
     protected=(*secrets(),host.key)

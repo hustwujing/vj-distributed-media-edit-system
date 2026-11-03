@@ -231,7 +231,7 @@ class AgentReviewTests(unittest.TestCase):
             self.assertFalse(view['resumable']);self.assertEqual(view['resume_block']['scope'],'task')
             with self.assertRaises(TaskQuotaReached):workflows.resume(self.store,self.turn)
             self.assertEqual(self.fixture.get()['steps'][0]['candidate'],before['steps'][0]['candidate'])
-            self.assertEqual(self.store.query('SELECT used FROM execution_budgets WHERE turn_id=?',(self.turn,))[0]['used'],3)
+            self.assertEqual(self.store.query('SELECT used FROM execution_budgets WHERE run_id=?',(self.turn,))[0]['used'],3)
 
     def test_diagnosis_repairs_preserving_contract_and_dependents(self):
         self.submit_review(failure=True);self.begin()

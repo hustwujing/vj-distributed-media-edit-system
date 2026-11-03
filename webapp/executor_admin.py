@@ -28,7 +28,7 @@ def main():
         print(json.dumps({'collected':store.artifacts.collect_garbage(args.limit)}))
     else:
         workers=store.query('SELECT *,heartbeat>'+CLOCK+'-20 AS healthy FROM execution_workers ORDER BY heartbeat DESC LIMIT 100')
-        active=store.query('SELECT turn_id,worker,attempt,generation,kind,expires,expires<='+CLOCK+' AS expired FROM execution_leases WHERE active=1')
+        active=store.query('SELECT run_id,worker,attempt,generation,kind,expires,expires<='+CLOCK+' AS expired FROM execution_leases WHERE active=1')
         cleanup=store.query("SELECT attempt,task_id,node,state,retries,error FROM execution_cleanup WHERE state<>'complete' ORDER BY updated LIMIT 100")
         limits=store.query("SELECT * FROM execution_limits WHERE termination_reason<>'' ORDER BY deadline_at DESC LIMIT 100")
         external=store.query("SELECT id,task_id,state,attempts,error FROM execution_external_cleanup WHERE state<>'complete' LIMIT 100")

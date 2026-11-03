@@ -50,6 +50,7 @@ class Contract(BaseModel):
 class Authorization(Contract):
     goal:str=Field(min_length=1,max_length=8000)
     allowed_assets:list[str]=Field(max_length=100)
+    allowed_asset_digests:dict[str,str]=Field(default_factory=dict,max_length=100)
     allowed_operations:list[str]=Field(max_length=100)
     allowed_agent_profiles:list[str]=Field(default_factory=list,max_length=20)
     operation_implementations:dict[str,str]=Field(default_factory=dict,max_length=100)
@@ -72,7 +73,9 @@ class Authorization(Contract):
         for op in self.allowed_operations:
             if op!='script':get(op)
         for name in self.allowed_agent_profiles:profile(name)
-        groups={get(op,self.operation_implementations.get(op)).budget_group for op in self.allowed_operations if op!='script' and get(op,self.operation_implementations.get(op)).external_side_effects}
+        from .operations import REGISTRY,_IMPLEMENTATION_BINDINGS
+        definitions=[*REGISTRY.values(),*[item for variants in _IMPLEMENTATION_BINDINGS.values() for item in variants.values()]]
+        groups={item.budget_group for item in definitions if item.external_side_effects}
         for name,limit in self.provider_call_budget.items():
             if name not in groups or type(limit)!=int or not 0<=limit<=100:
                 raise ValueError('Invalid authorized provider budget')
@@ -102,11 +105,13 @@ class SubjectSemantics(Contract):
     exclude_relations:list[Literal['held','carried']]=Field(default_factory=list,max_length=2)
     @model_validator(mode='after')
     def defaults(self):
-        if not self.include_relations:
-            self.include_relations=(['body','clothing','worn'] if self.mode=='subject_cutout'
-                                    else ['body','clothing','worn','held','carried'])
-        if not self.exclude_relations and self.mode=='subject_cutout':self.exclude_relations=['held','carried']
-        if set(self.include_relations)&set(self.exclude_relations):raise ValueError('Subject relations cannot be both included and excluded')
+        included=set(self.include_relations);excluded=set(self.exclude_relations)
+        if included & excluded:raise ValueError('Subject relations cannot be both included and excluded')
+        base={'body','clothing','worn'}|({'held','carried'} if self.mode=='foreground_cutout' else set())
+        include=(base|included)-excluded
+        exclude=(({'held','carried'} if self.mode=='subject_cutout' else set())|excluded)-included
+        self.include_relations=[name for name in ('body','clothing','worn','held','carried') if name in include]
+        self.exclude_relations=[name for name in ('held','carried') if name in exclude]
         return self
 
 
@@ -125,6 +130,8 @@ class MaskRepairSemantics(Contract):
     level:Literal['A','B','C','D']
     strategy:Literal['local_edge_repair','local_hole_repair','resegment','clarify_scope']
     max_changed_fraction:float|None=Field(default=None,ge=0,le=1)
+    reference_role:str=Field(default='mask',pattern=r'^[a-z][a-z0-9_-]{0,39}$')
+    output_role:str=Field(default='mask',pattern=r'^[a-z][a-z0-9_-]{0,39}$')
     @model_validator(mode='after')
     def strategy_matches_level(self):
         expected={'A':'local_edge_repair','B':'local_hole_repair','C':'resegment','D':'clarify_scope'}[self.level]
@@ -144,6 +151,7 @@ class TaskSemantics(Contract):
 class Task(Contract):
     id:str=Field(pattern=r'^[a-z][a-z0-9_-]{0,39}$')
     type:Literal['operation','script','agent']
+    purpose:Literal['business','repair','evidence']='business'
     name:str=Field(min_length=1,max_length=120)
     objective:str=Field(min_length=1,max_length=2000)
     profile:str|None=None
@@ -160,10 +168,10 @@ class Task(Contract):
     config_files:list[str]=Field(default_factory=list,max_length=20)
     timeout_seconds:int=Field(default=900,ge=10,le=3600)
     retry_policy:Literal['never','safe_once']='never'
-    on_failure:Literal['pause','diagnose']='pause'
+    on_failure:Literal['pause','diagnose']=Field(default='pause',description='Use diagnose for model-authored implementations when media_failure_diagnostician is authorized, so bounded repair can resume the original goal.')
     basic_reason:str=Field(default='',max_length=1000)
     semantics:TaskSemantics=Field(default_factory=TaskSemantics)
-    delivery_stage:bool=False
+    delivery_stage:bool=Field(default=False,description='True for Tasks whose accepted outputs are eligible for final delivery. A sealed graph requires at least one.')
 
     @model_validator(mode='after')
     def valid(self):
@@ -182,6 +190,7 @@ class Task(Contract):
             from .specialist_profiles import result_model
             schema=result_model(profile)
             if schema:
+                if len(self.output_roles)!=1:raise ValueError('Report profiles produce exactly one typed JSON report')
                 if any(not name.endswith('.json') for name in self.output_roles.values()):raise ValueError('This Agent profile produces JSON reports only')
                 fields=set(schema.model_fields)
                 if any(check.kind=='json' and not set(check.required_keys)<=fields for check in self.acceptance):
@@ -197,6 +206,19 @@ class Task(Contract):
             raise ValueError('Basic-only acceptance requires a reason')
         if any(c.stage=='final' for c in self.acceptance) and not self.delivery_stage:
             raise ValueError('Final-stage acceptance belongs only on an explicit delivery-stage task')
+        if any(ref.repair_candidate for ref in self.inputs.values()) and self.purpose not in ('repair','evidence'):
+            raise ValueError('Candidate inputs are read-only and limited to repair/evidence Tasks')
+        if self.purpose=='evidence':
+            from .operations import get as operation
+            if self.type!='operation' or not operation(self.operation,self.implementation).evidence_only or self.delivery_stage:
+                raise ValueError('Evidence-only Tasks require a registered collector and cannot be delivery stages')
+        mask=self.semantics.mask_repair
+        if mask and mask.level=='D':raise ValueError('Ambiguous mask scope requires REQUEST_USER_INPUT before execution')
+        if mask and mask.level in ('A','B'):
+            from .operations import get as operation
+            roles=operation(self.operation,self.implementation).outputs if self.type=='operation' else self.output_roles
+            if mask.reference_role not in self.inputs or mask.output_role not in roles:
+                raise ValueError('Local mask repair requires declared reference and output mask roles')
         return self
 
     def execution_spec(self,dependencies=()):
@@ -223,8 +245,19 @@ class Proposal(Contract):
     revise_tasks:list[Task]=Field(default_factory=list,max_length=16,
         description='New immutable revisions of existing failed logical tasks. IDs must already exist; unchanged fields remain frozen by the server.')
     add_dependencies:list[Dependency]=Field(default_factory=list,max_length=512)
+    remove_dependencies:list[Dependency]=Field(default_factory=list,max_length=512)
+    replacements:dict[str,str]=Field(default_factory=dict,max_length=16,
+        description='Explicit old logical Task ID to newly added Task ID. Preserves required goal coverage and rewires affected descendants with new revisions.')
+    review_again:dict[str,list[str]]=Field(default_factory=dict,max_length=16,
+        description='Review a program-verified candidate again using completed evidence-only Task IDs. Does not rerun media or change acceptance.')
     replan_after:list[str]=Field(default_factory=list,max_length=64)
     sealed:bool=False
+
+    @model_validator(mode='after')
+    def bounded_reviews(self):
+        if any(not 1<=len(items)<=16 or len(set(items))!=len(items) for items in self.review_again.values()):
+            raise ValueError('Each new review requires 1..16 distinct evidence Tasks')
+        return self
 
 
 class ManagerResult(Contract):
@@ -249,6 +282,8 @@ class ManagerResult(Contract):
         if self.kind=='REQUEST_AUTHORIZATION' and self.authorization is None:raise ValueError('Authorization request requires the complete proposed scope')
         if self.kind=='REQUEST_USER_INPUT' and not self.question.strip():raise ValueError('User input request requires an explicit question')
         if self.kind=='NEW_RUN_REQUIRED' and not self.new_goal.strip():raise ValueError('Successor request requires an explicit new goal')
+        if self.kind=='NEW_RUN_REQUIRED' and (self.authorization is None or self.authorization.goal!=self.new_goal):
+            raise ValueError('Successor request requires its complete proposed authorization')
         return self
 
 
@@ -259,7 +294,7 @@ def initialize(store):
         CREATE TABLE IF NOT EXISTS session_messages(id TEXT PRIMARY KEY,session_id TEXT NOT NULL,run_id TEXT,role TEXT NOT NULL,content TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS runs(
           id TEXT PRIMARY KEY,project_id TEXT NOT NULL,session_id TEXT NOT NULL,parent_run_id TEXT,
-          input_sequence INTEGER NOT NULL DEFAULT 0,input_barrier_sequence INTEGER,
+          scope_confirmed INTEGER NOT NULL DEFAULT 1,input_sequence INTEGER NOT NULL DEFAULT 0,input_barrier_sequence INTEGER,input_barrier_was_sealed INTEGER NOT NULL DEFAULT 0,
           goal TEXT NOT NULL,status TEXT NOT NULL,graph_version INTEGER NOT NULL DEFAULT 0,
           sealed INTEGER NOT NULL DEFAULT 0,authorization_json TEXT NOT NULL,
           authorization_version INTEGER NOT NULL DEFAULT 1,replan_after_json TEXT NOT NULL DEFAULT '[]',
@@ -268,17 +303,18 @@ def initialize(store):
           reconcile_until REAL NOT NULL DEFAULT 0,reconcile_generation INTEGER NOT NULL DEFAULT 0,
           created_at REAL NOT NULL,updated_at REAL NOT NULL,terminal_reason TEXT NOT NULL DEFAULT '',
           delivery_json TEXT NOT NULL DEFAULT '[]',delivered_at REAL);
+        CREATE TABLE IF NOT EXISTS run_authorizations(run_id TEXT NOT NULL,version INTEGER NOT NULL,authorization_json TEXT NOT NULL,created_at REAL NOT NULL,PRIMARY KEY(run_id,version));
         CREATE TABLE IF NOT EXISTS workflow_asset_reuse(
           id TEXT PRIMARY KEY,project_id TEXT NOT NULL,run_id TEXT NOT NULL,task_id TEXT NOT NULL,
           revision INTEGER NOT NULL,path TEXT NOT NULL,artifact_id TEXT NOT NULL,sha256 TEXT NOT NULL,
           asset_id TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE INDEX IF NOT EXISTS workflow_due ON runs(next_reconcile_at,status);
         CREATE TABLE IF NOT EXISTS run_tasks(
-          run_id TEXT NOT NULL,id TEXT NOT NULL,type TEXT NOT NULL,spec_json TEXT NOT NULL,
+          run_id TEXT NOT NULL,id TEXT NOT NULL,type TEXT NOT NULL,purpose TEXT NOT NULL DEFAULT 'business',authorization_version INTEGER NOT NULL DEFAULT 1,spec_json TEXT NOT NULL,
           profile_json TEXT NOT NULL DEFAULT '{}',
-          status TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'local',
+          status TEXT NOT NULL,selected INTEGER NOT NULL DEFAULT 1,phase TEXT NOT NULL DEFAULT 'local',
           created_graph_version INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
-          repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
+          recovery_count INTEGER NOT NULL DEFAULT 0,review_again_count INTEGER NOT NULL DEFAULT 0,repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
           repair_context_json TEXT NOT NULL DEFAULT '{}',
           attempts INTEGER NOT NULL DEFAULT 0,next_run_at REAL NOT NULL DEFAULT 0,
           wait_reason TEXT NOT NULL DEFAULT '',candidate_result_json TEXT NOT NULL DEFAULT '[]',
@@ -288,11 +324,11 @@ def initialize(store):
           lease_id TEXT NOT NULL DEFAULT '',lease_generation INTEGER NOT NULL DEFAULT 0,
           created_at REAL NOT NULL,updated_at REAL NOT NULL,PRIMARY KEY(run_id,id));
         CREATE TABLE IF NOT EXISTS control_jobs(
-          run_id TEXT NOT NULL,id TEXT NOT NULL,type TEXT NOT NULL DEFAULT 'agent',control_kind TEXT NOT NULL,snapshot_json TEXT NOT NULL,snapshot_digest TEXT NOT NULL,spec_json TEXT NOT NULL,
+          run_id TEXT NOT NULL,id TEXT NOT NULL,type TEXT NOT NULL DEFAULT 'agent',purpose TEXT NOT NULL DEFAULT 'business',authorization_version INTEGER NOT NULL DEFAULT 1,control_kind TEXT NOT NULL,snapshot_json TEXT NOT NULL,snapshot_digest TEXT NOT NULL,spec_json TEXT NOT NULL,
           profile_json TEXT NOT NULL DEFAULT '{}',
-          status TEXT NOT NULL,phase TEXT NOT NULL DEFAULT 'local',
+          status TEXT NOT NULL,selected INTEGER NOT NULL DEFAULT 1,phase TEXT NOT NULL DEFAULT 'local',
           created_graph_version INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
-          repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
+          recovery_count INTEGER NOT NULL DEFAULT 0,review_again_count INTEGER NOT NULL DEFAULT 0,repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
           repair_context_json TEXT NOT NULL DEFAULT '{}',
           attempts INTEGER NOT NULL DEFAULT 0,next_run_at REAL NOT NULL DEFAULT 0,
           wait_reason TEXT NOT NULL DEFAULT '',candidate_result_json TEXT NOT NULL DEFAULT '[]',
@@ -312,7 +348,8 @@ def initialize(store):
         CREATE INDEX IF NOT EXISTS workflow_ready ON run_tasks(status,next_run_at);
         CREATE TABLE IF NOT EXISTS workflow_dependencies(
           run_id TEXT NOT NULL,upstream_task_id TEXT NOT NULL,downstream_task_id TEXT NOT NULL,
-          created_graph_version INTEGER NOT NULL,PRIMARY KEY(run_id,upstream_task_id,downstream_task_id));
+          created_graph_version INTEGER NOT NULL,retired_graph_version INTEGER,PRIMARY KEY(run_id,upstream_task_id,downstream_task_id));
+        CREATE TABLE IF NOT EXISTS run_task_replacements(run_id TEXT NOT NULL,old_task_id TEXT NOT NULL,new_task_id TEXT NOT NULL,graph_version INTEGER NOT NULL,source TEXT NOT NULL,created_at REAL NOT NULL,PRIMARY KEY(run_id,old_task_id));
         CREATE TABLE IF NOT EXISTS planner_runs(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,base_graph_version INTEGER NOT NULL,
           authorization_version INTEGER NOT NULL,trigger_json TEXT NOT NULL,snapshot_json TEXT NOT NULL,
@@ -340,14 +377,16 @@ def initialize(store):
           answer_json TEXT NOT NULL DEFAULT '{}',status TEXT NOT NULL,created_at REAL NOT NULL,updated_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_reviews(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,purpose TEXT NOT NULL,
-          subject_task TEXT NOT NULL DEFAULT '',graph_version INTEGER NOT NULL,snapshot_json TEXT NOT NULL,
+          subject_task TEXT NOT NULL DEFAULT '',graph_version INTEGER NOT NULL,review_identity TEXT NOT NULL,snapshot_json TEXT NOT NULL,
           snapshot_digest TEXT NOT NULL,status TEXT NOT NULL,decision_json TEXT NOT NULL DEFAULT '{}',
           created_at REAL NOT NULL,updated_at REAL NOT NULL);
+        CREATE UNIQUE INDEX IF NOT EXISTS unique_review_content ON workflow_reviews(run_id,purpose,review_identity);
         CREATE UNIQUE INDEX IF NOT EXISTS one_active_graph_review ON workflow_reviews(run_id,purpose,subject_task)
           WHERE status IN ('pending','running','staged');
         CREATE TABLE IF NOT EXISTS workflow_graph_events(
           seq INTEGER PRIMARY KEY AUTOINCREMENT,run_id TEXT NOT NULL,kind TEXT NOT NULL,
           graph_version INTEGER NOT NULL,payload_json TEXT NOT NULL,created_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS specialist_attempt_profiles(attempt_id TEXT PRIMARY KEY,run_id TEXT NOT NULL,work_id TEXT NOT NULL,profile_id TEXT NOT NULL,harness_id TEXT NOT NULL,policy_digest TEXT NOT NULL,model TEXT NOT NULL,protocol TEXT NOT NULL,model_config_digest TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_model_reservations(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
           reserved_tokens INTEGER NOT NULL,used_tokens INTEGER,state TEXT NOT NULL,created_at REAL NOT NULL);
@@ -393,7 +432,7 @@ def get(store,identifier):
     for task in work_items(run):
         for field in ('spec','profile','candidate_result','accepted_result','quality','bindings','repair_context'):
             task[field]=json.loads(task.pop(field+'_json'))
-    run['dependencies']=store.query('SELECT upstream_task_id,downstream_task_id FROM workflow_dependencies WHERE run_id=?',(run['id'],))
+    run['dependencies']=store.query('SELECT upstream_task_id,downstream_task_id FROM workflow_dependencies WHERE run_id=? AND retired_graph_version IS NULL',(run['id'],))
     run['drain_set']=store.query('SELECT task_id,revision,barrier_sequence FROM run_input_drain WHERE run_id=?',(run['id'],))
     run['activity']=activity(run)
     return run
@@ -407,7 +446,7 @@ def event(store,run,kind,payload=None):
     agent_event(store,run['id'],'workflow_graph',{'run_id':run['id'],'graph_version':run['graph_version'],'kind':kind,**(payload or {})})
     fields={'task_id':run['id'],'run_id':run['id'],'graph_version':run['graph_version'],
             'sealed':run['sealed'],'project_id':run['project_id']}
-    for key in ('proposal_id','error_code','revision','outcome'):
+    for key in ('proposal_id','error_code','revision','outcome','input_id','input_sequence','through_sequence','next_barrier_sequence','result_kind','source','review_identity','previous_review_id','successor_run_id'):
         if key in (payload or {}) and payload[key]!='':fields[key]=payload[key]
     if payload and payload.get('status'):fields['new_state']=payload['status']
     if payload and payload.get('reason') and re.fullmatch(r'[a-z_]{1,80}',str(payload['reason'])):fields['reason']=payload['reason']
@@ -420,9 +459,13 @@ def content_fingerprint(store,project):
     return fingerprint(store,project)
 
 
-def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None):
+def asset_digest(asset):
+    return digest({key:asset[key] for key in ('id','name','filename','metadata')})
+
+
+def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,scope_confirmed=True,record_message=True):
     from .workflow_planning import bind_scope
-    authorization=bind_scope(store,raw)
+    authorization=bind_scope(store,raw) if scope_confirmed else Authorization.model_validate(raw)
     identifier=identifier or uuid.uuid4().hex
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -431,6 +474,7 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None):
         if existing:
             if existing['authorization_json']!=encode(authorization.model_dump()):raise ValueError('Run authorization is immutable')
             return get(store,existing['id'])
+        store.admit_tasks(project,1)
         parent=get(store,parent_run_id) if parent_run_id else None
         if parent_run_id and (not parent or parent['project_id']!=project):raise ValueError('Foreign parent Run')
         session_id=session_id or (parent['session_id'] if parent else uuid.uuid4().hex)
@@ -444,8 +488,9 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None):
         if authorization.content_fingerprint!=content_fingerprint(store,project):raise ValueError('Approved content has changed')
         now=store.now()
         db.execute('INSERT OR IGNORE INTO sessions(id,project_id,created_at) VALUES (?,?,?)',(session_id,project,now))
-        db.execute("INSERT INTO runs(id,project_id,session_id,parent_run_id,goal,status,authorization_json,next_reconcile_at,created_at,updated_at) VALUES (?,?,?,?,?,'ACTIVE',?,?,?,?)",
-            (identifier,project,session_id,parent_run_id,authorization.goal,encode(authorization.model_dump()),now,now,now))
+        db.execute("INSERT INTO runs(id,project_id,session_id,parent_run_id,scope_confirmed,goal,status,authorization_json,next_reconcile_at,created_at,updated_at) VALUES (?,?,?,?,?,?,'ACTIVE',?,?,?,?)",
+            (identifier,project,session_id,parent_run_id,int(scope_confirmed),authorization.goal,encode(authorization.model_dump()),now,now,now))
+        db.execute('INSERT INTO run_authorizations VALUES (?,?,?,?)',(identifier,1,encode(authorization.model_dump()),now))
         from .task_lifecycle import ensure
         ensure(db,identifier,now)
         db.execute('UPDATE execution_limits SET deadline_at=?,budget_seconds=? WHERE task_id=?',
@@ -456,8 +501,9 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None):
         attach(db,identifier,project,now)
         from .observation_schema import register
         register(db,identifier,project,now)
-        db.execute('INSERT INTO session_messages(id,session_id,run_id,role,content,created_at) VALUES (?,?,?,?,?,?)',
-            (uuid.uuid4().hex,session_id,identifier,'user',authorization.goal,now))
+        if record_message:
+            db.execute('INSERT INTO session_messages(id,session_id,run_id,role,content,created_at) VALUES (?,?,?,?,?,?)',
+                (uuid.uuid4().hex,session_id,identifier,'user',authorization.goal,now))
         run=get(store,identifier);event(store,run,'created');return run
 
 
@@ -510,21 +556,72 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     if run['sealed'] or run['status'] not in ('ACTIVE',):raise ValueError('Workflow cannot accept proposals')
     if proposal.base_graph_version!=run['graph_version']:raise ValueError('Stale graph version')
     authorization=Authorization.model_validate(run['authorization'])
-    known_assets={asset['id'] for asset in store.assets(run['project_id'])}
-    existing={t['id']:t for t in run['tasks'] if not t.get('control_kind')}
+    owned_assets={asset['id']:asset for asset in store.assets(run['project_id'])}
+    known_assets=set(owned_assets)
+    existing={t['id']:t for t in active_tasks(run)}
     added={task.id:task for task in proposal.add_tasks}
     revised={task.id:task for task in proposal.revise_tasks}
-    if len(added)!=len(proposal.add_tasks) or set(added)&set(existing):raise ValueError('Task IDs must be unique for the whole workflow')
+    for subject,evidence_ids in proposal.review_again.items():
+        if subject not in existing or subject in revised or subject in proposal.replacements:raise ValueError('Review subject must retain its current candidate revision')
+        row=existing[subject]
+        if row['review_again_count']>=2:raise ValueError('Candidate evidence review budget exhausted')
+        if not row['quality'].get('technical_valid') or not row['quality'].get('passed') or not row['candidate_result']:
+            raise ValueError('New evidence cannot waive a program acceptance failure')
+        if user_revision_scope is not None:
+            if subject not in user_revision_scope:raise ValueError('Review subject outside user feedback scope')
+        elif repair_scope not in ('',subject):raise ValueError('Review requires a frozen repair trigger')
+        if store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND subject_task=? AND status IN ('pending','running','staged')",(run['id'],subject)):
+            raise ValueError('A review for this candidate is still active')
+        for identifier in evidence_ids:
+            evidence=existing.get(identifier)
+            if not evidence or evidence['status']!='succeeded' or evidence['spec']['purpose']!='evidence' or not evidence['quality'].get('verified_evidence'):
+                raise ValueError('Only accepted registered evidence can support a new review')
+            ref=evidence['spec']['inputs']['source'].get('repair_candidate')
+            if not ref or ref['logical_task_id']!=subject or ref['revision']!=row['revision']:
+                raise ValueError('Evidence belongs to another candidate revision')
+    if len(added)!=len(proposal.add_tasks) or set(added)&{t['id'] for t in run['tasks']} or set(added)&{t['id'] for t in run['control_jobs']}:raise ValueError('Task IDs must be unique for the whole workflow')
     if len(revised)!=len(proposal.revise_tasks) or not set(revised)<=set(existing) or set(revised)&set(added):
         raise ValueError('Task revisions must name unique existing logical tasks')
     if len(existing)+len(added)>authorization.max_tasks:raise AuthorizationRequired('Task budget exhausted')
     edges={(r['upstream_task_id'],r['downstream_task_id']) for r in run['dependencies']}
+    replacements=proposal.replacements
+    if not set(replacements)<=set(existing) or not set(replacements.values())<=set(added) or len(set(replacements.values()))!=len(replacements):
+        raise ValueError('Replacement must map current logical Tasks to distinct new Tasks')
+    if set(replacements)&set(revised):raise ValueError('Task cannot be revised and replaced together')
+    if replacements and repair_scope is None and user_revision_scope is None:raise ValueError('Replacement requires a frozen repair trigger')
+    for old,new in replacements.items():
+        current=Task.model_validate(existing[old]['spec']);replacement=added[new]
+        row=existing[old]
+        if user_revision_scope is not None and old not in user_revision_scope:raise ValueError('Replacement outside user revision scope')
+        if user_revision_scope is None:
+            if repair_scope not in ('',old):raise ValueError('Automatic replacement outside failed Task')
+            if any(getattr(current,key)!=getattr(replacement,key) for key in ('objective','acceptance','semantics','delivery_stage')):
+                raise ValueError('Replacement cannot remove or weaken the original requirement')
+            from .repair_inputs import source_assets
+            original_specs={identifier:Task.model_validate(row['spec']) for identifier,row in existing.items()}
+            proposed_specs={**original_specs,**added,**revised}
+            if not source_assets(store,run,replacement.inputs,proposed_specs)<=source_assets(store,run,current.inputs,original_specs):
+                raise ValueError('Automatic replacement cannot introduce unrelated source inputs')
+            from .operations import get as operation
+            roles=lambda item:set(operation(item.operation,item.implementation).outputs) if item.type=='operation' else set(item.output_roles)
+            if not roles(current)<=roles(replacement):raise ValueError('Replacement lost a required output role')
+        counter='user_revision_count' if user_revision_scope is not None else 'repair_count'
+        if row[counter]>=(5 if user_revision_scope is not None else 2):raise ValueError('Replacement cannot reset the repair budget')
+        if user_revision_scope is None and all(getattr(current,key)==getattr(replacement,key) for key in
+                ('type','profile','operation','implementation','inputs','parameters','argv','outputs','output_roles')):
+            raise ValueError('Automatic replacement must change the failed implementation or use new evidence')
+        if row['status'] not in ('paused','failed','succeeded','ready','blocked'):raise ValueError('Replacement must wait for the Task to drain')
+    for edge in proposal.remove_dependencies:
+        if user_revision_scope is None or edge.downstream not in revised or (edge.upstream,edge.downstream) not in edges:
+            raise ValueError('Dependency removal requires an explicit user revision')
+        edges.remove((edge.upstream,edge.downstream))
+    edges={(replacements.get(parent,parent),replacements.get(child,child)) for parent,child in edges}
     for edge in proposal.add_dependencies:
-        if edge.downstream not in added:raise ValueError('Dependencies of existing tasks are immutable')
+        if edge.downstream not in added and not (user_revision_scope is not None and edge.downstream in revised):raise ValueError('Dependencies of existing tasks are immutable')
         if edge.upstream not in existing and edge.upstream not in added:raise ValueError('Unknown dependency')
         if (edge.upstream,edge.downstream) in edges:raise ValueError('Duplicate dependency')
         edges.add((edge.upstream,edge.downstream))
-    remaining=set(existing)|set(added);order=[]
+    remaining=(set(existing)-set(replacements))|set(added);order=[]
     while remaining:
         ready=sorted(n for n in remaining if not any(child==n and parent in remaining for parent,child in edges))
         if not ready:raise ValueError('Dependency cycle')
@@ -540,7 +637,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             allowed.add(current_id);pending.extend(upstream for upstream,downstream in edges if downstream==current_id)
         if user_revision_scope is not None:allowed=set(user_revision_scope)
         if not set(revised)<=allowed:raise ValueError('Repair revisions are outside the frozen affected scope')
-    specs={key:Task.model_validate(t['spec']) for key,t in existing.items()}
+    specs={key:Task.model_validate(t['spec']) for key,t in existing.items() if key not in replacements}
     for identifier,replacement in revised.items():
         current=specs[identifier];row=existing[identifier]
         if row['status'] not in (('paused','succeeded','ready','blocked','failed') if user_revision_scope is not None else ('paused','succeeded')):
@@ -554,8 +651,12 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         frozen=('id','type','name','objective','profile','operation','implementation','inputs','output_roles','acceptance','semantics','delivery_stage',
                 'outputs','preflight','config_files','timeout_seconds','retry_policy','on_failure','basic_reason')
         if user_revision_scope is not None:frozen=tuple(name for name in frozen if name not in ('objective','inputs','acceptance','semantics'))
+        ordinary_inputs={name:ref for name,ref in replacement.inputs.items() if not ref.repair_candidate}
+        if user_revision_scope is None and ordinary_inputs!=current.inputs:raise ValueError('Automatic revision cannot change original source inputs')
+        frozen=tuple(name for name in frozen if name!='inputs')
         if any(getattr(current,name)!=getattr(replacement,name) for name in frozen):
             raise ValueError('A repair revision cannot change objective, authorization, inputs, outputs, acceptance or execution policy')
+        if user_revision_scope is None and current.type!='agent' and current.model_dump()==replacement.model_dump():raise ValueError('Automatic repair must change the failed implementation')
         if current.type=='script':
             if replacement.parameters!=current.parameters:raise ValueError('Script repair changes argv only')
         elif current.type=='operation':
@@ -565,31 +666,51 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         else:
             if replacement.argv!=current.argv or replacement.parameters!=current.parameters:raise ValueError('Agent revision cannot change action permissions')
         specs[identifier]=replacement
+    # Redirecting a required dependency is itself an immutable downstream revision.
+    for identifier,current in list(specs.items()):
+        raw=current.model_dump();changed=False
+        for ref in raw['inputs'].values():
+            if ref.get('step') in replacements:ref['step']=replacements[ref['step']];changed=True
+        if changed:
+            updated=Task.model_validate(raw);specs[identifier]=updated;revised[identifier]=updated
     specs.update(added)
+    affected=set(revised)|set(replacements)
+    while True:
+        expanded=affected|{edge['downstream_task_id'] for edge in run['dependencies'] if edge['upstream_task_id'] in affected}
+        if expanded==affected:break
+        affected=expanded
+    for identifier in affected:
+        row=existing[identifier]
+        if row['lease_id'] and (store.query('SELECT attempt FROM execution_leases WHERE attempt=? AND active=1 AND expires>?',(row['lease_id'],store.now())) or
+                              store.query("SELECT attempt FROM execution_cleanup WHERE attempt=? AND state<>'complete'",(row['lease_id'],))):
+            raise ValueError('Affected Task still has an active lease or cleanup')
+        if store.query("SELECT request_key FROM workflow_provider_calls WHERE workflow=? AND step=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(run['id'],identifier)):
+            raise ValueError('Affected Task has an unresolved external call')
     calls={}
     submitted=set()
     for call in store.query('SELECT step,revision,implementation FROM workflow_provider_calls WHERE workflow=?',(run['id'],)):
         group=json.loads(call['implementation'])['budget_group'];calls[group]=calls.get(group,0)+1
         submitted.add((call['step'],call['revision']))
     for task in specs.values():
-        if task.on_failure=='diagnose' and 'media_failure_diagnostician' not in authorization.allowed_agent_profiles:
+        task_scope=authorization if task.id in added or task.id in revised else Authorization.model_validate(authority_for(store,run,existing[task.id]))
+        if task.on_failure=='diagnose' and 'media_failure_diagnostician' not in task_scope.allowed_agent_profiles:
             raise AuthorizationRequired('Failure diagnosis requires an authorized diagnostic Agent')
         if task.type!='agent':
             from .workflows import Step
             Step.model_validate(task.execution_spec([parent for parent,child in edges if child==task.id]))
         if task.type=='agent':
-            if task.profile not in authorization.allowed_agent_profiles:raise AuthorizationRequired('Agent profile requires additional authorization')
+            if task.profile not in task_scope.allowed_agent_profiles:raise AuthorizationRequired('Agent profile requires additional authorization')
             from .specialist_profiles import get as profile
-            if authorization.agent_profile_digests.get(task.profile)!=digest(profile(task.profile).snapshot()):
+            if task_scope.agent_profile_digests.get(task.profile)!=digest(profile(task.profile).snapshot()):
                 raise AuthorizationRequired('Agent policy changed and requires renewed authorization')
         else:
             name=task.operation if task.type=='operation' else 'script'
-            if name not in authorization.allowed_operations:raise AuthorizationRequired('Operation requires additional authorization')
-            if task.type=='operation' and authorization.operation_implementations.get(name)!=task.implementation:
+            if name not in task_scope.allowed_operations:raise AuthorizationRequired('Operation requires additional authorization')
+            if task.type=='operation' and task_scope.operation_implementations.get(name)!=task.implementation:
                 raise AuthorizationRequired('Operation implementation requires renewed authorization')
             if task.type=='operation':
                 from .provider_metadata import metadata
-                if name not in authorization.operation_policy_digests:
+                if name not in task_scope.operation_policy_digests:
                     raise AuthorizationRequired('Operation side-effect policy was not frozen')
             if task.type=='operation' and operation(task.operation,task.implementation).external_side_effects:
                 group=operation(task.operation,task.implementation).budget_group
@@ -599,10 +720,20 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                 if authorization.cost_budget is not None:
                     raise AuthorizationRequired('A finite cost budget requires a verified provider price bound; unavailable')
         for ref in task.inputs.values():
-            if ref.asset:
+            if ref.repair_candidate:
+                from .repair_inputs import lookup
+                if task.id in existing and task.id not in revised:
+                    lookup(store,run,ref.repair_candidate.model_dump());continue
+                allowed_sources=set(user_revision_scope) if user_revision_scope is not None else set(existing) if repair_scope=='' else {repair_scope} if repair_scope else set()
+                if ref.repair_candidate.logical_task_id not in allowed_sources:raise ValueError('Candidate is outside the frozen repair scope')
+                lookup(store,run,ref.repair_candidate.model_dump())
+            elif ref.asset:
                 if ref.asset not in known_assets:
                     raise ValueError('Input asset does not exist in this project')
-                if ref.asset not in authorization.allowed_assets:raise AuthorizationRequired('Input asset is not authorized')
+                if ref.asset not in task_scope.allowed_assets:raise AuthorizationRequired('Input asset is not authorized')
+                current_asset=owned_assets[ref.asset]
+                if (task.id in added or task.id in revised or existing[task.id]['status']!='succeeded') and task_scope.allowed_asset_digests.get(ref.asset)!=asset_digest(current_asset):
+                    raise AuthorizationRequired('Approved input content changed; renew its authorization')
             else:
                 if (ref.step,task.id) not in edges:raise ValueError('Input must declare its upstream dependency')
                 parent=specs[ref.step]
@@ -612,21 +743,22 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         raise AuthorizationRequired('Cumulative provider call budget exceeded')
     if not set(proposal.replan_after)<=set(specs):raise ValueError('Unknown replan trigger')
     if proposal.sealed and proposal.replan_after:raise ValueError('Sealed graph cannot request another planning round')
-    unresolved={identifier for identifier,task in existing.items() if task['status']=='paused'}-set(revised)
+    unresolved={identifier for identifier,task in existing.items() if task['status'] in ('paused','failed')}-set(revised)-set(replacements)-set(proposal.review_again)
     if proposal.sealed and unresolved:
-        raise ValueError('Sealed repair plan must revise every paused required task: '+','.join(sorted(unresolved)))
+        raise ValueError('Sealed repair plan must resolve paused tasks through revisions, replacements or review_again: '+','.join(sorted(unresolved)))
     if not proposal.sealed and not proposal.replan_after:raise ValueError('Open graph needs an explicit replan trigger')
     if not proposal.sealed and not any(t in added or existing[t]['status'] not in TERMINAL for t in proposal.replan_after):
         raise ValueError('Replan trigger is already exhausted')
     if not specs:raise ValueError('A workflow must contain at least one business task')
+    if proposal.sealed and not any(task.delivery_stage for task in specs.values()):
+        raise ValueError('A sealed graph requires an explicit delivery_stage Task')
     return proposal,[added[name] for name in order if name in added],revised,edges
 
 
 def execution_view(run):
     """Stable execution adapter shape; it confers no mutation authority."""
     steps=[]
-    for task in run['tasks']:
-        if task.get('control_kind'):continue
+    for task in active_tasks(run):
         dependencies=[d['upstream_task_id'] for d in run['dependencies'] if d['downstream_task_id']==task['id']]
         spec=Task.model_validate(task['spec']).execution_spec(dependencies)
         phase_status={'local':'pending','sync':'pending','submit':'pending','poll':'waiting','collect':'collecting','validate':'verifying'}.get(task['phase'],'pending')
@@ -637,8 +769,8 @@ def execution_view(run):
             'result':task['accepted_result'],'quality':task['quality'],'next_poll':task['next_run_at'],
             'started':task['created_at'],'updated':task['updated_at'],'error':task['error_detail'],
             'error_code':task['error_code'],'wait_reason':task['wait_reason'],'repair_count':task.get('repair_count',0),
-            'diagnostics':[],'task_status':task['status']})
-    return {'id':run['id'],'project':run['project_id'],'turn_id':run['id'],'name':run['goal'],
+            'diagnostics':[],'task_status':task['status'],'semantics':task['spec']['semantics'],'purpose':task['spec']['purpose']})
+    return {'id':run['id'],'project':run['project_id'],'run_id':run['id'],'name':run['goal'],
             'status':run['status'].lower(),'steps':steps,'dynamic':True,'graph_version':run['graph_version'],'sealed':run['sealed'],
             'agent_review':None,'user_requests':[],'error':run['terminal_reason'],'plan_id':'',
             'created':run['created_at'],'updated':run['updated_at'],
@@ -653,7 +785,11 @@ def initial_phase(task):
 
 
 def work_items(run):
-    return run['tasks']+run['control_jobs']
+    return active_tasks(run)+run['control_jobs']
+
+
+def active_tasks(run):
+    return [task for task in run['tasks'] if task['selected']]
 
 
 def work_item(run,identifier):
@@ -674,5 +810,16 @@ def activity(run):
     active=[job for job in run['control_jobs'] if job['status'] in ('ready','running','retry_wait')]
     if any(job['control_kind']=='PLAN' for job in active):return 'PLANNING'
     if any(job['control_kind'] in ('REVIEW','DIAGNOSE') for job in active):return 'REVIEWING'
-    if any(task['lease_id'] or task['status'] in ('ready','waiting','retry_wait') for task in run['tasks']):return 'EXECUTING'
+    if any(task['status'] in ('ready','running','waiting','retry_wait') for task in active_tasks(run)):return 'EXECUTING'
     return 'IDLE'
+
+
+def authority_for(store,run,item):
+    version=item['authorization_version']
+    if version==run['authorization_version']:return run['authorization']
+    cache=run.setdefault('_authorizations',{})
+    if version not in cache:
+        rows=store.query('SELECT authorization_json FROM run_authorizations WHERE run_id=? AND version=?',(run['id'],version))
+        if not rows:raise ValueError('Frozen task authorization is missing')
+        cache[version]=json.loads(rows[0]['authorization_json'])
+    return cache[version]

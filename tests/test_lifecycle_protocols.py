@@ -31,8 +31,9 @@ class LifecycleProtocolTests(unittest.TestCase):
             execute_method='local',records_calls=records_calls)
         register(implementation)
         self.addCleanup(IMPLEMENTATIONS.pop,identifier,None)
+        metadata={} if lifecycle==Lifecycle.LOCAL else {'external_side_effects':True,'budget_group':operation,'concurrency_group':'protocol-test','provider_identity':'protocol-test','route_adapter':'openai_images' if lifecycle==Lifecycle.SYNC else 'generation','cleanup_category':'unqueryable_sync' if lifecycle==Lifecycle.SYNC else 'generation_protocol'}
         operations.register(operations.Operation(operation,'test','protocol_test',input_kinds=(),
-            implementation_id=identifier,retry_safe=True),operations.OperationContract(Parameters))
+            implementation_id=identifier,retry_safe=True,**metadata),operations.OperationContract(Parameters))
         self.addCleanup(operations.REGISTRY.pop,operation,None)
         self.addCleanup(operations._CONTRACTS.pop,operation,None)
         self.fixture.submit([{'id':'test','name':'test','kind':'operation','operation':operation,

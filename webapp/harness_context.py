@@ -18,10 +18,10 @@ def build(store, project, task):
     for entry in reversed(history[:20]):
         messages.append({**entry, 'text': entry['text'][:4000], 'error': entry['error'][:1000],
                          'reply_truncated': len(entry['text']) > 4000})
-    tools = store.query('''SELECT e.seq,e.turn_id,e.payload FROM agent_events e
-      JOIN agent_turns t ON t.id=e.turn_id WHERE t.project=? AND e.kind='tool'
+    tools = store.query('''SELECT e.seq,e.run_id,e.payload FROM agent_events e
+      JOIN agent_turns t ON t.id=e.run_id WHERE t.project=? AND e.kind='tool'
       ORDER BY e.seq DESC LIMIT 101''', (project,))
-    evidence = [{'cursor': entry['seq'], 'task_id': entry['turn_id'], 'tool': json.loads(entry['payload'])} for entry in reversed(tools[:100])]
+    evidence = [{'cursor': entry['seq'], 'task_id': entry['run_id'], 'tool': json.loads(entry['payload'])} for entry in reversed(tools[:100])]
     artifacts = store.query('SELECT id,artifacts FROM agent_turns WHERE project=? ORDER BY created DESC LIMIT 20', (project,))
     files = []
     for entry in artifacts:
@@ -30,7 +30,7 @@ def build(store, project, task):
                 break
             files.append({'task_id': entry['id'], **{key: artifact.get(key) for key in
                          ('name', 'artifact_id', 'sha256', 'quality_state', 'source_step', 'source_revision', 'role')}})
-    budget = store.query('SELECT category,used FROM execution_budgets WHERE turn_id=?', (task,))
+    budget = store.query('SELECT category,used FROM execution_budgets WHERE run_id=?', (task,))
     native = store.query('SELECT COUNT(*) n FROM agent_context_events WHERE task_id=?', (task,))[0]['n']
     return {
         'schema': 'agent-handoff-v1', 'project_id': project, 'task': row,
@@ -112,7 +112,7 @@ def lookup(store, project, body):
     after = body.get('after', 0)
     if type(after) is not int or not 0 <= after <= 2**63-1:
         raise ValueError('Invalid tool event cursor')
-    rows = store.query("SELECT seq,payload FROM agent_events WHERE turn_id=? AND kind='tool' AND seq>? ORDER BY seq LIMIT 21", (task, after))
+    rows = store.query("SELECT seq,payload FROM agent_events WHERE run_id=? AND kind='tool' AND seq>? ORDER BY seq LIMIT 21", (task, after))
     more = len(rows) > 20
     rows = rows[:20]
     return {'schema': 'public-context-v1', 'task': task,

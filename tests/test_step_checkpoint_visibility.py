@@ -48,7 +48,7 @@ class RetainedStepVisibilityTests(unittest.TestCase):
     def test_replanning_checkpoint_does_not_invalidate_restored_step_content(self):
         # Only one project and one thread: no concurrent browser or writer.
         wid,relative,_,record=self.snapshot(self.project)
-        workflows.cancel(self.store,self.store.query('SELECT turn_id FROM agent_workflows WHERE id=?',(wid,))[0]['turn_id'])
+        workflows.cancel(self.store,self.store.query('SELECT run_id FROM agent_workflows WHERE id=?',(wid,))[0]['run_id'])
         task=agent_store.add_turn(self.store,self.project,'plan','resize retained output')
         from tests.readiness_support import ready_plan
         ready_plan(self.store,task)

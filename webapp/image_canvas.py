@@ -84,7 +84,7 @@ def patch_layer(doc,layer_id,patch,assets):
     return after
 
 
-def agent_patch(store,project,turn_id,body,new_asset=None):
+def agent_patch(store,project,run_id,body,new_asset=None):
     """One atomic application per confirmed turn. No arbitrary project/layer selectors."""
     if not isinstance(body,dict) or set(body)-{'patch','apply','image'}:
         raise HTTPException(422,'画布操作参数无效')
@@ -95,7 +95,7 @@ def agent_patch(store,project,turn_id,body,new_asset=None):
         uploaded=store.artifacts.upload(project,store.project_dir(project)/'sources'/new_asset['filename'])
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        row=db.execute('SELECT * FROM agent_turns WHERE id=? AND project=?',(turn_id,project)).fetchone()
+        row=db.execute('SELECT * FROM agent_turns WHERE id=? AND project=?',(run_id,project)).fetchone()
         if not row or row['status']!='running':raise HTTPException(409,'本轮已经停止，不能继续修改画布')
         context=json.loads(row['canvas_context'])
         if not context:raise HTTPException(403,'请先从图片工作台选中图层，再进入对话编辑')
@@ -111,13 +111,13 @@ def agent_patch(store,project,turn_id,body,new_asset=None):
         after=patch_layer(before,context['layer_id'],patch,assets)
         fields=[k for k in patch if getattr(selected(before,context['layer_id']),k)!=getattr(selected(after,context['layer_id']),k)]
         if not fields:raise HTTPException(422,'这次修改没有改变图层')
-        change={'kind':'agent','turn':turn_id,'layer_id':context['layer_id'],'name':context['layer']['name'],'fields':fields}
+        change={'kind':'agent','turn':run_id,'layer_id':context['layer_id'],'name':context['layer']['name'],'fields':fields}
         if apply:
             if new_asset:
                 store.check_storage(project,new_asset['metadata']['size'])
                 a=new_asset;store.add_asset(project,a['id'],a['name'],a['filename'],a['metadata'],artifact=uploaded)
             write_version(db,project,after,change)
             result={**change,'before':before.revision,'after':after.revision}
-            db.execute('UPDATE agent_turns SET canvas_result=?,updated=? WHERE id=?',(json.dumps(result,ensure_ascii=False),time.time(),turn_id))
+            db.execute('UPDATE agent_turns SET canvas_result=?,updated=? WHERE id=?',(json.dumps(result,ensure_ascii=False),time.time(),run_id))
     return {'applied':apply,'before':before.model_dump(),'after':after.model_dump(),
             'assets':[{**a['metadata'],'id':a['id'],'name':a['name'],'filename':a['filename']} for a in assets.values()]}

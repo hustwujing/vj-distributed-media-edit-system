@@ -94,10 +94,10 @@ class Monitor:
         started = time.monotonic()
         lease.check()
         from .task_leases import CLOCK
-        rows = self.store.query('SELECT expires,'+CLOCK+' AS observed FROM execution_leases WHERE turn_id=? AND attempt=? AND generation=? AND active=1',
-                                (lease.turn_id, lease.attempt, lease.generation))
+        rows = self.store.query('SELECT expires,'+CLOCK+' AS observed FROM execution_leases WHERE run_id=? AND attempt=? AND generation=? AND active=1',
+                                (lease.run_id, lease.attempt, lease.generation))
         remaining = (rows[0]['expires']-rows[0]['observed'])-(time.monotonic()-started) if rows else 0
-        call=self.register(lease.turn_id, lease.attempt, lease.generation, remaining, kind)
+        call=self.register(lease.run_id, lease.attempt, lease.generation, remaining, kind)
         call.step_id=lease.step_id
         return call
 
@@ -121,12 +121,12 @@ class Monitor:
         tasks = list({c.task_id for c in calls})
         from .task_leases import CLOCK
         started = time.monotonic()
-        rows = self.store.query('''SELECT l.turn_id,l.attempt,l.generation,l.active,l.expires,
+        rows = self.store.query('''SELECT l.run_id,l.attempt,l.generation,l.active,l.expires,
           t.status,x.termination_reason,x.deadline_at,'''+CLOCK+''' AS observed
           FROM execution_leases l JOIN (
-            SELECT id,status FROM agent_turns UNION ALL SELECT id,status FROM jobs
-          ) t ON t.id=l.turn_id LEFT JOIN execution_limits x ON x.task_id=l.turn_id
-          WHERE l.turn_id IN ('''+','.join('?' for _ in tasks)+')', tasks)
+            SELECT id,status FROM execution_subjects
+          ) t ON t.id=l.run_id LEFT JOIN execution_limits x ON x.task_id=l.run_id
+          WHERE l.run_id IN ('''+','.join('?' for _ in tasks)+')', tasks)
         by_attempt = {r['attempt']:r for r in rows}
         for call in calls:
             row = by_attempt.get(call.attempt_id)

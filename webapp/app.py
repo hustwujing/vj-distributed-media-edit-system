@@ -361,15 +361,15 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
 
     def delete_project_data(project_id):
         from .task_leases import CLOCK
-        tasks='SELECT id FROM agent_turns WHERE project=? UNION ALL SELECT id FROM jobs WHERE project=?'
+        tasks='SELECT id FROM execution_subjects WHERE project=? OR project=?'
         if store.query("SELECT attempt FROM execution_cleanup WHERE state<>'complete' AND task_id IN ("+tasks+")",(project_id,project_id)):
             raise HTTPException(409,'执行资源尚未回收完成，请稍后删除。')
         if store.query("SELECT id FROM execution_external_cleanup WHERE state IN ('pending','running') AND task_id IN ("+tasks+")",(project_id,project_id)):
             raise HTTPException(409,'正在确认外部任务停止，请等待收尾完成后删除。')
-        if store.query('SELECT l.turn_id FROM execution_leases l JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.turn_id WHERE t.project=? AND l.active=1 AND l.expires>'+CLOCK,(project_id,)):
+        if store.query('SELECT l.run_id FROM execution_leases l JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.run_id WHERE t.project=? AND l.active=1 AND l.expires>'+CLOCK,(project_id,)):
             raise HTTPException(409,'任务仍在退出和清理，请稍后删除。')
         active = store.job(current['id']) if current.get('id') else None
-        if store.query("SELECT id FROM agent_turns WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')", (project_id,)):
+        if store.query("SELECT id FROM execution_subjects WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')", (project_id,)):
             raise HTTPException(409, '请先停止智能体任务，等待停止完成后再删除。')
         if (active and active['project'] == project_id) or store.query("SELECT id FROM jobs WHERE project=? AND status IN ('queued','running')", (project_id,)):
             raise HTTPException(409, '请等待或取消运行中的任务后再删除。')
@@ -386,25 +386,25 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         for table in ('execution_checkpoint_versions','execution_session_profiles','execution_native_descriptors','agent_project_profiles','agent_native_sessions','agent_harness_switches'):
             store.execute(f'DELETE FROM {table} WHERE project=?',(project_id,))
         for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
-            store.execute(f'DELETE FROM {table} WHERE turn_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
+            store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
         store.execute('DELETE FROM workflow_provider_calls WHERE workflow IN ('+tasks+')',(project_id,project_id))
         store.execute('DELETE FROM manual_operation_runs WHERE job_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_resource_claims WHERE task_id IN ('+tasks+')',(project_id,project_id))
         store.execute('DELETE FROM workflow_transcript_cache WHERE project=?',(project_id,))
-        store.execute('DELETE FROM workflow_control WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
-        store.execute('DELETE FROM execution_intents WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
+        store.execute('DELETE FROM workflow_control WHERE run_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
+        store.execute('DELETE FROM execution_intents WHERE run_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_job_results WHERE job_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
         for table in ('agent_messages','agent_render_observations','execution_activities','agent_routes','agent_run_profiles','agent_attempt_profiles','agent_context_events'):
             store.execute(f'DELETE FROM {table} WHERE task_id IN ('+tasks+')',(project_id,project_id))
         store.execute('DELETE FROM usage_calls WHERE task_id IN ('+tasks+')',(project_id,project_id))
         store.execute('DELETE FROM usage_tasks WHERE project_id=?',(project_id,))
-        store.execute('DELETE FROM plan_review_retries WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
+        store.execute('DELETE FROM plan_review_retries WHERE run_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM plan_readiness WHERE project=?',(project_id,))
-        store.execute('DELETE FROM agent_events WHERE turn_id IN ('+tasks+')', (project_id,project_id))
+        store.execute('DELETE FROM agent_events WHERE run_id IN ('+tasks+')', (project_id,project_id))
         store.execute('DELETE FROM jobs WHERE project=?', (project_id,))
         store.execute('DELETE FROM agent_steps WHERE workflow IN (SELECT id FROM agent_workflows WHERE project=?)', (project_id,))
         store.execute('DELETE FROM agent_workflows WHERE project=?', (project_id,))
-        for table in ('workflow_dependencies','run_tasks','planner_runs','task_results','workflow_commands',
+        for table in ('specialist_attempt_profiles','run_authorizations','run_inputs','run_input_drain','run_task_replacements','workflow_task_revisions','workflow_plan_tasks','workflow_reconcile_failures','control_jobs','workflow_dependencies','run_tasks','planner_runs','task_results','workflow_commands',
                       'workflow_decisions','workflow_reviews','workflow_graph_events','workflow_model_reservations','workflow_inspections'):
             store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
         store.execute('DELETE FROM workflow_agent_outputs WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
@@ -412,9 +412,13 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM workflow_diagnostics WHERE workflow IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
         store.execute('DELETE FROM workflow_start_requests WHERE project_id=?',(project_id,))
         store.execute('DELETE FROM workflow_asset_reuse WHERE project_id=?',(project_id,))
+        for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
+            store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM session_messages WHERE session_id IN (SELECT id FROM sessions WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM sessions WHERE project_id=?',(project_id,))
         store.execute('DELETE FROM runs WHERE project_id=?',(project_id,))
         for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
-            store.execute(f'DELETE FROM {table} WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
+            store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_checkpoints WHERE project=?',(project_id,))
         store.execute('DELETE FROM execution_step_checkpoints WHERE project=?',(project_id,))
         if store.shared_files:store.artifacts.release_prefix(project_id)
@@ -538,7 +542,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
             own_project(project_id, request)
             try:store.admit_tasks(project_id)
             except ValueError as exc:raise HTTPException(429,str(exc)) from exc
-            if store.query("SELECT id FROM agent_turns WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')", (project_id,)):
+            if store.query("SELECT id FROM execution_subjects WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')", (project_id,)):
                 raise HTTPException(409, '智能体正在操作此项目，请等待或停止后再提交手动任务。')
             active = store.query("SELECT id FROM jobs WHERE status IN ('queued','running')")
             if len(active) >= 20:

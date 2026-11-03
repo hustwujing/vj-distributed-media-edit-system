@@ -90,3 +90,57 @@ class RunInputTests(unittest.TestCase):
         self.assertEqual(run['status'],'WAITING_USER')
         self.assertEqual(self.store.query('SELECT status FROM run_inputs')[0]['status'],'ACCEPTED')
         self.assertEqual(self.store.query("SELECT kind FROM workflow_decisions WHERE status='pending'")[0]['kind'],'input_question')
+
+    def test_targeted_input_freezes_descendant_scope_and_cannot_revise_sibling(self):
+        self.store.execute('INSERT INTO workflow_dependencies(run_id,upstream_task_id,downstream_task_id,created_graph_version) VALUES (?,?,?,1)',
+                           (self.run['id'],'left','right'))
+        result=run_inputs.accept(self.store,self.run['id'],'owner',{
+            'request_id':uuid.uuid4().hex,'content':'Change only the final report','targets':['right']})
+        self.assertEqual(result['context']['allowed_revision_tasks'],['right'])
+        self.assertEqual(result['context']['base_task_revisions'],{'left':0,'right':0})
+        self.f.tick()
+        revision={**next(task['spec'] for task in self.run['tasks'] if task['id']=='left'),'argv':['python','-c','print("changed")']}
+        self.f.propose({'proposal_id':'wrong-branch','base_graph_version':1,'reason':'Change unrelated upstream',
+                        'revise_tasks':[revision],'sealed':True})
+        run=self.f.tick()
+        self.assertEqual(run['graph_version'],1)
+        self.assertEqual([task['revision'] for task in run['tasks']],[0,0])
+        self.assertIsNotNone(run['input_barrier_sequence'])
+
+    def test_successor_input_deduplicates_and_requires_a_fresh_scope_confirmation(self):
+        original=self.run
+        self.store.execute("UPDATE runs SET status='SUCCEEDED',delivered_at=? WHERE id=?",(self.store.now(),original['id']))
+        first=run_inputs.accept(self.store,original['id'],'owner',{
+            'request_id':uuid.uuid4().hex,'content':'Make a second report','targets':['left']})
+        second=run_inputs.accept(self.store,original['id'],'owner',{
+            'request_id':uuid.uuid4().hex,'content':'Keep it concise'})
+        self.assertEqual(first['run_id'],second['run_id'])
+        self.assertNotEqual(first['run_id'],original['id'])
+        self.assertEqual(first['context']['allowed_revision_tasks'],[])
+        self.assertEqual(first['context']['predecessor_targets'][0]['task_id'],'left')
+        self.run=graph.get(self.store,first['run_id']);self.f.run=self.run
+        self.assertFalse(self.run['scope_confirmed'])
+        self.assertEqual(self.run['tasks'],[])
+        self.f.tick()
+        request=self.store.query("SELECT * FROM planner_runs WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
+        lease=self.coordinator.claim(self.run['id'],'workflow',step_id=request['task_id'])
+        self.assertIsNotNone(lease)
+        try:
+            with lease.bind():
+                with self.assertRaisesRegex(ValueError,'scope|Scope|confirmation'):
+                    planning.stage(self.store,lease,request['id'],fixtures.envelope(self.store,request['id'],kind='CONTINUE'))
+                planning.stage(self.store,lease,request['id'],fixtures.envelope(self.store,request['id'],
+                    kind='REQUEST_AUTHORIZATION',authorization=self.run['authorization']))
+        finally:lease.release()
+        run=self.f.tick()
+        self.assertEqual(run['status'],'WAITING_USER')
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))[0]
+        self.assertEqual(decision['kind'],'successor_authorization')
+        graph.command(self.store,run['id'],'owner','answer',{
+            'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],
+            'action':'approve','authorization':run['authorization']})
+        run=self.f.tick()
+        self.assertTrue(run['scope_confirmed'])
+        self.assertEqual(run['authorization_version'],2)
+        self.assertEqual(self.store.query('SELECT COUNT(*) AS n FROM run_authorizations WHERE run_id=?',(run['id'],))[0]['n'],2)
+        self.assertEqual(graph.get(self.store,original['id'])['status'],'SUCCEEDED')

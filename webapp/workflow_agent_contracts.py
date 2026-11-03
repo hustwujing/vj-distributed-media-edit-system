@@ -95,11 +95,55 @@ def validate_resolved_review(decision, snapshot, inspections):
             raise ValueError('Task review cannot select final deliverables')
     elif snapshot['review_scope']=='final' and decision['verdict']=='pass':
         selected=set(decision['deliverables'])
-        approved={ref for task in snapshot['tasks'] for ref in task['accepted_result']}
+        approved={ref for task in snapshot['tasks'] if task['spec']['delivery_stage'] for ref in task['accepted_result']}
         if not selected or not selected<=approved or not selected<=set(inspections.values()):
             raise ValueError('Final selection must contain inspected approved candidates')
         if len(selected)>1 and not decision['primary']:
             raise ValueError('Multiple final deliverables require an explicit primary')
+
+
+def validate_temporal_evidence(decision,snapshot,records):
+    """Verify sampling coverage, not the semantic truth of a model observation."""
+    if decision['verdict']!='pass':return
+    import json,math
+    cited={item['inspection_id'] for item in decision['evidence']}
+    records=[row for row in records if row['id'] in cited]
+    for task in snapshot.get('tasks',[]):
+        semantics=task['spec'].get('semantics',{}).get('temporal',[])
+        if not semantics or snapshot.get('review_scope')=='final' and not task['spec'].get('delivery_stage'):continue
+        files=set(task['candidate_result']+task['accepted_result'])
+        video_role=task['quality'].get('output_roles',{}).get('video')
+        video_paths={video_role} if video_role in files else {item['name'] for item in task['quality'].get('files',[]) if item.get('video') and item['name'] in files}
+        if snapshot.get('review_scope')=='final':video_paths &= set(decision['deliverables'])
+        if not video_paths:raise ValueError('Temporal review requires verified video candidates')
+        for reference in video_paths:
+            samples=[];durations=[];source_intervals=[]
+            for row in records:
+                evidence=json.loads(row['evidence_json'])
+                proof=evidence.get('verified_media')
+                if proof and proof.get('source_reference')==reference:
+                    expected=next((item.get('sha256') for item in task['quality'].get('files',[]) if item['name']==reference),None)
+                    if proof['source_sha256']!=expected:continue
+                    evidence=proof
+                elif row['reference']!=reference:continue
+                if evidence.get('coverage') not in ('sampled_frame','contact_sheet'):continue
+                duration=evidence.get('duration_seconds');interval=evidence.get('source_frame_interval_seconds')
+                if not isinstance(duration,(int,float)) or not math.isfinite(duration) or duration<=0:continue
+                if not isinstance(interval,(int,float)) or not math.isfinite(interval) or interval<=0:continue
+                times=evidence.get('frame_timestamps',[evidence.get('timestamp_seconds')])
+                if not all(type(value) in (int,float) and math.isfinite(value) and 0<=value<duration for value in times):continue
+                samples.extend(times);durations.append(duration);source_intervals.append(interval)
+            samples=sorted(set(samples))
+            if len(samples)<2 or not durations:raise ValueError('Temporal review requires timestamped video evidence')
+            duration=max(durations)
+            for rule in semantics:
+                deadline=min(rule['start_by_seconds'],duration*rule['start_by_fraction'])
+                gap=rule['max_interruption_seconds']
+                if samples[0]>deadline or (samples[-1]-samples[0])/duration<rule['required_coverage']:
+                    raise ValueError('Temporal evidence does not cover onset and required duration')
+                if max(source_intervals)>gap or max(b-a for a,b in zip(samples,samples[1:]))>gap+1e-6:
+                    raise ValueError('Temporal evidence is too sparse to assess interruptions')
+
 
 
 class Diagnosis(Contract):

@@ -68,11 +68,11 @@ class Gateway:
         self.dynamic_task=False
         if self.lease and self.lease.kind=='workflow':
             from .workflow_graph import get as graph_get
-            if graph_get(self.lease.store,self.lease.turn_id):
+            if graph_get(self.lease.store,self.lease.run_id):
                 from .workflow_gateway import allowed
                 self.allowed_paths=allowed(self.lease);self.dynamic_task=True
         if self.lease and self.lease.kind=='manual':
-            job=self.lease.store.job(self.lease.turn_id)
+            job=self.lease.store.job(self.lease.run_id)
             self.allowed_paths=({'/transcribe'} if job['kind']=='transcribe' else
                                 {'/image-tools','/image-edit'} if job['kind']=='image' else set())
         self.request_slots = threading.BoundedSemaphore(8)
@@ -147,7 +147,7 @@ class Gateway:
                             self.reply(403, {'error':'Public context requires an active Agent task'})
                         else:
                             from .harness_context import lookup
-                            row=outer.lease.store.query('SELECT project FROM agent_turns WHERE id=?',(outer.lease.turn_id,))[0]
+                            row=outer.lease.store.query('SELECT project FROM agent_turns WHERE id=?',(outer.lease.run_id,))[0]
                             result=lookup(outer.lease.store,row['project'],body)
                             outer.check()
                             self.reply(200,result)
@@ -185,7 +185,7 @@ class Gateway:
                         self.reply(404, {'error':'Unsupported gateway endpoint'})
                 except TaskQuotaReached as exc:
                     from .task_leases import record_quota
-                    if outer.lease:record_quota(outer.lease.store,outer.lease.turn_id,exc)
+                    if outer.lease:record_quota(outer.lease.store,outer.lease.run_id,exc)
                     from .telemetry import emit
                     emit('gateway.quota_exhausted','WARNING',exc=exc,operation=exc.diagnostic.get('category'),calls=exc.diagnostic.get('used'))
                     self.reply(403,{'error':{'message':str(exc),**exc.diagnostic}})
@@ -234,7 +234,7 @@ class Gateway:
         if self.lease:
             self.lease.check()
             table = 'jobs' if self.lease.kind == 'manual' else 'agent_turns'
-            row = self.lease.store.query(f'SELECT status FROM {table} WHERE id=?', (self.lease.turn_id,))[0]
+            row = self.lease.store.query(f'SELECT status FROM {table} WHERE id=?', (self.lease.run_id,))[0]
             if row['status'] != 'running' and not (self.dynamic_task and row['status']=='waiting'):raise LeaseLost('Task is no longer running')
 
     def canvas_edit(self,handler,body):
@@ -319,7 +319,7 @@ class Gateway:
         with self.lock:
             if self.calls>=(min(self.profile.budget['run_models'],role.max_turns) if role else self.profile.budget['run_models']):
                 if self.lease:
-                    status=quota_status(self.lease.store,self.lease.turn_id,'model',model_call_limit())
+                    status=quota_status(self.lease.store,self.lease.run_id,'model',model_call_limit())
                     if status['blocked']:raise quota_error(status)
                 raise quota_error({'category':'model','scope':'turn','used':self.calls,'limit':self.profile.budget['run_models']})
             from .planning_budget import check as check_plan
@@ -476,7 +476,7 @@ class Gateway:
                         handler.reply(422, {'error':'所选音轨几乎无声，请选择其他音轨。'})
                         return
                     from .provider_calls import intent, update, request_time
-                    call_workflow={'id':self.lease.turn_id,'turn_id':self.lease.turn_id,'origin':'direct','manual':self.lease.kind=='manual'} if self.lease else None
+                    call_workflow={'id':self.lease.run_id,'run_id':self.lease.run_id,'origin':'direct','manual':self.lease.kind=='manual'} if self.lease else None
                     call_step={'id':'direct-transcribe-'+str(body['asset'])+'-'+str(track),'revision':0,'attempts':0,
                                'bindings':{'asset':asset['id']},'spec':{'parameters':{
                                    'audio_track':track,'language':language,'speakers':speakers}}}

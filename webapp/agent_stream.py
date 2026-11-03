@@ -53,19 +53,19 @@ class StreamBus:
                 self.failed('connect',exc)
         return self._client
 
-    def key(self, turn_id: str) -> str:
-        return self.prefix + turn_id
+    def key(self, run_id: str) -> str:
+        return self.prefix + run_id
 
-    def publish(self, turn_id: str, kind: str, payload: dict[str, Any]) -> str | None:
+    def publish(self, run_id: str, kind: str, payload: dict[str, Any]) -> str | None:
         client = self._get()
         if client is None:
             return None
         try:
-            message = client.xadd(self.key(turn_id), {
+            message = client.xadd(self.key(run_id), {
                 "kind": kind,
                 "payload": json.dumps(payload, ensure_ascii=False),
             }, maxlen=self.maxlen, approximate=True)
-            client.expire(self.key(turn_id), self.ttl)
+            client.expire(self.key(run_id), self.ttl)
             return str(message)
         except Exception as exc:
             # A Redis outage must not stop a task or make the durable DB path
@@ -73,7 +73,7 @@ class StreamBus:
             self.failed('publish',exc)
             return None
 
-    def publish_async(self,turn_id,kind,payload):
+    def publish_async(self,run_id,kind,payload):
         if not self.url:return
         with self._publish_lock:
             if self._publisher is None or not self._publisher.is_alive():
@@ -89,18 +89,18 @@ class StreamBus:
                             self.failed('publish_queue',exc)
                         finally:self._events.task_done()
                 self._publisher=threading.Thread(target=dispatch,daemon=True);self._publisher.start()
-            try:self._events.put_nowait((turn_id,kind,payload))
+            try:self._events.put_nowait((run_id,kind,payload))
             except queue.Full:
                 from .telemetry import emit
-                emit('stream.activity_dropped','WARNING',task_id=turn_id,reason='queue_full')
+                emit('stream.activity_dropped','WARNING',task_id=run_id,reason='queue_full')
 
-    def read(self, turn_id: str, after: str, count: int = 200,
+    def read(self, run_id: str, after: str, count: int = 200,
              block_ms: int = 1000) -> list[dict[str, Any]] | None:
         client = self._get()
         if client is None:
             return None
         try:
-            rows = client.xread({self.key(turn_id): after}, count=count, block=block_ms)
+            rows = client.xread({self.key(run_id): after}, count=count, block=block_ms)
             result: list[dict[str, Any]] = []
             for _key, records in rows:
                 for message_id, fields in records:
@@ -124,14 +124,14 @@ class AsyncStreamReader:
     @property
     def enabled(self):return self.transport.enabled
 
-    async def read(self,turn_id,after,count=200,block_ms=200):
+    async def read(self,run_id,after,count=200,block_ms=200):
         if not self.enabled:return None
         try:
             if self._client is None:
                 import redis.asyncio as redis_async
                 self._client=redis_async.Redis.from_url(self.url,decode_responses=True,
                     socket_connect_timeout=1,socket_timeout=2,max_connections=1)
-            rows=await self._client.xread({self.transport.key(turn_id):after},count=count,block=block_ms)
+            rows=await self._client.xread({self.transport.key(run_id):after},count=count,block=block_ms)
             result=[]
             for _,records in rows:
                 for message_id,fields in records:

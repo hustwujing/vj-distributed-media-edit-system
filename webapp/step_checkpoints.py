@@ -18,12 +18,13 @@ def save(runtime):
     from .workflows import get
     from .execution_runtime import copy_tree
     lease,store=runtime.lease,runtime.store
-    workflow=get(store,lease.turn_id)
+    workflow=get(store,lease.run_id)
     step=next(s for s in workflow['steps'] if s['id']==lease.step_id)
     runtime.quiesce();lease.check()
     prefix=f'edit/workflows/{workflow["id"]}/{step["id"]}'
     source=runtime.workspace/prefix
-    names=[str(path.relative_to(runtime.workspace)) for path in source.rglob('*') if path.is_file() and not path.is_symlink()] if source.exists() else []
+    names=[str(path.relative_to(runtime.workspace)) for path in source.rglob('*') if path.is_file() and not path.is_symlink()
+           and str(path.relative_to(runtime.workspace)) not in getattr(runtime,'repair_input_paths',set())] if source.exists() else []
     target=runtime.project/'step-checkpoints'/workflow['id']/step['id']/str(step['revision'])/(lease.attempt+'-'+uuid.uuid4().hex)
     records=copy_tree(runtime.workspace,target,runtime.service_uid,runtime.service_gid,runtime.limit,include=set(names))
     prior=store.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
@@ -95,7 +96,7 @@ def restore(runtime):
         rows=current_agent_rows(store,runtime.project.name)
     else:
         from .workflows import get
-        workflow=get(store,lease.turn_id)
+        workflow=get(store,lease.run_id)
         if not workflow:return
         by_id={s['id']:s for s in workflow['steps']}
         required=set(by_id) if not lease.step_id or workflow.get('dynamic') and self_control(store,lease) else {lease.step_id}
@@ -110,13 +111,13 @@ def restore(runtime):
                          (workflow['id'],step_id,step['revision'],runtime.project.name)))
         if workflow.get('dynamic'):
             from .workflow_graph import get as graph_get,work_item
-            graph=graph_get(store,lease.turn_id);selected=work_item(graph,lease.step_id)
+            graph=graph_get(store,lease.run_id);selected=work_item(graph,lease.step_id)
             permitted=set()
             if selected.get('control_kind'):
                 table='planner_runs' if selected['spec']['profile']=='media_planner' else 'workflow_reviews'
                 request=store.query(f'SELECT snapshot_json FROM {table} WHERE id=?',(selected['spec']['request_id'],))[0]
                 frozen=json.loads(request['snapshot_json'])
-                for task in frozen.get('tasks',[])+frozen.get('upstream',[]):
+                for task in frozen.get('tasks',[])+frozen.get('upstream',[])+frozen.get('evidence_tasks',[]):
                     permitted.update(task.get('accepted_result',[]));permitted.update(task.get('candidate_result',[]))
                 permitted.update(frozen.get('diagnostic_files',[]))
             else:
@@ -128,6 +129,15 @@ def restore(runtime):
                 for row in rows:
                     if row['step']==selected['id']:permitted.update(json.loads(row['manifest']))
             rows=[{**row,'manifest':json.dumps({name:record for name,record in json.loads(row['manifest']).items() if name in permitted})} for row in rows]
+            from .repair_inputs import lookup
+            runtime.repair_input_paths=set()
+            if not selected.get('control_kind'):
+                for ref in selected['spec'].get('inputs',{}).values():
+                    if not ref.get('repair_candidate'):continue
+                    candidate=lookup(store,graph,ref['repair_candidate'])
+                    runtime.repair_input_paths.add(candidate['path'])
+                    rows.append({'workflow':graph['id'],'step':candidate['reference']['logical_task_id'],
+                        'manifest':json.dumps({candidate['path']:candidate['record']})})
     records=records_for(rows)
     if not records:return
     # Account for the whole restored workspace, not only this batch. The
@@ -164,6 +174,6 @@ def restore(runtime):
 
 def self_control(store,lease):
     from .workflow_graph import get,work_item
-    run=get(store,lease.turn_id)
+    run=get(store,lease.run_id)
     item=work_item(run,lease.step_id) if run else None
     return bool(item and item.get('control_kind'))

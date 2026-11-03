@@ -10,11 +10,11 @@
 
 ## 开发步骤
 
-1. 定义 Profile ID、版本、用途、固定提示模板、permission、tools、harness、model policy、
+1. 定义 Profile ID、版本、用途、固定提示模板、AgentRole、action_capabilities、harness、model policy、
    检查/纠正/finalize轮数、时间和输出 Token 上限，以及输出 Schema 和产物策略。
 2. 通过服务端 `register()` 登记，验证工具与权限一致。只读角色不允许 script；提案权只属于 Manager。
 3. 新输出 Schema 必须同时实现模型提示、解析、服务端验证和错误处理，不能只新增一个 Schema 名称。
-   内部 Reviewer 使用冻结 ReviewDecision；专业视觉报告与诊断文件分别使用对应的结构化契约。
+   Control Job Reviewer 使用冻结 ReviewDecision；专业视觉报告与诊断文件分别使用对应的结构化契约。
 4. 冻结 Profile 快照和 harness 指纹，绑定授权包络中的 Profile 摘要。用户没有授权的角色必须先走 plan_change。
 5. 明确允许读取哪些素材、已验收角色、候选或失败证据；素材与历史都不能扩大模型权限。
 6. 仅在 Task 输出目录生成候选。需要模型判断的通过结论必须关联实际检查记录，不能用模型自述替代证据。
@@ -44,3 +44,7 @@ Manager 不能将业务 Agent 伪装成控制角色，质量批准也不能授�
 最终验收的`ReviewDecision.primary`以完整不可变引用指定主交付，必须属于已检查的`deliverables`；多文件通过时必填。中间步骤验收不得声明最终主交付。主成果由用户目标和验收决定，不由列表首项或`final.mp4`等文件名猜测；解析、worker验证、控制器验证和发布阶段须一致。
 
 inspect须按格式分流：ZIP只读取有界目录元数据，不解包或解码成员，明确contents_verified=false；它不能进入媒体探测。未知格式及超限目录返回有界输入反馈，不记录伪造检查证据。媒体解码故障保留异常，诊断同时存储引用SHA256以便与不可变候选关联，不记录原始私有路径。
+
+当前结构化引擎为 structured-profile-v2。业务 JSON 报告提交 `{"action":"result","report":{...}}`，服务端验证并序列化到唯一声明 JSON 文件；不要把 JSON 再编码为字符串。Manager、Reviewer、Diagnosis 的控制结果使用各自固定 envelope，不能复用业务 files 报告格式。提示词按角色给出唯一对应协议。
+
+WorkspacePolicy 独立于角色与能力，必须声明只读工作区、Task 输出、Review scratch 或完整编辑范围；不得从旧 plan/execute 文本推断权限。Control Job 与业务 Task 分开记录真实 harness、profile、模型、phase、尝试和 Token。审查检查/格式纠正/最终提交预算耗尽时标记 review_incomplete 并交回 Manager 补证据，不能自动重生成候选或无界重复 Review。

@@ -112,10 +112,10 @@ class SchedulingTests(unittest.TestCase):
             busy=self.coordinator.claim(job['id'],'manual')
             try:
                 self.assertIsNone(self.coordinator.claim(self.f.turn,'workflow'))
-                before=self.f.store.query('SELECT id FROM execution_attempts WHERE turn_id=?',(self.f.turn,))
+                before=self.f.store.query('SELECT id FROM execution_attempts WHERE run_id=?',(self.f.turn,))
                 workflows.pause(self.f.store,self.f.turn)
                 self.assertEqual(self.f.get()['status'],'paused')
-                self.assertEqual(self.f.store.query('SELECT id FROM execution_attempts WHERE turn_id=?',(self.f.turn,)),before)
+                self.assertEqual(self.f.store.query('SELECT id FROM execution_attempts WHERE run_id=?',(self.f.turn,)),before)
                 self.assertNotIn(self.f.turn,[r['id'] for r in self.coordinator.candidates()])
             finally:busy.release()
 

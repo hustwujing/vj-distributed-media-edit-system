@@ -1,9 +1,18 @@
 """Server-owned operation contracts; no caller-selected executables or URLs."""
-from dataclasses import dataclass, asdict, replace
+from dataclasses import dataclass, asdict, replace,field
 import os
 import json
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class RepairCandidateRef(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    logical_task_id:str=Field(pattern=r'^[a-z][a-z0-9_-]{0,39}$')
+    revision:int=Field(ge=0)
+    artifact_id:str=Field(pattern=r'^[a-f0-9]{32}$')
+    sha256:str=Field(pattern=r'^[a-f0-9]{64}$')
+    role:str=Field(pattern=r'^[a-z][a-z0-9_-]{0,39}$')
 
 
 class InputRef(BaseModel):
@@ -11,9 +20,12 @@ class InputRef(BaseModel):
     asset: str | None = Field(default=None,min_length=1,max_length=100)
     step: str | None = Field(default=None,pattern=r'^[a-z][a-z0-9_-]{0,39}$')
     role: str | None = Field(default=None,pattern=r'^[a-z][a-z0-9_-]{0,39}$')
+    repair_candidate:RepairCandidateRef|None=None
     @model_validator(mode='after')
     def reference(self):
-        if self.asset:
+        if self.repair_candidate:
+            if self.asset or self.step or self.role:raise ValueError('Repair-only input cannot be mixed with an accepted input')
+        elif self.asset:
             if self.step or self.role:raise ValueError('素材引用不能混合步骤引用')
         elif not self.step or not self.role:raise ValueError('输入需要 asset 或 step + role')
         return self
@@ -43,7 +55,9 @@ IMAGE_PARAMETERS={
     'color_match':{'parameters'},'local_adjust':{'parameters'},'batch_export':{'parameters'}}
 MEDIA_PARAMETERS={'render':{'segments','overlays','grade','quality','fps','subtitles','subtitle_asset','normalize_audio'},
     'edit':{'edit_plan'},'timeline':{'start','end','frames','audio_track'},'analyze':{'start','end','frames'},
-    'review':set(),'pack':{'silence'},'concat_sequence':{'roles','width','height','fps','crf','audio_mode','threads'},
+    'review':set(),'pack':{'silence'},'concat_sequence':{'roles','audio_mode','threads'},
+    'normalize_clip':{'width','height','fps','crf','audio_mode','threads'},
+    'evidence':{'mode','offset','window_seconds','crop'},
     'audio_process':{'role','format','gain_db','target_lufs','true_peak_db','fade_in','fade_out','highpass_hz','denoise','threads'}}
 
 
@@ -69,7 +83,10 @@ class Operation:
     implementation_id:str=''
     output_files:tuple[str,...]|None=None
     reuse_safe:bool=False
+    evidence_only:bool=False
     def __post_init__(self):
+        if self.evidence_only and (self.external_side_effects or self.gpu or self.model_profile!='none'):
+            raise ValueError('Verified evidence collectors cannot submit external effects or substitute model judgments')
         from .provider_metadata import validate
         validate(self)
 
@@ -92,7 +109,8 @@ class Operation:
         inputs=contract(self)
         result['input_contract']={'required_roles':sorted(inputs.required_inputs),
                                  'allowed_roles':sorted(inputs.allowed_inputs) if inputs.allowed_inputs is not None else None,
-                                 'minimum_inputs':inputs.minimum_inputs,'kinds':list(self.input_kinds)}
+                                 'minimum_inputs':inputs.minimum_inputs,'kinds':list(self.input_kinds),
+                                 'role_kinds':inputs.role_kinds}
         if self.executor=='image_sync':result['native_size_guaranteed']=False
         if self.id=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan' and self.available():
             from .wan_generation import capabilities
@@ -165,12 +183,14 @@ for action in _ACTIONS:
                  reuse_safe=action in ('refine_mask','perspective','color_match','local_adjust','batch_export','product_layout'),
                  output_files=_FIXED_OUTPUT_FILES.get(action))
     REGISTRY[op.id]=op
-for action in ('render','edit','timeline','analyze','review','pack','concat_sequence'):
-    output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',),'concat_sequence':('video','report')}[action]
-    input_kinds=('json',) if action=='pack' else ('video','json') if action=='timeline' else ('video',) if action in ('analyze','review') else ('video','audio','image','subtitle','json')
+for action in ('render','edit','timeline','analyze','review','pack','concat_sequence','normalize_clip'):
+    output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',),'concat_sequence':('video','report'),'normalize_clip':('video','report')}[action]
+    input_kinds=('json',) if action=='pack' else ('video','json') if action=='timeline' else ('video',) if action in ('analyze','review','concat_sequence','normalize_clip') else ('video','audio','image','subtitle','json')
     op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800,reuse_safe=True,
-                 output_files=('final.mp4','compiler-report.json') if action=='concat_sequence' else None)
+                 output_files=('final.mp4','compiler-report.json') if action in ('concat_sequence','normalize_clip') else None)
     REGISTRY[op.id]=op
+REGISTRY['media.evidence']=Operation('media.evidence','evidence','fixed_media',('image','video','audio'),('report','preview'),
+    cpu=1,memory_mb=2048,timeout=300,reuse_safe=True,evidence_only=True,output_files=('evidence-report.json','preview.jpg'))
 REGISTRY['audio.process']=Operation('audio.process','audio_process','fixed_media',('audio','video'),('audio','report'),
     memory_mb=2048,timeout=1800,reuse_safe=True)
 REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,external_side_effects=True,budget_group='audio.transcribe',concurrency_group='elevenlabs',route_adapter='elevenlabs',provider_identity='elevenlabs',cleanup_category='unqueryable_sync',output_files=('transcript.json',))
@@ -185,6 +205,7 @@ class OperationContract:
     required_inputs:frozenset[str]=frozenset()
     allowed_inputs:frozenset[str]|None=None
     minimum_inputs:int=0
+    role_kinds:dict[str,tuple[str,...]]=field(default_factory=dict)
 
     def validate(self,parameters,inputs):
         if not self.required_inputs.issubset(inputs) or len(inputs)<self.minimum_inputs:
@@ -234,6 +255,8 @@ def contract(operation):
     if operation.id in _CONTRACTS:return _CONTRACTS[operation.id]
     from .operation_parameters import model
     parameters=model(operation.id,operation.executor,operation.action)
+    if operation.evidence_only:return OperationContract(parameters,frozenset({'source'}),frozenset({'source','reference'}),role_kinds={'reference':('image',)})
+    if operation.action=='normalize_clip':return OperationContract(parameters,frozenset({'source'}),frozenset({'source'}))
     if operation.executor=='fixed_media':
         return OperationContract(parameters,minimum_inputs=1)
     if operation.executor in ('generation_async','image_sync'):

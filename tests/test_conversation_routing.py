@@ -89,7 +89,7 @@ class LightRoutingTests(unittest.TestCase):
         self.responses=[output(tool=('request_capability',{'capability':'inspect_media','asset_ids':['image-id'],'reason':'需要查看实际画面内容'}))]
         task=self.task('图片上有什么？');row=self.run_task(task)
         self.assertEqual(row['status'],'queued');self.assertEqual(row['mode'],'plan');self.assertEqual(row['routing']['stage'],'heavy')
-        self.assertEqual(self.store.query('SELECT active FROM execution_leases WHERE turn_id=?',(task,))[0]['active'],0)
+        self.assertEqual(self.store.query('SELECT active FROM execution_leases WHERE run_id=?',(task,))[0]['active'],0)
         from webapp.scheduling import requirements
         self.assertEqual(requirements(self.store,task,'agent')['memory_mb'],4096)
         restored=Store(self.root);agent_store.initialize(restored);self.assertEqual(plan_readiness.route(restored,task)['capability'],'inspect_media')
@@ -101,8 +101,8 @@ class LightRoutingTests(unittest.TestCase):
         restored=Store(self.root);agent_store.initialize(restored);route=plan_readiness.route(restored,task)
         self.assertEqual((route['stage'],route['capability']),('heavy','general_analysis'));self.assertIn('核实',route['reason'])
         self.assertEqual(snapshot(restored,task)['run_id'],task)
-        self.assertEqual(restored.query('SELECT active FROM execution_leases WHERE turn_id=?',(task,))[0]['active'],0)
-        self.assertEqual(restored.query('SELECT runtime FROM execution_attempts WHERE turn_id=?',(task,))[0]['runtime'],'')
+        self.assertEqual(restored.query('SELECT active FROM execution_leases WHERE run_id=?',(task,))[0]['active'],0)
+        self.assertEqual(restored.query('SELECT runtime FROM execution_attempts WHERE run_id=?',(task,))[0]['runtime'],'')
 
     def test_valid_query_round_limit_hands_off_without_fifth_model_request(self):
         for n in range(4):

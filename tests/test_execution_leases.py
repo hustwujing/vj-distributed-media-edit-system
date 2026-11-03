@@ -32,7 +32,7 @@ class ExecutionLeaseTests(unittest.TestCase):
         self.temp.cleanup()
 
     def expire(self):
-        self.store.execute('UPDATE execution_leases SET expires=0 WHERE turn_id=?', (self.turn,))
+        self.store.execute('UPDATE execution_leases SET expires=0 WHERE run_id=?', (self.turn,))
 
     def test_two_processes_cannot_claim_the_same_task(self):
         ctx = multiprocessing.get_context('spawn')

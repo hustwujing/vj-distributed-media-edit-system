@@ -10,7 +10,7 @@ def script(identifier='first',**overrides):
     return {'id':identifier,'type':'script','name':identifier,'objective':'Write the approved report',
             'argv':['python','-c','print("report")'],'outputs':['report.txt'],
             'output_roles':{'report':'report.txt'},'acceptance':[{'kind':'file'}],
-            'basic_reason':'Local deterministic report','retry_policy':'safe_once',**overrides}
+            'basic_reason':'Local deterministic report','retry_policy':'safe_once','delivery_stage':True,**overrides}
 
 
 def envelope(store,request_id,proposal=None,kind='APPLY_PLAN',**extra):
@@ -460,7 +460,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed' WHERE run_id=? AND id='first'",(run['id'],))
         self.store.execute("UPDATE runs SET sealed=0,status='ACTIVE' WHERE id=?",(run['id'],))
         run=graph.get(self.store,run['id']);self.orchestrator.open_repair(run,'first','task_review','review-id','quality_failed')
-        with self.assertRaisesRegex(ValueError,'revise every paused'):
+        with self.assertRaisesRegex(ValueError,'resolve paused tasks'):
             graph.validate_proposal(self.store,graph.get(self.store,run['id']),{'proposal_id':'abandon-paused','base_graph_version':1,
                 'reason':'add a replacement without repairing the required task','add_tasks':[script('replacement')],'sealed':True},repair_scope='first')
 

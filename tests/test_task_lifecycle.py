@@ -35,7 +35,7 @@ class LifecycleTests(unittest.TestCase):
     def test_compute_budget_is_settled_once_and_not_reset_on_takeover(self):
         self.store.execute('UPDATE execution_limits SET budget_seconds=60 WHERE task_id=?',(self.turn,))
         first=self.a.claim(self.turn,'agent');first.start_compute()
-        self.store.execute('UPDATE execution_leases SET expires=0 WHERE turn_id=?',(self.turn,))
+        self.store.execute('UPDATE execution_leases SET expires=0 WHERE run_id=?',(self.turn,))
         second=self.b.claim(self.turn,'agent');second.start_compute()
         value=self.store.query('SELECT used_seconds FROM execution_limits')[0]['used_seconds']
         self.assertAlmostEqual(value,45,delta=.1)

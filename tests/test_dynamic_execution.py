@@ -45,10 +45,10 @@ class DynamicExecutionTests(unittest.TestCase):
                 hidden=store.project_dir(project)/'agent/workspace/edit/unrelated.txt'
                 hidden.parent.mkdir(parents=True);hidden.write_text('unrelated project file')
                 store.artifacts.save_file(project,'agent/workspace/edit/unrelated.txt')
-                turn=agent_store.add_turn(store,project,'execute','Write and extend report')
-                run=graph.create(store,project,turn,{'goal':'Write and extend report','allowed_assets':['allowed','foreign'],
+                run=graph.create(store,project,None,{'goal':'Write and extend report','allowed_assets':['allowed','foreign'],
                     'allowed_operations':['script'],'delivery_targets':['report'],
                     'content_fingerprint':graph.content_fingerprint(store,project)})
+                turn=run['id'];self.assertFalse(store.query('SELECT id FROM agent_turns'))
                 controllers=[Orchestrator(s,'controller-'+str(i)) for i,s in enumerate(stores)]
                 workers=[Coordinator(s,'dynamic-node-'+str(i),'test',ttl=120) for i,s in enumerate(stores)]
                 pools=[IdentityPool(root/('p'+str(i)),start=640000+i*100,size=4) for i in range(2)]

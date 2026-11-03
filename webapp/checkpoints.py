@@ -44,10 +44,10 @@ def save_native_descriptor(store, db, project, path, manifest, runtime_profile):
     # surviving database row as its own newly committed native state.
     if native['configuration_digest']!=identity.digest:return
     cursor=db.execute('SELECT MAX(seq) n FROM agent_context_events WHERE task_id=?',
-                      (lease.turn_id if lease else '',)).fetchone()['n'] or 0
+                      (lease.run_id if lease else '',)).fetchone()['n'] or 0
     value={'schema':'opaque-session-envelope-v1','native_format':'sdk_owned_opaque',
            'profile':runtime_profile,'native':native,'tool_policy':identity.tool_policy,
-           'task_id':lease.turn_id if lease else None,'event_cursor':cursor,
+           'task_id':lease.run_id if lease else None,'event_cursor':cursor,
            'storage':{'checkpoint':path,'state':manifest['state']}}
     db.execute('INSERT INTO execution_native_descriptors VALUES (?,?,?)',
                (path,project,json.dumps(value,sort_keys=True)))
@@ -85,8 +85,8 @@ def rollback(store,project,version):
         db.execute('BEGIN IMMEDIATE')
         busy=db.execute("SELECT id FROM agent_turns WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling') UNION ALL SELECT id FROM jobs WHERE project=? AND status IN ('queued','running')",(project,project)).fetchone()
         if busy:raise ValueError('请先停止当前任务，再恢复项目版本')
-        resources=db.execute('''SELECT l.turn_id FROM execution_leases l
-          JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.turn_id
+        resources=db.execute('''SELECT l.run_id FROM execution_leases l
+          JOIN (SELECT id,project FROM execution_subjects) t ON t.id=l.run_id
           WHERE t.project=? AND (l.active=1 OR EXISTS(
             SELECT 1 FROM execution_cleanup c WHERE c.task_id=t.id AND c.state<>'complete')) LIMIT 1''',(project,)).fetchone()
         if resources:raise ValueError('请等待执行资源回收完成，再恢复项目版本')

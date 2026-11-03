@@ -30,7 +30,7 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
         try:return store.query(sql,args)
         except Exception as exc:
             report['complete']=False;report['gaps'].append({'source':name,'error_code':type(exc).__name__});return []
-    tasks=query('task',"SELECT id,project,status,created,updated,'agent' AS kind FROM agent_turns WHERE id=? UNION ALL SELECT id,project,status,created,updated,kind FROM jobs WHERE id=?",(task_id,task_id))
+    tasks=query('task',"SELECT id,project,status,created,updated,kind FROM execution_subjects WHERE id=?",(task_id,))
     task=tasks[0] if tasks else None;report['task']=task
     report['correlation']=query('correlation','SELECT * FROM observation_tasks WHERE task_id=?',(task_id,))
     if task and not report['correlation']:
@@ -40,19 +40,23 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
     report['next_after']=report['timeline'][-1]['seq'] if report['timeline'] else after
     report['attempts']=query('attempts','''SELECT a.id,a.step_id,a.kind,a.generation,a.status,a.started,a.finished,a.exit_reason,
       w.node,w.id AS worker,w.release,w.heartbeat,w.draining FROM execution_attempts a
-      LEFT JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id=? ORDER BY a.started DESC LIMIT ?''',(task_id,limit))
-    report['workflow']=query('workflow','SELECT id,status,updated FROM agent_workflows WHERE turn_id=?',(task_id,))
+      LEFT JOIN execution_workers w ON w.id=a.worker WHERE a.run_id=? ORDER BY a.started DESC LIMIT ?''',(task_id,limit))
+    report['workflow']=query('workflow','SELECT id,status,updated FROM agent_workflows WHERE run_id=?',(task_id,))
     report['dynamic_workflow']=query('dynamic_workflow','''SELECT id,status,graph_version,sealed,authorization_version,
-        next_reconcile_at,reconcile_until,reconcile_generation,created_at,updated_at,terminal_reason,delivered_at
+        next_reconcile_at,reconcile_until,reconcile_generation,created_at,updated_at,terminal_reason,delivered_at,input_sequence,input_barrier_sequence
         FROM runs WHERE id=?''',(task_id,))
     report['steps']=query('steps','''SELECT s.id,s.status,s.revision,s.attempts,s.next_poll,s.wait_reason,s.error_code,s.updated FROM agent_steps s
-      JOIN agent_workflows w ON s.workflow=w.id WHERE w.turn_id=? ORDER BY s.id LIMIT ?''',(task_id,limit))
+      JOIN agent_workflows w ON s.workflow=w.id WHERE w.run_id=? ORDER BY s.id LIMIT ?''',(task_id,limit))
     if report['dynamic_workflow']:
         wid=report['dynamic_workflow'][0]['id']
         report['workflow']=report['dynamic_workflow']
         report['steps']=query('dynamic_steps','''SELECT id,status,phase,revision,attempts,next_run_at AS next_poll,
             wait_reason,error_code,updated_at AS updated,lease_id,lease_generation,control_kind FROM run_work_items
             WHERE run_id=? ORDER BY created_at,id LIMIT ?''',(wid,limit))
+        report['specialist_attempts']=query('specialist_attempts','SELECT attempt_id,work_id,profile_id,harness_id,policy_digest,model,protocol,model_config_digest,created_at FROM specialist_attempt_profiles WHERE run_id=? ORDER BY created_at LIMIT ?',(wid,limit))
+        report['inputs']=query('run_inputs','SELECT id,sequence,status,source,base_graph_version,base_authorization_version,accepted_at,applied_at,applied_graph_version,error_code FROM run_inputs WHERE run_id=? ORDER BY sequence LIMIT ?',(wid,limit))
+        report['drain_set']=query('drain_set','SELECT task_id,revision,barrier_sequence FROM run_input_drain WHERE run_id=? LIMIT ?',(wid,limit))
+        report['replacements']=query('replacements','SELECT old_task_id,new_task_id,graph_version,source,created_at FROM run_task_replacements WHERE run_id=? LIMIT ?',(wid,limit))
         report['planning']=query('planning','''SELECT id,base_graph_version,authorization_version,snapshot_digest,status,
             proposal_id,applied_graph_version,attempts,error_code,created_at,updated_at FROM planner_runs
             WHERE run_id=? ORDER BY created_at LIMIT ?''',(wid,limit))
@@ -72,14 +76,14 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
             FROM workflow_plan_tasks WHERE run_id=? ORDER BY graph_version,task_id LIMIT ?''',(wid,limit))
         report['reconcile_failures']=query('reconcile_failures','''SELECT reconcile_generation,exception_type,error_code,created_at
             FROM workflow_reconcile_failures WHERE run_id=? ORDER BY created_at DESC LIMIT ?''',(wid,limit))
-    report['step_versions']=query('step_versions','SELECT v.step,v.revision,v.created FROM workflow_step_versions v JOIN agent_workflows w ON w.id=v.workflow WHERE w.turn_id=? ORDER BY v.created DESC LIMIT ?',(task_id,limit))
-    report['quality']=query('quality','SELECT q.step,q.revision,q.actor,q.action,q.created FROM workflow_quality_events q JOIN agent_workflows w ON w.id=q.workflow WHERE w.turn_id=? ORDER BY q.created DESC LIMIT ?',(task_id,limit))
-    report['step_checkpoints']=query('step_checkpoints','SELECT c.step,c.revision,c.attempt,c.updated FROM execution_step_checkpoints c JOIN agent_workflows w ON w.id=c.workflow WHERE w.turn_id=? ORDER BY c.updated DESC LIMIT ?',(task_id,limit))
+    report['step_versions']=query('step_versions','SELECT v.step,v.revision,v.created FROM workflow_step_versions v JOIN agent_workflows w ON w.id=v.workflow WHERE w.run_id=? ORDER BY v.created DESC LIMIT ?',(task_id,limit))
+    report['quality']=query('quality','SELECT q.step,q.revision,q.actor,q.action,q.created FROM workflow_quality_events q JOIN agent_workflows w ON w.id=q.workflow WHERE w.run_id=? ORDER BY q.created DESC LIMIT ?',(task_id,limit))
+    report['step_checkpoints']=query('step_checkpoints','SELECT c.step,c.revision,c.attempt,c.updated FROM execution_step_checkpoints c JOIN agent_workflows w ON w.id=c.workflow WHERE w.run_id=? ORDER BY c.updated DESC LIMIT ?',(task_id,limit))
     if report['dynamic_workflow']:
         report['step_checkpoints']=query('step_checkpoints','SELECT step,revision,attempt,updated FROM execution_step_checkpoints WHERE workflow=? ORDER BY updated DESC LIMIT ?',(report['dynamic_workflow'][0]['id'],limit))
     report['provider_calls']=query('providers','''SELECT request_key,step,revision,attempt_id,generation,provider,operation,state,external_id,
       network_seconds,poll_count,failure,created,updated FROM workflow_provider_calls WHERE workflow IN
-      (SELECT id FROM agent_workflows WHERE turn_id=? UNION ALL SELECT id FROM runs WHERE id=?) OR workflow=? ORDER BY updated DESC LIMIT ?''',(task_id,task_id,task_id,limit))
+      (SELECT id FROM agent_workflows WHERE run_id=? UNION ALL SELECT id FROM runs WHERE id=?) OR workflow=? ORDER BY updated DESC LIMIT ?''',(task_id,task_id,task_id,limit))
     for call in report['provider_calls']:
         try:call['failure']=json.loads(call['failure'])
         except (TypeError,ValueError):
@@ -90,10 +94,10 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
     report['cancellation']=query('cancellation','SELECT request_id,scope,reason,created FROM execution_cancel_requests WHERE task_id=?',(task_id,))
     report['metrics']=query('phases','SELECT phase,SUM(seconds) AS cumulative_seconds,SUM(calls) AS calls,SUM(failures) AS failures FROM execution_phase_metrics WHERE task_id=? GROUP BY phase',(task_id,))
     report['waits']=query('waits','SELECT reason,next_retry,updated FROM execution_waits WHERE task_id=?',(task_id,))
-    report['checkpoints']=query('checkpoints','SELECT project,attempt,updated FROM execution_checkpoints WHERE project=(SELECT project FROM agent_turns WHERE id=?)',(task_id,))
+    report['checkpoints']=query('checkpoints','SELECT project,attempt,updated FROM execution_checkpoints WHERE project=(SELECT project FROM execution_subjects WHERE id=?)',(task_id,))
     # Hash and logical artifact identity, never object keys or signed URLs.
     report['artifacts']=query('artifacts','''SELECT f.artifact,f.revision FROM artifact_files f WHERE f.project=
-      (SELECT project FROM agent_turns WHERE id=? UNION ALL SELECT project FROM jobs WHERE id=?) LIMIT ?''',(task_id,task_id,limit))
+      (SELECT project FROM execution_subjects WHERE id=?) LIMIT ?''',(task_id,limit))
     try:
         from .task_usage import snapshot
         report['usage']=snapshot(store,task_id,limit=limit)

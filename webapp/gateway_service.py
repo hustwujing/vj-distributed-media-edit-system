@@ -19,7 +19,7 @@ from .image_canvas import agent_patch
 def main():
     from .telemetry import setup,CONTEXT
     config=json.load(sys.stdin)
-    CONTEXT.set({'task_id':config['lease']['turn_id'],'attempt_id':config['lease']['attempt'],'worker':config['lease']['worker']})
+    CONTEXT.set({'task_id':config['lease']['run_id'],'attempt_id':config['lease']['attempt'],'worker':config['lease']['worker']})
     setup('gateway')
     if os.getuid()==0:raise SystemExit('Gateway service must be unprivileged')
     ctypes.CDLL(None).prctl(1,15,0,0,0)  # SIGTERM when coordinator exits.
@@ -53,13 +53,13 @@ def main():
         asset=next(a for a in config['assets'] if a['filename']==filename)
         result=client.request('extract',{'asset':asset['id'],'track':track})
         destination.write_bytes(base64.b64decode(result['audio'],validate=True))
-    def notify(kind,payload):agent_store.event(store,lease.turn_id,kind,payload)
+    def notify(kind,payload):agent_store.event(store,lease.run_id,kind,payload)
     with lease.bind():
         from .agent_profiles import AgentProfile
         gateway=Gateway(Path(config['socket']),Path(config['project']),config['assets'],config['mode'],config['model'],
             config['base_url'],config['key'],config['uid'],config['gid'],notify,extract,
-            canvas_callback=(lambda body,asset:agent_patch(store,Path(config['project']).name,lease.turn_id,body,asset)) if config['canvas'] else None,
-            workflow_callback=(lambda body:client.request('workflow_preflight',body) if body.get('action')=='preflight' else workflow_dispatch(store,lease.turn_id,body,config['mode'],config.get('workflow_review_id'))) if config['workflow'] else None,
+            canvas_callback=(lambda body,asset:agent_patch(store,Path(config['project']).name,lease.run_id,body,asset)) if config['canvas'] else None,
+            workflow_callback=(lambda body:client.request('workflow_preflight',body) if body.get('action')=='preflight' else workflow_dispatch(store,lease.run_id,body,config['mode'],config.get('workflow_review_id'))) if config['workflow'] else None,
             listener_fd=int(sys.argv[1]),broker_client=client,
             profile=AgentProfile(**config['agent_profile']) if config.get('agent_profile') else None)
         gateway.thread.start()

@@ -131,7 +131,7 @@ def current():
         return selected()
     cached = getattr(lease, 'agent_profile', None)
     if cached is None:
-        lease.agent_profile = cached = for_task(lease.store, lease.turn_id)
+        lease.agent_profile = cached = for_task(lease.store, lease.run_id)
     return cached
 
 
@@ -165,7 +165,7 @@ def record_attempt(store,lease,profile):
         if old and old['digest']!=profile.digest:raise ValueError('Running attempt cannot change Agent configuration')
         db.execute('''INSERT OR IGNORE INTO agent_attempt_profiles
           (attempt_id,task_id,configuration,digest,created) VALUES (?,?,?,?,?)''',
-                   (lease.attempt,lease.turn_id,json.dumps(profile.snapshot()),profile.digest,store.now()))
+                   (lease.attempt,lease.run_id,json.dumps(profile.snapshot()),profile.digest,store.now()))
 
 
 def public_for_task(store,task):

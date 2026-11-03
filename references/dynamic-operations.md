@@ -3,7 +3,21 @@
 This is a server-owned technical reference. The authorization envelope, registered
 profiles, tool allowlist and frozen Task contracts remain authoritative. The user
 has already confirmed that envelope; do not ask again for the same scope. Submit
-proposals only; never execute business tools as the Manager.
+ManagerResult envelopes only; never execute business tools as the Manager.
+
+## Manager results and runtime input
+
+Return the frozen `proposal_schema` (ManagerResult). Copy snapshot_digest,
+base_graph_version, authorization_version and input_through_sequence from the
+current request (zero when input_batch is absent). Exactly APPLY_PLAN/COMPLETE
+carry a nested Proposal. CONTINUE preserves the graph; REQUEST_AUTHORIZATION
+proposes a full new authorization; REQUEST_USER_INPUT supplies a concrete question;
+NEW_RUN_REQUIRED names the new goal for user confirmation. COMPLETE seals the
+proposal but cannot publish a result directly.
+
+Process the complete frozen input_batch. Later inputs are deliberately absent and
+will be handled in another round. Do not cancel or replay an external request due
+to changed instructions. A waiting/unknown provider handle must be resolved first.
 
 ## Task and acceptance contracts
 
@@ -35,8 +49,16 @@ proposals only; never execute business tools as the Manager.
   on `delivery_stage=true` tasks. Text rules select contains/token_sequence/line_sequence/
   normalized_text/exact_text. Media rules distinguish audio_track_present from audio_silent.
 - Repair triggers may use `revise_tasks` for the failed logical Task or its dependency ancestors.
-  Preserve every frozen field except local script argv or retry-safe local operation parameters.
-  Never revise an unrelated branch or a task with active execution/cleanup.
+  Automatic repairs preserve every frozen field except local script argv or retry-safe local
+  operation parameters; a business Agent can get a new revision of the same contract with
+  diagnostic context. Never revise a task with active execution/cleanup or unresolved external calls.
+- Explicit user feedback in input_batch permits changes to objective, parameters/argv,
+  authorized inputs, acceptance and semantics inside its allowed revision closure. Changing
+  type, operation/Profile, implementation, output roles or delivery stage requires a new logical Task.
+- `replacements` maps an old failed requirement to a newly added Task that satisfies the same
+  goal and acceptance. The server rewires affected dependencies with new revisions. Do not
+  duplicate automatically redirected edges. Merely appending a similar Task does not unblock
+  delivery. Original failure history and cumulative repair/provider budgets remain effective.
 
 ## media.render versus media.edit
 
@@ -83,9 +105,14 @@ Uploaded subtitles use subtitles.asset bound to an input role, with size, color,
 position and outline. Do not pass a subtitle file path.
 
 For large sequential assemblies use `media.concat_sequence`. Its `roles` list must exactly match
-declared inputs. Compatible streams use concat demuxer; incompatible streams normalize one at a
-time before concat. Decoder/encoder threads, temporary disk and input count are bounded and a
-compiler report is produced. Do not create an arbitrary many-input filter graph in a script.
+declared inputs. Compatible streams use concat demuxer. For incompatible streams, plan one
+`media.normalize_clip` Task per source with the SAME explicit `width`, `height`, `fps` and
+`audio_mode`. Each has a single `source` input and returns `video` (`final.mp4`) plus `report`
+(`compiler-report.json`). Mark these intermediate Tasks `delivery_stage:false`; their independently
+accepted checkpoints become the ordered inputs to the final concat Task. Do not put normalization
+inside one giant script or re-run unrelated accepted clips after a failure. A concat compatibility
+failure requires this dependency repair, not an identical retry. Decoder/encoder threads, temporary
+disk and input count are bounded. Do not create an arbitrary many-input filter graph in a script.
 
 Use `audio.process` for bounded gain, fades, high-pass, denoise and optional two-pass loudness.
 It writes `audio-process-report.json` atomically and reports objective output measurements.
@@ -107,3 +134,30 @@ Transcription returns transcript.json. Reuse its real text/word timestamps to
 format TXT/SRT in a script; do not call transcription again just to change format.
 No provider HTTP loops, service credentials or GPU model invocations belong in
 arbitrary scripts. Registered external operations own these calls and receipts.
+
+## Evidence-only recovery and candidate inputs
+
+When media is already program-valid but a content review lacks evidence, preserve
+its bytes and external request. Create a `purpose=evidence` Task using registered
+`media.evidence`; this operation is local, bounded, and produces evidence-report.json
+plus preview.jpg. Modes are auto/image/video_window/audio; video windows are at most
+8 seconds with up to 16 timestamped frames. Optional reference input is an image.
+Image/video crops use [x1,y1,x2,y2]. Reports include actual source/preview hashes,
+full-stream audio measurements or bounded frame structure metrics. These metrics
+are not identity or semantic verdicts.
+
+A failed candidate is not an accepted dependency. Use only a frozen descriptor
+from `repair_candidates`, as
+`inputs.source = {"repair_candidate": {logical_task_id, revision, artifact_id, sha256, role}}`.
+Copy every field exactly; never invent an artifact ID or hash. Candidate reads are
+permitted only for `purpose=repair/evidence` within the frozen repair scope and
+only after program integrity verification. They do not approve the original Task.
+
+Plan the collector first with replan_after naming it. After it succeeds, use
+`review_again = {"original_task_id": ["evidence_task_id"]}` to request a bounded
+new content review of the same candidate and original acceptance. No media revision
+or new provider submission is needed. A final-review evidence gap can instead add
+verified evidence Tasks before sealing again. Repeating the same evidence does not
+permit another verdict. Technical acceptance failures require actual repair, not
+review_again. Explicit user feedback can revise content criteria in its allowed
+closure; automatic evidence recovery cannot lower them.

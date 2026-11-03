@@ -199,7 +199,11 @@ class WorkflowTests(unittest.TestCase):
 
     def test_stop_cancels_known_external_job_and_never_submits_dependents(self):
         self.submit()
+        from webapp import provider_calls
+        workflow=self.get();step=workflow['steps'][0]
+        provider_calls.intent(self.store,workflow,step,'http://127.0.0.1:9998',step['spec']['operation'])
         self.tick()
+        provider_calls.update(self.store,workflow,step,'waiting','job-generate')
         workflows.cancel(self.store, self.turn)
         self.tick()
         self.assertTrue(self.store.query("SELECT id FROM execution_external_cleanup WHERE external_id='job-generate'"))

@@ -21,27 +21,27 @@ def next_step(w,now):
                  and set(s['spec']['depends_on']).issubset(done) and s['next_poll']<=now),None)
 
 
-def available_steps(store,turn_id,now):
+def available_steps(store,run_id,now):
     from .workflow_graph import get as graph_get
-    dynamic=graph_get(store,turn_id)
+    dynamic=graph_get(store,run_id)
     if dynamic:
         from .workflow_dispatch import available
         return available(store,dynamic,now)
     from .workflows import get
-    workflow=get(store,turn_id)
+    workflow=get(store,run_id)
     if not workflow or workflow['status']!='ready':return []
     # Claims recheck this too: a candidate selected before a review/quality
     # transition cannot start new work before control-plane reconciliation.
     if any(step['status'] in ('diagnosing','agent_review','awaiting_review','paused') for step in workflow['steps']):return []
     if workflow.get('agent_review'):return []
-    control=store.query('SELECT pause_requested FROM workflow_control WHERE turn_id=?',(turn_id,))
+    control=store.query('SELECT pause_requested FROM workflow_control WHERE run_id=?',(run_id,))
     if control and control[0]['pause_requested']:return []
-    leases=store.query('SELECT slot FROM execution_leases WHERE turn_id=? AND active=1 AND expires>?',(turn_id,now))
+    leases=store.query('SELECT slot FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(run_id,now))
     busy={row['slot'] for row in leases}
-    if turn_id in busy:return []
+    if run_id in busy:return []
     done={step['id'] for step in workflow['steps'] if step['status']=='succeeded'}
     return [step['id'] for step in workflow['steps']
-            if turn_id+'|'+step['id'] not in busy
+            if run_id+'|'+step['id'] not in busy
             and step['status'] in ('pending','waiting','verifying','running','submitting','collecting')
             and set(step['spec']['depends_on']).issubset(done) and step['next_poll']<=now]
 
@@ -84,17 +84,17 @@ def candidates(coordinator,model_available):
         result.append(row)
     # Ordering accounts for ALL dispatch classes and previous turns of an owner.
     # Old jobs cannot continually jump ahead merely because manual is interleaved first.
-    tasks=store.query('SELECT t.id,p.owner,t.created FROM (SELECT id,project,created FROM jobs UNION ALL SELECT id,project,created FROM agent_turns) t JOIN projects p ON p.id=t.project')
+    tasks=store.query('SELECT t.id,p.owner,t.created FROM (SELECT id,project,created FROM execution_subjects) t JOIN projects p ON p.id=t.project')
     owners={r['id']:r['owner'] for r in tasks};created={r['id']:r['created'] for r in tasks}
-    history=store.query('SELECT p.owner,MAX(a.started) AS recent FROM execution_attempts a JOIN (SELECT id,project FROM jobs UNION ALL SELECT id,project FROM agent_turns) t ON t.id=a.turn_id JOIN projects p ON p.id=t.project GROUP BY p.owner')
+    history=store.query('SELECT p.owner,MAX(a.started) AS recent FROM execution_attempts a JOIN (SELECT id,project FROM execution_subjects) t ON t.id=a.run_id JOIN projects p ON p.id=t.project GROUP BY p.owner')
     recent={r['owner']:r['recent'] for r in history}
-    by_task={r['turn_id']:r['recent'] for r in store.query('SELECT turn_id,MAX(started) AS recent FROM execution_attempts GROUP BY turn_id')}
+    by_task={r['run_id']:r['recent'] for r in store.query('SELECT run_id,MAX(started) AS recent FROM execution_attempts GROUP BY run_id')}
     return sorted(result,key=lambda r:(r['status']!='cancelling',recent.get(owners.get(r['id']),0),by_task.get(r['id'],0),created.get(r['id'],0),r['id']))
 
 
-def requirements(store,turn_id,kind,step_id=None):
+def requirements(store,run_id,kind,step_id=None):
     from .workflow_graph import get as graph_get
-    dynamic=graph_get(store,turn_id)
+    dynamic=graph_get(store,run_id)
     if dynamic and step_id:
         from .workflow_dispatch import requirements as dynamic_requirements
         return dynamic_requirements(store,dynamic,step_id)
@@ -102,15 +102,15 @@ def requirements(store,turn_id,kind,step_id=None):
     cpu=2;memory=4096;provider='';gpu=False
     if kind=='agent':
         from .plan_readiness import is_light
-        if is_light(store,turn_id):return {'cpu':1,'memory_mb':256,'gpu':False,'provider':'','step_id':None}
+        if is_light(store,run_id):return {'cpu':1,'memory_mb':256,'gpu':False,'provider':'','step_id':None}
         from .execution_intent import get as get_intent
-        intent=get_intent(store,turn_id)
-        reviews=store.query("SELECT id FROM agent_workflows WHERE turn_id=? AND status IN ('reviewing','resuming')",(turn_id,))
+        intent=get_intent(store,run_id)
+        reviews=store.query("SELECT id FROM agent_workflows WHERE run_id=? AND status IN ('reviewing','resuming')",(run_id,))
         if not reviews and intent and intent['route']=='single' and intent['operations'][0]!='script':
             from .operations import get
             op=get(intent['operations'][0]);memory=max(memory,op.memory_mb);gpu=op.gpu
     if kind=='manual':
-        job=store.job(turn_id)
+        job=store.job(run_id)
         if job and job['kind']=='image' and job['payload'].get('image_task'):
             from .operations import for_image
             if job['payload']['image_task']['action']!='export':
@@ -118,7 +118,7 @@ def requirements(store,turn_id,kind,step_id=None):
                 if op.concurrency_group:cpu=op.cpu;memory=op.memory_mb
     if kind=='workflow':
         from .workflows import get
-        w=get(store,turn_id)
+        w=get(store,run_id)
         s=None
         if w and w['status']=='ready':
             if step_id:s=next((x for x in w['steps'] if x['id']==step_id),None)
@@ -151,8 +151,8 @@ def initialize(db):
     );''')
 
 
-def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
-    need=requirements(store,turn_id,kind,step_id=step_id)
+def admit(db,store,run_id,kind,node,timestamp,step_id=None):
+    need=requirements(store,run_id,kind,step_id=step_id)
     if need['gpu'] and not gpu_devices():return None
     used=db.execute('''SELECT COALESCE(SUM(r.cpu),0) AS cpu,COALESCE(SUM(r.memory_mb),0) AS memory_mb
       FROM execution_resource_claims r WHERE node=? AND (
@@ -166,13 +166,13 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
         from .operations import get
         polling=False
         if kind=='workflow' and need['step_id']:
-            selected=db.execute('SELECT s.phase FROM run_work_items s JOIN runs w ON w.id=s.run_id WHERE w.id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
+            selected=db.execute('SELECT s.phase FROM run_work_items s JOIN runs w ON w.id=s.run_id WHERE w.id=? AND s.id=?',(run_id,need['step_id'])).fetchone()
             if selected:polling=selected['phase'] in ('poll','collect','validate')
             else:
-                selected=db.execute('SELECT s.status FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
+                selected=db.execute('SELECT s.status FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.run_id=? AND s.id=?',(run_id,need['step_id'])).fetchone()
                 polling=bool(selected and selected['status']!='pending')
         elif kind=='manual':
-            existing=db.execute('SELECT state FROM manual_operation_runs WHERE job_id=?',(turn_id,)).fetchone()
+            existing=db.execute('SELECT state FROM manual_operation_runs WHERE job_id=?',(run_id,)).fetchone()
             polling=bool(existing and existing['state']!='pending')
         if not polling:
             rows=db.execute("SELECT operation,implementation FROM workflow_provider_calls WHERE state IN ('submitting','waiting','queued','running','submission_unknown')").fetchall()
@@ -186,7 +186,7 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
             reservations=db.execute('''SELECT r.provider FROM execution_resource_claims r
               JOIN execution_attempts a ON a.id=r.attempt
               JOIN execution_leases l ON l.attempt=r.attempt
-              LEFT JOIN agent_workflows w ON w.turn_id=r.task_id
+              LEFT JOIN agent_workflows w ON w.run_id=r.task_id
               LEFT JOIN agent_steps s ON s.workflow=w.id AND s.id=a.step_id
               LEFT JOIN runs dw ON dw.id=r.task_id
               LEFT JOIN run_work_items ds ON ds.run_id=dw.id AND ds.id=a.step_id
@@ -210,15 +210,15 @@ def limits(*, include_runtime_profile=True):
         'gpu_devices':gpu_devices(),'runtime_profile':fingerprint() if include_runtime_profile else None}
 
 
-def snapshot(store,turn_id):
+def snapshot(store,run_id):
     from .workflows import get
-    w=get(store,turn_id);now=store.now()
-    recorded=store.query('SELECT reason,updated,next_retry FROM execution_waits WHERE task_id=?',(turn_id,))
+    w=get(store,run_id);now=store.now()
+    recorded=store.query('SELECT reason,updated,next_retry FROM execution_waits WHERE task_id=?',(run_id,))
     reason=recorded[0]['reason'] if recorded else ''
-    task=store.query("SELECT t.status,t.created,t.updated,p.owner FROM (SELECT id,project,status,created,updated FROM agent_turns UNION ALL SELECT id,project,status,created,updated FROM jobs) t JOIN projects p ON p.id=t.project WHERE t.id=?",(turn_id,))
+    task=store.query("SELECT t.status,t.created,t.updated,p.owner FROM (SELECT id,project,status,created,updated FROM execution_subjects) t JOIN projects p ON p.id=t.project WHERE t.id=?",(run_id,))
     workers=store.query('SELECT w.id,w.node,w.model,c.settings,h.next_retry FROM execution_workers w LEFT JOIN execution_scheduler_configs c ON c.worker=w.id LEFT JOIN execution_model_health h ON h.worker=w.id WHERE w.draining=0 AND w.heartbeat>? ORDER BY w.heartbeat DESC',(now-20,))
     models=[r for r in workers if r['model']]
-    needs_model=bool((w and w['status'] in ('reviewing','resuming')) or (not w and store.query('SELECT id FROM agent_turns WHERE id=?',(turn_id,))))
+    needs_model=bool((w and w['status'] in ('reviewing','resuming')) or (not w and store.query('SELECT id FROM agent_turns WHERE id=?',(run_id,))))
     if not workers and task and task[0]['status'] in ('queued','waiting'):reason='resource'
     if needs_model and task and task[0]['status']=='queued':
         if not workers:reason='resource'
@@ -231,21 +231,21 @@ def snapshot(store,turn_id):
             if step:reason=step.get('wait_reason') or reason
             elif any(s['status']=='waiting' for s in w['steps']):reason='provider'
             elif any(s['status']=='pending' for s in w['steps']):reason='dependency'
-    manual=store.query('SELECT state FROM manual_operation_runs WHERE job_id=?',(turn_id,))
+    manual=store.query('SELECT state FROM manual_operation_runs WHERE job_id=?',(run_id,))
     if manual and manual[0]['state']=='waiting':reason='provider'
-    attempts=store.query('SELECT COUNT(*) AS n,MIN(started) AS first_start,COALESCE(SUM(COALESCE(finished,?)-started),0) AS dispatch_seconds FROM execution_attempts WHERE turn_id=?',(now,turn_id))[0]
+    attempts=store.query('SELECT COUNT(*) AS n,MIN(started) AS first_start,COALESCE(SUM(COALESCE(finished,?)-started),0) AS dispatch_seconds FROM execution_attempts WHERE run_id=?',(now,run_id))[0]
     occupied=store.query('SELECT COUNT(*) AS n FROM execution_leases WHERE active=1 AND expires>?',(now,))[0]['n']
     usage=store.query('SELECT COALESCE(SUM(cpu),0) AS cpu,COALESCE(SUM(memory_mb),0) AS memory_mb FROM execution_resource_claims r WHERE EXISTS(SELECT 1 FROM execution_leases l WHERE l.attempt=r.attempt AND l.active=1 AND l.expires>?)',(now,))[0]
-    calls=store.query('SELECT COALESCE(SUM(network_seconds),0) AS network_seconds,COALESCE(SUM(poll_count),0) AS polls FROM workflow_provider_calls WHERE workflow=?',(w['id'] if w else turn_id,))[0]
+    calls=store.query('SELECT COALESCE(SUM(network_seconds),0) AS network_seconds,COALESCE(SUM(poll_count),0) AS polls FROM workflow_provider_calls WHERE workflow=?',(w['id'] if w else run_id,))[0]
     elapsed=max(0,(task[0]['updated'] if task and task[0]['status'] in ('succeeded','failed','cancelled') else now)-task[0]['created']) if task else 0
     queued=max(0,(attempts['first_start'] if attempts['first_start'] is not None else task[0]['created']+elapsed)-task[0]['created']) if task else 0
     holds=store.query("SELECT COUNT(*) AS n FROM execution_cleanup WHERE state<>'complete'")[0]['n']
-    lease=store.query('SELECT worker FROM execution_leases WHERE turn_id=? AND active=1 AND expires>?',(turn_id,now))
+    lease=store.query('SELECT worker FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(run_id,now))
     if lease:workers.sort(key=lambda worker:worker['id']!=lease[0]['worker'])
     return {'initial_queue_seconds':round(queued,2),'non_dispatch_seconds_estimate':round(max(0,elapsed-attempts['dispatch_seconds']),2),'cleanup_holds_all_nodes':holds,
         'limits_scope':{'worker':workers[0]['id'],'node':workers[0]['node']} if workers else None,'network_seconds':round(calls['network_seconds'],2),'provider_polls':calls['polls'],'attempts':attempts['n'],'dispatch_seconds':round(attempts['dispatch_seconds'],2),
         'age_seconds':round(elapsed,2),'wait_reason':reason,'wait_recorded_at':recorded[0]['updated'] if recorded else None,'next_retry':recorded[0]['next_retry'] if recorded else None,
-        'phase_metrics':store.query('SELECT phase,SUM(seconds) AS seconds,SUM(calls) AS calls,SUM(failures) AS failures FROM execution_phase_metrics WHERE task_id=? GROUP BY phase',(turn_id,)),
+        'phase_metrics':store.query('SELECT phase,SUM(seconds) AS seconds,SUM(calls) AS calls,SUM(failures) AS failures FROM execution_phase_metrics WHERE task_id=? GROUP BY phase',(run_id,)),
         # Read-only API processes cannot access the privileged runtime manifest.
         # Defaults describe configured capacity, never an attested worker runtime.
         'limits':json.loads(workers[0]['settings']) if workers and workers[0]['settings'] else limits(include_runtime_profile=False),
@@ -255,7 +255,7 @@ def snapshot(store,turn_id):
 def defer_resource(lease,seconds=5):
     lease.waiting_for_resource=True
     if lease.step_id:
-        lease.store.execute("UPDATE agent_steps SET wait_reason='resource',next_poll=? WHERE id=? AND workflow IN (SELECT id FROM agent_workflows WHERE turn_id=?)",
-                            (lease.store.now()+seconds,lease.step_id,lease.turn_id))
+        lease.store.execute("UPDATE agent_steps SET wait_reason='resource',next_poll=? WHERE id=? AND workflow IN (SELECT id FROM agent_workflows WHERE run_id=?)",
+                            (lease.store.now()+seconds,lease.step_id,lease.run_id))
         return
-    lease.store.execute("INSERT INTO execution_waits VALUES (?,'resource',?,?) ON CONFLICT(task_id) DO UPDATE SET reason=excluded.reason,next_retry=excluded.next_retry,updated=excluded.updated",(lease.turn_id,lease.store.now()+seconds,lease.store.now()))
+    lease.store.execute("INSERT INTO execution_waits VALUES (?,'resource',?,?) ON CONFLICT(task_id) DO UPDATE SET reason=excluded.reason,next_retry=excluded.next_retry,updated=excluded.updated",(lease.run_id,lease.store.now()+seconds,lease.store.now()))

@@ -142,7 +142,7 @@ os.write(2,json.dumps(result).encode())
                 project=store.add_project('owner','cleanup')['id'];task=agent_store.add_turn(store,project,'plan','test')
                 store.execute("INSERT INTO execution_external_cleanup(id,task_id,provider,external_id,state) VALUES ('one',?,'http://127.0.0.1:9898','job123','pending')",(task,))
                 store.execute("INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,external_id,inputs,created,updated,implementation) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                    ('one',task,'step',1,1,'http://127.0.0.1:9898','video.generate_from_image','waiting','job123','{}',0,0,json.dumps({'protocol':'wan-video-v1','provider':'http://127.0.0.1:9898'})))
+                    ('one',task,'step',1,1,'http://127.0.0.1:9898','video.generate_from_image','waiting','job123','{}',0,0,json.dumps({'protocol':'wan-video-v1','provider':'http://127.0.0.1:9898','route_adapter':'generation','cleanup_category':'generation_protocol'})))
                 reaper=Reaper(store,IdentityPool(root/'registry',start=815000,size=2,reconcile=False))
                 original=subprocess.Popen;children=[]
                 def launch(args,**kwargs):

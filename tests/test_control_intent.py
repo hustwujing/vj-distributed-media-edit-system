@@ -186,7 +186,7 @@ class ControlApiTests(unittest.TestCase):
         self.assertEqual(second.status_code,409,second.text)
         self.assertEqual(agent_store.turn(self.store,first['turn']['id'])['status'],'queued')
         self.assertEqual(len(self.store.query('SELECT id FROM agent_turns')),3)
-        self.assertFalse(self.store.query('SELECT * FROM execution_intents WHERE turn_id=?',(first['turn']['id'],)))
+        self.assertFalse(self.store.query('SELECT * FROM execution_intents WHERE run_id=?',(first['turn']['id'],)))
 
     def test_replan_requires_modification_text(self):
         result=self.client.post(self.url,json={'action':'replan'})

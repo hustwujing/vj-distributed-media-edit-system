@@ -42,9 +42,9 @@ class Adapter:
             lease.runtime = lease.runtime_factory()
         if w.get('dynamic'):
             from .execution_contracts import WorkspacePolicy
-            return agent_sandbox.prepare(self.store,w['project'],self.model,turn_id=w['turn_id'],
+            return agent_sandbox.prepare(self.store,w['project'],self.model,run_id=w['run_id'],
                                          workspace_policy=WorkspacePolicy.TASK_OUTPUT_ONLY)
-        return agent_sandbox.prepare(self.store, w['project'], self.model, 'execute', w['turn_id'])
+        return agent_sandbox.prepare(self.store, w['project'], self.model, 'execute', w['run_id'])
 
     def session(self):
         from .egress_policy import session
@@ -66,7 +66,14 @@ class Adapter:
             assets=self.store.assets(w['project'])
             by_id={asset['id']:asset for asset in assets}
             for ref in s['spec'].get('inputs',{}).values():
-                if ref.get('asset'):
+                if ref.get('repair_candidate'):
+                    if not w.get('dynamic') or s.get('purpose') not in ('repair','evidence'):raise ValueError('Repair candidate outside scoped task')
+                    from .workflow_graph import get as get_run
+                    from .repair_inputs import lookup
+                    candidate=lookup(self.store,get_run(self.store,w['id']),ref['repair_candidate'])
+                    source=self.store.artifacts.materialize(w['project'],candidate['reference']['artifact_id'])
+                    target=workspace/candidate['path']
+                elif ref.get('asset'):
                     asset=by_id.get(ref['asset'])
                     if not asset:raise ValueError('Input asset outside project')
                     source=self.store.file(w['project'],'sources/'+asset['filename'])
@@ -152,10 +159,10 @@ class Adapter:
             prepared={'source':folder+'/source.png','mask':folder+'/mask.png','guide':folder+'/selection.png'}
             from .workflows import change,get
             if w.get('manual'):
-                latest=self.store.query('SELECT bindings FROM manual_operation_runs WHERE job_id=?',(w['turn_id'],))[0]
-                self.store.execute('UPDATE manual_operation_runs SET bindings=? WHERE job_id=?',(json.dumps({**json.loads(latest['bindings']),'_prepared':prepared}),w['turn_id']))
+                latest=self.store.query('SELECT bindings FROM manual_operation_runs WHERE job_id=?',(w['run_id'],))[0]
+                self.store.execute('UPDATE manual_operation_runs SET bindings=? WHERE job_id=?',(json.dumps({**json.loads(latest['bindings']),'_prepared':prepared}),w['run_id']))
             else:
-                latest=next(x for x in get(self.store,w['turn_id'])['steps'] if x['id']==s['id'])
+                latest=next(x for x in get(self.store,w['run_id'])['steps'] if x['id']==s['id'])
                 change(self.store,w['id'],s['id'],bindings={**latest['bindings'],'_prepared':prepared})
             if env.get('runtime'):env['runtime'].checkpoint()
             from .image_document import edit_prompt
@@ -201,7 +208,7 @@ class Adapter:
         bindings=resolve(self.store,w,s,env)
         base=endpoint()
         from .workflows import get
-        current=next(x for x in get(self.store,w['turn_id'])['steps'] if x['id']==s['id'])
+        current=next(x for x in get(self.store,w['run_id'])['steps'] if x['id']==s['id'])
         with self.session() as client,contextlib.ExitStack() as stack,request_time(self.store,w,s,'submit'):
             files=[]
             if bindings:
@@ -239,7 +246,7 @@ class Adapter:
             if source.stat().st_size>20*1024**2:raise ValueError('参考图片过大')
             reference=source.read_bytes()
         prepared=generation_service.prepare(spec['operation'],spec['parameters'],reference)
-        current=next(x for x in get(self.store,w['turn_id'])['steps'] if x['id']==s['id'])
+        current=next(x for x in get(self.store,w['run_id'])['steps'] if x['id']==s['id'])
         key=intent(self.store,w,current,prepared['provider'],spec['operation'],generation_service.implementation(prepared))
         try:
             with self.session() as client,request_time(self.store,w,s,'submit'):
@@ -318,7 +325,7 @@ class Adapter:
         if str(helpers) not in sys.path:sys.path.insert(0,str(helpers))
         from transcribe import call_scribe,peak_dbfs
         if peak_dbfs(audio)<-60:raise ValueError('音频为空或静音，未提交收费请求')
-        current=next(x for x in get(self.store,w['turn_id'])['steps'] if x['id']==s['id'])
+        current=next(x for x in get(self.store,w['run_id'])['steps'] if x['id']==s['id'])
         intent(self.store,w,current,'https://api.elevenlabs.io','audio.transcribe')
         from .task_leases import CURRENT
         lease=CURRENT.get()
@@ -434,7 +441,7 @@ class Adapter:
                                         last_progress=line[0]
                                         from .egress_policy import scrub,secrets
                                         note=json.loads(line[0])
-                                        if note.get('type')=='step_progress' and lease:agent_store.event(self.store,lease.turn_id,'progress',{'text':scrub(str(note.get('text',''))[:500],secrets())})
+                                        if note.get('type')=='step_progress' and lease:agent_store.event(self.store,lease.run_id,'progress',{'text':scrub(str(note.get('text',''))[:500],secrets())})
                         except (OSError,ValueError,TypeError,AttributeError):pass
                     if cancelled():raise StepFailure({'message':'本地步骤已停止','code':'cancelled'})
                     if time.monotonic() > deadline:
@@ -486,13 +493,13 @@ class Adapter:
             previous=s.get('bindings',{}).get('_code')
             if previous and previous!=report['files']:raise StepFailure({'message':'脚本/配置版本变化，需要显式修订','code':'code_version'})
             from .workflows import change,get
-            existing=get(self.store,w['turn_id'])
+            existing=get(self.store,w['run_id'])
             if existing and existing['id']==w['id']:
                 current=next(x for x in existing['steps'] if x['id']==s['id'])
                 change(self.store,w['id'],s['id'],bindings={**current['bindings'],'_code':report['files'],'_environment':environment_profile})
             report['environment_profile']=environment_profile
             if existing and existing['id']==w['id']:
-                latest=next(x for x in get(self.store,w['turn_id'])['steps'] if x['id']==s['id'])
+                latest=next(x for x in get(self.store,w['run_id'])['steps'] if x['id']==s['id'])
                 change(self.store,w['id'],s['id'],bindings={**latest['bindings'],'_preflight':report})
             return report
         finally:path.unlink(missing_ok=True)
@@ -617,7 +624,7 @@ class Adapter:
         process=None
         deadline=time.monotonic()+s['spec']['timeout']
         try:
-            agent_store.event(self.store,w['turn_id'],'progress',{'text':s['spec']['name']+('：等待 GPU' if operation.gpu else '：准备处理')})
+            agent_store.event(self.store,w['run_id'],'progress',{'text':s['spec']['name']+('：等待 GPU' if operation.gpu else '：准备处理')})
             with socket.socket(socket.AF_UNIX) as sock,contextlib.ExitStack() as stack:
                 scope=lease.runtime.scope()
                 try:gpu=stack.enter_context(gpu_slot(task['action'],lease,Cancellation(),scope,timeout=min(300,s['spec']['timeout'])))
@@ -627,7 +634,7 @@ class Adapter:
                 stack.callback(lease.runtime.close_scope,scope)
                 sock.bind(str(path));os.chown(path,env['uid'],env['gid']);path.chmod(0o600)
                 with (work/'execution.log').open('w+b') as log:
-                    agent_store.event(self.store,w['turn_id'],'progress',{'text':s['spec']['name']+'：正在处理图片'})
+                    agent_store.event(self.store,w['run_id'],'progress',{'text':s['spec']['name']+'：正在处理图片'})
                     process=subprocess.Popen(image_command(dict(env,image_action=task['action']),path,work,gpu,scope,timeout=s['spec']['timeout']),stdout=log,stderr=subprocess.STDOUT,
                         start_new_session=True,env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8'})
                     scope['stopped']=False
@@ -723,13 +730,33 @@ class Adapter:
     @measured('validate')
     def validate(self,w,s,files):
         env=self.environment(w)
+        payload={'files':files,'acceptance':s['spec'].get('acceptance',[])}
+        from .operations import for_step
+        operation=for_step(s['spec'])
+        if operation and operation.evidence_only:
+            from .workflow_inputs import resolve,roles
+            from .operation_parameters import EvidenceParameters
+            from .operation_lifecycle import for_operation
+            bindings=resolve(self.store,w,s,env);bound=bindings['source'];outputs=roles(s['spec'],files,getattr(files,'roles',None))
+            payload['evidence_report']={'report_file':outputs['report'],'preview_file':outputs['preview'],
+                'source_sha256':bound['sha256'],'source_reference':bound.get('asset') or bound['path'],
+                'reference_sha256':bindings.get('reference',{}).get('sha256'),
+                'parameters':EvidenceParameters.model_validate(s['spec']['parameters']).model_dump(),
+                'implementation_id':for_operation(operation).id}
+        mask=s.get('semantics',{}).get('mask_repair')
+        if mask and mask['level'] in ('A','B'):
+            from .workflow_inputs import resolve,roles
+            bound=resolve(self.store,w,s,env)
+            outputs=roles(s['spec'],files,getattr(files,'roles',None))
+            payload['mask_repair']={'reference':bound[mask['reference_role']]['path'],
+                'candidate':outputs[mask['output_role']],'max_changed_fraction':mask['max_changed_fraction']}
         path=temporary_socket(self.socket_dir)
         try:
             with socket.socket(socket.AF_UNIX) as sock,tempfile.TemporaryFile() as output,tempfile.TemporaryFile() as errors:
                 sock.bind(str(path));os.chown(path,env['uid'],env['gid']);path.chmod(0o600)
                 result=subprocess.run(agent_sandbox.command(dict(env,mode='plan'),path,
                     ['/opt/venv/bin/python','/opt/quality_check.py']),
-                    input=json.dumps({'files':files,'acceptance':s['spec'].get('acceptance',[])}).encode(),
+                    input=json.dumps(payload).encode(),
                     stdout=output,stderr=errors,timeout=90)
                 if result.returncode:
                     errors.seek(0)
@@ -745,7 +772,7 @@ class Adapter:
         self.publish(w,files,candidate=True)
 
     def publish(self, w, files, candidate=False):
-        turn=agent_store.turn(self.store,w['turn_id'])
+        turn=agent_store.turn(self.store,w['run_id'])
         names={str(Path(name).relative_to('edit')) for name in files}
         if not candidate:
             changed=False
@@ -753,7 +780,7 @@ class Adapter:
                 if item['name'] in names and item.get('quality_state')=='pending':
                     item.pop('purpose',None);item['quality_state']='approved';changed=True
             if changed:self.store.execute('UPDATE agent_turns SET artifacts=?,updated=? WHERE id=?',
-                (json.dumps(turn['artifacts']),self.store.now(),w['turn_id']))
+                (json.dumps(turn['artifacts']),self.store.now(),w['run_id']))
         published = {a['name'] for a in turn['artifacts']}
         files = [name for name in files if str(Path(name).relative_to('edit')) not in published]
         if not files:
@@ -763,9 +790,9 @@ class Adapter:
         for name in files:
             baseline.pop(str(Path(name).relative_to('edit')), None)
         env['output_baseline'] = baseline
-        artifacts = agent_sandbox.export_results(env, w['turn_id'])
+        artifacts = agent_sandbox.export_results(env, w['run_id'])
         from .workflows import get
-        current=get(self.store,w['turn_id'])
+        current=get(self.store,w['run_id'])
         for item in artifacts:
             item['quality_state']='pending' if candidate else 'approved'
             if candidate:item['purpose']='quality_candidate'
@@ -778,10 +805,10 @@ class Adapter:
         # Publishing a checkpoint does not mark the whole turn complete.
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            row = db.execute('SELECT artifacts FROM agent_turns WHERE id=?', (w['turn_id'],)).fetchone()
+            row = db.execute('SELECT artifacts FROM agent_turns WHERE id=?', (w['run_id'],)).fetchone()
             prior = json.loads(row['artifacts'])
             names = {a['name'] for a in artifacts}
             merged = [a for a in prior if a['name'] not in names]+artifacts
-            self.store.check_storage(w['project'],sum(a.get('size',0) for a in merged),replace_turn=w['turn_id'])
+            self.store.check_storage(w['project'],sum(a.get('size',0) for a in merged),replace_turn=w['run_id'])
             db.execute('UPDATE agent_turns SET artifacts=?,updated=? WHERE id=?',
-                       (json.dumps(merged, ensure_ascii=False), time.time(), w['turn_id']))
+                       (json.dumps(merged, ensure_ascii=False), time.time(), w['run_id']))

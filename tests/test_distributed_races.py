@@ -104,7 +104,7 @@ class DistributedRaceTests(unittest.TestCase):
                 self.assertTrue(a.wait(2));self.assertTrue(b.wait(2))
                 for lease,store in ((first,self.a),(second,self.b)):
                     with lease.bind(),self.assertRaises(LeaseLost):
-                        store.execute("UPDATE agent_steps SET status='succeeded' WHERE id='left' AND workflow IN (SELECT id FROM agent_workflows WHERE turn_id=?)",(self.task,))
+                        store.execute("UPDATE agent_steps SET status='succeeded' WHERE id='left' AND workflow IN (SELECT id FROM agent_workflows WHERE run_id=?)",(self.task,))
                 self.assertIsNone(self.cb.claim(self.task,'workflow',step_id='right'))
         finally:
             monitor.close();first.release();second.release()
@@ -152,7 +152,7 @@ class DistributedRaceTests(unittest.TestCase):
         self.submit(remote=True);lease=self.ca.claim(self.task,'workflow',step_id='left')
         try:
             with lease.bind():agent_store.event(self.a,self.task,'progress',{'text':'submitting','phase':'submit'})
-            row=self.b.query('SELECT payload FROM agent_events WHERE turn_id=? ORDER BY seq DESC LIMIT 1',(self.task,))[0]
+            row=self.b.query('SELECT payload FROM agent_events WHERE run_id=? ORDER BY seq DESC LIMIT 1',(self.task,))[0]
             event=json.loads(row['payload']);context=event['execution']
             self.assertEqual(context['attempt_id'],lease.attempt);self.assertEqual(context['step_id'],'left')
             self.assertEqual(context['operation'],'image.edit');self.assertEqual(context['revision'],0)

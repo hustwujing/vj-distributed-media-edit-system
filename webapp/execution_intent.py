@@ -29,29 +29,29 @@ class Intent(BaseModel):
 
 def initialize(db):
     db.executescript('''CREATE TABLE IF NOT EXISTS execution_intents(
-      turn_id TEXT PRIMARY KEY,intent TEXT NOT NULL,digest TEXT NOT NULL,created REAL NOT NULL
+      run_id TEXT PRIMARY KEY,intent TEXT NOT NULL,digest TEXT NOT NULL,created REAL NOT NULL
     );''')
 
 
-def declare(store,turn_id,raw):
+def declare(store,run_id,raw):
     value=Intent.model_validate(raw)
     encoded=value.model_dump_json()
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        row=db.execute('SELECT mode,status FROM agent_turns WHERE id=?',(turn_id,)).fetchone()
+        row=db.execute('SELECT mode,status FROM agent_turns WHERE id=?',(run_id,)).fetchone()
         if not row or row['mode']!='plan' or row['status']!='running':raise ValueError('执行意图只能在正在运行的讨论轮声明')
         digest=hashlib.sha256(encoded.encode()).hexdigest()
-        db.execute('INSERT INTO execution_intents VALUES (?,?,?,?) ON CONFLICT(turn_id) DO UPDATE SET intent=excluded.intent,digest=excluded.digest,created=excluded.created',(turn_id,encoded,digest,store.now()))
+        db.execute('INSERT INTO execution_intents VALUES (?,?,?,?) ON CONFLICT(run_id) DO UPDATE SET intent=excluded.intent,digest=excluded.digest,created=excluded.created',(run_id,encoded,digest,store.now()))
         from .plan_readiness import declared
-        declared(store,turn_id,digest)
+        declared(store,run_id,digest)
     return {'intent':value.model_dump(),'digest':digest}
 
 
-def get(store,turn_id):
-    rows=store.query('SELECT mode,plan_id FROM agent_turns WHERE id=?',(turn_id,))
+def get(store,run_id):
+    rows=store.query('SELECT mode,plan_id FROM agent_turns WHERE id=?',(run_id,))
     if not rows:return None
-    ref=rows[0]['plan_id'] if rows[0]['mode']=='execute' else turn_id
-    records=store.query('SELECT intent,digest FROM execution_intents WHERE turn_id=?',(ref,))
+    ref=rows[0]['plan_id'] if rows[0]['mode']=='execute' else run_id
+    records=store.query('SELECT intent,digest FROM execution_intents WHERE run_id=?',(ref,))
     if not records:return None
     value=json.loads(records[0]['intent'])
     labels={'script':'本地处理','image.remove_background':'图片去背景','image.edit':'生成式图片编辑（外部）','image.generate_from_text':'图片生成',
@@ -69,10 +69,10 @@ def enforce_direct(lease,operation):
     def denied(message):
         from .agent_store import event
         from .telemetry import emit
-        event(lease.store,lease.turn_id,'operation_denied',{'operation':operation,'reason':message})
-        emit('operation.intent_denied','WARNING',operation=operation,task_id=lease.turn_id)
+        event(lease.store,lease.run_id,'operation_denied',{'operation':operation,'reason':message})
+        emit('operation.intent_denied','WARNING',operation=operation,task_id=lease.run_id)
         raise ValueError(message)
-    value=get(lease.store,lease.turn_id)
+    value=get(lease.store,lease.run_id)
     if not value:denied('已确认方案未声明直接处理意图，请改用持久化工作流或重新规划独立短任务')
     if value['route']!='single':
         denied('该能力属于已确认的多阶段计划，请作为工作流 operation 步骤提交')
@@ -86,14 +86,14 @@ def enforce_direct(lease,operation):
     lease.consume('direct:'+operation,1)
 
 
-def completion_problem(store,turn_id,artifacts,canvas_result=None,*,delivery_error=None):
+def completion_problem(store,run_id,artifacts,canvas_result=None,*,delivery_error=None):
     """A completed model reply is not proof that the declared work was done."""
-    value=get(store,turn_id)
+    value=get(store,run_id)
     if not value:return None  # Legacy conversations retain their existing contract.
     if value['route']=='workflow':return ('paused','已确认的多阶段方案尚未提交工作流，未标记完成。')
-    if store.query("SELECT seq FROM agent_events WHERE turn_id=? AND kind='operation_denied' LIMIT 1",(turn_id,)):
+    if store.query("SELECT seq FROM agent_events WHERE run_id=? AND kind='operation_denied' LIMIT 1",(run_id,)):
         return ('paused','执行使用了已确认方案之外的能力，未标记完成；请修订方案并重新确认。')
-    pending=store.query("SELECT request_key FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(turn_id,))
+    pending=store.query("SELECT request_key FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(run_id,))
     if pending:return ('paused','外部处理尚未确认完成，任务记录已保留，请核实结果或停止后重新规划。')
     if delivery_error:return ('failed','交付声明未通过检查，生成文件已保留供后续修正：'+delivery_error)
     from .artifacts import is_process_file

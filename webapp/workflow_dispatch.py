@@ -8,9 +8,11 @@ def candidates(store):
     return [dict(row,dynamic=True) for row in store.query('''
         SELECT w.id AS id,t.status AS status,w.status AS workflow_status,w.id AS workflow,s.id AS step_id
         FROM runs w JOIN run_work_items s ON s.run_id=w.id JOIN execution_subjects t ON t.id=w.id
-        WHERE w.status='ACTIVE' AND s.status='ready' AND s.lease_id='' AND s.next_run_at<=?
-          AND (NOT EXISTS(SELECT 1 FROM run_tasks held WHERE held.run_id=w.id AND held.status='paused') OR s.control_kind<>'' OR NOT EXISTS(
-              SELECT 1 FROM run_tasks held WHERE held.run_id=w.id AND held.status='paused'))
+        WHERE (w.status='ACTIVE' OR (w.status='WAITING_USER' AND w.input_barrier_sequence IS NOT NULL AND w.terminal_reason NOT IN ('user_paused','user_rejected')))
+          AND (w.scope_confirmed=1 OR s.control_kind<>'')
+          AND s.selected=1 AND s.status='ready' AND s.lease_id='' AND s.next_run_at<=?
+          AND (w.input_barrier_sequence IS NOT NULL OR s.control_kind<>'' OR s.purpose IN ('repair','evidence') OR NOT EXISTS(
+              SELECT 1 FROM run_tasks held WHERE held.run_id=w.id AND held.selected=1 AND held.status='paused'))
           AND (w.input_barrier_sequence IS NULL OR s.control_kind<>'' OR EXISTS(SELECT 1 FROM run_input_drain d WHERE d.run_id=w.id AND d.task_id=s.id AND d.revision=s.revision))
           AND t.status NOT IN ('succeeded','failed','cancelled','cancelling')
           AND NOT EXISTS(SELECT 1 FROM execution_leases l WHERE l.slot=w.id||'|'||s.id AND l.active=1 AND l.expires>?)
@@ -18,14 +20,14 @@ def candidates(store):
 
 
 def available(store,run,now):
-    if run['status'] not in ('ACTIVE',):return []
-    leased={r['slot'] for r in store.query('SELECT slot FROM execution_leases WHERE turn_id=? AND active=1 AND expires>?',(run['id'],now))}
+    if run['status']!='ACTIVE' and not (run['status']=='WAITING_USER' and run['input_barrier_sequence'] is not None and run['terminal_reason'] not in ('user_paused','user_rejected')):return []
+    leased={r['slot'] for r in store.query('SELECT slot FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(run['id'],now))}
     if run['id'] in leased:return []
     done={task['id'] for task in graph.work_items(run) if task['status']=='succeeded'}
-    control_only=any(t['status']=='paused' and not t.get('control_kind') for t in graph.work_items(run))
+    control_only=run['input_barrier_sequence'] is None and any(t['status']=='paused' and not t.get('control_kind') for t in graph.work_items(run))
     from .run_inputs import can_dispatch
-    return [task['id'] for task in graph.work_items(run) if can_dispatch(run,task) and task['status']=='ready' and not task['lease_id'] and task['next_run_at']<=now
-            and (not control_only or task.get('control_kind'))
+    return [task['id'] for task in graph.work_items(run) if (run['scope_confirmed'] or task.get('control_kind')) and can_dispatch(run,task) and task['status']=='ready' and not task['lease_id'] and task['next_run_at']<=now
+            and (not control_only or task.get('control_kind') or task['purpose'] in ('repair','evidence'))
             and run['id']+'|'+task['id'] not in leased
             and all(edge['upstream_task_id'] in done for edge in run['dependencies'] if edge['downstream_task_id']==task['id'])]
 
@@ -63,7 +65,7 @@ def bind_claim(store,db,run,step_id,attempt,generation):
 def stage_result(store,lease,outcome,data,manifest=None):
     with lease.bind(),store.connect() as db:
         lease.validate(db)
-        run=graph.get(store,lease.turn_id)
+        run=graph.get(store,lease.run_id)
         if not run or run['status'] in ('CANCELLING',*graph.RUN_TERMINAL):raise ValueError('Workflow no longer accepts results')
         task=next((t for t in graph.work_items(run) if t['id']==lease.step_id),None)
         if not task or task['lease_id']!=lease.attempt or task['lease_generation']!=lease.generation:raise ValueError('Result lease replaced')

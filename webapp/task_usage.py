@@ -18,7 +18,7 @@ def initialize(db):
       CREATE TABLE IF NOT EXISTS usage_calls(
       seq INTEGER PRIMARY KEY AUTOINCREMENT,call_id TEXT NOT NULL UNIQUE,task_id TEXT NOT NULL,
       attempt_id TEXT NOT NULL,step_id TEXT NOT NULL,revision INTEGER,category TEXT NOT NULL,
-      operation TEXT NOT NULL,status TEXT NOT NULL,started REAL NOT NULL,finished REAL,
+      operation TEXT NOT NULL,status TEXT NOT NULL,phase TEXT NOT NULL DEFAULT '',started REAL NOT NULL,finished REAL,
       input_tokens BIGINT,output_tokens BIGINT,total_tokens BIGINT,cached_tokens BIGINT,reasoning_tokens BIGINT,
       response_id TEXT NOT NULL DEFAULT '',receipt TEXT NOT NULL DEFAULT 'missing',
       error_code TEXT NOT NULL DEFAULT '',parent_call_id TEXT);
@@ -41,13 +41,13 @@ def attach(db,task,project,created,parent=None,coverage='recorded'):
                (task,project,run,parent,coverage,created))
 
 
-def start(db,task,category,operation,*,call_id=None,attempt='',step='',revision=None,parent=None,started=None):
+def start(db,task,category,operation,*,call_id=None,attempt='',step='',revision=None,parent=None,started=None,phase=''):
     call_id=call_id or uuid.uuid4().hex
-    if step and category!='workflow' and parent is None:
-        row=db.execute("SELECT call_id FROM usage_calls WHERE task_id=? AND step_id=? AND category='workflow' AND status='running' ORDER BY seq DESC LIMIT 1",(task,step)).fetchone()
+    if step and category not in ('workflow','control') and parent is None:
+        row=db.execute("SELECT call_id FROM usage_calls WHERE task_id=? AND step_id=? AND category IN ('workflow','control') AND status='running' AND attempt_id=? ORDER BY seq DESC LIMIT 1",(task,step,attempt)).fetchone()
         parent=row['call_id'] if row else None
-    db.execute('''INSERT OR IGNORE INTO usage_calls(call_id,task_id,attempt_id,step_id,revision,category,operation,status,started,parent_call_id)
-      VALUES (?,?,?,?,?,?,?,'running',?,?)''',(call_id,task,attempt,step,revision,category,(operation or 'script')[:200],started or time.time(),parent))
+    db.execute('''INSERT OR IGNORE INTO usage_calls(call_id,task_id,attempt_id,step_id,revision,category,operation,status,phase,started,parent_call_id)
+      VALUES (?,?,?,?,?,?,?,'running',?,?,?)''',(call_id,task,attempt,step,revision,category,(operation or 'script')[:200],phase,started or time.time(),parent))
     from .telemetry import emit
     emit('usage.call_intent',call_id=call_id,task_id=task,attempt_id=attempt or None,step_id=step or None,operation=operation or 'script')
     return call_id
@@ -91,7 +91,7 @@ def model_call(lease,model,actor='host',observer=None):
     observer=observer or Receipt();call=None;error='';state='unknown'
     if lease:
         with lease.store.connect() as db:
-            call=start(db,lease.turn_id,'llm',model,attempt=lease.attempt,step=lease.step_id or '')
+            call=start(db,lease.run_id,'llm',model,attempt=lease.attempt,step=lease.step_id or '')
     from .live_activity import span
     try:
         with span(actor,'model_wait','等待模型响应',model) as activity:
@@ -114,14 +114,14 @@ def model_call(lease,model,actor='host',observer=None):
             try:
                 with administrative(),measurement_connection(ledger) as db:
                     if ledger.dsn:db.execute('SELECT call_id FROM usage_calls WHERE call_id=? FOR UPDATE',(call,)).fetchone()
-                    complete(db,lease.turn_id,call,observer.status or state,observer.usage,observer.response_id,error)
+                    complete(db,lease.run_id,call,observer.status or state,observer.usage,observer.response_id,error)
             except Exception as exc:
                 from .telemetry import emit
-                emit('usage.receipt_failed','ERROR',exc=exc,task_id=lease.turn_id,attempt_id=lease.attempt)
+                emit('usage.receipt_failed','ERROR',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
 
 
 @contextmanager
-def execution_call(lease,category,operation,*,revision=0,actor='workflow_sandbox',label='执行任务'):
+def execution_call(lease,category,operation,*,revision=0,actor='workflow_sandbox',label='执行任务',phase=''):
     """Best-effort phase/tool accounting; authorization remains in the task lease."""
     from .store import Store
     from .task_lifecycle import administrative
@@ -129,23 +129,23 @@ def execution_call(lease,category,operation,*,revision=0,actor='workflow_sandbox
     from .live_activity import span
     from .telemetry import emit
     observer=Store(lease.store.root,timeout=.05,initialize_schema=False,dsn=lease.store.dsn)
-    call_id=hashlib.sha256(('dispatch:'+lease.attempt).encode()).hexdigest() if category=='workflow' else uuid.uuid4().hex
+    call_id=hashlib.sha256(('dispatch:'+lease.attempt).encode()).hexdigest() if category in ('workflow','control') else uuid.uuid4().hex
     recorded=False;result={'status':'succeeded'}
     try:
         with administrative(),measurement_connection(observer) as db:
-            start(db,lease.turn_id,category,operation,call_id=call_id,attempt=lease.attempt,step=lease.step_id or '',revision=revision)
+            start(db,lease.run_id,category,operation,call_id=call_id,attempt=lease.attempt,step=lease.step_id or '',revision=revision,phase=phase)
         recorded=True
-    except Exception as exc:emit('usage.phase_record_failed','WARNING',exc=exc,task_id=lease.turn_id,step_id=lease.step_id)
+    except Exception as exc:emit('usage.phase_record_failed','WARNING',exc=exc,task_id=lease.run_id,step_id=lease.step_id)
     try:
-        with span(actor,'execution' if category=='workflow' else 'tool',label,operation):yield result
+        with span(actor,'execution' if category in ('workflow','control') else 'tool',label,operation):yield result
     except BaseException as exc:
         result['status']='cancelled' if type(exc).__name__ in ('LeaseLost','TaskLimitReached') else 'failed'
         raise
     finally:
         if recorded:
             try:
-                with administrative(),measurement_connection(observer) as db:complete(db,lease.turn_id,call_id,result['status'])
-            except Exception as exc:emit('usage.phase_receipt_failed','WARNING',exc=exc,task_id=lease.turn_id,step_id=lease.step_id)
+                with administrative(),measurement_connection(observer) as db:complete(db,lease.run_id,call_id,result['status'])
+            except Exception as exc:emit('usage.phase_receipt_failed','WARNING',exc=exc,task_id=lease.run_id,step_id=lease.step_id)
 
 
 def numeric_tree(value,depth=0):
@@ -191,7 +191,7 @@ def _snapshot(store,task,scope,after,limit,provider_after):
     ids=[x['task_id'] for x in members];marks=','.join('?' for _ in ids)
     # Aggregates have no detail pagination limit. No hidden rolling counter.
     groups=store.query(f'''SELECT category,effective_status AS status,COUNT(*) AS calls FROM (SELECT c.category,CASE WHEN c.status='running' AND a.status IN ('expired','interrupted','finished') THEN 'unknown' ELSE c.status END AS effective_status FROM usage_calls c LEFT JOIN execution_attempts a ON a.id=c.attempt_id WHERE c.task_id IN ({marks})) AS states GROUP BY category,effective_status''',ids)
-    counts={k:{'calls':0,'states':{}} for k in ('llm','tool','workflow','provider_submit','provider_poll','provider_collect')}
+    counts={k:{'calls':0,'states':{}} for k in ('llm','tool','workflow','control','provider_submit','provider_poll','provider_collect')}
     for row in groups:
         entry=counts[row['category']];entry['calls']+=row['calls'];entry['states'][row['status']]=row['calls']
     tokens={}
@@ -214,27 +214,27 @@ def _snapshot(store,task,scope,after,limit,provider_after):
         if row['status']=='running' and row['attempt_status'] in ('expired','interrupted','finished'):row['status']='unknown'
     incomplete=store.query(f'''SELECT COUNT(*) AS n FROM usage_calls c JOIN execution_attempts a ON a.id=c.attempt_id
         WHERE c.task_id IN ({marks}) AND c.status='running' AND a.status IN ('expired','interrupted','finished')''',ids)[0]['n']
-    retries=store.query(f"SELECT COALESCE(SUM(n-1),0) AS n FROM (SELECT COUNT(*) AS n FROM usage_calls WHERE category='workflow' AND task_id IN ({marks}) GROUP BY task_id,step_id,revision) AS attempts",ids)[0]['n']
-    repairs=store.query(f'SELECT COALESCE(SUM(s.repair_count),0) AS n FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id IN ({marks})',ids)[0]['n']
+    retries=store.query(f"SELECT COALESCE(SUM(n-1),0) AS n FROM (SELECT COUNT(*) AS n FROM usage_calls WHERE category='workflow' AND phase NOT IN ('poll','collect','validate') AND task_id IN ({marks}) GROUP BY task_id,step_id,revision) AS attempts",ids)[0]['n']
+    repairs=store.query(f'SELECT COALESCE(SUM(s.repair_count),0) AS n FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.run_id IN ({marks})',ids)[0]['n']
     providers=store.query(f'''SELECT p.request_key,p.operation,p.state,p.usage,p.cost,p.poll_count,p.network_seconds,p.step,p.revision,
         p.attempt_id,p.created,p.updated FROM workflow_provider_calls p LEFT JOIN agent_workflows w ON w.id=p.workflow
         LEFT JOIN runs dw ON dw.id=p.workflow
-        WHERE COALESCE(dw.id,w.turn_id,p.workflow) IN ({marks}) ORDER BY p.created''',ids)
+        WHERE COALESCE(dw.id,w.run_id,p.workflow) IN ({marks}) ORDER BY p.created''',ids)
     for row in providers:
         row['usage']=numeric_tree(json.loads(row['usage']))
         cost=json.loads(row['cost']);row['cost']=None
         if isinstance(cost,dict) and isinstance(cost.get('currency'),str) and len(cost['currency'])==3 and cost['currency'].isalpha():
             amount=numeric_tree(cost.get('amount'))
             if isinstance(amount,(int,float)):row['cost']={'amount':amount,'currency':cost['currency'].upper()}
-    quotas=store.query(f'SELECT category,SUM(used) AS used FROM execution_budgets WHERE turn_id IN ({marks}) GROUP BY category',ids)
+    quotas=store.query(f'SELECT category,SUM(used) AS used FROM execution_budgets WHERE run_id IN ({marks}) GROUP BY category',ids)
     phases=store.query(f'SELECT phase,SUM(seconds) AS seconds,SUM(calls) AS calls FROM execution_phase_metrics WHERE task_id IN ({marks}) GROUP BY phase',ids)
     historical=[x['task_id'] for x in members if x['coverage']=='historical']
     historical_tools=0
     if historical:
         hm=','.join('?' for _ in historical)
-        events=store.query(f"SELECT turn_id,payload FROM agent_events WHERE kind='tool' AND turn_id IN ({hm})",historical)
-        historical_tools=len({(e['turn_id'],(p.get('execution') or {}).get('attempt_id',''),p.get('id')) for e in events if (p:=json.loads(e['payload'])).get('id')})
-    attempts=store.query(f"SELECT COUNT(*) AS dispatches,COUNT(DISTINCT CASE WHEN runtime<>'' THEN id END) AS sandboxes FROM execution_attempts WHERE turn_id IN ({marks})",ids)[0]
+        events=store.query(f"SELECT run_id,payload FROM agent_events WHERE kind='tool' AND run_id IN ({hm})",historical)
+        historical_tools=len({(e['run_id'],(p.get('execution') or {}).get('attempt_id',''),p.get('id')) for e in events if (p:=json.loads(e['payload'])).get('id')})
+    attempts=store.query(f"SELECT COUNT(*) AS dispatches,COUNT(DISTINCT CASE WHEN runtime<>'' THEN id END) AS sandboxes FROM execution_attempts WHERE run_id IN ({marks})",ids)[0]
     model_groups=store.query(f"SELECT CASE WHEN c.operation LIKE 'review:%' THEN 'proposal_review' WHEN a.runtime<>'' THEN 'sandbox_agent' ELSE 'host_or_light' END AS purpose,COUNT(*) AS calls FROM usage_calls c LEFT JOIN execution_attempts a ON a.id=c.attempt_id WHERE c.category='llm' AND c.task_id IN ({marks}) GROUP BY 1",ids)
     for call in details:
         if call['category']=='llm':
@@ -253,6 +253,13 @@ def _snapshot(store,task,scope,after,limit,provider_after):
             config=json.loads(entry['configuration'])
             harnesses.append({'digest':entry['digest'],'profile_name':config['name'],'harness':config['harness'],'model':config['model'],
                               'attempts':entry['attempts'],'model_calls':entry['model_calls']})
+    specialists=store.query(f'''SELECT p.profile_id,p.harness_id,p.policy_digest,p.model,p.protocol,
+        COUNT(DISTINCT p.attempt_id) AS attempts,COUNT(c.call_id) AS model_calls
+        FROM specialist_attempt_profiles p LEFT JOIN usage_calls c ON c.attempt_id=p.attempt_id AND c.category='llm'
+        WHERE p.run_id IN ({marks}) GROUP BY p.profile_id,p.harness_id,p.policy_digest,p.model,p.protocol''',ids)
+    for entry in specialists:
+        harnesses.append({'digest':entry['policy_digest'],'profile_name':entry['profile_id'],'harness':entry['harness_id'],
+            'model':entry['model'],'protocol':entry['protocol'],'attempts':entry['attempts'],'model_calls':entry['model_calls']})
     return {'task_id':task,'run_id':root['run_id'],'scope':scope,'members':members,'counts':counts,'tokens':tokens,'computed_total':computed_total,'execution_counts':attempts,'model_purposes':model_groups,'planning_budget':planning_state,'harness_runs':harnesses,
             'workflow_retries':int(retries),'repairs':repairs,'llm_retries':None,'unfinished_calls_on_finished_attempts':incomplete,
             'provider':{'submissions':len(providers),'polls':sum(p['poll_count'] for p in providers),
@@ -271,6 +278,6 @@ def _snapshot(store,task,scope,after,limit,provider_after):
 @contextmanager
 def control_target(store,task):
     from types import SimpleNamespace
-    token=CONTROL_TARGET.set(SimpleNamespace(store=store,turn_id=task,attempt='',step_id=''))
+    token=CONTROL_TARGET.set(SimpleNamespace(store=store,run_id=task,attempt='',step_id=''))
     try:yield
     finally:CONTROL_TARGET.reset(token)

@@ -21,7 +21,7 @@ def supported(job):
 
 
 def tick(host,lease):
-    store=host.store;job=store.job(lease.turn_id)
+    store=host.store;job=store.job(lease.run_id)
     if not supported(job):return False
     if job['status'] in ('cancelled','failed','succeeded'):return True
     rows=store.query('SELECT * FROM manual_operation_runs WHERE job_id=?',(job['id'],))
@@ -40,7 +40,7 @@ def tick(host,lease):
     if row['next_poll']>store.now():return True
     if row['state']=='submitting':
         store.finish(job['id'],'failed',error='外部提交结果未知，未自动重复提交。');return True
-    w={'id':job['id'],'turn_id':job['id'],'project':job['project'],'manual':True,'steps':[]}
+    w={'id':job['id'],'run_id':job['id'],'project':job['project'],'manual':True,'steps':[]}
     s={'id':'image','spec':json.loads(row['spec']),'revision':0,'attempts':0,'external_id':row['external_id'],'bindings':json.loads(row['bindings'])}
     adapter=host.workflow_runner.adapter
     phase='poll' if row['external_id'] else 'submit'

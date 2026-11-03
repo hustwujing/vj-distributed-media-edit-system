@@ -39,7 +39,7 @@ def session():
     lease=CURRENT.get()
     if lease:
         from .task_lifecycle import snapshot
-        state=snapshot(lease.store,lease.turn_id)
+        state=snapshot(lease.store,lease.run_id)
         lifetime=min(lifetime,max(.01,state['deadline_at']-lease.store.now()))
         if lease.runtime:lifetime=min(lifetime,max(.01,state['remaining_seconds']))
     class PinnedConnection:
@@ -161,11 +161,11 @@ def copy_public(source,target,digest=None):
 def denial(lease,category):
     if not lease:return
     with lease.bind(),lease.store.connect() as db:
-        db.execute('INSERT INTO execution_security_events(task_id,category,created) VALUES (?,?,?)',(lease.turn_id,category,lease.store.now()))
-        count=db.execute('SELECT COUNT(*) AS n FROM execution_security_events WHERE task_id=?',(lease.turn_id,)).fetchone()['n']
+        db.execute('INSERT INTO execution_security_events(task_id,category,created) VALUES (?,?,?)',(lease.run_id,category,lease.store.now()))
+        count=db.execute('SELECT COUNT(*) AS n FROM execution_security_events WHERE task_id=?',(lease.run_id,)).fetchone()['n']
         if count>=int(os.environ.get('VIDEO_USE_SECURITY_DENIAL_LIMIT','8')):
             from .task_lifecycle import terminate
-            terminate(db,lease.turn_id,'security')
+            terminate(db,lease.run_id,'security')
 
 
 def provider_base(value):

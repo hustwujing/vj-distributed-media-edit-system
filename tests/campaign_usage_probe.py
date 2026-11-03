@@ -21,7 +21,7 @@ for path in root.glob('*-usage.json'):
             'call_ids_unique':len({r['call_id'] for r in rows})==len(rows),
             'tools':sum(r['category']=='tool' for r in rows)==public['counts']['tool']['calls'],
             'workflow':sum(r['category']=='workflow' for r in rows)==public['counts']['workflow']['calls']}
-    attempts=store.query(f'SELECT a.id,a.turn_id,a.kind,a.status,w.node,w.release FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id IN ({marks})',members)
+    attempts=store.query(f'SELECT a.id,a.run_id,a.kind,a.status,w.node,w.release FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.run_id IN ({marks})',members)
     results.append({'evidence':path.name,'task':task,'checks':checks,'call_watermark':watermark,'database_calls':rows,'attempts':attempts})
 report={'release':release,'at':time.time(),'passed':all(all(r['checks'].values()) for r in results),'results':results}
 (root/'database-reconciliation.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')

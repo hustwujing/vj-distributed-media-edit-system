@@ -2,11 +2,13 @@
 import json
 import os
 import uuid
-from .workflow_graph import Authorization,Proposal,ManagerResult,Task,encode,digest,get,event,validate_proposal,initial_phase
+from .workflow_graph import Authorization,Proposal,ManagerResult,Task,encode,digest,get,event,validate_proposal,initial_phase,active_tasks
 
 
 class ProposalIdentityError(ValueError):pass
 class ProposalReferenceError(ValueError):pass
+class PlanningBudgetExceeded(ValueError):pass
+class PlanningScopeRequired(ProposalReferenceError):code='scope_confirmation_required'
 
 
 def available_operations(store):
@@ -30,11 +32,20 @@ def bind_scope(store,raw):
         raise ValueError('An approved operation is not advertised by workers')
     policy_keys=('external_side_effects','budget_group','concurrency_group','route_adapter','provider_identity','cleanup_category','reuse_safe')
     policies={op['id']:digest({key:op[key] for key in policy_keys}) for op in operations}
+    from .workflow_graph import asset_digest
+    assets={}
+    for identifier in requested.allowed_assets:
+        rows=store.query('SELECT * FROM assets WHERE id=?',(identifier,))
+        if not rows:raise ValueError('Authorized asset does not exist')
+        asset={**rows[0],'metadata':json.loads(rows[0]['metadata'])};assets[identifier]=asset_digest(asset)
+    if any(assets.get(key)!=value for key,value in requested.allowed_asset_digests.items()):raise ValueError('Requested asset version is stale')
+    requested.allowed_asset_digests=assets
     return bind_authorization(requested.model_dump(),implementations=bindings,policies=policies)
 
 
 def snapshot(store,run):
     from .specialist_profiles import catalogue as profiles
+    from .repair_inputs import descriptors
     assets=store.assets(run['project_id'])
     permitted=set(run['authorization']['allowed_assets'])
     operations=available_operations(store)
@@ -55,10 +66,11 @@ def snapshot(store,run):
         'available':op.get('available',False),**{key:op[key] for key in ('external_side_effects','budget_group','concurrency_group','route_adapter','provider_identity','cleanup_category')},'implementation':op.get('implementation'),
         'outputs':op.get('output_contract',{}).get('roles',[]),'contract_digest':digest(op)} for op in operations]
     return {'run_id':run['id'],'goal':run['goal'],'graph_version':run['graph_version'],
+        'scope_confirmation_required':not run['scope_confirmed'],
         'sealed':run['sealed'],'authorization':run['authorization'],'authorization_version':run['authorization_version'],
-        'repair_context':run.get('repair_context',{}),
-        'tasks':[{k:task[k] for k in ('id','spec','status','revision','accepted_result','quality','error_code','error_detail')}
-                 for task in run['tasks'] if not task.get('control_kind')],
+        'repair_context':run.get('repair_context',{}),'repair_candidates':descriptors(store,run),
+        'tasks':[{k:task[k] for k in ('id','spec','status','revision','authorization_version','accepted_result','quality','error_code','error_detail')}
+                 for task in active_tasks(run)],
         'dependencies':run['dependencies'],'assets':[a for a in assets if a['id'] in permitted],
         'diagnostics':diagnostics,'diagnostics_truncated':len(store.query('SELECT step FROM workflow_diagnostics WHERE workflow=? LIMIT 769',(run['id'],)))>768,
         'review_feedback':feedback,'review_feedback_truncated':len(store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND status='rejected' LIMIT 11",(run['id'],)))>10,
@@ -85,12 +97,12 @@ def operation_contract(store,frozen,identifier):
 
 
 def queue(store,run,trigger):
-    if run['input_barrier_sequence'] is not None and 'input_batch' not in trigger:return None
     """Called in the orchestrator's fenced transaction."""
+    if run['input_barrier_sequence'] is not None and 'input_batch' not in trigger:return None
     current=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
     if current:return current[0]['id']
     count=store.query('SELECT COUNT(*) AS n FROM planner_runs WHERE run_id=?',(run['id'],))[0]['n']
-    if count>=run['authorization']['max_planning_rounds']:raise ValueError('Planning round budget exhausted')
+    if count>=run['authorization']['max_planning_rounds']:raise PlanningBudgetExceeded('Planning round budget exhausted')
     identifier=uuid.uuid4().hex;task_id=identifier;now=store.now()
     frozen=snapshot(store,run)
     if frozen is None:
@@ -105,8 +117,8 @@ def queue(store,run,trigger):
         trigger_json,snapshot_json,snapshot_digest,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,'pending',?,?)''',
         (identifier,run['id'],task_id,run['graph_version'],run['authorization_version'],encode(trigger),encode(frozen),digest(frozen),now,now))
     from .specialist_profiles import get as profile
-    store.execute('''INSERT INTO control_jobs(run_id,id,type,control_kind,snapshot_json,snapshot_digest,spec_json,profile_json,status,created_graph_version,created_at,updated_at)
-        VALUES (?,?,'agent','PLAN',?,?,?,?,'ready',?,?,?)''',(run['id'],task_id,encode(frozen),digest(frozen),encode(spec),encode(profile('media_planner').snapshot()),run['graph_version'],now,now))
+    store.execute('''INSERT INTO control_jobs(run_id,id,type,authorization_version,control_kind,snapshot_json,snapshot_digest,spec_json,profile_json,status,created_graph_version,created_at,updated_at)
+        VALUES (?,?,'agent',?,'PLAN',?,?,?,?,'ready',?,?,?)''',(run['id'],task_id,run['authorization_version'],encode(frozen),digest(frozen),encode(spec),encode(profile('media_planner').snapshot()),run['graph_version'],now,now))
     store.execute("UPDATE runs SET status='ACTIVE',updated_at=? WHERE id=?",(now,run['id']))
     event(store,run,'planning_requested',{'request_id':identifier,'round':count+1})
     return identifier
@@ -120,8 +132,12 @@ def stage(store,lease,request_id,raw):
         request=db.execute('SELECT * FROM planner_runs WHERE id=?',(request_id,)).fetchone()
         if not request or request['task_id']!=lease.step_id:raise ValueError('Planner request outside execution scope')
         run=get(store,request['run_id'])
-        if run['id']!=lease.turn_id or request['status'] not in ('pending','running','staged'):raise ValueError('Planner request is no longer active')
+        if run['id']!=lease.run_id or request['status'] not in ('pending','running','staged'):raise ValueError('Planner request is no longer active')
         frozen=json.loads(request['snapshot_json'])
+        if frozen.get('scope_confirmation_required') and result.kind not in ('REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED'):
+            raise PlanningScopeRequired('This successor has no confirmed business scope. Propose a complete authorization and delivery targets before any execution.')
+        if result.kind=='REQUEST_AUTHORIZATION' and result.authorization.goal!=run['goal']:
+            raise PlanningScopeRequired('Copy the frozen goal exactly for scope expansion; use NEW_RUN_REQUIRED for a different top-level goal')
         cutoff=(frozen.get('input_batch') or {}).get('through_sequence',0)
         if (result.snapshot_digest,result.base_graph_version,result.authorization_version,result.input_through_sequence)!=(request['snapshot_digest'],request['base_graph_version'],request['authorization_version'],cutoff):
             raise ValueError('Manager result does not match its frozen snapshot and input batch')
@@ -147,6 +163,8 @@ def apply(store,run,request):
     if request['status']!='staged':raise ValueError('Planner result has not been staged')
     if request['authorization_version']!=run['authorization_version']:raise ValueError('Planning authorization changed')
     result=ManagerResult.model_validate(json.loads(request['proposal_json']))
+    if not run['scope_confirmed'] and result.kind not in ('REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED'):
+        raise ValueError('Business scope has not been confirmed')
     if result.base_graph_version!=run['graph_version'] or result.snapshot_digest!=request['snapshot_digest']:
         raise ValueError('Manager result is stale')
     trigger=json.loads(request['trigger_json']);frozen=json.loads(request['snapshot_json']);context=frozen.get('repair_context',{})
@@ -158,49 +176,66 @@ def apply(store,run,request):
     if input_records:
         user_scope=set()
         for item in input_records:
-            if item['source']=='quality_feedback':user_scope.update(item['context']['allowed_revision_tasks'])
-            else:user_scope.update(task['id'] for task in run['tasks'])
+            user_scope.update(item['context']['allowed_revision_tasks'])
     proposal,tasks,revisions,edges=validate_proposal(store,run,result.proposal.model_dump(),repair_scope=repair_scope,user_revision_scope=user_scope)
 
     version=run['graph_version']+1;now=store.now()
     for task in tasks:
         from .specialist_profiles import get as profile
         frozen=profile(task.profile).snapshot() if task.type=='agent' else {}
-        store.execute('''INSERT INTO run_tasks(run_id,id,type,spec_json,profile_json,status,phase,created_graph_version,created_at,updated_at)
-            VALUES (?,?,?,?,?,'blocked',?,?,?,?)''',(run['id'],task.id,task.type,encode(task.model_dump()),encode(frozen),initial_phase(task),version,now,now))
+        store.execute('''INSERT INTO run_tasks(run_id,id,type,purpose,authorization_version,spec_json,profile_json,status,phase,created_graph_version,created_at,updated_at)
+            VALUES (?,?,?,?,?,?,?,'blocked',?,?,?,?)''',(run['id'],task.id,task.type,task.purpose,run['authorization_version'],encode(task.model_dump()),encode(frozen),initial_phase(task),version,now,now))
         store.execute('''INSERT INTO workflow_task_revisions(run_id,task_id,revision,spec_json,created_graph_version,created_at)
             VALUES (?,?,0,?,?,?)''',(run['id'],task.id,encode(task.model_dump()),version,now))
+    previous_edges={(edge['upstream_task_id'],edge['downstream_task_id']) for edge in run['dependencies']}
+    for upstream,downstream in previous_edges-set(edges):
+        store.execute('UPDATE workflow_dependencies SET retired_graph_version=? WHERE run_id=? AND upstream_task_id=? AND downstream_task_id=?',(version,run['id'],upstream,downstream))
     for upstream,downstream in edges:
-        store.execute('INSERT OR IGNORE INTO workflow_dependencies VALUES (?,?,?,?)',(run['id'],upstream,downstream,version))
+        store.execute('INSERT OR IGNORE INTO workflow_dependencies(run_id,upstream_task_id,downstream_task_id,created_graph_version) VALUES (?,?,?,?)',(run['id'],upstream,downstream,version))
+    for old,new in proposal.replacements.items():
+        previous=next(task for task in run['tasks'] if task['id']==old)
+        store.execute('UPDATE run_tasks SET selected=0 WHERE run_id=? AND id=?',(run['id'],old))
+        store.execute('UPDATE run_tasks SET repair_count=?,user_revision_count=?,repair_context_json=? WHERE run_id=? AND id=?',
+            (previous['repair_count']+int(user_scope is None),previous['user_revision_count']+int(user_scope is not None),
+             encode({'automatic':context,'inputs':input_records,'replaces':old}),run['id'],new))
+        store.execute('INSERT INTO run_task_replacements VALUES (?,?,?,?,?,?)',
+            (run['id'],old,new,version,'user_feedback' if user_scope is not None else 'automatic_repair',now))
+
     if revisions:
         affected=set(revisions)
         while True:
             expanded=affected|{downstream for upstream,downstream in edges if upstream in affected}
             if expanded==affected:break
             affected=expanded
-        current={task['id']:task for task in run['tasks'] if not task.get('control_kind')}
+        current={task['id']:task for task in active_tasks(run)}
         for identifier in sorted(affected):
             row=current[identifier];new_revision=row['revision']+1
             spec=revisions.get(identifier) or Task.model_validate(row['spec'])
-            repair_root=identifier in revisions
+            repair_root=identifier in {task.id for task in proposal.revise_tasks}
             store.execute('''INSERT INTO workflow_task_revisions(run_id,task_id,revision,spec_json,created_graph_version,
                 repair_root,supersedes_revision,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?)''',
                 (run['id'],identifier,new_revision,encode(spec.model_dump()),version,int(repair_root),row['revision'],proposal.reason,now))
-            store.execute('''UPDATE run_tasks SET spec_json=?,revision=?,repair_count=repair_count+?,user_revision_count=user_revision_count+?,repair_context_json=?,status='blocked',phase=?,
-                attempts=0,next_run_at=0,wait_reason='',candidate_result_json='[]',accepted_result_json='[]',quality_json='{}',
+            store.execute('''UPDATE run_tasks SET spec_json=?,purpose=?,authorization_version=?,revision=?,repair_count=repair_count+?,user_revision_count=user_revision_count+?,repair_context_json=?,status='blocked',phase=?,
+                attempts=0,recovery_count=0,review_again_count=0,next_run_at=0,wait_reason='',candidate_result_json='[]',accepted_result_json='[]',quality_json='{}',
                 bindings_json='{}',external_id='',error_code='',error_detail='',lease_id='',lease_generation=0,updated_at=?
-                WHERE run_id=? AND id=?''',(encode(spec.model_dump()),new_revision,int(repair_root and user_scope is None),int(repair_root and user_scope is not None),encode({'automatic':context,'inputs':input_records}),initial_phase(spec),now,run['id'],identifier))
-    repair_context='{}' if revisions else encode(run.get('repair_context',{}))
+                WHERE run_id=? AND id=?''',(encode(spec.model_dump()),spec.purpose,run['authorization_version'],new_revision,int(repair_root and user_scope is None),int(repair_root and user_scope is not None),encode({'automatic':context,'inputs':input_records}),initial_phase(spec),now,run['id'],identifier))
+    repair_context='{}' if revisions or proposal.replacements or proposal.review_again else encode(run.get('repair_context',{}))
     if not store.execute('''UPDATE runs SET graph_version=?,sealed=?,replan_after_json=?,repair_context_json=?,status='ACTIVE',
         next_reconcile_at=?,updated_at=? WHERE id=? AND graph_version=? AND sealed=0''',
         (version,int(proposal.sealed),encode(proposal.replan_after),repair_context,now,now,run['id'],proposal.base_graph_version)):
         raise ValueError('Graph changed before proposal commit')
     store.execute("UPDATE planner_runs SET status='applied',applied_graph_version=?,updated_at=? WHERE id=?",(version,now,request['id']))
-    store.execute("UPDATE control_jobs SET status='succeeded',updated_at=? WHERE run_id=? AND id=?",(now,run['id'],request['task_id']))
-    selected=store.query('SELECT id,revision FROM run_tasks WHERE run_id=?',(run['id'],))
+    store.execute("UPDATE control_jobs SET status='succeeded',error_code='',error_detail='',wait_reason='',updated_at=? WHERE run_id=? AND id=?",(now,run['id'],request['task_id']))
+    selected=store.query('SELECT id,revision FROM run_tasks WHERE run_id=? AND selected=1',(run['id'],))
     for item in selected:
         store.execute('INSERT INTO workflow_plan_tasks(run_id,graph_version,task_id,task_revision,selected_at) VALUES (?,?,?,?,?)',
                       (run['id'],version,item['id'],item['revision'],now))
+    if proposal.review_again:
+        from .workflow_orchestrator import Orchestrator
+        controller=Orchestrator(store)
+        for subject,evidence in proposal.review_again.items():
+            store.execute("UPDATE run_tasks SET status='reviewing',accepted_result_json='[]',review_again_count=review_again_count+1,error_code='',error_detail='' WHERE run_id=? AND id=?",(run['id'],subject))
+            controller.queue_review(get(store,run['id']),subject,evidence_tasks=evidence)
     event(store,{**run,'graph_version':version},'proposal_applied',{'proposal_id':proposal.proposal_id,'added':[t.id for t in tasks],
         'revised':sorted(revisions),'sealed':proposal.sealed})
     if result.input_through_sequence:
@@ -215,18 +250,25 @@ def apply_control_result(store,run,request,result,frozen):
     now=store.now()
     if result.kind=='CONTINUE':
         if not result.input_through_sequence:raise ValueError('CONTINUE requires an input batch')
+        from .workflow_graph import asset_digest,AuthorizationRequired
+        assets={asset['id']:asset for asset in store.assets(run['project_id'])}
+        for task in active_tasks(run):
+            for ref in task['spec'].get('inputs',{}).values():
+                if ref.get('asset') and (ref['asset'] not in assets or run['authorization']['allowed_asset_digests'].get(ref['asset'])!=asset_digest(assets[ref['asset']])):
+                    raise AuthorizationRequired('CONTINUE cannot authorize changed input content')
         store.execute("UPDATE runs SET sealed=?,status='ACTIVE',terminal_reason='' WHERE id=?",
                       (int((frozen.get('input_batch') or {}).get('was_sealed',False)),run['id']))
         finish_batch(store,run,result.input_through_sequence)
     else:
         request_kind={'REQUEST_AUTHORIZATION':'plan_change','REQUEST_USER_INPUT':'input_question',
                       'NEW_RUN_REQUIRED':'new_run'}[result.kind]
+        if result.kind=='REQUEST_AUTHORIZATION' and not run['scope_confirmed']:request_kind='successor_authorization'
         data={'reason':result.reason,'question':result.question,'options':result.options,
               'input_through_sequence':result.input_through_sequence,'new_goal':result.new_goal}
         if result.authorization:data['authorization']=result.authorization.model_dump()
         Orchestrator(store).decision(run,request_kind,data)
         if result.input_through_sequence:defer_batch(store,run,result.input_through_sequence)
     store.execute("UPDATE planner_runs SET status='applied',applied_graph_version=?,updated_at=? WHERE id=?",(run['graph_version'],now,request['id']))
-    store.execute("UPDATE control_jobs SET status='succeeded',updated_at=? WHERE run_id=? AND id=?",(now,run['id'],request['task_id']))
+    store.execute("UPDATE control_jobs SET status='succeeded',error_code='',error_detail='',wait_reason='',updated_at=? WHERE run_id=? AND id=?",(now,run['id'],request['task_id']))
     event(store,run,'manager_result_applied',{'result_kind':result.kind,'through_sequence':result.input_through_sequence})
     return run['graph_version']

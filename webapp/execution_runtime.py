@@ -92,17 +92,17 @@ class TaskRuntime:
             with self.store.connect() as db:
                 expires=db.execute('SELECT expires FROM execution_leases WHERE attempt=?',(lease.attempt,)).fetchone()['expires']
                 permit_seconds=max(0,expires-self.store.now())
-            self.identity.save(task_id=lease.turn_id,node=pool.node,database=str(self.store.root),
+            self.identity.save(task_id=lease.run_id,node=pool.node,database=str(self.store.root),
                     generation=lease.generation,worker=lease.worker,boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
                     permit_until=time.monotonic()+permit_seconds,
                     mount_owner=os.getpid(),mount_owner_start=Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[19])
             with self.store.connect() as db:
                 timestamp=self.store.now()
                 db.execute("INSERT INTO execution_cleanup(attempt,task_id,node,state,updated) VALUES (?,?,?,'allocated',?)",
-                           (lease.attempt,lease.turn_id,pool.node,timestamp))
+                           (lease.attempt,lease.run_id,pool.node,timestamp))
             self.read_gid = grp.getgrnam(runtime_group()).gr_gid
             from .scheduling import requirements
-            resources=requirements(self.store,lease.turn_id,lease.kind,step_id=lease.step_id)
+            resources=requirements(self.store,lease.run_id,lease.kind,step_id=lease.step_id)
             memory_limit=min(int(os.environ.get('VIDEO_USE_TASK_MEMORY_BYTES',str(12*1024**3))),max(512,resources['memory_mb'])*1024**2)
             cpu_limit=min(float(os.environ.get('VIDEO_USE_TASK_CPUS','2')),max(1,resources['cpu']))
             self.groups = Cgroups.__new__(Cgroups)
@@ -145,10 +145,10 @@ class TaskRuntime:
             self.agent.mkdir(mode=0o700)
             self.workspace, self.state = data/'workspace', data/'state'
             table = 'execution_subjects'
-            turn = self.store.query(f'SELECT project FROM {table} WHERE id=?', (lease.turn_id,))[0]
+            turn = self.store.query(f'SELECT project FROM {table} WHERE id=?', (lease.run_id,))[0]
             self.project = self.store.project_dir(turn['project'])
             from .workflow_graph import get as graph_get
-            dynamic=graph_get(self.store,lease.turn_id)
+            dynamic=graph_get(self.store,lease.run_id)
             allowed_scripts=None
             if dynamic:
                 from .workflow_graph import work_item
@@ -248,7 +248,7 @@ class TaskRuntime:
         self.identity.save(cleanup_requested=True,
             cleanup_deadline=self.identity.record.get('cleanup_deadline') or time.monotonic()+max(1,float(os.environ.get('VIDEO_USE_CLEANUP_SECONDS','60'))))
         try:
-            with administrative(),self.store.connect() as db:request_cleanup(db,self.lease.turn_id,attempt_id=self.lease.attempt,external=False)
+            with administrative(),self.store.connect() as db:request_cleanup(db,self.lease.run_id,attempt_id=self.lease.attempt,external=False)
         except Exception:pass
 
     def stage(self, source, destination, manifest=None, include=None):
@@ -267,7 +267,7 @@ class TaskRuntime:
             while process.poll() is None:
                 self.lease.check()
                 table='execution_subjects'
-                status=self.store.query(f'SELECT status FROM {table} WHERE id=?',(self.lease.turn_id,))[0]['status']
+                status=self.store.query(f'SELECT status FROM {table} WHERE id=?',(self.lease.run_id,))[0]['status']
                 if (status in ('cancelled','cancelling') and self.lease.kind!='workflow') or time.monotonic()>deadline:
                     raise RuntimeError('Task preparation cancelled or timed out')
                 time.sleep(.05)
@@ -418,7 +418,7 @@ class TaskRuntime:
             from .task_leases import CURRENT
             token=CURRENT.set(None)
             try:
-                rows=self.store.query('SELECT artifacts FROM agent_turns WHERE id=?',(self.lease.turn_id,))
+                rows=self.store.query('SELECT artifacts FROM agent_turns WHERE id=?',(self.lease.run_id,))
                 referenced={a['file'] for a in json.loads(rows[0]['artifacts'])} if rows else set()
                 for path in getattr(self,'exports',[]):
                     if path.name not in referenced:path.unlink(missing_ok=True)

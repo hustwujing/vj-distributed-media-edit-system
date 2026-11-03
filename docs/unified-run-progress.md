@@ -1,41 +1,52 @@
 # 统一 Run 重构实施记录
 
-本记录只记录实际进展；历史部署与历史真机结果不代表当前分支通过。
+本记录区分源码实现、开发验证、部署和真机验收；历史部署结果不代表当前版本通过。
 
-## 基线
+## 基线与发布状态
 
-- 分支：`feature/unified-run`；完整工作区基线提交：`7e667d8`。
-- GitHub：待代理地址，尚未推送。
-- 本次真机：现有 99 条，尚未部署本轮改动，启动 0 条。
-- 临时文件、测试和证据均放 `/data2/wujing03`；隔离部署只操作本系统专用资源。
+- 分支：`feature/unified-run`；完整工作区基线 `7e667d8`，第一阶段架构提交 `2233fcb`。
+- GitHub：用户要求使用代理，当前未取得可用代理，尚未推送；继续本地实施，不改成直连推送。
+- 本轮尚未部署、尚未启动真机；现有 99 条已重新审查并调整协议，新增 17 条，清单总计 116 条。
+- 临时文件、构建、数据库测试、冻结回归和证据均在 `/data2/wujing03`；只操作本系统专用部署。
 
-## 实施顺序与验收关口
+## 已接通的源码能力
 
-1. Provider 元数据拆分：注册契约、预算、并发、路由、冻结调用记录、取消/恢复、复用与页面；定向协议和竞争测试。
-2. 单一 Run、独立 Control Job、真实 lifecycle phase、WorkspacePolicy 和角色/action capability；接通租约、执行器、控制器、API 和观测。
-3. run_inputs 排空屏障、冻结输入批次、六类统一重规划结果、质量反馈 revision、合法替代和审查去重；事务竞争与重启测试。
-4. 完成原 25 条失败对应的通用修复；审查所有旧 case，登记保留/修改/删除理由并增加新边界 case。
-5. 全量单元及前端检查、隔离部署、逐例真机与内部/浏览器审计、修复复测、完整报告和开发规范刷新。
+| 目标 | 当前实现 | 验证入口 |
+| --- | --- | --- |
+| Provider 元数据 | 副作用、预算组、并发组、路由适配器、具体 Provider、清理类别分离；调用时冻结，无旧 Operation.provider 回退 | test_provider_metadata、生命周期/取消/用量测试 |
+| 单一执行根 | Session → Run → Business Task / Control Job → Attempt / Lease；动态路径不创建 agent_turn；/runs API、下载、事件、调度、取消和观测统一身份 | test_runs、test_dynamic_execution、API/调度/租约测试 |
+| 输入与反馈 | run_inputs、全 Run 派发屏障、drain set、冻结 cutoff、六类 ManagerResult、幂等与快照、用户修订闭包、授权历史、successor 完整确认 | test_run_inputs、test_run_input_races、test_run_feedback |
+| 通用修复 | 不可变 revision、显式 replacement、保留旧失败与 plan selection、用户/自动修订分别有界、Review 去重 | test_run_replacements、test_workflow_contract_repairs |
+| 证据补充 | 候选只读 RepairCandidateRef、media.evidence、SHA 绑定时序/结构/音频/蒙版测量、review_again 不重生成 | test_repair_inputs、test_temporal_evidence、test_media_evidence |
+| 有界恢复 | 正常 poll 不消耗中断恢复次数；原句柄恢复；审查预算不足交回 Manager；输入与失败合并到一次安全点规划 | test_run_recovery |
+| 媒体资源 | 独立 media.normalize_clip Task 接检查点，兼容流 media.concat_sequence 顺序拼接；audio.process、全流测量、受限解码线程 | test_media_plan_compiler、operation 契约/执行测试 |
+| 页面与规范 | 运行中输入、待决反馈、素材/修改根选择、刷新保留草稿、successor 跳转；harness v2 与角色专用结果协议 | 前端单元测试；实际浏览器仍待部署验收 |
+| 重置与部署 | --reset-database：冻结门禁、停止专用服务、备份、检查未知外部请求和未完成清理，再重建专用 public schema | test_dynamic_reset，真实临时 PostgreSQL |
 
-## 已执行验证
+## 开发验证证据
 
-- Provider 第一批：74 项定向测试通过，无失败、无跳过。
-- Provider 第二批：29 项定向测试通过，无失败、无跳过。
-- 新元数据边界及相关回归：59 项通过，无失败、无跳过。
-- 上述批次包含重复覆盖，不应相加作为唯一用例数；最终发布以冻结版本全量报告为准。
+这些批次有重复覆盖，不能相加为唯一测试数，也不是部署后真机结果。
 
-## 当前未完成
+- 冻结源码 `973e38c0849b3a9a9e1ddaf987e104f0891b1050effae4c3fee57941f806c354`：Python **815 项，0 failure、0 error、6 skip**；Node **48 项通过**。证据 `/data2/wujing03/vu-tmp/unified-regression-973e38c0849b/`。6 项为显式 GPU/OCR 实测开关未开启，不能计为模型验证。
+- 定向 63 项：统一身份、输入、反馈、替代、候选证据、时序与两节点实际沙盒执行通过。
+- 定向 80 项：新增目标闭包、successor 完整范围确认、独立片段规范化及契约回归通过。
+- 定向 66 项：重置保护、真实 PostgreSQL 竞争、审查身份、观测和 Reviewer 校验通过。
+- 定向 50 项：补齐失败/输入合并规划、正常 poll 后恢复、Review 去重、输入竞争、API 和观测后通过。
+- 后续源码仍需按最终发布摘要完整门禁；上述冻结结果不能替代更新版本的发布检查。
 
-Provider 拆分正在实施，尚未全量验证或部署。其余工程阶段和真机验收未完成，不勾选完成项。
+## 保留的失败与修复记录
 
-## 2026-11-03 后续进展
+- 旧冻结回归 784 项曾有 7 failure / 7 error / 6 skip；夹具和降权权限问题已修复，原记录保留。
+- 中间冻结回归 809 项曾有 6 failure / 10 error / 6 skip，原因集中于冻结副本根目录受 umask 影响变成 0750，降权进程无法读取源码；修正副本遍历权限后，相关 74 项通过（5 显式 GPU/OCR skip），随后完整 815 项回归通过。
+- successor 新测试曾在错误请求后重新 claim 同一个已经 running 的控制请求，测试夹具已改为同 lease 内验证拒绝和正确响应。
+- 恢复新测试曾遗漏 basic-only acceptance 的理由字段，补齐合法契约后通过；未放宽生产校验。
+- 补测发现 Reviewer evidence 耗尽与在途输入会各自开启 Manager，已改为保留失败事实、统一等待安全点规划，并有专门回归。
 
-- 单一 Run 创建已不再创建 agent_turn；Session 只记录会话与消息，successor 使用独立用量根。
-- PLAN/REVIEW/DIAGNOSE 移至 control_jobs，业务 run_tasks 不再保存 internal；控制任务有独立租约围栏。
-- Run 正式状态收敛为六类；activity 从当前工作派生。动态入口改为 /runs。
-- 类型化 workspace policy、角色/action capability、实际 lifecycle phase 已接入当前动态路径。
-- 已接入 run_inputs、派发屏障、drain set、输入批次上界与六类 ManagerResult；反馈 revise 走同一输入流程，带候选身份和修订闭包。
-- 决策和提案应用补事务 savepoint，拒绝时回滚局部状态及未提交通知。
-- 当前定向集 75 项通过，0 失败/错误/跳过，源码摘要 bef5a2a54e74634f6000b1334e088bed6456553213ed008bcfcff39f69ee19e4。包含真实 PostgreSQL 和两节点沙盒执行测试，但不是全量发布检查或真机验证。
-- Provider 冻结副本全量 784 项：7 failure、7 error、6 显式 GPU/OCR skip；未通过。已发现副本降权读取权限问题、旧夹具缺少提交意图/Provider 元数据，剩余问题待修复复测。原始记录在 /data2/wujing03/vu-tmp/unified-provider-full.log，不能将此轮记为通过。
-- 仍待补齐：合法替代与下游、审查去重、统一问答与 successor 决策、浏览器交互、API 下载/诊断/观测统一身份、真实数据库竞争、外部恢复边界，以及全部真机 case 调整与部署验证。
+## 待完成关口
+
+1. 最终源码冻结全量检查与真机驱动预检；源码文档同步检查。
+2. 专用数据库备份/重置、隔离部署、浏览器入口与运行包实际服务身份检查。
+3. 116 条逐例真机执行、逐例浏览器/日志/观测/数据库/缓存/BOSS/清理审查；程序缺陷修复后复测，明确区分非程序失败与未触发边界。
+4. 完整真机报告、最终规范核对、本地最终提交，以及取得代理后推送 GitHub。
+
+TODO 中的验收勾选包含最终部署证据，未到该关口不提前勾选为完成。

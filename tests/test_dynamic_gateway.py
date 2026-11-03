@@ -152,7 +152,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=[self.bind_reply(reply) for reply in replies]) as model:
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(model.call_count,2)
-        self.assertIn('Unknown input asset',model.call_args_list[1].args[4])
+        self.assertIn('Input asset does not exist',model.call_args_list[1].args[4])
         stored=json.loads(self.store.query('SELECT proposal_json FROM planner_runs')[0]['proposal_json'])
         self.assertEqual(stored['proposal']['add_tasks'][0]['inputs']['source']['asset'],'asset')
         self.assertEqual(len(self.store.query('SELECT * FROM task_results')),1)
@@ -297,8 +297,8 @@ class DynamicGatewayTests(unittest.TestCase):
             import re
             found=re.findall(r'"inspection_id":"([a-f0-9]{32})"',args[4]);actual=found[-1] if found else '0'*32
             inspection='0'*32 if calls==2 else actual
-            return {'action':'result','files':{'review.json':json.dumps({'verdict':'pass',
-                'evidence':[{'criterion_index':0,'observation':'Read actual input','inspection_id':inspection}]})}}
+            return {'action':'result','report':{'verdict':'pass',
+                'evidence':[{'criterion_index':0,'observation':'Read actual input','inspection_id':inspection}]}}
         host=SimpleNamespace(store=self.store,stop=threading.Event())
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=response), \
              patch('webapp.workflow_agents.inspect',return_value={'ref':'asset','text':'actual input'}), \

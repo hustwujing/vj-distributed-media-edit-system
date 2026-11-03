@@ -5,6 +5,7 @@ from .task_usage import snapshot
 
 
 def register(app,store,own_project):
+    @app.get('/api/projects/{project_id}/runs/{task_id}/usage')
     @app.get('/api/projects/{project_id}/tasks/{task_id}/usage')
     def usage(project_id:str,task_id:str,request:Request,scope:Literal['task','run','project']='task',
               after:int=Query(default=0,ge=0),limit:int=Query(default=50,ge=1,le=200),provider_after:int=Query(default=0,ge=0)):

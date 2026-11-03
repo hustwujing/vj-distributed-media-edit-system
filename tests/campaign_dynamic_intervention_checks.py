@@ -14,7 +14,7 @@ def check(state,spec,images,videos,database,fixture,frame,run_dir):
         previous=[graph.get(database,wid) for wid in state.get('run_ids',[])[:-1]]
         checks['prior_deliveries']=[{'run_id':w['id'],'status':w['status'],'delivery_count':len(w['delivery'])} for w in previous]
         expected=2 if case=='R16' else 1
-        if len(previous)!=expected or any(w['status']!='succeeded' or not w['delivery'] for w in previous):
+        if len(previous)!=expected or any(w['status']!='SUCCEEDED' or not w['delivery'] for w in previous):
             errors.append('Required prior successful delivery boundary was not reached')
     reference=run_dir/'references';reference.mkdir(mode=0o700,exist_ok=True)
     sources={}
@@ -27,13 +27,43 @@ def check(state,spec,images,videos,database,fixture,frame,run_dir):
         file=database.artifacts.materialize(project,row['artifact_id'])
         target=reference/(row['task_id']+Path(row['path']).suffix)
         shutil.copyfile(file,target);target.chmod(0o600);sources[row['task_id']]=target
+    for item in state.get('checkpoint_sources',[]):
+        rows=database.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
+                            (item['run_id'],item['task_id'],item['revision']))
+        record=json.loads(rows[0]['manifest']).get(item['path']) if len(rows)==1 else None
+        if not record or record.get('sha256')!=item['sha256']:
+            errors.append('Original accepted checkpoint changed or disappeared: '+item['task_id']);continue
+        target=reference/(item['task_id']+Path(item['path']).suffix)
+        shutil.copyfile(database.artifacts.materialize(project,record['artifact']),target)
+        target.chmod(0o600);sources[item['task_id']]=target
     expected_reuse={'prepare_b'} if case in ('R05','R06') else {'prepare_a'} if case=='R17' else {'prepare_a','prepare_b'}
     if spec['expect']['kind']=='video':expected_reuse.add('clip')
     if not expected_reuse<=sources.keys():errors.append('Required accepted sources were not reused: '+','.join(sorted(expected_reuse-sources.keys())))
     current=graph.get(database,state['run_id'])
     from webapp.operations import get
-    operations=[t for t in current['tasks'] if not t['internal'] and t['spec'].get('operation')
+    baseline={task['id']:task for task in state.get('revision_baseline',[])}
+    if state.get('same_run_revision'):
+        if len(state.get('run_ids',[]))!=1:errors.append('Ordinary revision unexpectedly created another Run')
+        active={task['id']:task for task in graph.active_tasks(current)}
+        unaffected={'prepare_b'} if case in ('R05','R06') else {'prepare_a','prepare_b','clip'}
+        for identifier in unaffected & baseline.keys():
+            old=baseline[identifier];new=active.get(identifier)
+            if not new or (new['revision'],new['attempts'])!=(old['revision'],old['attempts']):
+                errors.append('Unrelated accepted Task was revised or re-executed: '+identifier)
+            elif new['quality'].get('files')!=old['quality'].get('files'):
+                errors.append('Unrelated accepted output changed: '+identifier)
+        root='prepare_a' if case in ('R05','R06') else 'export'
+        changed=root in active and active[root]['revision']>baseline[root]['revision']
+        if case=='R04':changed=changed or bool(active.keys()-baseline.keys())
+        if not changed:
+            errors.append('Changed Task did not receive a new immutable revision: '+root)
+        inputs=database.query('SELECT status FROM run_inputs WHERE run_id=?',(current['id'],))
+        if not inputs or any(item['status']!='APPLIED' for item in inputs):
+            errors.append('Revision inputs were not fully applied')
+    operations=[t for t in graph.active_tasks(current) if t['spec'].get('operation')
                 and get(t['spec']['operation'],t['spec'].get('implementation')).executor=='fixed_image']
+    if state.get('same_run_revision'):
+        operations=[task for task in operations if task['id'] not in baseline or task['revision']>baseline[task['id']]['revision']]
     checks['recomputed_image_operations']=len(operations)
     if case in ('R05','R06'):
         if len(operations)!=1:errors.append('Exactly one changed branch must be recomputed')

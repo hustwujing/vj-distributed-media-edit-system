@@ -1,9 +1,9 @@
 {
   "campaign": "dynamic-plan-independent-deployment",
-  "version": 1,
+  "version": 2,
   "source_count": 77,
-  "new_count": 22,
-  "total_count": 99,
+  "new_count": 39,
+  "total_count": 116,
   "rules": {
     "entry": "Real browser authorization and deployed services; no success-state seeding or mocked live provider results",
     "default_parallel_cases": 2,
@@ -1889,15 +1889,39 @@
       "source_case_id": null,
       "complexity": "simple",
       "title": "保留静音音轨",
-      "assets": ["clip_a.mp4"],
+      "assets": [
+        "clip_a.mp4"
+      ],
       "prompt": "将 clip_a.mp4 保持30秒和640×360画面，保留一条AAC立体声音轨但把实际采样静音。程序验收必须同时声明 audio_track_present=true 和 audio_silent=true，不能用无音轨替代。交付MP4。",
-      "expect": {"kind": "video", "duration": 30, "width": 640, "height": 360, "duration_tolerance": 0.2, "audio": true, "audio_silent": true},
-      "content_checks": ["存在音频流", "解码PCM为静音", "冻结验收区分音轨存在与静音"],
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "audio_silent": true
+      },
+      "content_checks": [
+        "存在音频流",
+        "解码PCM为静音",
+        "冻结验收区分音轨存在与静音"
+      ],
       "workflow_min_steps": 0,
       "dynamic_hook": null,
       "entry_mode": "browser_dynamic_authorization",
       "allowed_external_operations": [],
-      "audit_dimensions": ["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup"],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
       "review_decision": "新增",
       "review_reason": "覆盖音轨存在与实际静音的类型化语义，和S21无音轨形成正反例。",
       "status": "not_run",
@@ -4395,28 +4419,29 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。真实浏览器确认 V1 后，在执行中提出修改要求，验证 Jev 识别 replan 并按 V2 重新执行。",
+      "prompt": "运行中通过反馈追加已验收素材，将整体交付从64×48改为32×24；通过NEW_RUN_REQUIRED确认新目标和完整范围，在successor Run中复用原结果。",
       "expect": {
         "kind": "image",
         "width": 32,
         "height": 24
       },
       "content_checks": [
-        "V1 执行轮被取消且不能覆盖 V2",
-        "usage run_id 保持父子关联",
-        "项目和对象清理完成",
-        "假设和否定消息不改变任务且输入保留",
-        "真实复用回执和产物哈希匹配，原操作不重复执行"
+        "原输入通过run_inputs排空屏障处理",
+        "新目标和素材需完整确认",
+        "已验收原图通过不可变回执复用",
+        "旧候选不交付且用量根独立",
+        "项目和对象清理完成"
       ],
       "workflow_min_steps": 3,
       "hook": "real_replan",
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "浏览器确认 V1",
-        "V1 预处理完成且人工验收暂停时，从聊天框发送否定、假设及尺寸修改要求",
-        "真实 Jev 分类 replan",
-        "确认 V2 并下载结果"
+        "浏览器确认初始范围",
+        "在人工验收处将prepare_a作为复用素材加入项目",
+        "反馈要求改变全局尺寸并附带新素材",
+        "确认NEW_RUN_REQUIRED的完整新范围",
+        "下载successor的32×24图像并核实原素材哈希"
       ],
       "must_reuse": [
         "已完成且程序验收通过的 image.local_adjust 亮度1.1处理"
@@ -4425,7 +4450,7 @@
         "受修改影响的导出步骤"
       ],
       "must_stop": [
-        "V1 execute"
+        "旧方向只在用户批准NEW_RUN_REQUIRED后关闭"
       ],
       "cleanup": {
         "scope": "unique_project",
@@ -4452,9 +4477,9 @@
         "旧状态名及旧 plan_id 绑定",
         "Jev 必须返回 replan 的实现绑定"
       ],
-      "dynamic_hook": "intervention_jev_replan",
+      "dynamic_hook": "intervention_scope_successor",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "保留执行中修改、重新授权、旧结果隔离和续接；移除 Jev 分类器特定断言，新界面使用明确的控制与授权命令。"
+      "review_reason": "全局目标变更统一通过输入屏障和明确successor授权，移除旧Jev分类器与直接取消重启断言。"
     },
     {
       "id": "D01",
@@ -5252,19 +5277,729 @@
       "source_case_id": null,
       "complexity": "dynamic_protocol",
       "title": "诊断后不可变修订并衔接下游",
-      "assets": ["portrait.png"],
+      "assets": [
+        "portrait.png"
+      ],
       "prompt": "创建逻辑Task render，目标和冻结输出始终是64×64 final.png，on_failure=diagnose。render的revision 0使用本地脚本明确退出23以触发真实失败；诊断完成后Manager必须使用revise_tasks只替换该Task的argv，产生revision 1并实际生成图片。再由依赖render的package步骤复制为delivered.png并交付。不得新增另一个替代render Task，不得修改目标、输入输出或验收。",
-      "expect": {"kind": "image", "width": 64, "height": 64},
-      "content_checks": ["失败revision保留", "修复根计数一次", "下游使用新revision", "无关授权不扩大"],
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "失败revision保留",
+        "修复根计数一次",
+        "下游使用新revision",
+        "无关授权不扩大"
+      ],
       "workflow_min_steps": 2,
       "dynamic_hook": "repair_revision",
       "entry_mode": "browser_dynamic_authorization",
       "allowed_external_operations": [],
-      "audit_dimensions": ["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup"],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
       "review_decision": "新增",
       "review_reason": "覆盖失败节点交回Manager、同一逻辑Task新revision、修复计数、后代失效和正式交付。",
       "status": "not_run",
       "attempts": []
+    },
+    {
+      "id": "D22",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "单一Run身份与独立Control Job",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "用本地脚本把portrait.png缩小为64×64 final.png，程序检查后交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "identity",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D23",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "业务排空与全Run派发屏障",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "首轮添加互不依赖的left与right：left用Script等待12秒后将portrait.png缩放为64×64 left.png；right用image.local_adjust对原图做brightness=1.1。两者都是非交付中间结果。添加依赖两者的export，用Pillow左右拼接为128×64 final.png。稍后会补充要求，存量工作应正常完成。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "drain_local",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D24",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "专业Agent在途输入排空",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "创建type=agent、profile=editing_implementer的render业务Task，由其script工具等待8秒后把portrait.png缩小为64×64 final.png；不得改用Script Task替代。技术检查后交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "drain_agent",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D25",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "规划期间连续输入分批处理",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "用本地脚本把portrait.png缩小为64×64 final.png，等待后续补充要求，技术检查后交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "planning_inputs",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D26",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "Wan在途输入保持原句柄",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持服装与整体形象。只允许一次生成。",
+      "expect": {
+        "kind": "video",
+        "duration": 5,
+        "width": 1280,
+        "height": 720
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "drain_wan",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [
+        "video.generate_from_image"
+      ],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D27",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "外部提交未知时输入屏障",
+      "assets": [],
+      "prompt": "使用真实image.generate_from_text生成蓝色杯子PNG，只允许一次生成。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "unknown_input",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [
+        "image.generate_from_text"
+      ],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D28",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "质量反馈幂等与过期快照",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "创建render Script Task，把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "feedback_idempotency",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D29",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "拒绝不能被人工批准且可补证据",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "创建render Script Task，将portrait.png缩小为64×64 final.png；技术验收检查尺寸，Agent验收criterion要求画面中央有一个清晰红色实心圆。但第一版故意不画圆，以真实触发Agent拒绝。保持on_failure=pause，不自动重生成或删掉验收；等待用户反馈。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "no_waiver",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D30",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "局部蒙版修复比例边界",
+      "assets": [],
+      "prompt": "先由Script创建128×128灰度mask：背景0，中央坐标(32,32)到(95,95)为255，(63,63)单像素置0。作为非交付中间结果。再用独立Script填补该孔，输出repaired.png；semantics.mask_repair声明B、local_hole_repair、max_changed_fraction=0.01、reference_role=mask、output_role=mask。显式输入原mask并映射输出mask角色；程序检查尺寸和变化比例，交付修复蒙版。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 128
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "mask_boundary",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D31",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "持续动作的真实时序证据",
+      "assets": [],
+      "prompt": "用本地Script生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断；输入为声明式Python/FFmpeg脚本。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。",
+      "expect": {
+        "kind": "video",
+        "duration": 4,
+        "width": 128,
+        "height": 96
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "temporal_boundary",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D32",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "输入与最终发布竞争",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "publish_input",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D33",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "交付后successor输入幂等",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "successor_inputs",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D34",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "同步外部请求在途输入",
+      "assets": [],
+      "prompt": "使用真实image.generate_from_text生成蓝色杯子PNG，使用同步图片实现image_sync@1，只允许一次请求。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "drain_sync",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [
+        "image.generate_from_text"
+      ],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D35",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "Provider配置切换后冻结路由恢复",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持整体形象，只允许一次生成。",
+      "expect": {
+        "kind": "video",
+        "duration": 5,
+        "width": 1280,
+        "height": 720
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "frozen_route",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [
+        "video.generate_from_image"
+      ],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D36",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "抠图候选边缘反馈修订",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先用SAM3对portrait.png分割宇航员人物，模式subject_cutout，保留身体、衣物及穿戴物，不包含手持/携带物。mask与透明图保存为已验收非交付中间Task source_cutout。再由Script Task render复制透明图为512×512 final.png，声明人工Review等待边缘修改意见，不能代用户批准。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "alpha": true
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "feedback_cutout",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D37",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "双图构图反馈修订",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "先用两个image.local_adjust Task prepare_a、prepare_b将portrait.png、rocket.png分别brightness=1.1，作为已验收非交付中间图；再用Script Task render，以Pillow ImageOps.fit默认方法各适配为64×64，a左b右合成128×64 final.png。render声明人工Review等待构图意见，不能代用户批准。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "feedback_layout",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D38",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "Wan提交前参考图反馈修订",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。",
+      "expect": {
+        "kind": "video",
+        "width": 1280,
+        "height": 720,
+        "duration": 5
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "reference_before_wan",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [
+        "video.generate_from_image"
+      ],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "status": "not_run",
+      "attempts": []
     }
-  ]
+  ],
+  "unified_run_review": {
+    "baseline_cases": 99,
+    "new_cases": 17,
+    "defined_cases": 116,
+    "live_validation": "not_started"
+  }
 }

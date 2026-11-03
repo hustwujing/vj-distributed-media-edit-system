@@ -19,7 +19,7 @@ def snapshot(store,task):
     row=store.query('SELECT mode,status,updated FROM agent_turns WHERE id=?',(task,))
     if not row or row[0]['mode']!='plan':return None
     counts=store.query("SELECT category,operation,COUNT(*) n FROM usage_calls WHERE task_id=? GROUP BY category,operation",(task,))
-    started=store.query("SELECT MIN(started) started FROM execution_attempts WHERE turn_id=? AND runtime<>''",(task,))[0]['started']
+    started=store.query("SELECT MIN(started) started FROM execution_attempts WHERE run_id=? AND runtime<>''",(task,))[0]['started']
     used={'seconds':max(0,(store.now() if row[0]['status'] in ('queued','running','cancelling') else row[0]['updated'])-started) if started else 0,'models':sum(r['n'] for r in counts if r['category']=='llm' and not r['operation'].startswith('review:')),
           'tools':sum(r['n'] for r in counts if r['category']=='tool'),'inspections':sum(r['n'] for r in counts if r['category']=='tool' and r['operation']=='imageView')}
     from .agent_profiles import for_task
@@ -28,11 +28,11 @@ def snapshot(store,task):
 
 def check(lease,admission=True):
     if not lease:return
-    state=snapshot(lease.store,lease.turn_id)
+    state=snapshot(lease.store,lease.run_id)
     blocked=[k for k in state['exhausted'] if admission or k=='seconds' or state['used'][k]>state['limits'][k]] if state else []
     if blocked:
         from .telemetry import emit
-        emit('planning.budget_exhausted',task_id=lease.turn_id,reason=blocked[0])
+        emit('planning.budget_exhausted',task_id=lease.run_id,reason=blocked[0])
         raise PlanningLimit('本轮规划已达到预览与分析预算，已停止继续自检；已有公开说明和可导出的预览会保留。正式任务尚未执行，请缩小规划范围或明确仍需解决的问题。')
 
 
@@ -44,6 +44,6 @@ def instruction():
 
 
 def reserve_model(lease):
-    rows=lease.store.query('SELECT mode FROM agent_turns WHERE id=?',(lease.turn_id,)) if lease else []
+    rows=lease.store.query('SELECT mode FROM agent_turns WHERE id=?',(lease.run_id,)) if lease else []
     if rows and rows[0]['mode']=='plan':
         lease.consume('planning_model',limits()['models'])

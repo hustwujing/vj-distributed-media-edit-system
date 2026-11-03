@@ -167,7 +167,37 @@ def main():
                 except FormatError as exc:failed.append(str(exc));codes.append(exc.code)
             report['checks'].append({'file':value['name'],'severity':rule.get('severity','required'),'passed':not failed,'codes':codes,'criterion':index,'reason':'；'.join(failed) or '通过','actual':value,'expected':rule})
             if failed and rule.get('severity')!='signal':report['passed']=False
-    print(json.dumps(report,ensure_ascii=False))
+    if request.get('evidence_report'):
+        expected=request['evidence_report']
+        try:
+            if expected['report_file'] not in files or expected['preview_file'] not in files:raise ValueError('Evidence outputs outside scope')
+            if Path(expected['report_file']).stat().st_size>65536:raise ValueError('Evidence report exceeds limit')
+            evidence=json.loads(Path(expected['report_file']).read_text())
+            preview=next(item for item in report['files'] if item['name']==expected['preview_file'])
+            if (evidence['version']!='verified-media-evidence-v1' or evidence['source_sha256']!=expected['source_sha256']
+                or evidence.get('reference_sha256')!=expected['reference_sha256'] or evidence['parameters']!=expected['parameters'] or evidence['preview_sha256']!=preview['sha256']):
+                raise ValueError('Evidence does not bind the actual source, parameters and preview')
+            report['verified_evidence']={**evidence,**expected}
+        except Exception as exc:
+            report['technical_valid']=False;report['passed']=False
+            report['checks'].append({'passed':False,'code':'evidence_integrity','error_type':type(exc).__name__,'reason':'证据报告未绑定实际输入和预览'})
+    if request.get('mask_repair'):
+
+        from media_evidence import mask_change_evidence
+        rule=request['mask_repair']
+        try:
+            if rule['candidate'] not in files:raise ValueError('Mask candidate outside declared outputs')
+            measured=mask_change_evidence(rule['reference'],rule['candidate'])
+            passed=measured['changed_fraction']<=rule['max_changed_fraction']
+            report['checks'].append({'passed':passed,'code':'mask_change_limit','actual':measured,
+                'expected':{'max_changed_fraction':rule['max_changed_fraction']},
+                'reason':'局部蒙版改动范围符合约定' if passed else '蒙版改动超出冻结的局部修复范围'})
+        except Exception as exc:
+            passed=False
+            report['checks'].append({'passed':False,'code':'mask_measurement_unavailable','error_type':type(exc).__name__,
+                'reason':'无法核实原蒙版与修复结果的变化范围'})
+        if not passed:report['technical_valid']=False;report['passed']=False
+    print(json.dumps(report,ensure_ascii=False,allow_nan=False))
 
 
 if __name__=='__main__':main()

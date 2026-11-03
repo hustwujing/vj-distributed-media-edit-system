@@ -22,7 +22,7 @@ class OperationLifecycleTests(unittest.TestCase):
                 value=Intent(route='workflow',operations=['image.edit'],implementations={'image.edit':implementation},
                              goal='one approved image',estimated_seconds=300).model_dump_json()
                 fixture.store.execute('''INSERT INTO execution_intents VALUES (?,?,?,?)
-                  ON CONFLICT(turn_id) DO UPDATE SET intent=excluded.intent,digest=excluded.digest''',
+                  ON CONFLICT(run_id) DO UPDATE SET intent=excluded.intent,digest=excluded.digest''',
                   (fixture.plan,value,hashlib.sha256(value.encode()).hexdigest(),fixture.store.now()))
             step={'id':'first','name':'first','kind':'operation','operation':'image.edit','implementation':identifier,
                   'inputs':{'source':{'asset':'asset'}},'parameters':{'prompt':'blue'},'goal':'approved image',

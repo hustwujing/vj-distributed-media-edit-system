@@ -182,13 +182,13 @@ class GatewayProcess:
                     else:raise ValueError('Unknown privileged operation')
             except TaskQuotaReached as exc:
                 from .task_leases import record_quota
-                record_quota(gateway.lease.store,gateway.lease.turn_id,exc)
+                record_quota(gateway.lease.store,gateway.lease.run_id,exc)
                 from .telemetry import emit
-                emit('gateway.quota_exhausted','WARNING',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                emit('gateway.quota_exhausted','WARNING',exc=exc,task_id=gateway.lease.run_id,attempt_id=gateway.lease.attempt,service='gateway')
                 response={'status':403,'body':{'error':{'type':'quota','message':str(exc),**exc.diagnostic}}}
             except ValidationError as exc:
                 from .telemetry import emit
-                emit('gateway.validation_failed','WARNING',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                emit('gateway.validation_failed','WARNING',exc=exc,task_id=gateway.lease.run_id,attempt_id=gateway.lease.attempt,service='gateway')
                 # Do not echo input values, custom validator messages or context:
                 # these can contain credentials from a downstream adapter.
                 fields=['.'.join(str(part)[:80] for part in item['loc'])+': '+item['type']
@@ -197,16 +197,16 @@ class GatewayProcess:
                     'message':'请求参数校验未通过，请修正字段后重试：'+'; '.join(fields)}}}
             except PermissionError as exc:
                 from .telemetry import emit
-                emit('gateway.filesystem_permission_failed','ERROR',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                emit('gateway.filesystem_permission_failed','ERROR',exc=exc,task_id=gateway.lease.run_id,attempt_id=gateway.lease.attempt,service='gateway')
                 response={'status':500,'body':{'error':FILE_PERMISSION_ERROR}}
             except ValueError as exc:
                 from .telemetry import emit
-                emit('gateway.validation_failed','WARNING',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                emit('gateway.validation_failed','WARNING',exc=exc,task_id=gateway.lease.run_id,attempt_id=gateway.lease.attempt,service='gateway')
                 response={'status':422,'body':{'error':{'code':'request_validation_failed',
                     'message':'请求参数或执行条件未通过校验，请检查任务诊断。'}}}
             except Exception as exc:
                 from .telemetry import emit
-                emit('gateway.operation_failed','ERROR',exc=exc,task_id=gateway.lease.turn_id,attempt_id=gateway.lease.attempt,service='gateway')
+                emit('gateway.operation_failed','ERROR',exc=exc,task_id=gateway.lease.run_id,attempt_id=gateway.lease.attempt,service='gateway')
                 response={'status':422,'body':{'error':'工具操作未完成，请检查任务诊断。'}}
             try:send(self.server,response)
             except (OSError,ValueError):return
@@ -237,7 +237,7 @@ class GatewayProcess:
                 'socket':str(gateway.socket_path),'workflow':bool(gateway.workflow_callback),'canvas':bool(gateway.canvas_callback),
                 'workflow_review_id':getattr(gateway,'workflow_review_id',None),
                 'parent':os.getpid(),
-                'lease':{key:getattr(lease,key) for key in ('turn_id','worker','attempt','generation','kind','recovered','prior_kind','ttl','step_id')}}
+                'lease':{key:getattr(lease,key) for key in ('run_id','worker','attempt','generation','kind','recovered','prior_kind','ttl','step_id')}}
         env={'PATH':'/usr/bin:/bin','PYTHONPATH':str(Path(__file__).resolve().parents[1]),'PYTHONDONTWRITEBYTECODE':'1','TMPDIR':str(private)}
         env.update({k:v for k,v in os.environ.items() if k.startswith('VIDEO_USE_') and not any(s in k for s in ('KEY','TOKEN','SECRET','PASSWORD'))})
         env['VIDEO_USE_TELEMETRY_STREAM']='stderr'

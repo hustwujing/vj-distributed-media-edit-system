@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 from webapp import operations
 from webapp.provider_metadata import metadata
-from tests.test_external_cleanup import ExternalCleanupTests
+from tests import test_external_cleanup as fixtures
 
 
 class ProviderMetadataTests(unittest.TestCase):
@@ -46,8 +46,8 @@ class ProviderMetadataTests(unittest.TestCase):
 
 
 class FrozenCleanupMetadataTests(unittest.TestCase):
-    setUp=ExternalCleanupTests.setUp
-    tearDown=ExternalCleanupTests.tearDown
+    setUp=fixtures.ExternalCleanupTests.setUp
+    tearDown=fixtures.ExternalCleanupTests.tearDown
 
     def test_unknown_frozen_route_never_falls_back_to_image_api(self):
         from webapp.external_cleanup import run

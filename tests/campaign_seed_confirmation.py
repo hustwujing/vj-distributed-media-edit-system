@@ -37,7 +37,7 @@ def main():
    from webapp.workspace_state import seed_manifest
    evidence={'passed':result.returncode==0,'isolation':{'postgres_port':pg.port,'api_port':port,'production_changed':False},'tasks':[]}
    for task in host.store.query('SELECT id,project,mode,status,plan_id FROM agent_turns ORDER BY created'):
-    task['usage']=snapshot(host.store,task['id'],scope='project',limit=200);task['attempts']=host.store.query('SELECT id,generation,kind,status,runtime FROM execution_attempts WHERE turn_id=?',(task['id'],));task['readiness']=host.store.query('SELECT * FROM plan_readiness WHERE turn_id=?',(task['id'],));evidence['tasks'].append(task)
+    task['usage']=snapshot(host.store,task['id'],scope='project',limit=200);task['attempts']=host.store.query('SELECT id,generation,kind,status,runtime FROM execution_attempts WHERE run_id=?',(task['id'],));task['readiness']=host.store.query('SELECT * FROM plan_readiness WHERE run_id=?',(task['id'],));evidence['tasks'].append(task)
    state_path=out/'state.json'
    if state_path.exists():
     state=json.loads(state_path.read_text());p=state['project'];evidence['seed']=seed_manifest(host.store,p);evidence['checkpoints']=host.store.query('SELECT attempt,manifest FROM execution_checkpoint_versions WHERE project=? ORDER BY created',(p,))

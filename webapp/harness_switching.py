@@ -110,7 +110,7 @@ def pending(db, task):
 
 
 def _unresolved_tools(store, task):
-    rows = store.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind='tool' ORDER BY seq DESC LIMIT 1001", (task,))
+    rows = store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='tool' ORDER BY seq DESC LIMIT 1001", (task,))
     if len(rows) > 1000:
         return True
     latest_tools = {}
@@ -135,7 +135,7 @@ def reconcile(store, task=None):
             if not turn or turn['status'] in ('cancelling', 'cancelled'):
                 state, reason = 'cancelled', '原任务停止，切换不再激活执行。'
             else:
-                active = db.execute('''SELECT a.id FROM execution_attempts a WHERE a.turn_id=? AND a.kind='agent'
+                active = db.execute('''SELECT a.id FROM execution_attempts a WHERE a.run_id=? AND a.kind='agent'
                   AND (EXISTS(SELECT 1 FROM execution_leases l WHERE l.attempt=a.id AND l.active=1 AND l.expires>?)
                   OR EXISTS(SELECT 1 FROM execution_cleanup c WHERE c.attempt=a.id AND c.state<>'complete')
                   OR (a.status='running' AND a.runtime<>'' AND NOT EXISTS(
@@ -148,7 +148,7 @@ def reconcile(store, task=None):
                     state, reason = 'blocked', '旧 Agent 异常中断且尚未完成状态核实；请先恢复或核实原任务。'
                 else:
                     unknown = db.execute('''SELECT request_key FROM workflow_provider_calls WHERE
-                      (workflow=? OR workflow IN (SELECT id FROM agent_workflows WHERE turn_id=?))
+                      (workflow=? OR workflow IN (SELECT id FROM agent_workflows WHERE run_id=?))
                       AND state IN ('submitting','unknown','submission_unknown') LIMIT 1''', (turn['id'], turn['id'])).fetchone()
                     if unknown or _unresolved_tools(store, turn['id']):
                         state, reason = 'blocked', '存在结果尚未核实的调用，保留任务；请先核实或撤销切换，不会重复执行。'
@@ -169,7 +169,7 @@ def reconcile(store, task=None):
                             from .egress_policy import scrub,secrets
                             encoded_handoff=scrub(json.dumps(handoff,ensure_ascii=False),secrets())
                             checkpoint = db.execute('SELECT path FROM execution_checkpoints WHERE project=?', (turn['project'],)).fetchone()
-                            cursor = db.execute('SELECT MAX(seq) n FROM agent_events WHERE turn_id=?', (turn['id'],)).fetchone()['n'] or 0
+                            cursor = db.execute('SELECT MAX(seq) n FROM agent_events WHERE run_id=?', (turn['id'],)).fetchone()['n'] or 0
                             db.execute('UPDATE agent_run_profiles SET configuration=?,digest=?,generation=generation+1 WHERE task_id=? AND digest=?',
                                        (switch['target_config'], switch['target_digest'], turn['id'], switch['source_digest']))
                             db.execute('DELETE FROM agent_sessions WHERE project=?', (turn['project'],))

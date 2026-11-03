@@ -124,7 +124,7 @@ def bind_execution(store,w,s):
 
 def record_success(store,db,wid,sid):
     """Called in the same fenced transaction as success, including human review."""
-    row=db.execute('''SELECT s.*,w.project,w.plan_id,w.turn_id FROM agent_steps s
+    row=db.execute('''SELECT s.*,w.project,w.plan_id,w.run_id FROM agent_steps s
         JOIN agent_workflows w ON w.id=s.workflow WHERE s.workflow=? AND s.id=?''',(wid,sid)).fetchone()
     spec=json.loads(row['spec']);bindings=json.loads(row['bindings']);quality=json.loads(row['quality'])
     if not eligible(spec):return
@@ -147,7 +147,7 @@ def record_success(store,db,wid,sid):
     if not files or any(f not in manifest or f not in verified or manifest[f]['sha256']!=verified[f].get('sha256') for f in files):return
     try:inputs=input_signature(spec,bindings)
     except ValueError:return
-    receipt={'version':1,'project':row['project'],'plan_id':row['plan_id'],'turn_id':row['turn_id'],
+    receipt={'version':1,'project':row['project'],'plan_id':row['plan_id'],'run_id':row['run_id'],
              'workflow':wid,'step':sid,'revision':row['revision'],'attempt':checkpoints['attempt'],
              'specification':specification(spec),'environment':environment,'server_contract':execution_contract,'inputs':inputs,
              'files':files,'manifest':{f:manifest[f] for f in files},

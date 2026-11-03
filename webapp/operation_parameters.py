@@ -160,10 +160,6 @@ class Pack(Parameters):
 
 class ConcatSequence(Parameters):
     roles:list[str]=Field(min_length=1,max_length=100)
-    width:int|None=Field(default=None,ge=16,le=4096,multiple_of=2)
-    height:int|None=Field(default=None,ge=16,le=4096,multiple_of=2)
-    fps:str|None=Field(default=None,pattern=r'^(24|25|30|50|60|24000/1001|30000/1001|60000/1001)$')
-    crf:int=Field(default=20,ge=12,le=35)
     audio_mode:Literal['preserve','remove']='preserve'
     threads:int=Field(default=2,ge=1,le=4)
     @model_validator(mode='after')
@@ -171,8 +167,16 @@ class ConcatSequence(Parameters):
         import re
         if len(set(self.roles))!=len(self.roles) or any(not re.fullmatch(r'[a-z][a-z0-9_-]{0,39}',role) for role in self.roles):
             raise ValueError('Sequence roles must be unique input role names')
-        if (self.width is None)!=(self.height is None):raise ValueError('Output width and height must be set together')
         return self
+
+
+class NormalizeClip(Parameters):
+    width:int=Field(ge=16,le=4096,multiple_of=2)
+    height:int=Field(ge=16,le=4096,multiple_of=2)
+    fps:str=Field(pattern=r'^(24|25|30|50|60|24000/1001|30000/1001|60000/1001)$')
+    crf:int=Field(default=20,ge=12,le=35)
+    audio_mode:Literal['preserve','remove']='preserve'
+    threads:int=Field(default=2,ge=1,le=4)
 
 
 class AudioProcess(Parameters):
@@ -188,8 +192,19 @@ class AudioProcess(Parameters):
     threads:int=Field(default=2,ge=1,le=4)
 
 
+class EvidenceParameters(Parameters):
+    mode:Literal['auto','image','video_window','audio']='auto'
+    offset:float=Field(default=0,ge=0,le=86400)
+    window_seconds:float=Field(default=8,gt=0,le=8)
+    crop:list[int]|None=Field(default=None,min_length=4,max_length=4)
+    @model_validator(mode='after')
+    def crop_bounds(self):
+        if self.crop and not (0<=self.crop[0]<self.crop[2]<=20000 and 0<=self.crop[1]<self.crop[3]<=20000):raise ValueError('Invalid evidence crop')
+        return self
+
+
 MEDIA_MODELS={'render':Render,'edit':Edit,'analyze':Analyze,'timeline':Timeline,'review':Parameters,'pack':Pack,
-              'concat_sequence':ConcatSequence,'audio_process':AudioProcess}
+              'concat_sequence':ConcatSequence,'normalize_clip':NormalizeClip,'audio_process':AudioProcess,'evidence':EvidenceParameters}
 
 
 @lru_cache(maxsize=128)

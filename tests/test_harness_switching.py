@@ -97,7 +97,7 @@ class HarnessSwitchTests(unittest.TestCase):
         self.s.execute("INSERT INTO execution_budgets VALUES (?,? ,?)",(self.task,'model',7))
         workflows.cancel(self.s,self.task);reconcile(self.s,self.task)
         self.assertEqual(latest(self.s,self.task)['state'],'cancelled')
-        self.assertEqual(self.s.query('SELECT used FROM execution_budgets WHERE turn_id=? AND category=?',(self.task,'model'))[0]['used'],7)
+        self.assertEqual(self.s.query('SELECT used FROM execution_budgets WHERE run_id=? AND category=?',(self.task,'model'))[0]['used'],7)
         self.assertEqual(for_task(self.s,self.task).digest,self.source.digest)
 
     def test_withdraw_switch_does_not_change_task_or_workflow(self):

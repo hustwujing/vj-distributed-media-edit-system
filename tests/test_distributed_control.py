@@ -25,7 +25,16 @@ class DistributedControlTests(unittest.TestCase):
         self.task=agent_store.add_turn(self.a,self.project,'plan','control')
         self.lease=Coordinator(self.a,str(root),'test').claim(self.task,'agent')
         self.addCleanup(self.lease.release)
-        self.w={'id':self.task,'turn_id':self.task};self.s={'id':'image','revision':0,'attempts':0}
+        from webapp import operations
+        from webapp.operation_lifecycle import Implementation,Lifecycle,register,IMPLEMENTATIONS
+        identifier='control_fixture@1';register(Implementation(identifier,Lifecycle.ASYNC))
+        operations.register_implementation('image.edit',identifier,route_adapter='generation',cleanup_category='generation_protocol',provider_identity='control-fixture')
+        self.addCleanup(IMPLEMENTATIONS.pop,identifier,None)
+        self.addCleanup(operations._IMPLEMENTATION_BINDINGS['image.edit'].pop,identifier,None)
+        self.addCleanup(operations._VARIANT_CONTRACTS.pop,('image.edit',identifier),None)
+        self.w={'id':self.task,'run_id':self.task};self.s={'id':'image','revision':0,'attempts':0,
+            'spec':{'kind':'operation','operation':'image.edit','implementation':identifier}}
+
         with self.lease.bind():
             self.key=provider_calls.intent(self.a,self.w,self.s,'https://fixture.example','image.edit',{'protocol':'test-control-v1'})
     def pending(self):
@@ -44,7 +53,7 @@ class DistributedControlTests(unittest.TestCase):
                 self.assertIsNone(coordinator.claim(f.turn,'workflow'))
                 workflows.pause(self.b,f.turn)
                 self.assertEqual(workflows.get(self.a,f.turn)['status'],'paused')
-                self.assertFalse(self.b.query('SELECT id FROM execution_attempts WHERE turn_id=?',(f.turn,)))
+                self.assertFalse(self.b.query('SELECT id FROM execution_attempts WHERE run_id=?',(f.turn,)))
                 workflows.resume(self.a,f.turn)
                 self.assertEqual(workflows.get(self.b,f.turn)['status'],'ready')
             finally:f.tearDown()

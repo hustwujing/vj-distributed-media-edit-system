@@ -118,7 +118,7 @@ def main():
         service('stop',cluster.WORKERS[1])
         task=seed(store,project,'branches');report['workflow_task']=task
         def running_left():
-            rows=store.query("SELECT a.id,a.runtime,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id=? AND a.step_id='left' AND a.status='running'",(task,))
+            rows=store.query("SELECT a.id,a.runtime,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.run_id=? AND a.step_id='left' AND a.status='running'",(task,))
             if rows and rows[0]['runtime']:
                 pid=cluster.run(['systemctl','show',cluster.WORKERS[0],'--property=MainPID','--value']).stdout.strip()
                 marker=cluster.run(['nsenter','-t',pid,'-m','--','find',str(Path(rows[0]['runtime'])/'data/workspace/edit/workflows'),'-name','started.txt','-print','-quit'],check=False)
@@ -139,7 +139,7 @@ def main():
         workflow=workflows.get(store,task)
         assert all(s['status']=='succeeded' for s in workflow['steps'])
         assert workflow['steps'][0]['attempts']>=2
-        attempts=store.query('SELECT a.step_id,a.status,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id=?',(task,))
+        attempts=store.query('SELECT a.step_id,a.status,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.run_id=?',(task,))
         assert any(a['step_id']=='left' and a['status']=='finished' and a['node']!=first['node'] for a in attempts)
         report['cross_node_recovery']=True;report['attempts']=attempts
         final=next(a for a in row['artifacts'] if a.get('workflow_delivery'))
@@ -150,10 +150,10 @@ def main():
         service('start',cluster.WORKERS[0])
         response=client.post(base+'/api/projects',json={'name':'集群取消验收 '+time.strftime('%H:%M:%S')},timeout=10);response.raise_for_status();cancel_project=response.json()['id']
         cancel_task=seed(store,cancel_project,'cancel');report['cancel_task']=cancel_task
-        wait(lambda:store.query("SELECT id FROM execution_attempts WHERE turn_id=? AND step_id='cancel' AND runtime<>'' AND status='running'",(cancel_task,)),'cancel fixture executing',90)
+        wait(lambda:store.query("SELECT id FROM execution_attempts WHERE run_id=? AND step_id='cancel' AND runtime<>'' AND status='running'",(cancel_task,)),'cancel fixture executing',90)
         started=time.monotonic();response=client.post(f'http://127.0.0.1:18767/api/projects/{cancel_project}/agent/{cancel_task}/cancel',timeout=10);response.raise_for_status()
         assert response.json()['cancelled']
-        wait(lambda:not store.query('SELECT attempt FROM execution_leases WHERE turn_id=? AND active=1',(cancel_task,)),'cancelled execution release',30)
+        wait(lambda:not store.query('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1',(cancel_task,)),'cancelled execution release',30)
         wait(lambda:not store.query("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(cancel_task,)),'cancel cleanup',30)
         report['cancel_seconds']=round(time.monotonic()-started,3);report['cross_api_cancel']=True
         assert agent_store.turn(store,cancel_task)['status']=='cancelled'

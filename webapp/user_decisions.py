@@ -69,31 +69,31 @@ def pending(store,wid):
     return requests
 
 
-def answer(store,turn_id,request_id,raw,actor):
+def answer(store,run_id,request_id,raw,actor):
     from . import workflows,workflow_review
     from .task_lifecycle import check
     value=Answer.model_validate(raw)
     with store.connect() as db:
-        db.execute('BEGIN IMMEDIATE');check(db,turn_id)
-        w=workflows.get(store,turn_id)
+        db.execute('BEGIN IMMEDIATE');check(db,run_id)
+        w=workflows.get(store,run_id)
         row=db.execute('SELECT * FROM workflow_user_requests WHERE id=? AND workflow=?',(request_id,w['id'] if w else '')).fetchone()
         if not row or row['status']!='pending' or w['status']!='paused':raise ValueError('用户决策已处理、失效或任务尚未暂停')
         s=next(x for x in w['steps'] if x['id']==row['step'])
         if value.revision!=s['revision'] or s['revision']!=row['revision']:raise ValueError('决策版本已变化')
-        lease=db.execute('SELECT active,expires FROM execution_leases WHERE turn_id=? AND active=1 AND expires>? LIMIT 1',(turn_id,store.now())).fetchone()
+        lease=db.execute('SELECT active,expires FROM execution_leases WHERE run_id=? AND active=1 AND expires>? LIMIT 1',(run_id,store.now())).fetchone()
         if lease and lease['active'] and lease['expires']>store.now():raise ValueError('请等待当前执行资源回收')
         if row['kind']=='quality':
             if value.action not in ('approve','reject'):raise ValueError('质量请求需要明确确认或拒绝')
-            workflows.quality_action(store,turn_id,s['id'],s['revision'],value.action,actor,value.feedback)
+            workflows.quality_action(store,run_id,s['id'],s['revision'],value.action,actor,value.feedback)
         elif row['kind']=='external_call':
             if value.action not in ('approve','reject'):raise ValueError('外部调用需明确批准或拒绝')
             if value.action=='approve':
                 proposal=json.loads(row['proposal'])
                 if not proposal:raise ValueError('没有明确外部重生成提案')
-                workflows.quality_action(store,turn_id,s['id'],s['revision'],'repair',actor,value.feedback,replacement=proposal,confirm_external=True)
+                workflows.quality_action(store,run_id,s['id'],s['revision'],'repair',actor,value.feedback,replacement=proposal,confirm_external=True)
         elif row['kind']=='plan_change':
             if value.action=='approve':
-                workflows.cancel(store,turn_id)
+                workflows.cancel(store,run_id)
                 # The UI restores feedback to the composer only after cancellation.
             elif value.action!='reject':raise ValueError('计划变更需要明确确认或拒绝')
         else:
@@ -107,7 +107,7 @@ def answer(store,turn_id,request_id,raw,actor):
                 if path not in s['candidate']:raise ValueError('候选已失效')
                 bindings={**s['bindings'],'_selected_roles':{**s['bindings'].get('_selected_roles',{}),proposal['output_role']:path}}
                 workflows.change(store,w['id'],s['id'],bindings=bindings,status='verifying',error='',error_code='',next_poll=0)
-                workflows.state(store,turn_id,'ready',text='已保存候选选择，重新验收后继续。')
+                workflows.state(store,run_id,'ready',text='已保存候选选择，重新验收后继续。')
             else:workflow_review.queue(store,w,s,'diagnose')
         db.execute("UPDATE workflow_user_requests SET status='answered',answer=?,updated=? WHERE id=?",(value.model_dump_json(),store.now(),request_id))
-    return workflows.public(workflows.get(store,turn_id))
+    return workflows.public(workflows.get(store,run_id))

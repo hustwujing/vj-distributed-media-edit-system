@@ -107,7 +107,7 @@ class IntentTests(unittest.TestCase):
             fixture.store.execute("UPDATE agent_turns SET status='running' WHERE id=?",(fixture.plan,))
             declare(fixture.store,fixture.plan,{'route':'workflow','operations':['image.remove_background','script'],'goal':'compose','estimated_seconds':300})
             fixture.store.execute("UPDATE agent_turns SET status='succeeded' WHERE id=?",(fixture.plan,))
-            with self.assertRaisesRegex(ValueError,'工作流'):enforce_direct(SimpleNamespace(kind='agent',store=fixture.store,turn_id=fixture.turn),'image.remove_background')
+            with self.assertRaisesRegex(ValueError,'工作流'):enforce_direct(SimpleNamespace(kind='agent',store=fixture.store,run_id=fixture.turn),'image.remove_background')
             with self.assertRaises(ValueError):declare(fixture.store,fixture.plan,{'route':'single','operations':['image.remove_background'],'goal':'change','estimated_seconds':20})
         finally:fixture.tearDown()
 
@@ -166,8 +166,8 @@ class CompletionIntentTests(unittest.TestCase):
             declare(fixture.store,fixture.plan,{'route':'single','operations':['script'],'goal':'transcribe','estimated_seconds':90})
             fixture.store.execute("UPDATE agent_turns SET status='succeeded' WHERE id=?",(fixture.plan,))
             with self.assertRaisesRegex(ValueError,'audio.transcribe'):
-                enforce_direct(SimpleNamespace(kind='agent',store=fixture.store,turn_id=fixture.turn),'audio.transcribe')
+                enforce_direct(SimpleNamespace(kind='agent',store=fixture.store,run_id=fixture.turn),'audio.transcribe')
             self.assertEqual(completion_problem(fixture.store,fixture.turn,[{'name':'transcription-error.json'}])[0],'paused')
-            events=fixture.store.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind='operation_denied'",(fixture.turn,))
+            events=fixture.store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='operation_denied'",(fixture.turn,))
             self.assertEqual(len(events),1)
         finally:fixture.tearDown()

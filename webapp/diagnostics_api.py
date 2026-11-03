@@ -6,11 +6,12 @@ from .api_execution import lane
 
 
 def install(app,store,own_project):
+    @app.get('/api/projects/{project_id}/runs/{task_id}/diagnostics')
     @app.get('/api/projects/{project_id}/diagnostics/{task_id}')
     @lane('diagnostics')
     def task_diagnosis(project_id:str,task_id:str,request:Request,after:int=0,limit:int=100,download:bool=False):
         own_project(project_id,request)
-        rows=store.query('SELECT id FROM agent_turns WHERE project=? AND id=? UNION ALL SELECT id FROM jobs WHERE project=? AND id=?',(project_id,task_id,project_id,task_id))
+        rows=store.query('SELECT id FROM execution_subjects WHERE project=? AND id=?',(project_id,task_id))
         if not rows:raise HTTPException(404,'任务不存在或不属于此项目。')
         from .store import Store
         diagnostic_store=Store(store.root,timeout=1,initialize_schema=False,dsn=store.dsn)
@@ -24,6 +25,10 @@ def install(app,store,own_project):
         for collection in ('provider_calls','external_cleanup'):
             for row in report[collection]:
                 if '://' in row.get('provider',''):row['provider']='configured_provider'
+                if row.get('implementation'):
+                    import json
+                    binding=json.loads(row['implementation']) if isinstance(row['implementation'],str) else row['implementation']
+                    row['implementation']={key:binding[key] for key in ('implementation_id','external_side_effects','budget_group','concurrency_group','route_adapter','provider_identity','cleanup_category','protocol','model') if key in binding}
         report['facts']['current_attempts']=[a for a in report['attempts'] if a['status']=='running']
         return JSONResponse(report,headers={'Content-Disposition':'attachment; filename="diagnosis-'+task_id+'.json"'} if download else {})
 
@@ -35,6 +40,6 @@ def install(app,store,own_project):
         except ValueError:raise HTTPException(400,'无效查询编号。')
         allowed=[]
         for task in ids:
-            if store.query('SELECT id FROM agent_turns WHERE project=? AND id=? UNION ALL SELECT id FROM jobs WHERE project=? AND id=?',(project_id,task,project_id,task)):allowed.append(task)
+            if store.query('SELECT id FROM execution_subjects WHERE project=? AND id=?',(project_id,task)):allowed.append(task)
         if not allowed:raise HTTPException(404,'此项目没有可关联的任务。')
         return {'task_ids':allowed}

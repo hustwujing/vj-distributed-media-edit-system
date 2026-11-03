@@ -385,17 +385,50 @@ def status():
         'release':json.loads((ROOT/'release.json').read_text()) if (ROOT/'release.json').exists() else None},indent=2))
 
 
-def deploy(seed):
+def reset_database():
+    """Explicit fresh-schema deployment; never migrate or touch the shared server."""
+    if DATABASE!='distributed_agent_system' or ROLE!='distributed_agent_system':
+        raise ValueError('Database reset is restricted to this deployment')
+    validate_isolation(environment())
+    if any(active(service) for service in SERVICES):raise ValueError('Stop all dedicated services before database reset')
+    if any(list((registry(node)/'records').glob('*.json')) for node in PORTS):
+        raise ValueError('Executor cleanup must finish before database reset')
+    sql=f'''BEGIN;
+    DO $reset$
+    DECLARE unresolved bigint;
+    BEGIN
+      IF current_database() <> '{DATABASE}' THEN RAISE EXCEPTION 'Wrong reset target'; END IF;
+      IF to_regclass('public.workflow_provider_calls') IS NOT NULL THEN
+        EXECUTE $query$SELECT COUNT(*) FROM workflow_provider_calls WHERE state NOT IN ('succeeded','failed','cancelled','rejected')$query$ INTO unresolved;
+        IF unresolved > 0 THEN RAISE EXCEPTION 'Unresolved Provider calls must be reconciled before reset'; END IF;
+      END IF;
+      IF to_regclass('public.execution_cleanup') IS NOT NULL THEN
+        EXECUTE $query$SELECT COUNT(*) FROM execution_cleanup WHERE state <> 'complete'$query$ INTO unresolved;
+        IF unresolved > 0 THEN RAISE EXCEPTION 'Pending execution cleanup prevents reset'; END IF;
+      END IF;
+    END $reset$;
+    DROP SCHEMA public CASCADE;
+    CREATE SCHEMA public AUTHORIZATION {ROLE};
+    GRANT USAGE ON SCHEMA public TO {ORCHESTRATOR_ROLE};
+    COMMIT;'''
+    run(['runuser','-u','postgres','--',PG_BIN/'psql','-X','-v','ON_ERROR_STOP=1',
+         '-h',PG_SOCKET,'-p',str(PG_PORT),'-d',DATABASE],input=sql)
+
+
+def deploy(seed,*,reset=False):
     configure(seed);prepare_database()
     source,sha=freeze();prepare_runtime(source)
     try:gate(source)
     except (FileNotFoundError,ValueError):verify(source);gate(source)
+    if any(active(s) for s in APIS+WORKERS+[ORCHESTRATOR]):stop()
+    if active(OBSERVER):run(['systemctl','stop',OBSERVER])
     backup=ROOT/'backups'/time.strftime('%Y%m%dT%H%M%S');backup.mkdir(parents=True,mode=0o700)
     if (ROOT/'release.json').exists():shutil.copyfile(ROOT/'release.json',backup/'release.json')
     with (backup/'database.dump').open('wb') as output:
+        (backup/'database.dump').chmod(0o600)
         result=subprocess.run(['runuser','-u','postgres','--',PG_BIN/'pg_dump','-h',PG_SOCKET,'-p',str(PG_PORT),'-Fc',DATABASE],stdout=output,stderr=subprocess.PIPE,timeout=120)
         if result.returncode:raise RuntimeError('Dedicated database backup failed')
-    if any(active(s) for s in APIS+WORKERS+[ORCHESTRATOR]):stop()
+    if reset:reset_database()
     initialize(source);install_units(source)
     run(['systemctl','enable',*SERVICES])
     if active(OBSERVER):run(['systemctl','restart',OBSERVER])
@@ -409,11 +442,13 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=['deploy','configure','start','stop','restart','status','check'],nargs='?',default='status')
     parser.add_argument('--seed-from',type=Path,default=Path('/data2/wujing03/video-use'))
+    parser.add_argument('--reset-database',action='store_true',help='After stopping dedicated services and backing up, replace only the dedicated schema; unresolved calls block reset')
     args=parser.parse_args();os.chdir(REPO)
+    if args.reset_database and args.action!='deploy':parser.error('--reset-database requires deploy')
     if os.geteuid()!=0:raise SystemExit('Deployment requires root')
     with open('/run/distributed-agent-system-control.lock','a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        if args.action=='deploy':deploy(args.seed_from)
+        if args.action=='deploy':deploy(args.seed_from,reset=args.reset_database)
         elif args.action=='configure':configure(args.seed_from);prepare_database()
         elif args.action=='restart':stop();start()
         elif args.action=='check':gate(release());health()

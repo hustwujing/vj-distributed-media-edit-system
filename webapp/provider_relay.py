@@ -36,13 +36,13 @@ class ImageRelay:
         self.process=None
         self.lock = threading.Lock()
         self.total = 0
-        self.record_w={'id':lease.turn_id,'turn_id':lease.turn_id,'manual':lease.kind=='manual','origin':'direct'}
+        self.record_w={'id':lease.run_id,'run_id':lease.run_id,'manual':lease.kind=='manual','origin':'direct'}
         self.record_s={'id':'direct-image','revision':0,'attempts':0,'bindings':{'asset':task.asset,'references':task.references}}
         self.base, self.field = ENDPOINTS['decompose' if task.action=='decompose' else 'edit']
         if base_override:self.base=base_override
         self.base=provider_base(self.base)
         if lease.kind=='manual':
-            previous=lease.store.query('SELECT * FROM execution_provider_calls WHERE turn_id=?',(lease.turn_id,))
+            previous=lease.store.query('SELECT * FROM execution_provider_calls WHERE run_id=?',(lease.run_id,))
             if previous:
                 if len(previous)!=1 or previous[0]['status'] not in ('waiting','succeeded') or not previous[0]['external_id'] or previous[0]['provider']!=self.base:
                     raise RuntimeError('Previous provider submission cannot be safely resumed')
@@ -83,7 +83,7 @@ class ImageRelay:
                                 outer.submitted=True
                             outer.lease.consume('image_provider',4)
                             outer.lease.store.execute('INSERT INTO execution_provider_calls VALUES (?,?,?,?,?,?)',
-                                (outer.call,outer.lease.turn_id,outer.lease.attempt,'submitting','',outer.base))
+                                (outer.call,outer.lease.run_id,outer.lease.attempt,'submitting','',outer.base))
                             content_type=self.headers.get('Content-Type','')
                             if '\r' in content_type or '\n' in content_type:raise ValueError('Invalid multipart header')
                             message=BytesParser(policy=default).parsebytes(('Content-Type: '+content_type+'\r\nMIME-Version: 1.0\r\n\r\n').encode()+raw)
@@ -153,7 +153,7 @@ class ImageRelay:
                 except Exception:
                     if outer.submitted and not outer.job:
                         with contextlib.suppress(Exception):
-                            outer.lease.store.execute("UPDATE workflow_provider_calls SET state='submission_unknown' WHERE request_key=? AND state='submitting'",(outer.lease.turn_id+':direct-image:0',))
+                            outer.lease.store.execute("UPDATE workflow_provider_calls SET state='submission_unknown' WHERE request_key=? AND state='submitting'",(outer.lease.run_id+':direct-image:0',))
                     with contextlib.suppress(OSError):self.reply(502,{'error':'Image tool relay failed; submission will not be repeated automatically'})
         self.server=socketserver.UnixStreamServer(str(path),Handler,bind_and_activate=listener_fd is None)
         if listener_fd is not None:
@@ -167,14 +167,14 @@ class ImageRelay:
             account=pwd.getpwnam(service_user())
             config={'root':str(lease.store.root),'path':str(path),'task':task.model_dump(),'uid':uid,'gid':gid,
                 'call':self.call,'base':self.base,'parent':os.getpid(),
-                'lease':{key:getattr(lease,key) for key in ('turn_id','worker','attempt','generation','kind','recovered','prior_kind','ttl','step_id')}}
+                'lease':{key:getattr(lease,key) for key in ('run_id','worker','attempt','generation','kind','recovered','prior_kind','ttl','step_id')}}
             env={'PATH':'/usr/bin:/bin','PYTHONPATH':str(Path(__file__).resolve().parents[1]),'PYTHONDONTWRITEBYTECODE':'1',
                  'VIDEO_USE_INTERNAL_PROVIDER_HOSTS':os.environ.get('VIDEO_USE_INTERNAL_PROVIDER_HOSTS','localhost,127.0.0.1,::1')}
             env.update({k:v for k,v in os.environ.items() if k.startswith('VIDEO_USE_USER_')})
             for name in ('VIDEO_USE_DATABASE_URL','VIDEO_USE_DISTRIBUTED','VIDEO_USE_OBJECT_BUCKET'):
                 if name in os.environ:env[name]=os.environ[name]
             from .telemetry import child_env
-            env.update(child_env('provider_relay',lease.turn_id,lease.attempt))
+            env.update(child_env('provider_relay',lease.run_id,lease.attempt))
             self.process=subprocess.Popen(['/usr/bin/setpriv',f'--reuid={account.pw_uid}',f'--regid={account.pw_gid}',
                 '--clear-groups','--no-new-privs','--bounding-set=-all',sys.executable,'-m','webapp.gateway_service','relay',str(self.server.fileno())],
                 stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=None,env=env,pass_fds=(self.server.fileno(),))

@@ -55,9 +55,24 @@ def resolve(store,w,s,env):
     assets={a['id']:a for a in env['assets']}
     result={}
     for name,ref in s['spec'].get('inputs',{}).items():
-        if ref.get('asset'):
+        if ref.get('repair_candidate'):
+            if not w.get('dynamic') or s.get('purpose') not in ('repair','evidence'):raise ValueError('Repair candidate read is outside its execution scope')
+            from .workflow_graph import get as get_run
+            from .repair_inputs import lookup
+            candidate=lookup(store,get_run(store,w['id']),ref['repair_candidate'])
+            path=env['workspace']/candidate['path']
+            if digest(path)!=candidate['record']['sha256']:raise ValueError('Repair candidate bytes changed')
+            metadata=candidate['metadata']
+            record={'repair_candidate':candidate['reference'],'path':candidate['path'],'sha256':candidate['record']['sha256'],
+                'metadata':{**metadata,'kind':'video' if metadata.get('video') else 'audio' if metadata.get('audio_track_present') else metadata['kind']}}
+        elif ref.get('asset'):
             asset=assets.get(ref['asset'])
             if not asset:raise ValueError('输入素材不属于当前项目')
+            if w.get('dynamic'):
+                from .workflow_graph import get as get_run,asset_digest,work_item,authority_for
+                run=get_run(store,w['id'])
+                if authority_for(store,run,work_item(run,s['id']))['allowed_asset_digests'].get(asset['id'])!=asset_digest(asset):
+                    raise ValueError('输入素材版本不在冻结授权内，需要重新确认')
             path=env['sources']/asset['filename']
             record={'asset':asset['id'],'path':'sources/'+asset['filename'],'sha256':digest(path),'metadata':asset['metadata']}
             # Fixed media reports can include the display name and filename.
@@ -82,14 +97,16 @@ def resolve(store,w,s,env):
                     'metadata':{**expected,'kind':'video' if expected.get('video') else 'audio' if expected.get('audio') else expected.get('kind')}}
         previous=s.get('bindings',{}).get(name)
         operation=for_step(s['spec'])
-        if operation and record['metadata'].get('kind') not in operation.input_kinds:
-            raise ValueError('输入类型不符合 operation 契约: '+name)
+        if operation:
+            from .operations import contract
+            expected=contract(operation).role_kinds.get(name,operation.input_kinds)
+            if record['metadata'].get('kind') not in expected:raise ValueError('输入类型不符合 operation 契约: '+name)
         if previous and previous!=record:raise ValueError('本次步骤输入版本发生变化，需要显式修订')
         result[name]=record
     if result:
         if w.get('manual'):
             import json
-            store.execute('UPDATE manual_operation_runs SET bindings=? WHERE job_id=?',(json.dumps(result),w['turn_id']))
+            store.execute('UPDATE manual_operation_runs SET bindings=? WHERE job_id=?',(json.dumps(result),w['run_id']))
         else:
             from .workflows import change
             import json

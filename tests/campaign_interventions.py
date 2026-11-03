@@ -201,7 +201,7 @@ class Case:
             execution_intent.declare(self.store,plan,{'route':'workflow','operations':[s.get('operation','script') for s in steps],
                 'goal':goal,'estimated_seconds':180})
             agent_store.finish(self.store,plan,'succeeded',goal)
-            db.execute("UPDATE plan_readiness SET state='ready',reason='QA fixture: explicit reviewed proposal' WHERE turn_id=?",(plan,))
+            db.execute("UPDATE plan_readiness SET state='ready',reason='QA fixture: explicit reviewed proposal' WHERE run_id=?",(plan,))
         item={'version':version,'plan_id':plan,'definition':{'key':self.spec['id']+'-v'+str(version),'name':self.spec['title'],'steps':steps},'config':config}
         self.state['versions'].append(item);self.event('fixture_plan_created',version=version,plan_id=plan)
         if execute:self.execute(item)
@@ -284,7 +284,7 @@ class Case:
             assert set(self.spec['must_reuse']).issubset({p['step'] for p in proof if p['reused']})
             assert set(self.spec['must_recompute']).issubset({p['step'] for p in proof if not p['reused']})
         self.state.setdefault('reuse_checks',[]).append({'version':item['version'],'nodes':proof});self.persist()
-        budget=self.store.query("SELECT used FROM execution_budgets WHERE turn_id=? AND category='local_image'",(item['task'],))
+        budget=self.store.query("SELECT used FROM execution_budgets WHERE run_id=? AND category='local_image'",(item['task'],))
         expected_calls=sum(s['spec']['operation']=='image.local_adjust' and not s['spec'].get('reuse_from') for s in w['steps'] if s['spec']['kind']=='operation')
         assert (budget[0]['used'] if budget else 0)==expected_calls,'Reused image operations were executed again'
 
@@ -417,7 +417,7 @@ class Case:
                     self.event('safe_pause_observed',task=initial['task'])
                 if stage=='completion_race':
                     deadline=time.monotonic()+60
-                    while not self.store.query("SELECT seq FROM agent_events WHERE turn_id=? AND kind='progress' AND payload LIKE ?",(initial['task'],'%QA_EXPORT_OUTPUT_READY%')):
+                    while not self.store.query("SELECT seq FROM agent_events WHERE run_id=? AND kind='progress' AND payload LIKE ?",(initial['task'],'%QA_EXPORT_OUTPUT_READY%')):
                         if time.monotonic()>deadline:raise TimeoutError('Actual output-completion marker was not observed')
                         time.sleep(.1)
                     self.event('cancel_at_actual_output_boundary',task=initial['task'])
@@ -430,7 +430,7 @@ class Case:
                 if stage=='awaiting_review':
                     # Wait for the actual lease to relinquish before feedback.
                     deadline=time.monotonic()+30
-                    while self.store.query('SELECT attempt FROM execution_leases WHERE turn_id=? AND active=1 AND expires>?',(initial['task'],self.store.now())):
+                    while self.store.query('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(initial['task'],self.store.now())):
                         if time.monotonic()>deadline:raise TimeoutError('Review lease did not release')
                         time.sleep(.2)
                     self.api('POST',f'/api/projects/{self.project}/agent/{initial["task"]}/quality',json={'step_id':'export','revision':0,'action':'reject','feedback':'请给最终联系表加4像素红色边框，保留已完成预处理。'})
@@ -443,7 +443,7 @@ class Case:
                 old=self.plan(2,roots,parent=initial['task'],execute=False,draft_baseline=True)
                 current=self.plan(2,roots,parent=old['plan_id'],execute=False)
                 self.event('proposal_changed',before=old['config'],after=current['config'])
-                ready=self.store.query('SELECT digest FROM plan_readiness WHERE turn_id=?',(old['plan_id'],))[0]
+                ready=self.store.query('SELECT digest FROM plan_readiness WHERE run_id=?',(old['plan_id'],))[0]
                 self.api('POST',f'/api/projects/{self.project}/agent/messages',expected=409,
                     json={'message':'尝试确认已经被替代的旧方案','mode':'execute','plan_id':old['plan_id'],'plan_digest':ready['digest']})
                 self.event('stale_confirmation_rejected',plan_id=old['plan_id']);self.execute(current)

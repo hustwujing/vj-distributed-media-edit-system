@@ -26,6 +26,9 @@ Do not open an unbounded number of independent decoders in one FFmpeg command. U
 `media.concat_sequence` operation for large sequential assemblies and `audio.process` for common
 gain/fade/loudness work. A single `-threads` before the first input applies only to that decoder;
 it does not constrain later inputs.
+For heterogeneous clips, use independent `media.normalize_clip` Tasks with a common explicit
+width/height/fps/audio profile, accept their video checkpoints, then concatenate those outputs.
+Normalization is a business DAG step so a failed clip can be repaired without redoing accepted clips.
 
 For speed changes preserving pitch, use atempo with the corresponding video
 setpts transformation. For measurements, compute from actual decoded samples;

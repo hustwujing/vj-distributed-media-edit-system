@@ -1,7 +1,6 @@
 """Deterministic, bounded measurements shared by quality checks and reviewers."""
 from __future__ import annotations
 
-from array import array
 import math
 from pathlib import Path
 import re
@@ -72,10 +71,13 @@ def alpha_evidence(image) -> dict:
             'alpha_edge_fraction':edge/max(1,foreground)}
 
 
-def audio_evidence(path: str | Path, *, sample_seconds: float=120) -> dict:
-    """Return bounded objective audio measurements without retaining PCM."""
-    command=['ffmpeg','-nostdin','-v','info','-threads','1','-i',str(path),'-map','0:a:0',
-             '-t',str(sample_seconds),'-af','ebur128=peak=true,volumedetect','-f','null','-']
+def audio_evidence(path: str | Path, *, sample_seconds: float|None=None) -> dict:
+    """Measure the complete stream by default, with bounded time and log output."""
+    if sample_seconds is not None and (not math.isfinite(sample_seconds) or sample_seconds<=0):
+        raise ValueError('Invalid audio sampling duration')
+    command=['ffmpeg','-nostdin','-nostats','-hide_banner','-v','info','-threads','1','-i',str(path),'-map','0:a:0']
+    if sample_seconds is not None:command+=['-t',str(sample_seconds)]
+    command+=['-af','ebur128=peak=true:framelog=verbose,volumedetect','-f','null','-']
     run=subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,
                        timeout=45,check=False)
     text=run.stderr.decode('utf-8','replace')[-256000:]
@@ -87,25 +89,58 @@ def audio_evidence(path: str | Path, *, sample_seconds: float=120) -> dict:
     integrated=number(r'\bI:\s*(-?inf|-?\d+(?:\.\d+)?)\s+LUFS')
     peak=number(r'max_volume:\s*(-?inf|-?\d+(?:\.\d+)?)\s+dB')
     mean=number(r'mean_volume:\s*(-?inf|-?\d+(?:\.\d+)?)\s+dB')
-    return {'audio_silent':peak is None or not math.isfinite(peak) or peak<=-60,
-            'integrated_loudness_lufs':integrated,'mean_volume_db':mean,'peak_volume_db':peak,
-            'measurement_seconds':sample_seconds}
+    if peak is None or mean is None or integrated is None:raise ValueError('Audio measurement is incomplete')
+    finite=lambda value:value if math.isfinite(value) else None
+    return {'audio_silent':peak<=-60,'integrated_loudness_lufs':finite(integrated),
+            'mean_volume_db':finite(mean),'peak_volume_db':finite(peak),
+            'measurement_seconds':sample_seconds,'measurement_scope':'full' if sample_seconds is None else 'sampled'}
+
+
+def mask_change_evidence(reference,candidate):
+    """Compare full-resolution mask samples without resizing or semantic guesses."""
+    import numpy as np
+    from PIL import Image
+    def load(path):
+        with Image.open(path) as source:
+            if source.width*source.height>32_000_000 or getattr(source,'n_frames',1)!=1:
+                raise ValueError('Mask measurement resource limit')
+            if 'A' in source.getbands():return np.array(source.getchannel('A'))
+            rgb=np.array(source.convert('RGB'))
+            if np.any(rgb[:,:,0]!=rgb[:,:,1]) or np.any(rgb[:,:,1]!=rgb[:,:,2]):
+                raise ValueError('Mask reference must be alpha or grayscale')
+            return rgb[:,:,0]
+    before=load(reference);after=load(candidate)
+    if before.shape!=after.shape:raise ValueError('Local mask repair cannot change geometry')
+    changed=int(np.count_nonzero(before!=after));subject=int(np.count_nonzero(before>0))
+    if not subject:raise ValueError('Local repair requires a nonempty reference subject')
+    return {'changed_pixels':changed,'pixels':int(before.size),'reference_subject_pixels':subject,
+            'changed_fraction':changed/subject,'canvas_changed_fraction':changed/before.size}
 
 
 def dominant_frequency(path: str | Path, *, sample_seconds: float=20, sample_rate: int=8000) -> float | None:
-    """Estimate a stable tone by bounded zero crossings; intended for objective tone criteria."""
+    """Estimate a stable narrow-band tone; broadband or varying pitch is unknown."""
+    if not math.isfinite(sample_seconds) or not 0<sample_seconds<=60 or type(sample_rate)!=int or not 4000<=sample_rate<=48000:
+        raise ValueError('Tone measurement exceeds its sampling limits')
     command=['ffmpeg','-nostdin','-v','error','-threads','1','-i',str(path),'-map','0:a:0',
              '-t',str(sample_seconds),'-ac','1','-ar',str(sample_rate),'-f','f32le','pipe:1']
     run=subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
                        timeout=30,check=False)
     if run.returncode or not run.stdout:return None
-    values=array('f');values.frombytes(run.stdout)
-    if not values:return None
-    peak=max(abs(value) for value in values)
-    if peak<1e-4:return None
-    threshold=peak*.05;crossings=0;previous=0
-    for value in values:
-        sign=1 if value>threshold else -1 if value<-threshold else previous
-        if previous and sign!=previous:crossings+=1
-        previous=sign
-    return crossings*sample_rate/(2*len(values)) if crossings else None
+    import numpy as np
+    values=np.frombuffer(run.stdout,dtype='<f4')
+    if len(values)<512 or not np.isfinite(values).all() or np.max(np.abs(values))<1e-4:return None
+    size=min(4096,len(values));window=np.hanning(size);frequencies=[];frames=0
+    for start in range(0,len(values)-size+1,max(1,size//2)):
+        frames+=1
+        frame=values[start:start+size];spectrum=np.abs(np.fft.rfft((frame-frame.mean())*window))
+        spectrum[0]=0;index=int(np.argmax(spectrum));energy=float(np.sum(spectrum**2))
+        if index==0 or index>=len(spectrum)-1 or not energy:continue
+        if np.sum(spectrum[max(1,index-2):index+3]**2)/energy<.5:continue
+        left,middle,right=np.log(np.maximum(spectrum[index-1:index+2],1e-20))
+        denominator=left-2*middle+right
+        offset=.5*(left-right)/denominator if abs(denominator)>1e-12 else 0
+        frequencies.append((index+float(np.clip(offset,-.5,.5)))*sample_rate/size)
+    if not frequencies or len(frequencies)<.8*frames:return None
+    center=float(np.median(frequencies))
+    if np.percentile(np.abs(np.array(frequencies)-center),90)>max(5,center*.02):return None
+    return center

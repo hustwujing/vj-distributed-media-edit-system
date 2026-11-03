@@ -25,7 +25,7 @@ class ActivityTests(unittest.TestCase):
             self.assertEqual(current(self.store,self.t)[0]['phase'],'analysis')
             receipt.accept(json.dumps({'type':'response.output_text.delta','delta':'公开回复'}))
             self.assertEqual(current(self.store,self.t)[0]['phase'],'responding')
-        events=self.store.query("SELECT payload FROM agent_events WHERE turn_id=? AND kind='work'",(self.t,))
+        events=self.store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='work'",(self.t,))
         self.assertNotIn('NEVER-EXPOSE',json.dumps(events));self.assertEqual(current(self.store,self.t)[0]['status'],'completed')
     def test_actor_tool_cache_survives_reconnect_and_attempt_exit(self):
         with self.lease.bind():agent_store.event(self.store,self.t,'tool',{'id':'code','status':'running','category':'write','title':'编写脚本','started':self.store.now()})
