@@ -54,3 +54,8 @@ class DedicatedResetTests(unittest.TestCase):
         cluster.reset_database()
         self.assertEqual(self.sql("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public'"),'0')
         self.assertEqual(self.sql("SELECT pg_get_userbyid(nspowner) FROM pg_namespace WHERE nspname='public'"),'distributed_agent_system')
+
+    def test_unconfirmed_external_cleanup_cannot_be_erased_by_reset(self):
+        self.sql("CREATE TABLE execution_external_cleanup(state text); INSERT INTO execution_external_cleanup VALUES ('unconfirmed');")
+        with self.assertRaises(RuntimeError):cluster.reset_database()
+        self.assertEqual(self.sql('SELECT COUNT(*) FROM keep'),'1')

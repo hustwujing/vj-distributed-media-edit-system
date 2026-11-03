@@ -50,6 +50,15 @@ class CompilerTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_parameters('media.normalize_clip',{'width':64,'height':48},scope)
         with self.assertRaises(ValueError):validate_parameters('media.concat_sequence',{'roles':['source'],'width':64},scope)
 
+    def test_aac_priming_does_not_accumulate_in_normalized_checkpoints(self):
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);source=root/'source.mp4';make_clip(source)
+            normalized=root/'normalized.mp4'
+            compile_sequence([source],normalized,root/'normalize',width=64,height=48,fps='25',threads=1)
+            self.assertAlmostEqual(probe(normalized)['duration'],probe(source)['duration'],delta=.01)
+            joined=root/'joined.mp4';compile_sequence([normalized]*24,joined,root/'join',threads=1)
+            self.assertAlmostEqual(probe(joined)['duration'],24*probe(source)['duration'],delta=.04)
+
     def test_operation_roles_must_match_inputs(self):
         inputs={'first':{'asset':'a'},'second':{'asset':'b'}}
         value=validate_parameters('media.concat_sequence',{'roles':['first','second']},inputs)

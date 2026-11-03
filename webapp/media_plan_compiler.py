@@ -71,7 +71,10 @@ def compile_sequence(paths,output,workdir,*,width=None,height=None,fps=None,crf=
         if target_width%2 or target_height%2:raise ValueError('Output geometry must be even')
         target_fps=fps or first['r_frame_rate'] or '30'
         for index,(path,record) in enumerate(zip(paths,records)):
-            target=workdir/f'normalized-{index:04d}.mkv'
+            # A normalization Task has exactly one input. Encode directly into
+            # its final MP4 so AAC priming is represented by the MP4 edit list;
+            # an MKV -> concat -> MP4 round trip adds ~21ms to every checkpoint.
+            target=output
             command=['ffmpeg','-nostdin','-v','error','-y','-threads',str(threads),'-i',str(path)]
             if audio_mode=='preserve' and record['signature']['audio'] is None:
                 command+=['-f','lavfi','-i','anullsrc=r=48000:cl=stereo']
@@ -82,11 +85,12 @@ def compile_sequence(paths,output,workdir,*,width=None,height=None,fps=None,crf=
                 command+=['-map','0:a:0' if record['signature']['audio'] else '1:a:0','-c:a','aac','-ar','48000','-ac','2','-shortest']
             command+=[str(target)];_run(command,'media_normalization_failed');normalized.append(target)
             commands.append({'phase':'normalize','index':index,'argv_sha256':hashlib.sha256('\0'.join(command).encode()).hexdigest()})
-    listing=workdir/'concat.txt';_concat_file(normalized,listing)
-    command=['ffmpeg','-nostdin','-v','error','-y','-threads',str(threads),'-f','concat','-safe','0','-i',str(listing),'-map','0:v:0']
-    if audio_mode!='remove':command+=['-map','0:a:0?']
-    command+=['-c','copy',str(output)]
-    _run(command,'media_concat_failed');commands.append({'phase':'concat','argv_sha256':hashlib.sha256('\0'.join(command).encode()).hexdigest()})
+    if direct:
+        listing=workdir/'concat.txt';_concat_file(normalized,listing)
+        command=['ffmpeg','-nostdin','-v','error','-y','-threads',str(threads),'-f','concat','-safe','0','-i',str(listing),'-map','0:v:0']
+        if audio_mode!='remove':command+=['-map','0:a:0?']
+        command+=['-c','copy',str(output)]
+        _run(command,'media_concat_failed');commands.append({'phase':'concat','argv_sha256':hashlib.sha256('\0'.join(command).encode()).hexdigest()})
     return {'version':1,'resources':resources,'strategy':'normalize_single_clip' if not direct else 'concat_demuxer',
             'inputs':[{'sha256':file_digest(path),'duration':record['duration'],'signature':record['signature']} for path,record in zip(paths,records)],
             'commands':commands,'output':probe(output)}

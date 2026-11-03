@@ -39,7 +39,7 @@ def collect(source,kind,output,parameters,*,reference=None):
         probe=json.loads(inspected.stdout);video=next(item for item in probe['streams'] if item['codec_type']=='video')
         duration=float(video.get('duration') or probe['format']['duration']);offset=params['offset']
         if not math.isfinite(duration) or not 0<=offset<duration:raise ValueError('Evidence window outside video')
-        span=min(params['window_seconds'],duration-offset);count=min(16,max(8,math.ceil(span*2)));rate=count/span
+        span=min(params['window_seconds'],duration-offset);count=16;rate=count/span
         crop=''
         if params['crop']:
             x1,y1,x2,y2=params['crop']

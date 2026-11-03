@@ -684,7 +684,7 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
         window=evidence.get('window_seconds')
         if window is not None:
             if not math.isfinite(duration) or duration<=0:raise InspectionInputError('Video window requires a known duration')
-            span=min(window,duration-evidence['offset_seconds']);count=min(16,max(8,math.ceil(span*2)))
+            span=min(window,duration-evidence['offset_seconds']);count=16
             rate=count/span;offset=evidence['offset_seconds'];rows=math.ceil(count/4)
             filters=(f'fps={rate:g},scale=256:160:force_original_aspect_ratio=decrease,'
                 f'pad=256:160:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS+{offset:g}/TB,'

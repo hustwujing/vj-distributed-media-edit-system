@@ -85,6 +85,14 @@ class AudioEvidenceTests(unittest.TestCase):
 
 
 class MaskChangeTests(unittest.TestCase):
+    def test_change_limit_uses_subject_area_not_empty_canvas(self):
+        from webapp.media_evidence import mask_change_evidence
+        with tempfile.TemporaryDirectory() as root:
+            before=Path(root)/'before.png';after=Path(root)/'after.png'
+            image=Image.new('L',(100,100),0);image.paste(255,(45,45,55,55));image.save(before)
+            image.putpixel((50,50),0);image.save(after)
+            self.assertEqual(mask_change_evidence(before,after)['changed_fraction'],.01)
+
     def test_full_resolution_delta_and_geometry_are_not_guessed_from_topology(self):
         from PIL import Image
         from webapp.media_evidence import mask_change_evidence
@@ -102,6 +110,34 @@ class MaskChangeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             source=Path(root)/'photo.png';Image.new('RGB',(10,10),'red').save(source)
             with self.assertRaisesRegex(ValueError,'grayscale'):mask_change_evidence(source,source)
+
+
+class MediaSemanticsTests(unittest.TestCase):
+    def test_explicit_subject_relations_override_defaults_without_conflicts(self):
+        from webapp.workflow_graph import SubjectSemantics
+        subject=SubjectSemantics(mode='subject_cutout',include_relations=['held'])
+        self.assertIn('held',subject.include_relations);self.assertNotIn('held',subject.exclude_relations)
+        foreground=SubjectSemantics(mode='foreground_cutout',exclude_relations=['carried'])
+        self.assertIn('carried',foreground.exclude_relations);self.assertNotIn('carried',foreground.include_relations)
+        with self.assertRaises(ValueError):SubjectSemantics(mode='subject_cutout',include_relations=['held'],exclude_relations=['held'])
+
+    def test_video_evidence_measures_static_structure_and_binds_the_reference(self):
+        import subprocess,hashlib,json
+        from webapp.media_evidence_operation import collect
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);source=root/'clip.mp4';reference=root/'reference.png';output=root/'evidence';output.mkdir()
+            Image.new('RGB',(128,96),'blue').save(reference)
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i','color=c=blue:s=128x96:r=25:d=2',
+                            '-c:v','libx264','-threads','1','-pix_fmt','yuv420p',str(source)],check=True)
+            collect(source,'video',output,{'mode':'video_window','window_seconds':2},reference=reference)
+            report=json.loads((output/'evidence-report.json').read_text());structure=report['structure']
+            self.assertEqual(report['reference_sha256'],hashlib.sha256(reference.read_bytes()).hexdigest())
+            self.assertEqual(structure['unique_sample_frames'],1)
+            self.assertEqual(max(structure['adjacent_luma_mae']),0)
+            self.assertLess(max(structure['reference_luma_mae']),.02)
+            self.assertEqual(structure['frame_count'],len(report['frame_timestamps']))
+            self.assertEqual(structure['interpretation'],'structural_change_not_identity_verdict')
+            self.assertEqual(report['preview_sha256'],hashlib.sha256((output/'preview.jpg').read_bytes()).hexdigest())
 
 
 if __name__=='__main__':unittest.main()

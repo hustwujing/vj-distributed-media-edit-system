@@ -406,6 +406,10 @@ def reset_database():
         EXECUTE $query$SELECT COUNT(*) FROM execution_cleanup WHERE state <> 'complete'$query$ INTO unresolved;
         IF unresolved > 0 THEN RAISE EXCEPTION 'Pending execution cleanup prevents reset'; END IF;
       END IF;
+      IF to_regclass('public.execution_external_cleanup') IS NOT NULL THEN
+        EXECUTE $query$SELECT COUNT(*) FROM execution_external_cleanup WHERE state <> 'complete'$query$ INTO unresolved;
+        IF unresolved > 0 THEN RAISE EXCEPTION 'Unresolved external cleanup prevents reset'; END IF;
+      END IF;
     END $reset$;
     DROP SCHEMA public CASCADE;
     CREATE SCHEMA public AUTHORIZATION {ROLE};

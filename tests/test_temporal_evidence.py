@@ -47,3 +47,7 @@ class TemporalEvidenceTests(unittest.TestCase):
             self.assertLessEqual(len(evidence['frame_timestamps']),16)
             self.assertEqual(evidence['duration_seconds'],3)
             self.assertTrue(evidence['image'].startswith('data:image/jpeg;base64,'))
+            snapshot=self.snapshot();snapshot['tasks'][0]['spec']['semantics']['temporal'][0]['required_coverage']=.9
+            record={'id':'a'*32,'reference':'clip.mp4','evidence_json':json.dumps({key:evidence[key] for key in
+                ('coverage','duration_seconds','source_frame_interval_seconds','frame_timestamps')})}
+            validate_temporal_evidence({'verdict':'pass','evidence':[{'inspection_id':'a'*32}]},snapshot,[record])
