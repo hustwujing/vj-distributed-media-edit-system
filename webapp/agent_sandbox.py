@@ -194,7 +194,6 @@ def command(env, gateway_socket, executable=None):
             '--ro-bind', str(agent/'passwd'), '/etc/passwd',
             '--ro-bind', str(agent/'group'), '/etc/group']
     args += ['--ro-bind', str(REPO/'runtime/public/SKILL.md'), '/opt/video-use/SKILL.md',
-             '--ro-bind', str(agent/'capabilities.json'),SANDBOX_WORKSPACE+'/capabilities.json',
              '--ro-bind', str(REPO/'references'), '/opt/video-use/references',
              '--ro-bind', str(REPO/'webapp/sandbox_entry.py'), '/opt/sandbox_entry.py',
              '--ro-bind', str(REPO/'webapp/harness_bridge.py'), '/opt/harness_bridge.py',
@@ -222,6 +221,8 @@ def command(env, gateway_socket, executable=None):
              '--bind', str(env['preview']), env['preview_path'],
              '--ro-bind', str(env['sources']), SANDBOX_WORKSPACE+'/sources',
              '--ro-bind', str(agent/'assets.json'), SANDBOX_WORKSPACE+'/assets.json',
+             # Child mounts must follow the workspace bind or its empty placeholders hide them.
+             '--ro-bind', str(agent/'capabilities.json'),SANDBOX_WORKSPACE+'/capabilities.json',
              '--ro-bind', str(agent/'image-document.json'), SANDBOX_WORKSPACE+'/image-document.json',
              '--ro-bind', str(agent/'workflow-state.json'), SANDBOX_WORKSPACE+'/workflow-state.json',
              '--ro-bind', str(agent/'continuation.json'), SANDBOX_WORKSPACE+'/continuation.json',

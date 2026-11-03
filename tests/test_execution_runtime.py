@@ -161,7 +161,17 @@ else:raise AssertionError('scratch allocation exceeded')
 import socket,os,subprocess
 assert b'codex' in subprocess.check_output(['/opt/codex','--version'],timeout=10).lower()
 assert Path('/opt/video-use/SKILL.md').is_file()
-assert Path('/workspace/capabilities.json').is_file()
+import json,errno
+capabilities=Path('/workspace/capabilities.json')
+original=capabilities.read_text()
+index=json.loads(original)
+assert index['view']=='index' and index['operations']
+assert any(op['id']=='media.edit' for op in index['operations'])
+assert all('parameters_schema' not in op for op in index['operations'])
+try:capabilities.write_text('{}')
+except OSError as exc:assert exc.errno in (errno.EROFS,errno.EACCES)
+else:raise AssertionError('Capability index must be read-only')
+assert capabilities.read_text()==original
 assert not Path('/opt/video-use/webapp/agent_host.py').exists()
 assert not Path('/usr/bin/ssh').exists()
 assert not Path('/root').exists()

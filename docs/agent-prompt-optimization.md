@@ -42,6 +42,8 @@ python /opt/context.py project_data --kind notes --offset 0
 - Agent 设置在 HTTP 页面上可能没有 `crypto.randomUUID()`。请求键优先用原生 UUID，否则使用 `crypto.getRandomValues()` 生成标准 UUID v4；不降级为 Math.random。保持原有 request_key 防重与配置 digest 校验。
 - `file(1)` 二进制及 libmagic 存在，但沙盒未挂载公开 magic 数据库，造成媒体检查命令失败。将该数据文件作为只读运行依赖并纳入指纹，真实降权沙盒内检查 PNG MIME；不挂载整个宿主目录。
 
+- 修正能力索引的挂载顺序：先挂载工作区，再覆盖只读 capabilities.json，避免父挂载隐藏真实内容。真实降权沙盒测试必须解析索引并验证不可写，不能仅检查文件存在。
+
 ## 验证方法
 
 定向测试覆盖关联范围、跨项目拒绝、预算不重置、分阶段职责、验收详情/修复权限分离、最终逐步证据、截断、工具 schema、用户描述保留和安全诊断。浏览器覆盖 randomUUID 缺失时应用/撤销/激活、刷新和输入保留。
