@@ -456,6 +456,14 @@ class Adapter:
                     errors.seek(0)
                     raise StepFailure({'message':'本地步骤未生成有效结果','exit_code':process.returncode,
                                        'runtime_error':errors.read(3000).decode(errors='replace'),**detail})
+                if payload.get('mode')=='local':
+                    diagnostic.seek(0)
+                    raw=diagnostic.read(131073)
+                    if len(raw)>131072:raise StepFailure({'message':'本地脚本回执超过上限','code':'script_receipt_invalid'})
+                    receipt=json.loads(raw)
+                    if not isinstance(receipt,dict) or receipt.get('version')!=1 or receipt.get('returncode')!=0:
+                        raise StepFailure({'message':'本地脚本回执不完整','code':'script_receipt_invalid'})
+                    return receipt
         finally:
             if process and process.poll() is None:
                 with contextlib.suppress(ProcessLookupError):

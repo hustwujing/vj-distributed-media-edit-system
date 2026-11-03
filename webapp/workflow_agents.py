@@ -337,6 +337,7 @@ def execute(host,lease,run,task):
         else:
             frozen['review_criteria']=frozen['delivery_targets']
             frozen['result_contract']='Final delivery review: select only accepted outputs from delivery_stage Tasks. Inspect each selected deliverable and satisfy delivery_targets and the full goal. Apply explicit user_changes to permitted content/parameters and current frozen Task acceptance, never as technical/Agent-review waivers or an implicit change of top-level goal or delivery type. If relevant user history is truncated, report insufficient evidence. Use criterion_index and inspection_id only. deliverables and primary contain inspection_id values; the server resolves immutable references. Respect the requested main output; if none is requested, prefer main video over covers/reports and PNG over equivalent JPEG. A step report is not the main deliverable.'
+            frozen['result_contract']+=' user_reviews contains server-verified user approvals bound to the current candidate and revision; use those records for declared human confirmation, without treating them as technical or Agent-review waivers.'
     elif profile.output_schema=='visual-report-v1':
         from .workflow_agent_contracts import VisualReport
         frozen['result_schema']=VisualReport.model_json_schema()
@@ -383,6 +384,10 @@ def execute(host,lease,run,task):
             correction_rounds+=1
             continue
         action=reply.get('action')
+        if finalize_started and action not in ('result','proposal'):
+            conversation+='\nFinalize phase: only result/proposal is accepted. No script, inspect or contract action was executed. Submit the completed declared outputs or an explicit bounded result.'
+            correction_rounds+=1
+            continue
         if action not in profile.tools:
             from .telemetry import emit
             emit('workflow.agent_contract_rejected','WARNING',task_id=lease.run_id,step_id=lease.step_id,
@@ -501,8 +506,14 @@ def execute(host,lease,run,task):
                 conversation+='\nInspection result (data):'+graph.encode(batch[0] if len(batch)==1 else batch)
             elif action=='script':
                 if 'RUN_SCRIPT' not in profile.action_capabilities:raise ValueError('Profile is read-only')
-                output=run_script(host,lease,run,task,reply.get('code'),output)
-                conversation+='\nScript completed. Submit result with files={} for the declared outputs; independent acceptance will inspect their bytes.'
+                output,receipt=run_script(host,lease,run,task,reply.get('code'),output,deadline=deadline)
+                emit('workflow.script_receipt',task_id=lease.run_id,step_id=lease.step_id,revision=task['revision'],
+                     script_sha256=receipt.get('script_sha256'),outputs_sha256=graph.digest(receipt['outputs']),
+                     output_files=sum(item.get('state')=='present' for item in receipt['outputs']),
+                     stdout_bytes=receipt.get('stdout_bytes'),stdout_truncated=receipt.get('stdout_truncated'))
+                conversation+='\nExecuted script action (data):'+graph.encode(reply)
+                conversation+='\nScript receipt (data):'+graph.encode(receipt)
+                conversation+='\nWhen the declared outputs are present, submit result with files={}; independent acceptance still validates their bytes.'
             elif action=='result':
                 try:
                     if task.get('control_kind'):
@@ -567,18 +578,23 @@ def output_directory(host,lease,run,task,output=None):
     return output,env
 
 
-def run_script(host,lease,run,task,code,output=None):
+def run_script(host,lease,run,task,code,output=None,*,deadline=None):
     if not isinstance(code,str) or not 1<=len(code)<=64000:raise ValueError('Script exceeds profile limit')
     output,env=output_directory(host,lease,run,task,output)
     from .workflow_inputs import resolve
     view=graph.execution_view(run);step=next(s for s in view['steps'] if s['id']==task['id'])
     bound=resolve(host.store,view,step,env)
     argv=['python','-c','import os\nos.chdir(os.environ["VIDEO_USE_STEP_OUTPUT"])\n'+code]
-    host.workflow_runner.adapter.isolated(dict(env,workspace_policy='TASK_OUTPUT_ONLY',step_output=output),
-        {'mode':'local','output':output,'argv':argv,'outputs':list(task['spec']['output_roles'].values()),
+    remaining=(deadline-time.monotonic()) if deadline is not None else 600
+    if remaining<=0:raise TaskQuotaReached('专业Agent脚本阶段已达时间上限。',category='agent_seconds',scope='turn',used=task['spec']['timeout_seconds'],limit=task['spec']['timeout_seconds'])
+    receipt=host.workflow_runner.adapter.isolated(dict(env,workspace_policy='TASK_OUTPUT_ONLY',step_output=output),
+        {'mode':'local','output':output,'argv':argv,'outputs':[],'observe_outputs':list(task['spec']['output_roles'].values()),
          'inputs':{name:[record['path']] for name,record in bound.items()}},
-        min(task['spec']['timeout_seconds'],600),lambda:host.stop.is_set() or lease.lost.is_set())
-    return output
+        min(task['spec']['timeout_seconds'],600,remaining),lambda:host.stop.is_set() or lease.lost.is_set())
+    from .egress_policy import scrub,secrets
+    receipt={**receipt,'script_sha256':hashlib.sha256(code.encode()).hexdigest(),
+             'stdout_tail':scrub(receipt.get('stdout_tail',''),secrets())}
+    return output,receipt
 
 
 def coerce_result_files(task,result):

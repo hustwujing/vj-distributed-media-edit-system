@@ -254,6 +254,45 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.assertRaises(ValueError):adapter.response_text({'status':'completed','output':None})
         self.assertEqual(adapter.response_text({'status':'completed','output':[commentary,message(None,'{}')]}),'{}')
 
+    def test_wrong_snapshot_echo_is_rejected_then_corrected_in_the_same_bound_request(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import threading
+        from webapp.workflow_agents import execute
+        proposal={'proposal_id':'bound','base_graph_version':0,'reason':'Produce the authorized report','add_tasks':[fixtures.script()],'sealed':True}
+        good=self.bind_reply({'action':'proposal','proposal':proposal});bad=json.loads(json.dumps(good));bad['proposal']['snapshot_digest']='0'*64
+        calls=0
+        def respond(*args,**kwargs):
+            nonlocal calls;calls+=1
+            if calls==1:return bad
+            self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
+            self.assertIn('snapshot_digest',args[4]);return good
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(calls,2)
+        saved=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
+        self.assertEqual(saved['snapshot_digest'],good['proposal']['snapshot_digest'])
+
+    def test_finalize_reserves_submission_and_does_not_execute_another_script(self):
+        from dataclasses import replace
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import threading
+        from webapp.workflow_agents import execute
+        from webapp.specialist_profiles import get
+        policy=replace(get('editing_implementer'),max_turns=3,max_inspection_rounds=1,finalize_rounds=2)
+        task={**self.task,'control_kind':'','profile':policy.snapshot(),'spec':{'profile':policy.id,
+            'inputs':{'source':{'asset':'asset'}},'output_roles':{'report':'report.txt'},'timeout_seconds':900}}
+        replies=[{'action':'script','code':'write output'},{'action':'script','code':'must not execute in finalize'},{'action':'result','files':{}}]
+        with self.lease.bind(),patch('webapp.workflow_agents.get_profile',return_value=policy), \
+             patch('webapp.workflow_agents.model',side_effect=replies) as model, \
+             patch('webapp.workflow_agents.run_script',return_value=('edit/workflows/output',{'returncode':0,'outputs':[{'name':'report.txt','state':'present'}]})) as script, \
+             patch('webapp.workflow_agents.finish_files',return_value='candidate') as finish:
+            self.assertEqual(execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task),'candidate')
+        self.assertEqual(script.call_count,1);self.assertEqual(finish.call_count,1)
+        self.assertIn('Script receipt (data)',model.call_args_list[-1].args[4])
+        self.assertIn('No script, inspect or contract action was executed',model.call_args_list[-1].args[4])
+
     def test_invalid_proposal_is_corrected_before_any_durable_submission(self):
         from types import SimpleNamespace
         import threading

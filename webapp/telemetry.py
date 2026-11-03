@@ -25,6 +25,7 @@ FIELDS.update({'graph_version','authorization_version','sealed','proposal_id','p
 FIELDS.update({'input_id','input_sequence','through_sequence','next_barrier_sequence','control_job_id','result_kind','source','review_identity','previous_review_id','successor_run_id','payload_type','top_level_keys','text_characters','text_sha256','choices_items','output_items','content_items'})
 FIELDS.update({'response_message_count','response_commentary_messages','response_final_messages','response_unphased_messages',
                'remaining_calls','remaining_inspections','remaining_corrections'})
+FIELDS.update({'script_sha256','outputs_sha256','output_files','stdout_bytes','stdout_truncated'})
 _QUEUE = queue.Queue(maxsize=1024)
 _LOCK = threading.Lock()
 _THREAD = None

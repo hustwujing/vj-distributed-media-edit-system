@@ -48,7 +48,7 @@ async function runCase(browser,spec){
  assert.equal(state.release.namespace,'dynamic-agent');
  save(path.join(directory,'case-definition.json'),spec);fs.writeFileSync(path.join(directory,'driver-snapshot.cjs'),DRIVER_SOURCE);
  const harness=path.join(directory,'harness');fs.mkdirSync(harness,{mode:0o700});state.helper_sha256={};
- for(const name of ['campaign_dynamic_probe.py','campaign_dynamic_faults.py','campaign_probe.py','campaign_archive.py','campaign_complex_checks.py','campaign_dynamic_intervention_checks.py','campaign_unified_hooks.cjs','campaign_unified_checks.py']){if(name==='campaign_unified_hooks.cjs')fs.writeFileSync(path.join(harness,name),UNIFIED_SOURCE);else fs.copyFileSync(path.join(REPO,'tests',name),path.join(harness,name));state.helper_sha256[name]=sha(path.join(harness,name));}
+ for(const name of ['campaign_dynamic_probe.py','campaign_dynamic_faults.py','campaign_probe.py','campaign_archive.py','campaign_complex_checks.py','campaign_dynamic_intervention_checks.py','campaign_unified_hooks.cjs','campaign_unified_checks.py','campaign_feedback_preview.py']){if(name==='campaign_unified_hooks.cjs')fs.writeFileSync(path.join(harness,name),UNIFIED_SOURCE);else fs.copyFileSync(path.join(REPO,'tests',name),path.join(harness,name));state.helper_sha256[name]=sha(path.join(harness,name));}
  state.evidence_versioning='Driver captured once at process start; helper code frozen per attempt';
  state.fixture_hashes=Object.fromEntries(spec.assets.map(name=>[name,sha(path.join(ROOT,'fixtures',name))]));
  const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage();
@@ -97,7 +97,7 @@ async function runCase(browser,spec){
   if(state.upload_race)assert.equal(run.authorization.provider_call_budget[state.upload_race.operation],1,'Delayed refresh consent was not persisted');
   await context.storageState({path:path.join(directory,'browser-state.json')});fs.chmodSync(path.join(directory,'browser-state.json'),0o600);
   console.log(JSON.stringify({case:spec.id,event:'started',workflow:run.id,task:run.id}));return run;};
- const approve=async(action)=>{const button=page.locator(`.dynamic-decision [data-answer="${action}"]`).first();await button.waitFor({state:'visible'});await capture('decision-'+state.events.length);
+ const approve=async(action,decisionId=null)=>{const button=page.locator(`${decisionId?'[data-decision="'+decisionId+'"]':'.dynamic-decision'} [data-answer="${action}"]`).first();await button.waitFor({state:'visible'});await capture('decision-'+state.events.length);
   const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await button.click();
   let result=await Promise.race([response,page.locator('.dynamic-decision .scope-diff').filter({hasText:'请核对后再次确认'}).waitFor({state:'visible'}).then(()=>null)]);
   if(!result){await capture('scope-fingerprint-reconfirmation');await button.click();result=await response;}
@@ -119,6 +119,7 @@ async function runCase(browser,spec){
  };
  const feedback=async(content,attachments=[])=>{
   run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
+  if(!state.feedback_baseline&&decision.request.task_id&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
   const card=page.locator(`[data-decision="${decision.id}"]`);await card.locator('[data-feedback]').fill(content);
   await card.locator('[data-feedback-assets]').selectOption(attachments);
   const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');
@@ -127,6 +128,28 @@ async function runCase(browser,spec){
   const updated=await read(),input=updated.inputs.find(item=>item.context.decision_id===decision.id);assert.ok(input,'Feedback must enter the common Run inbox');
   (state.inputs??=[]).push(input);state.events.push({action:'feedback_accepted',decision_id:decision.id,input_id:input.id,sequence:input.sequence,at:Date.now()/1000});persist();return input;
  };
+ async function downloadCandidate(snapshot,decision,name,forApproval=false){
+  const task=snapshot.tasks.find(item=>item.id===decision.request.task_id);assert.ok(task&&task.revision===decision.request.revision);
+  assert.ok(task.quality.technical_valid,'Technical failure cannot be approved');
+  if(forApproval){assert.ok(task.spec.acceptance.some(rule=>rule.kind==='review'),'Only a declared user Review can be approved');
+   assert.ok(!task.quality.requires_agent||task.quality.agent_review_passed,'Agent refusal cannot be approved');}
+  const file=task.candidate_result.find(value=>value.endsWith('.png'));assert.ok(file,'A declared PNG candidate is required');
+  const response=await context.request.get(BASE+`/api/projects/${state.project}/runs/${snapshot.id}/tasks/${task.id}/file?file=${encodeURIComponent(file)}`);
+  assert.equal(response.status(),200);const data=await response.body();assert.ok(data.length<=20*1024*1024);
+  const target=path.join(directory,name);fs.writeFileSync(target,data,{mode:0o600});const digest=sha(target);
+  assert.equal(digest,task.quality.files.find(item=>item.name===file).sha256);
+  return {run_id:snapshot.id,task_id:task.id,revision:task.revision,path:file,file:name,sha256:digest};
+ }
+ async function reviewRevisedCandidate(snapshot,decision){
+  const transforms={R11:'border_4',R15:'unchanged',D28:'border_2',D36:'alpha_erode',D37:'swap_halves'};
+  if(!transforms[spec.id]||!state.feedback_baseline)return false;
+  const candidate=await downloadCandidate(snapshot,decision,'feedback-reviewed-'+decision.id+'.png',true);
+  const result=await execute(PY,[path.join(harness,'campaign_feedback_preview.py'),path.join(directory,state.feedback_baseline.file),path.join(directory,candidate.file),transforms[spec.id]],{cwd:REPO,env:helperEnvironment,timeout:60000,maxBuffer:1024*1024});
+  const checked=JSON.parse(result.stdout.trim());save(path.join(directory,'feedback-review-'+decision.id+'.json'),{...checked,decision_id:decision.id,snapshot_digest:decision.snapshot_digest});
+  if(!checked.passed)throw Object.assign(Error('Revised candidate failed the independent user-review pixel check; no approval was submitted'),{model:true});
+  state.browser_assertions.push('Revised candidate passed independent pixel comparison before the declared user Review was approved');persist();
+  await approve('approve',decision.id);return true;
+ }
  const recordSources=base=>{
   state.revision_baseline=base.tasks.map(task=>({id:task.id,revision:task.revision,attempts:task.attempts,selected:task.selected,status:task.status,quality:task.quality}));
   state.checkpoint_sources=base.tasks.filter(task=>task.selected&&task.status==='succeeded'&&['prepare_a','prepare_b','clip'].includes(task.id)).map(task=>{
@@ -142,7 +165,7 @@ async function runCase(browser,spec){
    if(terminal(run.state))return run;
    if(deciding(run)){
     const quality=run.decisions.find(d=>d.kind==='quality');
-    if(quality){state.pending_quality=quality.id;persist();throw Object.assign(Error('Unplanned quality decision requires independent content review'),{model:true});}
+    if(quality){if(await reviewRevisedCandidate(run,quality)){await page.waitForTimeout(1000);continue;}state.pending_quality=quality.id;persist();throw Object.assign(Error('Unplanned quality decision requires independent content review'),{model:true});}
     const decision=run.decisions[0];state.pending_decision={id:decision.id,kind:decision.kind,reason:decision.request.reason};persist();
     throw Object.assign(Error(['plan_change','successor_authorization','new_run'].includes(decision.kind)?
      'Unplanned authorization expansion was correctly paused':'Workflow requested user input or feedback after bounded processing: '+decision.kind),{model:true});
@@ -300,8 +323,8 @@ async function runCase(browser,spec){
      R06:'同一目标内，把prepare_a的来源替换为已授权rocket.png并做brightness=1.1，程序验收使用新素材的原尺寸。保持prepare_a逻辑ID并创建新revision，prepare_b保持不变，受影响下游重算，最终仍按Pillow ImageOps.fit默认方法各64×64并排成128×64 final.png。',
      R07:'保持视频和全部原验收要求，只把export的cover.png换为已验收prepare_b，以Pillow ImageOps.fit默认方法做128×64封面。修订export的实现和必要输入/依赖，不重新处理clip或两张准备图。仍交付final.mp4与cover.png，主交付是视频。',
      R08:'保持原视频、音频、封面及全部尺寸时长，在export视频左上角(2,2)增加黄色QA字幕，字号20。修订export的实现，保留clip及准备图的原revision。仍交付final.mp4和cover.png，主交付是视频。',
-     R11:'请在当前128×64拼图上用Pillow ImageDraw.rectangle画4像素纯红色内边框，包含四个角。保持原目标、素材和技术验收，给export创建新revision；prepare_a、prepare_b不要重算。新版本不再需要人工Review，但必须通过原技术检查与必要Agent验收及Final Review。',
-     R15:'请保持原128×64拼图内容与像素算法不变，给export创建一个新revision重新输出final.png，prepare_a、prepare_b保持原revision。新版本不再需要人工Review，但仍需技术与最终验收。'};
+     R11:'请在当前128×64拼图上用Pillow ImageDraw.rectangle画4像素纯红色内边框，包含四个角。保持原目标、素材和技术验收，给export创建新revision；prepare_a、prepare_b不要重算。保留原人工Review，待用户复核新版；仍须通过原技术检查、必要Agent验收及Final Review。',
+     R15:'请保持原128×64拼图内容与像素算法不变，给export创建一个新revision重新输出final.png，prepare_a、prepare_b保持原revision。保留原人工Review，待用户复核新版；仍需技术与最终验收。'};
     const input=['R11','R15'].includes(spec.id)?await feedback(messages[spec.id]):await appendInput(messages[spec.id],[],['R05','R06'].includes(spec.id)?['prepare_a']:['export']);
     if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
     run=await wait(w=>w.inputs.some(item=>item.id===input.id&&item.status==='APPLIED')||deciding(w),900);

@@ -4047,7 +4047,8 @@
         "提交revise反馈",
         "反馈经run_inputs统一安全点处理",
         "同Run修订export绘制边框",
-        "保留技术和必要Agent验收"
+        "保留技术和必要Agent验收",
+        "独立检查新版候选后批准原声明的人工Review"
       ],
       "must_reuse": [
         "prepare_a",
@@ -4083,8 +4084,8 @@
         "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_feedback",
-      "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "review_decision": "保留原人工Review并检查新候选后批准",
+      "review_reason": "反馈不等于批准；新版候选通过独立像素检查后，在原声明的Review中approve，仍保留技术/Agent/最终验收。",
       "must_drain": [
         "屏障前已开始的业务Task及其必要验收/清理"
       ]
@@ -4326,7 +4327,8 @@
         "等待人工Review",
         "提交同Run revision反馈",
         "刷新并重新进入页面",
-        "核对输入回执和新revision状态恢复"
+        "核对输入回执和新revision状态恢复",
+        "独立检查新版候选后批准原声明的人工Review"
       ],
       "must_reuse": [
         "prepare_a",
@@ -4362,8 +4364,8 @@
         "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_refresh",
-      "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "review_decision": "保留原人工Review并检查新候选后批准",
+      "review_reason": "反馈不等于批准；新版候选通过独立像素检查后，在原声明的Review中approve，仍保留技术/Agent/最终验收。",
       "must_drain": [
         "屏障前已开始的业务Task及其必要验收/清理"
       ]
@@ -5610,10 +5612,13 @@
         "local_cleanup",
         "external_cleanup"
       ],
-      "review_decision": "新增",
-      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "review_decision": "保留原人工Review并检查新候选后批准",
+      "review_reason": "反馈不等于批准；新版候选通过独立像素检查后，在原声明的Review中approve，仍保留技术/Agent/最终验收。",
       "status": "not_run",
-      "attempts": []
+      "attempts": [],
+      "intervention_actions": [
+        "独立检查新版候选后批准原声明的人工Review"
+      ]
     },
     {
       "id": "D29",
@@ -5927,10 +5932,13 @@
         "local_cleanup",
         "external_cleanup"
       ],
-      "review_decision": "新增",
-      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "review_decision": "保留原人工Review并检查新候选后批准",
+      "review_reason": "反馈不等于批准；新版候选通过独立像素检查后，在原声明的Review中approve，仍保留技术/Agent/最终验收。",
       "status": "not_run",
-      "attempts": []
+      "attempts": [],
+      "intervention_actions": [
+        "独立检查新版候选后批准原声明的人工Review"
+      ]
     },
     {
       "id": "D37",
@@ -5968,10 +5976,13 @@
         "local_cleanup",
         "external_cleanup"
       ],
-      "review_decision": "新增",
-      "review_reason": "覆盖统一Run、输入屏障、版本修订或Provider冻结协议；必须实际触发边界并保留独立证据。",
+      "review_decision": "保留原人工Review并检查新候选后批准",
+      "review_reason": "反馈不等于批准；新版候选通过独立像素检查后，在原声明的Review中approve，仍保留技术/Agent/最终验收。",
       "status": "not_run",
-      "attempts": []
+      "attempts": [],
+      "intervention_actions": [
+        "独立检查新版候选后批准原声明的人工Review"
+      ]
     },
     {
       "id": "D38",

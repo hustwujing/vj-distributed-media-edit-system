@@ -110,3 +110,7 @@ F38现场来源：main在11:49完成独立部署至104943e9e307，数据库与ma
 | F49 | f0afcad996f7 / D28 attempt-001、D38 attempt-001 | 合法replacement后的旧Task被work_items排除，graph.get也因此漏解析其JSON字段；公共详情遍历全部历史节点时KeyError/HTTP500 | get解析全部业务/控制记录，调度仍只选active；API显式返回replacement谱系，增加替代后的公共快照回归 | 16项定向及后续83项相关回归通过；原HTTP500和采集失败保留，internal-supplement.json为修复后只读补采，不改变原失败结论 |
 | F50 | f0afcad996f7 / 多例74字符“非法JSON”及S05上下文重放 | 内部错误提示恰好74字符；Responses适配器把合法commentary+final_answer一律当多个文本块拒绝，消耗纠正预算。真实gpt-5.6探测复现两个commentary和一个合法inspect最终动作 | 按官方phase选择唯一最终消息，继续拒绝歧义/多个最终消息；分开响应结构与JSON错误，补阶段数量和剩余预算日志 | 两次真实协议探测仅保存脱敏结构/哈希/用量，修复后实际接受最终inspect；严格协议回归通过。S05原响应未保留phase，完整case仍需新版本复测 |
 | F51 | f0afcad996f7 / 业务报告结果纠正复核 | 系统提示已要求typed report对象，但冻结business result_contract仍要求JSON字符串/files，产生冲突 | 两处复用同一result_instruction，角色及输出Schema一致；回归检查实际传入模型的冻结上下文 | 83项相关回归通过，等待新版本真机 |
+
+| F52 | cd13667ad301 / D39 attempt-001 | editing_implementer生成了正确候选但反复执行Script直到轮数耗尽；harness未返回实际脚本回执/输出事实，且finalize仍允许script | 反馈实际动作、结构化回执和有界stdout；探索性脚本可分步完成，最终提交才严格验收；finalize禁止继续工具调用并限制剩余时间 | 真实两节点沙盒验证先探测缺失输出→实际写文件→读取哈希/大小/日志回执→提交；相关59项回归通过，待新部署真机 |
+| F53 | cd13667ad301 / S05 attempt-011 | 模型给出格式合法但绑定值错误的ManagerResult，服务器正确拒绝，但回显错误未进入同请求内的有界纠正 | 精确区分模型快照字段回显错误与真实失效租约/过期请求；前者拒绝后纠正，后者仍中止 | 回归验证错误绑定从未暂存、同一冻结请求纠正后才暂存；无放宽版本或授权约束 |
+| F54 | cd13667ad301 / D28 attempt-002及质量反馈用例复核 | 测试用反馈取消原人工Review，与最初必须本人确认的口径发生模型判断冲突；且驱动没有独立复核后批准新版候选的路径 | 测试保留原Review，先下载并绑定候选哈希、独立检查请求的像素变化，再操作真实approve；技术/Agent未通过时禁止批准。最终Reviewer获得匹配当前候选的用户审批事实 | 独立像素检查正反例通过；审批快照回归发现局部变量覆盖并已修正，59项相关回归通过。原失败保留不改判通过 |

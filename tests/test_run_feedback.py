@@ -48,6 +48,15 @@ class RunFeedbackTests(unittest.TestCase):
         self.assertEqual(self.store.query('SELECT status FROM workflow_decisions')[0]['status'],'pending')
         self.assertEqual(self.store.query('SELECT status FROM workflow_commands')[0]['status'],'rejected')
 
+    def test_final_reviewer_receives_only_the_current_candidate_user_approval(self):
+        self.submit({'decision_id':self.decision['id'],'snapshot_digest':self.decision['snapshot_digest'],'action':'approve'})
+        self.f.tick()
+        row=self.store.query("SELECT snapshot_json FROM workflow_reviews WHERE purpose='final'")[0]
+        approvals=json.loads(row['snapshot_json'])['user_reviews']
+        self.assertEqual(len(approvals),1)
+        self.assertEqual((approvals[0]['decision_id'],approvals[0]['task_id'],approvals[0]['revision'],approvals[0]['action']),
+                         (self.decision['id'],'first',0,'approve'))
+
     def test_empty_or_stale_feedback_cannot_consume_a_decision(self):
         with self.assertRaises(ValueError):graph.DecisionAnswer.model_validate(self.answer(feedback='  '))
         self.submit(self.answer(snapshot_digest='0'*64));self.f.tick()

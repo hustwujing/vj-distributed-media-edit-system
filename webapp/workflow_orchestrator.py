@@ -563,6 +563,15 @@ class Orchestrator:
             changes=store.query("SELECT sequence,content,source,context_json FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence DESC LIMIT 101",(run['id'],))
             for change in changes:change['context']=json.loads(change.pop('context_json'))
             frozen['user_changes']=list(reversed(changes[:100]));frozen['user_changes_truncated']=len(changes)>100
+            from .run_inputs import candidate_digest
+            selected={task['id']:task for task in graph.active_tasks(run)}
+            frozen['user_reviews']=[]
+            for decision in store.query("SELECT id,request_json,answer_json,updated_at FROM workflow_decisions WHERE run_id=? AND kind='quality' AND status='applied' ORDER BY updated_at DESC LIMIT 100",(run['id'],)):
+                request=json.loads(decision['request_json']);answer=json.loads(decision['answer_json']);approved_task=selected.get(request.get('task_id'))
+                if (answer.get('action')=='approve' and approved_task and approved_task['status']=='succeeded'
+                    and request['revision']==approved_task['revision'] and request['candidate_digest']==candidate_digest(store,run,approved_task)):
+                    frozen['user_reviews'].append({'decision_id':decision['id'],'task_id':approved_task['id'],'revision':approved_task['revision'],
+                        'candidate_digest':request['candidate_digest'],'action':'approve','approved_at':decision['updated_at']})
         if purpose=='task':
             selected=frozen['tasks'][0]
             frozen['goal']=selected['spec']['objective']

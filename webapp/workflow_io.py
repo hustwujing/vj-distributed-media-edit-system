@@ -1,5 +1,6 @@
 """Fixed entrypoint inside the project namespace; all output writes are unprivileged."""
 import base64
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -67,12 +68,27 @@ def execute(request):
                 from PIL import Image
                 with Image.open(path) as image:
                     image.verify()
+        observed=[]
+        for name in request.get('observe_outputs',request['outputs']):
+            if Path(name).name!=name or name in ('.','..'):raise ValueError('Invalid observation output name')
+            path=folder/name
+            if path.is_symlink():observed.append({'name':name,'state':'symlink'});continue
+            if not path.is_file():observed.append({'name':name,'state':'missing'});continue
+            with path.open('rb') as stream:sha=hashlib.file_digest(stream,'sha256').hexdigest()
+            observed.append({'name':name,'state':'present','size':path.stat().st_size,'sha256':sha})
+        logfile=folder/'execution.log';tail='';truncated=False;size=0
+        if not logfile.is_symlink() and logfile.is_file():
+            with logfile.open('rb') as stream:
+                size=logfile.stat().st_size;truncated=size>8000;stream.seek(max(0,size-8000));tail=stream.read(8000).decode(errors='replace')
+        return {'version':1,'returncode':0,'outputs':observed,'stdout_tail':tail,'stdout_bytes':size,'stdout_truncated':truncated,
+                'acceptance':'pending_independent_validation'}
 
 
 def main():
     request=json.load(sys.stdin)
     try:
-        execute(request)
+        receipt=execute(request)
+        if request.get('mode')=='local':print(json.dumps(receipt,ensure_ascii=False))
     except Exception as exc:
         log=''
         relative=Path(request.get('output',''))

@@ -7,6 +7,7 @@ from .workflow_graph import Authorization,Proposal,ManagerResult,Task,encode,dig
 
 class ProposalIdentityError(ValueError):pass
 class ProposalReferenceError(ValueError):pass
+class ProposalSnapshotError(ProposalReferenceError):pass
 class PlanningBudgetExceeded(ValueError):pass
 class PlanningScopeRequired(ProposalReferenceError):code='scope_confirmation_required'
 
@@ -139,8 +140,10 @@ def stage(store,lease,request_id,raw):
         if result.kind=='REQUEST_AUTHORIZATION' and result.authorization.goal!=run['goal']:
             raise PlanningScopeRequired('Copy the frozen goal exactly for scope expansion; use NEW_RUN_REQUIRED for a different top-level goal')
         cutoff=(frozen.get('input_batch') or {}).get('through_sequence',0)
-        if (result.snapshot_digest,result.base_graph_version,result.authorization_version,result.input_through_sequence)!=(request['snapshot_digest'],request['base_graph_version'],request['authorization_version'],cutoff):
-            raise ValueError('Manager result does not match its frozen snapshot and input batch')
+        expected={'snapshot_digest':request['snapshot_digest'],'base_graph_version':request['base_graph_version'],
+                  'authorization_version':request['authorization_version'],'input_through_sequence':cutoff}
+        mismatched=[name for name,value in expected.items() if getattr(result,name)!=value]
+        if mismatched:raise ProposalSnapshotError('Manager result does not match frozen binding fields: '+', '.join(mismatched)+'. Copy them from this planning request; do not invent bindings.')
         if request['status']=='staged':
             if request['proposal_json']!=encode(result.model_dump()):raise ValueError('Planner result is immutable')
             return

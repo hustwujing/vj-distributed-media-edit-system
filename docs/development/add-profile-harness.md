@@ -42,3 +42,5 @@
 新能力同时更新 Profile 目录、运行包/依赖清单、诊断投影、接入说明和真机用例；发布遵循冻结版本门禁。
 
 统一 Run 接入还必须验证：Control Job 不创建业务 Task；运行中输入只建立派发屏障，不取消当前模型/工具循环；所有结果仍绑定原 revision/lease。业务报告使用 report 对象，控制角色使用专属 envelope。实际调用记入 specialist_attempt_profiles，不能根据项目默认配置猜测执行的 harness。
+
+Script工具必须返回结构化执行回执：退出码、已声明输出的存在状态/大小/哈希、有界stdout及截断标记。模型应收到实际已执行动作与回执，不能只有泛化的“执行完成”。探索性/分步脚本不要求每次都产出全部最终文件；只有result阶段才独立验收完整声明输出。finalize阶段只接受result/proposal，不再执行script/inspect/contract。每个脚本执行时限还须受当前Agent剩余时间限制；回执不等于业务验收通过。

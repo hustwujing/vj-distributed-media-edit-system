@@ -62,8 +62,8 @@ async function before(c){
   const initial=await wait(r=>r.decisions.some(d=>d.kind==='quality'&&d.request.task_id==='render'),1200);
   state.unified_boundary.before=initial;persist();
   const message=hook==='feedback_cutout'?
-   '给render创建新revision：以原已验收透明图为唯一来源，仅将Alpha通道执行Pillow ImageFilter.MinFilter(3)，RGB保持原值，其他像素处理不变；明确semantics.mask_repair为A/local_edge_repair，reference_role指向原透明图输入角色，output_role为primary_image，max_changed_fraction=0.05。保持512×512透明PNG、人物范围和原技术/Agent验收，不重做source_cutout；新结果无需人工Review。':
-   '给render创建新revision：仅交换左右构图，prepare_b在左、prepare_a在右，仍各用ImageOps.fit默认方法适配64×64后组成128×64 final.png。两张上游revision与哈希保持，保留技术/Agent验收；新结果无需人工Review。';
+   '给render创建新revision：以原已验收透明图为唯一来源，仅将Alpha通道执行Pillow ImageFilter.MinFilter(3)，RGB保持原值，其他像素处理不变；明确semantics.mask_repair为A/local_edge_repair，reference_role指向原透明图输入角色，output_role为primary_image，max_changed_fraction=0.05。保持512×512透明PNG、人物范围和原技术/Agent验收，不重做source_cutout；保留原人工Review，待用户复核新版。':
+   '给render创建新revision：仅交换左右构图，prepare_b在左、prepare_a在右，仍各用ImageOps.fit默认方法适配64×64后组成128×64 final.png。两张上游revision与哈希保持，保留技术/Agent验收；保留原人工Review，待用户复核新版。';
   const accepted=await feedback(message);mark({input_id:accepted.id});
  }else if(hook==='reference_before_wan'){
   const initial=await wait(r=>r.tasks.some(t=>t.id==='reference'&&t.status==='running'),600);
@@ -76,7 +76,7 @@ async function before(c){
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator(`[data-decision="${decision.id}"] [data-feedback]`).waitFor();
   assert.equal(await page.locator(`[data-decision="${decision.id}"] [data-feedback]`).inputValue(),'请在64×64图像内画2像素红色边框，其余不变。');
-  const accepted=await feedback('请给render创建新revision，在64×64图像内用Pillow画2像素红色边框，其余内容不变；不再需要人工Review，保留技术和Agent验收。');
+  const accepted=await feedback('请给render创建新revision，在64×64图像内用Pillow画2像素红色边框，其余内容不变；保留原人工Review，待用户复核新版；保留技术和Agent验收。');
   const command=await api('POST',`/api/projects/${state.project}/runs/${run.id}/commands`,state.last_feedback_request);
   assert.equal(command.id,state.last_feedback_command);
   const stale=await api('POST',`/api/projects/${state.project}/runs/${run.id}/commands`,{
