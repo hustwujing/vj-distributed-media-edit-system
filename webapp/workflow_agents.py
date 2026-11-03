@@ -64,6 +64,7 @@ def proposal_feedback(raw):
 
 def reserve_tokens(store,lease,run,amount):
     with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
         lease.validate(db)
         used=db.execute('SELECT COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS n FROM workflow_model_reservations WHERE run_id=?',(run['id'],)).fetchone()['n']
         if used+amount>run['authorization']['model_token_budget']:
@@ -96,6 +97,61 @@ def model_budget(lease,run,amount,receipt):
                 emit('workflow.token_receipt_failed','WARNING',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
 
 
+def image_token_envelope(images):
+    """Bound native vision cost independently of compression and gateway counts.
+
+    Some compatible counters omit image tokens. For our bounded previews use
+    an envelope above the documented patch/tile costs of supported vision
+    models: 4,096 base plus 8,192 per unresized 512px tile. New model integrations
+    must validate this envelope against actual usage; it is not billed usage.
+    """
+    import io
+    from PIL import Image
+    total=0
+    for value in images:
+        if not isinstance(value,str) or not value.startswith('data:image/jpeg;base64,') or len(value)>3*1024**2:
+            raise ValueError('Unexpected inspection image encoding')
+        raw=base64.b64decode(value.split(',',1)[1],validate=True)
+        with Image.open(io.BytesIO(raw)) as picture:
+            if picture.format!='JPEG' or picture.width*picture.height>4_000_000 or getattr(picture,'n_frames',1)!=1:
+                raise ValueError('Inspection image exceeds token envelope')
+            total+=4096+8192*math.ceil(picture.width/512)*math.ceil(picture.height/512)
+    return total
+
+
+def input_token_reservation(adapter,body,client,base,key,lease,deadline,images=()):
+    """Count image inputs as model inputs, never as Base64 transport text."""
+    from .egress_policy import provider_base
+    from .safe_stream import chunks
+    image_tokens=image_token_envelope(images)
+    try:path,request=adapter.input_token_request(body)
+    except NotImplementedError:raise ModelServiceError(0,'model_input_count_unavailable') from None
+    lease.check()
+    if time.monotonic()>=deadline:raise TimeoutError('Agent phase deadline reached')
+    headers={**adapter.headers(key),'Accept':'application/json'}
+    with client.post(provider_base(base)+path,json=request,headers=headers,stream=True,
+                     timeout=(10,max(1,min(30,deadline-time.monotonic()))),allow_redirects=False) as response:
+        if response.status_code!=200:raise ModelServiceError(response.status_code,'model_input_count_unavailable')
+        data=bytearray()
+        for chunk in chunks(response):
+            lease.check()
+            if time.monotonic()>=deadline:raise TimeoutError('Agent phase deadline reached')
+            data.extend(chunk)
+            if len(data)>16384:raise ModelServiceError(200,'model_input_count_invalid')
+    try:payload=json.loads(data)
+    except (ValueError,TypeError):raise ModelServiceError(200,'model_input_count_invalid') from None
+    count=payload.get('input_tokens') if isinstance(payload,dict) else None
+    if type(count) is not int or not 0<=count<=100_000_000:
+        raise ModelServiceError(200,'model_input_count_invalid')
+    # Native counters may differ slightly from generation framing. This is an
+    # admission reserve, not a fabricated usage receipt; actual usage settles it.
+    margin=max(256,math.ceil(count*.01))
+    from .telemetry import emit
+    emit('workflow.model_input_count',native_input_tokens=count,image_envelope_tokens=image_tokens,
+         framing_margin_tokens=margin,image_count=len(images))
+    return count+margin+image_tokens,'provider_count_plus_image_envelope'
+
+
 def model(host,lease,run,profile,conversation,images=(),deadline=None):
     from .agent_profiles import for_task
     from .model_adapters import get,PublicResponseStructureError
@@ -108,16 +164,18 @@ def model(host,lease,run,profile,conversation,images=(),deadline=None):
     body=adapter.conversation(instructions,conversation,images)
     body=adapter.prepare(body,configuration.model,profile.max_output_tokens,configuration.reasoning_effort)
     raw=graph.encode(body);assert_no_credentials(raw,(*secrets(),key))
-    # UTF-8 bytes give a conservative textual token upper bound. Inline pixels
-    # are bounded separately; unresolved receipts retain the whole reservation.
-    lease.consume('model',configuration.budget['task_models'])
     receipt=adapter.receipt()
     from .telemetry import emit
     emit('model.request_configuration',model=configuration.model,protocol=configuration.protocol,
          harness=profile.harness,profile_id=profile.id,configuration_digest=graph.digest(profile.snapshot()),
          max_output_tokens=profile.max_output_tokens,reasoning_effort=configuration.reasoning_effort)
     deadline=deadline or time.monotonic()+profile.timeout_seconds
-    with model_budget(lease,run,len(raw.encode())+profile.max_output_tokens,receipt),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
+    with session() as counter:
+        input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images)
+    emit('workflow.model_token_reservation',task_id=lease.run_id,step_id=lease.step_id,
+         input_tokens=input_tokens,output_tokens=profile.max_output_tokens,image_count=len(images),method=method)
+    lease.consume('model',configuration.budget['task_models'])
+    with model_budget(lease,run,input_tokens+profile.max_output_tokens,receipt),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
         with client.post(provider_base(base)+adapter.path,json=body,headers=adapter.headers(key),stream=True,
                          timeout=(10,max(1,min(240,deadline-time.monotonic()))),allow_redirects=False) as response:
             if response.status_code!=200:receipt.status='failed';raise ModelServiceError(response.status_code)

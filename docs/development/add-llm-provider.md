@@ -37,3 +37,9 @@
 Responses 的 `phase=commentary` 是过程消息，不能作为业务动作执行；只解析唯一的 `final_answer`。没有 phase 的当前协议单消息仍按唯一完整文本处理；多个最终消息、最终与未标记消息混杂、未知 phase 或不完整消息均拒绝，不拼接或任取最后一条。响应结构错误与最终文本的 JSON 语法错误必须分别记录，不能把内部错误提示的长度当作模型回复长度。参考[官方阶段定义](https://developers.openai.com/api/docs/guides/deployment-checklist)。
 
 业务报告在系统提示和冻结 Task 上下文中复用同一结果契约，均要求 report 对象；不能一处要求对象、另一处要求 JSON 字符串。观测记录公开消息阶段的数量与剩余检查/纠正额度，不记录私有推理内容。
+
+结构化 harness 在生成前调用适配器的 `input_token_request`：Responses 使用 `/responses/input_tokens`，Messages 使用 `/messages/count_tokens`，沿用冻结的模型、路由及凭据。新接入模型/网关必须同时验证计数接口；不可用、非法计数或过期租约时不发起生成，也不按零计数放行。计数请求不计作生成用量；真正生成仍须先预留、后按 usage 回执结算，未知回执继续保留预留。
+
+计数接口不一定完整实现官方协议。本机网关实测漏计图片，因此图片另按实际尺寸保守预留：每张 4096 加每个未缩放 512px tile 的 8192 Token；另加文本计数的 1%（至少256）作为请求结构余量。该预留覆盖当前受限预览及已支持模型的公开 patch/tile 计费规则，不是实际用量；新增模型必须对照真实图片回执核实覆盖范围。禁止把 Base64 字节数当作图片 Token，也不得仅凭兼容接口的返回值认定包含视觉用量。日志分别保存 native count、图片预留、结构余量及实际回执，不能保存图片或完整提示正文。
+
+协议依据：[OpenAI 输入计数](https://developers.openai.com/api/docs/guides/token-counting)、[图像计量](https://developers.openai.com/api/docs/guides/images-vision)、[Claude Token 计数](https://platform.claude.com/docs/en/build-with-claude/token-counting)。

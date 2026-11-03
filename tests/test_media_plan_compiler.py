@@ -90,5 +90,29 @@ class CompilerTests(unittest.TestCase):
             self.assertEqual(report['status'],'succeeded');self.assertIsNotNone(report['measurement'])
             self.assertFalse(report['output']['audio_silent'])
 
+    def test_gain_only_preserves_channels_sample_grid_and_exact_gain(self):
+        import numpy as np
+        import wave
+        from webapp.media_handlers import execute
+        for channels in (1,2):
+            with self.subTest(channels=channels),tempfile.TemporaryDirectory() as root:
+                root=Path(root);project=root/'project';sources=project/'sources';sources.mkdir(parents=True)
+                rate=32000;t=np.arange(rate)/rate
+                samples=np.stack([np.sin(2*np.pi*(440+index*220)*t)*12000 for index in range(channels)],axis=1).astype('<i2')
+                with wave.open(str(sources/'source.wav'),'wb') as audio:
+                    audio.setnchannels(channels);audio.setsampwidth(2);audio.setframerate(rate);audio.writeframes(samples.tobytes())
+                output=root/'output';parameters=validate_parameters('audio.process',{'gain_db':-6},{'source':{'asset':'bound'}})
+                execute({'project_dir':str(project),'output_dir':str(output),'assets':[{'id':'bound','filename':'source.wav'}],
+                    'input_roles':{'source':'bound'},'explicit_inputs':True,'payload':{'kind':'audio_process','assets':['bound'],**parameters}})
+                with wave.open(str(output/'final.wav'),'rb') as audio:
+                    self.assertEqual((audio.getnchannels(),audio.getframerate(),audio.getnframes()),(channels,rate,rate))
+                    actual=np.frombuffer(audio.readframes(rate),dtype='<i2').reshape(-1,channels)
+                expected=samples.astype(float)*10**(-6/20)
+                self.assertLessEqual(float(np.max(np.abs(actual-expected))),1.1)
+                report=json.loads((output/'audio-process-report.json').read_text())
+                self.assertFalse(report['normalization_applied']);self.assertEqual(report['filters'],['volume=-6dB'])
+                self.assertAlmostEqual(report['gain_measurement']['mean_delta_db'],-6,delta=.11)
+                self.assertEqual(report['source_audio']['channels'],channels)
+
 
 if __name__=='__main__':unittest.main()

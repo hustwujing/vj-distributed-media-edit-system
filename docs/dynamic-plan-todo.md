@@ -93,13 +93,13 @@
 ### 持久输入邮箱与屏障
 
 - [ ] 新增 `run_inputs` 作为 Run 级权威输入邮箱，保存 `id / run_id / sequence / idempotency_key / content / attachments / base_graph_version / base_authorization_version / status / accepted_at / applied_at / error_code`；输入状态至少包含 `ACCEPTED / PLANNING / APPLIED / SUPERSEDED / FAILED`。
-- [ ] 第一条未应用业务输入写入时，在同一事务中设置 `runs.input_barrier_sequence`（当前结构下写入 `workflow_runs`），并记录此刻已经开始或已提交外部请求的 drain set。API 返回 accepted 只表示输入和屏障已持久化，不表示 Manager 已经处理。
+- [ ] 第一条未应用业务输入写入时，在同一事务中设置 `runs.input_barrier_sequence`，并记录此刻已经开始或已提交外部请求的 drain set。API 返回 accepted 只表示输入和屏障已持久化，不表示 Manager 已经处理。
 - [ ] 同一 Run 的输入按 sequence 聚合到下一轮 Manager，不逐条启动规划；限制 pending 条数和总字节。重复 idempotency key 返回原记录，不得重复增加规划轮次、authorization version 或 Provider 额度。
 - [ ] 新附件先登记为项目 asset；在安全点进入 Manager 前完成项目归属、存储额度和 content fingerprint 检查。未纳入授权的新素材可以随输入保存，但 Manager 只能看到其“待授权”元数据，不能读取内容或规划执行。
 
 ### 排空期间的正常处理
 
-- [ ] 屏障不修改已运行 Task 的 spec、revision、lease 或状态。`structured-profile-v1` 完成当前模型/工具循环，script 和本地 Operation 正常退出，Provider Task 继续 submit/poll/collect/validate；Executor 仍保存 checkpoint、诊断、Provider receipt 和 staged result。
+- [ ] 屏障不修改已运行 Task 的 spec、revision、lease 或状态。`structured-profile-v2` 完成当前模型/工具循环，script 和本地 Operation 正常退出，Provider Task 继续 submit/poll/collect/validate；Executor 仍保存 checkpoint、诊断、Provider receipt 和 staged result。
 - [ ] Orchestrator 继续按原规则处理 drain set：结果可以正式变为 `succeeded / paused / retry_wait / reviewing / failed`，程序验收、Agent Review、用户已在处理的 Decision、失败诊断和安全重试均照常完成；不得仅因新输入把正常结果预先标记为 superseded。
 - [ ] 失败 Task 的诊断可以继续创建和完成，但诊断后的自动 Manager revision 暂缓到统一安全点，与用户新输入合并为同一轮规划，避免并发产生两套 Proposal。
 - [ ] Scheduler/Coordinator 在 claim 事务中检查 input barrier：允许 drain set 中已经开始的 Task 继续 poll、collect、validate、安全重试及完成其必要 Review/Diagnosis；拒绝领取屏障建立后新解锁或此前尚未开始的业务 Task。已经是 `ready` 的 Task 可保持 ready，但在屏障解除前不可 claim。

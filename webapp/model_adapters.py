@@ -35,10 +35,16 @@ class ModelAdapter:
     def response_text(self,payload):
         raise NotImplementedError('Structured response parsing is not implemented for this protocol')
 
+    def input_token_request(self,body):
+        raise NotImplementedError('This protocol has no configured multimodal input token counter')
+
 
 class ResponsesAdapter(ModelAdapter):
     protocol = 'responses'
     path = '/responses'
+
+    def input_token_request(self,body):
+        return '/responses/input_tokens',{k:body[k] for k in ('model','instructions','input','tools','tool_choice','text') if k in body}
 
     def conversation(self,instructions,text,images=()):
         content=[{'type':'input_text','text':text}]+[{'type':'input_image','image_url':image} for image in images]
@@ -153,6 +159,9 @@ class ChatCompletionsAdapter(ModelAdapter):
 class AnthropicAdapter(ModelAdapter):
     protocol = 'anthropic'
     path = '/messages'
+
+    def input_token_request(self,body):
+        return '/messages/count_tokens',{k:body[k] for k in ('model','system','messages','tools','tool_choice','thinking') if k in body}
 
     def conversation(self,instructions,text,images=()):
         content=[{'type':'text','text':text}]+[{'type':'image','source':{'type':'base64','media_type':'image/jpeg','data':image.split(',',1)[1]}} for image in images]

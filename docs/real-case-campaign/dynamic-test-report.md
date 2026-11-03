@@ -1,24 +1,24 @@
 # 动态工作流完整真机 case 测试报告
 
-本报告包含清单中的全部 99 条 case 的执行状态和所有历史尝试。未执行、未触发目标边界、缺少审查证据以及旧版本结果均不计为当前版本通过。
+本报告包含清单中的全部 117 条 case 的执行状态和所有历史尝试。未执行、未触发目标边界、缺少审查证据以及旧版本结果均不计为当前版本通过。
 
-当前部署：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`。整体验收：**未完成**。
+当前部署：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`。整体验收：**未完成**。
 
-冻结 Python 门禁：777 项，失败 0，错误 0，跳过 6。绑定摘要：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`。
-JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/538ba92724aa.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
+冻结 Python 门禁：834 项，失败 0，错误 0，跳过 6。绑定摘要：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`。
+JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/84e57f010ae5.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
 
-统计：待逐例审查 4；需在当前版本复测 93；模型/依赖失败已正确处理 1；通过 1。
+统计：通过 15；模型/依赖失败已正确处理 2；程序缺陷 3；需在当前版本复测 85；未执行 12。
 
-当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 1；待归因 0。非程序错误仍是业务或用例失败，不并入业务成功。
+当前版本失败分类：程序错误 3；非程序错误（程序处理正确） 2；待归因 0。非程序错误仍是业务或用例失败，不并入业务成功。
 
-必须完成的额外回归：无未完成项。
+必须完成的额外回归：F48-history-archive：Historical executed revisions must have retained checkpoint manifests and bytes；F52-script-receipts：Implementer must observe real script receipts and submit within bounded phases；F53-bound-correction：Invalid binding is rejected and bounded correction completes the original goal；F54-feedback-approval：Revision retains declared user Review; independent candidate checking precedes approval；F56-multimodal-budget：Vision input must use native token count, not Base64 transmission bytes; real video inspection must complete without a false budget failure；F57-audio-channel-gain：Gain-only processing must preserve source channels and sample rate, and actually apply requested dB gain。
 
 证据根目录：`/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan`；机器可读报告：`report.json`。原始证据保留在本机，不包含在 Git 提交中。
 
 [用例保留与调整审查](dynamic-case-review.md) · [失败与修复记录](dynamic-fixes.md) · [非程序错误分析](dynamic-non-program-failures.md)
 
 
-部署后真机批次按源码版本统计。每个版本可能包含定向验证、失败复测或部分全量运行，不能把候选版本数表述为完整99条测试轮数。
+部署后真机批次按源码版本统计。每个版本可能包含定向验证、失败复测或部分全量运行，不能把候选版本数表述为完整117条测试轮数。
 
 | 部署版本 | 涉及用例数 | 实际执行次数 | 已结束次数 |
 | --- | --- | --- | --- |
@@ -43,27 +43,33 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | `941c6793cde3` | 3 | 3 | 3 |
 | `0a3c54b531af` | 2 | 2 | 2 |
 | `538ba92724aa` | 6 | 6 | 6 |
+| `0f381948c129` | 2 | 2 | 2 |
+| `3917f259e246` | 2 | 2 | 2 |
+| `f0afcad996f7` | 13 | 13 | 13 |
+| `cd13667ad301` | 4 | 4 | 4 |
+| `ecc1c9fe8290` | 4 | 4 | 4 |
+| `84e57f010ae5` | 20 | 20 | 20 |
 
 | Case | 场景 | 当前结论 | 尝试次数 |
 | --- | --- | --- | --- |
-| S01 | 图片中心裁切 | 待逐例审查 | 12 |
-| S02 | 图片等比缩小 | 待逐例审查 | 8 |
-| S03 | 图片顺时针旋转 | 待逐例审查 | 8 |
-| S04 | 图片水平镜像 | 待逐例审查 | 8 |
-| S05 | 图片亮度调整 | 需在当前版本复测 | 9 |
-| S06 | 图片灰度化 | 需在当前版本复测 | 7 |
-| S07 | 图片高斯模糊 | 需在当前版本复测 | 7 |
-| S08 | 图标抠透明背景 | 需在当前版本复测 | 9 |
-| S09 | SAM3人像分割 | 需在当前版本复测 | 8 |
-| S10 | 图片文字识别 | 需在当前版本复测 | 10 |
-| S11 | PNG转JPEG | 需在当前版本复测 | 8 |
-| S12 | WebP缩略图 | 需在当前版本复测 | 7 |
-| S13 | 音频精确截取 | 需在当前版本复测 | 7 |
-| S14 | 音量降低6dB | 需在当前版本复测 | 8 |
-| S15 | 音频首尾渐变 | 需在当前版本复测 | 7 |
-| S16 | 视频提取音频 | 需在当前版本复测 | 7 |
-| S17 | 视频精确剪切 | 需在当前版本复测 | 7 |
-| S18 | 视频等比缩小 | 需在当前版本复测 | 6 |
+| S01 | 图片中心裁切 | 通过 | 17 |
+| S02 | 图片等比缩小 | 通过 | 10 |
+| S03 | 图片顺时针旋转 | 通过 | 10 |
+| S04 | 图片水平镜像 | 通过 | 10 |
+| S05 | 图片亮度调整 | 模型/依赖失败已正确处理 | 13 |
+| S06 | 图片灰度化 | 通过 | 9 |
+| S07 | 图片高斯模糊 | 通过 | 9 |
+| S08 | 图标抠透明背景 | 通过 | 10 |
+| S09 | SAM3人像分割 | 模型/依赖失败已正确处理 | 9 |
+| S10 | 图片文字识别 | 通过 | 11 |
+| S11 | PNG转JPEG | 通过 | 9 |
+| S12 | WebP缩略图 | 通过 | 8 |
+| S13 | 音频精确截取 | 通过 | 8 |
+| S14 | 音量降低6dB | 程序缺陷 | 9 |
+| S15 | 音频首尾渐变 | 通过 | 8 |
+| S16 | 视频提取音频 | 通过 | 8 |
+| S17 | 视频精确剪切 | 程序缺陷 | 8 |
+| S18 | 视频等比缩小 | 程序缺陷 | 7 |
 | S19 | 视频顺时针旋转 | 需在当前版本复测 | 6 |
 | S20 | 两倍速保音高 | 需在当前版本复测 | 6 |
 | S21 | 移除视频音轨 | 需在当前版本复测 | 7 |
@@ -92,13 +98,13 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | C13 | 分段变速与定格 | 需在当前版本复测 | 3 |
 | C14 | 倒放混剪 | 需在当前版本复测 | 3 |
 | C15 | 旁白配乐压低与字幕 | 需在当前版本复测 | 3 |
-| C16 | 降噪与双格式播客 | 模型/依赖失败已正确处理 | 6 |
+| C16 | 降噪与双格式播客 | 需在当前版本复测 | 6 |
 | C17 | 中英字幕品牌短片 | 需在当前版本复测 | 4 |
 | C18 | 音画分离后重组 | 需在当前版本复测 | 2 |
 | C19 | 海报动画与透明角标 | 需在当前版本复测 | 2 |
 | C20 | 精修人像双背景对照 | 需在当前版本复测 | 4 |
 | C21 | 并行预处理后汇合 | 需在当前版本复测 | 4 |
-| C22 | 24片段长程批处理与暂停续跑 | 通过 | 8 |
+| C22 | 24片段长程批处理与暂停续跑 | 需在当前版本复测 | 8 |
 | C23 | 局部模糊遮挡与合成 | 需在当前版本复测 | 2 |
 | C24 | 静音替换配乐与封面 | 需在当前版本复测 | 2 |
 | C25 | 多画幅并行交付 | 需在当前版本复测 | 4 |
@@ -111,7 +117,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | R02 | 待确认时改尺寸与格式 | 需在当前版本复测 | 3 |
 | R03 | 待确认时改素材选择与顺序 | 需在当前版本复测 | 3 |
 | R04 | 部分完成时追加输出格式 | 需在当前版本复测 | 5 |
-| R05 | 部分完成时重做一个分支参数 | 需在当前版本复测 | 3 |
+| R05 | 部分完成时重做一个分支参数 | 需在当前版本复测 | 4 |
 | R06 | 部分完成时替换一个分支素材 | 需在当前版本复测 | 3 |
 | R07 | 导出过程中更换封面 | 需在当前版本复测 | 5 |
 | R08 | 导出过程中改变字幕样式 | 需在当前版本复测 | 3 |
@@ -145,6 +151,24 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D19 | 独立部署与 main 数据隔离 | 需在当前版本复测 | 5 |
 | D20 | 专业 Agent 权限与实际模型用量 | 需在当前版本复测 | 6 |
 | D21 | 诊断后不可变修订并衔接下游 | 需在当前版本复测 | 2 |
+| D22 | 单一Run身份与独立Control Job | 需在当前版本复测 | 3 |
+| D23 | 业务排空与全Run派发屏障 | 需在当前版本复测 | 1 |
+| D24 | 专业Agent在途输入排空 | 未执行 | 0 |
+| D25 | 规划期间连续输入分批处理 | 需在当前版本复测 | 1 |
+| D26 | Wan在途输入保持原句柄 | 未执行 | 0 |
+| D27 | 外部提交未知时输入屏障 | 未执行 | 0 |
+| D28 | 质量反馈幂等与过期快照 | 通过 | 4 |
+| D29 | 拒绝不能被人工批准且可补证据 | 未执行 | 0 |
+| D30 | 局部蒙版修复比例边界 | 未执行 | 0 |
+| D31 | 持续动作的真实时序证据 | 未执行 | 0 |
+| D32 | 输入与最终发布竞争 | 未执行 | 0 |
+| D33 | 交付后successor输入幂等 | 未执行 | 0 |
+| D34 | 同步外部请求在途输入 | 未执行 | 0 |
+| D35 | Provider配置切换后冻结路由恢复 | 未执行 | 0 |
+| D36 | 抠图候选边缘反馈修订 | 未执行 | 0 |
+| D37 | 双图构图反馈修订 | 未执行 | 0 |
+| D38 | Wan提交前参考图反馈修订 | 需在当前版本复测 | 2 |
+| D39 | 合法替代失败节点与历史读取 | 通过 | 3 |
 
 Python 门禁跳过项（不计作真实模型通过证据）：
 
@@ -157,7 +181,7 @@ Python 门禁跳过项（不计作真实模型通过证据）：
 
 ## S01 · 图片中心裁切
 
-当前结论：**待逐例审查**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。
@@ -323,7 +347,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f8baf759fa504635a05ee18e09e69b9e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -350,7 +374,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2c17d056d0414cb286ba2426b198faf8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 通过
 
@@ -379,7 +403,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a149b991c20d4c519a4ae4ac783aacad`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-009 · 通过
 
@@ -408,7 +432,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `29960502920441f5a46511ab932a5a91`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-010 · 通过
 
@@ -437,7 +461,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `36b95f41f4884c0ca9caa5b16954a5bc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-011 · 通过
 
@@ -466,11 +490,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `babc9650b9014b0a9a09e9d87bfc0a86`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-012 · 待逐例审查
 
-版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：是。
+版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-03T21:18:35+08:00 → 2026-11-03T21:32:50+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`business_succeeded`；项目：`2040a92492c2472d9cbd82b175e9bbee`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-012/cleanup.json)
@@ -493,11 +517,156 @@ Call log:
 
 实际确认的执行轮次：
 
-- `90c3d5db33b044cfa38f3b3850f73f7c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-013 · 程序缺陷
+
+版本：`0f381948c12975908bf4fe2af0cc874220fcb23d583dbd4f7999f7367ed000a0`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:07:52+08:00 → 2026-11-04T04:11:05+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`5cec8f0548764a7bbf9e4369491411ed`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-013/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793736758.545826, "evidence": ["scheduler-starvation.json", "internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "final-browser.png"], "findings": ["两个可用执行器持续心跳，PLAN control_jobs为ready，但execution_attempts为空。", "scheduling.candidates错误地只查询run_tasks，导致独立控制任务被过滤；模型调用和Provider调用均为0。", "浏览器停留在规划/等待执行；没有交付或误标成功。", "已通过正常取消命令收尾；数据库、缓存、BOSS及本地项目清理核对完成。"], "required_retest": "修复候选选择后重跑本case，实际完成Manager、业务Task和Final Review。"}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `5503f8a1416347abb8afd645d7a43f33`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-014 · 程序缺陷
+
+版本：`3917f259e246fa2c353f969d1352275a774623a830297294b29fe0b6096fc3c3`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:23:25+08:00 → 2026-11-04T04:25:17+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`e390eb86769f42baa24f69b7843075b7`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-014/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "engineering_contract", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793737858.5405006, "findings": ["调度缺陷已解除，真实Manager和业务Script均启动。", "Manager直接生成Script，但其已加载技能不含角色到路径列表的运行时契约；列表契约仅存在于Implementer的media-editing技能中。", "实际生成脚本按字符串或自猜形状读取输入，导致类型错误；on_failure=pause且retry_policy=never，因此按既定策略暂停、无伪成功、无外部调用。", "归因为系统提供给脚本作者的接口说明缺漏，修复共享契约后重测，不按纯模型偶发失败结案。", "DB/日志/观测/缓存/BOSS和本地清理均已审查；首次产物及运行日志保留。"], "evidence": ["internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "final-browser.png"], "required_retest": "Manager收到同一份script-runtime契约后完整执行业务、验收与交付。"}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `da18e86ed83f40cbafd1da17b9e86bd4`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-015 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:40:53+08:00 → 2026-11-04T04:45:44+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`7957b731a1fb442ba2ecf8cb8740dcc4`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-015/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793738862.0211613, "findings": ["中心256×256裁剪与原图独立参考逐像素一致，MAE=0；无缩放，浏览器实际图片和交付入口正常。", "真实Manager、Script、独立验证、业务审查及控制面最终Review均完成；单一Run、grant、plan selection及发布不变量全部通过。", "模型9次调用有完整用量回执；未知验收target和一次非法JSON在有界纠正中处理，未应用非法提案或伪造成功。", "日志1093条、审计71条无缺口；无错误事件或未确认外部请求。", "7个BOSS对象、Redis TTL/前缀、跨节点缓存和本地项目清理均核对完成。"], "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `beb968680888480c998a3f88efd2fb28`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-016 · 通过
+
+版本：`ecc1c9fe829027178dcdb39a03289224abf6e6977e4de7c949f29f6019bc0186`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T06:48:39+08:00 → 2026-11-04T06:57:12+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`d2be28eb219645ba91a83c5fab25041c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-016/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793747136.8921883, "findings": ["实际浏览器与交付状态一致，图片内容已查看；独立产物检查通过。", "数据库、授权、租约、版本、最终Review及一次发布不变量通过；日志、观测、Redis、BOSS与本地/项目清理完整。", "中心裁剪像素MAE=0。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `b6e7c5aa84a74245b95732014ab56d6b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-017 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:12:38+08:00 → 2026-11-04T07:17:29+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`a3321cb92efa44c58f5054c161e4ac04`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-017/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748016.917307, "findings": ["中心裁剪独立像素MAE=0；浏览器交付与实际图像正常。", "一次模型服务502被记录且恢复成功；缺失usage对应失败请求，非虚构为零调用。", "数据库不变量、日志完整性、观测、Redis隔离/TTL、BOSS加密对象、候选归档、本地及外部清理已核对；全部适用维度正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "runtime-evidence.json", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `eafcd8aa6b414c1aafc6f1503ec2131c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ## S02 · 图片等比缩小
 
-当前结论：**待逐例审查**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。
@@ -556,7 +725,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `dbf7fd925a5141f889db2f78bf336d83`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -583,7 +752,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `322442f590cf475c8014ef9403272a77`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -612,7 +781,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3c91bdffe2ef44168acb93dfcd7d520b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -641,7 +810,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f5acec71891342e6bf5def85fd7806a9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -670,7 +839,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `eb3d015d471a46fcaf48077482e1d53d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -699,11 +868,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `45164bff50694b2a87e7a4bf7d78e9e9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 待逐例审查
 
-版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：是。
+版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-03T21:18:35+08:00 → 2026-11-03T21:22:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`business_succeeded`；项目：`785da758c1c34378b40088ff407a53bc`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-008/cleanup.json)
@@ -726,11 +895,69 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f4d0b751b762470ab470a9a789730d46`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:54:04+08:00 → 2026-11-04T04:59:01+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`a32f294dc57d47dcaf8d64e8cbcc993e`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741536.8281386, "findings": ["256×256等比缩小、无边框，像素参考MAE=0；实际浏览器图片与交付状态正确。", "该历史尝试所有业务Task均为revision 0，原采集器已保留当前候选字节；后续归档修正不影响这次已检查的产物事实，但不以此代替新发布版本复测。", "数据库/租约/授权/最终Review与单次发布不变量通过；日志和观测可用，无未知外部调用；Redis TTL/前缀、BOSS加密引用和本地/项目/对象清理完整。", "模型参数或响应纠正记录保留；没有将非法提案或未检查候选直接发布。"], "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `7eb3ff01e47e42078551686af03ec8b2`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-010 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:12:38+08:00 → 2026-11-04T07:15:53+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`036f97965e3f46218811657cc19878ec`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S02/attempt-010/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793747827.9697764, "findings": ["256×256等比缩小无边框，独立像素参考MAE=0；实际图片及最终页面显示正常。", "业务Task和独立Review完成，单一Run、授权、租约、最终审查和一次发布的数据库检查无失败。", "一次sealed/replan_after错误在提交前纠正；模型用量完整，无执行错误。", "日志无缺口，观测正常；1份候选字节归档、3个BOSS对象、Redis TTL/前缀、本地缓存与项目清理全部核对。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `8e2cecc4e91245098b602fdaf4571687`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。；Token上限 500000；外部调用上限 `{}`。
 
 ## S03 · 图片顺时针旋转
 
-当前结论：**待逐例审查**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。
@@ -789,7 +1016,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d2b61845ea9a4a0b962d2a84a783e987`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -816,7 +1043,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6f893d2e2deb4f6c9936915fde7281f7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -845,7 +1072,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0c77bacf56d64e52a8733f0a54c006c1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -874,7 +1101,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `db75f2244d434278b70a80054ae6a3c0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -903,7 +1130,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2a2e47c853cd48aab5898d7e4455fa71`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -932,11 +1159,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `987ac83b03dc4fc8a37f53c7bd4f3c69`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 待逐例审查
 
-版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：是。
+版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-03T21:22:45+08:00 → 2026-11-03T21:23:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`business_succeeded`；项目：`de3a8b4201fd44eea8111870f3ca97ea`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-008/cleanup.json)
@@ -959,11 +1186,69 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2a99807b3e9b4deb8c7dd1c0fee2ae80`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:54:04+08:00 → 2026-11-04T04:56:12+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f796fcdbfecf41338434a8a44906f05e`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793739505.395121, "findings": ["实际顺时针旋转90度且尺寸512×512，独立像素参考MAE=0；浏览器显示方向正确、无裁切。", "单一Run及控制任务、不可变检查点、最终Review和一次发布的数据库审计均通过。", "一处sealed与replan_after冲突提案被拒绝后纠正；无执行错误或越权调用，模型用量完整。", "日志/观测/Redis TTL和隔离前缀/BOSS加密与引用/本地及外部清理全部核对完成。"], "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `af1e629b2c8c46beb9f9170b2f395368`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-010 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:15:53+08:00 → 2026-11-04T07:25:02+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`56cbc798adc44d4e916c6e7a1d764ce0`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S03/attempt-010/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748371.8856797, "findings": ["顺时针90度旋转独立像素MAE=0；真实浏览器交付与图像正常。", "模型多次非法JSON及验收字段错误均在提交前被拒绝，有界纠正后交付；14次调用190476 tokens，保留性能问题待分析。", "38项数据库不变量正常，9维证据完整；2份候选、4个BOSS对象、Redis与双节点缓存及本地清理核对正常，日志无缺口。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `defa920220d84c9e83aa592d9161846f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ## S04 · 图片水平镜像
 
-当前结论：**待逐例审查**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。
@@ -1022,7 +1307,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e4487429ec5c4e1684febeeff4c94ba2`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -1049,7 +1334,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c301b012b8624610892fb296fa838a2e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -1078,7 +1363,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6293ffdc44734084abfa761b2782b4dd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -1107,7 +1392,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2dfe55488fa84884946ba6a692f38475`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -1136,7 +1421,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e6bb4f0bc506486b8a44563492b42065`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -1165,11 +1450,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a2b3d87111804e258822aad6c6c939d8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 待逐例审查
 
-版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：是。
+版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-03T21:23:45+08:00 → 2026-11-03T21:26:36+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`business_succeeded`；项目：`3ca7fcb8c85b48659f75078aeeeef12e`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-008/cleanup.json)
@@ -1192,11 +1477,69 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ff746e6c89c3450ba7972c5b57473a8b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:56:12+08:00 → 2026-11-04T04:59:05+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`72ff3b0d5ffb4fa6b9dedb7566ebdce4`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741536.8315446, "findings": ["512×512左右镜像与独立像素参考一致，MAE=0；方向及浏览器展示正确。", "该历史尝试所有业务Task均为revision 0，原采集器已保留当前候选字节；后续归档修正不影响这次已检查的产物事实，但不以此代替新发布版本复测。", "数据库/租约/授权/最终Review与单次发布不变量通过；日志和观测可用，无未知外部调用；Redis TTL/前缀、BOSS加密引用和本地/项目/对象清理完整。", "模型参数或响应纠正记录保留；没有将非法提案或未检查候选直接发布。"], "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `71b49731b841456989d43b0c3e24c4e3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-010 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:17:04+08:00 → 2026-11-04T07:19:17+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`c480739826fe4a6ab4bd597a01d2ee08`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S04/attempt-010/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748016.9219933, "findings": ["水平镜像独立像素MAE=0；浏览器与实际图像正常。", "2份候选归档，4个BOSS对象核对后完成清理。", "数据库不变量、日志完整性、观测、Redis隔离/TTL、BOSS加密对象、候选归档、本地及外部清理已核对；全部适用维度正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "runtime-evidence.json", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `fb2ba4e0fa684551a968217c46ccd366`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ## S05 · 图片亮度调整
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**模型/依赖失败已正确处理**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。
@@ -1305,7 +1648,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d2e34bd18efc4456a67c83a4bb59a197`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -1332,7 +1675,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `17d040c3a22a42a8b19c4f538855a445`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -1361,7 +1704,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a70d2863946b4e1097ffc7acf690ec45`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -1390,7 +1733,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c806cc5e8067458990a0f63349380edc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 通过
 
@@ -1419,7 +1762,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `dd4b912af2ac467b90d398b9989ef947`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-009 · 通过
 
@@ -1448,11 +1791,129 @@ Call log:
 
 实际确认的执行轮次：
 
-- `215a41b1d97e435da01b4eda4643216b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-010 · 待逐例审查
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:59:01+08:00 → 2026-11-04T05:05:02+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`ebf3fc40f8e148bfa71a6e37f695d378`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-010/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Unplanned authorization expansion was correctly paused
+
+审查与修复记录：{"complete": false, "outcome": "blocked", "failure_origin": "protocol_contract_under_investigation", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741818.9925559, "findings": ["实际候选512×512亮度1.2图像与独立Pillow参考逐像素一致，MAE=0，但未正式交付。", "实际待决为input_question，不是扩权审批；驱动原错误文案不准确，已另行修正，原state保持。", "最终Reviewer的两次74字符非法JSON记录来自内部multiple_public_blocks错误；随后没有实际inspection而进入inconclusive，相同证据重审被程序阻止。", "原响应未保存逐消息phase，无法还原每个原始文本块；以该冻结审查上下文做真实重放，复现commentary+合法final_answer，旧适配器会错误拒绝，新适配器已通过。", "日志/数据库/观测/缓存/BOSS和清理记录完整；仍需新版本完整case复测，不能把候选正确等同于正式交付通过。"], "candidate_pixel_mae": 0, "evidence": ["internal-final.json", "workflow-latest.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "cleanup.json"], "required_retest": "修正Responses阶段解析后重跑完整S05；核对实际inspection与最终发布。"}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `dd3c13e2a8e64e40b7e0c952e99614e0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-011 · 模型/依赖失败已正确处理
+
+版本：`cd13667ad301adf27e4b6f0446f06679f73b57df110503b45afc94b69229241d`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T05:41:53+08:00 → 2026-11-04T05:49:03+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`f3a2220a9998424a968b45aba005a992`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-011/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_invalid_binding", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793745999.6155562, "findings": ["模型回显了格式合法但值不匹配的规划绑定；程序拒绝暂存，未应用错误图或发布产物。", "浏览器显示规划暂停；业务候选、模型用量、数据库/日志/观测/缓存/BOSS及清理已核对。", "原行为属于安全拒绝模型错误；新修复进一步提供同一有效请求内的有界纠正，不接受错误绑定。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json", "final-browser.png"]}
+
+失败分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `63d46b8ae0094337897788d4a73afc24`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-012 · 通过
+
+版本：`ecc1c9fe829027178dcdb39a03289224abf6e6977e4de7c949f29f6019bc0186`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T06:48:39+08:00 → 2026-11-04T07:02:24+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`ff5f2096cb3c4ebf8e48161c1953e06e`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-012/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793747136.9011514, "findings": ["实际浏览器与交付状态一致，图片内容已查看；独立产物检查通过。", "数据库、授权、租约、版本、最终Review及一次发布不变量通过；日志、观测、Redis、BOSS与本地/项目清理完整。", "亮度1.2输出像素MAE约0.307，在既定容差内；曾因RGBA/RGB审查分歧受控修复，旧失败节点保留且不阻塞当前交付。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.3073092142740846}`。
+
+实际确认的执行轮次：
+
+- `b6c8cddb21094a508d92bfb8070fa436`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-013 · 模型/依赖失败已正确处理
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:17:29+08:00 → 2026-11-04T07:29:23+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`bb0cc99b7bae42ae8bda3d17c994adaa`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S05/attempt-013/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748664.9152935, "findings": ["Reviewer因RGB源图变为全不透明RGBA拒绝候选；程序技术验收通过并不覆盖Agent拒绝。", "Manager收到原候选/审查意见和完整契约；尝试的replacement违反原要求等校验，被拒绝后请求用户澄清，未发布失败候选。", "按内容判断/修复提案不收敛的非程序失败记录；并未证明具体哪一字段造成每次replacement拒绝，原诊断信息粒度不足作为后续改进点。", "13次模型调用264331 tokens；日志无缺口、数据库/授权/租约、3份候选、5个BOSS对象、Redis、观测与清理正常。"], "evidence": ["internal-final.json", "candidate-archive.json", "failure-browser.png", "cleanup.json"], "failure_origin": "content_review_and_repair_proposal"}
+
+失败分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `4826b34d563c46a6be505a40cff3e615`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ## S06 · 图片灰度化
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。
@@ -1511,7 +1972,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0e12b15efea34def87d0e920f49a5b25`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -1538,7 +1999,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `836d2fd530cc4aca8aacaf821bf7012a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -1567,7 +2028,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `8dad24f1767f4e8fb4937127eb815f8a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -1596,7 +2057,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c7ab67b728d443a3af6a27f7994b4adb`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -1625,7 +2086,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `cea3ff4035114a53a1ba3b633256f27a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -1654,11 +2115,69 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9d31f1395e434ff198afafb6d52e3dd6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-008 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:59:05+08:00 → 2026-11-04T05:04:04+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`fb7e26c0048c446eb2e86b982a323d76`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741536.8364723, "findings": ["512×512真实灰度输出与独立参考MAE=0；页面与实际图片显示一致。", "该历史尝试所有业务Task均为revision 0，原采集器已保留当前候选字节；后续归档修正不影响这次已检查的产物事实，但不以此代替新发布版本复测。", "数据库/租约/授权/最终Review与单次发布不变量通过；日志和观测可用，无未知外部调用；Redis TTL/前缀、BOSS加密引用和本地/项目/对象清理完整。", "模型参数或响应纠正记录保留；没有将非法提案或未检查候选直接发布。"], "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `bcbaaeb3123142768d073b16de4971f1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:19:17+08:00 → 2026-11-04T07:22:54+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f32cf4fc74c44fa985e7fce4d324afda`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S06/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748214.9765394, "findings": ["512×512灰度PNG独立像素MAE=0；实际图像与浏览器终态/交付正常。", "错误acceptance target在计划提交前被拒绝纠正，未放宽验收。", "31项数据库不变量全部正常；日志无缺口，2份候选归档，4个BOSS对象、Redis隔离/TTL、双节点缓存及本地清理全部核对。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `8111f420161a43f19bd8411c53b58b31`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ## S07 · 图片高斯模糊
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。
@@ -1717,7 +2236,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bd1ebff3d1db4ac8ae945286c1056882`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -1744,7 +2263,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3b95595a45714cfa984896a986a98f66`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -1773,7 +2292,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `faba7c523abf4ddda79fc21b3f47ae3d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -1802,7 +2321,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1d9833b07a3243cba6416c5949e58ddc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -1831,7 +2350,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1984640e309c406bb3dac25f5090fe9e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -1860,11 +2379,69 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7ba3f0ed8f66482589853141920231bc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-008 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T05:04:04+08:00 → 2026-11-04T05:08:41+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`3378b95c3ad74795843e319d99537f3a`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741536.841399, "findings": ["512×512高斯模糊输出保留主体与布局，梯度比例0.28744；浏览器图片确实模糊，尺寸及解码通过。", "该历史尝试所有业务Task均为revision 0，原采集器已保留当前候选字节；后续归档修正不影响这次已检查的产物事实，但不以此代替新发布版本复测。", "数据库/租约/授权/最终Review与单次发布不变量通过；日志和观测可用，无未知外部调用；Redis TTL/前缀、BOSS加密引用和本地/项目/对象清理完整。", "模型参数或响应纠正记录保留；没有将非法提案或未检查候选直接发布。"], "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"gradient_ratio": 0.28744325829553086}`。
+
+实际确认的执行轮次：
+
+- `bc11d1679dca414ca6b3635c74a08201`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:22:54+08:00 → 2026-11-04T07:25:47+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`7567328fbd3b4d9cb70ffeeaf8e2b572`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S07/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748394.551236, "findings": ["512×512高斯模糊符合目标，梯度比0.2874；浏览器与图像正常。", "一次未知验收对象在提交前纠正；30项数据库不变量通过，日志无缺口。", "3份候选归档、5个BOSS对象、Redis隔离/TTL、双节点缓存、本地与外部清理和观测全部核对正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"gradient_ratio": 0.28744325829553086}`。
+
+实际确认的执行轮次：
+
+- `2c318b5f34a645fa972bf81bbc4ed0c8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ## S08 · 图标抠透明背景
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：logo_white.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。
@@ -1921,7 +2498,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `70c700d9d26e4aa2a1a967756e0c4863`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -1948,7 +2525,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `fa3b889192314572aaa95466cf6f1fae`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -1977,7 +2554,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `dbba36917e294d0ea524c2bce131e6a2`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -2006,7 +2583,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `46246e697889435f9d42541be07b8889`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -2035,7 +2612,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9580d700a6994ed1822b020eb95088bc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -2064,7 +2641,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0725607961e94858a809cef5ef0b608d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 程序缺陷
 
@@ -2097,7 +2674,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e29a58711b344c32a6aaefb5f2902265`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-009 · 通过
 
@@ -2126,11 +2703,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `626f4bff46e54a3e969ec0b010994ea0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-010 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:23:54+08:00 → 2026-11-04T07:27:58+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`40bef01c79a949a6ad3c1ca96b3e671f`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S08/attempt-010/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748526.0190248, "findings": ["512×512透明Logo保留蓝色主体、绿色圆点及不透明白色V；像素检查白V=[255,255,255,255]，浏览器显示正常。", "31项数据库不变量正常；无模型诊断或运行异常，日志无缺口。", "1份候选、3个BOSS对象、Redis隔离/TTL、双节点缓存及清理和观测均核对正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"logo_white_v": [255, 255, 255, 255]}`。
+
+实际确认的执行轮次：
+
+- `f3e4ffb6885446259a7464953b573e6e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 500000；外部调用上限 `{}`。
 
 ## S09 · SAM3人像分割
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**模型/依赖失败已正确处理**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。
@@ -2204,7 +2810,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b45767ef9784402caa419f778f3c37dc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -2231,7 +2837,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1a39ae94cc884d19a532e84333c578c8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -2260,7 +2866,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `83905ca6f77d43a4a919ad81261387c9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 模型/依赖失败已正确处理
 
@@ -2289,7 +2895,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `62413cf05ce64db9a571472d474f5eed`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 模型/依赖失败已正确处理
 
@@ -2318,7 +2924,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4af360af48724a27a9f6678df344b422`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 模型/依赖失败已正确处理
 
@@ -2347,11 +2953,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b2ba3fde7ee147d8b3e3492284218d3c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 模型/依赖失败已正确处理
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:25:02+08:00 → 2026-11-04T07:27:43+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`9f1d1479a8d044cbb701f93bdcbbd0b4`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S09/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_no_selection", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748501.52192, "findings": ["真实SAM3调用19.159秒，英文选择提示返回detections=[]；model-outcome明确no_selection，未产生可用蒙版或透明人像。", "注册operation按冻结on_failure=pause转WAITING_USER，页面明确说明未找到目标并允许补充输入；未误发布、未伪造模型成果。", "此项业务未成功，按模型结果失败且程序正确处理分类；复杂带排除条件的选择提示留待全轮后改进讨论。", "20项数据库不变量通过，真实模型请求/检测结果等5份候选证据归档；日志异常与该失败对应且无缺口，9个BOSS对象、Redis、观测及本地清理均正常。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "candidates/08ff2b7b746c4060a5092a1037d1b750.json", "candidates/62ba52213fa449fba8eabaf5e474d99b.json", "final-browser.png", "cleanup.json"]}
+
+失败分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `6430b194741349bda060ec7c818f41d6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。；Token上限 500000；外部调用上限 `{}`。
 
 ## S10 · 图片文字识别
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：poster.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。
@@ -2402,7 +3037,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `15d3e2769a5945308a3c82a448595ce8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -2427,7 +3062,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5f7fd73f3b984a748119d929b4d1414c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -2454,7 +3089,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `88490c95e3af406282ed8eb29b128c91`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 程序缺陷
 
@@ -2483,7 +3118,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a35c588c013e432ca2a47d255d83906e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 成果验收失败
 
@@ -2514,7 +3149,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `cd142f5cbd784aba974b66174ca3ffca`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部英文文字，保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -2541,7 +3176,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2e406f757bbd48fbaf86e2ed28735bc8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 通过
 
@@ -2568,7 +3203,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `60905ea42f104741bad3b40926940889`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-009 · 通过
 
@@ -2595,7 +3230,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b32cfa57a1c642268265f80aed4eaec7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-010 · 通过
 
@@ -2622,11 +3257,38 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0480df6e74a34c3f83a4dc218dcfdd96`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-011 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:25:47+08:00 → 2026-11-04T07:29:28+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`55a56adbc4a44365bf74d773434cd25f`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S10/attempt-011/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748664.9076815, "findings": ["实际OCR得到SUMMER RUN / BEACH CLUB / 15 SECONDS，JSON含置信度与坐标，TXT与浏览器交付正常。", "39项数据库不变量正常，7份候选归档，11个BOSS对象；日志无缺口、观测、Redis和双节点缓存/清理正常。"], "evidence": ["internal-final.json", "candidate-archive.json", "final-browser.png", "cleanup.json", "artifact-verification.json", "artifact-browser.png"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `b7cd38439c7841bbb218439cd200ca2b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。；Token上限 500000；外部调用上限 `{}`。
 
 ## S11 · PNG转JPEG
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。
@@ -2706,7 +3368,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ea45094fb1394fe6b87e6696213d8647`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -2733,7 +3395,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `872fbda1a74049ea9b1f194e88e38287`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -2762,7 +3424,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b2bec4009ce245f7baa65119f4271d86`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -2791,7 +3453,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0b9a70c544e5411b804e23c03acd27c7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -2820,7 +3482,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `659210d36a7143af9676a70a8770287f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 通过
 
@@ -2849,11 +3511,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `778bb2f628c44e638edca38b7d7e1c2b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:27:43+08:00 → 2026-11-04T07:30:33+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`9fa5a2bcb9e942e1a7977d041d80c833`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S11/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748688.706507, "findings": ["512×512 JPEG质量90，独立像素MAE2.3709符合有损容差；人物及构图、浏览器交付正常。", "30项数据库不变量正常，无诊断错误或日志缺口；2份候选归档、4个BOSS对象、Redis、观测和本地清理均正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 2.3709093729654946}`。
+
+实际确认的执行轮次：
+
+- `615268b30132405fb0a5b5d20a79cc0e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。；Token上限 500000；外部调用上限 `{}`。
 
 ## S12 · WebP缩略图
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。
@@ -2908,7 +3599,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `13633ddc0fdd4b1085c52b82e888d804`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -2935,7 +3626,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0fe5b6a0be9f413d9b054e0bc8ddad17`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -2964,7 +3655,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9f38cf1ce9434394b4b583323478d768`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -2993,7 +3684,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `023438c9abb3428a9c9859ab56dc02e5`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -3022,7 +3713,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c1b72c4229aa41abac99e1471dc1d789`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -3051,11 +3742,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a9fe5ebc5287488a9d8016edd1c9d89d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-008 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:27:58+08:00 → 2026-11-04T07:29:31+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`1526ffbf5c47437b9256f48489a265b9`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S12/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748664.911336, "findings": ["256×256 WebP缩略图，质量90，独立像素MAE2.4466符合有损容差；浏览器及实际图像正常。", "30项数据库不变量正常，1份候选归档和3个BOSS对象；日志无缺口、观测、Redis及本地清理正常。"], "evidence": ["internal-final.json", "candidate-archive.json", "final-browser.png", "cleanup.json", "artifact-verification.json", "artifact-browser.png"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"pixel_mae": 2.446629842122396}`。
+
+实际确认的执行轮次：
+
+- `44961f2c58c24043af5e36da21352c0c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。；Token上限 500000；外部调用上限 `{}`。
 
 ## S13 · 音频精确截取
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：speech.wav。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。
@@ -3110,7 +3830,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4001745d5b154781b3c96841b2da6122`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -3137,7 +3857,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ea8096a4d3404b0bb93769160f79c893`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -3166,7 +3886,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1d149c6a4fbf4782b49f87fa3dca2dff`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -3195,7 +3915,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a1185d1b051e4a7b808010de2f5c4dfc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -3224,7 +3944,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9986719d398740af999e4f11fd63a0ef`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -3253,11 +3973,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `607b9e9339c247c88c5c620340d19433`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-008 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:29:23+08:00 → 2026-11-04T07:36:20+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`4bcf1ec17c2145b38b4afc123ac37a63`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S13/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749449.4793062, "findings": ["精确截取2至8秒，6秒单声道16kHz WAV，独立全波形MAE=0，浏览器播放正常。", "原质量拒绝后同Task修订成功，旧候选及新候选归档保留；34项数据库不变量正常，日志无缺口，7个BOSS对象及全部适用清理正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"waveform_mae": 0.0}`。
+
+实际确认的执行轮次：
+
+- `0e44be0cfd074181b733495c5759e307`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。；Token上限 500000；外部调用上限 `{}`。
 
 ## S14 · 音量降低6dB
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**程序缺陷**。目标边界：`业务成果及全链路状态`。
 
 输入素材：music.wav。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。
@@ -3312,7 +4061,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0d9f0fffc7d04f6ab4996276287348b6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -3339,7 +4088,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `186e8794234b47cea91c7b843db670ad`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -3368,7 +4117,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6364f22baa654ce5b73cb97f2ffef436`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -3397,7 +4146,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7e08fb7b5c3a422197a6e3ccd567d791`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 阻塞或证据不完整
 
@@ -3428,7 +4177,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `54e13fa2ecfb4220887216051957e86e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -3457,7 +4206,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6240c10ce93b4720b841394c69ee714b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-008 · 模型/依赖失败已正确处理
 
@@ -3486,11 +4235,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c7f04c9a0dff460b845896d1263b5a40`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-009 · 程序缺陷
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:29:28+08:00 → 2026-11-04T07:39:41+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`080270c8b14c4241919c092905c0d064`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "audio_channel_gain", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749409.630194, "findings": ["注册audio.process无条件将单声道转双声道，实际全流增益约-9.0103dB而非要求-6dB；固定工具实现问题，独立证据及诊断正确拦截。", "后续模型提案不收敛并触发保守文本预算预留；未覆盖旧拒绝或错误发布。", "38项数据库不变量、日志完整性、9个BOSS对象、Redis、观测和清理正常，失败证据保留。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `15fdac7e3db047c1aa06bde64de7f849`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。；Token上限 500000；外部调用上限 `{}`。
 
 ## S15 · 音频首尾渐变
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：music.wav。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。
@@ -3545,7 +4323,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e230fc20e2a24c1c9ba0bdb7bc47cd7a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -3572,7 +4350,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ad6a1f20559d49549621aa2f61010c53`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -3601,7 +4379,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6dd7f71bd6074620a3b20ceb6327706e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -3630,7 +4408,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `96fca2e9329e49da970a24d8f37004fb`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -3659,7 +4437,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7205f0ca07ef4461b0a58c93c4e48559`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 模型/依赖失败已正确处理
 
@@ -3688,11 +4466,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `36c94a397efb434480a350a592c61e1b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-008 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:29:31+08:00 → 2026-11-04T07:32:00+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`2d62ebeb0127477da492963b2e0b3fa4`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S15/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748757.8572016, "findings": ["30秒48000Hz双声道PCM WAV，首尾淡入淡出比例0.0968/0.1367通过独立测量；浏览器实际播放推进超过0.2秒。", "Reviewer错误inspect输入被拒绝并纠正，未绕过技术检查；30项数据库不变量和日志完整性正常。", "4份候选归档、6个BOSS对象、Redis隔离/TTL、观测、双节点缓存和清理正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"fade_start_ratio": 0.09680386283491393, "fade_end_ratio": 0.13671391309920938}`。
+
+实际确认的执行轮次：
+
+- `9f731452d9404f20b5b86556899f3aad`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ## S16 · 视频提取音频
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：clip_a.mp4。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。
@@ -3747,7 +4554,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3c8775210d2643e7aa48cca8f5b9b062`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -3774,7 +4581,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4362b85d98ab4d3d9542af69d42b00db`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -3803,7 +4610,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `69981c834e6e4894b1708a54e78481b9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -3832,7 +4639,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7f8b300a25b648c58b50a4ad683e133e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -3861,7 +4668,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4ea95bba665b415f93ec590f742b5f6d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -3890,11 +4697,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4116205f107840bbba7aebdc262d6370`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-008 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:30:33+08:00 → 2026-11-04T07:42:51+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`34dbf856a46d46c09020cbdc7498b269`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S16/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749449.479427, "findings": ["视频提取30秒单声道WAV，独立音频相关系数0.99999998，浏览器播放正常。", "模型多次不合法replan/replacement及JSON被拒绝，修正后完成，20次调用395248 tokens；数据库不变量、日志完整性、5份候选、8个BOSS对象、Redis、观测及清理正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"audio_correlation": 0.9999999836042405}`。
+
+实际确认的执行轮次：
+
+- `a001c4697cda494a8e0d78597a8d746f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。；Token上限 500000；外部调用上限 `{}`。
 
 ## S17 · 视频精确剪切
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**程序缺陷**。目标边界：`业务成果及全链路状态`。
 
 输入素材：clip_a.mp4。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。
@@ -3947,7 +4783,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4b84e07c4c114f87886e9b56bef719d8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -3974,7 +4810,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `cf5b32cb7a0a4b2c8f32f1cd3a31f763`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -4003,7 +4839,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b3778353d9af4192955460547a2fd256`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -4032,7 +4868,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d762cde2c6044a98b7f34a655730f345`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -4061,7 +4897,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c7fe93aa14494a748b5c0072569853ab`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -4090,11 +4926,40 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9cbbb8e7b1ee4842bc17223e6d23322c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-008 · 程序缺陷
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:32:00+08:00 → 2026-11-04T07:34:34+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`652c3109e8e64c638ec079a422b5d3fa`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S17/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "multimodal_token_reservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749090.8390975, "findings": ["仅4次模型调用累计58041 tokens后，视频审查的多模态预留触发500000预算上限；workflow_agents.model将包含图片Base64的整个JSON字节数当作文本Token预留。", "剪切operation成功且候选已归档；错误预算判定阻断后续审查，未误发布。", "页面与WAITING_USER一致，日志/数据库/Redis/观测/BOSS及清理正常；该预算算法问题仍是程序失败，不能因安全停止算非程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f3618ee03ae74cc0bbf02c97960fbc0d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ## S18 · 视频等比缩小
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**程序缺陷**。目标边界：`业务成果及全链路状态`。
 
 输入素材：clip_a.mp4。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。
@@ -4124,7 +4989,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `55fbaa8f7d9d45c58222b85ad2a75b94`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -4151,7 +5016,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0959ec56c96e48e4a7eb429e5f7d1be3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -4180,7 +5045,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `aa1e6f7292e1498fb1d7e943fa1ccd83`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -4209,7 +5074,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6b2faa90e94f42b2a1d3ac162c8e42cf`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -4238,7 +5103,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3a0f61cb99d74b158b447e0acb961d8b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -4267,7 +5132,36 @@ Call log:
 
 实际确认的执行轮次：
 
-- `94976a3dcc6e4b35a3b0e2f20a4e97fd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+
+### attempt-007 · 程序缺陷
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:34:34+08:00 → 2026-11-04T07:37:40+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`b35892699b644d778b4f4d17b2afed5f`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S18/attempt-007/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "multimodal_token_reservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749409.630346, "findings": ["视频缩放成功，最终Review因把图片Base64当作文本Token预留而误判预算不足，累计实际100935 tokens。", "页面正确显示等待用户且无正式交付；22项数据库不变量和全部审计维度正常，10个BOSS对象等已清理。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `c0c9bd8f2560499782e6b75df63ededf`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ## S19 · 视频顺时针旋转
 
@@ -4299,7 +5193,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4e01f45840d64977b04195868445cb71`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -4326,7 +5220,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d5300ba98abc453ba4f8b448414015e2`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -4355,7 +5249,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `690e2a4211224422a8940339ded30de0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -4384,7 +5278,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d9907822bcda4c4690e3a868be12e47f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -4413,7 +5307,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `66414bfbf791431b93515dd7704a977c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 模型/依赖失败已正确处理
 
@@ -4442,7 +5336,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0873319edd9f4211b27b8fac2d8926b5`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。；Token上限 500000；外部调用上限 `{}`。
 
 ## S20 · 两倍速保音高
 
@@ -4474,7 +5368,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `936e07623b684a3a84a65accb93098e3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -4501,7 +5395,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `84bbc75d8d8848c99a069b9841826791`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -4530,7 +5424,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `04ed99ebd3854c21a45cb0233ffa70e3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -4559,7 +5453,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `08d9905d6fd74740b38d28294843d4ed`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -4588,7 +5482,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `fcd7a344ad76478a84dd180cf21c21fc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -4617,7 +5511,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `717a6e5ea1564ba8a5a4e2527dc48cd3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。；Token上限 500000；外部调用上限 `{}`。
 
 ## S21 · 移除视频音轨
 
@@ -4649,7 +5543,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `82dd6d26104b4fcfbe5fd4a890b9be40`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 待逐例审查
 
@@ -4672,7 +5566,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b0be7e0a9dc64cb7a2fdfbc45a67a622`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -4699,7 +5593,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a4870ed3ffb44aeb8ee35ccd179ce912`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -4726,7 +5620,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `194734a2c41644a4a7dd923cc3baa10b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 阻塞或证据不完整
 
@@ -4757,7 +5651,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1b4885ff2c6342ae966fa94585c276fe`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 模型/依赖失败已正确处理
 
@@ -4786,7 +5680,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `19d1f189429c49bb9d10c093de391501`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 模型/依赖失败已正确处理
 
@@ -4815,7 +5709,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a72f1c1f1df044c88a282992719be94e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ## S22 · 按时刻抽帧
 
@@ -4847,7 +5741,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d3bbc971a2d94040aabfdbd72a7e9fb8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -4874,7 +5768,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `437d906e7b8d4529be4d6d9d19c9f811`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -4903,7 +5797,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9a95a5032e7f4f358887b3f1bc74c69f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -4932,7 +5826,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `99813224796b4912a500f5c8be914296`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 待逐例审查
 
@@ -4959,7 +5853,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7cec8f3dcaf84014b3a7df141c2cca57`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -4988,7 +5882,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bab4dd34574948f8928af0eb30f8ec2c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 通过
 
@@ -5017,7 +5911,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `541b081a965447dca806accad3469b9a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。；Token上限 500000；外部调用上限 `{}`。
 
 ## S23 · 视频帧率转换
 
@@ -5049,7 +5943,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ce11a2f1e0704529887cd39c38d8f9f4`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -5074,7 +5968,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c4a0ca6b2be44e1fb5be166a9a3aee9f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -5101,7 +5995,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `79c43661fc734344a0869f44114dbf5a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -5128,7 +6022,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9045739657c54d9da91eb3c6bc59657d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -5155,7 +6049,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `eda151c6f7f54f83ad212260c57c567c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -5180,7 +6074,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2ded6a9b0c144dd39b02230c5e4db076`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ## S24 · 视频黑白效果
 
@@ -5214,7 +6108,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `efeade1fa9d64cd3b4625859f634a041`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -5241,7 +6135,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c22760478d1240ed91dbd8463fd464e1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -5270,7 +6164,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `96454a55f4ec4de88ef82ba0c7607b44`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -5299,7 +6193,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2dd68211d707460d9c4f11ba68151412`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -5328,7 +6222,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1c32e8d4ff6c4373a4cf27c3ca23c481`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -5353,7 +6247,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ab219ca215e04e6e8e7bf2138cad29a7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。；Token上限 500000；外部调用上限 `{}`。
 
 ## S25 · 右上角透明图标
 
@@ -5385,7 +6279,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bb80a57bc9f942a08cc8f7a2b1bfb5ef`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -5412,7 +6306,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0a907e65f8924e6f91b45055d07a533c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -5441,7 +6335,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3bc096620f53488cb0743b9bb93995d6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -5470,7 +6364,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ad4da670caa24a73a40025e24f780a9d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -5499,7 +6393,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0a90842944e94e14b721cca40e0a92cf`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -5526,7 +6420,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `86771ec086a34e80a1ebb65038055bf9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ## S26 · 真实语音转写
 
@@ -5585,7 +6479,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `59b08ad2773341bda7d241e33935d317`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
 
 ### attempt-003 · 程序缺陷
 
@@ -5614,7 +6508,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `8bb9b21a9e4748b18130c303d66f1091`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -5643,7 +6537,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `34575c7e583e4fd7971c55a08dc6ecfe`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
 
 ### attempt-005 · 通过
 
@@ -5672,7 +6566,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `72e7be4ef89c4ca99230e978683793c2`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
 
 ### attempt-006 · 通过
 
@@ -5701,7 +6595,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f9822aa74d4d4662881b15e86a608f7f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
 
 ### attempt-007 · 待逐例审查
 
@@ -5728,7 +6622,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7c82cbff204a4bfdad09bc94faf9a5e7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。；Token上限 500000；外部调用上限 `{"audio.transcribe": 1}`。
 
 ## S27 · 真实文生图
 
@@ -5762,7 +6656,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b4a54b61f45c4bcbba84955c9af2d75b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ### attempt-002 · 通过
 
@@ -5789,7 +6683,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `400afb8cb77d4a34a280fe4b90639bd4`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ### attempt-003 · 通过
 
@@ -5818,7 +6712,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `352ca6facba04dd486209a3f774c4386`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ### attempt-004 · 通过
 
@@ -5847,7 +6741,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c9c706736e244b1eb26f647ab6cc44b6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ### attempt-005 · 通过
 
@@ -5876,7 +6770,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1602fe19af7a4086b1e3971bcdde1f95`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -5903,7 +6797,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e16481b4a83843158c57413507d13b15`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。；Token上限 500000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ## S28 · 真实文生视频
 
@@ -5937,7 +6831,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `95f12798fa744312bc6e1150c1d11f67`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ### attempt-002 · 通过
 
@@ -5964,7 +6858,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `146377b10f9e4c90a61e13dc364d82a8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ### attempt-003 · 通过
 
@@ -5993,7 +6887,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e7e1b9ceda0141c0966de330fc94abae`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ### attempt-004 · 通过
 
@@ -6022,7 +6916,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `64835aa7ea904fccbdfae207874652d9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ### attempt-005 · 通过
 
@@ -6051,7 +6945,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `60b3d3a109a4490dbbec52247bb46f2c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -6078,7 +6972,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a3c69cedb6e547a9befd77d584ecd2d3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。；Token上限 500000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ## S29 · 真实图生视频
 
@@ -6112,7 +7006,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9ad6e4b7884a442e8a11f101780b8e2c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 程序缺陷
 
@@ -6141,7 +7035,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `8c6f578f78c34047a5cd78a39310f97f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 程序缺陷
 
@@ -6170,7 +7064,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f6021d891f9a41508f5c408c7d554e95`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -6199,7 +7093,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6a263f1a06bb44468fbfd9d522a04360`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -6228,7 +7122,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `681a0eb96d8a4bafa57ce566dac2d275`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -6253,7 +7147,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `044741b1269f4742bacda8b0984fc41e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。；Token上限 500000；外部调用上限 `{"video.generate_from_image": 1}`。
 
 ## S30 · 字幕整理为文字
 
@@ -6312,7 +7206,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `da4efd568f794912ac1680af7ca05f60`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -6339,7 +7233,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1a629363bfe142a2b141ce3853fe56c4`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -6368,7 +7262,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1aaa985878cb4f51863212a3f4d9d620`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -6397,7 +7291,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `baa2444830c147b7a9793c07daf4fba1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -6426,7 +7320,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1cb9dec658d645ffa2b0189ff2618815`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-007 · 待逐例审查
 
@@ -6453,7 +7347,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `aaae8d3e6e1a4be6b31be7e4ab344fb7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。；Token上限 500000；外部调用上限 `{}`。
 
 ## S31 · 保留静音音轨
 
@@ -6491,7 +7385,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `34438bf394d84953914aa9a35e02728d`：将 clip_a.mp4 保持30秒和640×360画面，保留一条AAC立体声音轨但把实际采样静音。程序验收必须同时声明 audio_track_present=true 和 audio_silent=true，不能用无音轨替代。交付MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：将 clip_a.mp4 保持30秒和640×360画面，保留一条AAC立体声音轨但把实际采样静音。程序验收必须同时声明 audio_track_present=true 和 audio_silent=true，不能用无音轨替代。交付MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -6518,7 +7412,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4a5bbdc824924ead847b0e0ff7b0318b`：将 clip_a.mp4 保持30秒和640×360画面，保留一条AAC立体声音轨但把实际采样静音。程序验收必须同时声明 audio_track_present=true 和 audio_silent=true，不能用无音轨替代。交付MP4。；Token上限 500000；外部调用上限 `{}`。
+- `历史标识见原始证据`：将 clip_a.mp4 保持30秒和640×360画面，保留一条AAC立体声音轨但把实际采样静音。程序验收必须同时声明 audio_track_present=true 和 audio_silent=true，不能用无音轨替代。交付MP4。；Token上限 500000；外部调用上限 `{}`。
 
 ## C01 · 三段精剪与配乐
 
@@ -6552,7 +7446,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bbcf37610aa5458b984685bef8a5cd23`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 待逐例审查
 
@@ -6577,7 +7471,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2692d1f2aad245d7bc7761e4738d4da9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -6606,7 +7500,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9514e874f0f0482eb5b70c1843595b03`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -6635,7 +7529,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `86f9045c3ce4435c8a24cb8b1dd72a6e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -6664,7 +7558,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2a0c506839a14482b47e02b26e9850d6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -6689,7 +7583,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d8eb47c611e540b49b03163ccac2753e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C02 · 双片段交叉淡化
 
@@ -6725,7 +7619,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5b18ef07f592416abbb4727a80a1c104`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 待逐例审查
 
@@ -6748,7 +7642,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5f9d6300248d447e85dbf32fb6a917ac`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -6777,7 +7671,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `416b9e1adecf41d7bbcef7a4c44dc954`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -6806,7 +7700,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `14c79ff4bb134c9d859dc8713b612710`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -6835,7 +7729,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5ddbd8890e5e44db80f4ac9dfff2e3cb`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C03 · 竖屏字幕与角标
 
@@ -6867,7 +7761,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f4def07a308b456496804e4df912677d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 待逐例审查
 
@@ -6890,7 +7784,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `20aec4696e804733ae3b67ceb5c84997`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -6917,7 +7811,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `145c8677f4dc44c7a543f2963019c55e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -6944,7 +7838,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5f605f867d694272829951dfa9dd7f86`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -6973,7 +7867,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `133abd85c4f7423b90030e06a76a1099`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C04 · 抠图后视频合成
 
@@ -7009,7 +7903,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7d7b6dc6cbc54c8fbaae9931b15554ae`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -7036,7 +7930,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `8fc781332a7d4a1ba61e8832aabd4dbd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -7065,7 +7959,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `212fb3fe6c0649949673922d7cb42372`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -7094,7 +7988,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `75ed859111904ccabdf5a4fdb331ee38`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 模型/依赖失败已正确处理
 
@@ -7123,7 +8017,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0b5b9989295f4958b694ecd3842a10ed`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C05 · 人像分割精修海报
 
@@ -7155,7 +8049,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `38279971907e4cd18195c181fea574ab`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 待逐例审查
 
@@ -7178,7 +8072,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `179fe138a3a94405bfd7d755acef44f9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -7207,7 +8101,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `16cfafa8b9534442a5a73e6290e9871d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -7236,7 +8130,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `10bb50f7f1e34a73bf1aced7fbd93e45`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -7263,7 +8157,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e1b1f0e3cfa04251a010c439e19dd90d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C06 · 跨图调色批量输出
 
@@ -7299,7 +8193,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6819b747db4944bcafc88e85c06e9b74`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 待逐例审查
 
@@ -7322,7 +8216,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d276d13a87d9425da1160785d7e7746e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -7349,7 +8243,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4e637e0cea9246ef8fef1ba46651cc6d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -7376,7 +8270,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5e2f43adb47444b8bee1db95d0cae99d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C07 · OCR驱动文字替换
 
@@ -7412,7 +8306,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `32fea1bf68034f4bba4aec2651ee3b4d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -7441,7 +8335,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `95406193b6cf4a3c8ec53aeb19a28ab9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -7470,7 +8364,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4c5eed66833b48f5b283ffe4256a3342`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C08 · 透视校正打印卡片
 
@@ -7502,7 +8396,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5be1ca2017a54b8591af540595a5470e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -7531,7 +8425,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `deb6df8404eb4c9d97c67eee54cd62a0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -7558,7 +8452,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `55c898b1b9a9446eae93672989a57a1d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C09 · 真实图片分层与ORA
 
@@ -7590,7 +8484,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `39ef63748c454bc68b9dcab4557a4b4b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 2000000；外部调用上限 `{"image.decompose": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 2000000；外部调用上限 `{"image.decompose": 1}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -7619,7 +8513,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bb0c9c6926ed421ca185d85262bee872`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 2000000；外部调用上限 `{"image.decompose": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 2000000；外部调用上限 `{"image.decompose": 1}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -7648,7 +8542,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `914bdf62391143f28f1b13c842028837`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 2000000；外部调用上限 `{"image.decompose": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 2000000；外部调用上限 `{"image.decompose": 1}`。
 
 ## C10 · 异构素材竖版混剪
 
@@ -7680,7 +8574,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0d868fe185c44573a179a251ecee7dfa`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -7709,7 +8603,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0b8bf6a9e89049bc87d5bcd1d8058508`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -7738,7 +8632,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1bad0d6d85bb4a1aa6e601d0741a16af`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C11 · 四宫格视频
 
@@ -7770,7 +8664,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `07e046c0881f4d239715af7b497ad766`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -7797,7 +8691,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0574341509744e42af242e613a6e0a30`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -7826,7 +8720,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0b2b87585f8b4007880320947a3129b5`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C12 · 图片动态幻灯片
 
@@ -7858,7 +8752,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c83b5124d3cd4e709d0a7c4e100a6eee`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 程序缺陷
 
@@ -7887,7 +8781,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b44794f73a71448bae146b3702f1a25a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -7914,7 +8808,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bc2318b07c134ef988eec87902d5595e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -7943,7 +8837,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f5e27c40ef294f5eab701a4b5694994f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C13 · 分段变速与定格
 
@@ -7979,7 +8873,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a017390f4e7849d685fb8d18d94c26a1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -8008,7 +8902,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `cab8e14ed54b406baf2f131d7fbf8329`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -8037,7 +8931,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d45cc4787b014c5e9d9d5acd63effac7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C14 · 倒放混剪
 
@@ -8071,7 +8965,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `8e6e012a88b743928dc5841ebb8fec5b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -8100,7 +8994,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6be04befbfd147fc87f279440f290fdf`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -8129,7 +9023,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ecc2c5164d1447c5aa7b27b3627ad7ba`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C15 · 旁白配乐压低与字幕
 
@@ -8163,7 +9057,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1732e5d256574a9191469f5bad86a7f1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -8192,7 +9086,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5c5483a1209d4bdc8e992cb930c3c6d5`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 1}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -8221,11 +9115,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a5deebf179e2457da7e56ff4bc1bc07a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 1}`。
 
 ## C16 · 降噪与双格式播客
 
-当前结论：**模型/依赖失败已正确处理**。目标边界：`业务成果及全链路状态`。
+当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
 
 输入素材：speech_noisy.wav。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。
@@ -8259,7 +9153,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d51e79c74fc0478880034f338fc851d4`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，规范到约-16 LUFS，首尾各0.5秒淡变，不改变30秒总长；交付单声道WAV、MP3和质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，规范到约-16 LUFS，首尾各0.5秒淡变，不改变30秒总长；交付单声道WAV、MP3和质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -8288,7 +9182,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7dbbc4d7496648bbafaa4a4bf85cec6c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，规范到约-16 LUFS，首尾各0.5秒淡变，不改变30秒总长；交付单声道WAV、MP3和质量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，规范到约-16 LUFS，首尾各0.5秒淡变，不改变30秒总长；交付单声道WAV、MP3和质量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 程序缺陷
 
@@ -8317,7 +9211,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `10422f20fb554182909c71d10ef45245`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 程序缺陷
 
@@ -8346,7 +9240,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `61ea4d8df058498487b51b433a9091cc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 待逐例审查
 
@@ -8371,11 +9265,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `81968c042bdb411ab79c7f1094c4965b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-006 · 模型/依赖失败已正确处理
 
-版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：是。
+版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-03T20:53:37+08:00 → 2026-11-03T21:17:48+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`paused_or_failed`；项目：`ee1403788835410ea7f353e0fd21ef30`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-006/cleanup.json)
@@ -8400,7 +9294,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `057afa4436ba4beaa0dfe24b62f8c34b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C17 · 中英字幕品牌短片
 
@@ -8438,7 +9332,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ef5b8644aad6404c8ab263fbb63bfb5b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -8465,7 +9359,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d0f409c0e17e43e7b9a84df266e8dc6f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -8492,7 +9386,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c61f6e9140084991a3b8abc905cb3f30`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -8521,7 +9415,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f0d7e8681a6c4071a1fb7b9725ea4fae`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C18 · 音画分离后重组
 
@@ -8559,7 +9453,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `fb6e44c785d747db8c10391c813b0a7c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -8588,7 +9482,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6fc77c2bf5db47778c100ca9b53ece1b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C19 · 海报动画与透明角标
 
@@ -8626,7 +9520,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `55230e089f75431db50922147db15e15`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -8655,7 +9549,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `8b4e985bc3414b328028d688312ffbf1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C20 · 精修人像双背景对照
 
@@ -8693,7 +9587,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0404e8cc5ccb4750b6f8ffb5c052563b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -8720,7 +9614,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3eb9c9042e0c402a8915e63a1f167a74`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -8747,7 +9641,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `448905072bb9465d99138f765247be64`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -8776,7 +9670,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3e7d8f3bfad44d89aa3fe1b84673d3a5`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C21 · 并行预处理后汇合
 
@@ -8814,7 +9708,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1cbed9cf79004dbd9233627e08bdb0b8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -8843,7 +9737,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `aa0bffc54a03401494ebdd12e123b3ee`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -8872,7 +9766,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `af5ff9946cff41c9823eaa7522e49acb`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -8901,11 +9795,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e9d86f125b3e400e8fe5656a474116e2`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C22 · 24片段长程批处理与暂停续跑
 
-当前结论：**通过**。目标边界：`pause_resume`。
+当前结论：**需在当前版本复测**。目标边界：`pause_resume`。
 
 输入素材：clip_a.mp4、music.wav。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。
@@ -8939,7 +9833,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2ef13dffa28f413e9a990ac29b5a0764`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -8968,7 +9862,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d5231fbe58a4485e8fdfe6001cdbcce5`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 程序缺陷
 
@@ -8997,7 +9891,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b8db649387e040a18b6059038ae0497a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -9026,7 +9920,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e8deaa3aff26479ab106ecfe7ae2c271`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，再按序拼成48秒640×360视频，去原声、循环music；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 程序缺陷
 
@@ -9055,7 +9949,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `fcc46afbf852416d96a1727c9fee6258`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-006 · 待逐例审查
 
@@ -9084,7 +9978,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5829075f59ac4d30890bfb7f545ba211`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-007 · 阻塞或证据不完整
 
@@ -9115,11 +10009,11 @@ Call log:
 
 实际确认的执行轮次：
 
-- `66a643fe9c444534a4e92143f230d34c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-008 · 通过
 
-版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：是。
+版本：`538ba92724aa545c9f8ec394e03adb7ff6eba00e1ee204764d5b1308dc0dccc0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-03T20:53:37+08:00 → 2026-11-03T21:10:26+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`business_succeeded`；项目：`1eee91b8d0ae45ddaf8557d16366e43a`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C22/attempt-008/cleanup.json)
@@ -9142,7 +10036,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `fdf2b273c433473aab37764456972220`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C23 · 局部模糊遮挡与合成
 
@@ -9180,7 +10074,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `50032ec72d1f4db1bcf847db10cd1a52`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前10秒，把矩形x=180,y=40,w=230,h=220做明显高斯模糊，其他区域保持；加右上Logo，原音降低6dB，输出10秒640×360并附首中尾检查帧。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前10秒，把矩形x=180,y=40,w=230,h=220做明显高斯模糊，其他区域保持；加右上Logo，原音降低6dB，输出10秒640×360并附首中尾检查帧。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -9209,7 +10103,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d52d6cb94b884139b885848fe22c77dd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前10秒，把矩形x=180,y=40,w=230,h=220做明显高斯模糊，其他区域保持；加右上Logo，原音降低6dB，输出10秒640×360并附首中尾检查帧。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前10秒，把矩形x=180,y=40,w=230,h=220做明显高斯模糊，其他区域保持；加右上Logo，原音降低6dB，输出10秒640×360并附首中尾检查帧。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C24 · 静音替换配乐与封面
 
@@ -9247,7 +10141,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `cdc5b8f1b60b4aa1ab7cd5659c967829`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前18秒，移除原音并加入music；整段顶部标题SILENT SPACE；首尾各0.5秒淡变；交付18秒640×360 MP4和中间帧JPEG封面。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前18秒，移除原音并加入music；整段顶部标题SILENT SPACE；首尾各0.5秒淡变；交付18秒640×360 MP4和中间帧JPEG封面。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -9274,7 +10168,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e3556d04164d4869aec7c8e5957f7820`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前18秒，移除原音并加入music；整段顶部标题SILENT SPACE；首尾各0.5秒淡变；交付18秒640×360 MP4和中间帧JPEG封面。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前18秒，移除原音并加入music；整段顶部标题SILENT SPACE；首尾各0.5秒淡变；交付18秒640×360 MP4和中间帧JPEG封面。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C25 · 多画幅并行交付
 
@@ -9312,7 +10206,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d9a1f40a415f4b57b8f61140003a7074`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 程序缺陷
 
@@ -9343,7 +10237,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d1529fe05e9d408cab401a6fdfbcff7b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 模型/依赖失败已正确处理
 
@@ -9372,7 +10266,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `75909aa805fd4cb79e0c8f0160668fd6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -9399,7 +10293,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `20615555c37945e2b005172a62b214dd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C26 · OCR定位后真实AI消除
 
@@ -9437,7 +10331,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2fb048776bf247e9811b06cc19c77527`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR定位15 SECONDS一行并生成该区域蒙版；调用生成式消除服务删掉这一行，保留另外两行和区域外像素；再检查结果并交付1024×768 PNG、蒙版和识别JSON。；Token上限 2000000；外部调用上限 `{"image.erase": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR定位15 SECONDS一行并生成该区域蒙版；调用生成式消除服务删掉这一行，保留另外两行和区域外像素；再检查结果并交付1024×768 PNG、蒙版和识别JSON。；Token上限 2000000；外部调用上限 `{"image.erase": 1}`。
 
 ### attempt-002 · 通过
 
@@ -9466,7 +10360,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `45b00da69da14d85a6bb5d9e5027193a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR定位15 SECONDS一行并生成该区域蒙版；调用生成式消除服务删掉这一行，保留另外两行和区域外像素；再检查结果并交付1024×768 PNG、蒙版和识别JSON。；Token上限 2000000；外部调用上限 `{"image.erase": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR定位15 SECONDS一行并生成该区域蒙版；调用生成式消除服务删掉这一行，保留另外两行和区域外像素；再检查结果并交付1024×768 PNG、蒙版和识别JSON。；Token上限 2000000；外部调用上限 `{"image.erase": 1}`。
 
 ## C27 · 文生图再编辑品牌海报
 
@@ -9504,7 +10398,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a96b6660f3774205b7a4d1dcecc40115`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
 
 ### attempt-002 · 通过
 
@@ -9533,7 +10427,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1074689754fe45a1b801b2948a315f14`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
 
 ### attempt-003 · 通过
 
@@ -9562,7 +10456,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3681914e34164675b5eb4b990505cbf8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
 
 ### attempt-004 · 通过
 
@@ -9591,7 +10485,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `44ab8216dda7436186f7446c4e96ec05`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.edit": 1, "image.generate_from_text": 1}`。
 
 ## C28 · 文生视频竖版包装
 
@@ -9629,7 +10523,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1e982aeca602425486bac055aa1a0bcc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用文生视频服务生成8秒海上日出；做成720×1280竖版，保留太阳和海平面且不拉伸；将上传Logo抠透明放右上，前3秒中文标题“逐光而行”，加入music，交付8秒MP4。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用文生视频服务生成8秒海上日出；做成720×1280竖版，保留太阳和海平面且不拉伸；将上传Logo抠透明放右上，前3秒中文标题“逐光而行”，加入music，交付8秒MP4。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ### attempt-002 · 通过
 
@@ -9658,7 +10552,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `591668cd75b642fdb5b5e5904e1ed485`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用文生视频服务生成8秒海上日出；做成720×1280竖版，保留太阳和海平面且不拉伸；将上传Logo抠透明放右上，前3秒中文标题“逐光而行”，加入music，交付8秒MP4。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"video.generate_from_text": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用文生视频服务生成8秒海上日出；做成720×1280竖版，保留太阳和海平面且不拉伸；将上传Logo抠透明放右上，前3秒中文标题“逐光而行”，加入music，交付8秒MP4。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"video.generate_from_text": 1}`。
 
 ## C29 · 1080p长片与节点接管
 
@@ -9696,7 +10590,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c1f4884e19d248a8ad712230ea5687d3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A循环制成60秒1920×1080、30fps短片，H.264 CRF18 slow高质量编码；加右上96像素Logo，去原声并循环music；分阶段保存成果并检查完整解码。执行中可能发生节点重启，应安全续跑。 用于节点接管验证的本地执行节点请声明 retry_policy=safe_once；正式处理前在同一执行节点等待15秒。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A循环制成60秒1920×1080、30fps短片，H.264 CRF18 slow高质量编码；加右上96像素Logo，去原声并循环music；分阶段保存成果并检查完整解码。执行中可能发生节点重启，应安全续跑。 用于节点接管验证的本地执行节点请声明 retry_policy=safe_once；正式处理前在同一执行节点等待15秒。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -9727,7 +10621,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d4ff757dd7f442f3a85c1b03ec08aa25`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A循环制成60秒1920×1080、30fps短片，H.264 CRF18 slow高质量编码；加右上96像素Logo，去原声并循环music；分阶段保存成果并检查完整解码。执行中可能发生节点重启，应安全续跑。 用于节点接管验证的本地执行节点请声明 retry_policy=safe_once；正式处理前在同一执行节点等待15秒。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A循环制成60秒1920×1080、30fps短片，H.264 CRF18 slow高质量编码；加右上96像素Logo，去原声并循环music；分阶段保存成果并检查完整解码。执行中可能发生节点重启，应安全续跑。 用于节点接管验证的本地执行节点请声明 retry_policy=safe_once；正式处理前在同一执行节点等待15秒。；Token上限 2000000；外部调用上限 `{}`。
 
 ## C30 · 女孩图片到15秒海滩跑步完整视频
 
@@ -9765,7 +10659,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d29cdd63f1384f45b9960743fac4593a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -9794,7 +10688,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e534acc8212c42699acfc88a9148e374`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
 
 ### attempt-003 · 通过
 
@@ -9823,7 +10717,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7a4804179f8e4e9f888bed43d2410963`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
 
 ### attempt-004 · 模型/依赖失败已正确处理
 
@@ -9852,7 +10746,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ba1a18fe43e74a9cbfc41eace6a64cfd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
+- `历史标识见原始证据`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1, "video.generate_from_image": 1}`。
 
 ## R01 · 待确认时改交付名称
 
@@ -9942,8 +10836,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a62586d4a0a443dd8483cf2e4b17fb87`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `bf3a630308454820b6f4e10027ab36a3`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最终文件改名为 renamed.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最终文件改名为 renamed.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -9972,8 +10866,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `608552941fb34cea9944f8034ee58d86`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `f4a3e2f7e04040ffbfdd5e1b5a72284f`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最终文件改名为 renamed.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最终文件改名为 renamed.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -10002,8 +10896,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `201f44778fd6406c9c39868e5c54cba7`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `e4ae67a27e334e58a7732e3534221a75`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最终文件改名为 renamed.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最终文件改名为 renamed.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R02 · 待确认时改尺寸与格式
 
@@ -10041,8 +10935,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `42a86d9806d64f3aa836da61f697ee74`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `31f70d47b0874d9ebe9408777480fd5b`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到32×32后并排合成64×32，交付 final.png。最终改为64×32的 final.webp，采用无损WebP。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到32×32后并排合成64×32，交付 final.png。最终改为64×32的 final.webp，采用无损WebP。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -10071,8 +10965,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `302e771123cd47439e8e0e7487068ef6`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `0ceceff41240463a8328d3a2c896f598`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到32×32后并排合成64×32，交付 final.png。最终改为64×32的 final.webp，采用无损WebP。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到32×32后并排合成64×32，交付 final.png。最终改为64×32的 final.webp，采用无损WebP。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10101,8 +10995,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2da52e220f4d40179cd8d5b542471c33`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `208125a1a2f44a4089a54c830d145515`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到32×32后并排合成64×32，交付 final.png。最终改为64×32的 final.webp，采用无损WebP。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到32×32后并排合成64×32，交付 final.png。最终改为64×32的 final.webp，采用无损WebP。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R03 · 待确认时改素材选择与顺序
 
@@ -10140,8 +11034,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `962ed2681bd645aab403f159208daea0`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `18829e8f82a44665b4556df54337de74`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。交换顺序，prepare_b 在左、prepare_a 在右。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。交换顺序，prepare_b 在左、prepare_a 在右。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -10170,8 +11064,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5c22d3217877418992be9d22a922baa7`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `ff4733e6d5f74bf3a10bfaedd29fa0ed`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。交换顺序，prepare_b 在左、prepare_a 在右。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。交换顺序，prepare_b 在左、prepare_a 在右。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10200,8 +11094,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `db0f56dd99a0472c9e7603ae034d6ab9`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `e78191fcdd924ae99241542890ba2bdf`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。交换顺序，prepare_b 在左、prepare_a 在右。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。交换顺序，prepare_b 在左、prepare_a 在右。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R04 · 部分完成时追加输出格式
 
@@ -10239,8 +11133,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `39ebda315fe24fb3923e355244f839f4`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `74dd129d8a724687a194ecc3e16be634`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -10269,8 +11163,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `254f76d8935942ffb6dcda137a4b7708`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `3b3accfa71fe45b4a6d40a79bb7af45b`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10299,8 +11193,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ce7bc5c86e534f9591eb4063704ef5c3`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `bbef5ab9284a4cff9785611e76489979`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -10329,8 +11223,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7449908db20b4dc8a73b09f3d6fcc8ed`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `edcf74ad255946e39ae0d52b03f1d7fd`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -10359,8 +11253,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `8652a21cc5af4902adb8a16d6877cce2`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `dfc9b49f800d44f1a42206006bddca40`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。同时交付 final.png 和 final.jpg 两种格式。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R05 · 部分完成时重做一个分支参数
 
@@ -10398,8 +11292,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2b8fdff3028d4d4f85b3c94afddd18b2`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `e5dfb18081f64f88aaebd5ccf333dae8`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 portrait.png 做 brightness=1.35 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 portrait.png 做 brightness=1.35 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -10428,8 +11322,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d9b4720a6e9141f290ae69f1b4681dd2`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `7bfbabb586e44bf7bf2b51278719620c`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 portrait.png 做 brightness=1.35 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 portrait.png 做 brightness=1.35 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10458,8 +11352,37 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c63a31b5b2784ee89a8fad35fb53ea28`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `3ae87d363ba74cb88997e306cada2740`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 portrait.png 做 brightness=1.35 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 portrait.png 做 brightness=1.35 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-004 · 待逐例审查
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:47:42+08:00 → 2026-11-04T04:59:27+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`974c04d832994237aa28768f23646a1b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R05/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": false, "outcome": "blocked", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741536.8465223, "findings": ["业务与协议执行成功；R05分支修订/像素核对、D23排空屏障/补证据后恢复各自的实际边界已检查。", "历史revision字节离线归档的路径筛选存在遗漏，原BOSS已按测试流程清理，无法补采全部原字节；保持该证据缺口，不能宣称完整归档通过。"], "required_retest": "使用修正后的历史归档器在新发布版本重跑。", "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：input_accepted → cleanup_started。
+
+独立成果检查值：`{"recomputed_image_operations": 1, "reused_sources": {"prepare_a": "references/recomputed-prepare-a.png", "prepare_b": "references/prepare_b.png"}, "reuse_pixel_checks": [{"name": "final.png", "mae": 0.0, "reference": "accepted upstream objects"}]}`。
+
+实际确认的执行轮次：
+
+- `13a38c8399ef4dc28d7ffe537db12d83`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R06 · 部分完成时替换一个分支素材
 
@@ -10497,8 +11420,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `582ea8db7f4c4dcaa7192eddcc699632`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `200c1af2f0af4cc3a8e19284e5b950ab`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 rocket.png 做 brightness=1.1 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 rocket.png 做 brightness=1.1 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -10527,8 +11450,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2655c7300e80403fb16746b145bff77f`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `2f8ad08f8cc249dca2d48a74240910c8`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 rocket.png 做 brightness=1.1 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 rocket.png 做 brightness=1.1 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10557,8 +11480,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `cf5d6827cb314d7094590b3ca1c9c818`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `6dcfc8e060264335a20dfeaff87216e8`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 rocket.png 做 brightness=1.1 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 rocket.png 做 brightness=1.1 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R07 · 导出过程中更换封面
 
@@ -10600,8 +11523,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9332733e941741af86452865599d4dea`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `71dddd76767642c7a11e8d6d3f85a546`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -10630,8 +11553,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bed45600b54a4189adb24d493055188e`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `becd2b2b1d82426c87bec68d1a35b08e`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10660,8 +11583,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4a83344e78fb401e85c490fba36377a9`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `a3f7c36c6ce24af1942758b61c81d30e`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -10690,8 +11613,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a87c10a5f2214643b300f68a21d490ae`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `9a35e02cd6fb4b979bb805f5e98540d9`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -10720,8 +11643,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ad58df942fe5404786e083261c018cb2`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `567c17221df74e638cd63146544bbbd8`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_b 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R08 · 导出过程中改变字幕样式
 
@@ -10759,8 +11682,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c48ae2545f32428aa44d385263cecb62`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `2474d90e4e1446cea169496eb6ad5674`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。左上角(2,2)放置黄色 QA 字幕，字号20。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。左上角(2,2)放置黄色 QA 字幕，字号20。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -10789,8 +11712,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `64d37dd1279e4865b98fd03cd5629c44`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `1b592e29990d43c9b4adc6b6b1364145`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。左上角(2,2)放置黄色 QA 字幕，字号20。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。左上角(2,2)放置黄色 QA 字幕，字号20。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10819,8 +11742,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f87d87da48a9474192249b6a56302dff`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `d76577442f6545aa9ad1bb16ee597301`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。左上角(2,2)放置黄色 QA 字幕，字号20。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。左上角(2,2)放置黄色 QA 字幕，字号20。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R09 · 导出过程中改画幅和时长
 
@@ -10858,8 +11781,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9201ebb2eda04aa996458d224b943efb`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `9074378f1eec46c69bf0e3c784e4ffa4`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 程序缺陷
 
@@ -10890,8 +11813,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `edc0f26c7dea482386a49a1d729ad0b7`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `06db6906efd644e592f6b6b97008baa6`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -10920,8 +11843,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0feb1189e8374182934d5ead4de756ef`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `f01e8e6b9096450fbd4f0870cb9ab49e`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -10950,8 +11873,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `fa978845557f4fffa203b096522ab813`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `808b04aaec434f008f1c1df0b9d9c787`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前2秒并按 cover 居中裁切为64×96 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R10 · 交付后追加缩略图
 
@@ -10989,8 +11912,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3b83b0034ba54970b787631583dfcf7c`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `455d67b1b546448d951d9c4b24604f3f`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11019,8 +11942,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a59c0d170350467f9278253ee7e4e19d`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `947de9de5c544660b7bf2229e93f9eab`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11049,8 +11972,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7a81e781eff84d6ea0ff0c072072b99e`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `e4451e6ef6fd4fd2a2eb253d6bda56a7`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R11 · 验收时拒绝局部效果并重做
 
@@ -11088,8 +12011,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `894c4eacff96435397b83b9193d36c58`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `a148599d32d84792b29b9081095efcfd`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11118,8 +12041,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `76857d79e0af48e5a7a75d66364c2b24`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `b7311fb02c6b475a91a75b6d5acad1ea`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11148,8 +12071,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0e375658a20d497fb8845f7dd6af12a1`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `764ee28568d04f519e7fe53ee4e766f6`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R12 · 交付后改变整体交付目标
 
@@ -11187,8 +12110,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `96ca842ad51e404cb20ceb42a1556097`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `e1591917db234ffebae0b72b005f49a2`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11217,8 +12140,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a401fc5683e5455494e9eb5a4783a64e`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `8b9adce4fb044833b39835f0a5ce479f`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 程序缺陷
 
@@ -11249,8 +12172,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5568c0b2212242f0b33a663a2a4f3a2c`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `fdc0cff2864448fcbe9c35ec46e728dd`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -11279,8 +12202,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0f684036e00a41339cf909bd5a637d65`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `ce1587e4415b4639aa9765d31c18d5ea`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 clip 视频，取前4秒并按 cover 居中裁切为128×64 MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 prepare_a 图片，以 Pillow ImageOps.fit 默认方法处理。不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R13 · 暂停讨论后停止旧版并重做
 
@@ -11318,8 +12241,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1f77145fac0d4b55a6b7ec12f06e2c2f`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `21ccc6a7ec954c0c92749b47dfa8cfc4`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11348,8 +12271,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9a970494a7204617b3f37b3c094a4850`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `073738927eff4bfe840b5897823eef65`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11378,8 +12301,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `26bf411d75624233a81dab72cf1fcdcb`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `4fb60a75a17646af8dd1bda3c768ef90`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R14 · 导出完成附近取消并重做
 
@@ -11417,8 +12340,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `0dc15c47ccd846c2af11c0dc8faaccde`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `2f79af98974342f5bf1375627b7bbb98`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11447,8 +12370,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a185d8c085074ffdb2f1a38c09ef7cd5`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `8b3e104953484bd1b2c411d65a1374e5`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11477,8 +12400,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `011223fb73ae48b0970ec111abf75e2e`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `82b622f533f64b66895d1484f6dce0b0`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R15 · 重做期间刷新与重新进入项目
 
@@ -11516,8 +12439,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6f8606e15a6a43159b4bf1b2e6bc1961`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `dcc5715fed8e4595909395b5ace977bf`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11546,8 +12469,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `777c606f3b0944db9b47c575de51d143`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `8de539850dd64be6852283b3444da5fc`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11576,8 +12499,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3209937fa60a429691143924ad066ffe`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
-- `d08af310aeee4c5c8124b8db680e0c7a`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。export 必须声明 review 人工验收，等待我决定。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R16 · 连续重做V1到V2到V3
 
@@ -11615,9 +12538,9 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5d643482ee404330bb3b0b969e14a554`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `0240ab3656a7400a9f4dfbd0af7adbaa`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。本轮仅输出 final.jpg；下一轮会再要求其他格式。；Token上限 2000000；外部调用上限 `{}`。
-- `f64dac2c735d4143a7743f218d2c7c2a`：复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。本轮仅输出 final.jpg；下一轮会再要求其他格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11646,9 +12569,9 @@ Call log:
 
 实际确认的执行轮次：
 
-- `be2c18308c0e4ee0804027bd9479443b`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `6b56f1749cfd42dca1ec93e2f6740e41`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。本轮仅输出 final.jpg；下一轮会再要求其他格式。；Token上限 2000000；外部调用上限 `{}`。
-- `cba3b910cc254b2f9e40af23b4a32243`：复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。本轮仅输出 final.jpg；下一轮会再要求其他格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11677,16 +12600,16 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7c859ccddc6e45b6bfb41376e0bcf646`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
-- `3170728db9b249c08ef63f64113ade2d`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。本轮仅输出 final.jpg；下一轮会再要求其他格式。；Token上限 2000000；外部调用上限 `{}`。
-- `96bac3abc320445c8baec574ca888daa`：复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64，交付 final.png。本轮仅输出 final.jpg；下一轮会再要求其他格式。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R17 · 真实浏览器执行中修改与重新授权
 
-当前结论：**需在当前版本复测**。目标边界：`intervention_jev_replan`。
+当前结论：**需在当前版本复测**。目标边界：`intervention_scope_successor`。
 
 输入素材：portrait.png。
-执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。真实浏览器确认 V1 后，在执行中提出修改要求，验证 Jev 识别 replan 并按 V2 重新执行。
+执行目标：运行中通过反馈追加已验收素材，将整体交付从64×48改为32×24；通过NEW_RUN_REQUIRED确认新目标和完整范围，在successor Run中复用原结果。
 独立成果预期：`{"kind": "image", "width": 32, "height": 24}`。
 外部调用范围：未预先授权外部付费调用。
 
@@ -11717,8 +12640,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `26e9c2d7a2104ec7b2922775f8ead88a`：先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。；Token上限 2000000；外部调用上限 `{}`。
-- `93a051c99b0a4b8bb2184339776be4ce`：复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11747,8 +12670,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5f8904be681f49989226758dd742be41`：先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。；Token上限 2000000；外部调用上限 `{}`。
-- `7c857abab140472580e97165a0a2c03d`：复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11777,8 +12700,8 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c42262f1dc424bb5961dcc3c96a3950c`：先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。；Token上限 2000000；外部调用上限 `{}`。
-- `0550dc51f13744128579c75e7475406a`：复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D01 · 真实 Manager 多轮扩图
 
@@ -11814,7 +12737,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `74160563c3894632b3ef773018546a95`：先分析 portrait.png 的实际尺寸；依据分析结果再追加生成128×128预览，最后交付PNG。必须分至少两轮规划。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先分析 portrait.png 的实际尺寸；依据分析结果再追加生成128×128预览，最后交付PNG。必须分至少两轮规划。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11841,7 +12764,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `7b3989cf5d574b3785a9f1cae5ce9570`：先分析 portrait.png 的实际尺寸；依据分析结果再追加生成128×128预览，最后交付PNG。必须分至少两轮规划。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先分析 portrait.png 的实际尺寸；依据分析结果再追加生成128×128预览，最后交付PNG。必须分至少两轮规划。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11868,7 +12791,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `719c593ea8d14b2ca97d0d9db8c60ecb`：先分析 portrait.png 的实际尺寸；依据分析结果再追加生成128×128预览，最后交付PNG。必须分至少两轮规划。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先分析 portrait.png 的实际尺寸；依据分析结果再追加生成128×128预览，最后交付PNG。必须分至少两轮规划。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D02 · 并行分支完成后触发汇合规划
 
@@ -11904,7 +12827,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `13c6ae74187540c28ce351eeba9954c7`：分别分析 portrait.png 和 rocket.png，再依据两个分支结果规划拼成256×128双图PNG。 首轮同时追加两个互不依赖的分析节点，各自用本地脚本等待5秒后保存分析JSON，设置 sealed=false 并以这两个节点作为 replan_after；两者完成后再追加拼接节点。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分别分析 portrait.png 和 rocket.png，再依据两个分支结果规划拼成256×128双图PNG。 首轮同时追加两个互不依赖的分析节点，各自用本地脚本等待5秒后保存分析JSON，设置 sealed=false 并以这两个节点作为 replan_after；两者完成后再追加拼接节点。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -11931,7 +12854,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c02f4494db5545c3b7ec0eba4e026e19`：分别分析 portrait.png 和 rocket.png，再依据两个分支结果规划拼成256×128双图PNG。 首轮同时追加两个互不依赖的分析节点，各自用本地脚本等待5秒后保存分析JSON，设置 sealed=false 并以这两个节点作为 replan_after；两者完成后再追加拼接节点。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分别分析 portrait.png 和 rocket.png，再依据两个分支结果规划拼成256×128双图PNG。 首轮同时追加两个互不依赖的分析节点，各自用本地脚本等待5秒后保存分析JSON，设置 sealed=false 并以这两个节点作为 replan_after；两者完成后再追加拼接节点。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -11958,7 +12881,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3635896de7464e36b4fceed4ef7dfc3c`：分别分析 portrait.png 和 rocket.png，再依据两个分支结果规划拼成256×128双图PNG。 首轮同时追加两个互不依赖的分析节点，各自用本地脚本等待5秒后保存分析JSON，设置 sealed=false 并以这两个节点作为 replan_after；两者完成后再追加拼接节点。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分别分析 portrait.png 和 rocket.png，再依据两个分支结果规划拼成256×128双图PNG。 首轮同时追加两个互不依赖的分析节点，各自用本地脚本等待5秒后保存分析JSON，设置 sealed=false 并以这两个节点作为 replan_after；两者完成后再追加拼接节点。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D03 · 未封口禁止提前交付
 
@@ -11996,7 +12919,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `738ee4322608486ea21c148957f47660`：先生成128×128中间预览；等待结果后再规划最终64×64 PNG，不能把中间预览当作最终交付。 首轮只能添加中间图节点，必须 sealed=false 并使用 replan_after；读取中间图后第二轮才能添加最终节点和 sealed=true。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128中间预览；等待结果后再规划最终64×64 PNG，不能把中间预览当作最终交付。 首轮只能添加中间图节点，必须 sealed=false 并使用 replan_after；读取中间图后第二轮才能添加最终节点和 sealed=true。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12025,7 +12948,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6077054657144829ae7fe7ac8addbe6c`：先生成128×128中间预览；等待结果后再规划最终64×64 PNG，不能把中间预览当作最终交付。 首轮只能添加中间图节点，必须 sealed=false 并使用 replan_after；读取中间图后第二轮才能添加最终节点和 sealed=true。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128中间预览；等待结果后再规划最终64×64 PNG，不能把中间预览当作最终交付。 首轮只能添加中间图节点，必须 sealed=false 并使用 replan_after；读取中间图后第二轮才能添加最终节点和 sealed=true。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12054,7 +12977,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `56a3e22deaa848519188ca7f56911c32`：先生成128×128中间预览；等待结果后再规划最终64×64 PNG，不能把中间预览当作最终交付。 首轮只能添加中间图节点，必须 sealed=false 并使用 replan_after；读取中间图后第二轮才能添加最终节点和 sealed=true。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128中间预览；等待结果后再规划最终64×64 PNG，不能把中间预览当作最终交付。 首轮只能添加中间图节点，必须 sealed=false 并使用 replan_after；读取中间图后第二轮才能添加最终节点和 sealed=true。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D04 · Orchestrator 重启与提案去重
 
@@ -12092,7 +13015,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2d923da556754215aff75651bb1562a3`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12121,7 +13044,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c4f36f3251804c6986350d2f5bab56bd`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12150,7 +13073,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f88e1d0f89be4e11bd87a668b063b971`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D05 · 两个 Orchestrator 竞争推进
 
@@ -12188,7 +13111,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ddc728260e8f4e14955152759c3ac6fa`：生成 portrait.png 的128×128和64×64两种PNG，最终一并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：生成 portrait.png 的128×128和64×64两种PNG，最终一并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12217,7 +13140,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `02188bfaa46f44c2bafa7a9f6599b40c`：生成 portrait.png 的128×128和64×64两种PNG，最终一并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：生成 portrait.png 的128×128和64×64两种PNG，最终一并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12246,7 +13169,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b8cb416361bc46ab97228a773ea4240d`：生成 portrait.png 的128×128和64×64两种PNG，最终一并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：生成 portrait.png 的128×128和64×64两种PNG，最终一并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D06 · 执行器退出后换节点恢复
 
@@ -12284,7 +13207,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `596c75f96964471498fd3f654c00bcb2`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12313,7 +13236,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `1b7463d5e819467cbf953ab1527cd95a`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12342,7 +13265,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6594f98652f141a4954c6bf37b2cf06e`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D07 · Manager 执行中取消
 
@@ -12405,7 +13328,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6f0c0374c4704cb19bd1293d613ffe45`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12432,7 +13355,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9ae3484596f44c2a949fa35c4595abcc`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -12459,7 +13382,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c6a3b852aa20432ab14162e405d54d65`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -12486,7 +13409,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `fc39de07dc684ecb8d75d231a7bd4321`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D08 · 暂停边界不启动新任务
 
@@ -12524,7 +13447,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d3438cd64c46448590c3f26d2fbd9cc2`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 待逐例审查
 
@@ -12549,7 +13472,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f983c8d352dd4bc2aea867afcd754df4`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12576,7 +13499,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4783d18adcf4439ebb94ae13bdf37b5b`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -12603,7 +13526,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c4cfef28de6141f786b0d23ca16b808f`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -12630,7 +13553,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c5ce764d94aa466190b4a10a37e853da`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D09 · 外部调用超范围审批
 
@@ -12670,7 +13593,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `31b91ac919fd4872a92ddf638a66e6b4`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12697,7 +13620,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f1165f0cd77549e5b1f7030c344a1218`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12724,7 +13647,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ffe93ee997f74715afbdab9a8c54e4d7`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -12751,7 +13674,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `cd4b21e91e7b4bb29d45f00fcc23a29c`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D10 · 拒绝扩大授权后不调用供应商
 
@@ -12787,7 +13710,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `73bb48c306f44f2dad0e2df976eb2621`：使用真实文生图生成蓝色杯子PNG，先请求必要授权。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用真实文生图生成蓝色杯子PNG，先请求必要授权。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12814,7 +13737,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4c7c98fe00fe455491c7efcb81891cdf`：使用真实文生图生成蓝色杯子PNG，先请求必要授权。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用真实文生图生成蓝色杯子PNG，先请求必要授权。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12841,7 +13764,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `138d97935c7b4d20a2ea242dc5b8e81c`：使用真实文生图生成蓝色杯子PNG，先请求必要授权。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用真实文生图生成蓝色杯子PNG，先请求必要授权。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D11 · 过期审批与重复命令拒绝
 
@@ -12877,7 +13800,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `73c0c71a41f54c908eb379e08d7f0248`：生成128×128 PNG并要求人工内容验收，之后再交付64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：生成128×128 PNG并要求人工内容验收，之后再交付64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12904,7 +13827,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `bfc962b231604769b8786c7a159e4021`：生成128×128 PNG并要求人工内容验收，之后再交付64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：生成128×128 PNG并要求人工内容验收，之后再交付64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -12931,7 +13854,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `4e740c86c53141cbab328bb4535ed16a`：生成128×128 PNG并要求人工内容验收，之后再交付64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：生成128×128 PNG并要求人工内容验收，之后再交付64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D12 · 跨项目读取与控制拒绝
 
@@ -12967,7 +13890,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b6104505b0b84d7db2c70d84d22906f0`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -12994,7 +13917,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `5a21b16d1de84ece8e88fc086324e467`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -13021,7 +13944,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `ba3c05ddab1f4ef1ae2a6820ddf30e3d`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D13 · 模型预算耗尽有界暂停
 
@@ -13147,7 +14070,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b6f4077ddd0c44579bc6341864c042b3`：分析 portrait.png，再根据分析生成64×64 PNG。；Token上限 1024；外部调用上限 `{"image.edit": 1}`。
+- `历史标识见原始证据`：分析 portrait.png，再根据分析生成64×64 PNG。；Token上限 1024；外部调用上限 `{"image.edit": 1}`。
 
 ### attempt-006 · 通过
 
@@ -13174,7 +14097,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `6637bcb86933452d879c02f0819d0e79`：分析 portrait.png，再根据分析生成64×64 PNG。；Token上限 1024；外部调用上限 `{"image.edit": 1}`。
+- `历史标识见原始证据`：分析 portrait.png，再根据分析生成64×64 PNG。；Token上限 1024；外部调用上限 `{"image.edit": 1}`。
 
 ### attempt-007 · 通过
 
@@ -13201,7 +14124,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `46886a9ef8504685b74b2fc783d16e3c`：分析 portrait.png，再根据分析生成64×64 PNG。；Token上限 1024；外部调用上限 `{"image.edit": 1}`。
+- `历史标识见原始证据`：分析 portrait.png，再根据分析生成64×64 PNG。；Token上限 1024；外部调用上限 `{"image.edit": 1}`。
 
 ## D14 · BOSS 内容校验与候选不放行
 
@@ -13243,7 +14166,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2b0bc9a51a174fba83474a42721efb55`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -13272,7 +14195,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `e8ddd0a31a384483bec0b1dc66ac2f24`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -13301,7 +14224,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `85ca78d99b6c4e86a4db267bb2be8376`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -13330,7 +14253,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f62a4ccd5d914e1881b7288b642e5db8`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D15 · 授权内容指纹失效拒绝
 
@@ -13471,7 +14394,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `c357a824d36447dc99bd1de36b2903e7`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ### attempt-002 · 通过
 
@@ -13500,7 +14423,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b0cece7458964c8d90debf6ed5a41d47`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ### attempt-003 · 通过
 
@@ -13529,7 +14452,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `84c6c0d336134cb69cb1a5d251d69d4b`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1}`。
+- `历史标识见原始证据`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 2000000；外部调用上限 `{"image.generate_from_text": 1}`。
 
 ## D17 · 观测服务中断不影响业务状态
 
@@ -13567,7 +14490,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `008362da160b4993a723681b36b1c308`：把 portrait.png 缩小为64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -13596,7 +14519,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f819e13bb68d446fb47f96a08c4b80ef`：把 portrait.png 缩小为64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -13625,7 +14548,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `742490e2ebb64f938cf812e5934088d2`：把 portrait.png 缩小为64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D18 · API 切换与浏览器恢复
 
@@ -13663,7 +14586,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b73eead54d304e18a190ba3fe90295cf`：把 portrait.png 缩小为64×64 PNG，完成后保持可下载。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG，完成后保持可下载。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 通过
 
@@ -13692,7 +14615,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `94bee7bf142647888733eb43dc736dde`：把 portrait.png 缩小为64×64 PNG，完成后保持可下载。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG，完成后保持可下载。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -13721,7 +14644,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `d601523941b948c3a8af97863361842b`：把 portrait.png 缩小为64×64 PNG，完成后保持可下载。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG，完成后保持可下载。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D19 · 独立部署与 main 数据隔离
 
@@ -13784,7 +14707,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `effb4c3f7ebc472a84729dfc1d604de8`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-003 · 通过
 
@@ -13813,7 +14736,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `dc0177bf620446bf989037ed5cfccfae`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -13842,7 +14765,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `b7475d3792524abbbaf4d2a3035cc904`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -13871,7 +14794,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `a7ab96e354de4b3abd8b87845c8623cf`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：把 portrait.png 缩小为64×64 PNG。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D20 · 专业 Agent 权限与实际模型用量
 
@@ -13957,7 +14880,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `3a104187f8fe4fc4a826571907186f95`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-004 · 通过
 
@@ -13984,7 +14907,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `9a3538e270aa40d8b16fa2a340f4a5f3`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-005 · 通过
 
@@ -14011,7 +14934,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `2fe4bebc21504b4d8825ec1a2ef8d27d`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-006 · 通过
 
@@ -14038,7 +14961,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `172ab268318c4571b54a8e3cd171eb6a`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D21 · 诊断后不可变修订并衔接下游
 
@@ -14076,7 +14999,7 @@ Call log:
 
 实际确认的执行轮次：
 
-- `796e787f6103482fa383e270347e6ad6`：创建逻辑Task render，目标和冻结输出始终是64×64 final.png，on_failure=diagnose。render的revision 0使用本地脚本明确退出23以触发真实失败；诊断完成后Manager必须使用revise_tasks只替换该Task的argv，产生revision 1并实际生成图片。再由依赖render的package步骤复制为delivered.png并交付。不得新增另一个替代render Task，不得修改目标、输入输出或验收。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：创建逻辑Task render，目标和冻结输出始终是64×64 final.png，on_failure=diagnose。render的revision 0使用本地脚本明确退出23以触发真实失败；诊断完成后Manager必须使用revise_tasks只替换该Task的argv，产生revision 1并实际生成图片。再由依赖render的package步骤复制为delivered.png并交付。不得新增另一个替代render Task，不得修改目标、输入输出或验收。；Token上限 2000000；外部调用上限 `{}`。
 
 ### attempt-002 · 模型/依赖失败已正确处理
 
@@ -14105,4 +15028,611 @@ Call log:
 
 实际确认的执行轮次：
 
-- `f9ee00175b8b419782726bd787ce0f2c`：创建逻辑Task render，目标和冻结输出始终是64×64 final.png，on_failure=diagnose。render的revision 0使用本地脚本明确退出23以触发真实失败；诊断完成后Manager必须使用revise_tasks只替换该Task的argv，产生revision 1并实际生成图片。再由依赖render的package步骤复制为delivered.png并交付。不得新增另一个替代render Task，不得修改目标、输入输出或验收。；Token上限 2000000；外部调用上限 `{}`。
+- `历史标识见原始证据`：创建逻辑Task render，目标和冻结输出始终是64×64 final.png，on_failure=diagnose。render的revision 0使用本地脚本明确退出23以触发真实失败；诊断完成后Manager必须使用revise_tasks只替换该Task的argv，产生revision 1并实际生成图片。再由依赖render的package步骤复制为delivered.png并交付。不得新增另一个替代render Task，不得修改目标、输入输出或验收。；Token上限 2000000；外部调用上限 `{}`。
+
+## D22 · 单一Run身份与独立Control Job
+
+当前结论：**需在当前版本复测**。目标边界：`identity`。
+
+输入素材：portrait.png。
+执行目标：用本地脚本把portrait.png缩小为64×64 final.png，程序检查后交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 程序缺陷
+
+版本：`0f381948c12975908bf4fe2af0cc874220fcb23d583dbd4f7999f7367ed000a0`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:07:52+08:00 → 2026-11-04T04:11:04+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`boundary_not_reached`；项目：`93a6446199af4477b1d4cb45be739e3e`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Required unified Run boundary was not observed
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793736758.5459816, "evidence": ["scheduler-starvation.json", "internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "failure-browser.png"], "findings": ["两个可用执行器持续心跳，PLAN control_jobs为ready，但execution_attempts为空。", "scheduling.candidates错误地只查询run_tasks，导致独立控制任务被过滤；模型调用和Provider调用均为0。", "浏览器停留在规划/等待执行；没有交付或误标成功。", "已通过正常取消命令收尾；数据库、缓存、BOSS及本地项目清理核对完成。"], "required_retest": "修复候选选择后重跑本case，实际完成Manager、业务Task和Final Review。"}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `6e35cc8f3e0944e79d10ae244f85ad69`：用本地脚本把portrait.png缩小为64×64 final.png，程序检查后交付。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-002 · 程序缺陷
+
+版本：`3917f259e246fa2c353f969d1352275a774623a830297294b29fe0b6096fc3c3`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:23:25+08:00 → 2026-11-04T04:26:28+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`boundary_not_reached`；项目：`95469f2a6d8041c0bd61953a69c6f7ed`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Required unified Run boundary was not observed
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "engineering_contract", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793737858.5406263, "findings": ["调度缺陷已解除，真实Manager和业务Script均启动。", "Manager直接生成Script，但其已加载技能不含角色到路径列表的运行时契约；列表契约仅存在于Implementer的media-editing技能中。", "实际生成脚本按字符串或自猜形状读取输入，导致类型错误；on_failure=pause且retry_policy=never，因此按既定策略暂停、无伪成功、无外部调用。", "归因为系统提供给脚本作者的接口说明缺漏，修复共享契约后重测，不按纯模型偶发失败结案。", "DB/日志/观测/缓存/BOSS和本地清理均已审查；首次产物及运行日志保留。"], "evidence": ["internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "failure-browser.png"], "required_retest": "Manager收到同一份script-runtime契约后完整执行业务、验收与交付。"}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `fbbf20c251144b8cb3582d9fe6649986`：用本地脚本把portrait.png缩小为64×64 final.png，程序检查后交付。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-003 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:40:53+08:00 → 2026-11-04T04:43:50+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`ffe70d5d908c4a94805f0ed9c016cb66`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D22/attempt-003/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793738747.9218988, "findings": ["实际Manager、业务Script/Agent和独立REVIEW Control Jobs全部执行；数据库中无agent_turn副本。", "64×64交付与原图Lanczos缩放参考逐像素一致，MAE=0；浏览器正常显示交付，页面无JavaScript或控制台错误。", "全部数据库不变量通过；最终review身份绑定候选内容与验收，一次性发布，未提前交付。", "模型8次调用均有完整用量回执；一次非法sealed/replan_after提案在原轮次内纠正，没有执行非法图。", "日志707条与审计60条无缺口；观测健康，Redis前缀/TTL正常，4个BOSS对象加密与前缀审计正常，全部项目/缓存/对象/本地清理完成。"], "independent_pixels": {"reference": "original portrait resized with Lanczos", "mae": 0.0}, "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f794dd06c08a4f359178c4629652c211`：用本地脚本把portrait.png缩小为64×64 final.png，程序检查后交付。；Token上限 2000000；外部调用上限 `{}`。
+
+## D23 · 业务排空与全Run派发屏障
+
+当前结论：**需在当前版本复测**。目标边界：`drain_local`。
+
+输入素材：portrait.png。
+执行目标：首轮添加互不依赖的left与right：left用Script等待12秒后将portrait.png缩放为64×64 left.png；right用image.local_adjust对原图做brightness=1.1。两者都是非交付中间结果。添加依赖两者的export，用Pillow左右拼接为128×64 final.png。稍后会补充要求，存量工作应正常完成。
+独立成果预期：`{"kind": "image", "width": 128, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 待逐例审查
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:47:42+08:00 → 2026-11-04T04:59:15+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`5f9ee7fc08c840978d16e7acb2eaa362`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D23/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": false, "outcome": "blocked", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741536.846595, "findings": ["业务与协议执行成功；R05分支修订/像素核对、D23排空屏障/补证据后恢复各自的实际边界已检查。", "历史revision字节离线归档的路径筛选存在遗漏，原BOSS已按测试流程清理，无法补采全部原字节；保持该证据缺口，不能宣称完整归档通过。"], "required_retest": "使用修正后的历史归档器在新发布版本重跑。", "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `e46c8cbe70dc4a57a7d84642ea7cb885`：首轮添加互不依赖的left与right：left用Script等待12秒后将portrait.png缩放为64×64 left.png；right用image.local_adjust对原图做brightness=1.1。两者都是非交付中间结果。添加依赖两者的export，用Pillow左右拼接为128×64 final.png。稍后会补充要求，存量工作应正常完成。；Token上限 2000000；外部调用上限 `{}`。
+
+## D24 · 专业Agent在途输入排空
+
+当前结论：**未执行**。目标边界：`drain_agent`。
+
+输入素材：portrait.png。
+执行目标：创建type=agent、profile=editing_implementer的render业务Task，由其script工具等待8秒后把portrait.png缩小为64×64 final.png；不得改用Script Task替代。技术检查后交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D25 · 规划期间连续输入分批处理
+
+当前结论：**需在当前版本复测**。目标边界：`planning_inputs`。
+
+输入素材：portrait.png。
+执行目标：用本地脚本把portrait.png缩小为64×64 final.png，等待后续补充要求，技术检查后交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 通过
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:59:15+08:00 → 2026-11-04T05:02:11+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`57a854dfc6fd419d8530aff6d809ac42`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D25/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741536.8464015, "findings": ["规划期间连续两条输入均落库并APPLIED，冻结cutoff不同、后到输入未被前批消费。", "屏障区间内没有新业务偷跑；只在输入处理后执行业务并封口交付，实际64×64图片与页面正常。", "该历史尝试所有业务Task均为revision 0，原采集器已保留当前候选字节；后续归档修正不影响这次已检查的产物事实，但不以此代替新发布版本复测。", "数据库/租约/授权/最终Review与单次发布不变量通过；日志和观测可用，无未知外部调用；Redis TTL/前缀、BOSS加密引用和本地/项目/对象清理完整。", "模型参数或响应纠正记录保留；没有将非法提案或未检查候选直接发布。"], "evidence": ["internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：input_accepted → input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `46cd948dc66e40019d78990647ca4217`：用本地脚本把portrait.png缩小为64×64 final.png，等待后续补充要求，技术检查后交付。；Token上限 2000000；外部调用上限 `{}`。
+
+## D26 · Wan在途输入保持原句柄
+
+当前结论：**未执行**。目标边界：`drain_wan`。
+
+输入素材：portrait.png。
+执行目标：使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持服装与整体形象。只允许一次生成。
+独立成果预期：`{"kind": "video", "duration": 5, "width": 1280, "height": 720}`。
+外部调用范围：video.generate_from_image。
+
+尚未执行，无通过证据。
+
+## D27 · 外部提交未知时输入屏障
+
+当前结论：**未执行**。目标边界：`unknown_input`。
+
+输入素材：无。
+执行目标：使用真实image.generate_from_text生成蓝色杯子PNG，只允许一次生成。
+独立成果预期：`{"kind": "protocol"}`。
+外部调用范围：image.generate_from_text。
+
+尚未执行，无通过证据。
+
+## D28 · 质量反馈幂等与过期快照
+
+当前结论：**通过**。目标边界：`feedback_idempotency`。
+
+输入素材：portrait.png。
+执行目标：创建render Script Task，把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 程序缺陷
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T04:59:27+08:00 → 2026-11-04T05:08:39+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`27a49e22f7754d2bb664aab61d2cfc45`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/review.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：HTTP 500 /api/projects/27a49e22f7754d2bb664aab61d2cfc45/runs/9e259f244f9d491da8db38a7b6e334cd: {"detail":"服务暂时异常，请凭查询编号排查。","request_id":"38b5bd9e8b0b4d478cbd4d236c68ffdc"}
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "audit: Command failed: /data2/wujing03/distributed-agent-system/.venv/bin/python /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/harness/campaign_dynamic_probe.py final /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001\nTraceback (most recent call last):\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/harness/campaign_dynamic_probe.py\", line 402, in <module>\n    if __name__=='__main__':main()\n                            ~~~~^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/harness/campaign_dynamic_probe.py\", line 398, in main\n    else:result=inspect(args.directory,args.action=='final')\n                ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-001/harness/campaign_dynamic_probe.py\", line 129, in inspect\n    and decoded[0]['spec']==expected.get(task['id']) and decoded[-1]['spec']==task['spec'])\n                                                                              ~~~~^^^^^^^^\nKeyError: 'spec'\n", "audit incomplete"]
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793740376.6717498, "findings": ["合法replacement后保留的旧Task未被graph.get解析，详情API在workflow_api.public读取spec时报KeyError/HTTP500。", "原运行已通过正常取消命令停止；因详情API和审计读取同时受影响，保留项目及原始证据，待修复后补采与清理。", "修复后的只读采集器已补充完整现场审计并标注采集源码；原HTTP500及audit_error仍保留。随后通过认证API删除测试项目，并核实BOSS/Redis/本地清理完成。"], "required_retest": "修复历史Task解析后补齐现场审计、清理并在新版本重跑。", "supplemental_audit": "internal-supplement.json", "cleanup_verified": true}
+
+失败分类：程序错误。
+
+实际控制步骤：command_applied → feedback_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `9e259f244f9d491da8db38a7b6e334cd`：创建render Script Task，把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-002 · 程序缺陷
+
+版本：`cd13667ad301adf27e4b6f0446f06679f73b57df110503b45afc94b69229241d`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T05:41:53+08:00 → 2026-11-04T05:48:34+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`9e4ecde8594d432ea3edbcfad17b38dc`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Unplanned quality decision requires independent content review
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "test_harness_review_flow", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793745999.6157112, "findings": ["同Run反馈、幂等和旧快照拒绝已触发，合法替代后的API正常。", "测试反馈取消原人工Review，随后驱动又拒绝处理合法的新版Review；测试流程与原人工确认要求存在冲突。", "程序没有把反馈当批准、没有强制覆盖审查；驱动已改为独立像素检查新版后approve原声明的Review，原尝试保留失败结论。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json", "failure-browser.png"]}
+
+失败分类：程序错误。
+
+实际控制步骤：command_applied → feedback_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `3edff7815f3e445ba5a8b5fa2d4a402c`：创建render Script Task，把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-003 · 程序缺陷
+
+版本：`ecc1c9fe829027178dcdb39a03289224abf6e6977e4de7c949f29f6019bc0186`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T06:48:39+08:00 → 2026-11-04T06:53:58+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`f8f6343ad2c7490fb111455055056fd1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-003/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "control_snapshot_evidence_gap", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793747136.9012759, "findings": ["新版候选通过独立像素复核并已由真实approve命令批准；审批决定已落库。", "后续Manager快照缺少已批准事实，又发出input_question，导致本轮未正式交付。", "属于控制快照上下文缺漏，已增加有界权威历史与当前候选用户审批事实；不修改原失败结论，需新版本复测。", "页面无JavaScript错误，所有内部审计及清理已核对；没有误交付、覆盖旧失败或重复外部调用。"], "evidence": ["internal-final.json", "workflow-latest.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
+
+失败分类：程序错误。
+
+实际控制步骤：command_applied → feedback_accepted → decision_approve → command_applied → cleanup_started。
+
+实际确认的执行轮次：
+
+- `57b2817f91bc4f839c79c6f759d67cf2`：创建render Script Task，把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-004 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:12:38+08:00 → 2026-11-04T07:23:54+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`2953adcb888a4a2a844a160231291920`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D28/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748298.526893, "findings": ["同Run反馈sequence1进入APPLIED，render及其下游revision均更新；旧候选checkpoint与字节完整归档，新旧SHA不同。", "独立逐像素检查64×64候选仅增加2px红框后才点击approve；最终交付红框比例1.0，浏览器与实际图像正常。", "Manager及Final Reviewer均收到相同的已批准revision1/candidate_digest/decision事实，没有再次要求批准。", "多次模型契约错误被拒绝并有界纠正，保留原错误；19次模型调用335021 tokens，完整记录，待最终性能分析。", "数据库、租约、授权、日志无缺口、观测、Redis隔离/TTL、6个BOSS对象、3份候选归档及双节点清理均正常。"], "evidence": ["internal-final.json", "state.json", "artifact-verification.json", "candidate-archive.json", "feedback-review-de8b941640c5460bb3cdc969b31cfbc1.json", "unified-boundary-feedback_idempotency.png", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：command_applied → feedback_accepted → decision_approve → command_applied → cleanup_started。
+
+独立成果检查值：`{"red_border_fraction": 1.0}`。
+
+实际确认的执行轮次：
+
+- `229aed6496b94fc1b9b8b6367f574f8c`：创建render Script Task，把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。；Token上限 2000000；外部调用上限 `{}`。
+
+## D29 · 拒绝不能被人工批准且可补证据
+
+当前结论：**未执行**。目标边界：`no_waiver`。
+
+输入素材：portrait.png。
+执行目标：创建render Script Task，将portrait.png缩小为64×64 final.png；技术验收检查尺寸，Agent验收criterion要求画面中央有一个清晰红色实心圆。但第一版故意不画圆，以真实触发Agent拒绝。保持on_failure=pause，不自动重生成或删掉验收；等待用户反馈。
+独立成果预期：`{"kind": "protocol"}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D30 · 局部蒙版修复比例边界
+
+当前结论：**未执行**。目标边界：`mask_boundary`。
+
+输入素材：无。
+执行目标：先由Script创建128×128灰度mask：背景0，中央坐标(32,32)到(95,95)为255，(63,63)单像素置0。作为非交付中间结果。再用独立Script填补该孔，输出repaired.png；semantics.mask_repair声明B、local_hole_repair、max_changed_fraction=0.01、reference_role=mask、output_role=mask。显式输入原mask并映射输出mask角色；程序检查尺寸和变化比例，交付修复蒙版。
+独立成果预期：`{"kind": "image", "width": 128, "height": 128}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D31 · 持续动作的真实时序证据
+
+当前结论：**未执行**。目标边界：`temporal_boundary`。
+
+输入素材：无。
+执行目标：用本地Script生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断；输入为声明式Python/FFmpeg脚本。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。
+独立成果预期：`{"kind": "video", "duration": 4, "width": 128, "height": 96}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D32 · 输入与最终发布竞争
+
+当前结论：**未执行**。目标边界：`publish_input`。
+
+输入素材：portrait.png。
+执行目标：用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D33 · 交付后successor输入幂等
+
+当前结论：**未执行**。目标边界：`successor_inputs`。
+
+输入素材：portrait.png。
+执行目标：用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D34 · 同步外部请求在途输入
+
+当前结论：**未执行**。目标边界：`drain_sync`。
+
+输入素材：无。
+执行目标：使用真实image.generate_from_text生成蓝色杯子PNG，使用同步图片实现image_sync@1，只允许一次请求。
+独立成果预期：`{"kind": "protocol"}`。
+外部调用范围：image.generate_from_text。
+
+尚未执行，无通过证据。
+
+## D35 · Provider配置切换后冻结路由恢复
+
+当前结论：**未执行**。目标边界：`frozen_route`。
+
+输入素材：portrait.png。
+执行目标：使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持整体形象，只允许一次生成。
+独立成果预期：`{"kind": "video", "duration": 5, "width": 1280, "height": 720}`。
+外部调用范围：video.generate_from_image。
+
+尚未执行，无通过证据。
+
+## D36 · 抠图候选边缘反馈修订
+
+当前结论：**未执行**。目标边界：`feedback_cutout`。
+
+输入素材：portrait.png。
+执行目标：先用SAM3对portrait.png分割宇航员人物，模式subject_cutout，保留身体、衣物及穿戴物，不包含手持/携带物。mask与透明图保存为已验收非交付中间Task source_cutout。再由Script Task render复制透明图为512×512 final.png，声明人工Review等待边缘修改意见，不能代用户批准。
+独立成果预期：`{"kind": "image", "width": 512, "height": 512, "alpha": true}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D37 · 双图构图反馈修订
+
+当前结论：**未执行**。目标边界：`feedback_layout`。
+
+输入素材：portrait.png、rocket.png。
+执行目标：先用两个image.local_adjust Task prepare_a、prepare_b将portrait.png、rocket.png分别brightness=1.1，作为已验收非交付中间图；再用Script Task render，以Pillow ImageOps.fit默认方法各适配为64×64，a左b右合成128×64 final.png。render声明人工Review等待构图意见，不能代用户批准。
+独立成果预期：`{"kind": "image", "width": 128, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。
+
+## D38 · Wan提交前参考图反馈修订
+
+当前结论：**需在当前版本复测**。目标边界：`reference_before_wan`。
+
+输入素材：portrait.png、rocket.png。
+执行目标：首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。
+独立成果预期：`{"kind": "video", "width": 1280, "height": 720, "duration": 5}`。
+外部调用范围：video.generate_from_image。
+
+### attempt-001 · 程序缺陷
+
+版本：`f0afcad996f7d8e29ad7f4d9becd9e73b1882779f535ddddb64142b4d5f4096f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T05:02:11+08:00 → 2026-11-04T05:09:13+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`ee719f93a54340c7a71d0ddf9ec00e87`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/review.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：HTTP 500 /api/projects/ee719f93a54340c7a71d0ddf9ec00e87/runs/550e1327f3234b248b07683be8fd8e57: {"detail":"服务暂时异常，请凭查询编号排查。","request_id":"e0b9303189e1492197ca52fa9791beb0"}
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "audit: Command failed: /data2/wujing03/distributed-agent-system/.venv/bin/python /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/harness/campaign_dynamic_probe.py final /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001\nTraceback (most recent call last):\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/harness/campaign_dynamic_probe.py\", line 402, in <module>\n    if __name__=='__main__':main()\n                            ~~~~^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/harness/campaign_dynamic_probe.py\", line 398, in main\n    else:result=inspect(args.directory,args.action=='final')\n                ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-001/harness/campaign_dynamic_probe.py\", line 129, in inspect\n    and decoded[0]['spec']==expected.get(task['id']) and decoded[-1]['spec']==task['spec'])\n                                                                              ~~~~^^^^^^^^\nKeyError: 'spec'\n", "audit incomplete"]
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793740376.6718822, "findings": ["合法replacement后保留的旧Task未被graph.get解析，详情API在workflow_api.public读取spec时报KeyError/HTTP500。", "原运行已通过正常取消命令停止；因详情API和审计读取同时受影响，保留项目及原始证据，待修复后补采与清理。", "修复后的只读采集器已补充完整现场审计并标注采集源码；原HTTP500及audit_error仍保留。随后通过认证API删除测试项目，并核实BOSS/Redis/本地清理完成。"], "required_retest": "修复历史Task解析后补齐现场审计、清理并在新版本重跑。", "supplemental_audit": "internal-supplement.json", "cleanup_verified": true}
+
+失败分类：程序错误。
+
+实际控制步骤：input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `550e1327f3234b248b07683be8fd8e57`：首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。；Token上限 2000000；外部调用上限 `{"video.generate_from_image": 1}`。
+
+### attempt-002 · 通过
+
+版本：`cd13667ad301adf27e4b6f0446f06679f73b57df110503b45afc94b69229241d`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T05:41:54+08:00 → 2026-11-04T06:03:21+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`b60de56b381a41d8a19d3ffbc47ec8f6`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793745999.6158667, "findings": ["运行中参考图从portrait改为已授权rocket，原任务排空；原reference/generate退役并保留，API/浏览器正常。", "真实Wan仅提交一次，发生在输入之后；保留一个external ID，24次查询不计作新生成。", "实际5秒1280×720视频是火箭参考场景，三时点联系表显示推镜变化，浏览器播放时间实际推进。", "全部数据库不变量通过；历史检查点manifest与7份字节归档完整，12个BOSS对象、Redis、本地缓存及项目清理完成。", "真实模型响应中commentary与final_answer同时出现时正确解析最终消息，未误记为多文本块错误。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "contact-sheet.jpg", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：input_accepted → cleanup_started。
+
+独立成果检查值：`{"revised_reference_uses_selected_asset": true, "provider_submissions_after_reference_input": [{"revision": 0, "created": 1793742549.11256}], "provider_receipts": [{"request_key": "ddbed160ae9e4e6f86fe85d07deed600:generate-rocket:0", "step": "generate-rocket", "revision": 0, "provider": "https://bashscope.bilibili.co/api/v1", "operation": "video.generate_from_image", "state": "succeeded", "external_id": "84d63d77-5b6a-4632-9e81-df79d88365dc", "network_seconds": 5.649640519171953, "poll_count": 24}]}`。
+
+实际确认的执行轮次：
+
+- `ddbed160ae9e4e6f86fe85d07deed600`：首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。；Token上限 2000000；外部调用上限 `{"video.generate_from_image": 1}`。
+
+## D39 · 合法替代失败节点与历史读取
+
+当前结论：**通过**。目标边界：`legal_replacement`。
+
+输入素材：portrait.png。
+执行目标：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 程序缺陷
+
+版本：`cd13667ad301adf27e4b6f0446f06679f73b57df110503b45afc94b69229241d`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T05:41:54+08:00 → 2026-11-04T05:48:42+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`ea66ec36c57d47608aead16c1cf86518`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：The expression evaluated to a falsy value:
+
+  assert.ok(replacement&&replacement.id==='render_fixed'&&replacement.type==='agent'&&replacement.status==='succeeded')
+
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "harness_feedback_and_test_contract", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793745999.6158044, "findings": ["原故障被诊断并完成显式replacement；旧节点及API读取正常，下游已重绑到新节点。", "替代Agent生成了候选PNG，但反复调用脚本直到达到轮数上限；工具未反馈实际输出回执，finalize仍允许script，已作通用修复。", "初始模型计划还将故障注入文字并入不可变objective，替代任务继承了该文字；新用例明确纯业务objective，故障只放argv。", "候选未被误批准或交付；预算停止、原失败与新候选、全部内部审计及清理证据保留；完整下游交付必须复测。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json", "failure-browser.png"]}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `300dfe73ae2d4e62a8275b5e35cf6413`：创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-002 · 程序缺陷
+
+版本：`ecc1c9fe829027178dcdb39a03289224abf6e6977e4de7c949f29f6019bc0186`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T06:48:39+08:00 → 2026-11-04T06:54:22+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`b105d1f2f0504fcf81e96235a31927ab`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "control_snapshot_evidence_gap", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793747136.9013567, "findings": ["真实故障、诊断、合法replacement和下游package均完成；替代Agent仅执行一次Script便提交结果。", "最终Reviewer/Manager快照缺少完整旧Task规格及替换前依赖，无法核对历史，要求用户重做或调整验收。", "属于控制快照上下文缺漏，已增加有界权威历史与当前候选用户审批事实；不修改原失败结论，需新版本复测。", "页面无JavaScript错误，所有内部审计及清理已核对；没有误交付、覆盖旧失败或重复外部调用。"], "evidence": ["internal-final.json", "workflow-latest.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
+
+失败分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `3d96a3e4102b4b0cb62c1c607b37caa1`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-003 · 通过
+
+版本：`84e57f010ae50da71d35c397b44ae6476dc67c893a160a6052e1c652a8f21d1f`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T07:12:38+08:00 → 2026-11-04T07:17:04+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`7dd34c6198f448d1adee7fc40cba26a8`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-003/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748016.9282334, "findings": ["注入旧Script退出23，显式替换为editing Agent，旧失败节点保留可读，package升至revision1并绑定新节点。", "Agent生成64×64图像，package交付与修复候选SHA一致；未要求用户重复执行历史失败。", "一次错误error_code格式被拒绝并纠正；真实脚本执行及结果提交完成。", "数据库不变量、日志完整性、观测、Redis隔离/TTL、BOSS加密对象、候选归档、本地及外部清理已核对；全部适用维度正常。"], "evidence": ["internal-final.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "artifact-browser.png", "runtime-evidence.json", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `517f68b7173647fa990997d12f2e23e8`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。；Token上限 2000000；外部调用上限 `{}`。

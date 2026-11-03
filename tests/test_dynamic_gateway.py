@@ -215,6 +215,40 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),self.assertRaises(TaskQuotaReached),model_budget(self.lease,self.run,1000,Receipt()):pass
         self.assertEqual(self.store.query('SELECT COUNT(*) AS n FROM workflow_model_reservations')[0]['n'],2)
 
+    def test_multimodal_generation_uses_count_then_settles_real_usage(self):
+        import base64,io,threading
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        from unittest.mock import Mock,patch
+        from PIL import Image
+        from tests.test_model_input_count import Response
+        from webapp.workflow_agents import model
+        from webapp.specialist_profiles import get
+        encoded=io.BytesIO();Image.effect_noise((1024,640),80).convert('RGB').save(encoded,format='JPEG',quality=95)
+        image='data:image/jpeg;base64,'+base64.b64encode(encoded.getvalue()).decode()
+        self.assertGreater(len(image),100000)
+        self.run['authorization']['model_token_budget']=100000
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',
+            budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
+        calls=[]
+        def post(url,**kwargs):
+            calls.append(url)
+            if url.endswith('/input_tokens'):return nullcontext(Response({'input_tokens':2400}))
+            self.assertTrue(url.endswith('/responses'))
+            reservation=self.store.query('SELECT reserved_tokens FROM workflow_model_reservations')[0]
+            self.assertLess(reservation['reserved_tokens'],100000)
+            return nullcontext(Response({'status':'completed','usage':{'input_tokens':2400,'output_tokens':100,'total_tokens':2500},
+                'output':[{'type':'message','content':[{'type':'output_text','text':'{"action":"result","files":{}}'}]}]}))
+        client=Mock();client.post.side_effect=post
+        host=SimpleNamespace(store=self.store,stop=threading.Event())
+        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+                patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
+            reply=model(host,self.lease,self.run,get('media_planner'),'frozen context',[image])
+        self.assertEqual(reply['action'],'result');self.assertEqual(len(calls),2)
+        row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
+        self.assertEqual((row['used_tokens'],row['state']),(2500,'settled'))
+
     def test_protocols_expose_only_completed_text_not_hidden_reasoning(self):
         from webapp.model_adapters import get
         examples={

@@ -224,12 +224,17 @@ def audio_process(ctx):
     p=ctx.parameters;role=p['role']
     if set(ctx.input_roles)!={role}:raise ValueError('Audio process requires exactly its declared role')
     source=ctx.source(ctx.input_roles[role]);report_path=ctx.output/'audio-process-report.json'
-    report={'version':1,'status':'measuring','parameters':{k:v for k,v in p.items() if k not in ('kind','assets')},'measurement':None}
+    report={'version':2,'status':'measuring','parameters':{k:v for k,v in p.items() if k not in ('kind','assets')},'measurement':None,
+            'normalization_applied':p.get('target_lufs') is not None,'channel_policy':'preserve','sample_rate_policy':'preserve'}
     _atomic_report(report_path,report)
-    probe_run=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nk=1:nw=1',str(source)],capture_output=True,text=True,timeout=30)
+    probe_run=subprocess.run(['ffprobe','-v','error','-select_streams','a:0','-show_entries',
+        'format=duration:stream=sample_rate,channels,channel_layout','-of','json',str(source)],capture_output=True,text=True,timeout=30)
     if probe_run.returncode:
         report.update(status='failed',error_code='audio_probe_failed');_atomic_report(report_path,report);raise ValueError('Audio input probe failed')
-    duration=float(probe_run.stdout.strip());filters=[]
+    info=json.loads(probe_run.stdout);stream=info['streams'][0]
+    duration=float(info['format']['duration']);sample_rate=int(stream['sample_rate']);channels=int(stream['channels']);filters=[]
+    report['source_audio']={'sample_rate':sample_rate,'channels':channels,'channel_layout':stream.get('channel_layout')}
+    report['source_measurement']=audio_evidence(source)
     if p['highpass_hz']:filters.append(f'highpass=f={p["highpass_hz"]:g}')
     if p['denoise']:filters.append('afftdn=nf=-25')
     if p['gain_db']:filters.append(f'volume={p["gain_db"]:g}dB')
@@ -249,11 +254,18 @@ def audio_process(ctx):
     codec={'wav':['-c:a','pcm_s16le'],'mp3':['-c:a','libmp3lame','-b:a','192k'],'m4a':['-c:a','aac','-b:a','192k']}[extension]
     command=['ffmpeg','-nostdin','-v','error','-y','-threads',str(p['threads']),'-i',str(source),'-map','0:a:0','-vn']
     if filters:command+=['-af',','.join(filters)]
-    command+=codec+['-ar','48000','-ac','2','-threads',str(p['threads']),str(output)]
+    command+=codec+['-ar',str(sample_rate),'-ac',str(channels),'-threads',str(p['threads']),str(output)]
+    report['filters']=filters;_atomic_report(report_path,report)
     rendered=subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
     if rendered.returncode:
         report.update(status='failed',error_code='audio_render_failed',stderr_tail=rendered.stderr[-8000:]);_atomic_report(report_path,report);raise ValueError('Audio processing failed')
-    report.update(status='succeeded',output=audio_evidence(output));_atomic_report(report_path,report)
+    report.update(status='succeeded',output=audio_evidence(output))
+    if not any((p.get('target_lufs') is not None,p['highpass_hz'],p['denoise'],p['fade_in'],p['fade_out'])):
+        before=report['source_measurement'];after=report['output']
+        report['gain_measurement']={'scope':'full_stream_mean_and_peak','expected_gain_db':p['gain_db'],
+            **{key:after[field]-before[field] if after[field] is not None and before[field] is not None else None
+               for key,field in [('mean_delta_db','mean_volume_db'),('peak_delta_db','peak_volume_db')]}}
+    _atomic_report(report_path,report)
     return [output.name,report_path.name]
 
 

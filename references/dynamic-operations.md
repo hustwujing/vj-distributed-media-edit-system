@@ -116,6 +116,10 @@ disk and input count are bounded. Do not create an arbitrary many-input filter g
 
 Use `audio.process` for bounded gain, fades, high-pass, denoise and optional two-pass loudness.
 It writes `audio-process-report.json` atomically and reports objective output measurements.
+It preserves the source channel count and sample rate. Gain/fades do not implicitly remix mono to stereo
+or normalize loudness. The report records the exact filters, normalization flag, source format,
+full-stream source/output levels and gain-only mean/peak deltas; these measurements are evidence,
+not permission to override a failed review.
 
 ## Image operations and transcription
 
