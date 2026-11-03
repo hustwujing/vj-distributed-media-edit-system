@@ -26,7 +26,10 @@ def verify(directory):
     assert sorted(f['sha256'] for f in target['quality']['files'])==hashes
     assert all(f.startswith(f'edit/workflows/{new["id"]}/{target["id"]}/') for f in target['result'])
     budget=store.query("SELECT used FROM execution_budgets WHERE turn_id=? AND category='local_image'",(state['execute_id'],))
-    expected=sum(s['spec']['operation']=='image.local_adjust' and not s['spec'].get('reuse_from') for s in new['steps'] if s['spec']['kind']=='operation')
+    from webapp.operations import for_step
+    # All fixed-image operations consume this quota, including export/resize.
+    # Count newly executed operations, not only brightness adjustments.
+    expected=sum(for_step(s['spec']).executor=='fixed_image' and not s['spec'].get('reuse_from') for s in new['steps'] if s['spec']['kind']=='operation')
     assert (budget[0]['used'] if budget else 0)==expected,'Reuse repeated original operation'
     calls=store.query("SELECT operation,status FROM usage_calls WHERE task_id=? AND category='llm' AND operation LIKE 'control:%'",(state['old_execute'],))
     assert len(calls)>=3 and all(c['status']=='succeeded' for c in calls),calls
@@ -57,6 +60,8 @@ def capture(directory):
       'project_checkpoints':store.query('SELECT * FROM execution_checkpoints WHERE project=?',(project,)),
       'step_checkpoints':store.query('SELECT * FROM execution_step_checkpoints WHERE project=?',(project,)),
       'workflow_definitions':store.query('SELECT id,turn_id,status,definition FROM agent_workflows WHERE project=?',(project,)),
+      'usage_calls':store.query('SELECT u.* FROM usage_calls u JOIN agent_turns t ON t.id=u.task_id WHERE t.project=? ORDER BY u.seq',(project,)),
+      'budgets':store.query('SELECT b.* FROM execution_budgets b JOIN agent_turns t ON t.id=b.turn_id WHERE t.project=?',(project,)),
       'receipts':store.query('SELECT * FROM workflow_reuse_receipts WHERE project=?',(project,)),
       'events':store.query('SELECT e.* FROM agent_events e JOIN agent_turns t ON t.id=e.turn_id WHERE t.project=? ORDER BY e.seq LIMIT 3000',(project,))}
     save(directory/'database-evidence.json',result);return {'captured':True}
