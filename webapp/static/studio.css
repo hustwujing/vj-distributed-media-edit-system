@@ -70,3 +70,5 @@ dialog{border:1px solid #dfe5d8;border-radius:18px;padding:28px;background:#fbfc
 
 .agent-profile-panel{font-size:12px;margin:0 0 8px;color:var(--muted,#777)}
 .agent-profile-panel summary{cursor:pointer}.agent-profile-controls{padding:10px 0;display:flex;flex-wrap:wrap;align-items:center;gap:8px}.agent-profile-controls select{max-width:100%;padding:6px}.agent-profile-controls p,.agent-profile-controls small{flex-basis:100%;margin:0;overflow-wrap:anywhere}
+
+.task-diagnostic{margin-top:12px;min-height:44px}.task-diagnostic:hover{background:#e7efdf;border-color:#9aaf8b}.task-diagnostic:focus-visible{outline:2px solid var(--green);outline-offset:3px}
