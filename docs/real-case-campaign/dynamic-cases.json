@@ -6036,7 +6036,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。",
+      "prompt": "render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。",
       "expect": {
         "kind": "image",
         "width": 64,
@@ -6066,7 +6066,8 @@
       "review_decision": "新增",
       "review_reason": "实际触发合法replacement后旧节点详情读取，覆盖F49，同时验证原失败保留、下游重绑和新交付。",
       "status": "not_run",
-      "attempts": []
+      "attempts": [],
+      "expected_business_objective": "将portrait.png缩放为64×64 final.png。"
     }
   ],
   "unified_run_review": {

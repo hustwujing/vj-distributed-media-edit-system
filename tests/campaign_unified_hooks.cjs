@@ -24,6 +24,12 @@ async function before(c){
   const result=await appendInput(message,[],targets);
   state.unified_boundary.input=result;state.unified_boundary.after=await read();persist();return result;
  };
+ if(hook==='legal_replacement'){
+  const initial=await wait(r=>r.tasks.some(t=>t.id==='render'),600),task=initial.tasks.find(t=>t.id==='render');
+  if(task.spec.objective!==spec.expected_business_objective)
+   throw Object.assign(Error('The planner did not preserve the declared business objective separately from fault injection'),{boundary:true});
+  state.unified_boundary.business_objective=task.spec.objective;persist();
+ }
  if(hook==='drain_local'||hook==='drain_agent'){
   const run=await wait(r=>r.tasks.some(t=>t.status==='running'&&(hook==='drain_local'?t.id==='left':t.type==='agent')),600);
   const started=run.tasks.filter(t=>t.status==='running').map(t=>({id:t.id,revision:t.revision,attempts:t.attempts}));
