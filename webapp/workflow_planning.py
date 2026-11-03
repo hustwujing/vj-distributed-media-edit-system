@@ -47,6 +47,7 @@ def bind_scope(store,raw):
 def snapshot(store,run):
     from .specialist_profiles import catalogue as profiles
     from .repair_inputs import descriptors
+    from .workflow_history import snapshot as history_snapshot,user_reviews
     assets=store.assets(run['project_id'])
     permitted=set(run['authorization']['allowed_assets'])
     operations=available_operations(store)
@@ -70,6 +71,7 @@ def snapshot(store,run):
         'scope_confirmation_required':not run['scope_confirmed'],
         'sealed':run['sealed'],'authorization':run['authorization'],'authorization_version':run['authorization_version'],
         'repair_context':run.get('repair_context',{}),'repair_candidates':descriptors(store,run),
+        'history':history_snapshot(store,run),'user_reviews':user_reviews(store,run),
         'tasks':[{k:task[k] for k in ('id','spec','status','revision','authorization_version','accepted_result','quality','error_code','error_detail')}
                  for task in active_tasks(run)],
         'dependencies':run['dependencies'],'assets':[a for a in assets if a['id'] in permitted],

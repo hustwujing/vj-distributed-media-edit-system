@@ -91,3 +91,5 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 异构片段使用独立 media.normalize_clip Task，统一明确规格并保存验收检查点，media.concat_sequence 只负责兼容流顺序汇合。禁止在单一脚本中隐藏大量解码器或让一次失败重做所有片段。
 
 用户批准原本声明的Review后，最终Reviewer快照提供server-owned user_reviews，只包含当前选中Task、当前revision且candidate_digest仍匹配的已应用approve决定。该事实不豁免技术或Agent失败。Manager回显错误的快照绑定字段仍拒绝暂存，但在同一有效租约/请求内给予有界纠正；失效租约、过期请求及图版本竞争不改为可忽略错误。
+
+Manager与最终Reviewer均接收同一来源的已批准用户Review事实。控制快照另含有界history：不可变Task规格/摘要、依赖创建和退休版本、plan选择及replacement关系；最终Review还接收失败事实。旧失败仅作为历史，不重新成为当前交付要求。截断必须明确标识，不能让Agent伪造历史文件来补缺失的数据库事实。

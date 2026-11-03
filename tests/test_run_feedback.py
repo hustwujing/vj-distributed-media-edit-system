@@ -56,6 +56,9 @@ class RunFeedbackTests(unittest.TestCase):
         self.assertEqual(len(approvals),1)
         self.assertEqual((approvals[0]['decision_id'],approvals[0]['task_id'],approvals[0]['revision'],approvals[0]['action']),
                          (self.decision['id'],'first',0,'approve'))
+        from webapp.workflow_planning import snapshot
+        planning_snapshot=snapshot(self.store,graph.get(self.store,self.run['id']))
+        self.assertEqual(planning_snapshot['user_reviews'],approvals)
 
     def test_empty_or_stale_feedback_cannot_consume_a_decision(self):
         with self.assertRaises(ValueError):graph.DecisionAnswer.model_validate(self.answer(feedback='  '))

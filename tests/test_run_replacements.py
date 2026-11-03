@@ -40,6 +40,14 @@ class ReplacementTests(unittest.TestCase):
         self.assertEqual(retained['candidate_result'],[])
         self.assertEqual(response['replacements'][0]['new_task_id'],'replacement')
         self.assertNotIn('first',{task['id'] for task in graph.work_items(run)})
+        from webapp.workflow_history import snapshot
+        history=snapshot(self.store,run)
+        original=next(item for item in history['task_revisions'] if item['task_id']=='first')
+        self.assertEqual(original['spec']['objective'],tasks['first']['spec']['objective'])
+        self.assertTrue(any(edge['upstream_task_id']=='first' and edge['retired_graph_version']==2 for edge in history['dependencies']))
+        self.assertTrue(any(edge['upstream_task_id']=='replacement' and edge['retired_graph_version'] is None for edge in history['dependencies']))
+        self.assertEqual(history['retired_tasks'][0]['id'],'first')
+        self.assertFalse(history['truncated'])
 
     def test_similar_new_node_does_not_erase_the_failed_requirement(self):
         self.f.propose({'proposal_id':'not-a-replacement','base_graph_version':1,'reason':'Merely append a node',
