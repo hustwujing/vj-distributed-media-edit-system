@@ -5,6 +5,7 @@ const config=JSON.parse(fs.readFileSync(process.argv[2]));
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  try{
   const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addInitScript(()=>Object.defineProperty(globalThis.crypto,'randomUUID',{value:undefined,configurable:true}));
   await context.addCookies(config.cookies);
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(config.base+'/chat/'+config.project);
@@ -13,7 +14,7 @@ const config=JSON.parse(fs.readFileSync(process.argv[2]));
   await select.selectOption('claude');await apply.waitFor({state:'visible'});
   const draft='Unsent new requirement remains while switching';await page.locator('#agent-input').fill(draft);
   const response=page.waitForResponse(r=>r.url().endsWith('/harness-switch')&&r.request().method()==='POST');
-  await apply.click();assert.equal((await response).status(),202);
+  await apply.click();const applied=await response;assert.equal(applied.status(),202);const request=applied.request().postDataJSON();assert.match(request.request_key,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   await panel.getByText(/已请求切换/).waitFor();
   assert.equal(await page.locator('#agent-input').inputValue(),draft);
   await page.screenshot({path:config.output+'/switch-pending.png',fullPage:true});
@@ -29,8 +30,8 @@ const config=JSON.parse(fs.readFileSync(process.argv[2]));
   await page.screenshot({path:config.output+'/switch-activated.png',fullPage:true});
   assert.deepEqual(errors,[]);
   fs.writeFileSync(config.output+'/report.json',JSON.stringify({passed:true,actual_browser:true,actual_api_database_cache:true,
-    scenarios:['profile selection','pending switch','withdraw','safe activation','input retained','reload persistence','foreign owner rejected'],
+    scenarios:['profile selection','pending switch','withdraw','safe activation','input retained','reload persistence','foreign owner rejected','randomUUID unavailable with getRandomValues fallback'],
     page_errors:errors,scope:'Two API processes, real PG and Redis, S3 HTTP fixture; no Agent executor/model runs in this browser scenario.'},null,2));
-  console.log(JSON.stringify({passed:true,scenarios:7}));
+  console.log(JSON.stringify({passed:true,scenarios:8}));
  }finally{await browser.close();}
 })().catch(error=>{console.error(error);process.exitCode=1});

@@ -44,7 +44,7 @@ def dispatch(store,turn_id,body,mode,review_id=None):
         return declare(store,turn_id,body.get('intent'))
     if action=='capabilities':
         from .operations import catalog
-        return catalog()
+        return catalog(body.get('operations'))
     if action=='preflight':
         if mode!='execute' or review_id:raise ValueError('正式脚本预检查需要确认执行阶段')
         from .task_leases import CURRENT
@@ -71,8 +71,13 @@ def dispatch(store,turn_id,body,mode,review_id=None):
         if mode!='execute' or review_id:raise ValueError('只有已确认的普通执行轮可以提交新工作流')
         return workflows.submit(store,turn_id,body.get('plan'))
     if action!='status':raise ValueError('未知工作流操作')
-    public=workflows.public(workflows.get(store,turn_id))
-    return {**public,'review_context':context(store,turn_id)} if public else None
+    w=workflows.get(store,turn_id)
+    public=workflows.public(w)
+    selected=body.get('steps')
+    if selected is not None:
+        if not w or not isinstance(selected,list) or not 1<=len(selected)<=8 or any(not isinstance(s,str) or s not in {r['id'] for r in w['steps']} for s in selected):
+            raise ValueError('请选择当前工作流中1至8个步骤 ID')
+    return {**public,'review_context':context(store,turn_id,selected)} if public else None
 
 
 def current(store, wid):
@@ -199,14 +204,40 @@ def repairable_steps(w,request):
     return allowed
 
 
-def context(store, turn_id):
+def context(store, turn_id, selected=None):
     from . import workflows
+    from .agent_prompt_context import budgets
     w=workflows.get(store,turn_id)
     request=current(store,w['id']) if w else None
     if not request:return None
+    allowed=repairable_steps(w,request)
+    detailed=set(selected) if selected else allowed
+    if not detailed and request['step']:detailed={request['step']}
+    def diagnostic(record):
+        # Preserve structured fields; long raw stderr is evidence, not a command.
+        result=dict(record)
+        for key in ('log_tail','message','detail'):
+            if isinstance(result.get(key),str) and len(result[key])>4000:
+                result[key]=result[key][-4000:];result[key+'_truncated']=True
+        return result
+    steps=[]
+    for step in w['steps']:
+        if step['id'] not in detailed:continue
+        entry={k:step[k] for k in ('id','spec','status','revision','result','candidate','quality','error','error_code')}
+        entry['diagnostics']=[diagnostic(d) for d in step['diagnostics']]
+        entry['attempts']=step['attempts'];entry['repair_count']=step['repair_count']
+        entry['repairs_remaining']=max(0,int(os.environ.get('VIDEO_USE_MAX_REPAIRS','2'))-step['repair_count'])
+        entry['failure_evidence']=[{k:d.get(k) for k in ('phase','error_type','code','exit_code','runtime_error','oom_kill') if k in d} for d in step['diagnostics']]
+        steps.append(entry)
+    reviews=store.query('SELECT COUNT(*) n FROM workflow_agent_reviews WHERE workflow=?',(w['id'],))[0]['n']
     return {'request_id':request['id'],'purpose':request['purpose'],'step_id':request['step'],
-            'snapshot':request['snapshot'],'repairable_steps':sorted(repairable_steps(w,request)),
-            'steps':[{k:s[k] for k in ('id','spec','status','revision','result','candidate','quality','diagnostics','error','error_code')} for s in w['steps']]}
+            'snapshot':request['snapshot'],'repairable_steps':sorted(allowed),'steps':steps,
+            'other_steps':[{'id':s['id'],'status':s['status'],'revision':s['revision'],'goal':s['spec']['goal'],
+                            'depends_on':s['spec']['depends_on'],'output_roles':s['quality'].get('output_roles',{})} for s in w['steps'] if s['id'] not in detailed],
+            'budget':budgets(store,turn_id),'review_budget':{'requests_used':reviews,'requests_limit':int(os.environ.get('VIDEO_USE_MAX_AGENT_REVIEWS','24'))},
+            'coverage':{'detailed_steps':sorted(detailed),'total_steps':len(w['steps']),'raw_logs_may_be_truncated':True,
+                        'details_query':'python /opt/workflow.py status --step STEP_ID; evidence missing is not failure or success'},
+            'decision_schema':Decision.model_json_schema()}
 
 
 def validate_decision(w, request, raw):

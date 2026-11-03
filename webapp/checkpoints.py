@@ -10,7 +10,8 @@ def profile():
     from .agent_profiles import current
     from .runtime_image import fingerprint
     identity=current()
-    value=skill.read_bytes()+identity.digest.encode()+fingerprint().encode()
+    from .agent_context import INSTRUCTIONS,ROLES
+    value=skill.read_bytes()+identity.digest.encode()+fingerprint().encode()+INSTRUCTIONS.encode()+json.dumps(ROLES,sort_keys=True).encode()
     return 'agent-session-v2-'+hashlib.sha256(value).hexdigest()
 
 

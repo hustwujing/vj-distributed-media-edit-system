@@ -10,10 +10,16 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['submit', 'status','validate','decision','capabilities','intent','preflight'])
     parser.add_argument('plan', nargs='?')
+    parser.add_argument('--operation',action='append',dest='operations',help='Filter capability schemas by operation ID (repeatable)')
+    parser.add_argument('--step',action='append',dest='steps',help='Read full details of selected workflow steps (repeatable)')
     args = parser.parse_args()
+    if args.operations and args.action!='capabilities':parser.error('--operation requires capabilities')
+    if args.steps and args.action!='status':parser.error('--step requires status')
     if args.action in ('submit','validate','decision','intent','preflight') and not args.plan:
         parser.error('This action requires a JSON file')
     body = {'action':args.action}
+    if args.operations:body['operations']=args.operations
+    if args.steps:body['steps']=args.steps
     if args.action in ('submit','validate','decision','intent','preflight'):
         body[args.action if args.action in ('decision','intent') else 'plan'] = json.loads(Path(args.plan).read_text())
     request = Request('http://127.0.0.1:18766/workflow', data=json.dumps(body).encode(),

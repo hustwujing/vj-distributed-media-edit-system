@@ -1,4 +1,5 @@
 import {api,esc,toast} from './common.js';
+import {randomRequestId} from './request_id.js';
 
 const labels={requested:'已请求切换',waiting:'等待安全切换点',blocked:'切换待核实',activated:'后续 Agent 执行已切换',next_turn:'下一轮使用新 Agent',cancelled:'切换已取消',failed:'切换未完成',unchanged:'已使用此配置'};
 export function profileStatus(turn){
@@ -29,7 +30,7 @@ export function mountAgentProfiles(root,project,readTurns,refresh){
   try{
    const active=readTurns().find(t=>['queued','running','waiting','paused'].includes(t.status));
    if(active){
-    await api(`api/projects/${project}/agent/${active.id}/harness-switch`,{method:'POST',body:JSON.stringify({profile:select.value,request_key:crypto.randomUUID(),expected_digest:active.agent_profile.digest})});
+    await api(`api/projects/${project}/agent/${active.id}/harness-switch`,{method:'POST',body:JSON.stringify({profile:select.value,request_key:randomRequestId(),expected_digest:active.agent_profile.digest})});
     toast('已请求在安全边界切换 Agent。');
    }else{
     await api(`api/projects/${project}/agent/profile`,{method:'PUT',body:JSON.stringify({profile:select.value})});

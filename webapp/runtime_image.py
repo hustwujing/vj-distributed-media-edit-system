@@ -45,7 +45,7 @@ def fingerprint():
     if not MANIFEST.is_file():return 'unbuilt'
     manifest=json.loads(MANIFEST.read_text())
     package=MANIFEST.parent/'tool-app/package.sha256'
-    value={key:manifest.get(key) for key in ('version','python_version','packages','harnesses')}
+    value={key:manifest.get(key) for key in ('version','python_version','packages','harnesses','data_files')}
     value['tools']=package.read_text().strip() if package.is_file() else ''
     value['harness_bridge']={name:hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()
         for name in ('harness_adapters.py','harness_bridge.py','harness_sdk_events.py')}
@@ -60,6 +60,12 @@ def build():
     if missing:raise RuntimeError('Required runtime tools missing: '+','.join(missing))
     if not codex.is_file():raise RuntimeError('Codex runtime is not installed')
     libraries={}
+    # file(1) requires this public data file in addition to libmagic.so.
+    # Mount the resolved bytes at its compiled-in lookup path, read-only.
+    magic=Path('/usr/share/misc/magic.mgc')
+    if not magic.is_file():raise RuntimeError('file runtime magic database is missing')
+    libraries[str(magic)]=str(magic.resolve())
+    data_files={str(magic):hashlib.sha256(magic.read_bytes()).hexdigest()}
     cache=subprocess.check_output(['ldconfig','-p'],text=True)
     match=re.search(r'libseccomp\.so\.2[^\n]*=>\s+(\S+)',cache)
     if not match:raise RuntimeError('libseccomp is required')
@@ -104,7 +110,7 @@ def build():
                 libraries[str(resolved)]=str(resolved)
     from importlib.metadata import distributions
     packages=sorted((d.metadata.get('Name',''),d.version) for d in distributions())
-    result={'packages':packages,'harnesses':harnesses,'version':2,'python':str(Path(sys.executable).resolve()),'prefix':str(prefix),
+    result={'packages':packages,'harnesses':harnesses,'data_files':data_files,'version':2,'python':str(Path(sys.executable).resolve()),'prefix':str(prefix),
         'python_version':f'{sys.version_info.major}.{sys.version_info.minor}',
         'codex':str(codex),'code_host':str(code_host) if code_host.is_file() else None,'tools':{k:str(v) for k,v in executables.items()},'libraries':libraries}
     MANIFEST.parent.mkdir(parents=True,exist_ok=True)

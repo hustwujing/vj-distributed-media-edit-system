@@ -94,6 +94,14 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
                 'evidence':{k:evidence[k] for k in ('source','choice','confidence','scores','threshold','required_margin') if k in evidence}})
         except (ValueError,TypeError,AttributeError):
             report['complete']=False;report['gaps'].append({'source':'control_classifications','error_code':'InvalidMetadata'})
+    report['prompt_contexts']=[]
+    for item in query('prompt_contexts',"SELECT seq,payload,created FROM agent_events WHERE turn_id=? AND kind='prompt_context' ORDER BY seq DESC LIMIT 20",(task_id,)):
+        try:
+            value=json.loads(item['payload'])
+            report['prompt_contexts'].append({'seq':item['seq'],'created':item['created'],
+                **{k:value[k] for k in ('schema','phase','characters','native_resume','related_tasks','feedback_items','operation_contracts') if k in value}})
+        except (ValueError,TypeError):
+            report['complete']=False;report['gaps'].append({'source':'prompt_contexts','error_code':'InvalidMetadata'})
     report['browser_render']=query('browser_render','SELECT generation,sequence,render_ms,created FROM agent_render_observations WHERE task_id=? ORDER BY created DESC LIMIT ?',(task_id,limit))
     report['logs']=[]
     if include_logs:

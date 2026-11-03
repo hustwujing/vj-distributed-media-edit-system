@@ -54,11 +54,7 @@ and desired fill, plus `quality` (`fast`, `standard`, or `high`). Bind a mask or
 box; the server preserves pixels outside that selection. Inspect the result for
 remaining content before approving it; a successful service call is not proof
 that the target was removed.
-For Qwen image editing/erasure, every input image must have both dimensions at
-least 256 pixels. Keep enough original context when cropping a region. The
-selection guide counts toward the two-reference-image limit. Read the operation
-constraints before preparing inputs; the complete provider prompt, including
-selection instructions, must fit 2000 characters.
+For image/video generation and editing, read `references/generation-prompts.md` and the selected operation constraints; do not guess provider limits.
 Budget model calls for the whole workflow, including diagnostics and final
 review. Use program checks for hashes, byte copies, dimensions and exact
 compositions; add Agent review where semantic correctness still needs inspection.
@@ -95,8 +91,6 @@ Do not repeat the `edit/` prefix or put metadata objects in `files`. Every
 declared file must exist; an invalid declaration prevents successful delivery
 and retains generated files as candidates for correction.
 
-Generation operations: `image.generate_from_text` has no input image; `video.generate_from_text` has no reference; `video.generate_from_image` requires one owned `source` reference. Inspect current capability constraints before planning duration and dimensions. The backend selects the provider/model and owns submit/poll/download/cancel; never implement a provider HTTP loop in a local script. Upstream cancellation may be unsupported. Native generated video may differ from requested duration by one frame; declare a suitable frame-level tolerance, and never loop/freeze/stretch footage to hide unsupported durations.
-
 Before setting an operation acceptance `file`, read its capability
 `output_contract.filenames`. Do not invent names for fixed tool outputs:
 OCR produces `ocr.json` and `ocr-preview.png`; transcription produces
@@ -105,30 +99,8 @@ For provider-dependent filenames, use the registered output roles to bind a
 normalization stage instead of guessing a filename. Include every promised
 formatting or export stage in the submitted workflow; final review is read-only.
 
-Read the selected generation capability's reference constraints before planning.
-When `reference_size_policy` is `match_output`, include a declared local image
-preparation stage if the uploaded image differs from the target video size;
-bind that prepared output as the generation input. Explain any crop or padding
-in the plan and preserve the requested subject. Never assume a provider expands
-or resizes a reference automatically.
-
-When a generation capability exposes `camera_motion_control: prompt_only`, a
-numeric zoom request in the prompt is not a guaranteed camera trajectory.
-For precise, very small motion, plan sufficient reference margins and consider
-a fixed-camera generation followed by a declared local camera adjustment of
-the actual video frames. Validate the measured motion and subject boundaries;
-stabilization cannot restore a subject already cropped out by the provider.
-Do not fill missing foreground with blurred background or silently regenerate.
-
-SAM3 selection has mutually exclusive text, point and box modes. For text
-selection, use a short English `prompt` and omit `box`/`points`. For point or box
-selection, leave `prompt` empty and provide either positive points or one box,
-never both. The current adapter does not combine these constraints. Set `parameters.refine`
-to false when only the SAM3 mask and later local cleanup are requested.
-
 Planning must be bounded: gather only evidence needed for the user's decision.
-Produce at most two necessary preview variants and one correction for a specific
-observed defect, then declare the intent and present the plan. Do not repeatedly
+Use the server-provided preview/correction guidance, then declare the intent and present the plan. Do not repeatedly
 reopen unchanged images or perform speculative pixel checks. Reserve the last two
 model requests for registering intent and reporting unresolved issues. The host
 supplies enforced planning time, model, tool and image-inspection budgets.
@@ -137,3 +109,9 @@ be workflow operation steps. Direct tools are for independent short single
 operations; never implement external services or GPU calls in a script.
 
 方案就绪由服务端独立检查。声明执行意图后，说明方案已提交检查即可，不承诺确认按钮已经出现；界面按真实状态显示审核结果。用户的确认文字只有通过服务端门禁才会授予 execute 权限。
+
+本轮角色由服务端单独提供：plan 只分析并形成方案；execute 执行已确认范围；review/diagnose/final 使用工作流 decision 协议。通用文档中的其他阶段步骤不扩大本轮权限。
+能力查询可使用 `python /opt/workflow.py capabilities --operation media.edit`，只读取本轮所需契约。字段校验失败时先核对对应 schema、输入/输出角色及嵌套结构，不能因一次参数错误断言接口冲突。
+`preflight` 只检查静态语法、导入和JSON格式，不执行滤镜或业务逻辑。规划阶段不提前做正式处理；执行阶段的验证仍受授权和输出目录约束。
+预算快照可用 `python /opt/context.py budget --task TASK_ID` 获取；它不是额外授权，也不重置已用额度。
+验收标准在方案中注明来自用户要求、已披露技术必要条件或可选审美建议。建议不能擅自成为必需的内容验收；已确认条件不可在执行时降级。仅程序检查支持 severity=signal，语义 agent/review 检查都是放行条件。

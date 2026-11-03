@@ -96,6 +96,9 @@ class Operation:
         elif self.provider=='edit':
             from .image_providers import EDITOR_CONTRACT
             result['constraints']=dict(EDITOR_CONTRACT)
+        from .generation_prompts import guidance
+        prompt_guidance=guidance(self.id)
+        if prompt_guidance:result['prompt_guidance']=prompt_guidance
         result.update(available=self.available(),availability='configured_unverified' if self.provider and self.available() else 'unconfigured' if not self.available() else 'local_registered',input_schema=InputRef.model_json_schema(),
                       parameters_schema=parameter_schema,implementation_version='workflow-operations-v4',
                       recovery='retry_step' if self.retry_safe else 'reuse_saved_result_or_pause_unknown' if self.executor in ('transcribe','image_sync') else 'query_existing_or_pause_unknown',
@@ -289,14 +292,17 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
     return {k:v for k,v in value.items() if k in IMAGE_PARAMETERS[op.action]}
 
 
-def catalog():
+def catalog(names=None):
     from .text_formats import TEXT_SUFFIXES,SUBTITLE_SUFFIXES
+    if names is not None and (not isinstance(names,list) or not 1<=len(names)<=8 or any(not isinstance(n,str) or n not in REGISTRY for n in names)):
+        raise ValueError('请选择1至8个已登记的 operation ID')
+    names=list(dict.fromkeys(names)) if names is not None else list(REGISTRY)
     return {'version':4,'acceptance_formats':{'text':sorted(TEXT_SUFFIXES),'subtitle':sorted(SUBTITLE_SUFFIXES),'encoding':'UTF-8 / UTF-8 BOM','max_text_bytes':2*1024**2},
             'intent_contract':{'script_marker':'script',
                 'script_meaning':'Running helpers or custom local Pillow/FFmpeg/OpenCV commands, regardless of media type',
                 'single_script_example':{'route':'single','operations':['script'],'goal':'Rotate an image with a local helper','estimated_seconds':30},
                 'operation_rule':'Use a registered ID only for that controlled operation; image.edit is external generative editing, not generic local image work'},
-            'operations':[get(name).public() for name in REGISTRY],
+            'operations':[get(name).public() for name in names],
             'step_kinds':['script','operation'],
             'dispatch_kinds':['agent','manual','workflow'],'conversation_modes':['plan','execute']}
 

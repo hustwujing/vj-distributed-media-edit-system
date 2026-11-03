@@ -11,13 +11,16 @@ from pydantic import BaseModel,ConfigDict,Field,model_validator
 from helpers.canvas_render import FONT
 
 def edit_prompt(action,prompt='',selected=False):
-    if action=='erase':
-        prompt=('完整移除选区内的目标物体或文字，包括全部笔画、边缘和残影，用周围合理的背景自然补全。'
-                '不要重画、移动、缩放或保留要消除的内容。 '+prompt.strip())
+    sections=[]
     if selected:
-        prompt=('图1是待编辑原图，图2仅用红色覆盖标明选区。只修改选区，保持原图构图、尺寸、'
-                '物体位置及其他内容不变；不要在结果中画红色标记。 '+prompt)
-    return prompt.strip()
+        sections.append('输入约定：图1是待编辑原图，图2仅用红色覆盖标明选区。')
+        sections.append('编辑边界：只修改选区，保持原图构图、尺寸、物体位置及其他内容不变；不要在结果中画红色标记。')
+    if action=='erase':
+        sections.append('编辑目标：完整移除选区内的目标物体或文字，包括全部笔画、边缘和残影，用周围合理的背景自然补全。')
+        sections.append('保持约束：不要重画、移动、缩放或保留要消除的内容。')
+    if prompt.strip():sections.append(('用户要求：' if sections else '')+prompt.strip())
+    return '\n'.join(sections)
+
 
 
 class Layer(BaseModel):

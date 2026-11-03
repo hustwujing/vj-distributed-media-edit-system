@@ -14,6 +14,9 @@ def main():
     message.add_argument('--offset', type=int, default=0)
     tools = actions.add_parser('tools');tools.add_argument('--task', required=True)
     tools.add_argument('--after', type=int, default=0)
+    project_data=actions.add_parser('project_data');project_data.add_argument('--kind',required=True,choices=['notes','chapters','branches','brand_templates']);project_data.add_argument('--offset',type=int,default=0)
+    feedback=actions.add_parser('feedback');feedback.add_argument('--task',required=True);feedback.add_argument('--offset',type=int,default=0)
+    budget=actions.add_parser('budget');budget.add_argument('--task',required=True)
     body = {k: v for k, v in vars(parser.parse_args()).items() if v is not None}
     request = Request('http://127.0.0.1:18766/context', data=json.dumps(body).encode(), headers={'Content-Type': 'application/json'})
     try:

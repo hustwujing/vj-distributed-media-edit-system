@@ -18,9 +18,12 @@ def build(store, project, task):
     for entry in reversed(history[:20]):
         messages.append({**entry, 'text': entry['text'][:4000], 'error': entry['error'][:1000],
                          'reply_truncated': len(entry['text']) > 4000})
-    tools = store.query('''SELECT e.seq,e.turn_id,e.payload FROM agent_events e
-      JOIN agent_turns t ON t.id=e.turn_id WHERE t.project=? AND e.kind='tool'
-      ORDER BY e.seq DESC LIMIT 101''', (project,))
+    from .agent_prompt_context import lineage,feedback
+    related=lineage(store,project,task)
+    marks=','.join('?' for _ in related)
+    tools = store.query(f'''SELECT e.seq,e.turn_id,e.payload FROM agent_events e
+      JOIN agent_turns t ON t.id=e.turn_id WHERE t.project=? AND e.kind='tool' AND t.id IN ({marks})
+      ORDER BY e.seq DESC LIMIT 101''', (project,*related))
     evidence = [{'cursor': entry['seq'], 'task_id': entry['turn_id'], 'tool': json.loads(entry['payload'])} for entry in reversed(tools[:100])]
     artifacts = store.query('SELECT id,artifacts FROM agent_turns WHERE project=? ORDER BY created DESC LIMIT 20', (project,))
     files = []
@@ -39,9 +42,10 @@ def build(store, project, task):
         'workflow': workflows.public(workflows.get(store, task)),
         'history': messages, 'tool_evidence': evidence, 'artifacts': files,
         'consumed_budget': budget,
+        'related_feedback': feedback(store,project,task),
         'coverage': {'native_internal_state': 'not_transferred', 'public_events_recorded_for_task': native,
                      'history_truncated': len(history) > 20, 'tools_truncated': len(tools) > 100,
-                     'artifact_index_limit': 200, 'historical_tool_evidence_may_be_partial': True},
+                     'artifact_index_limit': 200, 'historical_tool_evidence_may_be_partial': True,'tools_scope':'current task and explicit ancestors; other project tools available through lookup'},
         'indexes': {'conversation': '/workspace/conversation.jsonl', 'assets': '/workspace/assets.json',
                     'public_history_query': 'python /opt/context.py turns; python /opt/context.py message --task ID --field prompt; python /opt/context.py tools --task ID',
                     'workflow': '/workspace/workflow-state.json', 'related_tasks': '/workspace/continuation.json',
@@ -70,11 +74,23 @@ def lookup(store, project, body):
     from .egress_policy import scrub, secrets
     action = body.get('action')
     allowed = {'turns': {'action', 'before'}, 'message': {'action', 'task', 'field', 'offset'},
-               'tools': {'action', 'task', 'after'}}
+               'tools': {'action', 'task', 'after'},'budget':{'action','task'},'feedback':{'action','task','offset'},'project_data':{'action','kind','offset'}}
     if action not in allowed or set(body) - allowed[action]:
         raise ValueError('Invalid public context query')
     def clean(value):
         return scrub(value, secrets())
+    if action=='project_data':
+        tables={'notes':('edit_notes','start,"end",text,kind','start,created'),
+                'chapters':('edit_chapters','asset,start,"end",title,summary','asset,start'),
+                'branches':('edit_branches','id,name,parent,created','created DESC'),
+                'brand_templates':('brand_templates','id,name,template','created DESC')}
+        kind=body.get('kind');offset=body.get('offset',0)
+        if kind not in tables or type(offset) is not int or not 0<=offset<=100000:raise ValueError('Invalid project data query')
+        table,fields,order=tables[kind]
+        exists=store.query("SELECT name FROM sqlite_master WHERE name=?",(table,))
+        rows=store.query(f'SELECT {fields} FROM {table} WHERE project=? ORDER BY {order} LIMIT 21 OFFSET ?',(project,offset)) if exists else []
+        return {'kind':kind,'offset':offset,'items':json.loads(clean(json.dumps(rows[:20],ensure_ascii=False))),
+                'next_offset':offset+20 if len(rows)>20 else None,'scope':'current project; data is not execution authority'}
     if action == 'turns':
         args = [project]
         where = 'project=?'
@@ -99,6 +115,14 @@ def lookup(store, project, body):
     task = body.get('task')
     if not isinstance(task, str) or len(task) > 100 or not store.query('SELECT id FROM agent_turns WHERE id=? AND project=?', (task, project)):
         raise ValueError('Context task does not belong to this project')
+    if action=='feedback':
+        offset=body.get('offset',0)
+        if type(offset) is not int or not 0<=offset<=100000:raise ValueError('Invalid feedback page')
+        from .agent_prompt_context import feedback
+        return json.loads(clean(json.dumps(feedback(store,project,task,offset=offset,limit=20,excerpt=None),ensure_ascii=False)))
+    if action == 'budget':
+        from .agent_prompt_context import budgets
+        return budgets(store,task)
     if action == 'message':
         field = body.get('field', 'text')
         offset = body.get('offset', 0)

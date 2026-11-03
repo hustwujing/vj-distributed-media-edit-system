@@ -327,6 +327,10 @@ subprocess.run(['python','/opt/video-use/helpers/edit_media.py','render','edit/p
                 sock.bind(str(sockpath));os.chown(sockpath,env['uid'],env['gid']);sockpath.chmod(0o600)
                 script=f'''import pathlib,os,socket,subprocess
 assert os.getuid()!=0
+from PIL import Image
+probe=pathlib.Path('/workspace/edit/magic-probe.png')
+Image.new('RGB',(2,2),'blue').save(probe)
+assert subprocess.check_output(['file','--mime-type','-b',str(probe)],text=True).strip()=='image/png'
 assert os.getcwd()=={SANDBOX_WORKSPACE!r}
 assert pathlib.Path('/workspace').resolve()==pathlib.Path({SANDBOX_WORKSPACE!r})
 assert not pathlib.Path({str(DEFAULT_DATA_DIR/'state.sqlite3')!r}).exists()

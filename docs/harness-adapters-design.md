@@ -88,6 +88,8 @@ DeepSeek 这一固定版本的实际模型请求走 Messages，不能因为模�
 
 ```bash
 python /opt/context.py turns
+python /opt/context.py budget --task TASK_ID
+python /opt/context.py project_data --kind notes --offset 0
 python /opt/context.py turns --before TASK_ID
 python /opt/context.py message --task TASK_ID --field prompt --offset 0
 python /opt/context.py message --task TASK_ID --field text --offset 16000
@@ -119,3 +121,5 @@ python /opt/context.py tools --task TASK_ID --after 0
 ### 部署场景发现的资源准入修复
 
 `HarnessCapabilities.light_conversation` 明确轻量对话能力。`can_use_light()` 同时供调度资源准入和宿主分派使用；Claude/DeepSeek 的新任务即使初始路由是 light，也按完整 Agent 的 CPU/内存请求准入。不能在预留 256MB 后启动完整沙盒。
+
+提示与上下文采用阶段职责和明确任务关联；具体范围、按需查询与恢复兼容见[提示词优化说明](agent-prompt-optimization.md)。
