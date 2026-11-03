@@ -15,3 +15,14 @@ def guidance(operation):
     elif operation=='image.decompose':result['reference_role']='原图用于分层重建；层数由参数控制，不额外重绘原图。'
     else:result['reference_role']='纯文本生成不虚构已有参考图。'
     return result
+
+
+def usage_guidance(operation):
+    """Invocation details not expressible by a free-form nested parameter schema."""
+    if operation=='media.edit':
+        return {'reference':'references/fixed-media.md','schema_coverage':'edit_plan is a free-form object; runtime helper validation still applies',
+                'clips':'Every edit_plan.clips entry needs asset: a declared input role or asset ID. Do not use helper-only source aliases here.',
+                'transcripts':'Declare inputs.transcript or inputs.transcript_ROLE as JSON from an asset or an upstream output. Cached workspace transcripts are not implicitly bound to fixed-media steps. Do not put transcript inside clips or edit_plan.',
+                'local_helper':'helpers/edit_media.py is a different interface: sources/transcripts maps and clips.source; invoke it as script, using the authorized workspace paths. See references/local-editing.md.',
+                'missing_input':'If a required transcript cannot be declared, plan an authorized script using existing data or an explicit upstream output before confirmation. Do not guess fields or start unapproved transcription.'}
+    return None

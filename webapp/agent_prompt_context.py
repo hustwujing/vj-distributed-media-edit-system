@@ -61,7 +61,7 @@ def selected_contracts(store,task):
                            'preflight_coverage':'workflow preflight checks static syntax/imports/JSON only; not business correctness',
                            'help':'references/durable-workflows.md' if intent['route']=='workflow' else 'references/local-editing.md'});continue
         op=operation(name,intent.get('implementations',{}).get(name)).public()
-        result.append({k:op[k] for k in ('id','implementation_id','input_contract','parameters_schema','output_contract','constraints','prompt_guidance') if k in op})
+        result.append({k:op[k] for k in ('id','implementation_id','input_contract','parameters_schema','output_contract','constraints','prompt_guidance','usage_guidance') if k in op})
     return result
 
 

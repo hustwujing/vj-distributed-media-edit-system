@@ -96,9 +96,11 @@ class Operation:
         elif self.provider=='edit':
             from .image_providers import EDITOR_CONTRACT
             result['constraints']=dict(EDITOR_CONTRACT)
-        from .generation_prompts import guidance
+        from .generation_prompts import guidance,usage_guidance
         prompt_guidance=guidance(self.id)
         if prompt_guidance:result['prompt_guidance']=prompt_guidance
+        usage=usage_guidance(self.id)
+        if usage:result['usage_guidance']=usage
         result.update(available=self.available(),availability='configured_unverified' if self.provider and self.available() else 'unconfigured' if not self.available() else 'local_registered',input_schema=InputRef.model_json_schema(),
                       parameters_schema=parameter_schema,implementation_version='workflow-operations-v4',
                       recovery='retry_step' if self.retry_safe else 'reuse_saved_result_or_pause_unknown' if self.executor in ('transcribe','image_sync') else 'query_existing_or_pause_unknown',

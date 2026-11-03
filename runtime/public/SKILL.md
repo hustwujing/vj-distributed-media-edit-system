@@ -119,3 +119,5 @@ operations; never implement external services or GPU calls in a script.
 能力索引不包含所有参数schema。按operation查询实际契约；优先读接口参考和工具 capabilities/validate 结果，只有需要定位未说明行为或具体错误时才读相关源码。多帧视觉检查可用带时间码的联系表保留覆盖，再对疑点检查原分辨率局部，不能以节省调用为由遗漏关键事件。
 
 沙盒仅提供登记的命令，不要假设完整系统工具集。文件字节比较与 SHA-256 校验可直接使用 Python pathlib/hashlib；命令缺失先检查能力或用已提供的 Python 标准库。
+
+`parameters_schema` 中的自由对象不是完整嵌套 schema；先读该 operation 的 `usage_guidance`。固定媒体 operation 与本地 helper 的素材/转写绑定格式不同，见 `references/fixed-media.md`。验收按阶段职责设置；`has_alpha` 检查通道存在，不检查透明像素，不能用 `has_alpha=false` 代替“不透明”。最终格式条件不应无依据地提前施加到中间产物。
