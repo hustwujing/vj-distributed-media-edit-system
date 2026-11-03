@@ -48,3 +48,5 @@ inspect须按格式分流：ZIP只读取有界目录元数据，不解包或解�
 当前结构化引擎为 structured-profile-v2。业务 JSON 报告提交 `{"action":"result","report":{...}}`，服务端验证并序列化到唯一声明 JSON 文件；不要把 JSON 再编码为字符串。Manager、Reviewer、Diagnosis 的控制结果使用各自固定 envelope，不能复用业务 files 报告格式。提示词按角色给出唯一对应协议。
 
 WorkspacePolicy 独立于角色与能力，必须声明只读工作区、Task 输出、Review scratch 或完整编辑范围；不得从旧 plan/execute 文本推断权限。Control Job 与业务 Task 分开记录真实 harness、profile、模型、phase、尝试和 Token。审查检查/格式纠正/最终提交预算耗尽时标记 review_incomplete 并交回 Manager 补证据，不能自动重生成候选或无界重复 Review。
+
+会编写 Script Task argv、实际执行脚本或诊断脚本的角色必须加载同一份 `script-runtime` 契约，不能仅在 Implementer 文档里说明运行接口。`VIDEO_USE_STEP_INPUTS` 始终为角色到绝对路径列表的映射；单文件也取列表元素，不提供标量兼容。接口示例应作为可执行示例验证，并检查实际角色提示确实注入该技能。模型脚本在诊断角色已授权时规划 `on_failure=diagnose`，保留显式停止策略和权限边界。

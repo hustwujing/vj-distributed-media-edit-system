@@ -9,6 +9,20 @@ from webapp import specialist_profiles as profiles
 from webapp.workflow_agents import model_instructions
 
 class ProfileSkillTests(unittest.TestCase):
+ def test_every_script_author_and_diagnostician_receives_the_executable_runtime_contract(self):
+  import os,re
+  for identifier in ('media_planner','editing_implementer','media_failure_diagnostician'):
+   with self.subTest(profile=identifier),tempfile.TemporaryDirectory() as directory:
+    profile=profiles.get(identifier);instructions=model_instructions(profile)
+    contract=next(item for item in profiles.skill_materials(profile) if item['id']=='script-runtime')
+    self.assertIn(contract['text'],instructions)
+    code=re.search(r'```python\n(.*?)\n```',contract['text'],re.S)[1]
+    source=Path(directory)/'input.png';source.write_bytes(b'fixture')
+    output=Path(directory)/'output';namespace={}
+    import json
+    with patch.dict(os.environ,{'VIDEO_USE_STEP_INPUTS':json.dumps({'source':[str(source)]}),'VIDEO_USE_STEP_OUTPUT':str(output)}):exec(code,namespace)
+    self.assertEqual(namespace['source'],source);self.assertEqual(namespace['output'],output);self.assertTrue(output.is_dir())
+
  def test_registered_content_is_injected_and_content_changes_change_the_policy(self):
   profile=replace(profiles.get('editing_implementer'),skills=('media-editing',))
   with tempfile.TemporaryDirectory() as directory,patch.object(profiles,'SKILL_ROOT',Path(directory)),patch.dict(profiles.SKILL_FILES,{'media-editing':'reference.md'},clear=True):

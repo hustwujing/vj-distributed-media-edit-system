@@ -5,7 +5,8 @@ import hashlib
 from enum import StrEnum
 
 SKILL_ROOT=Path(__file__).resolve().parents[1]/'references'
-SKILL_FILES={'workflow-operations':'dynamic-operations.md','media-editing':'dynamic-media-editing.md','media-semantics':'media-semantics.md'}
+SKILL_FILES={'workflow-operations':'dynamic-operations.md','media-editing':'dynamic-media-editing.md','media-semantics':'media-semantics.md',
+            'script-runtime':'dynamic-script-contract.md'}
 
 
 def skill_materials(profile):
@@ -87,7 +88,8 @@ PROFILES={p.id:p for p in (
         '只规划有充分依据的下一批任务，明确 replan_after；不再需要扩图时封口。'
         '目录中的 authorized=false 表示仅可发现但尚未获准；需求确实需要时可提交该能力的提案触发用户扩权确认，不能自行执行或声称已经授权。'
         '用户已确认授权包络，不需要再次索要同一范围的确认。脚本通过 argv 提交，输出写入 VIDEO_USE_STEP_OUTPUT，'
-        '输入绝对路径从 VIDEO_USE_STEP_INPUTS 读取。不要编造工具或已有脚本。'
+        'VIDEO_USE_STEP_INPUTS 是角色到绝对路径列表的JSON映射，单文件也必须取 inputs[role][0]。不要编造工具或已有脚本。'
+        '模型编写的Script在media_failure_diagnostician已授权时使用on_failure=diagnose，将确定性脚本错误交回Manager做有界revision，不盲目重试原代码。'
         'operation 的输出角色由能力目录自动提供，不填写 argv、outputs、output_roles；通过下游 inputs 引用目录中的角色。'
         'script 明确 argv、outputs 和 output_roles，不能填写 operation、implementation 或 parameters。'
         'argv 是包含可执行程序的完整命令，如 ["python","-c","实际 Python 源码"]，不是假设已有工具的参数列表。'
@@ -95,19 +97,19 @@ PROFILES={p.id:p for p in (
         '专业 Agent 的结构化报告必须符合目录中的 result_schema，不能要求该 Schema 之外的字段；额外业务数据由独立脚本任务生成。'
         'sealed=true 必须有 delivery_stage=true 的真实交付Task，最终Reviewer只能从其产物选择交付。'
         '内容检查使用 agent 验收；仅用户明确要求人工确认时使用 review。最终交付总会经过独立 Reviewer。',
-        skills=('workflow-operations','media-semantics'),max_output_tokens=12000,output_schema='manager-result-v1',max_turns=16,
+        skills=('workflow-operations','script-runtime','media-semantics'),max_output_tokens=12000,output_schema='manager-result-v1',max_turns=16,
         max_inspection_rounds=9,max_correction_rounds=3,finalize_rounds=4),
     SpecialistProfile('media_failure_diagnostician','基于受控证据分析失败',AgentRole.DIAGNOSTICIAN,('INSPECT','SUBMIT_RESULT'),
         '分析冻结的失败诊断与回执；区分事实、推断、缺失证据和可执行建议。不得发起外部请求。'
-        '输出 JSON 文件，包含 facts、uncertainties、recommendations 三个字符串数组。',skills=('media-semantics',),output_schema='diagnosis-v1'),
+        '输出结构化diagnosis对象，包含facts、uncertainties、recommendations三个字符串数组。',skills=('script-runtime','media-semantics'),output_schema='diagnosis-v1'),
     SpecialistProfile('visual_quality_reviewer','检查候选结果与目标是否一致',AgentRole.REVIEWER,('INSPECT','SUBMIT_DECISION'),
         '依据冻结的输入、候选产物和验收标准给出结构化结论及证据；不能修改产物或降低标准。',
         skills=('media-semantics',),max_output_tokens=8000,output_schema='visual-report-v1'),
     SpecialistProfile('editing_implementer','生成满足任务契约的本地处理实现',AgentRole.IMPLEMENTER,('INSPECT','RUN_SCRIPT','SUBMIT_RESULT'),
         '只在任务输出目录完成已授权的本地实现；使用已声明输入，不调用收费供应商，不发布最终成果。',
-        skills=('media-editing','media-semantics'),max_output_tokens=12000),
+        skills=('script-runtime','media-editing','media-semantics'),max_output_tokens=12000),
     SpecialistProfile('delivery_reviewer','核对封口图和最终交付',AgentRole.REVIEWER,('INSPECT','SUBMIT_DECISION'),
-        '逐项核对用户交付目标、技术验收和实际产物；只能提交 pass 或 reject 及结构化证据。'
+        '逐项核对用户交付目标、技术验收和实际产物；提交 pass/reject/inconclusive 及结构化证据。'
         '缺失、无法检查或不确定的证据不得通过。不得改变目标或权限。',
         skills=('media-semantics',),max_output_tokens=8000,output_schema='frozen-review-v1'),
 )}

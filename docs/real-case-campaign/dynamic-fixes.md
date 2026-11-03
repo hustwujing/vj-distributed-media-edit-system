@@ -102,3 +102,5 @@ F38现场来源：main在11:49完成独立部署至104943e9e307，数据库与ma
 
 | F44 | 统一 Run 发布 0f381948c129 / S01 attempt-013、D22 attempt-001 | worker 候选筛选仍查询 run_tasks，独立 PLAN control_jobs 被静默过滤；两个执行器有心跳，零 execution_attempts、零模型/Provider 调用，Run 停在 graph v0 | 筛选改为 run_work_items；新增不创建 agent_turn 的完整候选筛选→dispatch_kind→claim 回归 | 23 项统一身份/两节点/调度定向通过；两条首次失败已完整归档、正常取消并清理，待新部署真机复测，不计通过 |
 | F45 | 统一 Run 首批报告生成 | 历史授权证据没有新 run_id 字段，报告渲染直接索引导致 KeyError | 当前授权使用 run_id；缺少该字段的历史记录指向原始证据，不改变应用模型或读取旧运行接口 | 原始证据保留，报告待重新生成 |
+
+| F47 | 3917f259e246 / S01 attempt-014、D22 attempt-002 | Manager直接编写Script，却没有加载声明VIDEO_USE_STEP_INPUTS为dict[str,list[str]]的文档；实际脚本把列表当路径或自猜类型。两条都按pause/never策略停下，未进入诊断修复 | 新增共享script-runtime契约并挂到Manager、Implementer和Diagnosis；示例实际执行验证；明确已授权诊断时模型脚本使用diagnose、有界修订；Final Reviewer提示允许inconclusive，与Schema一致 | 40项技能注入、恢复、Reviewer及两节点回归通过；按工程契约缺漏记录为程序失败，待新部署真机复测 |
