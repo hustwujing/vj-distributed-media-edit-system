@@ -3334,10 +3334,10 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "停止旧版",
-        "构造待确认新版",
-        "修改交付名称",
-        "确认最新版本"
+        "准备并复用已验收图片",
+        "结束准备Run",
+        "在创建前编辑文件名草稿",
+        "确认新Run范围并核对交付名称"
       ],
       "must_reuse": [
         "prepare_a",
@@ -3403,10 +3403,10 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "停止旧版",
-        "构造待确认新版",
-        "改尺寸与格式",
-        "确认最新版本"
+        "准备并复用已验收图片",
+        "结束准备Run",
+        "在创建前编辑尺寸和格式",
+        "确认新Run范围并核对输出"
       ],
       "must_reuse": [
         "prepare_a",
@@ -3471,11 +3471,10 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "停止旧版",
-        "构造待确认新版",
-        "替换待确认方案",
-        "验证旧确认被拒绝",
-        "确认最新版本"
+        "准备并复用已验收图片",
+        "结束准备Run",
+        "在创建前交换素材顺序",
+        "确认新Run并核对左右像素来源"
       ],
       "must_reuse": [
         "prepare_a",
@@ -3541,19 +3540,19 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "等待上游成功与导出运行",
-        "停止旧版",
-        "追加JPEG",
-        "确认新版"
+        "上游完成且staging运行时追加输出格式",
+        "run_inputs建立全Run屏障",
+        "存量工作排空后同Run规划JPEG",
+        "保持上游版本并验收双格式"
       ],
       "must_reuse": [
         "prepare_a",
         "prepare_b"
       ],
-      "must_recompute": [],
-      "must_stop": [
-        "old_export"
+      "must_recompute": [
+        "受影响逻辑Task及后代的新revision"
       ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -3576,11 +3575,15 @@
       "retired_assertions": [
         "旧表插库规划夹具",
         "固定 Plan 替换或原节点契约改写",
-        "旧状态名及旧 plan_id 绑定"
+        "旧状态名及旧 plan_id 绑定",
+        "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_add_format",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "must_drain": [
+        "屏障前已开始的业务Task及其必要验收/清理"
+      ]
     },
     {
       "id": "R05",
@@ -3609,20 +3612,18 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "等待上游成功与导出运行",
-        "停止旧版",
-        "改变A分支亮度",
-        "确认新版"
+        "上游完成且staging运行时指定prepare_a参数修改",
+        "冻结prepare_a及下游闭包",
+        "同Run排空后创建新revision",
+        "prepare_b不重跑且哈希保持"
       ],
       "must_reuse": [
         "prepare_b"
       ],
       "must_recompute": [
-        "prepare_a"
+        "受影响逻辑Task及后代的新revision"
       ],
-      "must_stop": [
-        "old_export"
-      ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -3645,11 +3646,15 @@
       "retired_assertions": [
         "旧表插库规划夹具",
         "固定 Plan 替换或原节点契约改写",
-        "旧状态名及旧 plan_id 绑定"
+        "旧状态名及旧 plan_id 绑定",
+        "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_change_brightness",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "must_drain": [
+        "屏障前已开始的业务Task及其必要验收/清理"
+      ]
     },
     {
       "id": "R06",
@@ -3678,20 +3683,18 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "等待上游成功与导出运行",
-        "停止旧版",
-        "替换A分支素材",
-        "确认新版"
+        "上游完成且staging运行时指定prepare_a素材替换",
+        "只使用已授权新素材",
+        "同Run排空后修订受影响闭包",
+        "prepare_b不重跑且哈希保持"
       ],
       "must_reuse": [
         "prepare_b"
       ],
       "must_recompute": [
-        "prepare_a"
+        "受影响逻辑Task及后代的新revision"
       ],
-      "must_stop": [
-        "old_export"
-      ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -3714,11 +3717,15 @@
       "retired_assertions": [
         "旧表插库规划夹具",
         "固定 Plan 替换或原节点契约改写",
-        "旧状态名及旧 plan_id 绑定"
+        "旧状态名及旧 plan_id 绑定",
+        "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_replace_source",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "must_drain": [
+        "屏障前已开始的业务Task及其必要验收/清理"
+      ]
     },
     {
       "id": "R07",
@@ -3749,20 +3756,20 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "等待导出运行",
-        "停止旧版",
-        "更换封面",
-        "确认新版"
+        "export运行时提交更换封面的输入",
+        "原export正常结束",
+        "同Run修订export而不重算上游",
+        "验收新版封面和视频"
       ],
       "must_reuse": [
         "prepare_a",
         "prepare_b",
         "clip"
       ],
-      "must_recompute": [],
-      "must_stop": [
-        "old_export"
+      "must_recompute": [
+        "受影响逻辑Task及后代的新revision"
       ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -3785,11 +3792,15 @@
       "retired_assertions": [
         "旧表插库规划夹具",
         "固定 Plan 替换或原节点契约改写",
-        "旧状态名及旧 plan_id 绑定"
+        "旧状态名及旧 plan_id 绑定",
+        "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_cover",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "must_drain": [
+        "屏障前已开始的业务Task及其必要验收/清理"
+      ]
     },
     {
       "id": "R08",
@@ -3820,20 +3831,20 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "等待导出运行",
-        "停止旧版",
-        "字幕改黄色",
-        "确认新版"
+        "export运行时提交字幕样式输入",
+        "原export正常结束",
+        "同Run修订字幕实现",
+        "验收黄色QA字幕及原视频来源"
       ],
       "must_reuse": [
         "prepare_a",
         "prepare_b",
         "clip"
       ],
-      "must_recompute": [],
-      "must_stop": [
-        "old_export"
+      "must_recompute": [
+        "受影响逻辑Task及后代的新revision"
       ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -3856,11 +3867,15 @@
       "retired_assertions": [
         "旧表插库规划夹具",
         "固定 Plan 替换或原节点契约改写",
-        "旧状态名及旧 plan_id 绑定"
+        "旧状态名及旧 plan_id 绑定",
+        "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_caption",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "must_drain": [
+        "屏障前已开始的业务Task及其必要验收/清理"
+      ]
     },
     {
       "id": "R09",
@@ -3891,10 +3906,11 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "等待导出运行",
-        "停止旧版",
-        "横版改竖版并缩短",
-        "确认新版"
+        "export运行时追加全局尺寸和时长修改",
+        "原export排空且旧图不发布",
+        "Manager返回NEW_RUN_REQUIRED",
+        "确认完整新目标及复用素材范围",
+        "核对successor输出"
       ],
       "must_reuse": [
         "prepare_a",
@@ -3903,7 +3919,7 @@
       ],
       "must_recompute": [],
       "must_stop": [
-        "old_export"
+        "只有新范围确认后关闭旧方向；不取消在途export"
       ],
       "cleanup": {
         "scope": "unique_run_and_project",
@@ -3961,18 +3977,17 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "完成V1交付",
-        "追加缩略图",
-        "确认新版"
+        "完成V1正式交付",
+        "显式选择已验收复用素材",
+        "确认追加缩略图的successor范围",
+        "原交付保持不可变"
       ],
       "must_reuse": [
         "prepare_a",
         "prepare_b"
       ],
       "must_recompute": [],
-      "must_stop": [
-        "old_export"
-      ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -4028,20 +4043,20 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "等待人工验收",
-        "提交拒绝与反馈",
-        "停止旧版",
-        "修改边框",
-        "确认新版"
+        "等待原人工Review",
+        "提交revise反馈",
+        "反馈经run_inputs统一安全点处理",
+        "同Run修订export绘制边框",
+        "保留技术和必要Agent验收"
       ],
       "must_reuse": [
         "prepare_a",
         "prepare_b"
       ],
-      "must_recompute": [],
-      "must_stop": [
-        "old_export"
+      "must_recompute": [
+        "受影响逻辑Task及后代的新revision"
       ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -4064,11 +4079,15 @@
       "retired_assertions": [
         "旧表插库规划夹具",
         "固定 Plan 替换或原节点契约改写",
-        "旧状态名及旧 plan_id 绑定"
+        "旧状态名及旧 plan_id 绑定",
+        "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_feedback",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "must_drain": [
+        "屏障前已开始的业务Task及其必要验收/清理"
+      ]
     },
     {
       "id": "R12",
@@ -4099,9 +4118,10 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "完成V1交付",
-        "由静态封面改为短视频交付",
-        "确认新版"
+        "完成V1正式交付",
+        "显式选择复用素材",
+        "确认新目标和完整successor范围",
+        "核对新视频及原交付保持"
       ],
       "must_reuse": [
         "prepare_a",
@@ -4109,9 +4129,7 @@
         "clip"
       ],
       "must_recompute": [],
-      "must_stop": [
-        "old_export"
-      ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -4236,9 +4254,10 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "导出运行中取消",
-        "核对旧版终态与晚到结果",
-        "确认新版"
+        "等待输出完成标记和真实持久检查点",
+        "显式取消旧Run",
+        "核对旧版终态与晚到结果隔离",
+        "确认新Run并核对来源"
       ],
       "must_reuse": [
         "prepare_a",
@@ -4274,7 +4293,8 @@
       ],
       "dynamic_hook": "intervention_cancel_race",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "required_output_completion": "both_runtime_progress_marker_and_durable_output_checkpoint"
     },
     {
       "id": "R15",
@@ -4303,19 +4323,19 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "停止旧版",
-        "确认新版",
-        "刷新项目页面",
-        "核对来源与状态恢复"
+        "等待人工Review",
+        "提交同Run revision反馈",
+        "刷新并重新进入页面",
+        "核对输入回执和新revision状态恢复"
       ],
       "must_reuse": [
         "prepare_a",
         "prepare_b"
       ],
-      "must_recompute": [],
-      "must_stop": [
-        "old_export"
+      "must_recompute": [
+        "受影响逻辑Task及后代的新revision"
       ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"
@@ -4338,11 +4358,15 @@
       "retired_assertions": [
         "旧表插库规划夹具",
         "固定 Plan 替换或原节点契约改写",
-        "旧状态名及旧 plan_id 绑定"
+        "旧状态名及旧 plan_id 绑定",
+        "普通修改必须取消旧Run并新建Run"
       ],
       "dynamic_hook": "intervention_refresh",
       "review_decision": "修改干预协议，保留用户目标",
-      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。",
+      "must_drain": [
+        "屏障前已开始的业务Task及其必要验收/清理"
+      ]
     },
     {
       "id": "R16",
@@ -4371,19 +4395,17 @@
       "allowed_external_operations": [],
       "entry_mode": "browser_dynamic_authorization",
       "intervention_actions": [
-        "完成V1",
-        "确认V2并交付",
-        "确认V3并交付",
-        "核对固定复用链"
+        "完成V1正式交付",
+        "确认V2 successor并交付",
+        "确认V3 successor并交付",
+        "核对三版交付和固定复用来源"
       ],
       "must_reuse": [
         "prepare_a",
         "prepare_b"
       ],
       "must_recompute": [],
-      "must_stop": [
-        "old_export"
-      ],
+      "must_stop": [],
       "cleanup": {
         "scope": "unique_run_and_project",
         "retain": "sanitized_evidence_only"

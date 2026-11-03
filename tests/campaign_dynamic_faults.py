@@ -72,6 +72,15 @@ def progress(directory):
 
     result['output_ready_events']=store.query("SELECT seq,run_id,created,payload FROM agent_events WHERE run_id IN (SELECT id FROM runs WHERE project_id=?) AND kind='progress' AND payload LIKE ? ORDER BY seq",
         (state['project'],'%QA_EXPORT_OUTPUT_READY%'))
+    result['output_ready_checkpoints']=[]
+    if state['case']=='R14':
+        for checkpoint in store.query('''SELECT c.workflow,c.step,c.revision,c.manifest FROM execution_step_checkpoints c
+            JOIN runs r ON r.id=c.workflow JOIN run_tasks t ON t.run_id=r.id AND t.id=c.step AND t.revision=c.revision
+            WHERE r.project_id=? AND t.id='export' AND t.status='running' ''',(state['project'],)):
+            for name,record in json.loads(checkpoint['manifest']).items():
+                if name.endswith('/output/final.png') and record.get('artifact') and record.get('size',0)>0:
+                    result['output_ready_checkpoints'].append({key:checkpoint[key] for key in ('workflow','step','revision')}|
+                        {'path':name,'artifact_id':record['artifact'],'sha256':record['sha256'],'size':record['size']})
     return result
 
 

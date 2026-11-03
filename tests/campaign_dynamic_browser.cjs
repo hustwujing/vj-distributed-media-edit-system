@@ -269,7 +269,16 @@ async function runCase(browser,spec){
     state.browser_assertions.push('Identical command ID is idempotent; changed content under the same ID is rejected');
     await page.waitForTimeout(2500);assert.equal((await read()).state,'WAITING_USER');await approve('reject');run=await wait(w=>paused(w));state.outcome='protocol_passed';
    }
-   if(intervention&&spec.id==='R17'){
+   if(intervention&&spec.id==='R09'){
+    run=await wait(w=>w.tasks.some(t=>t.id==='export'&&t.status==='running'),600);const original=run.id;
+    const selected=[];
+    for(const identifier of ['prepare_a','prepare_b','clip']){const task=run.tasks.find(t=>t.id===identifier&&t.status==='succeeded');assert.ok(task);selected.push(await reuse(task));}
+    const accepted=await appendInput(`改变整体交付范围：复用刚加入的已验收素材${selected.join('、')}，从clip取前${spec.expect.duration}秒并cover居中裁切为${spec.expect.width}×${spec.expect.height} MP4，保留原音频，交付final.mp4及prepare_a按ImageOps.fit生成的128×64 cover.png。请用NEW_RUN_REQUIRED提出完整新目标和授权；旧export正常结束后再到安全点，不要默认取消或发布旧版，不重复亮度处理或剪辑原clip。`,selected);
+    run=await wait(w=>w.decisions.some(d=>d.kind==='new_run'),900);assert.equal(run.id,original);assert.equal(run.delivery.length,0);
+    const drained=run.tasks.find(t=>t.id==='export');assert.equal(drained.status,'succeeded');
+    await approve('approve');assert.notEqual(state.run_id,original);
+    state.revision_input=accepted;state.new_scope_boundary={original_run_id:original,successor_run_id:state.run_id,drained_export_revision:drained.revision};persist();
+   }else if(intervention&&spec.id==='R17'){
     run=await wait(w=>deciding(w),600);const original=run.id;
     const source=run.tasks.find(task=>task.id==='prepare_a'&&task.status==='succeeded');assert.ok(source);
     const asset=await reuse(source);
@@ -307,8 +316,8 @@ async function runCase(browser,spec){
     else run=await wait(w=>w.tasks.some(t=>t.id==='export'&&t.status==='running'),600);
     if(spec.id==='R14'){
      const end=Date.now()+180000;let marker;
-     while(Date.now()<end){marker=(await fault('progress')).output_ready_events;if(marker.length)break;await page.waitForTimeout(300);}
-     assert.ok(marker?.length,'Actual output-completion boundary was not reached');state.output_completion_boundary=marker;
+     while(Date.now()<end){const facts=await fault('progress');if(facts.output_ready_events.length&&facts.output_ready_checkpoints.length){marker=facts;break;}await page.waitForTimeout(300);}
+     assert.ok(marker,'Output completion requires both the progress marker and a durable output checkpoint');state.output_completion_boundary={events:marker.output_ready_events,checkpoints:marker.output_ready_checkpoints};
     }
     const sources=run.tasks.filter(t=>t.status==='succeeded'&&t.spec.operation==='image.local_adjust').sort((a,b)=>a.id.localeCompare(b.id));
     assert.ok(sources.length>= (spec.id==='R17'?1:2));
