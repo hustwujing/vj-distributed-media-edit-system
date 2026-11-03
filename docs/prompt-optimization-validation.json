@@ -1,0 +1,355 @@
+{
+  "date": "2026-11-03",
+  "release_sha256": "4b1ed8d020ccd2a4776c73b0f0ec6aa5c90bb683a03f3f7182153fb12677d67a",
+  "code_commit": "a65dd29",
+  "python": {
+    "passed": true,
+    "tests": 723,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 517.06
+  },
+  "frontend": {
+    "passed": true,
+    "tests": 47
+  },
+  "http_uuid_browser": {
+    "passed": true,
+    "checks": 8
+  },
+  "harness_live_rounds": {
+    "rounds": 2,
+    "turns_per_round": 5,
+    "all_passed": true,
+    "versions": [
+      "cabfbc253c1f",
+      "d2e72c1ae9a5"
+    ]
+  },
+  "final_cases": {
+    "readonly-guidance-final": {
+      "status": "succeeded",
+      "driver_passed": true,
+      "delivery": false,
+      "usage": {
+        "counts": {
+          "llm": {
+            "calls": 4,
+            "states": {
+              "succeeded": 4
+            }
+          },
+          "tool": {
+            "calls": 6,
+            "states": {
+              "succeeded": 6
+            }
+          },
+          "workflow": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_submit": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_poll": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_collect": {
+            "calls": 0,
+            "states": {}
+          }
+        },
+        "tokens": {
+          "input_tokens": {
+            "known": 37358,
+            "reported_calls": 4,
+            "missing_calls": 0
+          },
+          "output_tokens": {
+            "known": 1337,
+            "reported_calls": 4,
+            "missing_calls": 0
+          },
+          "total_tokens": {
+            "known": 38695,
+            "reported_calls": 4,
+            "missing_calls": 0
+          },
+          "cached_tokens": {
+            "known": 25600,
+            "reported_calls": 4,
+            "missing_calls": 0
+          },
+          "reasoning_tokens": {
+            "known": 386,
+            "reported_calls": 4,
+            "missing_calls": 0
+          }
+        },
+        "computed_total": {
+          "known": 38695,
+          "derived_calls": 0,
+          "missing_calls": 0,
+          "inconsistent_calls": 0
+        },
+        "execution_counts": {
+          "dispatches": 2,
+          "sandboxes": 1
+        },
+        "workflow_retries": 0,
+        "repairs": 0,
+        "unfinished_calls_on_finished_attempts": 0
+      },
+      "active_attempts": 0,
+      "local_cleanup_complete": true,
+      "browser_errors": [],
+      "partial_dom_updates": 183,
+      "complete_text": true,
+      "reload_preserved": true,
+      "seconds": 31.245
+    },
+    "subtitle-guidance-final": {
+      "status": "succeeded",
+      "driver_passed": true,
+      "delivery": true,
+      "usage": {
+        "counts": {
+          "llm": {
+            "calls": 10,
+            "states": {
+              "succeeded": 10
+            }
+          },
+          "tool": {
+            "calls": 11,
+            "states": {
+              "succeeded": 11
+            }
+          },
+          "workflow": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_submit": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_poll": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_collect": {
+            "calls": 0,
+            "states": {}
+          }
+        },
+        "tokens": {
+          "input_tokens": {
+            "known": 302325,
+            "reported_calls": 10,
+            "missing_calls": 0
+          },
+          "output_tokens": {
+            "known": 4732,
+            "reported_calls": 10,
+            "missing_calls": 0
+          },
+          "total_tokens": {
+            "known": 307057,
+            "reported_calls": 10,
+            "missing_calls": 0
+          },
+          "cached_tokens": {
+            "known": 295424,
+            "reported_calls": 10,
+            "missing_calls": 0
+          },
+          "reasoning_tokens": {
+            "known": 1984,
+            "reported_calls": 10,
+            "missing_calls": 0
+          }
+        },
+        "computed_total": {
+          "known": 307057,
+          "derived_calls": 0,
+          "missing_calls": 0,
+          "inconsistent_calls": 0
+        },
+        "execution_counts": {
+          "dispatches": 1,
+          "sandboxes": 1
+        },
+        "workflow_retries": 0,
+        "repairs": 0,
+        "unfinished_calls_on_finished_attempts": 0
+      },
+      "active_attempts": 0,
+      "local_cleanup_complete": true,
+      "browser_errors": [],
+      "stream_checks": {
+        "plan": {
+          "partial_dom_updates": 219,
+          "complete_messages_match": true
+        },
+        "execute": {
+          "partial_dom_updates": 148,
+          "complete_messages_match": true
+        }
+      },
+      "reload_preserved": true,
+      "turns": [
+        {
+          "mode": "plan",
+          "status": "succeeded",
+          "seconds": 63.43
+        },
+        {
+          "mode": "execute",
+          "status": "succeeded",
+          "seconds": 106.118
+        }
+      ],
+      "media": {
+        "programs": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 960,
+            "height": 540,
+            "r_frame_rate": "24/1",
+            "duration": "3.666667"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "r_frame_rate": "0/0",
+            "duration": "3.666000"
+          }
+        ],
+        "format": {
+          "duration": "3.666667",
+          "size": "558836"
+        },
+        "full_decode_passed": true,
+        "ass_progressive_highlight": true
+      }
+    },
+    "image-guidance-final": {
+      "status": "paused",
+      "driver_passed": false,
+      "delivery": false,
+      "usage": {
+        "counts": {
+          "llm": {
+            "calls": 15,
+            "states": {
+              "succeeded": 15
+            }
+          },
+          "tool": {
+            "calls": 22,
+            "states": {
+              "failed": 1,
+              "succeeded": 21
+            }
+          },
+          "workflow": {
+            "calls": 2,
+            "states": {
+              "succeeded": 2
+            }
+          },
+          "provider_submit": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_poll": {
+            "calls": 0,
+            "states": {}
+          },
+          "provider_collect": {
+            "calls": 0,
+            "states": {}
+          }
+        },
+        "tokens": {
+          "input_tokens": {
+            "known": 710421,
+            "reported_calls": 15,
+            "missing_calls": 0
+          },
+          "output_tokens": {
+            "known": 9754,
+            "reported_calls": 15,
+            "missing_calls": 0
+          },
+          "total_tokens": {
+            "known": 720175,
+            "reported_calls": 15,
+            "missing_calls": 0
+          },
+          "cached_tokens": {
+            "known": 678912,
+            "reported_calls": 15,
+            "missing_calls": 0
+          },
+          "reasoning_tokens": {
+            "known": 4685,
+            "reported_calls": 15,
+            "missing_calls": 0
+          }
+        },
+        "computed_total": {
+          "known": 720175,
+          "derived_calls": 0,
+          "missing_calls": 0,
+          "inconsistent_calls": 0
+        },
+        "execution_counts": {
+          "dispatches": 4,
+          "sandboxes": 4
+        },
+        "workflow_retries": 0,
+        "repairs": 0,
+        "unfinished_calls_on_finished_attempts": 0
+      },
+      "active_attempts": 0,
+      "local_cleanup_complete": true,
+      "browser_errors": [],
+      "expected_program_outcome": "Quality failure: keep candidates and request plan change; no primary delivery",
+      "quality": {
+        "source": {
+          "size": [
+            384,
+            256
+          ],
+          "mode": "RGB",
+          "near_white_fraction": 0.0,
+          "near_black_fraction": 0.0
+        },
+        "candidate": {
+          "size": [
+            384,
+            256
+          ],
+          "mode": "RGBA",
+          "near_white_fraction": 0.7737223307291666,
+          "near_black_fraction": 0.12230428059895833
+        },
+        "candidate_not_delivered": true
+      },
+      "terminal_ui": true
+    }
+  },
+  "catalog_bytes": {
+    "full": 64864,
+    "index": 11488
+  },
+  "scope": "Focused prompt/context, browser compatibility and runtime-index validation; not a rerun of all 60/77 historical cases."
+}
