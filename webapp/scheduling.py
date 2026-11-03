@@ -56,7 +56,7 @@ def candidates(coordinator,model_available):
     result=[]
     for row in rows:
         if row.get('dynamic'):
-            detail=store.query('SELECT type,spec_json FROM run_tasks WHERE run_id=? AND id=?',(row['workflow'],row['step_id']))
+            detail=store.query('SELECT type,spec_json FROM run_work_items WHERE run_id=? AND id=?',(row['workflow'],row['step_id']))
             if not detail:continue
             if detail[0]['type']=='agent' and not model_available:continue
             if detail[0]['type']=='operation':

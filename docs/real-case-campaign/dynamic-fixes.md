@@ -98,3 +98,7 @@ F38现场来源：main在11:49完成独立部署至104943e9e307，数据库与ma
 
 | F42 | main `4b8a3a8` 对比后，在9446运行包临时沙盒复现capabilities.json为空 | 子文件先挂载、父工作区后挂载将其遮蔽；原测试仅验证文件存在 | 将只读能力目录挂载移到父工作区之后，保留动态分支目录协议；测试实际解析operations、尝试写入并确认仍只读 | 7ef71c64bc34真实降权沙盒定向及完整757项Python（6跳过）/46项JS通过；实际部署命令顺序与JSON读取验证通过，额外回归关闭；97条新版本回归进行中 |
 | F43 | main `eb86805` 对比后，在9446运行包实际执行file失败 | 运行包有file/libmagic但缺少公开magic数据文件 | 将magic.mgc只读挂载并纳入运行时内容指纹，测试实际识别PNG | 7ef71c64bc34真实降权沙盒定向及完整门禁通过；部署运行包实际file识别PNG成功，magic哈希验证通过，额外回归关闭；97条新版本回归进行中 |
+
+
+| F44 | 统一 Run 发布 0f381948c129 / S01 attempt-013、D22 attempt-001 | worker 候选筛选仍查询 run_tasks，独立 PLAN control_jobs 被静默过滤；两个执行器有心跳，零 execution_attempts、零模型/Provider 调用，Run 停在 graph v0 | 筛选改为 run_work_items；新增不创建 agent_turn 的完整候选筛选→dispatch_kind→claim 回归 | 23 项统一身份/两节点/调度定向通过；两条首次失败已完整归档、正常取消并清理，待新部署真机复测，不计通过 |
+| F45 | 统一 Run 首批报告生成 | 历史授权证据没有新 run_id 字段，报告渲染直接索引导致 KeyError | 当前授权使用 run_id；缺少该字段的历史记录指向原始证据，不改变应用模型或读取旧运行接口 | 原始证据保留，报告待重新生成 |

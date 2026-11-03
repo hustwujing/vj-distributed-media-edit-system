@@ -139,7 +139,7 @@ def report():
             if item['authorizations']:
                 lines.extend(['','实际确认的执行轮次：',''])
                 for authorization in item['authorizations']:
-                    lines.append('- `'+authorization['run_id']+'`：'+authorization['goal']+'；Token上限 '+str(authorization['model_token_budget'])+'；外部调用上限 `'+json.dumps(authorization['provider_call_budget'],ensure_ascii=False)+'`。')
+                    lines.append('- `'+authorization.get('run_id','历史标识见原始证据')+'`：'+authorization['goal']+'；Token上限 '+str(authorization['model_token_budget'])+'；外部调用上限 `'+json.dumps(authorization['provider_call_budget'],ensure_ascii=False)+'`。')
     target=REPO/'docs/real-case-campaign/dynamic-test-report.md';target.write_text('\n'.join(lines)+'\n')
     print(json.dumps({'complete':result['complete'],'counts':counts,'report':str(target)},ensure_ascii=False))
     return result

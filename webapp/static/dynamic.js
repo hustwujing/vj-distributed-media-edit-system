@@ -102,7 +102,7 @@ function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.
  document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER';document.querySelector('[data-control=cancel]').hidden=!active;
  $('dynamic-input-form').hidden=['FAILED','CANCELLED','CANCELLING'].includes(run.state);syncAssetOptions($('dynamic-input-assets'));
  $('dynamic-input-status').textContent=inputStatus(run);
- const choices=$('dynamic-input-targets');choices.parentElement.hidden=terminalRun(run.state);
+ const choices=$('dynamic-input-targets');choices.parentElement.hidden=terminalRun(run.state)||!run.tasks.some(item=>item.selected);
  if(terminalRun(run.state))for(const option of choices.options)option.selected=false;
  const known=new Map([...choices.options].map(option=>[option.value,option]));
  for(const task of run.tasks.filter(item=>item.selected)){if(!known.has(task.id)){const option=document.createElement('option');option.value=task.id;option.textContent=task.spec.name;choices.append(option);}known.delete(task.id);}

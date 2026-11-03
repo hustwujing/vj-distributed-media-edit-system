@@ -50,6 +50,20 @@ class RunIdentityTests(unittest.TestCase):
             with self.assertRaises(LeaseLost):lease.check()
         finally:lease.release()
 
+    def test_worker_candidate_selection_dispatches_control_jobs_without_an_agent_turn(self):
+        from webapp.scheduling import candidates
+        from webapp.execution_contracts import dispatch_kind
+        run=self.tick();job=run['control_jobs'][0]
+        coordinator=Coordinator(self.store,'selection-worker','test')
+        available=candidates(coordinator,True)
+        self.assertEqual([(item['id'],item['step_id']) for item in available],[(run['id'],job['id'])])
+        row=available[0];self.assertEqual(dispatch_kind(row),'workflow')
+        lease=coordinator.claim(row['id'],dispatch_kind(row),step_id=row['step_id'])
+        self.assertIsNotNone(lease)
+        try:lease.check()
+        finally:lease.release()
+        self.assertFalse(self.store.query('SELECT id FROM agent_turns'))
+
     def test_session_is_serial_and_successor_has_distinct_usage_root(self):
         with self.assertRaisesRegex(ValueError,'active Run'):
             graph.create(self.store,self.project,None,self.authorization,session_id=self.run['session_id'])
