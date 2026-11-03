@@ -23,6 +23,8 @@ FIELDS.update(API_CAPACITY_FIELDS)
 FIELDS.update({'harness','model','protocol','reasoning_effort','max_output_tokens','configuration_digest','switch_id'})
 FIELDS.update({'graph_version','authorization_version','sealed','proposal_id','planner_run_id','reconcile_generation','profile_id','snapshot_digest','task_count','scan_lag_seconds'})
 FIELDS.update({'input_id','input_sequence','through_sequence','next_barrier_sequence','control_job_id','result_kind','source','review_identity','previous_review_id','successor_run_id','payload_type','top_level_keys','text_characters','text_sha256','choices_items','output_items','content_items'})
+FIELDS.update({'response_message_count','response_commentary_messages','response_final_messages','response_unphased_messages',
+               'remaining_calls','remaining_inspections','remaining_corrections'})
 _QUEUE = queue.Queue(maxsize=1024)
 _LOCK = threading.Lock()
 _THREAD = None

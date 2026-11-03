@@ -79,7 +79,7 @@ def object_check(store,row):
     return result
 
 
-def inspect(directory,final=False):
+def inspect(directory,final=False,*,supplement=False):
     directory,state,deployed,store=configure(directory)
     from webapp import workflow_graph as graph
     from webapp.diagnostics import diagnose,observation
@@ -90,7 +90,15 @@ def inspect(directory,final=False):
             'dimensions':{},'complete':True}
     report['collector_file_sha256']=hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
     expected=state.get('helper_sha256',{}).get('campaign_dynamic_probe.py')
-    if expected and expected!=report['collector_file_sha256']:raise ValueError('Frozen collector source changed')
+    if expected and expected!=report['collector_file_sha256'] and not supplement:raise ValueError('Frozen collector source changed')
+    if supplement:
+        if state.get('status')!='finished':raise ValueError('Supplemental inspection requires a finished attempt')
+        backup=directory/('before-supplement-'+str(time.time_ns()));backup.mkdir(mode=0o700)
+        for name in ('internal-final.json','candidate-archive.json','runtime-evidence.json','log-index.json','observability.json'):
+            if (directory/name).exists():shutil.copyfile(directory/name,backup/name)
+        report['supplemental_collection']={'original_collector_sha256':expected,'read_only_application_source':str(Path(graph.__file__).resolve().parents[1]),
+            'source_sha256':__import__('tests.run_workflow_suite',fromlist=['source_digest']).source_digest(),
+            'execution_was_not_repeated':True,'original_state_preserved':True,'original_reports_backup':backup.name}
     runs=[graph.get(store,row['id']) for row in store.query('SELECT id FROM runs WHERE project_id=? ORDER BY created_at',(project,))]
     report['database']={'runs':runs,'sessions':store.query('SELECT * FROM sessions WHERE project_id=?',(project,)),'agent_turns':store.query('SELECT id FROM agent_turns WHERE project=?',(project,))}
     checks=report['dimensions']['database']={'checked':True,'invariants':[]}
@@ -210,7 +218,8 @@ def inspect(directory,final=False):
         run['audit']={'leases':leases,'cleanup':cleanup,'provider_calls':provider,'results':results,'events':events,'inputs':inputs,'drain_set':run['drain_set'],
                       'authorizations':grants,'planner_snapshots':planner_snapshots,'barrier_intervals':intervals,
                       'task_revisions':store.query('SELECT * FROM workflow_task_revisions WHERE run_id=? ORDER BY task_id,revision',(wid,)),
-                      'plan_selections':store.query('SELECT * FROM workflow_plan_tasks WHERE run_id=? ORDER BY graph_version,task_id',(wid,))}
+                      'plan_selections':store.query('SELECT * FROM workflow_plan_tasks WHERE run_id=? ORDER BY graph_version,task_id',(wid,)),
+                      'step_checkpoints':store.query('SELECT step,revision,manifest,updated FROM execution_step_checkpoints WHERE workflow=? ORDER BY step,revision',(wid,))}
         diagnostics.append(diagnose(store,run['id'],limit=200,include_logs=True))
     report['diagnostics']=diagnostics
     report['execution_attempts']=store.query('''SELECT a.id,a.run_id,a.step_id,a.kind,a.generation,a.status,
@@ -265,7 +274,7 @@ def inspect(directory,final=False):
                              (run['id'],task['id']))
             for checkpoint in rows:
                 manifest=json.loads(checkpoint['manifest'])
-                names={name for name in manifest if '/output/' in name and not name.endswith('.log')}
+                names={name for name in manifest if name.startswith(f"edit/workflows/{run['id']}/{task['id']}/") and not name.endswith('.log')}
                 if checkpoint['revision']==task['revision']:names.update(task['candidate_result']);names.update(task['accepted_result'])
                 for name in sorted(names):
                     record=manifest.get(name,{})
@@ -341,7 +350,7 @@ def inspect(directory,final=False):
     if not report['same_release']:report['complete']=False;report['dependency_issues'].append('Deployment changed during this attempt')
     report['complete'] &= all(value.get('checked',False) for value in report['dimensions'].values()) and len(objects)<=1000
     report['program_passed']=not report['program_issues']
-    save(directory/('internal-final.json' if final else 'internal-snapshot.json'),report)
+    save(directory/('internal-supplement.json' if supplement else 'internal-final.json' if final else 'internal-snapshot.json'),report)
     return {'case':state['case'],'program_passed':report['program_passed'],'complete':report['complete'],
             'program_issues':report['program_issues'],'dependency_issues':report['dependency_issues']}
 

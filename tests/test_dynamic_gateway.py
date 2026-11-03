@@ -238,6 +238,22 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.assertRaises(ValueError):get('chat_completions').response_text({'choices':[{'finish_reason':'length','message':{'content':'partial'}}]})
         with self.assertRaises(ValueError):get('anthropic').response_text({'stop_reason':'max_tokens','content':[]})
 
+    def test_responses_selects_one_final_action_and_never_executes_commentary(self):
+        from webapp.model_adapters import get,PublicResponseStructureError
+        def message(phase,text):return {'type':'message','role':'assistant','status':'completed','phase':phase,'content':[{'type':'output_text','text':text}]}
+        commentary=message('commentary','{"action":"script","code":"not an executable final action"}')
+        final=message('final_answer','{"action":"inspect","ref":"approved"}')
+        adapter=get('responses')
+        payload={'status':'completed','output':[{'type':'reasoning','summary':'PRIVATE'},commentary,final]}
+        self.assertEqual(json.loads(adapter.response_text(payload)),{'action':'inspect','ref':'approved'})
+        for items in ([commentary],[final,final],[final,message(None,'{}')],[message('unknown','{}')],
+                      [{**final,'content':final['content']*2}]):
+            with self.subTest(items=items),self.assertRaises(PublicResponseStructureError):
+                adapter.response_text({'status':'completed','output':items})
+        with self.assertRaises(ValueError):adapter.response_text({'status':'completed','output':[{**final,'status':'incomplete'}]})
+        with self.assertRaises(ValueError):adapter.response_text({'status':'completed','output':None})
+        self.assertEqual(adapter.response_text({'status':'completed','output':[commentary,message(None,'{}')]}),'{}')
+
     def test_invalid_proposal_is_corrected_before_any_durable_submission(self):
         from types import SimpleNamespace
         import threading
@@ -293,7 +309,11 @@ class DynamicGatewayTests(unittest.TestCase):
         calls=0
         def response(*args,**kwargs):
             nonlocal calls;calls+=1
-            if calls==1:return {'action':'inspect','ref':'asset'}
+            if calls==1:
+                frozen=json.loads(args[4])
+                self.assertIn('"report":{...}',frozen['result_contract'])
+                self.assertIn('report is a JSON object',frozen['result_contract'])
+                return {'action':'inspect','ref':'asset'}
             import re
             found=re.findall(r'"inspection_id":"([a-f0-9]{32})"',args[4]);actual=found[-1] if found else '0'*32
             inspection='0'*32 if calls==2 else actual

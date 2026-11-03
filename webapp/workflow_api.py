@@ -49,6 +49,7 @@ def public(store,run):
     value['inputs']=[public_input(row) for row in store.query('SELECT * FROM run_inputs WHERE run_id=? ORDER BY sequence',(run['id'],))]
     value['drain_set']=run['drain_set']
     value['dependencies']=run['dependencies']
+    value['replacements']=store.query('SELECT old_task_id,new_task_id,graph_version,source FROM run_task_replacements WHERE run_id=? ORDER BY graph_version,old_task_id',(run['id'],))
     for target,source in zip(value['tasks'],run['tasks']):
         if source['profile']:
             target['agent_policy']={key:source['profile'][key] for key in ('id','version','harness','model_policy','output_schema','artifact_policy')}

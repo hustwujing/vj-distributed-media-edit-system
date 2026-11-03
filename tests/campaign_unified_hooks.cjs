@@ -4,6 +4,12 @@ const crypto=require('node:crypto');
 const key=()=>crypto.randomUUID().replaceAll('-','');
 const activeJob=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&job.status==='running');
 const terminal=run=>['SUCCEEDED','FAILED','CANCELLED'].includes(run.state);
+function selectedTask(run,identifier){
+ const seen=new Set();while(!seen.has(identifier)){seen.add(identifier);const task=run.tasks.find(item=>item.id===identifier);
+  if(task?.selected)return task;
+  const replacement=(run.replacements||[]).find(item=>item.old_task_id===identifier);if(!replacement)return null;identifier=replacement.new_task_id;
+ }throw Error('Task replacement cycle in public Run snapshot');
+}
 const hooks=new Set(['identity','drain_local','drain_agent','planning_inputs','drain_wan','unknown_input',
  'feedback_idempotency','no_waiver','mask_boundary','temporal_boundary','publish_input','successor_inputs','drain_sync','frozen_route',
  'feedback_cutout','feedback_layout','reference_before_wan']);
@@ -137,7 +143,7 @@ async function after(c){
   }
  }
  if(hook==='reference_before_wan'){
-  const task=run.tasks.find(t=>t.id==='reference');assert.ok(task.revision>boundary.reference_revision);
+  const task=selectedTask(run,'reference');assert.ok(task&&(task.revision>boundary.reference_revision||task.id!=='reference'&&task.user_revision_count>0));
   const calls=(await fault('progress')).provider_calls;assert.equal(calls.length,1);boundary.provider_after=calls[0];
  }
  if(!boundary.observed)throw Object.assign(Error('Required unified Run boundary was not observed'),{boundary:true});

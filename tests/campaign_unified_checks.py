@@ -31,7 +31,13 @@ def check(state,images,videos,database,frame):
             if not matches:errors.append('Revised layout is not the original approved sources in swapped order')
     if case=='D38':
         from webapp.workflow_graph import get
-        run=get(database,state['run_id']);task=next(item for item in run['tasks'] if item['id']=='reference')
+        run=get(database,state['run_id']);identifier='reference'
+        replacements={row['old_task_id']:row['new_task_id'] for row in database.query('SELECT old_task_id,new_task_id FROM run_task_replacements WHERE run_id=?',(run['id'],))}
+        seen=set()
+        while identifier in replacements:
+            if identifier in seen:raise ValueError('Replacement cycle')
+            seen.add(identifier);identifier=replacements[identifier]
+        task=next(item for item in run['tasks'] if item['id']==identifier and item['selected'])
         rocket=next(asset['id'] for asset in database.assets(state['project']) if asset['name']=='rocket.png')
         changed=any(ref.get('asset')==rocket for ref in task['spec']['inputs'].values())
         checks['revised_reference_uses_selected_asset']=changed

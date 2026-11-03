@@ -78,7 +78,7 @@ def progress(directory):
             JOIN runs r ON r.id=c.workflow JOIN run_tasks t ON t.run_id=r.id AND t.id=c.step AND t.revision=c.revision
             WHERE r.project_id=? AND t.id='export' AND t.status='running' ''',(state['project'],)):
             for name,record in json.loads(checkpoint['manifest']).items():
-                if name.endswith('/output/final.png') and record.get('artifact') and record.get('size',0)>0:
+                if Path(name).name=='final.png' and record.get('artifact') and record.get('size',0)>0:
                     result['output_ready_checkpoints'].append({key:checkpoint[key] for key in ('workflow','step','revision')}|
                         {'path':name,'artifact_id':record['artifact'],'sha256':record['sha256'],'size':record['size']})
     return result

@@ -9,7 +9,10 @@ import json
 from .usage_protocol import Receipt, number
 
 
-class PublicResponseStructureError(ValueError):pass
+class PublicResponseStructureError(ValueError):
+    def __init__(self,message,code='multiple_public_blocks'):
+        self.code=code
+        super().__init__(message)
 
 
 class ModelAdapter:
@@ -42,8 +45,23 @@ class ResponsesAdapter(ModelAdapter):
         return {'instructions':instructions,'input':[{'role':'user','content':content}],'stream':False}
 
     def response_text(self,payload):
+        if not isinstance(payload,dict):raise ValueError('Response must be an object')
         if payload.get('status')!='completed':raise ValueError('Response is not complete')
-        messages=[item for item in payload.get('output',[]) if item.get('type')=='message']
+        output=payload.get('output',[])
+        if not isinstance(output,list) or any(not isinstance(item,dict) for item in output):raise ValueError('Response output must be typed items')
+        messages=[item for item in output if item.get('type')=='message']
+        if any(item.get('role','assistant')!='assistant' or item.get('status') not in (None,'completed') for item in messages):
+            raise ValueError('Response contains an incomplete or non-assistant message')
+        if any(item.get('phase') not in (None,'commentary','final_answer') for item in messages):
+            raise PublicResponseStructureError('Unsupported public message phase','unsupported_response_phase')
+        # Commentary is a progress message, never an executable Agent action.
+        # Exactly one final message is required; never concatenate or choose the
+        # last of several competing final answers.
+        final=[item for item in messages if item.get('phase')=='final_answer']
+        unphased=[item for item in messages if item.get('phase') is None]
+        if final and unphased:raise PublicResponseStructureError('Structured Agent requires exactly one unambiguous final message')
+        messages=final or unphased
+        if not messages:raise PublicResponseStructureError('Response has no final public message','missing_final_message')
         texts=[c.get('text','') for item in messages for c in item.get('content',[]) if c.get('type')=='output_text']
         if len(messages)!=1 or len(texts)!=1 or not isinstance(texts[0],str):
             raise PublicResponseStructureError('Structured Agent requires exactly one public text block')

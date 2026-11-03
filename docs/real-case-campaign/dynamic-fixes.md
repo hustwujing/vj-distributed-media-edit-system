@@ -104,3 +104,9 @@ F38现场来源：main在11:49完成独立部署至104943e9e307，数据库与ma
 | F45 | 统一 Run 首批报告生成 | 历史授权证据没有新 run_id 字段，报告渲染直接索引导致 KeyError | 当前授权使用 run_id；缺少该字段的历史记录指向原始证据，不改变应用模型或读取旧运行接口 | 原始证据保留，报告待重新生成 |
 
 | F47 | 3917f259e246 / S01 attempt-014、D22 attempt-002 | Manager直接编写Script，却没有加载声明VIDEO_USE_STEP_INPUTS为dict[str,list[str]]的文档；实际脚本把列表当路径或自猜类型。两条都按pause/never策略停下，未进入诊断修复 | 新增共享script-runtime契约并挂到Manager、Implementer和Diagnosis；示例实际执行验证；明确已授权诊断时模型脚本使用diagnose、有界修订；Final Reviewer提示允许inconclusive，与Schema一致 | 40项技能注入、恢复、Reviewer及两节点回归通过；按工程契约缺漏记录为程序失败，待新部署真机复测 |
+
+
+| F48 | f0afcad996f7 / 历史revision归档复核 | QA归档器假设输出路径包含 `/output/`，实际固定工具使用attempt子目录，部分历史revision字节未进入离线归档 | 按受控Task路径前缀收集全部历史检查点，并保留每个revision的manifest；原证据不覆盖，故障现场补采明确标记只读采集源码 | D28/D38保留现场已用修正采集器补充检查并完成清理；新版用例重新验证，不用旧结果替代新验收 |
+| F49 | f0afcad996f7 / D28 attempt-001、D38 attempt-001 | 合法replacement后的旧Task被work_items排除，graph.get也因此漏解析其JSON字段；公共详情遍历全部历史节点时KeyError/HTTP500 | get解析全部业务/控制记录，调度仍只选active；API显式返回replacement谱系，增加替代后的公共快照回归 | 16项定向及后续83项相关回归通过；原HTTP500和采集失败保留，internal-supplement.json为修复后只读补采，不改变原失败结论 |
+| F50 | f0afcad996f7 / 多例74字符“非法JSON”及S05上下文重放 | 内部错误提示恰好74字符；Responses适配器把合法commentary+final_answer一律当多个文本块拒绝，消耗纠正预算。真实gpt-5.6探测复现两个commentary和一个合法inspect最终动作 | 按官方phase选择唯一最终消息，继续拒绝歧义/多个最终消息；分开响应结构与JSON错误，补阶段数量和剩余预算日志 | 两次真实协议探测仅保存脱敏结构/哈希/用量，修复后实际接受最终inspect；严格协议回归通过。S05原响应未保留phase，完整case仍需新版本复测 |
+| F51 | f0afcad996f7 / 业务报告结果纠正复核 | 系统提示已要求typed report对象，但冻结business result_contract仍要求JSON字符串/files，产生冲突 | 两处复用同一result_instruction，角色及输出Schema一致；回归检查实际传入模型的冻结上下文 | 83项相关回归通过，等待新版本真机 |

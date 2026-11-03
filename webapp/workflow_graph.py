@@ -429,7 +429,9 @@ def get(store,identifier):
     run['sealed']=bool(run['sealed'])
     run['tasks']=store.query('SELECT * FROM run_tasks WHERE run_id=? ORDER BY created_graph_version,created_at,id',(run['id'],))
     run['control_jobs']=store.query('SELECT * FROM control_jobs WHERE run_id=? ORDER BY created_at,id',(run['id'],))
-    for task in work_items(run):
+    # Retired business nodes remain part of the public/audit snapshot even
+    # though work_items() intentionally excludes them from dispatch.
+    for task in run['tasks']+run['control_jobs']:
         for field in ('spec','profile','candidate_result','accepted_result','quality','bindings','repair_context'):
             task[field]=json.loads(task.pop(field+'_json'))
     run['dependencies']=store.query('SELECT upstream_task_id,downstream_task_id FROM workflow_dependencies WHERE run_id=? AND retired_graph_version IS NULL',(run['id'],))
