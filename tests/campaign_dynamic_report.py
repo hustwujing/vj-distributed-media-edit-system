@@ -46,7 +46,7 @@ def attempt(directory,current,spec):
         verdict='passed' if (state.get('outcome')=='protocol_passed' or artifact.get('passed')) else 'blocked'
     else:verdict='blocked'
     version=state.get('release',{}).get('sha256')
-    valid_current=bool(version and version==current.get('sha256') and matches_definition(state,spec,directory))
+    valid_current=bool(version and version==current.get('sha256') and (matches_definition(state,spec,directory) or verdict=='program_failed'))
     evidence=[]
     for file in sorted(directory.rglob('*')):
         if file.is_file() and not any(part.startswith('private-') for part in file.parts) and file.name!='browser-state.json':

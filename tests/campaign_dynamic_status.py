@@ -34,7 +34,9 @@ def status():
     for case in read(REPO/'docs/real-case-campaign/dynamic-cases.json')['cases']:
         attempts=sorted((ROOT/'runs'/case['id']).glob('attempt-*/state.json'))
         source=attempts[-1] if attempts else None;state=read(source) if source else {}
-        if state.get('release',{}).get('sha256')!=release['sha256'] or not source or not matches_definition(state,case,source.parent):
+        if state.get('release',{}).get('sha256')!=release['sha256'] or not source:
+            groups['not_run'].append(case['id']);continue
+        if not matches_definition(state,case,source.parent) and read(source.parent/'review.json').get('outcome')!='program_failed':
             groups['not_run'].append(case['id']);continue
         if state.get('status')!='finished':groups['running'].append(case['id']);continue
         directory=source.parent;review=read(directory/'review.json');artifact=read(directory/'artifact-verification.json');internal=read(directory/'internal-final.json');cleanup=read(directory/'cleanup.json')
