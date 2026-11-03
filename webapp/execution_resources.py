@@ -5,6 +5,8 @@ leases; orphan UIDs are quarantined until processes, mounts and files are gone.
 """
 from __future__ import annotations
 
+from .deployment_identity import namespace, socket_root, cgroup_member
+
 import fcntl
 import json
 import os
@@ -54,7 +56,7 @@ class Cgroups:
         self.paths = []
         base = Path('/sys/fs/cgroup')
         if (base/'cgroup.controllers').exists():
-            parent = base/'video-use'
+            parent = base/namespace()
             parent.mkdir(exist_ok=True)
             for folder in (base, parent):
                 (folder/'cgroup.subtree_control').write_text('+cpu +memory +pids')
@@ -69,7 +71,7 @@ class Cgroups:
         else:
             # cgroup v1 is still used on the current execution server.
             for controller in ('memory', 'cpu', 'pids'):
-                parent = base/controller/'video-use'
+                parent = base/controller/namespace()
                 parent.mkdir(exist_ok=True)
                 path = parent/attempt
                 path.mkdir()
@@ -87,6 +89,7 @@ class Cgroups:
     @staticmethod
     def clear(paths):
         for root in map(Path, paths):
+            cgroup_member(root)
             if not root.exists():continue
             directories=[Path(p) for p,_,_ in os.walk(root,topdown=False)]
             for path in directories:Cgroups.clear_one(path)
@@ -106,7 +109,7 @@ class Cgroups:
                         descriptor=open_pid(int(pid))
                         try:
                             memberships=Path('/proc',pid,'cgroup').read_text()
-                            if '/video-use/' in str(path) and '/video-use/'+str(path).split('/video-use/',1)[1] in memberships:
+                            if any(line.split(':',2)[-1]==cgroup_member(path) for line in memberships.splitlines()):
                                 send_signal(descriptor,signal.SIGKILL)
                         finally:os.close(descriptor)
                     except ProcessLookupError:pass
@@ -222,7 +225,7 @@ class IdentityPool:
                 if path.exists():shutil.rmtree(path)
             if record.get('gateway_temp'):
                 gateway=Path(record['gateway_temp'])
-                if gateway!=Path('/run/video-use-agent/client-temp')/record['attempt']:raise RuntimeError('Invalid gateway cleanup path')
+                if gateway!=(socket_root()/'client-temp')/record['attempt']:raise RuntimeError('Invalid gateway cleanup path')
                 if os.path.ismount(gateway):subprocess.run(['umount',str(gateway)],check=True,capture_output=True,timeout=10)
                 if gateway.exists():gateway.rmdir()
         for path in map(Path, paths):

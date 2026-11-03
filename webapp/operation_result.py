@@ -29,7 +29,7 @@ class Result(BaseModel):
     def media(cls,action,names):
         known={'edit_plan.json':'plan','master.srt':'subtitle','timeline.png':'preview',
                'analysis.json':'report','quality-review.json':'report','takes_packed.md':'text',
-               'final.report.json':'report'}
+               'final.report.json':'report','compiler-report.json':'report','audio-process-report.json':'report'}
         outputs=[]
         for name in names:
             role=known.get(name,'auxiliary')
@@ -53,7 +53,7 @@ def validate_contract(operation,report,selected=None):
     records={item['name']:item for item in report.get('files',[])}
     def matches(role,item):
         if role=='video':return bool(item.get('video'))
-        if role=='audio':return bool(item.get('audio'))
+        if role=='audio':return bool(item.get('audio_track_present'))
         if role in ('primary_image','foreground','mask','preview'):return item.get('kind')=='image'
         if role in ('transcript','report','plan'):return item.get('kind')=='json'
         return True
@@ -65,7 +65,7 @@ def validate_contract(operation,report,selected=None):
     # video. Validate its alternatives rather than demanding both streams.
     primary=operation.outputs[0] if operation.outputs else None
     if operation.id=='media.edit':
-        present=any(item.get('audio') or item.get('video') for item in records.values())
+        present=any(item.get('audio_track_present') or item.get('video') for item in records.values())
     else:present=bool(records) and (primary is None or any(matches(primary,item) for item in records.values()))
     if not present:failures.append('缺少 operation 声明类型的主要产物')
     for reason in failures:

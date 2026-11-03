@@ -49,6 +49,7 @@ class UnixHTTPServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer)
 class Gateway:
     lease = None
     broker = None
+    dynamic_task = False
 
     def __init__(self, socket_path, project_dir, assets, mode, model, base_url, key, uid, gid, notify, extract_audio, workspace=None,canvas_callback=None,workflow_callback=None,listener_fd=None,broker_client=None,profile=None):
         self.socket_path = Path(socket_path)
@@ -64,6 +65,12 @@ class Gateway:
         self.broker=broker_client
         self.gateway_process=None
         self.allowed_paths=None
+        self.dynamic_task=False
+        if self.lease and self.lease.kind=='workflow':
+            from .workflow_graph import get as graph_get
+            if graph_get(self.lease.store,self.lease.turn_id):
+                from .workflow_gateway import allowed
+                self.allowed_paths=allowed(self.lease);self.dynamic_task=True
         if self.lease and self.lease.kind=='manual':
             job=self.lease.store.job(self.lease.turn_id)
             self.allowed_paths=({'/transcribe'} if job['kind']=='transcribe' else
@@ -144,6 +151,14 @@ class Gateway:
                             result=lookup(outer.lease.store,row['project'],body)
                             outer.check()
                             self.reply(200,result)
+                    elif path in ('/workflow/proposal','/workflow/agent-result'):
+                        from .workflow_gateway import submit
+                        self.reply(200,submit(outer.lease,'proposal' if path.endswith('/proposal') else 'result',body))
+                    elif path=='/workflow/inspect':
+                        if outer.broker:self.reply(200,outer.broker.request('workflow_inspect',body))
+                        else:
+                            from .workflow_gateway import inspect
+                            self.reply(200,inspect(outer,body))
                     elif path == '/transcribe':
                         outer.transcribe(self, body)
                     elif path in ('/image-edit','/image-tools'):
@@ -220,7 +235,7 @@ class Gateway:
             self.lease.check()
             table = 'jobs' if self.lease.kind == 'manual' else 'agent_turns'
             row = self.lease.store.query(f'SELECT status FROM {table} WHERE id=?', (self.lease.turn_id,))[0]
-            if row['status'] != 'running':raise LeaseLost('Task is no longer running')
+            if row['status'] != 'running' and not (self.dynamic_task and row['status']=='waiting'):raise LeaseLost('Task is no longer running')
 
     def canvas_edit(self,handler,body):
         from fastapi import HTTPException
@@ -283,9 +298,14 @@ class Gateway:
 
     def forward(self, handler, body):
         self.check()
+        role=None;dynamic=None
+        if self.dynamic_task:
+            from .workflow_gateway import context
+            dynamic,_,role=context(self.lease)
         from .egress_policy import model_input,provider_base,session,assert_no_credentials,denial
         try:
-            body=self.model_adapter.prepare(body,self.model,self.profile.budget['max_output_tokens'],self.profile.reasoning_effort)
+            output_limit=min(self.profile.budget['max_output_tokens'],role.max_output_tokens) if role else self.profile.budget['max_output_tokens']
+            body=self.model_adapter.prepare(body,self.model,output_limit,self.profile.reasoning_effort)
             provider_base(self.base_url);assert_no_credentials(json.dumps(body),[self.key])
         except ValueError:
             denial(self.lease,'model_input_denied')
@@ -297,7 +317,7 @@ class Gateway:
             self.normalize_model_images(body)
         if self.model_adapter.protocol!='responses':self.normalize_native_images(body)
         with self.lock:
-            if self.calls>=self.profile.budget['run_models']:
+            if self.calls>=(min(self.profile.budget['run_models'],role.max_turns) if role else self.profile.budget['run_models']):
                 if self.lease:
                     status=quota_status(self.lease.store,self.lease.turn_id,'model',model_call_limit())
                     if status['blocked']:raise quota_error(status)
@@ -315,7 +335,10 @@ class Gateway:
              protocol=self.profile.protocol,reasoning_effort=self.profile.reasoning_effort,
              max_output_tokens=body.get('max_output_tokens',body.get('max_tokens')))
         from .task_usage import model_call
-        with model_call(self.lease,self.model,actor='sandbox_agent',observer=self.model_adapter.receipt()) as receipt, session() as client, client.post(self.base_url + self.model_adapter.path, json=body,
+        from .workflow_agents import model_budget
+        observer=self.model_adapter.receipt()
+        budget=model_budget(self.lease,dynamic,len(json.dumps(body).encode())+output_limit,observer) if dynamic else contextlib.nullcontext()
+        with budget, model_call(self.lease,self.model,actor='sandbox_agent',observer=observer) as receipt, session() as client, client.post(self.base_url + self.model_adapter.path, json=body,
                            headers=self.model_adapter.headers(self.key),
                            stream=True, timeout=(15, 240),allow_redirects=False) as response:
             if response.status_code != 200:

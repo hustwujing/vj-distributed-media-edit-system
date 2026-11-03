@@ -19,7 +19,14 @@ def initialize(store):
                ('execution_attempts','turn_id','id','status'),('execution_cleanup','task_id','attempt','state'),
                ('execution_external_cleanup','task_id','id','state'),
                ('agent_steps',"(SELECT turn_id FROM agent_workflows WHERE id=NEW.workflow)",'id','status'),
-               ('workflow_provider_calls',"COALESCE((SELECT turn_id FROM agent_workflows WHERE id=NEW.workflow),NEW.workflow)",'request_key','state')]
+               ('workflow_provider_calls',"COALESCE((SELECT turn_id FROM workflow_runs WHERE id=NEW.workflow),(SELECT turn_id FROM agent_workflows WHERE id=NEW.workflow),NEW.workflow)",'request_key','state'),
+               ('workflow_runs','turn_id','id','status'),
+               ('workflow_tasks',"(SELECT turn_id FROM workflow_runs WHERE id=NEW.workflow_id)",'id','status'),
+               ('planner_runs',"(SELECT turn_id FROM workflow_runs WHERE id=NEW.workflow_id)",'id','status'),
+               ('task_results',"(SELECT turn_id FROM workflow_runs WHERE id=NEW.workflow_id)",'id','status'),
+               ('workflow_commands',"(SELECT turn_id FROM workflow_runs WHERE id=NEW.workflow_id)",'id','status'),
+               ('workflow_decisions',"(SELECT turn_id FROM workflow_runs WHERE id=NEW.workflow_id)",'id','status'),
+               ('workflow_reviews',"(SELECT turn_id FROM workflow_runs WHERE id=NEW.workflow_id)",'id','status')]
         existing=set()
         if store.dsn:
             existing={r['tgname'] for r in db.execute("SELECT t.tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace WHERE NOT t.tgisinternal AND n.nspname=current_schema()")}

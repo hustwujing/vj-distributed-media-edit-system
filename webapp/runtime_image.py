@@ -16,7 +16,7 @@ TOOLS=('bash','sh','env','cat','ls','find','sed','awk','sort','uniq','wc','head'
        'basename','dirname','readlink','realpath','stat','du','df','grep','xargs','tee',
        'ffmpeg','ffprobe','socat','setpriv','ldconfig','fc-match','fc-list','file','rg','uname','sleep','tr','true','false')
 CODEX_DEFAULT='/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex'
-TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
+TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','media_plan_compiler.py','media_evidence.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
               'image_providers.py','image_models.py','image_replace.py','sam3_zim.py','models.py','edit_tools.py','quality_review.py')
 
 
@@ -38,6 +38,8 @@ def stage_tools(directory):
     for path in sorted([*(tool_app/'webapp').glob('*.py'),*(tool_app/'helpers').glob('*.py')]):
         digest.update(str(path.relative_to(tool_app)).encode());digest.update(path.read_bytes())
     (tool_app/'package.sha256').write_text(digest.hexdigest())
+    shutil.copyfile(REPO/'runtime/public/pyvenv.cfg',Path(directory)/'pyvenv.cfg')
+    (Path(directory)/'pyvenv.cfg').chmod(0o644)
     return tool_app
 
 
@@ -45,10 +47,13 @@ def fingerprint():
     if not MANIFEST.is_file():return 'unbuilt'
     manifest=json.loads(MANIFEST.read_text())
     package=MANIFEST.parent/'tool-app/package.sha256'
-    value={key:manifest.get(key) for key in ('version','python_version','packages','harnesses')}
+    value={key:manifest.get(key) for key in ('version','python_version','packages','harnesses','data_files')}
     value['tools']=package.read_text().strip() if package.is_file() else ''
     value['harness_bridge']={name:hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()
         for name in ('harness_adapters.py','harness_bridge.py','harness_sdk_events.py')}
+    value['execution_contract']={name:hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()
+        for name in ('workflow_runtime.py','workflow_executor.py','execution_runtime.py','agent_sandbox.py',
+                     'workflow_inputs.py','operation_lifecycle.py','workflow_io.py','quality_check.py','media_evidence.py')}
     return hashlib.sha256(json.dumps(value,sort_keys=True).encode()).hexdigest()
 
 
@@ -60,6 +65,11 @@ def build():
     if missing:raise RuntimeError('Required runtime tools missing: '+','.join(missing))
     if not codex.is_file():raise RuntimeError('Codex runtime is not installed')
     libraries={}
+    # libmagic requires its public database as well as the shared library.
+    magic=Path('/usr/share/misc/magic.mgc')
+    if not magic.is_file():raise RuntimeError('file runtime magic database is missing')
+    libraries[str(magic)]=str(magic.resolve())
+    data_files={str(magic):hashlib.sha256(magic.read_bytes()).hexdigest()}
     cache=subprocess.check_output(['ldconfig','-p'],text=True)
     match=re.search(r'libseccomp\.so\.2[^\n]*=>\s+(\S+)',cache)
     if not match:raise RuntimeError('libseccomp is required')
@@ -104,7 +114,7 @@ def build():
                 libraries[str(resolved)]=str(resolved)
     from importlib.metadata import distributions
     packages=sorted((d.metadata.get('Name',''),d.version) for d in distributions())
-    result={'packages':packages,'harnesses':harnesses,'version':2,'python':str(Path(sys.executable).resolve()),'prefix':str(prefix),
+    result={'packages':packages,'harnesses':harnesses,'data_files':data_files,'version':2,'python':str(Path(sys.executable).resolve()),'prefix':str(prefix),
         'python_version':f'{sys.version_info.major}.{sys.version_info.minor}',
         'codex':str(codex),'code_host':str(code_host) if code_host.is_file() else None,'tools':{k:str(v) for k,v in executables.items()},'libraries':libraries}
     MANIFEST.parent.mkdir(parents=True,exist_ok=True)
@@ -144,7 +154,7 @@ def mounts():
            '--ro-bind',str(Path(data['prefix'])/'lib'/('python'+data['python_version'])),'/opt/python/lib/python'+data['python_version'],
            '--tmpfs','/opt/python/lib/python'+data['python_version']+'/site-packages',
            '--ro-bind',data['codex'],'/opt/codex',
-           '--ro-bind',str(REPO/'runtime/public/pyvenv.cfg'),'/opt/venv/pyvenv.cfg',
+           '--ro-bind',str(MANIFEST.parent/'pyvenv.cfg' if (MANIFEST.parent/'pyvenv.cfg').is_file() else REPO/'runtime/public/pyvenv.cfg'),'/opt/venv/pyvenv.cfg',
            '--setenv','PYTHONHOME','/opt/python',
            '--setenv','PYTHONPYCACHEPREFIX','/tmp/pycache']
     for directory in ('/usr/share/fonts','/usr/share/fontconfig','/usr/share/zoneinfo','/usr/share/terminfo','/etc/fonts','/etc/ssl/certs'):

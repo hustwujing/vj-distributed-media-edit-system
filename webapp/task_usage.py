@@ -120,6 +120,34 @@ def model_call(lease,model,actor='host',observer=None):
                 emit('usage.receipt_failed','ERROR',exc=exc,task_id=lease.turn_id,attempt_id=lease.attempt)
 
 
+@contextmanager
+def execution_call(lease,category,operation,*,revision=0,actor='workflow_sandbox',label='执行任务'):
+    """Best-effort phase/tool accounting; authorization remains in the task lease."""
+    from .store import Store
+    from .task_lifecycle import administrative
+    from .execution_metrics import measurement_connection
+    from .live_activity import span
+    from .telemetry import emit
+    observer=Store(lease.store.root,timeout=.05,initialize_schema=False,dsn=lease.store.dsn)
+    call_id=hashlib.sha256(('dispatch:'+lease.attempt).encode()).hexdigest() if category=='workflow' else uuid.uuid4().hex
+    recorded=False;result={'status':'succeeded'}
+    try:
+        with administrative(),measurement_connection(observer) as db:
+            start(db,lease.turn_id,category,operation,call_id=call_id,attempt=lease.attempt,step=lease.step_id or '',revision=revision)
+        recorded=True
+    except Exception as exc:emit('usage.phase_record_failed','WARNING',exc=exc,task_id=lease.turn_id,step_id=lease.step_id)
+    try:
+        with span(actor,'execution' if category=='workflow' else 'tool',label,operation):yield result
+    except BaseException as exc:
+        result['status']='cancelled' if type(exc).__name__ in ('LeaseLost','TaskLimitReached') else 'failed'
+        raise
+    finally:
+        if recorded:
+            try:
+                with administrative(),measurement_connection(observer) as db:complete(db,lease.turn_id,call_id,result['status'])
+            except Exception as exc:emit('usage.phase_receipt_failed','WARNING',exc=exc,task_id=lease.turn_id,step_id=lease.step_id)
+
+
 def numeric_tree(value,depth=0):
     """Export measurements, never arbitrary provider strings or signed URLs."""
     if depth>4:return None
@@ -190,7 +218,8 @@ def _snapshot(store,task,scope,after,limit,provider_after):
     repairs=store.query(f'SELECT COALESCE(SUM(s.repair_count),0) AS n FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id IN ({marks})',ids)[0]['n']
     providers=store.query(f'''SELECT p.request_key,p.operation,p.state,p.usage,p.cost,p.poll_count,p.network_seconds,p.step,p.revision,
         p.attempt_id,p.created,p.updated FROM workflow_provider_calls p LEFT JOIN agent_workflows w ON w.id=p.workflow
-        WHERE COALESCE(w.turn_id,p.workflow) IN ({marks}) ORDER BY p.created''',ids)
+        LEFT JOIN workflow_runs dw ON dw.id=p.workflow
+        WHERE COALESCE(dw.turn_id,w.turn_id,p.workflow) IN ({marks}) ORDER BY p.created''',ids)
     for row in providers:
         row['usage']=numeric_tree(json.loads(row['usage']))
         cost=json.loads(row['cost']);row['cost']=None

@@ -13,6 +13,7 @@ WAIT_REASONS=frozenset({'dependency','resource','provider','retry','user','model
 
 
 def dispatch_kind(row):
+    if row.get('dynamic'):return 'workflow'
     if row.get('manual'):return 'manual'
     return 'workflow' if row.get('workflow_status') in ('ready','staged','cancelling') else 'agent'
 
@@ -26,6 +27,7 @@ def profile(mode,*,review=False,step=False,fixed=False):
 
 def classify_error(detail,phase):
     if isinstance(detail,dict):
+        if detail.get('code')=='pre_submit' and detail.get('request_sent') is False:return 'pre_submit'
         if phase=='local' and detail.get('error_type')=='ModelResultError':return 'model_result'
         if phase=='local' and detail.get('code')=='output_contract':return 'code'
         if detail.get('error_type') in ('ValueError','ValidationError'):return 'parameters'

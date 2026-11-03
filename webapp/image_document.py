@@ -10,6 +10,10 @@ from PIL import Image
 from pydantic import BaseModel,ConfigDict,Field,model_validator
 from helpers.canvas_render import FONT
 
+def validate_sam3_prompt(prompt):
+    if len(prompt)>120:raise ValueError('SAM3 目标名称不能超过120字')
+    if prompt and re.search(r'[\u3400-\u9fff]',prompt):raise ValueError('当前 SAM3 文字提示需使用简短英文；中文需求请交给 Agent 自动翻译，或改用点/框选择')
+
 def edit_prompt(action,prompt='',selected=False):
     if action=='erase':
         prompt=('完整移除选区内的目标物体或文字，包括全部笔画、边缘和残影，用周围合理的背景自然补全。'
@@ -115,8 +119,7 @@ def check_task(task,assets):
         if len(p)!=2 or any(isinstance(v,bool) or not isinstance(v,int) for v in p) or not 0<=p[0]<w or not 0<=p[1]<h:raise ValueError('选择点不在图片范围内')
     if task.action=='segment' and task.box is None and not task.points:raise ValueError('请先点击或框选主体')
     if task.action=='segment_sam3' and task.box is None and not task.points and not task.prompt.strip():raise ValueError('SAM3 需要文字、点或框提示')
-    if task.action=='segment_sam3' and len(task.prompt)>120:raise ValueError('SAM3 目标名称不能超过120字')
-    if task.action=='segment_sam3' and task.prompt and re.search(r'[\u3400-\u9fff]',task.prompt):raise ValueError('当前 SAM3 文字提示需使用简短英文；中文需求请交给 Agent 自动翻译，或改用点/框选择')
+    if task.action=='segment_sam3':validate_sam3_prompt(task.prompt)
     if task.action=='refine_zim' and not task.mask:raise ValueError('ZIM 精修需要已有蒙版')
     if task.action=='perspective' and len(task.points)!=4:raise ValueError('透视校正需要按顺序选择四个角点')
     if task.action in ('erase','local_edit','replace_text') and not task.mask and task.box is None:raise ValueError('请先框选或选择蒙版')

@@ -67,7 +67,7 @@ subprocess.run(['ffmpeg','-v','error','-i',str(out/'final.mp4'),'-vf','fps=1,sca
              'outputs':['final.mp4','coverage.png','report.json'],'output_roles':{'video':'final.mp4','preview':'coverage.png','report':'report.json'},
              'depends_on':['video','cutout'],'inputs':{'movie':{'step':'video','role':'video'},'logo':{'step':'cutout','role':'foreground'}},
              'goal':'交付15秒右上角透明图标成片','on_failure':'pause','retry_safe':True,
-             'acceptance':[{'kind':'media','file':'final.mp4','width':1280,'height':720,'min_duration':14.95,'max_duration':15.05,'audio':False,'decode':True},
+             'acceptance':[{'kind':'media','file':'final.mp4','width':1280,'height':720,'min_duration':14.95,'max_duration':15.05,'audio_track_present':False,'decode':True},
                  {'kind':'image','file':'coverage.png','width':1600,'height':540},{'kind':'json','file':'report.json','required_keys':['coverage','logo','audio']},
                  {'kind':'agent','criterion':'对照人物参考图、原始图标、透明图标和coverage.png的0–14秒逐秒抽样画面：人物身份/服装一致，海滩场景和跑步姿态连续变化，无明显严重异常；右上角图标透明且未遮挡人物。结合报告确认布局与时长。声明抽样覆盖范围与局限，最终仅交付final.mp4。'}]}]
         if args.reuse_portrait:

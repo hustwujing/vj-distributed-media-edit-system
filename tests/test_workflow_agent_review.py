@@ -274,7 +274,7 @@ class AgentReviewTests(unittest.TestCase):
         self.assertEqual(agent_store.turn(self.store,self.turn)['status'],'succeeded')
 
     def test_repair_selection_matches_error(self):
-        step=local_step();step['repairs']=[{'reason':'audio','when':['audio'],'argv':['python','audio.py']},
+        step=local_step();step['repairs']=[{'reason':'audio','when':['audio_track_present'],'argv':['python','audio.py']},
             {'reason':'size','when':['width'],'argv':['python','size.py']}]
         self.fixture.submit([step]);w=self.fixture.get()
         self.assertFalse(workflows.queue_auto_repair(self.store,w,w['steps'][0],{'checks':[{'passed':False,'code':'height'}]}))

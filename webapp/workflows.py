@@ -31,12 +31,12 @@ class Step(BaseModel):
     implementation: str | None = None
     reuse_from: ReuseRef | None = None
     contract_version: int = Field(default=1,ge=1,le=1)
-    inputs: dict[str,InputRef] = Field(default_factory=dict,max_length=20)
+    inputs: dict[str,InputRef] = Field(default_factory=dict,max_length=100)
     parameters: dict = Field(default_factory=dict)
     output_roles: dict[str,str] = Field(default_factory=dict,max_length=20)
     preflight: list[str] = Field(default_factory=list,max_length=20)
     config_files: list[str] = Field(default_factory=list,max_length=20)
-    depends_on: list[str] = Field(default_factory=list, max_length=32)
+    depends_on: list[str] = Field(default_factory=list, max_length=128)
     argv: list[str] = Field(default_factory=list, max_length=100)
     outputs: list[str] = Field(default_factory=list, max_length=20)
     timeout: int = Field(default=900, ge=10, le=3600)
@@ -58,6 +58,8 @@ class Step(BaseModel):
             if self.retry_safe and not op.retry_safe:raise ValueError('此操作不允许自动重提')
             if self.repairs:raise ValueError('固定操作不能声明任意修复命令')
             self.parameters=validate_parameters(self.operation,self.parameters,self.inputs,self.implementation)
+            if op.executor=='image_sync' and self.parameters.get('fit','native')=='native' and any(c.width is not None or c.height is not None for c in self.acceptance):
+                raise ValueError('上游原始尺寸不保证；精确尺寸要求需显式选择 fit: contain/cover，或另设本地调整步骤')
             if op.output_files is not None:
                 invalid=[check.file for check in self.acceptance if check.file!='*' and check.file not in op.output_files]
                 if invalid:raise ValueError('验收文件不属于该 operation 的输出契约：'+','.join(invalid)+'；实际支持：'+','.join(op.output_files))
@@ -97,7 +99,9 @@ def validate_plan(raw):
         if 'on_failure' not in original:errors.append(prefix+'请明确 on_failure: pause 或 diagnose')
         if not step.acceptance:errors.append(prefix+'请声明 acceptance；只需基础检查时使用 file 并填写 basic_reason')
         meaningful=any(c.kind in ('agent','review','text','json','subtitle') or any(getattr(c,k) is not None for k in
-            ('width','height','audio','video','min_duration','max_duration','max_bytes','has_alpha','min_transparent_fraction','fps')) for c in step.acceptance)
+            ('width','height','audio_track_present','audio_silent','channel_layout','min_loudness_lufs','max_loudness_lufs','tone_hz',
+             'video','min_duration','max_duration','max_bytes','has_alpha','transparent_subject','min_transparent_fraction','min_visible_fraction',
+             'max_partial_alpha_fraction','max_alpha_components','max_alpha_hole_fraction','fps')) for c in step.acceptance)
         if not meaningful and not step.basic_reason.strip():errors.append(prefix+'仅基础检查需要说明 basic_reason')
         if step.kind=='script':
             uncovered=[f for f in step.outputs if not any(c.file in ('*',f) for c in step.acceptance)]
@@ -204,9 +208,15 @@ def initialize(store):
                                 'bindings':"TEXT NOT NULL DEFAULT '{}'",'wait_reason':"TEXT NOT NULL DEFAULT ''"}.items():
             if name not in columns:db.execute(f'ALTER TABLE agent_steps ADD COLUMN {name} {definition}')
         # New deployments use the canonical contract; no historical data rewrite.
+        from .workflow_graph import initialize as initialize_graph
+        initialize_graph(store)
 
 
 def get(store, turn_id):
+    from .workflow_graph import get as graph_get,execution_view
+    if store.query("SELECT name FROM sqlite_master WHERE name='workflow_runs'"):
+        dynamic=graph_get(store,turn_id)
+        if dynamic:return execution_view(dynamic)
     try:rows = store.query('SELECT * FROM agent_workflows WHERE turn_id=?', (turn_id,))
     except sqlite3.OperationalError as exc:
         if 'no such table: agent_workflows' in str(exc):return None
@@ -252,6 +262,12 @@ def resumable_step(s):
 def public(w):
     if not w:
         return None
+    if w.get('dynamic'):
+        return {k:w[k] for k in ('id','name','status','error','graph_version','sealed')}|{
+            'dynamic':True,'steps':[{'id':s['id'],'name':s['spec']['name'],'kind':s['spec']['kind'],
+                'status':s['task_status'],'revision':s['revision'],'depends_on':s['spec']['depends_on'],
+                'files':s['result'],'candidate_files':s['candidate'],'wait_reason':s['wait_reason'],
+                'error_code':s['error_code']} for s in w['steps']]}
     return {k: w[k] for k in ('id', 'name', 'status', 'error', 'plan_id')} | {
         'user_requests':w.get('user_requests',[]),
         'agent_review': {k:w['agent_review'][k] for k in ('id','step','purpose','status','runs')} if w['agent_review'] else None,
@@ -266,6 +282,8 @@ def public(w):
 
 
 def submit(store, turn_id, raw):
+    if os.environ.get('VIDEO_USE_DYNAMIC_WORKFLOW')=='1':
+        raise ValueError('静态工作流提交入口已停用，请使用动态工作流的授权和提案协议。')
     from .execution_intent import get as get_intent
     intent=get_intent(store,turn_id)
     if intent and isinstance(raw,dict) and isinstance(raw.get('steps'),list):
@@ -327,6 +345,21 @@ def submit(store, turn_id, raw):
 
 
 def change(store, wid, sid, **values):
+    from .workflow_graph import get as graph_get,encode
+    dynamic=graph_get(store,wid)
+    if dynamic:
+        # Execution adapters may pin inputs; only the orchestrator commits
+        # business status, acceptance, revisions and graph contracts.
+        if set(values)!={'bindings'}:raise ValueError('Dynamic task state is orchestrator-owned')
+        from .task_leases import CURRENT
+        lease=CURRENT.get()
+        if not lease or lease.turn_id!=dynamic['turn_id'] or lease.step_id!=sid:
+            raise ValueError('Input binding requires the current task lease')
+        with store.connect() as db:
+            lease.validate(db)
+            db.execute('UPDATE workflow_tasks SET bindings_json=?,updated_at=? WHERE workflow_id=? AND id=?',
+                       (encode(values['bindings']),store.now(),wid,sid))
+        return
     values['updated'] = store.now()
     if values.get('status') in ('verifying','waiting','succeeded','failed','paused','pending','cancelled'):
         from .task_usage import complete
@@ -372,11 +405,15 @@ def state(store, turn_id, status, text=None, error=''):
 
 
 def cancel(store, turn_id):
+    from .workflow_graph import get as graph_get,command
+    if graph_get(store,turn_id):return command(store,turn_id,'user','cancel')
     from .task_lifecycle import cancel_task
     return cancel_task(store,turn_id)
 
 
 def pause(store,turn_id):
+    from .workflow_graph import get as graph_get,command
+    if graph_get(store,turn_id):return command(store,turn_id,'user','pause')
     w=get(store,turn_id)
     if not w or w['status'] in ('succeeded','failed','cancelled','cancelling'):raise ValueError('当前工作流不能暂停')
     store.execute('INSERT INTO workflow_control VALUES (?,1) ON CONFLICT(turn_id) DO UPDATE SET pause_requested=1',(turn_id,))
@@ -411,6 +448,8 @@ def settle_pauses(store,turn_id=None):
 
 
 def resume(store, turn_id):
+    from .workflow_graph import get as graph_get,command
+    if graph_get(store,turn_id):return command(store,turn_id,'user','resume')
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         w = get(store, turn_id)

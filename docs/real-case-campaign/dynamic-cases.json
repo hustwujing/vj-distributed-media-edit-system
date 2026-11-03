@@ -1,0 +1,5270 @@
+{
+  "campaign": "dynamic-plan-independent-deployment",
+  "version": 1,
+  "source_count": 77,
+  "new_count": 22,
+  "total_count": 99,
+  "rules": {
+    "entry": "Real browser authorization and deployed services; no success-state seeding or mocked live provider results",
+    "default_parallel_cases": 2,
+    "allowed_target_namespace": "dynamic-agent",
+    "allowed_base_path": "/distributed-agent-system",
+    "success": "Artifact/content checks AND browser/internal-state audits; dependency/model failures are separate outcomes",
+    "retained_history": "Every failed attempt and corrective rerun is retained",
+    "forbidden": "Main service mutations, main database writes, main Redis keys or BOSS object prefixes",
+    "maximum_parallel_cases": 4
+  },
+  "review": [
+    {
+      "id": "S01",
+      "title": "图片中心裁切",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S02",
+      "title": "图片等比缩小",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S03",
+      "title": "图片顺时针旋转",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S04",
+      "title": "图片水平镜像",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S05",
+      "title": "图片亮度调整",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S06",
+      "title": "图片灰度化",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S07",
+      "title": "图片高斯模糊",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S08",
+      "title": "图标抠透明背景",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S09",
+      "title": "SAM3人像分割",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S10",
+      "title": "图片文字识别",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S11",
+      "title": "PNG转JPEG",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S12",
+      "title": "WebP缩略图",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S13",
+      "title": "音频精确截取",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S14",
+      "title": "音量降低6dB",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S15",
+      "title": "音频首尾渐变",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S16",
+      "title": "视频提取音频",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S17",
+      "title": "视频精确剪切",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S18",
+      "title": "视频等比缩小",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S19",
+      "title": "视频顺时针旋转",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S20",
+      "title": "两倍速保音高",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S21",
+      "title": "移除视频音轨",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S22",
+      "title": "按时刻抽帧",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S23",
+      "title": "视频帧率转换",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S24",
+      "title": "视频黑白效果",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S25",
+      "title": "右上角透明图标",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S26",
+      "title": "真实语音转写",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S27",
+      "title": "真实文生图",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S28",
+      "title": "真实文生视频",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S29",
+      "title": "真实图生视频",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S30",
+      "title": "字幕整理为文字",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C01",
+      "title": "三段精剪与配乐",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C02",
+      "title": "双片段交叉淡化",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C03",
+      "title": "竖屏字幕与角标",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C04",
+      "title": "抠图后视频合成",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C05",
+      "title": "人像分割精修海报",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C06",
+      "title": "跨图调色批量输出",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C07",
+      "title": "OCR驱动文字替换",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C08",
+      "title": "透视校正打印卡片",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C09",
+      "title": "真实图片分层与ORA",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C10",
+      "title": "异构素材竖版混剪",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C11",
+      "title": "四宫格视频",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C12",
+      "title": "图片动态幻灯片",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C13",
+      "title": "分段变速与定格",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C14",
+      "title": "倒放混剪",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C15",
+      "title": "旁白配乐压低与字幕",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C16",
+      "title": "降噪与双格式播客",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C17",
+      "title": "中英字幕品牌短片",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C18",
+      "title": "音画分离后重组",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C19",
+      "title": "海报动画与透明角标",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C20",
+      "title": "精修人像双背景对照",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C21",
+      "title": "并行预处理后汇合",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C22",
+      "title": "24片段长程批处理与暂停续跑",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C23",
+      "title": "局部模糊遮挡与合成",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C24",
+      "title": "静音替换配乐与封面",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C25",
+      "title": "多画幅并行交付",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C26",
+      "title": "OCR定位后真实AI消除",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C27",
+      "title": "文生图再编辑品牌海报",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C28",
+      "title": "文生视频竖版包装",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C29",
+      "title": "1080p长片与节点接管",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C30",
+      "title": "女孩图片到15秒海滩跑步完整视频",
+      "decision": "保留业务目标，修改入口和协议断言",
+      "reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "R01",
+      "title": "待确认时改交付名称",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R02",
+      "title": "待确认时改尺寸与格式",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R03",
+      "title": "待确认时改素材选择与顺序",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R04",
+      "title": "部分完成时追加输出格式",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R05",
+      "title": "部分完成时重做一个分支参数",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R06",
+      "title": "部分完成时替换一个分支素材",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R07",
+      "title": "导出过程中更换封面",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R08",
+      "title": "导出过程中改变字幕样式",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R09",
+      "title": "导出过程中改画幅和时长",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R10",
+      "title": "交付后追加缩略图",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R11",
+      "title": "验收时拒绝局部效果并重做",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R12",
+      "title": "交付后改变整体交付目标",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R13",
+      "title": "暂停讨论后停止旧版并重做",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R14",
+      "title": "导出完成附近取消并重做",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R15",
+      "title": "重做期间刷新与重新进入项目",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R16",
+      "title": "连续重做V1到V2到V3",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R17",
+      "title": "真实浏览器执行中修改与重新授权",
+      "decision": "修改干预协议，保留用户目标",
+      "reason": "保留执行中修改、重新授权、旧结果隔离和续接；移除 Jev 分类器特定断言，新界面使用明确的控制与授权命令。"
+    },
+    {
+      "id": "D01",
+      "title": "真实 Manager 多轮扩图",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D02",
+      "title": "并行分支完成后触发汇合规划",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D03",
+      "title": "未封口禁止提前交付",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D04",
+      "title": "Orchestrator 重启与提案去重",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D05",
+      "title": "两个 Orchestrator 竞争推进",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D06",
+      "title": "执行器退出后换节点恢复",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D07",
+      "title": "Manager 执行中取消",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D08",
+      "title": "暂停边界不启动新任务",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D09",
+      "title": "外部调用超范围审批",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D10",
+      "title": "拒绝扩大授权后不调用供应商",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D11",
+      "title": "过期审批与重复命令拒绝",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D12",
+      "title": "跨项目读取与控制拒绝",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D13",
+      "title": "模型预算耗尽有界暂停",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D14",
+      "title": "BOSS 内容校验与候选不放行",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D15",
+      "title": "授权内容指纹失效拒绝",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D16",
+      "title": "外部提交未知不重复生成",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D17",
+      "title": "观测服务中断不影响业务状态",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D18",
+      "title": "API 切换与浏览器恢复",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D19",
+      "title": "独立部署与 main 数据隔离",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "D20",
+      "title": "专业 Agent 权限与实际模型用量",
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。"
+    },
+    {
+      "id": "S31",
+      "title": "保留静音音轨",
+      "review_decision": "新增",
+      "review_reason": "覆盖音轨存在与实际静音的类型化语义，和S21无音轨形成正反例。"
+    },
+    {
+      "id": "D21",
+      "title": "诊断后不可变修订并衔接下游",
+      "review_decision": "新增",
+      "review_reason": "覆盖失败节点交回Manager、同一逻辑Task新revision、修复计数、后代失效和正式交付。"
+    }
+  ],
+  "cases": [
+    {
+      "id": "S01",
+      "complexity": "simple",
+      "title": "图片中心裁切",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 256,
+        "height": 256
+      },
+      "content_checks": [
+        "对照原图中心裁切像素",
+        "人物内容完整符合裁切范围"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S01",
+      "original_definition_sha256": "6248bed72b912d6900d3f154ec75c5d60eba3740788923de78b0689a1ee78aef",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S02",
+      "complexity": "simple",
+      "title": "图片等比缩小",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 等比缩小到256×256，输出PNG，不加边框。",
+      "expect": {
+        "kind": "image",
+        "width": 256,
+        "height": 256
+      },
+      "content_checks": [
+        "与原图缩小结果比较",
+        "无额外裁剪或文字"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S02",
+      "original_definition_sha256": "2058704165bbd00bbe6bf60132ab67c135b1ba429db507f7f91e9bae14331c0e",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S03",
+      "complexity": "simple",
+      "title": "图片顺时针旋转",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 顺时针旋转90度，输出512×512 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "与原图顺时针旋转像素比较"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S03",
+      "original_definition_sha256": "3e39a71c8d28b347589f4adfa7bf98d94f0fcb498bf89aebbc21968714285eac",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S04",
+      "complexity": "simple",
+      "title": "图片水平镜像",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 左右镜像，保持512×512，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "与原图水平翻转像素比较"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S04",
+      "original_definition_sha256": "4f5e9a04c8596dfb6bc65101e76537784bd5cd478914f227b58aa36e32a8e95e",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S05",
+      "complexity": "simple",
+      "title": "图片亮度调整",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 的亮度系数调整为1.2，其余参数不变，输出512×512 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "亮度均值提高",
+        "内容与布局保持"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S05",
+      "original_definition_sha256": "1aae0f8a42c2fbf3a199a16baed3708b4bb150238897b92049c0ca273057ddaa",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S06",
+      "complexity": "simple",
+      "title": "图片灰度化",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转成真正的灰度效果，保持512×512，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "RGB通道接近一致",
+        "人物结构保留"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S06",
+      "original_definition_sha256": "26c83d57b12ebd39d5278abbe5135f757e9d35feb7db3e702edd473f15a22c4e",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S07",
+      "complexity": "simple",
+      "title": "图片高斯模糊",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对 portrait.png 做半径5像素的高斯模糊，保持512×512，输出PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512
+      },
+      "content_checks": [
+        "梯度能量下降",
+        "无额外缩放"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S07",
+      "original_definition_sha256": "711591538d93a762789584e09d488342dbff6910e1d7918ba88178941885abcb",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S08",
+      "complexity": "simple",
+      "title": "图标抠透明背景",
+      "assets": [
+        "logo_white.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 logo_white.png 的白色背景抠掉，保留蓝色标志和绿色圆点，输出512×512透明PNG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "alpha": true
+      },
+      "content_checks": [
+        "边缘背景透明",
+        "蓝色主体与绿色圆点保留"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S08",
+      "original_definition_sha256": "d1784dfa4bf5ad7381c5775b57e2f59f0832f6e8e8fea68dd12356f7628a2f5b",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S09",
+      "complexity": "simple",
+      "title": "SAM3人像分割",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。使用SAM3选择 portrait.png 中的宇航员人物并精修边缘，交付512×512蒙版和透明人像PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "alpha": true,
+        "min_images": 2
+      },
+      "content_checks": [
+        "真实分割模型调用",
+        "人物与透明背景分离",
+        "蒙版非全黑全白"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S09",
+      "original_definition_sha256": "0ba672aac1793b8836cca345040d993029e584e3ff20cd95a1a7db12c073d558",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S10",
+      "complexity": "simple",
+      "title": "图片文字识别",
+      "assets": [
+        "poster.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。识别 poster.png 的全部文字（包括英文与数字，不过滤纯数字条目），保存包含文字和位置的JSON，同时给出TXT。",
+      "expect": {
+        "kind": "text",
+        "extensions": [
+          ".json",
+          ".txt"
+        ],
+        "terms": [
+          "SUMMER",
+          "RUN",
+          "BEACH",
+          "CLUB",
+          "15",
+          "SECONDS"
+        ]
+      },
+      "content_checks": [
+        "核对已知文字及位置",
+        "真实OCR调用"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S10",
+      "original_definition_sha256": "c59fba11bc5e33b5b3e6776b099e9ed77e9198434e312cc791f240fd8cc36140",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原有terms同时包含英文与数字；明确文字范围，保留所有原验收词、坐标与JSON/TXT要求；历史失败原样保存。"
+    },
+    {
+      "id": "S11",
+      "complexity": "simple",
+      "title": "PNG转JPEG",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 portrait.png 转为JPEG，质量90，保持512×512，不改变内容。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "extension": ".jpg"
+      },
+      "content_checks": [
+        "实际JPEG格式",
+        "内容保真"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S11",
+      "original_definition_sha256": "b7560515fc5d45a0bf29eca7b4d2b191a128d4625b508e4e16954896536453e3",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S12",
+      "complexity": "simple",
+      "title": "WebP缩略图",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 制作成256×256 WebP缩略图，质量90。",
+      "expect": {
+        "kind": "image",
+        "width": 256,
+        "height": 256,
+        "extension": ".webp"
+      },
+      "content_checks": [
+        "实际WebP格式",
+        "图像可解码"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S12",
+      "original_definition_sha256": "d8f071953103619ebfe0a6e776fc7f4aad4fc9651b91b00976faa5174f2299dd",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S13",
+      "complexity": "simple",
+      "title": "音频精确截取",
+      "assets": [
+        "speech.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。截取 speech.wav 的第2秒到第8秒，交付6秒WAV，保持单声道16kHz。",
+      "expect": {
+        "kind": "audio",
+        "duration": 6,
+        "duration_tolerance": 0.2,
+        "channels": 1,
+        "sample_rate": 16000
+      },
+      "content_checks": [
+        "波形对应原音频2–8秒"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S13",
+      "original_definition_sha256": "3d8757dc740d93c82c3741de03bc4ea81a8cc81911328a0c0abab469fd995a6b",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S14",
+      "complexity": "simple",
+      "title": "音量降低6dB",
+      "assets": [
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 music.wav 全段音量降低6dB，保持30秒，输出WAV，不做响度归一化。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "RMS约为原音频一半"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S14",
+      "original_definition_sha256": "1125f926d419e2bf55c263cd42ce0feda882ac36ce0f42606c6d0da376d6d4bb",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S15",
+      "complexity": "simple",
+      "title": "音频首尾渐变",
+      "assets": [
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。music.wav 开头1秒淡入、结尾1秒淡出，保持30秒，输出WAV。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "首尾能量降低",
+        "中间音量保持"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S15",
+      "original_definition_sha256": "12996c4969213d35b7b1556d0db1dbc2d9791dad80b62f818ca7b7d599cadaa7",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S16",
+      "complexity": "simple",
+      "title": "视频提取音频",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 提取完整30秒音频，转为单声道16kHz WAV。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2,
+        "channels": 1,
+        "sample_rate": 16000
+      },
+      "content_checks": [
+        "有真实音频内容",
+        "未截短"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S16",
+      "original_definition_sha256": "c3954b7efbe8e1ff77c44cd8105850d1f9d5a65af8a4af7bd7d014673a717e62",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S17",
+      "complexity": "simple",
+      "title": "视频精确剪切",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。保留 clip_a.mp4 的第5秒到第12秒，交付7秒640×360 MP4，保留声音。",
+      "expect": {
+        "kind": "video",
+        "duration": 7,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "首帧对应源5秒附近",
+        "有音频"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S17",
+      "original_definition_sha256": "037dfb98043db7b42485fccaddf80077a583802b1a761d0c7825e330ab6ccfb6",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S18",
+      "complexity": "simple",
+      "title": "视频等比缩小",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 缩小为320×180，保持30秒和声音，输出MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 320,
+        "height": 180,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "比例正确",
+        "完整时长"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S18",
+      "original_definition_sha256": "d2c6bba737b02f3092bb6346bbd17f10965eabf9cabe2710e1d7381bd864da05",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S19",
+      "complexity": "simple",
+      "title": "视频顺时针旋转",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 顺时针旋转90度，实际输出360×640像素的30秒MP4，保留声音。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 360,
+        "height": 640,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "实际像素旋转",
+        "不只修改方向标签"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S19",
+      "original_definition_sha256": "7c84965fe18f359f89bf637e06d465a3ac7bf0753236150de5d6abd021200ab4",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S20",
+      "complexity": "simple",
+      "title": "两倍速保音高",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 clip_a.mp4 调成2倍速，得到15秒640×360 MP4，音频同步加速但保持音高。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "画面加速",
+        "440Hz参考音高保持"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S20",
+      "original_definition_sha256": "791ff5ba6bb8ebb70682835b3d7b0f845c4dc3e7712eefa145fc9fab396952da",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S21",
+      "complexity": "simple",
+      "title": "移除视频音轨",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。移除 clip_a.mp4 的音轨，保留30秒画面和640×360尺寸，输出无音轨MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": false
+      },
+      "content_checks": [
+        "不存在音频流"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S21",
+      "original_definition_sha256": "41954777a65095eb4795a65cb2ff065aa376ba9ebc9724112a373b2baeec39cb",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S22",
+      "complexity": "simple",
+      "title": "按时刻抽帧",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。从 clip_a.mp4 的0、5、10秒分别抽一张640×360 PNG，交付三张独立图片，不要只交拼图。",
+      "expect": {
+        "kind": "image",
+        "width": 640,
+        "height": 360,
+        "min_images": 3
+      },
+      "content_checks": [
+        "三个指定时刻的真实帧"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S22",
+      "original_definition_sha256": "3483d4004cacb8dea6d713b585a2881aca73bf03260132e1acee208b94c720dd",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S23",
+      "complexity": "simple",
+      "title": "视频帧率转换",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 转成30fps，保持30秒640×360及声音，输出MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "fps": 30
+      },
+      "content_checks": [
+        "帧率为30",
+        "时长不随帧率改变"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S23",
+      "original_definition_sha256": "15f84a59641d46102abe883d2295d4539fc5d02873fb0272da048c4f9e8f5f26",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S24",
+      "complexity": "simple",
+      "title": "视频黑白效果",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 clip_a.mp4 全段转为黑白灰度，保持30秒640×360和声音。",
+      "expect": {
+        "kind": "video",
+        "duration": 30,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "抽样帧RGB通道接近一致"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S24",
+      "original_definition_sha256": "8297593e0410d48247063f10418ad72df7d1ff7a3f87b8ed6a85fd430592e52c",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S25",
+      "complexity": "simple",
+      "title": "右上角透明图标",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。取 clip_a.mp4 前8秒，将 logo_rgba.png 缩到64×64，贴在右上角，距右边和上边各16像素，保留声音，输出640×360 MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "指定位置出现图标",
+        "透明区域不遮挡底图"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S25",
+      "original_definition_sha256": "ba6800970de532edd2693514c33e475f14726fcda128a490ac16e71d3da2e5db",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S26",
+      "complexity": "simple",
+      "title": "真实语音转写",
+      "assets": [
+        "speech.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 speech.wav 全部英文语音转写出来，交付带时间码的SRT和纯文字TXT，不翻译。",
+      "expect": {
+        "kind": "text",
+        "extensions": [
+          ".srt",
+          ".txt"
+        ],
+        "terms": [
+          "blue",
+          "square",
+          "green",
+          "circle",
+          "logo",
+          "right",
+          "final",
+          "video"
+        ]
+      },
+      "content_checks": [
+        "真实转写服务记录",
+        "字幕时间在0–30秒内"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "audio.transcribe"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S26",
+      "original_definition_sha256": "8aba6e26c80672b8a75903976af587525afe2c2f936a83d00fbb6682563c3e50",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S27",
+      "complexity": "simple",
+      "title": "真实文生图",
+      "assets": [],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生图服务，生成一张蓝色陶瓷咖啡杯放在白色桌面上的写实图片，不含文字，1024×768 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768
+      },
+      "content_checks": [
+        "真实外部生成调用",
+        "画面包含蓝色咖啡杯和白桌"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.generate_from_text"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S27",
+      "original_definition_sha256": "28136c4820be6087f6d9e72150add4ba32fae5b2c16c38495175b9a617aa5f74",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S28",
+      "complexity": "simple",
+      "title": "真实文生视频",
+      "assets": [],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。调用文生视频服务生成5秒海上日出的平稳镜头，1280×720 MP4，不要字幕和水印。",
+      "expect": {
+        "kind": "video",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "真实外部异步任务",
+        "海面与日出内容",
+        "有实际帧变化"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "video.generate_from_text"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S28",
+      "original_definition_sha256": "145cb72cb37f1726d0a09b9a1786352e969009d527e8e4290b6a73a22ab4958f",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S29",
+      "complexity": "simple",
+      "title": "真实图生视频",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。以 portrait.png 为参考调用图生视频服务，生成5秒轻微推镜的视频，保持人物服装和整体形象，1280×720 MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 5,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "真实图生视频任务",
+        "参考图确实作为输入",
+        "画面保留人物特征与推镜"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "video.generate_from_image"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S29",
+      "original_definition_sha256": "a812f39e05d32ba9c14293c47ba8d2db5dd0e640e545e025e5dce6666eb3c505",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S30",
+      "complexity": "simple",
+      "title": "字幕整理为文字",
+      "assets": [
+        "captions.srt"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。将 captions.srt 去掉序号和时间码，按顺序整理成一段英文TXT，保留所有原文，不改写。",
+      "expect": {
+        "kind": "text",
+        "extensions": [
+          ".txt"
+        ],
+        "terms": [
+          "blue",
+          "square",
+          "green",
+          "circle",
+          "logo",
+          "right",
+          "final",
+          "video"
+        ]
+      },
+      "content_checks": [
+        "原文完整",
+        "无SRT时间箭头"
+      ],
+      "workflow_min_steps": 0,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "S30",
+      "original_definition_sha256": "16732d3bf1852422f224f278bfa0678a5b36ba173123b092c8d545dac55cd06a",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "S31",
+      "source_case_id": null,
+      "complexity": "simple",
+      "title": "保留静音音轨",
+      "assets": ["clip_a.mp4"],
+      "prompt": "将 clip_a.mp4 保持30秒和640×360画面，保留一条AAC立体声音轨但把实际采样静音。程序验收必须同时声明 audio_track_present=true 和 audio_silent=true，不能用无音轨替代。交付MP4。",
+      "expect": {"kind": "video", "duration": 30, "width": 640, "height": 360, "duration_tolerance": 0.2, "audio": true, "audio_silent": true},
+      "content_checks": ["存在音频流", "解码PCM为静音", "冻结验收区分音轨存在与静音"],
+      "workflow_min_steps": 0,
+      "dynamic_hook": null,
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": ["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup"],
+      "review_decision": "新增",
+      "review_reason": "覆盖音轨存在与实际静音的类型化语义，和S21无音轨形成正反例。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "C01",
+      "complexity": "complex",
+      "title": "三段精剪与配乐",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "三段顺序正确",
+        "音乐与淡入淡出",
+        "有质量报告"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C01",
+      "original_definition_sha256": "acb42f7c46f7d09ef45ac3453e9b5c823b25dd05b469013ad2d79225435e06a6",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C02",
+      "complexity": "complex",
+      "title": "双片段交叉淡化",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 11,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "转场区有两画面混合",
+        "标题正确",
+        "无缺音轨合成失败"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C02",
+      "original_definition_sha256": "7e0db5c91916a5cb7c127ad3c4b7f1cf6d603c0a53249c7bf487fb6105d86490",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C03",
+      "complexity": "complex",
+      "title": "竖屏字幕与角标",
+      "assets": [
+        "clip_a.mp4",
+        "captions.srt",
+        "logo_rgba.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 360,
+        "height": 640,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "竖版无拉伸",
+        "字幕可读",
+        "角标正确"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C03",
+      "original_definition_sha256": "47ce5cc111a5e821fccf6185773e882fd1108e817b4ae64403b6f9efc1843095",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C04",
+      "complexity": "complex",
+      "title": "抠图后视频合成",
+      "assets": [
+        "logo_white.png",
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 10,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "抠图结果可复用",
+        "正确角标",
+        "视频与透明图都交付"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C04",
+      "original_definition_sha256": "80fcfe72f7557980a601c1031a1187cdf6a05bc547dac19285493574dbb39547",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C05",
+      "complexity": "complex",
+      "title": "人像分割精修海报",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 800,
+        "height": 600,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "人像边缘",
+        "背景为深蓝",
+        "标题与双成果"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C05",
+      "original_definition_sha256": "719d784412d19f84b3f72e8f6d1dd8efef4c202994d96feebe28f29df542aed2",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C06",
+      "complexity": "complex",
+      "title": "跨图调色批量输出",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "poster.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 1920,
+        "height": 480,
+        "min_images": 4
+      },
+      "content_checks": [
+        "三张独立WebP",
+        "联系表顺序",
+        "统一尺寸且不拉伸"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C06",
+      "original_definition_sha256": "aec377e3ec4007c03e135e595abcf1e3faf7463a6c53bb4e7538536b437ff91f",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C07",
+      "complexity": "complex",
+      "title": "OCR驱动文字替换",
+      "assets": [
+        "poster.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768,
+        "extra_text": true
+      },
+      "content_checks": [
+        "新文字30 SECONDS",
+        "其余两行保持",
+        "有实际OCR证据"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C07",
+      "original_definition_sha256": "2133dae746db27f4cd57b8b0695265fa8302c7ad0005ddd785efcaaee2c4a001",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C08",
+      "complexity": "complex",
+      "title": "透视校正打印卡片",
+      "assets": [
+        "card_skew.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。",
+      "expect": {
+        "kind": "image",
+        "width": 640,
+        "height": 480,
+        "min_images": 2
+      },
+      "content_checks": [
+        "透视拉正",
+        "文字可读",
+        "两种格式"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C08",
+      "original_definition_sha256": "b9f52a306146af2184412ac103c1b021e456581d55df2517064cdeb5d9428bb3",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C09",
+      "complexity": "complex",
+      "title": "真实图片分层与ORA",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。",
+      "expect": {
+        "kind": "image",
+        "width": 512,
+        "height": 512,
+        "extra_extension": ".ora"
+      },
+      "content_checks": [
+        "真实分层服务",
+        "ORA图层有效",
+        "重建画面主体保留"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.decompose"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C09",
+      "original_definition_sha256": "662297af059f31630b0bc29cbd5ca492c79b03c4b7018a5d100d9b5345984c91",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C10",
+      "complexity": "complex",
+      "title": "异构素材竖版混剪",
+      "assets": [
+        "clip_a.mp4",
+        "portrait_clip.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 360,
+        "height": 640,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "混合横竖版不拉伸",
+        "顺序和标题",
+        "配乐完整"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C10",
+      "original_definition_sha256": "f801e4b18080d62bd18c2b65a92f4d3b596cae291b83bf6594b277730a52bafc",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C11",
+      "complexity": "complex",
+      "title": "四宫格视频",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "portrait_clip.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。",
+      "expect": {
+        "kind": "video",
+        "duration": 10,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "四个有效画面",
+        "边界及编号",
+        "无拉伸"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C11",
+      "original_definition_sha256": "7d169ec84fd3ad74cb171130112a73da0c4f3b28d8a62236b2d8a0d5c41b4458",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C12",
+      "complexity": "complex",
+      "title": "图片动态幻灯片",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "poster.png",
+        "music.wav",
+        "logo_rgba.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "三张图与顺序",
+        "推镜和转场",
+        "时长精确"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C12",
+      "original_definition_sha256": "20d510982f0abda1fed2c7b72574b3ed172532103a467b89251516120f978324",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C13",
+      "complexity": "complex",
+      "title": "分段变速与定格",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。",
+      "expect": {
+        "kind": "video",
+        "duration": 23,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "6+3+12+2秒分段",
+        "末尾真实定格",
+        "音画同步"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C13",
+      "original_definition_sha256": "85c018c1918d135425f3993bbd0268022e6a99003e07f44fb8ab0a63eabb8629",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C14",
+      "complexity": "complex",
+      "title": "倒放混剪",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "中段确实倒放",
+        "三段时长及顺序"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C14",
+      "original_definition_sha256": "1451009a91f7b3bcbabf1e73a1085e5e54f3b6b3463b5feacbdb81161b2e0c04",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C15",
+      "complexity": "complex",
+      "title": "旁白配乐压低与字幕",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。",
+      "expect": {
+        "kind": "video",
+        "duration": 20,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_extension": ".srt"
+      },
+      "content_checks": [
+        "真实语音转写",
+        "字幕与语音对应",
+        "配乐不盖人声"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "audio.transcribe"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C15",
+      "original_definition_sha256": "05d54222db3cf8b8bdd14bfe6c50d80b775b7fdfcf9ab37767c647c2eb74c199",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C16",
+      "complexity": "complex",
+      "title": "降噪与双格式播客",
+      "assets": [
+        "speech_noisy.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2,
+        "min_audio": 2,
+        "extra_text": true
+      },
+      "content_checks": [
+        "静音区噪声降低",
+        "响度合理",
+        "两个格式及报告"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C16",
+      "original_definition_sha256": "b96ce830ec85147c6f401a8822bcc80fa5ca23e5bd5532ddf940975b45227af8",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C17",
+      "complexity": "complex",
+      "title": "中英字幕品牌短片",
+      "assets": [
+        "clip_a.mp4",
+        "captions.srt",
+        "logo_rgba.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "中文没有缺字方框",
+        "英文字幕可读",
+        "标题和Logo"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C17",
+      "original_definition_sha256": "e6831797d4c2f3ecac2bddc6f06175ad96f4d868df843e2cc56366a0adbe1555",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C18",
+      "complexity": "complex",
+      "title": "音画分离后重组",
+      "assets": [
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。",
+      "expect": {
+        "kind": "video",
+        "duration": 12,
+        "width": 480,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_audio": true,
+        "extra_image": true
+      },
+      "content_checks": [
+        "音画重组同步",
+        "裁切及对比度",
+        "多种成果"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C18",
+      "original_definition_sha256": "730792aec3102b96d870b736b3bbd62d56bbe4b5ea82c6fc419a45c9f104c200",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C19",
+      "complexity": "complex",
+      "title": "海报动画与透明角标",
+      "assets": [
+        "poster.png",
+        "logo_white.png",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 640,
+        "height": 480,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "海报内容可读",
+        "有平移缩放",
+        "Logo背景透明"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C19",
+      "original_definition_sha256": "65f940937ed94ef32d7a5bd3b8d3d8890d351cf909938a7bb7d1b488571b580c",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C20",
+      "complexity": "complex",
+      "title": "精修人像双背景对照",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。SAM3分割人像，清理蒙版小孔并羽化2像素；分别合成800×600纯蓝和浅灰背景；将两版并排做成1600×600对照图，同时交付透明人像PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 1600,
+        "height": 600,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "人像在两版位置一致",
+        "不同背景",
+        "透明边缘"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C20",
+      "original_definition_sha256": "3a4d97be0eaf1489370e3d5e7f5f521ed173c3dbc37dc8b2b3301f4a0d537f72",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C21",
+      "complexity": "complex",
+      "title": "并行预处理后汇合",
+      "assets": [
+        "clip_a.mp4",
+        "clip_b.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前8秒转灰度，B前8秒提高饱和度到1.3，两路独立预处理并保存；再左右并排为1280×360，标题DUAL VIEW，配music，交付8秒MP4及检查报告。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 1280,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "独立分支与汇合",
+        "左灰右彩",
+        "报告与配乐"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C21",
+      "original_definition_sha256": "7fec0409bc85485436ed579b2642298e98b76fe58bc2970b1663443dcbddf83e",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C22",
+      "complexity": "complex",
+      "title": "24片段长程批处理与暂停续跑",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。从A循环取24个2秒片段，每段显示01–24编号；保存分段中间结果，最终必须使用登记的media.concat_sequence按序拼成48秒640×360视频，去原声、循环music，并交付compiler-report；最后检查黑帧与时长。处理中我会暂停再继续，需保留已完成成果。 分段中间结果请保存为包含24个不同视频片段的ZIP，并附JSON清单；流程中实际检查ZIP目录。目录元数据检查不能替代对成片编号顺序、黑帧与时长的媒体检查。",
+      "expect": {
+        "kind": "video",
+        "duration": 48,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_text": true
+      },
+      "content_checks": [
+        "24段顺序编号",
+        "暂停与恢复审计",
+        "没有重做已完成步骤"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "pause_resume",
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C22",
+      "original_definition_sha256": "69672c3c4933c7362b3dfd19444832fef08278fdb00628d4c61cd3d037b57458",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": "pause_resume",
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "保留原业务与暂停/恢复断言，增加F39合法ZIP目录检查必测边界；必须实际检查至少24个不同视频成员，不能把目录检查当成成员媒体内容验证。",
+      "required_archive_video_members": 24
+    },
+    {
+      "id": "C23",
+      "complexity": "complex",
+      "title": "局部模糊遮挡与合成",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前10秒，把矩形x=180,y=40,w=230,h=220做明显高斯模糊，其他区域保持；加右上Logo，原音降低6dB，输出10秒640×360并附首中尾检查帧。",
+      "expect": {
+        "kind": "video",
+        "duration": 10,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_image": true
+      },
+      "content_checks": [
+        "模糊只在指定区域",
+        "Logo与音量",
+        "检查帧"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C23",
+      "original_definition_sha256": "84c1acb76e0040ba46088394aabedfdf820d8e31ad7d8069dd7e44a5ecd19f42",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C24",
+      "complexity": "complex",
+      "title": "静音替换配乐与封面",
+      "assets": [
+        "clip_a.mp4",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前18秒，移除原音并加入music；整段顶部标题SILENT SPACE；首尾各0.5秒淡变；交付18秒640×360 MP4和中间帧JPEG封面。",
+      "expect": {
+        "kind": "video",
+        "duration": 18,
+        "width": 640,
+        "height": 360,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_image": true
+      },
+      "content_checks": [
+        "无原旁白",
+        "标题",
+        "实际封面"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C24",
+      "original_definition_sha256": "abaa9540e54a94e4601f260031feef75c0ce176d6f8561b019a9933e7f5e761a",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C25",
+      "complexity": "complex",
+      "title": "多画幅并行交付",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先取A前8秒并加右上Logo、略微暖色；随后分支导出640×360横版、360×640竖版、480×480方版三份MP4，保留声音、不要拉伸；横版作为主要交付。",
+      "expect": {
+        "kind": "video_variants",
+        "duration": 8,
+        "sizes": [
+          [
+            640,
+            360
+          ],
+          [
+            360,
+            640
+          ],
+          [
+            480,
+            480
+          ]
+        ],
+        "primary_size": [
+          640,
+          360
+        ],
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "三种画幅都有结果",
+        "主体保留",
+        "用户侧主结果是横版"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C25",
+      "original_definition_sha256": "097c20154cdee9f61b29f98d52021151601758c9550708ca19b5b93ac9305425",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C26",
+      "complexity": "complex",
+      "title": "OCR定位后真实AI消除",
+      "assets": [
+        "poster.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR定位15 SECONDS一行并生成该区域蒙版；调用生成式消除服务删掉这一行，保留另外两行和区域外像素；再检查结果并交付1024×768 PNG、蒙版和识别JSON。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768,
+        "min_images": 2,
+        "extra_text": true
+      },
+      "content_checks": [
+        "真实消除服务",
+        "15 SECONDS被删除",
+        "区域外保持"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.erase"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C26",
+      "original_definition_sha256": "87e4fad413e39187c93db526130414be583a52cffb667e0cd16ad8ae82233df2",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C27",
+      "complexity": "complex",
+      "title": "文生图再编辑品牌海报",
+      "assets": [
+        "logo_white.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成1024×768写实蓝色咖啡杯白桌图片；再用图片编辑服务将背景改成浅蓝色、保留杯子；抠出上传Logo并叠到右上；添加COFFEE TIME标题，交付PNG和JPEG。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "image",
+        "width": 1024,
+        "height": 768,
+        "min_images": 2
+      },
+      "content_checks": [
+        "真实文生图和图片编辑",
+        "咖啡杯保留",
+        "标题与透明Logo"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.generate_from_text",
+        "image.edit"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C27",
+      "original_definition_sha256": "6262cacff342964d4bd318155ffa6e391f973948277bda1495a5941c754b0130",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C28",
+      "complexity": "complex",
+      "title": "文生视频竖版包装",
+      "assets": [
+        "logo_white.png",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用文生视频服务生成8秒海上日出；做成720×1280竖版，保留太阳和海平面且不拉伸；将上传Logo抠透明放右上，前3秒中文标题“逐光而行”，加入music，交付8秒MP4。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 8,
+        "width": 720,
+        "height": 1280,
+        "duration_tolerance": 0.2,
+        "audio": true
+      },
+      "content_checks": [
+        "真实外部视频",
+        "竖版内容完整",
+        "中文与角标"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "video.generate_from_text"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C28",
+      "original_definition_sha256": "8964887d8e7be10719acc039d65c45516760c59be785e1d19c801aa78a38b61a",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C29",
+      "complexity": "complex",
+      "title": "1080p长片与节点接管",
+      "assets": [
+        "clip_a.mp4",
+        "logo_rgba.png",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A循环制成60秒1920×1080、30fps短片，H.264 CRF18 slow高质量编码；加右上96像素Logo，去原声并循环music；分阶段保存成果并检查完整解码。执行中可能发生节点重启，应安全续跑。 用于节点接管验证的本地执行节点请声明 retry_policy=safe_once；正式处理前在同一执行节点等待15秒。",
+      "expect": {
+        "kind": "video",
+        "duration": 60,
+        "width": 1920,
+        "height": 1080,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "fps": 30
+      },
+      "content_checks": [
+        "真实长耗时编码",
+        "节点中断与接管",
+        "结果可完整解码"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "worker_restart",
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C29",
+      "original_definition_sha256": "eadcd339074b8a985c76fb32847ada6dd197f6f74522b6916ede786a98594924",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": "worker_restart",
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "C30",
+      "complexity": "complex",
+      "title": "女孩图片到15秒海滩跑步完整视频",
+      "assets": [
+        "logo_white.png",
+        "music.wav"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先调用文生图服务生成一张成年女子穿蓝色运动服站在海滩的写实横版图片；以此为参考调用图生视频服务，生成她在沙滩跑步的15秒1280×720视频；抠出上传Logo的透明背景并贴在右上角，96像素、边距24；加入轻音量music，前3秒标题SUMMER RUN，最终交付完整15秒MP4及透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。",
+      "expect": {
+        "kind": "video",
+        "duration": 15,
+        "width": 1280,
+        "height": 720,
+        "duration_tolerance": 0.2,
+        "audio": true,
+        "extra_alpha": true
+      },
+      "content_checks": [
+        "真实文生图→图生视频依赖",
+        "人物及跑步海滩内容",
+        "Logo位置与配乐",
+        "完整15秒最终结果"
+      ],
+      "workflow_min_steps": 3,
+      "hook": null,
+      "status": "not_run",
+      "attempts": [],
+      "allowed_external_operations": [
+        "image.generate_from_text",
+        "video.generate_from_image"
+      ],
+      "entry_mode": "browser_dynamic_authorization",
+      "source_case_id": "C30",
+      "original_definition_sha256": "83623f8db7dd237ce9710b30fd8244ffdcd606f78b6be23ec3870af6d3d5ca39",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "dynamic_hook": null,
+      "review_decision": "保留业务目标，修改入口和协议断言",
+      "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
+    },
+    {
+      "id": "R01",
+      "complexity": "intervention",
+      "title": "待确认时改交付名称",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：待确认时改交付名称。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "停止旧版",
+        "构造待确认新版",
+        "修改交付名称",
+        "确认最新版本"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R01",
+      "original_definition_sha256": "4af0798eebbb37e817b0873f1bc0b4a6f53ec114b900e65431badce1e5d2afd3",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_rename",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R02",
+      "complexity": "intervention",
+      "title": "待确认时改尺寸与格式",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：待确认时改尺寸与格式。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 32,
+        "extension": ".webp"
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "停止旧版",
+        "构造待确认新版",
+        "改尺寸与格式",
+        "确认最新版本"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R02",
+      "original_definition_sha256": "889b378beff85b4e652adf5b3fa544bb994df728f746c3f66f38437daa38a199",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_resize_format",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R03",
+      "complexity": "intervention",
+      "title": "待确认时改素材选择与顺序",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：待确认时改素材选择与顺序。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "停止旧版",
+        "构造待确认新版",
+        "替换待确认方案",
+        "验证旧确认被拒绝",
+        "确认最新版本"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R03",
+      "original_definition_sha256": "ec13a14a7f8fba12f3347c6476a00265ba6bb73c00789d4303cbbc8be1351a15",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_reorder",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R04",
+      "complexity": "intervention",
+      "title": "部分完成时追加输出格式",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：部分完成时追加输出格式。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64,
+        "min_images": 2
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "等待上游成功与导出运行",
+        "停止旧版",
+        "追加JPEG",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R04",
+      "original_definition_sha256": "60ec7398a2114c4d6d40c2c7c003b9d0899a4680c3581cdaf978541555838d74",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_add_format",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R05",
+      "complexity": "intervention",
+      "title": "部分完成时重做一个分支参数",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：部分完成时重做一个分支参数。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "等待上游成功与导出运行",
+        "停止旧版",
+        "改变A分支亮度",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_b"
+      ],
+      "must_recompute": [
+        "prepare_a"
+      ],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R05",
+      "original_definition_sha256": "4c54e4c710b58bf57ba602d0149bcac80fbb16d8253112b931ba1a6593f24b43",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_change_brightness",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R06",
+      "complexity": "intervention",
+      "title": "部分完成时替换一个分支素材",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：部分完成时替换一个分支素材。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "等待上游成功与导出运行",
+        "停止旧版",
+        "替换A分支素材",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_b"
+      ],
+      "must_recompute": [
+        "prepare_a"
+      ],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R06",
+      "original_definition_sha256": "049a6848b7b9d66f2aa60fc090a0bffec4fb8ce5677f83e583f3e4ec332a9d92",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_replace_source",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R07",
+      "complexity": "intervention",
+      "title": "导出过程中更换封面",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：导出过程中更换封面。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 128,
+        "height": 64,
+        "duration": 4
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "等待导出运行",
+        "停止旧版",
+        "更换封面",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R07",
+      "original_definition_sha256": "28e2199f4ca457263238c0d37487a756ed1e670b57b4047536416047f09fdc1e",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_cover",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R08",
+      "complexity": "intervention",
+      "title": "导出过程中改变字幕样式",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：导出过程中改变字幕样式。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 128,
+        "height": 64,
+        "duration": 4
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "等待导出运行",
+        "停止旧版",
+        "字幕改黄色",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R08",
+      "original_definition_sha256": "556501f75ca01e7dfcb29aab3bda7f0a12c18d3e4fd29f90e57567a93e876272",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_caption",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R09",
+      "complexity": "intervention",
+      "title": "导出过程中改画幅和时长",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：导出过程中改画幅和时长。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 64,
+        "height": 96,
+        "duration": 2
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "等待导出运行",
+        "停止旧版",
+        "横版改竖版并缩短",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R09",
+      "original_definition_sha256": "e23a6e9fcd5494d24320f6897250518e5663b524f29147b863d45c2b52c3cf22",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_portrait",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R10",
+      "complexity": "intervention",
+      "title": "交付后追加缩略图",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：交付后追加缩略图。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64,
+        "min_images": 2
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "完成V1交付",
+        "追加缩略图",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R10",
+      "original_definition_sha256": "0df32fc502b2abff7a5c62ac64ff98b3af4acb0b3383622c721de1d6d8d0a848",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_thumbnail",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R11",
+      "complexity": "intervention",
+      "title": "验收时拒绝局部效果并重做",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：验收时拒绝局部效果并重做。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "等待人工验收",
+        "提交拒绝与反馈",
+        "停止旧版",
+        "修改边框",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R11",
+      "original_definition_sha256": "88650af6da74152b91ef7d9392bcf38a7f0ed565c535ef0122e8371ff29be90d",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_feedback",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R12",
+      "complexity": "intervention",
+      "title": "交付后改变整体交付目标",
+      "assets": [
+        "portrait.png",
+        "rocket.png",
+        "clip_a.mp4"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：交付后改变整体交付目标。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "video",
+        "width": 128,
+        "height": 64,
+        "duration": 4
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "完成V1交付",
+        "由静态封面改为短视频交付",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b",
+        "clip"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R12",
+      "original_definition_sha256": "e37cf96fcb771c43492c268f1dcd65963c9c691dd25e604c322372ab73ae73ba",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_new_goal",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R13",
+      "complexity": "intervention",
+      "title": "暂停讨论后停止旧版并重做",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：暂停讨论后停止旧版并重做。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "请求暂停",
+        "验证安全边界暂停",
+        "查询暂停状态",
+        "停止旧版",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R13",
+      "original_definition_sha256": "7b21ac0862a6dd5022fad8ae017691876d448d2a919e6bca55d68f134032c0c9",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_pause_replan",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R14",
+      "complexity": "intervention",
+      "title": "导出完成附近取消并重做",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：导出完成附近取消并重做。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "导出运行中取消",
+        "核对旧版终态与晚到结果",
+        "确认新版"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R14",
+      "original_definition_sha256": "4ee203aefd97e3a04456760d55953d00c6ceed502746b0f12ad62fcfafc411a3",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_cancel_race",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R15",
+      "complexity": "intervention",
+      "title": "重做期间刷新与重新进入项目",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：重做期间刷新与重新进入项目。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "停止旧版",
+        "确认新版",
+        "刷新项目页面",
+        "核对来源与状态恢复"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R15",
+      "original_definition_sha256": "dc76f1eed4352d42996243c5ffbb6385038730579eb4a23e4eed4f465c9c1ec5",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_refresh",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R16",
+      "complexity": "intervention",
+      "title": "连续重做V1到V2到V3",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。对已确认的图片/视频制作方案进行用户干预并重做：连续重做V1到V2到V3。仅使用本地操作，按新版要求完成实际交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 64
+      },
+      "content_checks": [
+        "来源产物由真实执行器生成并通过验收",
+        "每个复用节点绑定固定来源修订与实际哈希",
+        "受影响节点重做且不继承旧批准",
+        "新版实际产物下载、格式与内容校验",
+        "旧任务晚到结果不得覆盖新版",
+        "本次项目、任务、对象与临时数据清理完成"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "reuse_intervention",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "完成V1",
+        "确认V2并交付",
+        "确认V3并交付",
+        "核对固定复用链"
+      ],
+      "must_reuse": [
+        "prepare_a",
+        "prepare_b"
+      ],
+      "must_recompute": [],
+      "must_stop": [
+        "old_export"
+      ],
+      "cleanup": {
+        "scope": "unique_run_and_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R16",
+      "original_definition_sha256": "e3ee4293706b0c0be79b2f7c50e164cd997a90c00662a5fe49b3dd16f4384d8c",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定"
+      ],
+      "dynamic_hook": "intervention_chain",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
+    },
+    {
+      "id": "R17",
+      "complexity": "intervention_real_browser",
+      "title": "真实浏览器执行中修改与重新授权",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。真实浏览器确认 V1 后，在执行中提出修改要求，验证 Jev 识别 replan 并按 V2 重新执行。",
+      "expect": {
+        "kind": "image",
+        "width": 32,
+        "height": 24
+      },
+      "content_checks": [
+        "V1 执行轮被取消且不能覆盖 V2",
+        "usage run_id 保持父子关联",
+        "项目和对象清理完成",
+        "假设和否定消息不改变任务且输入保留",
+        "真实复用回执和产物哈希匹配，原操作不重复执行"
+      ],
+      "workflow_min_steps": 3,
+      "hook": "real_replan",
+      "allowed_external_operations": [],
+      "entry_mode": "browser_dynamic_authorization",
+      "intervention_actions": [
+        "浏览器确认 V1",
+        "V1 预处理完成且人工验收暂停时，从聊天框发送否定、假设及尺寸修改要求",
+        "真实 Jev 分类 replan",
+        "确认 V2 并下载结果"
+      ],
+      "must_reuse": [
+        "已完成且程序验收通过的 image.local_adjust 亮度1.1处理"
+      ],
+      "must_recompute": [
+        "受修改影响的导出步骤"
+      ],
+      "must_stop": [
+        "V1 execute"
+      ],
+      "cleanup": {
+        "scope": "unique_project",
+        "retain": "sanitized_evidence_only"
+      },
+      "status": "not_run",
+      "attempts": [],
+      "source_case_id": "R17",
+      "original_definition_sha256": "e7b0e763e27e96bfabe9bece61cace86deb5d75c1ad9e0def8062ca7c1a35a9b",
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "retired_assertions": [
+        "旧表插库规划夹具",
+        "固定 Plan 替换或原节点契约改写",
+        "旧状态名及旧 plan_id 绑定",
+        "Jev 必须返回 replan 的实现绑定"
+      ],
+      "dynamic_hook": "intervention_jev_replan",
+      "review_decision": "修改干预协议，保留用户目标",
+      "review_reason": "保留执行中修改、重新授权、旧结果隔离和续接；移除 Jev 分类器特定断言，新界面使用明确的控制与授权命令。"
+    },
+    {
+      "id": "D01",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "真实 Manager 多轮扩图",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先分析 portrait.png 的实际尺寸；依据分析结果再追加生成128×128预览，最后交付PNG。必须分至少两轮规划。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 128
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "rolling_plan",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D02",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "并行分支完成后触发汇合规划",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "分别分析 portrait.png 和 rocket.png，再依据两个分支结果规划拼成256×128双图PNG。 首轮同时追加两个互不依赖的分析节点，各自用本地脚本等待5秒后保存分析JSON，设置 sealed=false 并以这两个节点作为 replan_after；两者完成后再追加拼接节点。",
+      "expect": {
+        "kind": "image",
+        "width": 256,
+        "height": 128
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "parallel_replan",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D03",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "未封口禁止提前交付",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先生成128×128中间预览；等待结果后再规划最终64×64 PNG，不能把中间预览当作最终交付。 首轮只能添加中间图节点，必须 sealed=false 并使用 replan_after；读取中间图后第二轮才能添加最终节点和 sealed=true。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "unsealed_hold",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D04",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "Orchestrator 重启与提案去重",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "分析 portrait.png 后生成64×64 PNG并交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "orchestrator_restart",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D05",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "两个 Orchestrator 竞争推进",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "生成 portrait.png 的128×128和64×64两种PNG，最终一并交付。",
+      "expect": {
+        "kind": "image",
+        "width": 128,
+        "height": 128,
+        "min_images": 2,
+        "extra_image_sizes": [
+          [
+            64,
+            64
+          ]
+        ]
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "orchestrator_competition",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D06",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "执行器退出后换节点恢复",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "executor_restart",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D07",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "Manager 执行中取消",
+      "assets": [
+        "portrait.png",
+        "rocket.png"
+      ],
+      "prompt": "分析所有素材，分别列出可执行编辑方案并生成64×64 PNG预览。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "cancel_planning",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D08",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "暂停边界不启动新任务",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "pause_resume",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "真实暂停保持到在途上游完成，核对下游未启动；恢复命令实际应用后再继续执行。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D09",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "外部调用超范围审批",
+      "assets": [],
+      "prompt": "使用真实文生图生成蓝色杯子PNG，原授权没有收费调用额度时先请求授权，不得擅自调用。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "authorize_provider",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D10",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "拒绝扩大授权后不调用供应商",
+      "assets": [],
+      "prompt": "使用真实文生图生成蓝色杯子PNG，先请求必要授权。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "reject_provider",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D11",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "过期审批与重复命令拒绝",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "生成128×128 PNG并要求人工内容验收，之后再交付64×64 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "stale_decision",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D12",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "跨项目读取与控制拒绝",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "把 portrait.png 缩小为64×64 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "foreign_project",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D13",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "模型预算耗尽有界暂停",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "分析 portrait.png，再根据分析生成64×64 PNG。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "token_budget",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D14",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "BOSS 内容校验与候选不放行",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "artifact_integrity",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D15",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "授权内容指纹失效拒绝",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "把 portrait.png 缩小为64×64 PNG。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "stale_authorization",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D16",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "外部提交未知不重复生成",
+      "assets": [],
+      "prompt": "调用真实文生图服务生成蓝色杯子PNG。",
+      "expect": {
+        "kind": "protocol"
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "submission_unknown",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [
+        "image.generate_from_text"
+      ],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D17",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "观测服务中断不影响业务状态",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "把 portrait.png 缩小为64×64 PNG并交付。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "observer_restart",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D18",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "API 切换与浏览器恢复",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "把 portrait.png 缩小为64×64 PNG，完成后保持可下载。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "api_restart",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D19",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "独立部署与 main 数据隔离",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "把 portrait.png 缩小为64×64 PNG。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "deployment_isolation",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D20",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "专业 Agent 权限与实际模型用量",
+      "assets": [
+        "portrait.png"
+      ],
+      "prompt": "使用 editing_implementer 专业 Agent 把 portrait.png 缩小为64×64 PNG；不得访问项目外文件或调用未授权服务。 必须在 DAG 中创建 type=agent、profile=editing_implementer 的业务任务，由该 Agent 的 script 工具执行；不能改用 type=script 或 operation 替代该专业 Agent。",
+      "expect": {
+        "kind": "image",
+        "width": 64,
+        "height": 64
+      },
+      "content_checks": [
+        "真实浏览器状态与持久化状态一致",
+        "操作不越过授权与租约边界",
+        "无重复外部副作用或提前交付",
+        "缓存、BOSS 引用及清理状态符合协议"
+      ],
+      "workflow_min_steps": 0,
+      "dynamic_hook": "specialist_scope",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "覆盖动态图新增的版本、控制、恢复、授权或隔离协议。",
+      "status": "not_run",
+      "attempts": []
+    },
+    {
+      "id": "D21",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "诊断后不可变修订并衔接下游",
+      "assets": ["portrait.png"],
+      "prompt": "创建逻辑Task render，目标和冻结输出始终是64×64 final.png，on_failure=diagnose。render的revision 0使用本地脚本明确退出23以触发真实失败；诊断完成后Manager必须使用revise_tasks只替换该Task的argv，产生revision 1并实际生成图片。再由依赖render的package步骤复制为delivered.png并交付。不得新增另一个替代render Task，不得修改目标、输入输出或验收。",
+      "expect": {"kind": "image", "width": 64, "height": 64},
+      "content_checks": ["失败revision保留", "修复根计数一次", "下游使用新revision", "无关授权不扩大"],
+      "workflow_min_steps": 2,
+      "dynamic_hook": "repair_revision",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": ["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup"],
+      "review_decision": "新增",
+      "review_reason": "覆盖失败节点交回Manager、同一逻辑Task新revision、修复计数、后代失效和正式交付。",
+      "status": "not_run",
+      "attempts": []
+    }
+  ]
+}

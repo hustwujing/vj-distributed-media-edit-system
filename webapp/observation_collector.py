@@ -181,6 +181,18 @@ def sample(store,archive):
     data['gauges']['workers_available']=len({w['node'] for w in active})
     queue=query('queue',"SELECT status,COUNT(*) AS n,MIN(created) AS oldest FROM (SELECT status,created FROM agent_turns UNION ALL SELECT status,created FROM jobs) t GROUP BY status")
     data['views']['queue']=queue
+    orchestrators=query('orchestrators','SELECT id,release,heartbeat,draining,reconciles,failures,last_duration FROM workflow_orchestrators ORDER BY heartbeat DESC LIMIT 20')
+    data['views']['orchestrators']=orchestrators
+    data['gauges']['orchestrators_available']=sum(now-r['heartbeat']<15 and not r['draining'] for r in orchestrators)
+    workflows=query('dynamic_workflows',"SELECT status,COUNT(*) AS n,MIN(next_reconcile_at) AS due FROM workflow_runs GROUP BY status")
+    data['views']['dynamic_workflows']=workflows
+    data['gauges']['workflow_scan_lag_seconds']=max([max(0,now-r['due']) for r in workflows if r['status'] not in ('succeeded','failed','cancelled')]+[0])
+    data['gauges']['workflow_reconcile_failures']=sum(r['failures'] for r in orchestrators)
+    data['gauges']['workflow_reconcile_last_seconds']=max([r['last_duration'] for r in orchestrators]+[0])
+    data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM workflow_tasks GROUP BY type,status')
+    data['views']['planning']=query('planning','SELECT status,COUNT(*) AS n FROM planner_runs GROUP BY status')
+    late=query('late_results',"SELECT COUNT(*) AS n FROM task_results WHERE status='late'")
+    data['gauges']['workflow_late_results_total']=late[0]['n'] if late else 0
     for r in queue:
         if r['status'] in ('queued','running','waiting','paused','cancelled','succeeded','failed'):
             data['gauges']['tasks_'+r['status']]=r['n']
@@ -269,6 +281,8 @@ def monitor(archive,store,stop):
             archive.snapshot=sample(store,archive);archive.last_scan=time.time();archive.scan_error=''
             gauges=archive.snapshot['gauges'];dependencies=archive.snapshot['dependencies']
             conditions={
+                'orchestrator_unavailable':{'available':gauges['orchestrators_available']} if os.environ.get('VIDEO_USE_EXPECT_ORCHESTRATOR')=='1' and not gauges['orchestrators_available'] else None,
+                'workflow_reconcile_stalled':{'seconds':gauges['workflow_scan_lag_seconds']} if gauges['workflow_scan_lag_seconds']>30 else None,
                 'api_unavailable':{'count':gauges['api_unavailable']} if gauges['api_unavailable'] else None,
                 'database_unavailable':{'scope':'database'} if dependencies.get('database')=='unavailable' else None,
                 'workers_unavailable':{'available':gauges['workers_available']} if gauges['workers_available']<int(os.environ.get('VIDEO_USE_EXPECTED_WORKERS','2')) else None,
@@ -301,7 +315,8 @@ def monitor(archive,store,stop):
 def journal(archive,stop):
     while not stop.is_set():
         with archive.connect() as db:row=db.execute("SELECT value FROM metadata WHERE key='cursor'").fetchone()
-        command=['journalctl','--namespace=video-use','--follow','--output=json','--no-pager']
+        from .deployment_identity import namespace
+        command=['journalctl','--namespace='+namespace(),'--follow','--output=json','--no-pager']
         command+=['--after-cursor',row['value']] if row else ['--since','-5min']
         process=subprocess.Popen(command,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True)
         try:

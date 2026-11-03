@@ -53,7 +53,8 @@ def dispatch(store,turn_id,body,mode,review_id=None):
         if not lease or not lease.runtime:raise ValueError('预检查需要当前隔离执行环境')
         plan=workflows.validate_plan(body.get('plan'))
         project=store.query('SELECT project FROM agent_turns WHERE id=?',(turn_id,))[0]['project']
-        adapter=Adapter(store,'',Path('/run/video-use-agent'))
+        from .deployment_identity import socket_root
+        adapter=Adapter(store,'',socket_root())
         reports={}
         for step in plan.steps:
             if step.kind=='script':

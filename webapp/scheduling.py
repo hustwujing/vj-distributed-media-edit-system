@@ -22,6 +22,11 @@ def next_step(w,now):
 
 
 def available_steps(store,turn_id,now):
+    from .workflow_graph import get as graph_get
+    dynamic=graph_get(store,turn_id)
+    if dynamic:
+        from .workflow_dispatch import available
+        return available(store,dynamic,now)
     from .workflows import get
     workflow=get(store,turn_id)
     if not workflow or workflow['status']!='ready':return []
@@ -50,6 +55,15 @@ def candidates(coordinator,model_available):
     rows=[dict(r,manual=True) for r in coordinator.manual_candidates()]+coordinator.candidates()
     result=[]
     for row in rows:
+        if row.get('dynamic'):
+            detail=store.query('SELECT type,spec_json FROM workflow_tasks WHERE workflow_id=? AND id=?',(row['workflow'],row['step_id']))
+            if not detail:continue
+            if detail[0]['type']=='agent' and not model_available:continue
+            if detail[0]['type']=='operation':
+                from .operations import get
+                spec=json.loads(detail[0]['spec_json']);op=get(spec['operation'],spec['implementation'])
+                if not op.node_enabled() or not op.available():continue
+            result.append(row);continue
         if dispatch_kind(row)=='agent' and row['status']!='cancelling':
             from .agent_profiles import for_task
             digest=for_task(store,row['id']).digest
@@ -79,6 +93,11 @@ def candidates(coordinator,model_available):
 
 
 def requirements(store,turn_id,kind,step_id=None):
+    from .workflow_graph import get as graph_get
+    dynamic=graph_get(store,turn_id)
+    if dynamic and step_id:
+        from .workflow_dispatch import requirements as dynamic_requirements
+        return dynamic_requirements(store,dynamic,step_id)
     selected_step=None
     cpu=2;memory=4096;provider='';gpu=False
     if kind=='agent':
@@ -147,8 +166,11 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
         from .operations import get
         polling=False
         if kind=='workflow' and need['step_id']:
-            selected=db.execute('SELECT s.status FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
-            polling=bool(selected and selected['status']!='pending')
+            selected=db.execute('SELECT s.phase FROM workflow_tasks s JOIN workflow_runs w ON w.id=s.workflow_id WHERE w.turn_id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
+            if selected:polling=selected['phase']!='execute'
+            else:
+                selected=db.execute('SELECT s.status FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(turn_id,need['step_id'])).fetchone()
+                polling=bool(selected and selected['status']!='pending')
         elif kind=='manual':
             existing=db.execute('SELECT state FROM manual_operation_runs WHERE job_id=?',(turn_id,)).fetchone()
             polling=bool(existing and existing['state']!='pending')
@@ -169,11 +191,13 @@ def admit(db,store,turn_id,kind,node,timestamp,step_id=None):
               JOIN execution_leases l ON l.attempt=r.attempt
               LEFT JOIN agent_workflows w ON w.turn_id=r.task_id
               LEFT JOIN agent_steps s ON s.workflow=w.id AND s.id=a.step_id
+              LEFT JOIN workflow_runs dw ON dw.turn_id=r.task_id
+              LEFT JOIN workflow_tasks ds ON ds.workflow_id=dw.id AND ds.id=a.step_id
               WHERE l.active=1 AND l.expires>? AND NOT EXISTS (
                 SELECT 1 FROM workflow_provider_calls c
-                WHERE c.workflow=COALESCE(w.id,r.task_id)
+                WHERE c.workflow=COALESCE(dw.id,w.id,r.task_id)
                 AND c.step=CASE WHEN a.step_id='' THEN 'image' ELSE a.step_id END
-                AND c.revision=COALESCE(s.revision,0))''',(timestamp,)).fetchall()
+                AND c.revision=COALESCE(ds.revision,s.revision,0))''',(timestamp,)).fetchall()
             count+=sum(r['provider']==need['provider'] for r in reservations)
             if count>=int(os.environ.get('VIDEO_USE_PROVIDER_CONCURRENCY','4')):return None
     return need

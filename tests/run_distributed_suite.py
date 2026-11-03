@@ -15,8 +15,10 @@ def main():
     started=time.monotonic()
     sys.path.insert(0,str(Path('tests').resolve()))
     from tests.run_workflow_suite import source_digest
+    from tests.isolation import temporary_root
+    test_tmp=temporary_root();tempfile.tempdir=str(test_tmp)
     before=source_digest()
-    with tempfile.TemporaryDirectory(prefix='vt-') as folder:
+    with tempfile.TemporaryDirectory(prefix='vt-',dir=test_tmp) as folder:
         root=Path(folder);root.chmod(0o755)
         from tests.isolation import isolate_environment,isolate_network
         isolate_environment(root,root/'runtime')

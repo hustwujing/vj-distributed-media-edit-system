@@ -185,3 +185,62 @@ def render_media(ctx):
     for name in ('clips_draft', 'clips_preview', 'clips_graded', 'transcripts'):
         shutil.rmtree(output / name, ignore_errors=True)
     return artifacts
+
+
+@register('concat_sequence')
+def concat_sequence(ctx):
+    from .media_plan_compiler import compile_sequence
+    roles=ctx.parameters['roles']
+    if any(role not in ctx.input_roles for role in roles):raise ValueError('Sequence references an undeclared input role')
+    paths=[ctx.source(ctx.input_roles[role]) for role in roles]
+    report=compile_sequence(paths,ctx.output/'final.mp4',ctx.output/'compiler-work',
+        width=ctx.parameters.get('width'),height=ctx.parameters.get('height'),fps=ctx.parameters.get('fps'),
+        crf=ctx.parameters['crf'],audio_mode=ctx.parameters['audio_mode'],threads=ctx.parameters['threads'])
+    (ctx.output/'compiler-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+    shutil.rmtree(ctx.output/'compiler-work',ignore_errors=True)
+    return ['final.mp4','compiler-report.json']
+
+
+def _atomic_report(path,payload):
+    temporary=path.with_suffix(path.suffix+'.tmp')
+    temporary.write_text(json.dumps(payload,ensure_ascii=False,indent=2));temporary.replace(path)
+
+
+@register('audio_process')
+def audio_process(ctx):
+    import re
+    from .media_evidence import audio_evidence
+    p=ctx.parameters;role=p['role']
+    if set(ctx.input_roles)!={role}:raise ValueError('Audio process requires exactly its declared role')
+    source=ctx.source(ctx.input_roles[role]);report_path=ctx.output/'audio-process-report.json'
+    report={'version':1,'status':'measuring','parameters':{k:v for k,v in p.items() if k not in ('kind','assets')},'measurement':None}
+    _atomic_report(report_path,report)
+    probe_run=subprocess.run(['ffprobe','-v','error','-show_entries','format=duration','-of','default=nk=1:nw=1',str(source)],capture_output=True,text=True,timeout=30)
+    if probe_run.returncode:
+        report.update(status='failed',error_code='audio_probe_failed');_atomic_report(report_path,report);raise ValueError('Audio input probe failed')
+    duration=float(probe_run.stdout.strip());filters=[]
+    if p['highpass_hz']:filters.append(f'highpass=f={p["highpass_hz"]:g}')
+    if p['denoise']:filters.append('afftdn=nf=-25')
+    if p['gain_db']:filters.append(f'volume={p["gain_db"]:g}dB')
+    if p['fade_in']:filters.append(f'afade=t=in:st=0:d={min(duration,p["fade_in"]):g}')
+    if p['fade_out']:filters.append(f'afade=t=out:st={max(0,duration-p["fade_out"]):g}:d={min(duration,p["fade_out"]):g}')
+    if p.get('target_lufs') is not None:
+        first=','.join([*filters,f'loudnorm=I={p["target_lufs"]:g}:TP={p["true_peak_db"]:g}:LRA=11:print_format=json'])
+        command=['ffmpeg','-nostdin','-hide_banner','-v','info','-threads',str(p['threads']),'-i',str(source),'-map','0:a:0','-af',first,'-f','null','-']
+        measured=subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,text=True)
+        matches=re.findall(r'\{[^{}]+\}',measured.stderr,re.S)
+        try:values=json.loads(matches[-1]);required=('input_i','input_tp','input_lra','input_thresh','target_offset');assert all(key in values for key in required)
+        except (ValueError,IndexError,AssertionError):
+            report.update(status='failed',error_code='loudness_measurement_failed');_atomic_report(report_path,report);raise ValueError('Two-pass loudness measurement failed')
+        report['measurement']={key:values[key] for key in required}
+        filters.append(f'loudnorm=I={p["target_lufs"]:g}:TP={p["true_peak_db"]:g}:LRA=11:measured_I={values["input_i"]}:measured_TP={values["input_tp"]}:measured_LRA={values["input_lra"]}:measured_thresh={values["input_thresh"]}:offset={values["target_offset"]}:linear=true')
+    extension=p['format'];output=ctx.output/('final.'+extension)
+    codec={'wav':['-c:a','pcm_s16le'],'mp3':['-c:a','libmp3lame','-b:a','192k'],'m4a':['-c:a','aac','-b:a','192k']}[extension]
+    command=['ffmpeg','-nostdin','-v','error','-y','-threads',str(p['threads']),'-i',str(source),'-map','0:a:0','-vn']
+    if filters:command+=['-af',','.join(filters)]
+    command+=codec+['-ar','48000','-ac','2','-threads',str(p['threads']),str(output)]
+    rendered=subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+    if rendered.returncode:
+        report.update(status='failed',error_code='audio_render_failed',stderr_tail=rendered.stderr[-8000:]);_atomic_report(report_path,report);raise ValueError('Audio processing failed')
+    report.update(status='succeeded',output=audio_evidence(output));_atomic_report(report_path,report)
+    return [output.name,report_path.name]

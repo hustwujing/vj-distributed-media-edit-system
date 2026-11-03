@@ -1,6 +1,8 @@
 """Attempt-private files, bounded scratch storage, immutable durable checkpoints."""
 from __future__ import annotations
 
+from .deployment_identity import service_user, runtime_group, socket_root
+
 import hashlib
 import json
 import os
@@ -84,7 +86,7 @@ class TaskRuntime:
         self.cancel_call=None
         lease.runtime=self
         self.limit = int(os.environ.get('VIDEO_USE_TASK_DISK_BYTES', str(8*1024**3)))
-        service = pwd.getpwnam('video-use')
+        service = pwd.getpwnam(service_user())
         self.service_uid, self.service_gid = service.pw_uid, service.pw_gid
         try:
             with self.store.connect() as db:
@@ -98,7 +100,7 @@ class TaskRuntime:
                 timestamp=self.store.now()
                 db.execute("INSERT INTO execution_cleanup(attempt,task_id,node,state,updated) VALUES (?,?,?,'allocated',?)",
                            (lease.attempt,lease.turn_id,pool.node,timestamp))
-            self.read_gid = grp.getgrnam('video-use-runtime').gr_gid
+            self.read_gid = grp.getgrnam(runtime_group()).gr_gid
             from .scheduling import requirements
             resources=requirements(self.store,lease.turn_id,lease.kind,step_id=lease.step_id)
             memory_limit=min(int(os.environ.get('VIDEO_USE_TASK_MEMORY_BYTES',str(12*1024**3))),max(512,resources['memory_mb'])*1024**2)
@@ -145,11 +147,24 @@ class TaskRuntime:
             table = 'jobs' if lease.kind == 'manual' else 'agent_turns'
             turn = self.store.query(f'SELECT project FROM {table} WHERE id=?', (lease.turn_id,))[0]
             self.project = self.store.project_dir(turn['project'])
+            from .workflow_graph import get as graph_get
+            dynamic=graph_get(self.store,lease.turn_id)
+            allowed_scripts=None
+            if dynamic:
+                selected=next(t for t in dynamic['tasks'] if t['id']==lease.step_id)
+                self.dynamic_context={'workflow_id':dynamic['id'],'task_id':selected['id'],'goal':dynamic['goal']}
+                self.source_asset_ids=(set(dynamic['authorization']['allowed_assets']) if selected['internal'] else
+                    {ref['asset'] for ref in selected['spec'].get('inputs',{}).values() if ref.get('asset')})
+                spec=selected['spec']
+                allowed_scripts=set(spec.get('preflight',[])+spec.get('config_files',[])+
+                    [a for a in spec.get('argv',[]) if a.startswith('edit/') and a.endswith(('.py','.json','.sh'))])
             from .workspace_state import checkpoint_rows,seed_manifest
             checkpoint=checkpoint_rows(self.store,turn['project']);initial_workspace=None
             if checkpoint:
                 source = self.store.root/checkpoint[0]['path']
                 expected = json.loads(checkpoint[0]['manifest'])
+                if dynamic:
+                    expected={'workspace':{name:record for name,record in expected.get('workspace',{}).items() if name in allowed_scripts},'state':{}}
                 from .session_checkpoint import persistent,BUNDLE
                 if BUNDLE not in expected.get('state',{}):
                     expected['state']={name:record for name,record in expected.get('state',{}).items() if persistent(name)}
@@ -161,6 +176,7 @@ class TaskRuntime:
                               for group,files in expected.items()}
             else:
                 initial_workspace=seed_manifest(self.store,turn['project'])
+                if dynamic:initial_workspace={name:record for name,record in initial_workspace.items() if name in allowed_scripts}
                 source = self.project/'agent'
                 if self.store.shared_files:
                     for relative,record in initial_workspace.items():
@@ -169,7 +185,7 @@ class TaskRuntime:
                 expected = None
             restored_state=None
             from .session_checkpoint import BUNDLE,FORMAT,unpack
-            if checkpoint:
+            if checkpoint and not dynamic:
                 session=json.loads(checkpoint[0]['manifest']).get('state',{})
                 if BUNDLE in session and session[BUNDLE].get('format')==FORMAT:
                     if set(session)!={BUNDLE}:raise ValueError('Mixed session checkpoint format')
@@ -183,11 +199,11 @@ class TaskRuntime:
             for name, target in (('workspace', self.workspace), ('state', self.state)):
                 if name=='state':
                     from .checkpoints import state_compatible
-                    if not checkpoint or not state_compatible(self.store,turn['project'],checkpoint[0]['path']):
+                    if dynamic or not checkpoint or not state_compatible(self.store,turn['project'],checkpoint[0]['path']):
                         target.mkdir(mode=0o700);os.chown(target,self.uid,self.gid)
                         continue
                 manifest=expected[name] if expected else initial_workspace if name=='workspace' else None
-                include=list(manifest) if manifest is not None and (name=='state' or not checkpoint) else None
+                include=list(manifest) if manifest is not None and (dynamic or name=='state' or not checkpoint) else None
                 self.stage(restored_state if name=='state' and restored_state else source/name,target,manifest,include=include)
             from .step_checkpoints import restore as restore_steps
             restore_steps(self)
@@ -196,11 +212,22 @@ class TaskRuntime:
             # Source permissions remain unchanged. Copies grant this attempt only
             # access to its own project and consume its bounded scratch allocation.
             self.sources, self.transcripts = data/'sources', data/'transcripts'
-            self.store.restore_files(turn['project'],'sources')
-            self.store.restore_files(turn['project'],'edit/transcripts')
-            self.stage(self.project/'sources', self.sources,
-                       include=[a['filename'] for a in self.store.assets(self.project.name)])
-            self.stage(self.project/'edit/transcripts', self.transcripts)
+            assets=[a for a in self.store.assets(self.project.name) if not dynamic or a['id'] in self.source_asset_ids]
+            if dynamic and self.store.shared_files:
+                for asset in assets:self.store.file(turn['project'],'sources/'+asset['filename'])
+                stems={Path(a['filename']).stem for a in assets}|{a['id'] for a in assets}
+                for row in self.store.query("SELECT path FROM artifact_files WHERE project=? AND path LIKE 'edit/transcripts/%'",(turn['project'],)):
+                    name=Path(row['path']).name
+                    if any(name==stem+'.json' or name.startswith(stem+'.track') for stem in stems):self.store.file(turn['project'],row['path'])
+            else:
+                self.store.restore_files(turn['project'],'sources')
+                self.store.restore_files(turn['project'],'edit/transcripts')
+            self.stage(self.project/'sources', self.sources,include=[a['filename'] for a in assets])
+            transcript_names=None
+            if dynamic:
+                stems={Path(a['filename']).stem for a in assets}|{a['id'] for a in assets}
+                transcript_names=[p.name for p in (self.project/'edit/transcripts').glob('*.json') if any(p.name==stem+'.json' or p.name.startswith(stem+'.track') for stem in stems)]
+            self.stage(self.project/'edit/transcripts', self.transcripts,include=transcript_names)
             self.preview_root = data/'previews'
             self.preview_root.mkdir(mode=0o700)
             os.chown(self.preview_root, self.uid, self.gid)

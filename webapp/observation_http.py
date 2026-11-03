@@ -20,6 +20,8 @@ class ObservationMiddleware:
         project=re.search(r'/projects/([a-f0-9]{32})(?:/|$)',scope['path'])
         fields={'project_id':project[1]} if project else {}
         if match:fields.update(task_id=match[2])
+        workflow=re.search(r'/projects/[a-f0-9]{32}/workflows/([a-f0-9]{32})(?:/|$)',scope['path'])
+        if workflow:fields['workflow_id']=workflow[1]
         started=time.monotonic();status=500;began=False;complete=False;sent=0;first_byte=None;outcome='succeeded'
         async def observed_send(message):
             nonlocal status,began,complete,sent,first_byte
@@ -47,9 +49,11 @@ class ObservationMiddleware:
                 await response(scope,receive,observed_send)
             finally:
                 route=re.sub(r'\{[^}]+\}',':id',getattr(scope.get('route'),'path','unmatched'))
+                resolved={key:value for key,value in scope.get('state',{}).get('workflow_observation',{}).items()
+                          if key in ('task_id','workflow_id') and isinstance(value,str) and re.fullmatch('[a-f0-9]{32}',value)}
                 emit('http.finished','ERROR' if outcome=='failed' or status>=500 else 'INFO',method=scope['method'],route=route,status=status,
                      outcome=outcome,bytes_sent=sent,first_byte_seconds=round(first_byte,6) if first_byte is not None else None,
-                     duration_seconds=round(time.monotonic()-started,6))
+                     duration_seconds=round(time.monotonic()-started,6),**resolved)
 
 
 def install(app):app.add_middleware(ObservationMiddleware)

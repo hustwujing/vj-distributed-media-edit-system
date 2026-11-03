@@ -46,12 +46,13 @@ class StudioTests(unittest.TestCase):
     def test_three_real_pages_and_private_editor_routes(self):
         home=self.a.get('/');self.assertEqual(home.status_code,200)
         self.assertIn('static/home.js',home.text);self.assertNotIn('id="agent-input"',home.text)
-        for route,script in [('tools','tools.js'),('chat','chat.js')]:
+        for route,script in [('tools','tools.js'),('chat','dynamic.js')]:
             response=self.a.get(f'/{route}/{self.pid}')
             self.assertEqual(response.status_code,200)
             self.assertIn('<base href="/">',response.text)
             self.assertIn('static/'+script,response.text)
             self.assertNotIn('{{PROJECT}}',response.text)
+            self.assertIn(self.pid,response.text)
             self.assertEqual(self.b.get(f'/{route}/{self.pid}').status_code,404)
 
     def test_audio_upload_attachment_preview_and_ownership(self):

@@ -5,4 +5,4 @@ if [[ "${1:-}" == "observe" ]]; then
   shift
   exec .venv/bin/python deploy/observe.py "$@"
 fi
-exec .venv/bin/python deploy/cluster.py "${@:-status}"
+exec .venv/bin/python deploy/dynamic_cluster.py "${@:-status}"

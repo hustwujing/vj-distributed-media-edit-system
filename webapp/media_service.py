@@ -3,6 +3,8 @@
 No path, command, project, provider credentials or network capability is accepted.
 The decoder runs in the existing read-only namespace and drops to the API UID.
 """
+from .deployment_identity import service_user, runtime_group, socket_root
+
 import array
 import base64
 import json
@@ -84,7 +86,7 @@ class Handler(socketserver.BaseRequestHandler):
         try:
             self.request.settimeout(55)
             _,uid,_=struct.unpack('3i',self.request.getsockopt(socket.SOL_SOCKET,socket.SO_PEERCRED,12))
-            service=pwd.getpwnam('video-use')
+            service=pwd.getpwnam(service_user())
             if uid not in (0,service.pw_uid):raise ValueError('Unauthorized media caller')
             raw,ancillary,flags,_=self.request.recvmsg(8192,socket.CMSG_SPACE(4))
             for level,kind,value in ancillary:
@@ -134,7 +136,7 @@ class Server(socketserver.ThreadingMixIn,socketserver.UnixStreamServer):
     def __init__(self,path):
         self.slots=threading.BoundedSemaphore(2)
         super().__init__(str(path),Handler)
-        service=pwd.getpwnam('video-use');os.chown(path,0,service.pw_gid);os.chmod(path,0o660)
+        service=pwd.getpwnam(service_user());os.chown(path,0,service.pw_gid);os.chmod(path,0o660)
     def process_request(self,request,address):
         if not self.slots.acquire(blocking=False):self.shutdown_request(request);return
         super().process_request(request,address)

@@ -116,13 +116,21 @@ class S3Objects:
     def delete(self,key):self.client.delete_object(Bucket=self.bucket,Key=logical_path(key))
 
 
+class MetadataOnlyObjects:
+    """Control-plane references require no object credentials or byte access."""
+    def __getattr__(self,name):
+        raise PermissionError('Object byte access is disabled for this process')
+
+
 class ArtifactStore:
     def __init__(self,store,backend=None):
         self.store=store
         bucket=os.environ.get('VIDEO_USE_OBJECT_BUCKET')
         if backend is None and os.environ.get('VIDEO_USE_DISTRIBUTED')=='1' and not bucket:
             raise ValueError('Distributed execution requires VIDEO_USE_OBJECT_BUCKET')
-        self.backend=backend or (S3Objects(bucket,os.environ.get('VIDEO_USE_OBJECT_ENDPOINT')) if bucket else LocalObjects(store.root/'objects'))
+        self.backend=backend or (MetadataOnlyObjects() if os.environ.get('VIDEO_USE_STORAGE_METADATA_ONLY')=='1' else
+                                S3Objects(bucket,os.environ.get('VIDEO_USE_OBJECT_ENDPOINT')) if bucket else LocalObjects(store.root/'objects'))
+        if isinstance(self.backend,MetadataOnlyObjects):return
         with store.connect() as db:
             db.executescript('''CREATE TABLE IF NOT EXISTS artifact_objects(
               id TEXT PRIMARY KEY,project TEXT NOT NULL,object_key TEXT NOT NULL UNIQUE,
@@ -134,6 +142,7 @@ class ArtifactStore:
 
     @measured('output_upload')
     def upload(self,project,path,*,check=None):
+        if isinstance(self.backend,MetadataOnlyObjects):raise PermissionError('Object byte access is disabled for this process')
         check=check or (lambda:None)
         check()
         if not self.store.query('SELECT id FROM projects WHERE id=?',(project,)):raise ValueError('Unknown artifact project')
@@ -206,6 +215,7 @@ class ArtifactStore:
 
     @measured('input_download')
     def materialize(self,project,identifier,target=None):
+        if isinstance(self.backend,MetadataOnlyObjects):raise PermissionError('Object byte access is disabled for this process')
         record=self.record(project,identifier)
         destination=Path(target) if target else self.store.root/'cache/objects'/project/record['sha256']
         destination.parent.mkdir(parents=True,exist_ok=True)
@@ -252,11 +262,14 @@ class ArtifactStore:
               (SELECT 1 FROM artifact_files f WHERE f.artifact=artifact_objects.id)""",
               (self.store.now()+3600,project))
 
-    def collect_garbage(self,limit=100):
+    def collect_garbage(self,limit=100,project=None):
+        if isinstance(self.backend,MetadataOnlyObjects):raise PermissionError('Object byte access is disabled for this process')
         # Claim deletion before network I/O. Publication rejects deleting objects.
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            rows=db.execute("SELECT id,object_key FROM artifact_objects o WHERE state IN ('uploading','staged','deleting','deleted') AND expires<? AND NOT EXISTS (SELECT 1 FROM artifact_files f WHERE f.artifact=o.id) ORDER BY CASE WHEN state='deleted' THEN 1 ELSE 0 END,expires LIMIT ?",(self.store.now(),limit)).fetchall()
+            scope=' AND project=?' if project is not None else ''
+            arguments=(self.store.now(),project,limit) if project is not None else (self.store.now(),limit)
+            rows=db.execute("SELECT id,object_key FROM artifact_objects o WHERE state IN ('uploading','staged','deleting','deleted') AND expires<?"+scope+" AND NOT EXISTS (SELECT 1 FROM artifact_files f WHERE f.artifact=o.id) ORDER BY CASE WHEN state='deleted' THEN 1 ELSE 0 END,expires LIMIT ?",arguments).fetchall()
             for row in rows:db.execute("UPDATE artifact_objects SET state='deleting' WHERE id=?",(row['id'],))
         for row in rows:
             self.backend.delete(row['object_key'])

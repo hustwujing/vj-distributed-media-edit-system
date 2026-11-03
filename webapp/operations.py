@@ -43,7 +43,8 @@ IMAGE_PARAMETERS={
     'color_match':{'parameters'},'local_adjust':{'parameters'},'batch_export':{'parameters'}}
 MEDIA_PARAMETERS={'render':{'segments','overlays','grade','quality','fps','subtitles','subtitle_asset','normalize_audio'},
     'edit':{'edit_plan'},'timeline':{'start','end','frames','audio_track'},'analyze':{'start','end','frames'},
-    'review':set(),'pack':{'silence'}}
+    'review':set(),'pack':{'silence'},'concat_sequence':{'roles','width','height','fps','crf','audio_mode','threads'},
+    'audio_process':{'role','format','gain_db','target_lufs','true_peak_db','fade_in','fade_out','highpass_hz','denoise','threads'}}
 
 
 @dataclass(frozen=True)
@@ -92,7 +93,11 @@ class Operation:
             result['constraints']=capabilities()['operations'][self.id]
         elif self.id=='image.segment_sam3':
             result['constraints']={'selection_modes':['text','points','box'],'selection_modes_exclusive':True,'text_and_spatial_combination':False,
-                                   'refinement_optional':True,'spatial_prompt':'empty'}
+                                   'refinement_optional':True,'spatial_prompt':'empty',
+                                   'text_language':'English','text_max_length':120,'translate_user_intent_before_submission':True}
+        elif self.id=='media.render':
+            result['constraints']={'long_edge_by_quality':{'draft':1280,'preview':1920,'final':1920},
+                                   'preserves_input_resolution':False,'custom_geometry_operation':'media.edit'}
         elif self.provider=='edit':
             from .image_providers import EDITOR_CONTRACT
             result['constraints']=dict(EDITOR_CONTRACT)
@@ -146,11 +151,14 @@ for action in _ACTIONS:
                  reuse_safe=action in ('refine_mask','perspective','color_match','local_adjust','batch_export','product_layout'),
                  output_files=_FIXED_OUTPUT_FILES.get(action))
     REGISTRY[op.id]=op
-for action in ('render','edit','timeline','analyze','review','pack'):
-    output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',)}[action]
+for action in ('render','edit','timeline','analyze','review','pack','concat_sequence'):
+    output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',),'concat_sequence':('video','report')}[action]
     input_kinds=('json',) if action=='pack' else ('video','json') if action=='timeline' else ('video',) if action in ('analyze','review') else ('video','audio','image','subtitle','json')
-    op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800,reuse_safe=True)
+    op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800,reuse_safe=True,
+                 output_files=('final.mp4','compiler-report.json') if action=='concat_sequence' else None)
     REGISTRY[op.id]=op
+REGISTRY['audio.process']=Operation('audio.process','audio_process','fixed_media',('audio','video'),('audio','report'),
+    memory_mb=2048,timeout=1800,reuse_safe=True)
 REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,provider='elevenlabs',output_files=('transcript.json',))
 REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,provider='generation')
 REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,provider='generation',timeout=3600)
@@ -170,7 +178,7 @@ class OperationContract:
         if self.allowed_inputs is not None and set(inputs)-self.allowed_inputs:
             raise ValueError('Operation received undeclared input roles')
         for value in inputs.values():InputRef.model_validate(value)
-        return self.parameters.model_validate(parameters).model_dump()
+        return self.parameters.model_validate(parameters).model_dump(exclude_none=True)
 
 
 _CONTRACTS={}
@@ -244,7 +252,7 @@ def for_image(action):
 
 def for_step(spec):
     if spec['kind']=='operation':return get(spec['operation'],spec.get('implementation'))
-    if spec['kind']=='script':return None
+    if spec['kind'] in ('script','agent'):return None
     raise ValueError('工作流步骤只支持 script 或 operation')
 
 
@@ -264,9 +272,13 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
     if op.executor=='fixed_media':
         from .operation_parameters import model
         if op.action!='pack' and not inputs:raise ValueError('媒体操作需要声明输入素材')
-        value=model(op.id,op.executor,op.action).model_validate(parameters).model_dump()
+        value=model(op.id,op.executor,op.action).model_validate(parameters).model_dump(exclude_none=True)
         if op.action=='render' and not value['segments']:raise ValueError('渲染操作需要 segments')
         if op.action=='edit' and not value['edit_plan']:raise ValueError('编辑操作需要 edit_plan')
+        if op.action=='concat_sequence' and set(value['roles'])!=set(inputs):
+            raise ValueError('顺序拼接 roles 必须逐一且仅引用已声明输入角色')
+        if op.action=='audio_process' and set(inputs)!={value['role']}:
+            raise ValueError('音频处理 role 必须是唯一声明输入角色')
         return value
     if op.executor=='transcribe':
         if set(inputs)!={'source'}:raise ValueError('转写需要唯一 source 输入')
@@ -286,6 +298,9 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
     if 'source' not in inputs:raise ValueError('图片操作需要 source 输入')
     if set(inputs)-{'source','mask','reference','reference2'}:raise ValueError('未知图片输入角色')
     value=ImageTask.model_validate({'action':op.action,**parameters}).model_dump()
+    if op.action=='segment_sam3':
+        from .image_document import validate_sam3_prompt
+        validate_sam3_prompt(value['prompt'])
     return {k:v for k,v in value.items() if k in IMAGE_PARAMETERS[op.action]}
 
 

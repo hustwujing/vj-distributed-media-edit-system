@@ -3,6 +3,8 @@
 Only the trusted image worker receives this socket. Requests are scoped to one
 validated task and one upstream job; arbitrary URLs and job IDs are rejected.
 """
+from .deployment_identity import service_user, runtime_group, socket_root
+
 import contextlib
 from email.parser import BytesParser
 from email.policy import default
@@ -162,10 +164,10 @@ class ImageRelay:
         if os.geteuid()==0 and lease.runtime and listener_fd is None:
             from .gateway_process import grant_database,await_ready
             grant_database(lease.store)
-            account=pwd.getpwnam('video-use')
+            account=pwd.getpwnam(service_user())
             config={'root':str(lease.store.root),'path':str(path),'task':task.model_dump(),'uid':uid,'gid':gid,
                 'call':self.call,'base':self.base,'parent':os.getpid(),
-                'lease':{key:getattr(lease,key) for key in ('turn_id','worker','attempt','generation','kind','recovered','prior_kind','ttl')}}
+                'lease':{key:getattr(lease,key) for key in ('turn_id','worker','attempt','generation','kind','recovered','prior_kind','ttl','step_id')}}
             env={'PATH':'/usr/bin:/bin','PYTHONPATH':str(Path(__file__).resolve().parents[1]),'PYTHONDONTWRITEBYTECODE':'1',
                  'VIDEO_USE_INTERNAL_PROVIDER_HOSTS':os.environ.get('VIDEO_USE_INTERNAL_PROVIDER_HOSTS','localhost,127.0.0.1,::1')}
             env.update({k:v for k,v in os.environ.items() if k.startswith('VIDEO_USE_USER_')})

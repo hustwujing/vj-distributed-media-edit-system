@@ -1,6 +1,8 @@
 """Build a minimal OS sandbox; never mount the application database or secrets."""
 from __future__ import annotations
 
+from .deployment_identity import service_user, runtime_group, socket_root
+
 import json
 import os
 import pwd
@@ -49,7 +51,7 @@ def prepare(store, project_id, model, mode, turn_id=None, preview_id=None):
     runtime = lease.runtime if lease else None
     if runtime and runtime.env is not None:
         return runtime.env
-    account = pwd.getpwnam('video-use')
+    account = pwd.getpwnam(service_user())
     uid, gid = (runtime.uid, runtime.gid) if runtime else (account.pw_uid, account.pw_gid)
     project = store.project_dir(project_id)
     agent = runtime.agent if runtime else project / 'agent'
@@ -69,6 +71,7 @@ def prepare(store, project_id, model, mode, turn_id=None, preview_id=None):
         path.chmod(0o700)
     _initialize_project_memory(workspace/'edit'/'project.md', uid, gid)
     assets = store.assets(project_id)
+    if runtime and hasattr(runtime,'source_asset_ids'):assets=[a for a in assets if a['id'] in runtime.source_asset_ids]
     manifest = []
     for asset in assets:
         manifest.append({'id':asset['id'],'name':asset['name'], **asset['metadata'],
@@ -139,6 +142,10 @@ inherit = "all"
         write_handoff(store,project_id,turn_id,handoff)
     else:handoff.write_text('{}');handoff.chmod(0o644)
     placeholder=workspace/'harness-context.json'
+    if runtime and hasattr(runtime,'dynamic_context'):
+        history.write_text('');canvas.write_text('{}');continuation.write_text('{}')
+        handoff.write_text(json.dumps(runtime.dynamic_context,ensure_ascii=False))
+        workflow_state.write_text(json.dumps(runtime.dynamic_context,ensure_ascii=False))
     descriptor=os.open(placeholder,os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(descriptor)
     descriptor=os.open(workspace/'capabilities.json',os.O_WRONLY|os.O_CREAT|os.O_NOFOLLOW,0o644);os.close(descriptor)
     # Minimal passwd/group files contain only the sandbox service identity.
@@ -194,7 +201,6 @@ def command(env, gateway_socket, executable=None):
             '--ro-bind', str(agent/'passwd'), '/etc/passwd',
             '--ro-bind', str(agent/'group'), '/etc/group']
     args += ['--ro-bind', str(REPO/'runtime/public/SKILL.md'), '/opt/video-use/SKILL.md',
-             '--ro-bind', str(agent/'capabilities.json'),SANDBOX_WORKSPACE+'/capabilities.json',
              '--ro-bind', str(REPO/'references'), '/opt/video-use/references',
              '--ro-bind', str(REPO/'webapp/sandbox_entry.py'), '/opt/sandbox_entry.py',
              '--ro-bind', str(REPO/'webapp/harness_bridge.py'), '/opt/harness_bridge.py',
@@ -214,6 +220,7 @@ def command(env, gateway_socket, executable=None):
              '--ro-bind', str(REPO/'webapp/preview_export.py'), '/opt/preview_export.py',
              '--ro-bind', str(REPO/'webapp/validate_outputs.py'), '/opt/validate_outputs.py',
              '--ro-bind', str(REPO/'webapp/quality_check.py'), '/opt/quality_check.py',
+             '--ro-bind', str(REPO/'webapp/media_evidence.py'), '/opt/media_evidence.py',
              '--ro-bind', str(REPO/'webapp/text_formats.py'), '/opt/text_formats.py',
              '--bind', str(env['state']), '/state',
              '--ro-bind', str(agent/'config.toml'), '/state/codex/config.toml',
@@ -222,6 +229,8 @@ def command(env, gateway_socket, executable=None):
              '--bind', str(env['preview']), env['preview_path'],
              '--ro-bind', str(env['sources']), SANDBOX_WORKSPACE+'/sources',
              '--ro-bind', str(agent/'assets.json'), SANDBOX_WORKSPACE+'/assets.json',
+             # Mount metadata after its workspace parent so placeholders cannot hide it.
+             '--ro-bind', str(agent/'capabilities.json'),SANDBOX_WORKSPACE+'/capabilities.json',
              '--ro-bind', str(agent/'image-document.json'), SANDBOX_WORKSPACE+'/image-document.json',
              '--ro-bind', str(agent/'workflow-state.json'), SANDBOX_WORKSPACE+'/workflow-state.json',
              '--ro-bind', str(agent/'continuation.json'), SANDBOX_WORKSPACE+'/continuation.json',

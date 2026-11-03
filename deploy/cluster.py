@@ -64,6 +64,9 @@ def private_env(path,values):
 
 
 def environment(node='a'):
+    marker=ROOT/'release.json'
+    if marker.exists() and json.loads(marker.read_text()).get('namespace')=='dynamic-agent':
+        raise RuntimeError('This is an isolated dynamic deployment; use deploy.dynamic_cluster, not legacy cluster configuration')
     result=dict(os.environ)
     for name in ('.env','.agent.env','.storage.env','.distributed.env'):
         result.update(env_file(REPO/name))

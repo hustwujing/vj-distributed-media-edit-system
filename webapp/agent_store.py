@@ -132,6 +132,7 @@ def event(store, turn_id, kind, payload):
         context={'attempt_id':lease.attempt,'generation':lease.generation,'worker':lease.worker,'step_id':lease.step_id}
         if lease.step_id:
             rows=store.query('SELECT s.spec,s.revision FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(turn_id,lease.step_id))
+            if not rows:rows=store.query('SELECT s.spec_json AS spec,s.revision FROM workflow_tasks s JOIN workflow_runs w ON w.id=s.workflow_id WHERE w.turn_id=? AND s.id=?',(turn_id,lease.step_id))
             if rows:
                 spec=json.loads(rows[0]['spec'])
                 context.update(revision=rows[0]['revision'],operation=spec.get('operation','script'),implementation=spec.get('implementation'))

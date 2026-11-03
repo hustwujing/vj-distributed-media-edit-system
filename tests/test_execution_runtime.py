@@ -161,7 +161,16 @@ else:raise AssertionError('scratch allocation exceeded')
 import socket,os,subprocess
 assert b'codex' in subprocess.check_output(['/opt/codex','--version'],timeout=10).lower()
 assert Path('/opt/video-use/SKILL.md').is_file()
-assert Path('/workspace/capabilities.json').is_file()
+import json,errno
+capabilities=Path('/workspace/capabilities.json')
+original=capabilities.read_text()
+catalog=json.loads(original)
+assert any(op['id']=='media.edit' for op in catalog['operations'])
+try:capabilities.write_text('{}')
+except OSError as exc:assert exc.errno in (errno.EROFS,errno.EACCES)
+else:raise AssertionError('Capability catalog must be read-only')
+assert capabilities.read_text()==original
+assert subprocess.check_output(['/usr/bin/file','--mime-type','-b','/workspace/sources/source.png'],text=True).strip()=='image/png'
 assert not Path('/opt/video-use/webapp/agent_host.py').exists()
 assert not Path('/usr/bin/ssh').exists()
 assert not Path('/root').exists()
@@ -200,7 +209,7 @@ else:raise AssertionError('Unexpected network access')
         adapter=Adapter(self.store,'test',self.runtime.path)
         workflow={'project':self.project,'turn_id':self.turn}
         step={'spec':{'kind':'script','acceptance':[{'kind':'media','file':'candidate.mkv','width':160,'height':120,
-             'audio':True,'video':True,'fps':10,'min_duration':.95,'max_duration':1.1,'decode':True}]}}
+             'audio_track_present':True,'video':True,'fps':10,'min_duration':.95,'max_duration':1.1,'decode':True}]}}
         report=adapter.validate(workflow,step,['edit/candidate.mkv'])
         self.assertTrue(report['passed'],report);self.assertEqual(report['files'][0]['kind'],'media')
         artifacts=export_results(self.runtime.env,self.turn)

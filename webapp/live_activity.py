@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import time
 import uuid
 
-ACTORS={'light_agent','sandbox_agent','workflow_sandbox','host','media_executor','external_service'}
+ACTORS={'light_agent','sandbox_agent','workflow_sandbox','host','media_executor','external_service','manager_agent','specialist_agent','reviewer_agent'}
 
 def initialize(db):
     db.execute('''CREATE TABLE IF NOT EXISTS execution_activities(

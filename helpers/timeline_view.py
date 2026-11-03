@@ -46,23 +46,30 @@ def extract_frames(video: Path, start: float, end: float, n: int, dest_dir: Path
         step = (end - start) / (n - 1)
         times = [start + i * step for i in range(n)]
     metadata=json.loads(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0',
-        '-show_entries','stream=avg_frame_rate:format=duration','-of','json',str(video)],timeout=15))
+        '-show_entries','stream=avg_frame_rate,duration:format=duration','-of','json',str(video)],timeout=15))
     duration=float(metadata.get('format',{}).get('duration',0))
     rate=float(Fraction(metadata['streams'][0]['avg_frame_rate']))
     if duration<=0 or rate<=0 or start<0 or end<=start or start>=duration or end>duration+.05:
         raise ValueError('Timeline range or video timing is invalid')
     # The media end is exclusive: there is no frame at t == duration.
-    last_frame=max(0,duration-1/rate)
+    video_duration=float(metadata['streams'][0].get('duration') or duration)
+    last_frame=max(0,min(duration,video_duration)-1/rate)
     times=[min(t,last_frame) for t in times]
 
     paths: list[Path] = []
     for i, t in enumerate(times):
         out = dest_dir / f"f_{i:03d}.jpg"
+        out.unlink(missing_ok=True)
+        # Rounding 29/30 s to .967 seeks after the final frame. Preserve
+        # sub-millisecond timing and round down at FFmpeg's microsecond scale.
+        seek_us=int(max(0,t)*1_000_000)
         cmd = [
             "ffmpeg", "-y",
-            "-ss", f"{t:.3f}",
+            "-ss", f"{seek_us//1_000_000}.{seek_us%1_000_000:06d}",
+            "-threads", "2",
             "-i", str(video),
             "-frames:v", "1",
+            "-threads", "1",
             "-q:v", "4",
             "-vf", "scale=320:-2",
             str(out),

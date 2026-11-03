@@ -61,6 +61,10 @@ def initialize(db):
 
 def cancel_task(store,task_id,reason='user'):
     """Atomically revoke business permission and create independently owned cleanup."""
+    from .workflow_graph import get as graph_get,command
+    if graph_get(store,task_id):
+        result=command(store,task_id,'user','cancel',{'reason':reason})
+        return {'cancelled':False,'status':'cancelling','request_id':result['id']}
     import uuid
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
@@ -156,7 +160,7 @@ def request_cleanup(db,task_id,attempt_id=None,external=True):
         db.execute('INSERT OR IGNORE INTO execution_external_cleanup(id,task_id,provider,external_id,state,error) VALUES (?,?,?,?,?,?)',
                    (row['id'],task_id,row['provider'],row['external_id'],'pending' if row['external_id'] else 'unknown',
                     '' if row['external_id'] else '提交结果未知，无法确认上游是否仍在运行。'))
-    for row in db.execute("SELECT * FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(task_id,)).fetchall():
+    for row in db.execute("SELECT request_key,provider,external_id,state FROM workflow_provider_calls WHERE (workflow=? OR workflow IN (SELECT id FROM workflow_runs WHERE turn_id=?)) AND state NOT IN ('succeeded','failed','cancelled','rejected')",(task_id,task_id)).fetchall():
         db.execute('INSERT OR IGNORE INTO execution_external_cleanup(id,task_id,provider,external_id,state,error) VALUES (?,?,?,?,?,?)',(row['request_key'],task_id,row['provider'],row['external_id'],'pending' if row['external_id'] else 'unknown','' if row['external_id'] else '提交结果未知，未重复调用'))
     task=db.execute('SELECT status FROM agent_turns WHERE id=?',(task_id,)).fetchone()
     if task and task['status'] in ('failed','cancelled','cancelling'):

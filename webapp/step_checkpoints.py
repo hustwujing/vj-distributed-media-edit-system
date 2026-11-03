@@ -63,10 +63,16 @@ def save(runtime):
 def current_agent_rows(store,project):
     """The same current, project-owned snapshots used for restore and consent."""
     if not store.query("SELECT name FROM sqlite_master WHERE name='execution_step_checkpoints'"):return []
-    return store.query('''SELECT c.workflow,c.step,c.manifest FROM execution_step_checkpoints c
+    rows=store.query('''SELECT c.workflow,c.step,c.manifest FROM execution_step_checkpoints c
         JOIN agent_workflows w ON w.id=c.workflow AND w.project=c.project
         JOIN agent_steps s ON s.workflow=c.workflow AND s.id=c.step AND s.revision=c.revision
         WHERE c.project=? ORDER BY c.workflow,c.step''',(project,))
+    if store.query("SELECT name FROM sqlite_master WHERE name='workflow_runs'"):
+        rows+=store.query('''SELECT c.workflow,c.step,c.manifest FROM execution_step_checkpoints c
+            JOIN workflow_runs w ON w.id=c.workflow AND w.project_id=c.project
+            JOIN workflow_tasks s ON s.workflow_id=w.id AND s.id=c.step AND s.revision=c.revision
+            WHERE c.project=? ORDER BY c.workflow,c.step''',(project,))
+    return rows
 
 
 def records_for(rows):
@@ -92,7 +98,7 @@ def restore(runtime):
         workflow=get(store,lease.turn_id)
         if not workflow:return
         by_id={s['id']:s for s in workflow['steps']}
-        required=set(by_id) if not lease.step_id else {lease.step_id}
+        required=set(by_id) if not lease.step_id or workflow.get('dynamic') and lease.step_id.startswith('__') else {lease.step_id}
         pending=list(required)
         while pending:
             for parent in by_id[pending.pop()]['spec']['depends_on']:
@@ -102,6 +108,26 @@ def restore(runtime):
             step=by_id[step_id]
             rows.extend(store.query('SELECT workflow,step,manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=? AND project=?',
                          (workflow['id'],step_id,step['revision'],runtime.project.name)))
+        if workflow.get('dynamic'):
+            from .workflow_graph import get as graph_get
+            graph=graph_get(store,lease.turn_id);selected=next(t for t in graph['tasks'] if t['id']==lease.step_id)
+            permitted=set()
+            if selected['internal']:
+                table='planner_runs' if selected['spec']['profile']=='media_planner' else 'workflow_reviews'
+                request=store.query(f'SELECT snapshot_json FROM {table} WHERE id=?',(selected['spec']['request_id'],))[0]
+                frozen=json.loads(request['snapshot_json'])
+                for task in frozen.get('tasks',[])+frozen.get('upstream',[]):
+                    permitted.update(task.get('accepted_result',[]));permitted.update(task.get('candidate_result',[]))
+                permitted.update(frozen.get('diagnostic_files',[]))
+            else:
+                for reference in selected['spec'].get('inputs',{}).values():
+                    if reference.get('step'):
+                        parent=by_id[reference['step']]
+                        path=parent['quality'].get('output_roles',{}).get(reference['role'])
+                        if path:permitted.add(path)
+                for row in rows:
+                    if row['step']==selected['id']:permitted.update(json.loads(row['manifest']))
+            rows=[{**row,'manifest':json.dumps({name:record for name,record in json.loads(row['manifest']).items() if name in permitted})} for row in rows]
     records=records_for(rows)
     if not records:return
     # Account for the whole restored workspace, not only this batch. The

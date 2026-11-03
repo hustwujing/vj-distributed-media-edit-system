@@ -94,6 +94,9 @@ class ProviderSessionTests(unittest.TestCase):
             with patch.object(adapter,'session') as session,self.assertRaises(StepFailure) as error:
                 adapter.submit(w,w['steps'][0])
             self.assertEqual(error.exception.diagnostic['code'],'pre_submit')
+            self.assertIs(error.exception.diagnostic['request_sent'],False)
+            from webapp.execution_contracts import classify_error
+            self.assertEqual(classify_error(error.exception.diagnostic,'submit'),'pre_submit')
             self.assertIn('256',error.exception.diagnostic['detail'])
             session.assert_not_called()
             self.assertFalse(f.store.query('SELECT request_key FROM workflow_provider_calls'))

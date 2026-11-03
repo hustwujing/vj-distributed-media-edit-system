@@ -80,6 +80,11 @@ project.md
 /docs/real-case-campaign/*
 !/docs/real-case-campaign/design.md
 !/docs/real-case-campaign/cases.json
+!/docs/real-case-campaign/dynamic-cases.json
+!/docs/real-case-campaign/dynamic-case-review.md
+!/docs/real-case-campaign/dynamic-test-report.md
+!/docs/real-case-campaign/dynamic-fixes.md
+!/docs/dynamic-plan-real-machine-report.md
 /docs/*.json
 /docs/*report.md
 /docs/project-*-audit.md

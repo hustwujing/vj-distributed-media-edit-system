@@ -1,0 +1,380 @@
+/* Live browser campaign for the isolated dynamic deployment. No mocked results. */
+const {chromium}=require('/data/wujing03/node_modules/playwright');
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const {execFile}=require('node:child_process');
+const {promisify}=require('node:util');
+const execute=promisify(execFile),assert=require('node:assert/strict');
+const REPO=path.resolve(__dirname,'..'),PY=path.join(REPO,'.venv/bin/python');
+const ROOT=path.join(REPO,'.cluster/campaigns/dynamic-plan');
+const BASE=(process.env.DYNAMIC_CASE_BASE||'http://127.0.0.1/distributed-agent-system').replace(/\/$/,'');
+const baseURL=new URL(BASE);
+assert.equal(baseURL.pathname,'/distributed-agent-system','Refusing a main/unknown application path');
+const manifest=JSON.parse(fs.readFileSync(path.join(REPO,'docs/real-case-campaign/dynamic-cases.json')));
+const requested=process.argv[2]&&process.argv[2]!=='all'?new Set(process.argv[2].split(',')):null;
+const cases=requested?[...requested].map(id=>manifest.cases.find(c=>c.id===id)).filter(Boolean):manifest.cases;
+if(requested)assert.equal(cases.length,requested.size,'Unknown case ID');
+const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
+const sha=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const DRIVER_SOURCE=fs.readFileSync(__filename),DRIVER_SHA=crypto.createHash('sha256').update(DRIVER_SOURCE).digest('hex');
+const uid=()=>crypto.randomUUID().replaceAll('-','');
+const currentRelease=()=>JSON.parse(fs.readFileSync(path.join(REPO,'.cluster/release.json')));
+const terminal=s=>['succeeded','failed','cancelled'].includes(s);
+const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation']);
+const pauseNewCases=()=>fs.existsSync(path.join(ROOT,'pause-new-cases'));
+
+function targetText(spec){
+ const e=spec.expect;
+ if(e.kind==='image')return `符合需求的 ${e.width}×${e.height} 图片${e.min_images>1?'及全部要求的图片版本':''}${e.extra_extension?'，包含 '+e.extra_extension+' 分层文件':''}`;
+ if(e.kind==='video')return `符合需求的完整 ${e.duration} 秒 ${e.width}×${e.height} 视频及要求的附加文件`;
+ if(e.kind==='video_variants')return '符合需求的所有画幅视频及要求的附加文件';
+ if(e.kind==='audio')return `符合需求的 ${e.duration} 秒音频及要求的格式版本`;
+ if(e.kind==='text')return '符合需求的 '+e.extensions.join(' 和 ')+' 文件';
+ return '符合本次要求的成果与可核实的处理记录';
+}
+
+async function runCase(browser,spec){
+ const parent=path.join(ROOT,'runs',spec.id);fs.mkdirSync(parent,{recursive:true,mode:0o700});
+ const number=1+Math.max(0,...fs.readdirSync(parent).filter(x=>/^attempt-\d+$/.test(x)).map(x=>Number(x.slice(8))));
+ const directory=path.join(parent,'attempt-'+String(number).padStart(3,'0'));fs.mkdirSync(directory,{mode:0o700});fs.mkdirSync(path.join(directory,'output'));
+ const state={case:spec.id,title:spec.title,run_id:new Date().toISOString().replace(/[-:.]/g,'')+'-'+uid().slice(0,8),
+  status:'running',started_at:Date.now()/1000,base_url:BASE,release:currentRelease(),driver_sha256:DRIVER_SHA,
+  requests:[],events:[],page_errors:[],console_errors:[],browser_assertions:[],artifacts:[],task_ids:[],workflow_ids:[],faults:[]};
+ assert.equal(state.release.namespace,'dynamic-agent');
+ save(path.join(directory,'case-definition.json'),spec);fs.writeFileSync(path.join(directory,'driver-snapshot.cjs'),DRIVER_SOURCE);
+ const harness=path.join(directory,'harness');fs.mkdirSync(harness,{mode:0o700});state.helper_sha256={};
+ for(const name of ['campaign_dynamic_probe.py','campaign_dynamic_faults.py','campaign_probe.py','campaign_archive.py','campaign_complex_checks.py','campaign_dynamic_intervention_checks.py']){fs.copyFileSync(path.join(REPO,'tests',name),path.join(harness,name));state.helper_sha256[name]=sha(path.join(harness,name));}
+ state.evidence_versioning='Driver captured once at process start; helper code frozen per attempt';
+ state.fixture_hashes=Object.fromEntries(spec.assets.map(name=>[name,sha(path.join(ROOT,'fixtures',name))]));
+ const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage();
+ page.setDefaultTimeout(45000);let run=null,stoppedWorker=null,orchestratorStopped=false,observerStopped=false,apiStopped=false,workersHeld=false,secondStarted=false,objectCorrupted=false,lastCapture='';
+ const persist=()=>save(path.join(directory,'state.json'),state);
+ const requestRecord=response=>{const url=new URL(response.url());if(url.origin===baseURL.origin&&url.pathname.includes('/api/'))state.requests.push({at:Date.now()/1000,method:response.request().method(),path:url.pathname,status:response.status(),request_id:response.headers()['x-request-id']||null,serving_api:response.headers()['x-video-use-api']||null});};
+ page.on('response',requestRecord);page.on('pageerror',e=>state.page_errors.push(e.message));
+ page.on('console',m=>{if(m.type()==='error')state.console_errors.push(m.text().slice(0,1000));});
+ const api=async(method,suffix,data)=>{const deadline=Date.now()+60000;while(true){const response=await context.request.fetch(BASE+suffix,{method,...(data===undefined?{}:{data}),timeout:Math.max(1000,Math.min(45000,deadline-Date.now()))});
+  state.requests.push({at:Date.now()/1000,method,path:suffix,status:response.status(),request_id:response.headers()['x-request-id']||null});
+  const body=await response.json().catch(()=>({}));const databaseUnavailable=response.status()===503&&body.code==='API_DATABASE_UNAVAILABLE';
+  if(method==='GET'&&databaseUnavailable&&Date.now()+1500<deadline){state.events.push({action:'database_read_retry',path:suffix,request_id:body.request_id,at:Date.now()/1000});persist();await page.waitForTimeout(1500);continue;}
+  if(!response.ok())throw Object.assign(Error(`HTTP ${response.status()} ${suffix}: ${JSON.stringify(body)}`),{dependency:databaseUnavailable});return body;}};
+ const read=async()=>api('GET',`/api/projects/${state.project}/workflows/${state.workflow_id}`);
+ const helperEnvironment={...process.env,DYNAMIC_CAMPAIGN_REPO:REPO};
+ const probe=async(action)=>{for(let attempt=1;attempt<=3;attempt++){persist();try{const {stdout}=await execute(PY,[path.join(harness,'campaign_dynamic_probe.py'),action,directory],{cwd:REPO,env:helperEnvironment,timeout:600000,maxBuffer:8*1024*1024});return JSON.parse(stdout.trim().split('\n').at(-1));}
+  catch(error){if(!['inspect','final'].includes(action)||attempt===3||!String(error.stderr||error.message).includes('psycopg.OperationalError'))throw error;
+   save(path.join(directory,`audit-retry-${action}-${attempt}.json`),{at:Date.now()/1000,error:String(error.stderr||error.message).slice(-12000)});
+   state.events.push({action:'database_audit_retry',audit_action:action,attempt,at:Date.now()/1000});persist();await page.waitForTimeout(1500);}}};
+ const fault=async(action,unit)=>{persist();const args=[path.join(harness,'campaign_dynamic_faults.py'),action,directory];if(unit)args.push('--unit',unit);
+  const {stdout}=await execute(PY,args,{cwd:REPO,env:helperEnvironment,timeout:180000,maxBuffer:4*1024*1024});const value=JSON.parse(stdout.trim().split('\n').at(-1));
+  if(action!=='progress'){state.faults.push(value);persist();}return value;};
+ const wait=async(predicate,seconds=300)=>{const until=Date.now()+seconds*1000;let value,pausedAt=0;while(Date.now()<until){value=await read();if(await predicate(value))return value;
+  const diagnosing=value.tasks.some(t=>t.internal&&t.spec.profile==='media_failure_diagnostician'&&['ready','running','leased'].includes(t.status));
+  if(value.status==='paused'&&!diagnosing){pausedAt||=Date.now();}else pausedAt=0;
+  if(terminal(value.status)||(pausedAt&&Date.now()-pausedAt>5000)){save(path.join(directory,'boundary-not-reached.json'),value);throw Object.assign(Error('Workflow stopped before the required test boundary: '+value.status),{boundary:true});}
+  await page.waitForTimeout(750);}save(path.join(directory,'wait-timeout.json'),value);throw Object.assign(Error('Timed out waiting for the required workflow boundary'),{boundary:true});};
+ const capture=async(label)=>{await page.screenshot({path:path.join(directory,label+'.png'),fullPage:true});};
+ const commandApplied=async id=>{const end=Date.now()+90000;while(Date.now()<end){const value=await read(),receipt=value.commands.find(c=>c.id===id);if(receipt&&receipt.status!=='pending'){assert.equal(receipt.status,'applied','Control command rejected: '+receipt.error_code);state.events.push({action:'command_applied',command_id:id,at:Date.now()/1000});persist();return value;}await page.waitForTimeout(500);}throw Error('Control command was not processed before the deadline');};
+ const control=async(action)=>{await page.locator(`[data-control="${action}"]`).waitFor({state:'visible'});let confirmation=null;if(action==='cancel')page.once('dialog',async dialog=>{confirmation={type:dialog.type(),message:dialog.message()};await dialog.accept();});const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await page.locator(`[data-control="${action}"]`).click();const result=await response;assert.equal(result.status(),202,await result.text());if(action==='cancel'){assert.equal(confirmation?.type,'confirm');state.browser_assertions.push('Cancel required an explicit browser confirmation');}state.events.push({action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);};
+ const start=async(prompt=spec.prompt,targets=targetText(spec),budget=spec.complexity==='simple'?500000:2000000)=>{
+  await page.locator('#dynamic-start').waitFor({state:'visible'});await page.locator('#dynamic-goal').fill(prompt);await page.locator('#dynamic-targets').fill(targets);
+  await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
+  for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
+  await capture('authorization-'+state.workflow_ids.length);
+  const response=page.waitForResponse(r=>r.url().endsWith(`/api/projects/${state.project}/workflows`)&&r.request().method()==='POST',{timeout:60000});
+  await page.locator('#dynamic-submit').click();
+  let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
+  if(!result){await capture('authorization-content-refresh-'+state.workflow_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-submit').click();result=await response;}
+  assert.equal(result.status(),202,await result.text());run=await result.json();
+  state.workflow_id=run.id;state.execute_id=run.turn_id;state.workflow_ids.push(run.id);state.task_ids.push(run.turn_id);persist();
+  (state.authorizations??=[]).push({workflow_id:run.id,goal:run.goal,delivery_targets:run.authorization.delivery_targets,
+   allowed_assets:run.authorization.allowed_assets,provider_call_budget:run.authorization.provider_call_budget,
+   model_token_budget:run.authorization.model_token_budget});persist();
+  for(const operation of spec.allowed_external_operations||[])assert.equal(run.authorization.provider_call_budget[operation],1,'The confirmed provider limit was lost: '+operation);
+  if(state.upload_race)assert.equal(run.authorization.provider_call_budget[state.upload_race.operation],1,'Delayed refresh consent was not persisted');
+  await context.storageState({path:path.join(directory,'browser-state.json')});fs.chmodSync(path.join(directory,'browser-state.json'),0o600);
+  console.log(JSON.stringify({case:spec.id,event:'started',workflow:run.id,task:run.turn_id}));return run;};
+ const approve=async(action)=>{const button=page.locator(`.dynamic-decision [data-answer="${action}"]`).first();await button.waitFor({state:'visible'});await capture('decision-'+state.events.length);
+  const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await button.click();const result=await response;assert.equal(result.status(),202);state.events.push({action:'decision_'+action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);};
+ const reuse=async(task)=>{const file=task.quality.output_roles?.primary_image||task.quality.output_roles?.video||task.accepted_result[0];
+  const button=page.locator(`[data-reuse="${file}"][data-task="${task.id}"]`).first();await button.waitFor({state:'visible'});
+  const response=page.waitForResponse(r=>r.url().endsWith('/reuse')&&r.request().method()==='POST');await button.click();const result=await response;assert.equal(result.status(),201,await result.text());const asset=await result.json();
+  (state.reuse_links??=[]).push({source_workflow:state.workflow_id,task_id:task.id,revision:task.revision,asset_id:asset.id,sha256:asset.metadata.provenance.sha256});persist();return asset.id;};
+ async function observeTerminal(){
+  const end=Date.now()+Number(process.env.DYNAMIC_CASE_TIMEOUT_SECONDS||10800)*1000;let resumed=0;
+  while(Date.now()<end){run=await read();state.last_status=run.status;
+   const signature=JSON.stringify([run.status,run.graph_version,run.tasks.map(t=>[t.id,t.status])]);
+   if(signature!==lastCapture){lastCapture=signature;save(path.join(directory,'workflow-latest.json'),run);persist();if(state.events.filter(e=>e.action==='snapshot').length<40){await capture('stage-'+String(state.events.length).padStart(3,'0'));state.events.push({action:'snapshot',status:run.status,graph_version:run.graph_version,at:Date.now()/1000});}}
+   if(terminal(run.status))return run;
+   if(run.status==='waiting_user'){
+    const quality=run.decisions.find(d=>d.kind==='quality');
+    if(quality){state.pending_quality=quality.id;persist();throw Object.assign(Error('Unplanned quality decision requires independent content review'),{model:true});}
+    throw Object.assign(Error('Unplanned authorization expansion was correctly paused'),{model:true});
+   }
+   if(run.status==='paused'){
+    if(run.tasks.some(t=>t.internal&&t.spec.profile==='media_failure_diagnostician'&&['ready','running','leased'].includes(t.status))){await page.waitForTimeout(1000);continue;}
+    const recoverable=run.tasks.some(t=>t.status==='paused'&&['poll','collect'].includes(t.phase)&&['poll_failed','collect_failed'].includes(t.error_code));
+    if(recoverable&&resumed<1){resumed++;await control('resume');await page.waitForTimeout(2500);continue;}
+    return run;
+   }
+   await page.waitForTimeout(1000);
+  }
+  throw Object.assign(Error('Observation deadline reached; existing task was not resubmitted'),{observation:true});
+ }
+ try{
+  await page.goto(BASE+'/',{waitUntil:'domcontentloaded'});await page.locator('#new-project').click();await page.locator('#new-project-form input[name="name"]').fill('DYNAMIC-QA-'+state.run_id+'-'+spec.id);
+  await page.locator('#new-project-form .mode-choices label').filter({has:page.locator('input[value="chat"]')}).click();await page.locator('#new-project-form button[type="submit"]').click();await page.waitForURL(/\/chat\/[a-f0-9]{32}/);
+  state.project=await page.locator('body').getAttribute('data-project');assert.match(state.project,/^[a-f0-9]{32}$/);persist();
+  state.browser_context=await page.evaluate(()=>({secure:isSecureContext,randomUUID:typeof crypto.randomUUID,getRandomValues:typeof crypto.getRandomValues}));
+  await page.waitForFunction(()=>document.querySelector('#dynamic-connection').textContent.includes('同步'));
+  if(spec.assets.length){await page.locator('#dynamic-upload').setInputFiles(spec.assets.map(n=>path.join(ROOT,'fixtures',n)));await page.waitForFunction(n=>document.querySelectorAll('#dynamic-assets input').length===n&&document.body.dataset.uploading!=='true',spec.assets.length);}
+  await page.waitForFunction(()=>document.querySelector('#dynamic-connection').textContent.includes('同步'));
+  if(spec.dynamic_hook==='token_budget'){
+   await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});
+   const firstAsset=page.locator('#dynamic-assets input').first(),firstId=await firstAsset.inputValue();await firstAsset.uncheck();
+   const limit=page.locator('[data-operation]:not([disabled])').first(),operation=await limit.getAttribute('data-operation');
+   let releaseResponse,markHeld;const held=new Promise(resolve=>{markHeld=resolve;}),released=new Promise(resolve=>{releaseResponse=resolve;});
+   const pattern=`**/api/projects/${state.project}/workflows/capabilities`;
+   await page.route(pattern,async route=>{const response=await route.fetch();markHeld();await released;await route.fulfill({response});},{times:1});
+   try{
+    await page.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await held;
+    assert.equal(await page.locator('#dynamic-submit').isDisabled(),true,'Submit was enabled before upload refresh completed');
+    await limit.fill('1');assert.equal(await page.locator(`#dynamic-assets input[value="${firstId}"]`).isChecked(),false);
+    await capture('upload-response-held');releaseResponse();
+    await page.waitForFunction(()=>document.body.dataset.uploading==='false');
+    assert.equal(await page.locator(`[data-operation="${operation}"]`).inputValue(),'1','Late capabilities response overwrote consent');
+    assert.equal(await page.locator(`#dynamic-assets input[value="${firstId}"]`).isChecked(),false,'Asset refresh overwrote selection');
+    await page.locator(`#dynamic-assets input[value="${firstId}"]`).check();
+    state.upload_race={operation,limit:1,real_response_delayed:true,submit_disabled:true,selection_preserved:true};
+    state.browser_assertions.push('Delayed real capabilities response preserved the edited provider limit and asset selection; upload blocked submit');persist();
+   }finally{releaseResponse();await page.unroute(pattern);}
+  }
+  await capture('initial');
+  if(spec.dynamic_hook==='stale_authorization'){
+   await page.locator('#dynamic-goal').fill(spec.prompt);await page.locator('#dynamic-targets').fill(targetText(spec));
+   const second=await context.newPage();await second.goto(BASE+'/chat/'+state.project);await second.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await second.waitForFunction(()=>document.querySelectorAll('#dynamic-assets input').length===2);await second.close();
+   await page.locator('#dynamic-submit').click();await page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor();
+   assert.equal((await api('GET',`/api/projects/${state.project}/workflows`)).workflows.length,0);state.outcome='protocol_passed';state.browser_checked=true;state.browser_assertions.push('Stale content did not create a workflow');await capture('stale-authorization');
+  }else{
+   const intervention=spec.id.startsWith('R');
+   let initial=spec.prompt;
+   const gated=['R01','R02','R03','R11','R15','R17'].includes(spec.id);
+   const initialVideo=['R07','R08','R09'].includes(spec.id);
+   if(intervention){
+    initial='先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。';
+    if(spec.assets.includes('clip_a.mp4'))initial+='另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。';
+    if(['R04','R05','R06'].includes(spec.id))initial+='在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。';
+    initial+=initialVideo?'export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。':'export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。';
+    initial+='export 声明 retry_policy=safe_once，正式处理前等待20秒。';
+    if(spec.id==='R14')initial+='export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。';
+    initial+=gated?'export 必须声明 review 人工验收，等待我决定。':'最后通过程序和最终验收交付。';
+    if(spec.id==='R17')initial='先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。';
+   }
+   await start(initial,intervention?(initialVideo?'4秒128×64 MP4及128×64封面PNG':spec.id==='R17'?'64×48 PNG':'128×64双图PNG'):targetText(spec));
+   const hook=spec.dynamic_hook;
+   if(hook==='cancel_planning'){await wait(w=>w.tasks.some(t=>t.internal&&t.spec.profile==='media_planner'&&t.status==='running'),90);await control('cancel');run=await wait(w=>terminal(w.status));assert.equal(run.status,'cancelled');state.outcome='protocol_passed';}
+   else if(hook==='token_budget'){run=await wait(w=>w.status==='paused',120);assert.equal(run.terminal_reason,'budget_exhausted');state.outcome='protocol_passed';state.browser_assertions.push('Token budget stopped before another model request');}
+   else if(hook==='authorize_provider'||hook==='reject_provider'){
+    run=await wait(w=>w.status==='waiting_user',240);assert.ok(run.decisions.some(d=>d.kind==='plan_change'));
+    await approve(hook==='authorize_provider'?'approve':'reject');
+    if(hook==='reject_provider'){run=await wait(w=>w.status==='paused');state.outcome='protocol_passed';}
+   }
+   else if(hook==='orchestrator_restart'){
+    await wait(w=>w.tasks.some(t=>t.internal&&t.spec.profile==='media_planner'&&t.status==='running'),90);await fault('stop_orchestrator');orchestratorStopped=true;
+    const until=Date.now()+240000;let staged=false;while(Date.now()<until){if((await fault('progress')).staged_results){staged=true;break;}await page.waitForTimeout(1000);}assert.ok(staged,'Worker did not persist a result while controller was down');
+    await capture('controller-down');await fault('start_orchestrator');orchestratorStopped=false;
+   }
+   else if(hook==='orchestrator_competition'){await fault('start_second_orchestrator');secondStarted=true;await page.waitForTimeout(2000);assert.ok((await fault('progress')).orchestrators.length>=2);}
+   else if(hook==='observer_restart'){await fault('stop_observer');observerStopped=true;}
+   else if(hook==='api_restart'){apiStopped=true;await fault('stop_api');const boundary=Date.now()/1000;await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});
+    await page.waitForTimeout(2000);assert.ok(state.requests.some(r=>r.at>=boundary&&r.status===200&&r.serving_api?.includes('19767')),'The second API did not actually serve the reloaded workflow');
+    state.browser_assertions.push('API a was stopped; the reloaded browser was served by API b');}
+   else if(hook==='deployment_isolation'){const result=await fault('isolation');assert.ok(result.main_database_read_denied&&result.main_config_unchanged&&result.separate_encryption_key&&result.separate_object_prefix&&result.main_processes_unchanged_during_check);assert.ok(result.shared_db_dependency_independent&&result.dependency_lifecycle_probe.consumer_survived_dependency_stop&&result.dependency_lifecycle_probe.consumer_pid_unchanged&&result.dependency_lifecycle_probe.provider_recovered);}
+   else if(hook==='foreign_project'){
+    const outsider=await browser.newContext();for(const endpoint of [`/api/projects/${state.project}/workflows/${run.id}`,`/api/projects/${state.project}/workflows/${run.id}/events`])assert.equal((await outsider.request.get(BASE+endpoint)).status(),404);
+    assert.equal((await outsider.request.post(BASE+`/api/projects/${state.project}/workflows/${run.id}/commands`,{data:{request_id:uid(),action:'cancel'}})).status(),404);await outsider.close();state.browser_assertions.push('Foreign browser could not read or cancel the workflow');
+   }
+   if(hook==='pause_resume'){
+    const active=await wait(w=>w.tasks.some(t=>!t.internal&&t.status==='running'),300),activeId=active.tasks.find(t=>!t.internal&&t.status==='running').id;
+    await control('pause');run=await wait(w=>w.status==='paused');const pauseAt=Date.now()/1000;await capture('paused');
+    const deadline=Date.now()+120000;while(Date.now()<deadline){run=await read();if(run.tasks.find(t=>t.id===activeId).status==='succeeded')break;await page.waitForTimeout(750);}
+    assert.equal(run.status,'paused');assert.equal(run.tasks.find(t=>t.id===activeId).status,'succeeded','The active task did not finish while paused');await page.waitForTimeout(2500);
+    const observed=await fault('progress');assert.ok(observed.attempts.every(a=>a.started<=pauseAt+.1));state.pause_boundary={completed_task:activeId,paused_at:pauseAt,attempts:observed.attempts};state.browser_assertions.push('The in-flight task completed while paused; its downstream did not start until resume');persist();await capture('upstream-complete-while-paused');await control('resume');
+   }
+   if(hook==='executor_restart'||hook==='worker_restart'||hook==='submission_unknown'){
+    const until=Date.now()+360000;let selected;
+    while(Date.now()<until){const observed=await fault('progress');selected=observed.attempts.find(a=>!a.internal&&a.status==='running'&&a.unit&&(hook==='submission_unknown'?observed.submitting.some(p=>p.attempt_id===a.id):a.retry_safe&&Date.now()/1000-a.started>2));if(selected)break;await page.waitForTimeout(750);}
+    assert.ok(selected,'No eligible execution boundary was reached');stoppedWorker=selected.unit;state.interrupted_attempt=selected;await fault('stop_worker',stoppedWorker);await capture('worker-stopped');
+    if(hook==='submission_unknown'){run=await wait(w=>w.status==='paused',240);assert.ok(run.tasks.some(t=>t.error_code==='submission_unknown'));state.outcome='protocol_passed';}
+    else{const end=Date.now()+240000;let taken=false;while(Date.now()<end){const observed=await fault('progress');if(observed.attempts.some(a=>a.step_id===selected.step_id&&a.generation>selected.generation&&a.node!==selected.node)){taken=true;break;}await page.waitForTimeout(1000);}assert.ok(taken,'No cross-node takeover was observed');state.browser_assertions.push('A different node recovered the interrupted task');}
+    await fault('start_worker',stoppedWorker);stoppedWorker=null;
+   }
+   if(hook==='unsealed_hold'){
+    run=await wait(w=>!w.sealed&&w.tasks.some(t=>!t.internal&&t.status==='succeeded'),360);await fault('stop_orchestrator');orchestratorStopped=true;
+    await page.waitForTimeout(2000);run=await read();assert.equal(run.delivered_at,null);assert.equal(run.delivery.length,0);await capture('unsealed-no-delivery');
+    await fault('start_orchestrator');orchestratorStopped=false;
+   }
+   if(hook==='artifact_integrity'){
+    await wait(w=>w.tasks.some(t=>!t.internal&&t.status==='running'),300);await fault('stop_orchestrator');orchestratorStopped=true;
+    const end=Date.now()+240000;let staged=false;while(Date.now()<end){const p=await fault('progress');if(p.staged_business_success&&p.quiescent){staged=true;break;}await page.waitForTimeout(750);}assert.ok(staged,'No completed, staged business output was observed');
+    workersHeld=true;await fault('drain_workers');await fault('start_orchestrator');orchestratorStopped=false;
+    run=await wait(w=>!w.sealed&&w.tasks.some(t=>!t.internal&&t.status==='succeeded'),60);
+    await fault('stop_orchestrator');orchestratorStopped=true;await fault('corrupt_object');objectCorrupted=true;await capture('accepted-object-corrupted');
+    await fault('release_workers');workersHeld=false;await fault('start_orchestrator');orchestratorStopped=false;
+    run=await wait(w=>w.status==='paused',300);assert.equal(run.delivery.length,0);
+    const observed=await fault('progress');assert.ok(observed.integrity_errors?.some(e=>e.exception_type==='ValueError')&&run.tasks.some(t=>t.error_code==='result_unavailable'),'The corrupted encrypted bytes were not actually rejected');
+    state.integrity_evidence=observed.integrity_errors;await fault('restore_object');objectCorrupted=false;state.outcome='protocol_passed';
+   }
+   if(hook==='stale_decision'){
+    run=await wait(w=>w.status==='waiting_user',300);const decision=run.decisions[0];
+    const commandURL=BASE+`/api/projects/${state.project}/workflows/${run.id}/commands`,body={request_id:uid(),action:'answer',payload:{decision_id:decision.id,snapshot_digest:'0'.repeat(64),action:'approve'}};
+    const rejected=await context.request.post(commandURL,{data:body});assert.equal(rejected.status(),202);
+    const duplicate=await context.request.post(commandURL,{data:body});assert.equal(duplicate.status(),202);assert.equal((await duplicate.json()).id,(await rejected.json()).id);
+    assert.equal((await context.request.post(commandURL,{data:{...body,action:'pause',payload:{}}})).status(),409);
+    state.browser_assertions.push('Identical command ID is idempotent; changed content under the same ID is rejected');
+    await page.waitForTimeout(2500);assert.equal((await read()).status,'waiting_user');await approve('reject');run=await wait(w=>w.status==='paused');state.outcome='protocol_passed';
+   }
+   if(intervention){
+    if(['R10','R12','R16'].includes(spec.id)){
+     run=await observeTerminal();
+     if(run.status!=='succeeded'||!run.delivery?.length){const error=new Error('Required prior delivery was not completed before intervention: '+run.status);error.boundary=true;throw error;}
+     state.prior_delivery_boundary={workflow_id:run.id,status:run.status,delivery:run.delivery.map(x=>({file:x.file,sha256:x.sha256}))};persist();
+    }
+    else if(gated)run=await wait(w=>w.status==='waiting_user',600);
+    else if(['R04','R05','R06'].includes(spec.id))run=await wait(w=>w.tasks.some(t=>t.id==='staging'&&t.status==='running'),600);
+    else run=await wait(w=>w.tasks.some(t=>t.id==='export'&&t.status==='running'),600);
+    if(spec.id==='R14'){
+     const end=Date.now()+180000;let marker;
+     while(Date.now()<end){marker=(await fault('progress')).output_ready_events;if(marker.length)break;await page.waitForTimeout(300);}
+     assert.ok(marker?.length,'Actual output-completion boundary was not reached');state.output_completion_boundary=marker;
+    }
+    const sources=run.tasks.filter(t=>!t.internal&&t.status==='succeeded'&&t.spec.operation==='image.local_adjust').sort((a,b)=>a.id.localeCompare(b.id));
+    assert.ok(sources.length>= (spec.id==='R17'?1:2));
+    const selected=[];for(const task of sources.filter(t=>!['R05','R06'].includes(spec.id)||t.id==='prepare_b'))selected.push(await reuse(task));
+    if(spec.assets.includes('clip_a.mp4')){const clip=run.tasks.find(t=>t.id==='clip'&&t.status==='succeeded');assert.ok(clip,'Accepted clip required for reuse');selected.push(await reuse(clip));}
+    if(gated){await approve('reject');await wait(w=>w.status==='paused');}
+    if(spec.id==='R13'){await control('pause');await wait(w=>w.status==='paused');}
+    if(!terminal((await read()).status)){await control('cancel');await wait(w=>terminal(w.status));}
+    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));await page.locator('#dynamic-start').waitFor({state:'visible'});
+    for(const input of await page.locator('#dynamic-assets input').all())await input.setChecked(selected.includes(await input.getAttribute('value')));
+    let revised=`复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到${spec.expect.width/2}×${spec.expect.height}后并排合成${spec.expect.width}×${spec.expect.height}，交付 final.png。`;
+    if(spec.id==='R01')revised+='最终文件改名为 renamed.png。';
+    if(spec.id==='R02')revised+='最终改为64×32的 final.webp，采用无损WebP。';
+    if(spec.id==='R03')revised+='交换顺序，prepare_b 在左、prepare_a 在右。';
+    if(spec.id==='R04')revised+='同时交付 final.png 和 final.jpg 两种格式。';
+    if(spec.id==='R10')revised+='另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。';
+    if(['R05','R06'].includes(spec.id)){
+     const original=await api('GET',`/api/projects/${state.project}`);const name=spec.id==='R05'?'portrait.png':'rocket.png';const asset=original.assets.find(a=>a.name===name);await page.locator(`#dynamic-assets input[value="${asset.id}"]`).check();
+     revised=`仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 ${name} 做 brightness=${spec.id==='R05'?'1.35':'1.1'} 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。`;
+    }
+    if(spec.expect.kind==='video')revised=`复用已验收 clip 视频，取前${spec.expect.duration}秒并按 cover 居中裁切为${spec.expect.width}×${spec.expect.height} MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 ${spec.id==='R07'?'prepare_b':'prepare_a'} 图片，以 Pillow ImageOps.fit 默认方法处理。${spec.id==='R08'?'左上角(2,2)放置黄色 QA 字幕，字号20。':''}不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。`;
+    if(spec.id==='R11')revised+='最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。';
+    if(spec.id==='R16')revised+='本轮仅输出 final.jpg；下一轮会再要求其他格式。';
+    if(spec.id==='R17')revised='复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。';
+    if(['R01','R02','R03'].includes(spec.id)){await page.locator('#dynamic-goal').fill('复用已验收图片，交付128×64 final.png，prepare_a 在左。');await capture('draft-before-change');state.events.push({action:'scope_edited_before_confirmation',at:Date.now()/1000});}
+    await start(revised);
+    if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
+    if(spec.id==='R16'){
+     run=await observeTerminal();assert.equal(run.status,'succeeded');await page.waitForFunction(()=>!document.querySelector('#dynamic-start').hidden);
+     await start('复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。');
+    }
+   }
+   if(!state.outcome)run=await observeTerminal();
+   if(apiStopped){await fault('start_api');apiStopped=false;await page.waitForTimeout(6000);}
+   if(run.status==='succeeded'&&['rolling_plan','parallel_replan'].includes(hook)){
+    assert.ok(run.graph_version>=2,'Required rolling planning boundary was not reached');
+    const observed=await fault('progress');state.boundary_evidence={graph_version:run.graph_version,attempts:observed.attempts};
+    if(hook==='parallel_replan'){
+     const attempts=observed.attempts.filter(a=>!a.internal&&a.finished);
+     assert.ok(attempts.some((a,i)=>attempts.slice(i+1).some(b=>a.started<b.finished&&b.started<a.finished)),'Required parallel execution boundary was not reached');
+    }
+   }
+   if(run.status==='succeeded'&&hook==='specialist_scope'){
+    assert.ok(run.tasks.some(t=>!t.internal&&t.type==='agent'&&t.spec.profile==='editing_implementer'&&t.status==='succeeded'),'Required specialist Agent did not run');
+    state.browser_assertions.push('Specialist task accepted with frozen profile and declared result');
+   }
+   if(run.status==='succeeded'&&hook==='repair_revision'){
+    const repaired=run.tasks.find(t=>!t.internal&&t.id==='render');assert.ok(repaired,'Repair root task is missing');
+    assert.ok(repaired.revision>=1&&repaired.repair_count===1,'Repair did not create exactly one counted root revision');
+    const child=run.tasks.find(t=>!t.internal&&t.id==='package');assert.ok(child?.revision>=1&&child.status==='succeeded','Dependent task did not move to and complete a new revision');
+    state.repair_boundary={task_id:repaired.id,revision:repaired.revision,repair_count:repaired.repair_count,child_revision:child.revision};
+    state.browser_assertions.push('Immutable repair revision completed and downstream used the replacement revision');
+   }
+   if(observerStopped){await fault('start_observer');observerStopped=false;await page.waitForTimeout(6000);}
+   if(run.status==='succeeded'){
+    state.artifacts=[];
+    for(const item of run.delivery){const response=await context.request.get(BASE+'/'+item.url);assert.equal(response.status(),200);const file=path.join(directory,'output',item.file);fs.writeFileSync(file,await response.body(),{mode:0o600});assert.equal(sha(file),item.sha256);state.artifacts.push({...item,local_file:file});}
+    assert.ok(state.artifacts.length,'Succeeded workflow must deliver actual files');await page.waitForFunction(id=>document.querySelector('#dynamic-current')?.dataset.workflowId===id&&document.querySelector('#dynamic-current')?.dataset.status==='succeeded',run.id);
+    if(hook==='foreign_project'){
+     const outsider=await browser.newContext();for(const item of run.delivery)assert.equal((await outsider.request.get(BASE+'/'+item.url)).status(),404);await outsider.close();
+     state.browser_assertions.push('An unrelated browser cannot download accepted delivery bytes');
+    }
+    assert.equal(await page.locator('.dynamic-deliverable').count(),state.artifacts.length);
+    state.browser_assertions.push('Displayed delivery count matches persisted delivery');
+   const primary=run.delivery.find(a=>a.is_primary)||run.delivery[0];const preview=await context.newPage();
+   const inline=/^(image\/(png|jpeg|webp|gif)|video\/|audio\/|text\/(plain|csv)|application\/json)/.test(primary.type);
+   if(inline){await preview.goto(BASE+'/'+primary.url,{waitUntil:'domcontentloaded'});state.browser_preview='actual artifact URL';}
+   else{
+    const downloading=preview.waitForEvent('download');await preview.goto(BASE+'/'+primary.url).catch(e=>{if(!e.message.includes('Download'))throw e;});
+    const download=await downloading;const target=path.join(directory,'browser-download.bin');await download.saveAs(target);assert.equal(sha(target),primary.sha256);fs.unlinkSync(target);state.browser_preview='actual browser download, hash verified';
+   }
+    if(inline&&primary.type.startsWith('image/'))await preview.waitForFunction(()=>document.images.length>0&&[...document.images].every(i=>i.complete&&i.naturalWidth>0));
+    if(inline&&/^(video|audio)\//.test(primary.type)){
+     await preview.waitForFunction(()=>document.querySelector('video,audio')?.readyState>=1);
+     await preview.locator('video,audio').evaluate(async media=>{media.muted=true;await media.play();});
+     await preview.waitForFunction(()=>document.querySelector('video,audio')?.currentTime>.2);
+     await preview.locator('video,audio').evaluate(media=>media.pause());state.browser_assertions.push('Actual browser media playback advanced beyond 0.2 seconds');
+    }
+    await preview.screenshot({path:path.join(directory,'artifact-browser.png'),fullPage:true});await preview.close();
+    state.outcome=state.outcome||(spec.expect.kind==='protocol'?'protocol_passed':'business_succeeded');
+   }else if(!state.outcome){state.outcome='paused_or_failed';state.error_codes=run.tasks.filter(t=>t.error_code).map(t=>t.error_code);}
+   await page.waitForFunction(({id,status,version,tasks})=>document.querySelector('#dynamic-current')?.dataset.workflowId===id&&document.querySelector('#dynamic-current')?.dataset.status===status&&Number(document.querySelector('#dynamic-current')?.dataset.graphVersion)===version&&JSON.stringify([...document.querySelectorAll('#dynamic-tasks > article')].map(t=>t.dataset.status))===JSON.stringify(tasks),{id:run.id,status:run.status,version:run.graph_version,tasks:run.tasks.map(t=>t.status)});
+   assert.match(await page.locator('#dynamic-updated').textContent(),/最后更新/);const diagnosticHref=await page.locator('#dynamic-diagnostics').getAttribute('href');assert.ok(diagnosticHref?.includes(run.turn_id)&&diagnosticHref.includes('download=true'));
+   const diagnosticResponse=await context.request.get(new URL(diagnosticHref,BASE+'/').href);assert.equal(diagnosticResponse.status(),200);assert.match(diagnosticResponse.headers()['content-disposition']||'',/attachment/);
+   state.browser_assertions.push('Progress timestamp and explicit diagnostic download match the current workflow');
+   state.browser_assertions.push('Final browser status agrees with authoritative workflow snapshot');
+   state.browser_checked=true;await capture('final-browser');persist();
+   if(state.artifacts.length&&spec.expect.kind!=='protocol')state.artifact_verification=await probe('verify');
+  }
+ }catch(error){state.error=error.message;state.outcome=error.boundary?'boundary_not_reached':error.dependency?'dependency_blocked':error.model?'model_or_policy_pause':error.observation?'observation_timeout':'test_failed';
+  try{await capture('failure-browser');state.browser_observation={url:page.url(),error:await page.locator('#dynamic-error').textContent().catch(()=>''),status:await page.locator('#dynamic-status').textContent().catch(()=>'')};state.browser_checked=true;}catch{}persist();}
+ finally{
+  for(const [needed,action,unit] of [[objectCorrupted,'restore_object'],[workersHeld,'release_workers'],[orchestratorStopped,'start_orchestrator'],[observerStopped,'start_observer'],[apiStopped,'start_api'],[!!stoppedWorker,'start_worker',stoppedWorker]])if(needed){try{await fault(action,unit);}catch(e){state.restore_error=e.message;}}
+  if(state.project){
+   try{state.internal=await probe('final');}catch(e){state.audit_error=e.message;}
+   if(spec.required_archive_video_members){
+    let inspectionAudit={};try{inspectionAudit=JSON.parse(fs.readFileSync(path.join(directory,'internal-final.json'),'utf8'));}catch{}
+    const indexes=(inspectionAudit.inspections||[]).map(row=>{try{return JSON.parse(row.evidence_json);}catch{return {};}})
+     .filter(item=>item.coverage==='archive_directory'&&item.contents_verified===false);
+    const count=Math.max(0,...indexes.map(item=>new Set((item.members||[]).filter(m=>/\.(mp4|mov|mkv|webm)$/i.test(m.name)).map(m=>m.name)).size));
+    state.archive_inspection_boundary={required:spec.required_archive_video_members,observed_video_members:count,passed:count>=spec.required_archive_video_members};
+    if(state.archive_inspection_boundary.passed)state.events.push({action:'archive_directory_inspection_verified',video_members:count,at:Date.now()/1000});
+    else if(state.outcome==='business_succeeded'){state.outcome='boundary_not_reached';state.error='The required ZIP directory inspection was not observed';}
+   }
+   if(secondStarted){try{await fault('stop_second_orchestrator');}catch(e){state.restore_error=e.message;}}
+   try{
+    state.events.push({action:'cleanup_started',at:Date.now()/1000});persist();await page.goto('about:blank');
+    const listing=await api('GET',`/api/projects/${state.project}/workflows`);
+    for(const item of listing.workflows){if(!terminal(item.status)){await api('POST',`/api/projects/${state.project}/workflows/${item.id}/commands`,{request_id:uid(),action:'cancel'});const end=Date.now()+180000;while(Date.now()<end){const current=await api('GET',`/api/projects/${state.project}/workflows/${item.id}`);if(terminal(current.status))break;await page.waitForTimeout(1000);}}}
+    await probe('inspect');
+    const external=JSON.parse(fs.readFileSync(path.join(directory,'internal-snapshot.json'))).dimensions.external_cleanup.records;
+    if(!state.internal?.complete){state.cleanup_retained='Internal evidence is incomplete; retain the project until the audit can be completed';save(path.join(directory,'cleanup.json'),{complete:false,expected_retention:false,reason:state.cleanup_retained});}
+    else if(external.some(r=>['unknown','unconfirmed','unsupported'].includes(r.state))){state.cleanup_retained='External state is unresolved; retained durable evidence and project for reconciliation';save(path.join(directory,'cleanup.json'),{complete:false,expected_retention:true,reason:state.cleanup_retained});}
+    else{await api('DELETE',`/api/projects/${state.project}`);state.cleanup=await probe('cleanup');}
+   }catch(e){state.cleanup_error=e.message;}
+  }
+  state.finished_at=Date.now()/1000;state.status='finished';persist();await context.close();
+  if(state.restore_error||state.audit_error||state.cleanup_error||state.internal&&!state.internal.complete||state.internal?.program_passed===false||state.artifact_verification?.passed===false||state.outcome==='test_failed')fs.writeFileSync(path.join(ROOT,'pause-new-cases'),'Review '+spec.id+' '+number+' before launching more cases\n');
+  console.log(JSON.stringify({case:spec.id,outcome:state.outcome,program_passed:state.internal?.program_passed,complete:state.internal?.complete,cleanup:state.cleanup?.complete,attempt:directory}));
+ }
+ return state;
+}
+
+(async()=>{
+ const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
+ try{
+  const serial=cases.filter(c=>globalHooks.has(c.dynamic_hook));
+  const ordinary=cases.filter(c=>!serial.includes(c));let index=0;
+  const concurrency=Math.max(1,Math.min(4,Number(process.env.DYNAMIC_CASE_JOBS||2)));
+  await Promise.all(Array.from({length:concurrency},async()=>{while(index<ordinary.length&&!pauseNewCases()){const spec=ordinary[index++];await runCase(browser,spec);}}));
+  for(const spec of serial){if(pauseNewCases())break;await runCase(browser,spec);}
+  if(pauseNewCases())console.log(JSON.stringify({event:'campaign_paused_between_cases',reason:'pause-new-cases marker; unfinished coverage remains not_run'}));
+ }finally{await browser.close();}
+})().catch(error=>{console.error(error.stack);process.exitCode=1;});

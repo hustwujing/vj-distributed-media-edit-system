@@ -67,7 +67,8 @@ class AgentHost:
         self.draining = threading.Event()
         self.active = {}
         self.lock = threading.Lock()
-        self.socket_dir = Path('/run/video-use-agent')
+        from .deployment_identity import socket_root
+        self.socket_dir = socket_root()
         self.socket_dir.mkdir(mode=0o700, exist_ok=True)
         self.workflow_runner = workflows.Runner(self.store, Adapter(self.store, self.model, self.socket_dir), self.stop)
         from .agent_profiles import profiles
@@ -450,6 +451,22 @@ class AgentHost:
         heartbeat.start()
         try:
             with lease.bind():
+                from .workflow_graph import get as graph_get
+                if graph_get(self.store,lease.turn_id):
+                    lease.runtime_factory=lambda:TaskRuntime(lease,self.identities)
+                    from .scheduling import requirements
+                    if requirements(self.store,lease.turn_id,'workflow',step_id=lease.step_id)['gpu']:
+                        from .image_sandbox import allocation_for
+                        allocation=allocation_for(self.identities.root)
+                        if allocation.acquire() is None:
+                            allocation.release();lease.waiting_for_resource=True
+                            from .workflow_dispatch import stage_result
+                            stage_result(self.store,lease,'resource_wait',{'wait_seconds':5})
+                            return
+                        lease.gpu_reservation=allocation
+                    from .workflow_executor import execute
+                    execute(self,lease)
+                    return
                 if lease.kind=='agent':
                     from .agent_profiles import for_task,record_attempt
                     record_attempt(self.store,lease,for_task(self.store,lease.turn_id))

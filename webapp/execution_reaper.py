@@ -1,4 +1,6 @@
 """Independent node watchdog. Run as a separate service from AgentHost."""
+from .deployment_identity import service_user, runtime_group, socket_root
+
 import argparse
 import fcntl
 import json
@@ -109,7 +111,7 @@ class Reaper:
                 except FileExistsError:pass
         env={'PATH':'/usr/bin:/bin','PYTHONPATH':str(Path(__file__).resolve().parents[1]),
              'VIDEO_USE_EXECUTOR_ROOT':str(self.pool.root),'VIDEO_USE_UID_START':str(self.pool.start),'VIDEO_USE_UID_COUNT':str(self.pool.size)}
-        for key in ('VIDEO_USE_DATABASE_URL','VIDEO_USE_DISTRIBUTED'):
+        for key in ('VIDEO_USE_DATABASE_URL','VIDEO_USE_DISTRIBUTED','VIDEO_USE_DEPLOYMENT','VIDEO_USE_NODE_INSTANCE'):
             if key in os.environ:env[key]=os.environ[key]
         from .telemetry import child_env
         env.update(child_env('reaper_clean',record.get('task_id'),attempt))
@@ -153,7 +155,7 @@ class Reaper:
             if rows:
                 from .gateway_process import grant_database
                 grant_database(self.store)
-                account=pwd.getpwnam('video-use')
+                account=pwd.getpwnam(service_user())
                 for row in rows:
                     if row['id'] in self.external_children:continue
                     env={'PATH':'/usr/bin:/bin','PYTHONPATH':str(Path(__file__).resolve().parents[1]),'PYTHONDONTWRITEBYTECODE':'1',

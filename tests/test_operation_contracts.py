@@ -5,6 +5,15 @@ from webapp.quality_policy import Acceptance
 from webapp.execution_contracts import profile,dispatch_kind,classify_error
 
 class ContractTests(unittest.TestCase):
+    def test_sam3_text_constraints_are_enforced_before_execution_and_discoverable(self):
+        from webapp.operations import validate_parameters
+        inputs={'source':{'asset':'owned'}}
+        for prompt in ('宇航员','x'*121):
+            with self.assertRaises(ValueError):validate_parameters('image.segment_sam3',{'prompt':prompt},inputs)
+        self.assertEqual(validate_parameters('image.segment_sam3',{'prompt':'astronaut'},inputs)['prompt'],'astronaut')
+        constraints=get('image.segment_sam3').public()['constraints']
+        self.assertEqual(constraints['text_language'],'English')
+        self.assertEqual(constraints['text_max_length'],120)
     def test_image_input_validation_uses_adapter_contract_values(self):
         from webapp.image_providers import check_image_request,EDITOR_CONTRACT
         small={'input_min_side':16,'input_max_pixels':2048,'maximum_images_including_selection_guide':2,'assembled_prompt_max_length':20}
@@ -41,6 +50,14 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(Acceptance(kind='review',criterion='choice').reviewer,'user')
         with self.assertRaises(ValueError):Acceptance(kind='file',target='image',reviewer='agent',criterion='correct')
         with self.assertRaises(ValueError):Acceptance(kind='text',has_alpha=True,contains=['x'])
+    def test_media_edit_title_background_is_typed(self):
+        from webapp.operations import validate_parameters
+        inputs={'source':{'asset':'clip'}}
+        plan={'clips':[{'asset':'source'}],'titles':[{'text':'title','background':True}]}
+        value=validate_parameters('media.edit',{'edit_plan':plan},inputs)
+        self.assertIs(value['edit_plan']['titles'][0]['background'],True)
+        plan['titles'][0]['background']='#000000'
+        with self.assertRaises(ValueError):validate_parameters('media.edit',{'edit_plan':plan},inputs)
     def test_profile_does_not_depend_on_user_conversation_mode(self):
         self.assertEqual(profile('execute',review=True),'review')
         self.assertEqual(dispatch_kind({'workflow_status':'reviewing'}),'agent')

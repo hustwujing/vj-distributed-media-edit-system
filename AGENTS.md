@@ -7,6 +7,9 @@
 - 先检查工作区状态，保留已有改动；以当前代码核实文档中的接口和行为。
 - 开发环境、源码入口和测试命令见 [开发与测试](docs/development.md)。
 - 根据任务读取 [专项开发说明索引](docs/development/README.md)，只加载相关子文档；子文档是对应任务的开发规则。
+- 本分支的动态工作流控制面按 [动态工作流开发规范](docs/development/change-dynamic-workflow.md)；
+  新增 harness、专业 Agent、LLM 分别读取索引中的对应接入说明。
+- 实施统一 Run/Control Job、Provider 拆分、用户反馈或运行中输入重构前，必读[已确认方案与实施边界](docs/dynamic-plan-todo.md)。质量反馈统一走 run_inputs 和全 Run 排空安全点，Provider 不保留旧字段兼容；逐项核对文末五个边界及验证要求。
 - 新增 operation、为现有 operation 增加实现，或修改其契约/生命周期时，必须先读 [新增与扩展 operation](docs/development/add-operation.md)。
 
 ## 通用约定
@@ -15,6 +18,14 @@
 - 输入归属、方案确认、版本绑定和租约校验不能因功能扩展被绕过。状态与交付相关改动参考 [程序正确性审查原则](docs/program-correctness-audit.md)。
 - 测试使用独立数据与隔离入口；先验证直接影响的行为，发布检查按现有部署流程执行。文档改动检查链接、示例和代码一致性即可。
 - 交付时说明改动、验证结果及未验证边界；历史验收不代表当前代码通过，工作区修改不代表已部署。
+- 本机独立部署通过 `deploy/dynamic_cluster.py` / `deploy.sh` 管理。不得以旧 `deploy/cluster.py`
+  或旧真机驱动操作 main；服务名、端口、数据目录、UID/cgroup、数据库、Redis 前缀和 BOSS 前缀必须独立。
+- 动态 Task 的正式状态只由 Orchestrator 提交；执行器仅保存候选和回执。不得绕过 sealed、
+  授权包络、候选验证或旧 generation 防护来让测试通过。
+- 修复使用逻辑 Task + 不可变 revision；只允许原授权、目标、输入输出和验收内的实现修订。修复根计数，受影响后代换 revision，无关分支复用；旧 revision、结果和 plan 选择记录不得覆盖。
+- 专业 Agent 的检查、格式纠正和最终提交预算分开；进入 finalize 后不能继续扩张检查范围。能力目录使用冻结摘要和按需契约查询，查询不授予权限。
+- 真机用例变更先更新审查矩阵，再修改驱动。逐例保留浏览器和内部状态证据、首次失败及复测版本；
+  模型/依赖异常与程序缺陷分开报告，未执行、未触发边界和证据缺失不能计为通过。
 
 ## 维护开发说明
 

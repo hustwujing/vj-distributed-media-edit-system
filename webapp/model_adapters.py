@@ -9,6 +9,9 @@ import json
 from .usage_protocol import Receipt, number
 
 
+class PublicResponseStructureError(ValueError):pass
+
+
 class ModelAdapter:
     protocol = ''
     path = ''
@@ -23,10 +26,28 @@ class ModelAdapter:
     def receipt(self):
         return Receipt()
 
+    def conversation(self,instructions,text,images=()):
+        raise NotImplementedError('Structured conversations are not implemented for this protocol')
+
+    def response_text(self,payload):
+        raise NotImplementedError('Structured response parsing is not implemented for this protocol')
+
 
 class ResponsesAdapter(ModelAdapter):
     protocol = 'responses'
     path = '/responses'
+
+    def conversation(self,instructions,text,images=()):
+        content=[{'type':'input_text','text':text}]+[{'type':'input_image','image_url':image} for image in images]
+        return {'instructions':instructions,'input':[{'role':'user','content':content}],'stream':False}
+
+    def response_text(self,payload):
+        if payload.get('status')!='completed':raise ValueError('Response is not complete')
+        messages=[item for item in payload.get('output',[]) if item.get('type')=='message']
+        texts=[c.get('text','') for item in messages for c in item.get('content',[]) if c.get('type')=='output_text']
+        if len(messages)!=1 or len(texts)!=1 or not isinstance(texts[0],str):
+            raise PublicResponseStructureError('Structured Agent requires exactly one public text block')
+        return texts[0]
 
     def prepare(self, body, model, max_output_tokens, reasoning_effort=None):
         from .egress_policy import model_input
@@ -78,6 +99,17 @@ class ChatCompletionsAdapter(ModelAdapter):
     protocol = 'chat_completions'
     path = '/chat/completions'
 
+    def conversation(self,instructions,text,images=()):
+        content=[{'type':'text','text':text}]+[{'type':'image_url','image_url':{'url':image}} for image in images]
+        return {'messages':[{'role':'system','content':instructions},{'role':'user','content':content}],'stream':False}
+
+    def response_text(self,payload):
+        choice=payload['choices'][0]
+        if choice.get('finish_reason')!='stop':raise ValueError('Response is not complete')
+        value=choice['message']['content']
+        if not isinstance(value,str):raise ValueError('Response text is missing')
+        return value
+
     def prepare(self, body, model, max_output_tokens, reasoning_effort=None):
         value = copy.deepcopy(body)
         validate_messages(value.get('messages'))
@@ -103,6 +135,16 @@ class ChatCompletionsAdapter(ModelAdapter):
 class AnthropicAdapter(ModelAdapter):
     protocol = 'anthropic'
     path = '/messages'
+
+    def conversation(self,instructions,text,images=()):
+        content=[{'type':'text','text':text}]+[{'type':'image','source':{'type':'base64','media_type':'image/jpeg','data':image.split(',',1)[1]}} for image in images]
+        return {'system':instructions,'messages':[{'role':'user','content':content}],'stream':False}
+
+    def response_text(self,payload):
+        if payload.get('stop_reason') not in ('end_turn','stop_sequence'):raise ValueError('Response is not complete')
+        texts=[c.get('text','') for c in payload.get('content',[]) if c.get('type')=='text']
+        if len(texts)!=1 or not isinstance(texts[0],str):raise PublicResponseStructureError('Structured Agent requires exactly one public text block')
+        return texts[0]
 
     def headers(self, key):
         return {**super().headers(key), 'x-api-key': key, 'anthropic-version': '2023-06-01'}

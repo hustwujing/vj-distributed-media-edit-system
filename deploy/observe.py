@@ -7,7 +7,7 @@ import sys
 
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO))
-from deploy import cluster
+from deploy import dynamic_cluster as cluster
 
 
 def main(argv=None):

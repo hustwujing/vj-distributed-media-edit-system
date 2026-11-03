@@ -1,6 +1,7 @@
 """Image task dispatcher reused by manual jobs and the Agent gateway."""
 import contextlib
 import json
+import os
 import shutil
 import signal
 import threading
@@ -112,7 +113,9 @@ def execute_image(raw,assets,project,output,cancel=None,progress=None):
             request.write_text(json.dumps({'source':str(normalized),'mask':str(output/'.mask.png'),'output':str(output/'image.png'),
                 'text':task.text,'size':task.size,'color':task.color,'font':FONT}))
             import subprocess
-            subprocess.run(['/data/wujing03/miniforge3/envs/reference_video_remix_ocr/bin/python',str(Path(__file__).with_name('image_replace.py')),str(request)],check=True,timeout=60)
+            foreign_env={key:value for key,value in os.environ.items() if key not in ('PYTHONHOME','PYTHONPATH','VIRTUAL_ENV')}
+            foreign_env['PYTHONNOUSERSITE']='1'
+            subprocess.run(['/data/wujing03/miniforge3/envs/reference_video_remix_ocr/bin/python',str(Path(__file__).with_name('image_replace.py')),str(request)],check=True,timeout=60,env=foreign_env)
             return ['image.png']
         if task.action=='decompose':
             params={'prompt':task.prompt,'layer_count':str(task.layer_count),'resolution':'640','quality':'balanced','seed':'777','reconstruction_guard':'true'}

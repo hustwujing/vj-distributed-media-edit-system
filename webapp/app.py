@@ -35,7 +35,8 @@ from .edit_tools import bind_plan, edit_asset_ids, PlanError
 from .api_execution import APIExecutors,APICapacityError,APIClientDisconnected,route_class,lane,admission
 
 REPO = Path(__file__).resolve().parents[1]
-COOKIE = 'video_use_session'
+from .deployment_identity import namespace
+COOKIE = namespace().replace('-', '_')+'_session'
 VIDEO_EXTS = {'.mp4', '.mov', '.mkv', '.avi', '.m4v', '.webm', '.ogv'}
 AUDIO_EXTS = {'.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus'}
 IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tif', '.tiff'}
@@ -290,7 +291,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     @app.get('/chat/{project_id}')
     def chat_page(project_id: str, request: Request):
         own_project(project_id,request)
-        return page('chat.html',request,project_id)
+        return page('dynamic.html',request,project_id)
 
     @app.get('/api/health')
     async def health():
@@ -395,12 +396,23 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM execution_job_results WHERE job_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
         for table in ('agent_messages','agent_render_observations','execution_activities','agent_routes','agent_run_profiles','agent_attempt_profiles','agent_context_events'):
             store.execute(f'DELETE FROM {table} WHERE task_id IN ('+tasks+')',(project_id,project_id))
+        store.execute('DELETE FROM usage_calls WHERE task_id IN ('+tasks+')',(project_id,project_id))
+        store.execute('DELETE FROM usage_tasks WHERE project_id=?',(project_id,))
         store.execute('DELETE FROM plan_review_retries WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM plan_readiness WHERE project=?',(project_id,))
         store.execute('DELETE FROM agent_events WHERE turn_id IN ('+tasks+')', (project_id,project_id))
         store.execute('DELETE FROM jobs WHERE project=?', (project_id,))
         store.execute('DELETE FROM agent_steps WHERE workflow IN (SELECT id FROM agent_workflows WHERE project=?)', (project_id,))
         store.execute('DELETE FROM agent_workflows WHERE project=?', (project_id,))
+        for table in ('workflow_dependencies','workflow_tasks','planner_runs','task_results','workflow_commands',
+                      'workflow_decisions','workflow_reviews','workflow_graph_events','workflow_model_reservations','workflow_inspections'):
+            store.execute(f'DELETE FROM {table} WHERE workflow_id IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM workflow_agent_outputs WHERE workflow_id IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM workflow_diagnostics WHERE workflow IN (SELECT id FROM workflow_runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM workflow_start_requests WHERE project_id=?',(project_id,))
+        store.execute('DELETE FROM workflow_asset_reuse WHERE project_id=?',(project_id,))
+        store.execute('DELETE FROM workflow_runs WHERE project_id=?',(project_id,))
         for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
             store.execute(f'DELETE FROM {table} WHERE turn_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_checkpoints WHERE project=?',(project_id,))
@@ -741,6 +753,8 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     image_api.register(app,store,own_project,mutation_lock,wake,public_job)
     edit_feedback.register(app,store,own_project,mutation_lock,wake)
     agent_api.register(app, store, own_project, mutation_lock)
+    from .workflow_api import register as register_workflows
+    register_workflows(app,store,own_project)
     from . import usage_api
     usage_api.register(app,store,own_project)
     app.mount('/static', StaticFiles(directory=Path(__file__).parent / 'static'), name='static')

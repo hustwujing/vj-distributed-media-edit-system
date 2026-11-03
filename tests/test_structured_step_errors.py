@@ -13,6 +13,11 @@ from webapp.execution_contracts import classify_error
 from webapp.workflow_runtime import StepFailure
 
 class StructuredStepErrorTests(unittest.TestCase):
+    def test_only_trusted_before_request_failure_is_known_not_submitted(self):
+        self.assertEqual(classify_error({'code':'pre_submit','request_sent':False},'submit'),'pre_submit')
+        for detail in ({'code':'pre_submit'},{'code':'pre_submit','request_sent':True},
+                       {'log_tail':json.dumps({'code':'pre_submit','request_sent':False})}):
+            self.assertEqual(classify_error(detail,'submit'),'submission_unknown')
     def test_helper_exposes_parameter_error_and_runner_diagnoses_once(self):
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'helpers'))
         import edit_media

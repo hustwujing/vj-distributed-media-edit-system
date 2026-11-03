@@ -103,7 +103,9 @@ def register(app, store, own_project, lock):
     @app.post('/api/projects/{project_id}/agent/{turn_id}/harness-switch',status_code=202)
     @lane('control')
     def switch_harness(project_id:str,turn_id:str,body:HarnessSwitch,request:Request):
-        owned_turn(project_id,turn_id,request)
+        row=owned_turn(project_id,turn_id,request)
+        if (row.get('workflow') or {}).get('dynamic'):
+            raise HTTPException(409,'动态工作流使用已冻结的模型和 Agent 策略；请在新一轮授权前选择新的模型配置。')
         from .harness_switching import request as request_switch
         try:return request_switch(store,project_id,turn_id,body.profile,body.request_key,body.expected_digest)
         except ValueError as exc:raise HTTPException(409,str(exc)) from exc
@@ -183,6 +185,8 @@ def register(app, store, own_project, lock):
     @app.post('/api/projects/{project_id}/agent/{turn_id}/control')
     async def control(project_id:str,turn_id:str,body:ControlMessage,request:Request):
         row=await api_execution.run('critical',owned_turn,project_id,turn_id,request)
+        if (row.get('workflow') or {}).get('dynamic'):
+            raise HTTPException(410,'请使用动态工作流的命令和授权入口。')
         action=body.action
         if body.message:
             # No project/database lock is held while waiting for classification.
@@ -314,6 +318,9 @@ def register(app, store, own_project, lock):
 
     @app.post('/api/projects/{project_id}/agent/messages', status_code=202)
     def send(project_id: str, body: AgentMessage, request: Request):
+        if os.environ.get('VIDEO_USE_DYNAMIC_WORKFLOW')=='1':
+            own_project(project_id,request)
+            raise HTTPException(410,'当前部署使用动态工作流，请在执行范围确认后通过工作流入口开始。')
         with lock, store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             own_project(project_id, request)
@@ -522,8 +529,9 @@ def register(app, store, own_project, lock):
         if not record:
             raise HTTPException(404, '结果文件不存在。')
         path=await api_execution.run('storage',store.file,project_id,f'edit/agent_exports/{turn_id}/{name}')
-        return FileResponse(path, filename=record['name'] if download else None,
-                            media_type=record['type'])
+        active=record['type'] in ('text/html','image/svg+xml','application/xhtml+xml','application/xml','text/xml')
+        return FileResponse(path, filename=record['name'] if download or active else None,
+                            media_type=record['type'],headers={'Content-Security-Policy':"sandbox; default-src 'none'"} if active else {})
 
     @app.get('/api/projects/{project_id}/agent/{turn_id}/files/{name}/thumbnail')
     async def artifact_thumbnail(project_id: str, turn_id: str, name: str, request: Request):

@@ -13,9 +13,9 @@ import sys
 import time
 import zipfile
 
-REPO=Path(__file__).resolve().parents[1];sys.path.insert(0,str(REPO))
-from deploy import cluster
-ROOT=REPO/'.cluster/campaigns/20261031-real60'
+REPO=Path(os.environ.get('DYNAMIC_CAMPAIGN_REPO',Path(__file__).resolve().parents[1])).resolve();sys.path.insert(0,str(REPO))
+from deploy import dynamic_cluster as cluster
+ROOT=REPO/'.cluster/campaigns/dynamic-plan'
 release=json.loads((cluster.ROOT/'release.json').read_text());sys.path.insert(0,release['source'])
 os.environ.update(cluster.environment());os.environ.update(cluster.env_file(cluster.CONF/'observation.env'))
 from webapp.store import Store
@@ -62,7 +62,8 @@ def image_info(path):
     with Image.open(path) as im:
         if im.width*im.height>32_000_000:raise ValueError('Image exceeds QA decoder budget')
         rgba=np.asarray(im.convert('RGBA'));rgb=rgba[...,:3].astype(float);alpha=rgba[...,3]
-        return {'width':im.width,'height':im.height,'format':im.format,'mode':im.mode,'transparent_fraction':float((alpha<16).mean()),
+        return {'width':im.width,'height':im.height,'format':im.format,'mode':im.mode,'transparent_fraction':float((alpha<255).mean()),
+                'visible_fraction':float((alpha>0).mean()),
                 'mean':float(rgb.mean()),'channel_difference':float(np.max(rgb,axis=2).mean()-np.min(rgb,axis=2).mean()),
                 'gradient':float(np.abs(np.diff(rgb,axis=0)).mean()+np.abs(np.diff(rgb,axis=1)).mean())}
 
@@ -72,7 +73,7 @@ def verify(run_dir):
     from PIL import Image,ImageDraw,ImageOps
     run_dir=Path(run_dir).resolve()
     if not run_dir.is_relative_to((ROOT/'runs').resolve()):raise ValueError('Invalid QA run directory')
-    state=json.loads((run_dir/'state.json').read_text());spec=next(c for c in json.loads((REPO/'docs/real-case-campaign/cases.json').read_text())['cases'] if c['id']==state['case'])
+    state=json.loads((run_dir/'state.json').read_text());spec=next(c for c in json.loads((REPO/'docs/real-case-campaign/dynamic-cases.json').read_text())['cases'] if c['id']==state['case'])
     expected=spec['expect'];errors=[];items=[];images=[];videos=[];audios=[];texts=[];others=[]
     for artifact in state['artifacts']:
         path=Path(artifact['local_file']).resolve()
@@ -99,10 +100,12 @@ def verify(run_dir):
     kind=expected['kind'];selected=None
     if kind=='image':
         matches=[a for a in images if a['image']['width']==expected['width'] and a['image']['height']==expected['height']]
-        if expected.get('alpha'):matches=[a for a in matches if a['image']['transparent_fraction']>.05]
+        if expected.get('alpha'):matches=[a for a in matches if a['image']['transparent_fraction']>0 and a['image']['visible_fraction']>0]
         selected=next((a for a in matches if a is primary),None) or (matches[0] if matches else None)
         if not selected:errors.append('No delivered image with required size/alpha')
         if len(images)<expected.get('min_images',1):errors.append('Missing delivered image variants')
+        for width,height in expected.get('extra_image_sizes',[]):
+            if not any((a['image']['width'],a['image']['height'])==(width,height) for a in images):errors.append(f'Missing image variant {width}x{height}')
         if selected and expected.get('extension'):
             allowed={'.jpg':{'JPEG'},'.webp':{'WEBP'}}.get(expected['extension'],{'PNG'})
             if selected['image']['format'] not in allowed:errors.append('Actual image format mismatch')
@@ -121,6 +124,10 @@ def verify(run_dir):
             if abs(m['duration']-expected['duration'])>expected.get('duration_tolerance',.2):errors.append('Video duration mismatch: '+item['name'])
             if expected.get('audio') is True and not m['audio']:errors.append('Missing audio stream')
             if expected.get('audio') is False and m['audio']:errors.append('Audio stream was not removed')
+            if expected.get('audio_silent'):
+                samples=pcm(Path(item['local_file']))
+                item['audio_peak']=float(np.max(np.abs(samples))) if samples.size else None
+                if samples.size==0 or item['audio_peak']>1e-4:errors.append('Audio track exists but decoded samples are not silent')
             if 'fps' in expected and abs(m['video']['fps']-expected['fps'])>.01:errors.append('Frame rate mismatch')
             try:
                 progress=media(Path(item['local_file']),['ffmpeg','-v','error','-threads','2','-i','/input','-map','0:v:0','-fps_mode','passthrough','-progress','pipe:1','-f','null','-'],60)
@@ -149,7 +156,7 @@ def verify(run_dir):
                 times=re.findall(r'(\d+):(\d+):(\d+),(\d+)',item.get('text',''))
                 if not times:errors.append('No actual SRT timecodes')
                 if any(int(h)*3600+int(m)*60+int(s)+int(ms)/1000>30.2 for h,m,s,ms in times):errors.append('SRT beyond input duration')
-    if expected.get('extra_alpha') and not any(a['image']['transparent_fraction']>.05 for a in images):errors.append('Requested transparent intermediate was not delivered')
+    if expected.get('extra_alpha') and not any(a['image']['transparent_fraction']>0 and a['image']['visible_fraction']>0 for a in images):errors.append('Requested transparent intermediate was not delivered')
     if expected.get('extra_image') and not images:errors.append('Requested image/contact sheet was not delivered')
     if expected.get('extra_audio') and not audios:errors.append('Requested audio was not delivered')
     if expected.get('extra_text') and not texts:errors.append('Requested text/report was not delivered')
@@ -277,6 +284,10 @@ def verify(run_dir):
     from campaign_complex_checks import check as complex_check
     extra_checks,extra_errors=complex_check(state['case'],selected,images,audios,fixture,frame,pcm)
     checks.update(extra_checks);errors.extend(extra_errors)
+    if state['case'].startswith('R'):
+        from campaign_dynamic_intervention_checks import check as intervention_check
+        extra_checks,extra_errors=intervention_check(state,spec,images,videos,store(),fixture,frame,run_dir)
+        checks.update(extra_checks);errors.extend(extra_errors)
     # Contact sheet is independent evidence for required human/vision review.
     previews=[]
     if selected and kind in ('video','video_variants'):
@@ -291,11 +302,11 @@ def verify(run_dir):
         sheet.save(run_dir/'contact-sheet.jpg')
     if spec.get('allowed_external_operations'):
         db=store()
-        calls=db.query("""SELECT request_key,step,revision,provider,operation,state,external_id,network_seconds,poll_count FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM agent_workflows WHERE turn_id=?) OR workflow=? ORDER BY created""",(state['execute_id'],state['execute_id']))
+        calls=db.query("""SELECT request_key,step,revision,provider,operation,state,external_id,network_seconds,poll_count FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM workflow_runs WHERE turn_id=?) OR workflow=? ORDER BY created""",(state['execute_id'],state['execute_id']))
         for reuse in state.get('reuse_evidence',[]):
             owned=db.query('SELECT project FROM agent_turns WHERE id=?',(reuse['task'],))
             if not owned or owned[0]['project']!=state['project']:raise ValueError('Reused provider task outside project')
-            previous=db.query("SELECT request_key,workflow,step,revision,provider,operation,state,external_id,network_seconds,poll_count,result FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM agent_workflows WHERE turn_id=?) AND operation=? AND state='succeeded'",(reuse['task'],reuse['operation']))
+            previous=db.query("SELECT request_key,workflow,step,revision,provider,operation,state,external_id,network_seconds,poll_count,result FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM workflow_runs WHERE turn_id=?) AND operation=? AND state='succeeded'",(reuse['task'],reuse['operation']))
             linked=[]
             for receipt in previous:
                 # Async receipts describe the provider job; its downloaded
@@ -324,8 +335,8 @@ def candidate(db,task):
     rows=db.query("SELECT a.id,a.worker,a.step_id,a.runtime,a.started,w.node FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker WHERE a.turn_id=? AND a.kind='workflow' AND a.status='running' AND a.runtime<>'' ORDER BY a.started DESC",(task,))
     for row in rows:
         if time.time()-row['started']<2:continue
-        specs=db.query('SELECT s.spec FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(task,row['step_id']))
-        if not specs or not json.loads(specs[0]['spec']).get('retry_safe'):continue
+        specs=db.query('SELECT s.spec_json AS spec FROM workflow_tasks s JOIN workflow_runs w ON w.id=s.workflow_id WHERE w.turn_id=? AND s.id=?',(task,row['step_id']))
+        if not specs or not (json.loads(specs[0]['spec']).get('retry_policy')=='safe_once'):continue
         for node in cluster.PORTS:
             registry=cluster.registry(node)
             if (registry/'node-id').read_text().strip()!=row['node']:continue
@@ -338,7 +349,7 @@ def candidate(db,task):
                             if (Path('/proc')/pid/'comm').read_text().strip()=='ffmpeg':
                                 ticks=int((Path('/proc')/pid/'stat').read_text().rsplit(')',1)[1].split()[19])
                                 age=float(Path('/proc/uptime').read_text().split()[0])-ticks/os.sysconf('SC_CLK_TCK')
-                                if age>=2:return {**row,'unit':f'video-use-executor@{node}.service','ready':True,'ffmpeg_pid':int(pid),'ffmpeg_start_ticks':ticks,'ffmpeg_runtime_seconds':age,'observed_at':time.time()}
+                                if age>=2:return {**row,'unit':f'{cluster.NAMESPACE}-executor@{node}.service','ready':True,'ffmpeg_pid':int(pid),'ffmpeg_start_ticks':ticks,'ffmpeg_runtime_seconds':age,'observed_at':time.time()}
                     except (OSError,ValueError):pass
     return {'ready':False}
 

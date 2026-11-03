@@ -106,7 +106,8 @@ class Adapter:
             from .task_lifecycle import TaskLimitReached
             if isinstance(exc,(LeaseLost,TaskQuotaReached,TaskLimitReached)):raise
             rows=self.store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(w['id']+':'+s['id']+':'+str(s['revision']),))
-            if not rows:raise StepFailure({'message':'提交前检查失败，未发起生成请求','code':'pre_submit','detail':str(exc)[-1500:]}) from exc
+            if not rows:raise StepFailure({'message':'提交前检查失败，未发起生成请求','code':'pre_submit',
+                'request_sent':False,'cause_type':type(exc).__name__,'detail':str(exc)[-1500:]}) from exc
             raise
 
     def _submit(self, w, s):
@@ -581,6 +582,8 @@ class Adapter:
         """Fixed offline image worker; local argv never receives a model gateway."""
         from .image_sandbox import image_command,gpu_slot
         from .task_leases import CURRENT
+        lease=CURRENT.get()
+        if lease:lease.consume('local_image',int(os.environ.get('VIDEO_USE_TASK_LOCAL_IMAGE_CALLS','20')))
         from .paths import SANDBOX_WORKSPACE
         env=self.environment(w)
         lease=CURRENT.get()

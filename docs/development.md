@@ -1,6 +1,6 @@
 # 开发与测试
 
-本文描述源码和测试入口；Web 操作见 [使用指南](../WEB_UI.md)，实际服务发布见 [集群操作手册](cluster-operations.md)。以下命令均从仓库根目录执行。
+本文描述源码和测试入口。本分支的独立部署和动态图入口见 [README](../README.md)；旧 Web 与集群文档仅供复用模块参考，不应据此操作 main。以下命令均从仓库根目录执行。
 
 仓库开发规则从 [AGENTS.md](../AGENTS.md) 进入；具体任务按 [专项开发说明索引](development/README.md) 选读对应主题。本文统一维护环境、测试与发布检查，各专项只补充受影响行为及定向验证示例。
 
@@ -21,7 +21,9 @@ uv sync --locked --extra web --extra web-test
 | `webapp/light_conversation.py`、`agent_context.py` | 轻量对话、项目上下文和沙盒提示 |
 | `webapp/plan_readiness.py`、`workspace_state.py` | 方案就绪、内容版本与确认依据 |
 | `webapp/agent_host.py`、`scheduling.py`、`task_leases.py` | 执行器、资源调度及跨节点租约 |
-| `webapp/workflows.py`、`workflow_runtime.py`、`workflow_review.py` | 工作流状态、运行与验收 |
+| `webapp/workflow_graph.py`、`workflow_planning.py`、`workflow_orchestrator.py` | 新 DAG 契约、滚动提案、正式状态与验收提交 |
+| `webapp/workflow_dispatch.py`、`workflow_executor.py`、`workflow_agents.py` | 调度衔接、执行候选、受限专业 Agent 循环 |
+| `webapp/workflow_runtime.py`、`workflow_inputs.py` | 复用的媒体执行适配器与输入绑定 |
 | `webapp/operations.py`、`operation_parameters.py` | 能力目录、参数及受控操作 |
 | `webapp/execution_runtime.py`、`execution_reaper.py`、`runtime_image.py` | 沙盒资源、回收与运行时包 |
 | `webapp/artifact_store.py`、`checkpoints.py`、`demo_library.py` | 对象存储、版本恢复和共享示例 |
@@ -37,6 +39,8 @@ node --test tests/*.test.mjs
 ```
 
 Python 入口发现全部 `tests/test_*.py`，不是仅运行名称包含 distributed 的测试。入口通过 `tests/isolation.py` 清理服务连接和凭据环境，创建独立目录；分布式用例使用临时真实 PostgreSQL、HTTP S3 协议测试服务、独立进程与节点根目录。以 Linux root 运行时还创建仅环回可用的网络命名空间，不访问线上付费供应商。
+
+测试临时根默认是仓库同级的 `../vu-tmp`（本机为 `/data2/wujing03/vu-tmp`），也可用 `VIDEO_USE_TEST_TMP_ROOT` 指定。不要把媒体、临时 PostgreSQL、运行时镜像或真机证据写入根分区 `/tmp`。
 
 完整隔离验证需要：
 
@@ -72,13 +76,15 @@ VIDEO_USE_TEST_REAL_MODELS=1 .venv/bin/python -m tests.run_distributed_suite
 | `tests/run_live_generation_case.py` | 真实生成链路 |
 | `tests/run_live_transcribe_smoke.py` | 真实转写 |
 | `tests/run_live_boss_storage.py` | 真实对象存储加密、跨节点恢复与测试对象清理 |
-| `tests/campaign_*.py`、`tests/campaign_*.cjs` | 专项真实场景与浏览器验收 |
+| `tests/campaign_suite.py` → `campaign_dynamic_browser.cjs` | 当前分支的 97 条隔离真机 case；逐例内部状态、浏览器和清理审计 |
+
+表中旧 smoke 驱动仍可能默认指向 main；本分支验收使用 `campaign_suite.py`，旧驱动仅作为实现参考。
 
 真实服务驱动可能消耗额度或写入外部存储。运行前读取对应驱动的配置和目标，使用独立测试项目；常规协议测试不能证明真实服务的质量、取消能力或网络表现。`deploy/cluster_smoke.py` 会临时停止实例做接管验证，仅在维护窗口运行。
 
 ## 发布与文档检查
 
-部署脚本把源码冻结到 `.cluster/releases/<源码指纹>/`，在冻结版本运行完整 Python 测试并核对报告；前端 `node --test` 和真实浏览器验收不由这一门禁自动代跑。部署使用依赖快照，更新前先同步工作区依赖。`./deploy.sh restart` 重启已部署版本，发布工作区改动使用 `./deploy.sh deploy`。
+部署脚本把源码冻结到 `.cluster/releases/<源码指纹>/`，在独立可读副本运行完整 Python 与前端 `node --test` 测试并核对报告；真实浏览器验收由 `campaign_suite.py` 在部署后运行。部署使用依赖快照，更新前先同步工作区依赖。`./deploy.sh restart` 重启已部署版本，发布工作区改动使用 `./deploy.sh deploy`。
 
 文档更新应核对链接、命令、配置名和当前代码；没有修改代码时，无需仅为文案重跑付费调用或整套模型测试。涉及示例交付、状态或权限变化时，选择对应回归并按发布要求完成全量检查。
 

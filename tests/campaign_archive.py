@@ -7,9 +7,9 @@ import time
 
 
 def _archive(directory,db,observation):
-    directory=Path(directory).resolve();root=Path(__file__).resolve().parents[1]/'.cluster/campaigns/20261031-real60/runs'
+    directory=Path(directory).resolve();root=Path(os.environ.get('DYNAMIC_CAMPAIGN_REPO',Path(__file__).resolve().parents[1]))/'.cluster/campaigns/dynamic-plan/runs'
     if not directory.is_relative_to(root.resolve()):raise ValueError('Not a campaign attempt')
-    state=json.loads((directory/'state.json').read_text());ids={state.get('plan_id'),state.get('execute_id')}
+    state=json.loads((directory/'state.json').read_text());ids={state.get('plan_id'),state.get('execute_id'),*state.get('task_ids',[])}
     ids.update(p.stem for p in (directory/'plan-history').glob('*.json'))
     folder=directory/'trace-archive';folder.mkdir(mode=0o700,exist_ok=True)
     index=folder/'index.json';result=json.loads(index.read_text()) if index.exists() else {'tasks':{},'scope':'All retained sanitized telemetry at collection time plus durable database audits; pre-retention loss cannot be reconstructed.'}
@@ -41,7 +41,7 @@ def _archive(directory,db,observation):
 
 def archive(directory,db,observation):
     import fcntl
-    directory=Path(directory).resolve();root=Path(__file__).resolve().parents[1]/'.cluster/campaigns/20261031-real60/runs'
+    directory=Path(directory).resolve();root=Path(os.environ.get('DYNAMIC_CAMPAIGN_REPO',Path(__file__).resolve().parents[1]))/'.cluster/campaigns/dynamic-plan/runs'
     if not directory.is_relative_to(root.resolve()):raise ValueError('Not a campaign attempt')
     with (directory/'trace-archive.lock').open('a') as lock:
         os.fchmod(lock.fileno(),0o600);fcntl.flock(lock,fcntl.LOCK_EX)

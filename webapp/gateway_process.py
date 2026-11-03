@@ -3,6 +3,8 @@
 There is no arbitrary command/path operation. Every request is re-checked against
 the parent's task lease and immutable asset scope before a fixed tool runs.
 """
+from .deployment_identity import service_user, runtime_group, socket_root
+
 import base64
 import json
 import os
@@ -57,7 +59,7 @@ def send(sock,value):
 
 
 def grant_database(store):
-    account=pwd.getpwnam('video-use')
+    account=pwd.getpwnam(service_user())
     for directory in [store.root,*store.root.parents]:
         if directory==Path('/'):break
         if directory!=store.root and directory.stat().st_mode&0o001:break
@@ -118,10 +120,14 @@ class GatewayProcess:
                         if body.get('action')!='preflight':raise ValueError('Invalid preflight action')
                         response={'status':200,'body':gateway.workflow_callback(body)}
                     elif operation=='normalize':
-                        if gateway.allowed_paths is not None:raise ValueError('Model input is outside task scope')
+                        from .workflow_gateway import MODEL_PATHS
+                        if gateway.allowed_paths is not None and not (gateway.allowed_paths&MODEL_PATHS):raise ValueError('Model input is outside task scope')
                         from .egress_policy import model_input
                         model_input(body);gateway.normalize_model_images(body)
                         response={'status':200,'body':body}
+                    elif operation=='workflow_inspect':
+                        from .workflow_gateway import inspect
+                        response={'status':200,'body':inspect(gateway,body)}
                     elif operation=='decode':
                         raw=base64.b64decode(body['image'],validate=True)
                         if len(raw)>20*1024**2:raise ValueError('Image too large')
@@ -208,7 +214,7 @@ class GatewayProcess:
     def start(self):
         gateway=self.gateway;lease=gateway.lease
         grant_database(lease.store)
-        account=pwd.getpwnam('video-use')
+        account=pwd.getpwnam(service_user())
         gateway.project_dir.parent.mkdir(parents=True,exist_ok=True)
         subprocess.run(['setfacl','-m',f'u:{account.pw_uid}:--x',str(gateway.project_dir.parent)],check=True,capture_output=True)
         for path in (gateway.project_dir,gateway.project_dir/'edit',gateway.project_dir/'edit/transcripts',gateway.project_dir/'sources'):
@@ -218,7 +224,7 @@ class GatewayProcess:
         for path in (gateway.project_dir/'edit/transcripts').glob('*.json'):
             if path.is_file() and not path.is_symlink():subprocess.run(['setfacl','-m',f'u:{account.pw_uid}:rw',str(path)],check=True,capture_output=True)
         runtime=lease.runtime
-        base=Path('/run/video-use-agent/client-temp');base.mkdir(mode=0o700,parents=True,exist_ok=True)
+        base=socket_root()/'client-temp';base.mkdir(mode=0o700,parents=True,exist_ok=True)
         for path in (base.parent,base):subprocess.run(['setfacl','-m',f'u:{account.pw_uid}:--x',str(path)],check=True,capture_output=True)
         private=base/lease.attempt;private.mkdir(mode=0o700)
         subprocess.run(['mount','-t','tmpfs','-o',f'size=536870912,nr_inodes=1024,mode=0700,uid={account.pw_uid},gid={account.pw_gid},nosuid,nodev,noexec','tmpfs',str(private)],check=True,capture_output=True)
@@ -231,7 +237,7 @@ class GatewayProcess:
                 'socket':str(gateway.socket_path),'workflow':bool(gateway.workflow_callback),'canvas':bool(gateway.canvas_callback),
                 'workflow_review_id':getattr(gateway,'workflow_review_id',None),
                 'parent':os.getpid(),
-                'lease':{key:getattr(lease,key) for key in ('turn_id','worker','attempt','generation','kind','recovered','prior_kind','ttl')}}
+                'lease':{key:getattr(lease,key) for key in ('turn_id','worker','attempt','generation','kind','recovered','prior_kind','ttl','step_id')}}
         env={'PATH':'/usr/bin:/bin','PYTHONPATH':str(Path(__file__).resolve().parents[1]),'PYTHONDONTWRITEBYTECODE':'1','TMPDIR':str(private)}
         env.update({k:v for k,v in os.environ.items() if k.startswith('VIDEO_USE_') and not any(s in k for s in ('KEY','TOKEN','SECRET','PASSWORD'))})
         env['VIDEO_USE_TELEMETRY_STREAM']='stderr'

@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//root/.claude/**)",
+      "Read(//root/.local/share/**)",
+      "Bash(npm ls *)",
+      "Bash(npm view *)"
+    ]
+  }
+}

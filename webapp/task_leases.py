@@ -132,6 +132,8 @@ def initialize(store):
             db.execute("ALTER TABLE execution_attempts ADD COLUMN exit_reason TEXT NOT NULL DEFAULT ''")
         if 'step_id' not in {r['name'] for r in db.execute('PRAGMA table_info(execution_attempts)')}:
             db.execute("ALTER TABLE execution_attempts ADD COLUMN step_id TEXT NOT NULL DEFAULT ''")
+        if 'task_revision' not in {r['name'] for r in db.execute('PRAGMA table_info(execution_attempts)')}:
+            db.execute('ALTER TABLE execution_attempts ADD COLUMN task_revision INTEGER NOT NULL DEFAULT 0')
         if 'permission_profile' not in {r['name'] for r in db.execute('PRAGMA table_info(execution_attempts)')}:
             db.execute("ALTER TABLE execution_attempts ADD COLUMN permission_profile TEXT NOT NULL DEFAULT ''")
         if 'bytes' not in {r['name'] for r in db.execute('PRAGMA table_info(execution_job_results)')}:
@@ -144,6 +146,8 @@ def initialize(store):
         initialize_checkpoints(db)
         from .scheduling import initialize as initialize_resources
         initialize_resources(db)
+    from .workflow_graph import initialize as initialize_graph
+    initialize_graph(store)
     from .observation_schema import initialize as initialize_observation
     initialize_observation(store)
 
@@ -178,6 +182,12 @@ class Lease:
         if cleanup and cleanup['state']!='allocated':raise LeaseLost('Task resource cleanup has started')
         from .task_lifecycle import check
         check(db,self.turn_id,self.attempt)
+        if self.kind=='workflow' and self.step_id:
+            scoped=db.execute('''SELECT s.revision,s.lease_id,a.task_revision FROM workflow_tasks s
+                JOIN workflow_runs w ON w.id=s.workflow_id JOIN execution_attempts a ON a.id=?
+                WHERE w.turn_id=? AND s.id=?''',(self.attempt,self.turn_id,self.step_id)).fetchone()
+            if scoped and (scoped['lease_id']!=self.attempt or scoped['revision']!=scoped['task_revision']):
+                self.lost.set();raise LeaseLost('Workflow task revision or owner was replaced')
         if not self.control_only:
             table='jobs' if self.kind=='manual' else 'agent_turns'
             task=db.execute(f'SELECT status FROM {table} WHERE id=?',(self.turn_id,)).fetchone()
@@ -286,6 +296,9 @@ class Coordinator:
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             timestamp = now(db)
+            from .workflow_graph import get as graph_get
+            dynamic=graph_get(self.store,turn_id)
+            if dynamic and (kind!='workflow' or not step_id):return None
             own=db.execute('SELECT draining FROM execution_workers WHERE id=?',(self.worker,)).fetchone()
             if own and own['draining']:return None
             table = 'jobs' if kind == 'manual' else 'agent_turns'
@@ -317,9 +330,17 @@ class Coordinator:
                     from .operations import for_step
                     from .operation_lifecycle import for_operation,Lifecycle
                     from .runtime_image import fingerprint
-                    detail=db.execute('SELECT s.workflow,s.spec,s.bindings FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(turn_id,step_id)).fetchone()
-                    try:operation=for_step(json.loads(detail['spec']))
-                    except ValueError:return None
+                    if dynamic:
+                        task=next(t for t in dynamic['tasks'] if t['id']==step_id)
+                        if task['type']=='operation':
+                            from .operations import get as operation_get
+                            operation=operation_get(task['spec']['operation'],task['spec']['implementation'])
+                        else:operation=None
+                        detail={'workflow':dynamic['id'],'bindings':json.dumps(task['bindings'])}
+                    else:
+                        detail=db.execute('SELECT s.workflow,s.spec,s.bindings FROM agent_steps s JOIN agent_workflows w ON w.id=s.workflow WHERE w.turn_id=? AND s.id=?',(turn_id,step_id)).fetchone()
+                        try:operation=for_step(json.loads(detail['spec']))
+                        except ValueError:return None
                     if operation and not operation.node_enabled():return None
                     if operation is None or for_operation(operation).lifecycle==Lifecycle.LOCAL:
                         bindings=json.loads(detail['bindings']);environment=fingerprint()
@@ -371,8 +392,8 @@ class Coordinator:
                 db.execute("INSERT INTO execution_waits VALUES (?,'project_busy',0,?) ON CONFLICT(task_id) DO UPDATE SET reason='project_busy',updated=excluded.updated",(turn_id,timestamp))
                 return None
             if kind == 'workflow':
-                w = db.execute('SELECT status FROM agent_workflows WHERE turn_id=?', (turn_id,)).fetchone()
-                if not w or w['status'] not in ('ready', 'staged', 'cancelling', 'resuming'):
+                w = dynamic or db.execute('SELECT status FROM agent_workflows WHERE turn_id=?', (turn_id,)).fetchone()
+                if not w or w['status'] not in (('planning','running','reviewing') if dynamic else ('ready', 'staged', 'cancelling', 'resuming')):
                     return None
             recovered = bool(prior and (prior['active'] or prior['interrupted'])) or bool(not prior and turn['status']=='running')
             generation = db.execute('SELECT COALESCE(MAX(generation),0)+1 AS next FROM execution_attempts WHERE turn_id=?',(turn_id,)).fetchone()['next']
@@ -381,7 +402,7 @@ class Coordinator:
             if resources is None:
                 db.execute("INSERT INTO execution_waits VALUES (?,'resource',0,?) ON CONFLICT(task_id) DO UPDATE SET reason='resource',updated=excluded.updated",(turn_id,timestamp))
                 return None
-            if environment_binding:db.execute('UPDATE agent_steps SET bindings=? WHERE workflow=? AND id=?',environment_binding)
+            if environment_binding:db.execute('UPDATE workflow_tasks SET bindings_json=? WHERE workflow_id=? AND id=?' if dynamic else 'UPDATE agent_steps SET bindings=? WHERE workflow=? AND id=?',environment_binding)
             attempt = uuid.uuid4().hex
             db.execute('INSERT INTO execution_resource_claims VALUES (?,?,?,?,?,?,?)',(attempt,turn_id,self.node,resources['cpu'],resources['memory_mb'],resources['provider'],timestamp))
             db.execute('INSERT INTO execution_leases VALUES (?,?,?,?,?,?,1,0,?,?) ON CONFLICT(slot) DO UPDATE SET worker=excluded.worker,attempt=excluded.attempt,generation=excluded.generation,kind=excluded.kind,expires=excluded.expires,active=1,interrupted=0,release=excluded.release',
@@ -391,13 +412,17 @@ class Coordinator:
             db.execute('INSERT INTO execution_attempts(id,turn_id,worker,generation,kind,started,status,step_id) VALUES (?,?,?,?,?,?,?,?)',
                        (attempt, turn_id, self.worker, generation, kind, timestamp, 'running',resources.get('step_id') or ''))
             db.execute('DELETE FROM execution_waits WHERE task_id=?',(turn_id,))
+            if dynamic:
+                from .workflow_dispatch import bind_claim
+                bind_claim(self.store,db,dynamic,step_id,attempt,generation)
             return Lease(self.store, turn_id, self.worker, attempt, generation, kind, recovered,
                          prior['kind'] if prior else 'agent', self.ttl,step_id=resources.get('step_id'),control_only=control_only)
 
     def candidates(self):
         rows=self.store.query("""SELECT t.id,t.status,w.status AS workflow_status,w.id AS workflow
           FROM agent_turns t LEFT JOIN agent_workflows w ON w.turn_id=t.id
-          WHERE t.status IN ('queued','running','waiting','cancelling') ORDER BY t.created LIMIT 100""")
+          WHERE t.status IN ('queued','running','waiting','cancelling')
+          AND NOT EXISTS(SELECT 1 FROM workflow_runs dw WHERE dw.turn_id=t.id) ORDER BY t.created LIMIT 100""")
         timestamp=self.store.now();ready=[]
         from .scheduling import available_steps
         for row in rows:
@@ -422,7 +447,8 @@ class Coordinator:
                     unfinished=self.store.query("SELECT id FROM agent_steps WHERE workflow=? AND status<>'succeeded'",(row['workflow'],))
                     if not unfinished:ready.append(row)
             elif not active:ready.append(row)
-        return ready
+        from .workflow_dispatch import candidates as graph_candidates
+        return ready+graph_candidates(self.store)
 
     def manual_candidates(self):
         return self.store.query('''SELECT j.id,j.status FROM jobs j

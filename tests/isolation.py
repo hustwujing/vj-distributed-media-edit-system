@@ -11,7 +11,7 @@ import tempfile
 
 def temporary_root():
     """Test fixtures must not write into an installed release's workspace."""
-    root=Path(os.environ.get('VIDEO_USE_TEST_TMP_ROOT',tempfile.gettempdir()))
+    root=Path(os.environ.get('VIDEO_USE_TEST_TMP_ROOT') or os.environ.get('TMPDIR') or Path.cwd().parent/'vu-tmp')
     root.mkdir(parents=True,exist_ok=True)
     return root
 

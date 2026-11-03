@@ -21,6 +21,7 @@ FIELDS = set('event_sequence message_id actor activity_id level call_id run_id r
 from .api_capacity import FIELDS as API_CAPACITY_FIELDS
 FIELDS.update(API_CAPACITY_FIELDS)
 FIELDS.update({'harness','model','protocol','reasoning_effort','max_output_tokens','configuration_digest','switch_id'})
+FIELDS.update({'graph_version','authorization_version','sealed','proposal_id','planner_run_id','reconcile_generation','profile_id','snapshot_digest','task_count','scan_lag_seconds'})
 _QUEUE = queue.Queue(maxsize=1024)
 _LOCK = threading.Lock()
 _THREAD = None
