@@ -33,6 +33,9 @@
 | [仓库开发规则](../AGENTS.md)、[专项开发说明索引](development/README.md) | 精简规则入口与按任务读取的子文档 |
 | [开发与测试](development.md) | 依赖、源码入口、隔离回归、真实服务验收和发布门禁 |
 | [API 并发与耗时隔离](development/change-api-concurrency.md) | 路由选池、异步 SSE、准入与取消、锁外准备和拥塞回归 |
+| [新增 Harness](development/add-harness.md) | AI 开发规范：SDK/运行包、事件、资源准入、原生恢复与跨 Agent 切换 |
+| [新增 LLM Provider](development/add-llm-provider.md) | AI 开发规范：配置或协议接入、受控网关、流式、取消、用量及真实验收 |
+| [Harness 与模型 Adapter 设计](harness-adapters-design.md) | 当前支持矩阵、配置档、公开交接和原生快照 |
 | [新增与扩展 operation](development/add-operation.md) | 从能力选型、实现装载到验收交付的开发步骤 |
 | [operation 生命周期开发说明](development/change-operation-lifecycle.md) | 新流程的状态转换、Runner 接线、恢复取消、资源与兼容验证 |
 | [工作流平台设计](workflow-platform-design.md)、[工作流契约](workflow-contracts.md) | 步骤、依赖、状态、质量验收与恢复 |
@@ -59,13 +62,15 @@
 | 文档 | 范围 |
 | --- | --- |
 | [Agent 执行体验清单](agent-execution-experience-todo.md) | 正文与活动、规划预算、用量说明和方案检查 |
-| [Harness 与模型适配、Agent 切换 TODO](harness-adapters-todo.md) | 待实现：公开接口适配、统一上下文、不透明原生快照、跨 Agent 接管及验收 |
+| [Harness 与模型适配、Agent 切换 TODO](harness-adapters-todo.md) | 已实现范围及保留项：公开接口适配、统一上下文、不透明原生快照、跨 Agent 接管及验收 |
 | [文字流与示例库](stream-activity-and-demos.md) | 实时更新、共享示例目录及跨节点导入 |
 | [早期分布式运行与验收配置](distributed-deployment.md) | 重构阶段配置及真实存储验收背景 |
+| [Harness 专项验收](harness-adapters-report.md) | 固定版本 SDK、真实流式/取消、恢复与切换的历史证据 |
+| [合并部署与 77 条真实回归](post-merge-real-validation-report.md) | 2026-11-03 发布验证、各轮问题修复、逐条结果及验证边界 |
 | [60 条场景设计](real-case-campaign/design.md) | 真实编辑与生成场景的验收设计 |
 | [工作流 Agent 审查待办](workflow-agent-review-backlog.md) | 后续问题与修复跟踪 |
 
-机器专属报告与真实用户证据不随源码发布。若在原验证环境维护，可按以下文件名查找：
+上述已登记的脱敏报告可随源码发布；机器专属原始记录与真实用户证据不随源码发布。若在原验证环境维护，可按以下文件名查找：
 
 | 本地记录（位于 `docs/`） | 范围 |
 | --- | --- |

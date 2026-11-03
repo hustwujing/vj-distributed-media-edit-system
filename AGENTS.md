@@ -7,6 +7,7 @@
 - 先检查工作区状态，保留已有改动；以当前代码核实文档中的接口和行为。
 - 开发环境、源码入口和测试命令见 [开发与测试](docs/development.md)。
 - 根据任务读取 [专项开发说明索引](docs/development/README.md)，只加载相关子文档；子文档是对应任务的开发规则。
+- 新增或升级 Harness、接入 LLM Provider/模型协议时，必须分别读取 [新增 Harness](docs/development/add-harness.md) 或 [新增 LLM Provider](docs/development/add-llm-provider.md)；两层均受影响时都要读。
 - 新增 operation、为现有 operation 增加实现，或修改其契约/生命周期时，必须先读 [新增与扩展 operation](docs/development/add-operation.md)。
 
 ## 通用约定

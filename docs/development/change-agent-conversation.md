@@ -4,6 +4,8 @@
 
 本文按开发顺序组织。行为背景见[对话执行设计](../conversation-execution-design.md)、[轻量分析交接](../conversation-fallback.md)和[自然语言任务控制](../natural-language-controls.md)；这些文档中的历史测试与发布结论不能作为当前变更的验收证据。状态和交付相关变更遵循[程序正确性审查原则](../program-correctness-audit.md)。
 
+新增或升级 Agent 执行框架先读[新增 Harness](add-harness.md)，模型服务或协议接入先读[新增 LLM Provider](add-llm-provider.md)；本文负责对话路由、确认和授权语义。
+
 ## 1. 确定改动范围和入口
 
 先说明触发消息、当前任务状态、预期行为，以及是否改变权限、确认依据、任务关联或可见事件。按范围读取对应实现，不要求每次修改所有文件。

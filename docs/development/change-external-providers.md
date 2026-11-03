@@ -1,6 +1,6 @@
 # 外部服务与供应商接入
 
-适用于新增或替换图片、视频、转写等外部处理服务，以及修改认证、请求/响应映射、结果下载、供应商任务恢复和取消核实。本文说明供应商侧协议如何接入现有执行设施。operation 的契约与实现注册按[新增与扩展 operation](add-operation.md)处理，通用状态推进按[工作流开发说明](change-workflow.md)处理，调用计量按[可观测性与用量开发](change-observability-usage.md)处理。
+适用于新增或替换图片、视频、转写等外部处理服务，以及修改认证、请求/响应映射、结果下载、供应商任务恢复和取消核实。本文说明媒体供应商侧协议如何接入现有执行设施。Agent 的 LLM 服务、模型协议和流式回执接入使用[新增 LLM Provider](add-llm-provider.md)，不沿用本文的媒体任务提交/查询契约。operation 的契约与实现注册按[新增与扩展 operation](add-operation.md)处理，通用状态推进按[工作流开发说明](change-workflow.md)处理，调用计量按[可观测性与用量开发](change-observability-usage.md)处理。
 
 ## 1. 先确认协议和接入层级
 

@@ -8,6 +8,8 @@
 
 ```bash
 uv sync --locked --extra web --extra web-test
+# 开发或启用 Claude / DeepSeek Harness 时
+uv sync --locked --extra web --extra web-test --extra harnesses
 ```
 
 `pyproject.toml` 声明 Python 最低版本和依赖，`uv.lock` 固定依赖解析结果；部署环境还需满足系统工具和模型运行时要求。`animations` 是可选依赖组。辅助脚本通过 `.venv/bin/python helpers/<name>.py` 调用，没有安装后的 console script。
@@ -18,6 +20,8 @@ uv sync --locked --extra web --extra web-test
 | --- | --- |
 | `webapp/app.py`、`agent_api.py`、`image_api.py` | Web 页面、项目归属、素材、聊天与图片接口 |
 | `webapp/api_execution.py`、`api_staging.py`、`api_maintenance.py`、`api_capacity.py` | API 有界依赖执行器、请求准入、暂存提交、清理与容量观测；修改按 [API 并发与耗时隔离](development/change-api-concurrency.md) |
+| `webapp/harness_adapters.py`、`harness_bridge.py`、`harness_switching.py` | Agent 框架、原生 SDK 与切换；按[新增 Harness](development/add-harness.md)开发 |
+| `webapp/agent_profiles.py`、`model_adapters.py`、`agent_gateway.py` | 冻结配置、模型协议与受控网关；按[新增 LLM Provider](development/add-llm-provider.md)开发 |
 | `webapp/light_conversation.py`、`agent_context.py` | 轻量对话、项目上下文和沙盒提示 |
 | `webapp/plan_readiness.py`、`workspace_state.py` | 方案就绪、内容版本与确认依据 |
 | `webapp/agent_host.py`、`scheduling.py`、`task_leases.py` | 执行器、资源调度及跨节点租约 |
@@ -67,6 +71,8 @@ VIDEO_USE_TEST_REAL_MODELS=1 .venv/bin/python -m tests.run_distributed_suite
 | 驱动 | 范围 |
 | --- | --- |
 | `tests/run_browser_workflow_smoke.py` | 浏览器工作流交互 |
+| `tests/run_harness_browser.py` | Harness 配置与切换的浏览器控制验证 |
+| `tests/run_live_harness_smoke.py` | 真实 SDK/模型、原生恢复、公开交接、流式和取消 |
 | `tests/run_live_workflow_smoke.py` | 真实 Agent 与工作流 |
 | `tests/run_live_image_smoke.py` | 真实图片能力 |
 | `tests/run_live_generation_case.py` | 真实生成链路 |
