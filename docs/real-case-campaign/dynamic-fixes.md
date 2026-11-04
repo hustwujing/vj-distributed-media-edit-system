@@ -125,3 +125,5 @@ F56协议诊断证据：`.cluster/campaigns/dynamic-plan/protocol-probes/native-
 | F58 | 1279067e23d8 / S14 attempt-010 | 正确单声道PCM WAV没有显式channel_layout，验收器把缺省名称当成不满足mono；实际增益已修复 | 缺省布局仅在1/2声道时确定为mono/stereo并标记来源，保留原元数据；多声道不猜测布局 | 实际PCM文件正反验收及未知环绕布局测试通过；S14候选144万采样证明-5.999992dB/0.5LSB，待部署复测 |
 
 F56首次修复不充分：1279067e23d8的S17/S18/S19/S20仍因通用高价tile预留而失败，必须继续计程序错误。后续将视觉计量策略绑定管理员冻结的模型配置，不能依赖case或文件名。真实8张1034×650联系表验证：`patch32_1_2`预留9030，实际输入6683/输出267，共6950 tokens；证据`protocol-probes/eight-frame-model-policy.json`，该额外调用不计case通过。原生计数服务图片漏计事实保留。
+
+| F59 | 4e96addac014 / S14 attempt-011 | 已验收音频的下游绑定仍读取旧audio字段，而验收权威字段为audio_track_present，合法media.evidence因此被类型检查拒绝 | 已验收输入按video/audio_track_present统一映射媒体类型，不保留旧字段回退，继续校验revision、角色和字节哈希 | 真实PCM→程序验收→上游结果绑定→注册音频证据收集完整回归通过，并证明字节变化仍被拒绝；20项输入/修复证据定向通过，待完整门禁及部署复测 |

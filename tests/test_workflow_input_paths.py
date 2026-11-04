@@ -11,6 +11,43 @@ REPO=Path(__file__).resolve().parents[1]
 
 
 class WorkflowInputPathTests(unittest.TestCase):
+    def test_accepted_audio_remains_audio_when_bound_to_registered_evidence(self):
+        import wave,os
+        from tests.test_workflows import WorkflowTests,local_step
+        from webapp import workflows
+        from webapp.workflow_inputs import staged_assets
+        from webapp.media_handlers import execute
+        fixture=WorkflowTests();fixture.setUp();self.addCleanup(fixture.tearDown)
+        producer=local_step('produce');producer.update(outputs=['audio.wav'],output_roles={'audio':'audio.wav'})
+        consumer={'id':'measure','name':'Measure accepted audio','kind':'operation','operation':'media.evidence',
+            'depends_on':['produce'],'inputs':{'source':{'step':'produce','role':'audio'}},'parameters':{'mode':'audio'},
+            'goal':'Measure the accepted audio','on_failure':'pause','acceptance':[{'kind':'json','file':'evidence-report.json'}]}
+        fixture.submit([producer,consumer]);run=fixture.get()
+        workspace=fixture.store.root/'workspace';sources=workspace/'sources';sources.mkdir(parents=True)
+        relative=f'edit/workflows/{run["id"]}/produce/output/audio.wav';path=workspace/relative;path.parent.mkdir(parents=True)
+        with wave.open(str(path),'wb') as audio:
+            audio.setnchannels(1);audio.setsampwidth(2);audio.setframerate(8000);audio.writeframes(b'\x00\x10'*8000)
+        checked=subprocess.run([sys.executable,str(REPO/'webapp/quality_check.py')],cwd=workspace,
+            input=json.dumps({'files':[relative],'acceptance':[{'kind':'media','audio_track_present':True}]}),
+            capture_output=True,text=True,check=True)
+        quality=json.loads(checked.stdout);self.assertTrue(quality['passed']);quality['output_roles']={'audio':relative}
+        self.assertNotIn('audio',quality['files'][0])
+        workflows.change(fixture.store,run['id'],'produce',status='succeeded',result=[relative],quality=quality)
+        run=fixture.get();task=next(t for t in run['steps'] if t['id']=='measure')
+        environment={'workspace':workspace,'sources':sources,'assets':[],'uid':os.getuid(),'gid':os.getgid()}
+        assets,roles=staged_assets(fixture.store,run,task,environment)
+        source=next(a for a in assets if a['id']==roles['source'])
+        self.assertEqual(source['metadata']['kind'],'audio')
+        output=workspace/'evidence'
+        execute({'project_dir':str(workspace),'output_dir':str(output),'assets':assets,'input_roles':roles,
+            'explicit_inputs':True,'payload':{'kind':'evidence','assets':[roles['source']],'mode':'audio'}})
+        report=json.loads((output/'evidence-report.json').read_text())
+        self.assertEqual(report['source_sha256'],quality['files'][0]['sha256'])
+        # A correct type must not weaken the immutable-input hash guard.
+        path.write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError,'验收版本'):
+            staged_assets(fixture.store,run,task,environment)
+
     def test_raw_environment_and_sdk_inputs_survive_output_directory_change(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory);(root/'sources').mkdir();(root/'edit').mkdir()

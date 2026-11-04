@@ -94,7 +94,7 @@ def resolve(store,w,s,env):
             sha=digest(path)
             if not expected or sha!=expected.get('sha256'):raise ValueError('输入文件与验收版本不一致')
             record={'step':parent['id'],'revision':parent['revision'],'role':ref['role'],'path':relative,'sha256':sha,
-                    'metadata':{**expected,'kind':'video' if expected.get('video') else 'audio' if expected.get('audio') else expected.get('kind')}}
+                    'metadata':{**expected,'kind':'video' if expected.get('video') else 'audio' if expected.get('audio_track_present') else expected.get('kind')}}
         previous=s.get('bindings',{}).get(name)
         operation=for_step(s['spec'])
         if operation:
