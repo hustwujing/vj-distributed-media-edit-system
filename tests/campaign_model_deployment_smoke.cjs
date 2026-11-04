@@ -31,7 +31,7 @@ const save=value=>fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(
   }
   const cap=await context.request.get(`${base}/api/projects/${project}/runs/capabilities`);assert.equal(cap.status(),200);
   const capabilities=await cap.json();assert.ok(capabilities.workers_ready);
-  result.role_harnesses=[...new Set(capabilities.profiles.map(p=>p.harness))];assert.deepEqual(result.role_harnesses,['structured-profile-v3']);
+  result.role_harnesses=[...new Set(capabilities.profiles.map(p=>p.harness))];assert.deepEqual(result.role_harnesses,['structured-profile-v4']);
   assert.equal(capabilities.model_protocol_policy,'plan_draft_v1_strict_preferred');
   const runs=await context.request.get(`${base}/api/projects/${project}/runs`);assert.equal(runs.status(),200);assert.equal((await runs.json()).runs.length,0);
   await page.locator('#dynamic-model-profile').selectOption('deepseek41');
