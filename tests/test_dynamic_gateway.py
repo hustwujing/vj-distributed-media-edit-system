@@ -229,7 +229,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertGreater(len(image),100000)
         self.run['authorization']['model_token_budget']=100000
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
         calls=[]
         def post(url,**kwargs):

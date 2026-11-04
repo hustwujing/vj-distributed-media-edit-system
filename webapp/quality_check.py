@@ -10,7 +10,7 @@ import os
 import subprocess
 import sys
 from text_formats import read_text,validate_subtitle,FormatError,TEXT_SUFFIXES,SUBTITLE_SUFFIXES
-from media_evidence import alpha_evidence,audio_evidence,dominant_frequency,text_matches
+from media_evidence import alpha_evidence,audio_evidence,audio_channel_layout,dominant_frequency,text_matches
 
 resource.setrlimit(resource.RLIMIT_AS,(2*1024**3,2*1024**3))
 resource.setrlimit(resource.RLIMIT_CPU,(30,30))
@@ -46,8 +46,9 @@ def inspect(name):
         audio_streams=[s for s in record['streams'] if s.get('codec_type')=='audio']
         value.update(kind='media',duration=duration,width=video.get('width'),height=video.get('height'),
                      audio_track_present=bool(audio_streams),video=bool(video))
-        value['audio_tracks']=[{key:stream.get(key) for key in ('index','codec_name','channels','channel_layout','sample_rate')} for stream in audio_streams]
-        value['channel_layout']=audio_streams[0].get('channel_layout') if audio_streams else None
+        value['audio_tracks']=[{**{key:stream.get(key) for key in ('index','codec_name','channels','sample_rate')},
+                                **audio_channel_layout(stream)} for stream in audio_streams]
+        value.update(audio_channel_layout(audio_streams[0]) if audio_streams else {'channel_layout':None})
         rate=video.get('avg_frame_rate','0/1').split('/')
         value['fps']=float(rate[0])/max(1,float(rate[1])) if len(rate)==2 else float(rate[0])
     elif path.suffix.lower()=='.json':

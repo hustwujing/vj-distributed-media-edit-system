@@ -97,16 +97,16 @@ def model_budget(lease,run,amount,receipt):
                 emit('workflow.token_receipt_failed','WARNING',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
 
 
-def image_token_envelope(images):
+def image_token_envelope(images,policy):
     """Bound native vision cost independently of compression and gateway counts.
 
-    Some compatible counters omit image tokens. For our bounded previews use
-    an envelope above the documented patch/tile costs of supported vision
-    models: 4,096 base plus 8,192 per unresized 512px tile. New model integrations
-    must validate this envelope against actual usage; it is not billed usage.
+    The administrator selects a verified tokenizer for the frozen model/route.
+    Never apply the most expensive unrelated model's tariff to every model.
+    This remains an admission reserve; only actual receipts are billed usage.
     """
     import io
     from PIL import Image
+    if images and policy=='unconfigured':raise ModelServiceError(0,'model_vision_count_unconfigured')
     total=0
     for value in images:
         if not isinstance(value,str) or not value.startswith('data:image/jpeg;base64,') or len(value)>3*1024**2:
@@ -115,15 +115,19 @@ def image_token_envelope(images):
         with Image.open(io.BytesIO(raw)) as picture:
             if picture.format!='JPEG' or picture.width*picture.height>4_000_000 or getattr(picture,'n_frames',1)!=1:
                 raise ValueError('Inspection image exceeds token envelope')
-            total+=4096+8192*math.ceil(picture.width/512)*math.ceil(picture.height/512)
+            if policy=='patch32_1_2':
+                total+=math.ceil(math.ceil(picture.width/32)*math.ceil(picture.height/32)*1.2)+256
+            elif policy=='conservative_tiles512':
+                total+=4096+8192*math.ceil(picture.width/512)*math.ceil(picture.height/512)
+            elif policy!='native':raise ValueError('Unsupported vision token policy')
     return total
 
 
-def input_token_reservation(adapter,body,client,base,key,lease,deadline,images=()):
+def input_token_reservation(adapter,body,client,base,key,lease,deadline,images=(),vision_tokenizer='unconfigured'):
     """Count image inputs as model inputs, never as Base64 transport text."""
     from .egress_policy import provider_base
     from .safe_stream import chunks
-    image_tokens=image_token_envelope(images)
+    image_tokens=image_token_envelope(images,vision_tokenizer)
     try:path,request=adapter.input_token_request(body)
     except NotImplementedError:raise ModelServiceError(0,'model_input_count_unavailable') from None
     lease.check()
@@ -148,7 +152,8 @@ def input_token_reservation(adapter,body,client,base,key,lease,deadline,images=(
     margin=max(256,math.ceil(count*.01))
     from .telemetry import emit
     emit('workflow.model_input_count',native_input_tokens=count,image_envelope_tokens=image_tokens,
-         framing_margin_tokens=margin,image_count=len(images))
+         framing_margin_tokens=margin,image_count=len(images),
+         vision_policy_digest=hashlib.sha256(vision_tokenizer.encode()).hexdigest())
     return count+margin+image_tokens,'provider_count_plus_image_envelope'
 
 
@@ -171,7 +176,7 @@ def model(host,lease,run,profile,conversation,images=(),deadline=None):
          max_output_tokens=profile.max_output_tokens,reasoning_effort=configuration.reasoning_effort)
     deadline=deadline or time.monotonic()+profile.timeout_seconds
     with session() as counter:
-        input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images)
+        input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images,configuration.vision_tokenizer)
     emit('workflow.model_token_reservation',task_id=lease.run_id,step_id=lease.step_id,
          input_tokens=input_tokens,output_tokens=profile.max_output_tokens,image_count=len(images),method=method)
     lease.consume('model',configuration.budget['task_models'])

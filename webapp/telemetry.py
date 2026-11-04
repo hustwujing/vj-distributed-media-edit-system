@@ -26,7 +26,7 @@ FIELDS.update({'input_id','input_sequence','through_sequence','next_barrier_sequ
 FIELDS.update({'response_message_count','response_commentary_messages','response_final_messages','response_unphased_messages',
                'remaining_calls','remaining_inspections','remaining_corrections'})
 FIELDS.update({'script_sha256','outputs_sha256','output_files','stdout_bytes','stdout_truncated'})
-FIELDS.update({'native_input_tokens','image_envelope_tokens','framing_margin_tokens','input_tokens','output_tokens','image_count'})
+FIELDS.update({'native_input_tokens','image_envelope_tokens','framing_margin_tokens','input_tokens','output_tokens','image_count','vision_policy_digest'})
 _QUEUE = queue.Queue(maxsize=1024)
 _LOCK = threading.Lock()
 _THREAD = None

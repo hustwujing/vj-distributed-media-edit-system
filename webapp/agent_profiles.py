@@ -47,6 +47,7 @@ class AgentProfile:
     base_url: str = ''
     credential_env: str = 'VIDEO_USE_MODEL_API_KEY'
     reasoning_effort: str = 'medium'
+    vision_tokenizer: str = 'unconfigured'
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     budget: dict = field(default_factory=configured_budget)
@@ -70,6 +71,8 @@ class AgentProfile:
                    'deepseek_harness': {'none', 'low', 'medium', 'high', 'max'}}
         if self.reasoning_effort not in efforts[self.harness]:
             raise ValueError('Reasoning setting is not supported by the selected harness')
+        if self.vision_tokenizer not in ('unconfigured','native','patch32_1_2','conservative_tiles512'):
+            raise ValueError('Unsupported vision token policy')
         expected = {'plan_seconds','plan_models','plan_tools','plan_inspections','run_seconds','run_models','task_models','max_output_tokens'}
         if set(self.budget) != expected or any(type(v) is not int or not 1 <= v <= 10_000_000 for v in self.budget.values()):
             raise ValueError('Invalid Agent budget policy')
@@ -92,9 +95,12 @@ class AgentProfile:
 
 
 def profiles():
-    default = AgentProfile(model=os.environ.get('VIDEO_USE_MODEL', 'gpt-6-astra'),
+    model=os.environ.get('VIDEO_USE_MODEL','gpt-6-astra')
+    default = AgentProfile(model=model,
                            base_url=os.environ.get('VIDEO_USE_MODEL_BASE_URL', '').rstrip('/'),
-                           reasoning_effort=os.environ.get('VIDEO_USE_MODEL_REASONING_EFFORT', 'medium'))
+                           reasoning_effort=os.environ.get('VIDEO_USE_MODEL_REASONING_EFFORT', 'medium'),
+                           vision_tokenizer=os.environ.get('VIDEO_USE_MODEL_VISION_TOKENIZER',
+                               'patch32_1_2' if model=='gpt-6-astra' else 'unconfigured'))
     raw = os.environ.get('VIDEO_USE_AGENT_PROFILES_JSON', '{}')
     if len(raw) > 65536:
         raise ValueError('Agent profile configuration exceeds limit')

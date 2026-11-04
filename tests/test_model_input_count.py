@@ -60,11 +60,28 @@ class InputCountTests(unittest.TestCase):
             output=io.BytesIO();Image.effect_noise((1024,640),80).convert('RGB').save(output,format='JPEG',quality=quality)
             images.append('data:image/jpeg;base64,'+base64.b64encode(output.getvalue()).decode())
         self.assertNotEqual(len(images[0]),len(images[1]))
-        self.assertEqual(image_token_envelope(images[:1]),image_token_envelope(images[1:]))
+        self.assertEqual(image_token_envelope(images[:1],'patch32_1_2'),image_token_envelope(images[1:],'patch32_1_2'))
         client=Mock();client.post.return_value=nullcontext(Response({'input_tokens':20}))
-        amount,_=input_token_reservation(get('responses'),{},client,'https://model.example/v1','test',Mock(),time.monotonic()+10,images[:1])
-        self.assertGreater(amount,2833+4*5667)  # Published high-cost tile model, four tiles.
+        amount,_=input_token_reservation(get('responses'),{},client,'https://model.example/v1','test',Mock(),time.monotonic()+10,images[:1],'patch32_1_2')
+        self.assertGreater(amount,32*20*1.2)
+        self.assertLess(amount,3000)
         self.assertLess(amount,len(images[1]))
+
+    def test_eight_contact_sheets_use_the_frozen_model_policy_without_false_exhaustion(self):
+        import base64,io
+        from PIL import Image
+        from webapp.workflow_agents import image_token_envelope
+        image=io.BytesIO();Image.new('RGB',(1034,650),'blue').save(image,format='JPEG')
+        images=['data:image/jpeg;base64,'+base64.b64encode(image.getvalue()).decode()]*8
+        actual=image_token_envelope(images,'patch32_1_2')
+        self.assertLess(actual,10000)
+        self.assertGreater(image_token_envelope(images,'conservative_tiles512'),400000)
+        with self.assertRaises(ModelServiceError):image_token_envelope(images,'unconfigured')
+        self.assertEqual(image_token_envelope(images,'native'),0)
+        from webapp.agent_profiles import AgentProfile
+        profile=AgentProfile(vision_tokenizer='patch32_1_2')
+        self.assertEqual(AgentProfile(**profile.snapshot()).vision_tokenizer,'patch32_1_2')
+        self.assertNotEqual(profile.digest,AgentProfile(vision_tokenizer='native').digest)
 
     def test_anthropic_counter_preserves_the_exact_images_and_system_input(self):
         adapter=get('anthropic');body=adapter.conversation('rules','question',['data:image/jpeg;base64,aGVsbG8='])

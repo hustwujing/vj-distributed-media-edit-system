@@ -27,6 +27,17 @@ def text_matches(value: str, expected: list[str], mode: str) -> bool:
     return bool(wanted) and any(actual[index:index+len(wanted)]==wanted for index in range(len(actual)-len(wanted)+1))
 
 
+def audio_channel_layout(stream: dict) -> dict:
+    declared=stream.get('channel_layout')
+    if declared and declared!='unknown':
+        return {'channel_layout':declared,'channel_layout_source':'metadata','declared_channel_layout':declared}
+    # Ordinary mono/stereo PCM headers need not carry a separate layout name.
+    # Three or more channels do not uniquely identify a speaker arrangement.
+    layout={1:'mono',2:'stereo'}.get(stream.get('channels'))
+    return {'channel_layout':layout,'channel_layout_source':'channel_count' if layout else 'unknown',
+            'declared_channel_layout':declared}
+
+
 def alpha_evidence(image) -> dict:
     """Measure mask topology on a bounded 256px representation."""
     alpha=image.convert('RGBA').getchannel('A')

@@ -40,6 +40,8 @@ Responses 的 `phase=commentary` 是过程消息，不能作为业务动作执�
 
 结构化 harness 在生成前调用适配器的 `input_token_request`：Responses 使用 `/responses/input_tokens`，Messages 使用 `/messages/count_tokens`，沿用冻结的模型、路由及凭据。新接入模型/网关必须同时验证计数接口；不可用、非法计数或过期租约时不发起生成，也不按零计数放行。计数请求不计作生成用量；真正生成仍须先预留、后按 usage 回执结算，未知回执继续保留预留。
 
-计数接口不一定完整实现官方协议。本机网关实测漏计图片，因此图片另按实际尺寸保守预留：每张 4096 加每个未缩放 512px tile 的 8192 Token；另加文本计数的 1%（至少256）作为请求结构余量。该预留覆盖当前受限预览及已支持模型的公开 patch/tile 计费规则，不是实际用量；新增模型必须对照真实图片回执核实覆盖范围。禁止把 Base64 字节数当作图片 Token，也不得仅凭兼容接口的返回值认定包含视觉用量。日志分别保存 native count、图片预留、结构余量及实际回执，不能保存图片或完整提示正文。
+计数接口不一定完整实现官方协议。本机网关实测漏计图片，因此视觉计量策略 `vision_tokenizer` 随 AgentProfile 冻结，参与配置摘要；默认配置可由 `VIDEO_USE_MODEL_VISION_TOKENIZER` 指定。策略必须匹配实际模型与路由，不能因原生协议相同就采用同一模型费率。当前已实测 gpt-5.6 路由使用 `patch32_1_2`：按未缩放32px patch数量×1.2向上取整，每图另留256；8张1034×650联系表实测输入6683，预留9030（含文本和结构余量）。`native` 只用于已验证完整计入图片的计数服务；`conservative_tiles512` 是可显式选择的保守tile策略，不作为所有模型的默认值；未配置的模型拒绝图片请求，纯文本不受影响。新增模型必须对照真实多图回执核实策略。
+
+另加计数的1%（至少256）作为请求结构余量。禁止把Base64字节数当作图片Token，也不得用其他模型的高费率导致系统性假耗尽。日志分别保存native count、图片预留、结构余量、计量策略摘要及实际回执，不能保存图片或完整提示正文。
 
 协议依据：[OpenAI 输入计数](https://developers.openai.com/api/docs/guides/token-counting)、[图像计量](https://developers.openai.com/api/docs/guides/images-vision)、[Claude Token 计数](https://platform.claude.com/docs/en/build-with-claude/token-counting)。

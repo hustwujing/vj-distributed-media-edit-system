@@ -54,6 +54,27 @@ class AcceptanceContractTests(unittest.TestCase):
 
 
 class AudioEvidenceTests(unittest.TestCase):
+    def test_plain_pcm_channel_count_satisfies_layout_but_does_not_guess_surround(self):
+        import json,subprocess,sys,wave
+        from webapp.media_evidence import audio_channel_layout
+        self.assertIsNone(audio_channel_layout({'channels':6})['channel_layout'])
+        self.assertEqual(audio_channel_layout({'channels':6,'channel_layout':'5.1(side)'})['channel_layout'],'5.1(side)')
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for channels,layout in ((1,'mono'),(2,'stereo')):
+                path=root/f'{layout}.wav'
+                with wave.open(str(path),'wb') as wav:
+                    wav.setnchannels(channels);wav.setsampwidth(2);wav.setframerate(16000)
+                    wav.writeframes(b'\x00\x01'*channels*16000)
+                for expected,passed in ((layout,True),('stereo' if channels==1 else 'mono',False)):
+                    request={'files':[path.name],'acceptance':[{'kind':'media','channel_layout':expected}]}
+                    checked=subprocess.run([sys.executable,str(Path(__file__).resolve().parents[1]/'webapp/quality_check.py')],
+                        cwd=root,input=json.dumps(request),capture_output=True,text=True,check=True)
+                    report=json.loads(checked.stdout)
+                    self.assertEqual(report['passed'],passed)
+                    self.assertEqual(report['files'][0]['audio_tracks'][0]['channels'],channels)
+                    self.assertEqual(report['files'][0]['channel_layout_source'],'channel_count')
+
     def test_missing_measurement_is_not_silence(self):
         from unittest.mock import patch
         from types import SimpleNamespace
