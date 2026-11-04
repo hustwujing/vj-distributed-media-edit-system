@@ -230,6 +230,23 @@ class ModelCommandTests(unittest.TestCase):
         self.assertTrue(task['acceptance'][0]['decode'])
         self.assertIn('registered operation',task['basic_reason'])
 
+    def test_operation_alternative_outputs_select_one_parameter_bound_branch(self):
+        from webapp.operations import catalog
+        op=next(x for x in catalog()['operations'] if x['id']=='media.edit')
+        f=frozen(False);f['operations']=[op]
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
+        base={'id':'edit','type':'operation','name':'Edit','objective':'Edit video','operation':'media.edit',
+              'parameters':{'edit_plan':{'clips':[{'asset':'source'}],'output':{'audio_only':False}}},
+              'inputs':{'source':{'asset':'asset'}},'delivery_stage':True}
+        command={'kind':'COMPLETE','reason':'Edit','plan':{'new_tasks':[base],'continuation':{'mode':'complete'}}}
+        task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
+        self.assertIn(True,[check.get('video') for check in task['acceptance']])
+        self.assertNotIn(False,[check.get('video') for check in task['acceptance']])
+        base['parameters']['edit_plan']['output']['audio_only']=True
+        task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
+        self.assertIn(False,[check.get('video') for check in task['acceptance']])
+        self.assertNotIn(True,[check.get('video') for check in task['acceptance']])
+
     def test_user_agent_revision_declares_outputs_once_with_files(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Export','objective':'Export PNG',
               'outputs':['final.png'],'output_roles':{'primary_image':'final.png'},

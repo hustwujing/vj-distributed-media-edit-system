@@ -26,7 +26,12 @@ def change_fields(task_type,user=False):
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage')
 
 
-def operation_acceptance(roles):
+def operation_acceptance(contract,parameters):
+    roles=list(contract.get('outputs',[]));alternatives=contract.get('output_contract',{}).get('alternatives',[])
+    if alternatives:
+        selected=('audio' if contract['id']=='media.edit' and parameters.get('edit_plan',{}).get('output',{}).get('audio_only')
+                  else 'video' if contract['id']=='media.edit' else alternatives[0])
+        roles=[role for role in roles if role not in alternatives or role==selected]
     result=[]
     for role in roles:
         if role in ('primary_image','foreground','mask','preview'):kind='image'
@@ -235,7 +240,7 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
-                raw['acceptance']=operation_acceptance(binding.get('outputs',[]))
+                raw['acceptance']=operation_acceptance(binding,raw.get('parameters',{}))
                 if not raw.get('basic_reason'):
                     raw['basic_reason']='Server-owned registered operation integrity checks'
             for item in files:
