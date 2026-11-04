@@ -6,7 +6,7 @@
 
 本轮deedda4df9cb共119条：启动8、成功并审查2（D39/D41）、程序失败2（D38应用缺陷、D36测试断言）、用户主动中止4（D24/D31/D33/D40）、未执行111。4条在途测试经正常取消接口结束，数据库活动租约为0，BOSS/Redis/本地清理完成；D33首次Run已经成功，successor在用户要求停测时被取消。主动中止不计模型失败或通过。原状态、诊断、planner请求和取消命令均已保存。
 
-## 已核实事实
+## 改造前已核实事实（deedda4df9cb）
 
 - `webapp/workflow_agents.py::model`把Schema包含在文本上下文，再调用普通模型输出；当前没有设置Responses的`text.format`严格JSON Schema，也没有将Agent动作声明为原生strict工具参数。
 - 模型必须输出`action=proposal → proposal=ManagerResult → proposal=Proposal`，嵌套两层同名proposal；实际发生直接返回内层Proposal的错误。
@@ -72,13 +72,13 @@ main的`docs/agent-prompt-optimization-report.md`记录C26曾有8次工具失败
 - [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)：严格Schema输出/工具参数、Schema子集限制以及结构正确仍可能内容错误。
 - [Evaluation best practices](https://developers.openai.com/api/docs/guides/evaluation-best-practices)：明确目标、真实数据集、指标、对照与持续评测。
 
-官方API能力不证明本机内部代理网关已透传支持。实际网关能力探测和上述对照评测尚未执行；本文件不宣称正确率已经提高。
+官方API能力不证明本机内部代理网关已透传支持。已完成实际网关能力探测，正式对照评测仍在执行，见下方状态及模型回复正确性报告。
 
 ## 当前实施与评测状态
 
 - 已实现structured-profile-v3、原生工具参数、明确回退及本地强校验；Task局部变更、自动替代目标继承、文件单点声明、互斥规划方式、按类型拆分验收、按已查询Operation契约限定输入/参数。
 - 宿主仍绑定原snapshot、图/授权版本和input sequence，stage/apply继续复核lease/generation；不会把旧模型结果绑定到新版本。
-- 修复F68新增下游revision传播及F70反馈replacement断言。87项当前定向回归通过；此前两个冻结候选已进行全量检查，最终候选705dcb9a9211的完整门禁正在执行。尚未部署新harness。
+- 修复F68新增下游revision传播及F70反馈replacement断言。87项当前定向回归通过；此前两个冻结候选已进行全量检查，最终候选705dcb9a9211完整门禁已通过：874项Python（6项显式跳过）、56项Node。尚未部署新harness。
 - 模型为gpt-5.6、claude-4.6-sonnet、deepseek-v4.1-flash，均记录协议和high配置；不将不同厂商high当作等价计算量。
 - 第一轮6场景试运行缺少Operation完整契约，结果保留但不用于正式模型比较。第二轮补齐同等契约，暴露preflight语义和strict未执行；这些反馈已进入最终候选。
 - 正式样本30个，开发12/保留18；已暴露的试运行请求全部进入开发集。主比较540组（30×3模型×2接口×3重复），另开发样本324组拆分实验。每组最多两次模型纠正，strict参数拒绝后的机械回退不占模型纠正机会。
@@ -86,3 +86,13 @@ main的`docs/agent-prompt-optimization-report.md`记录C26曾有8次工具失败
 - Claude路由出现过strict=true仍返回额外字段，故只记录strict_requested及实际合规，不宣称网关保证严格输出。其部分用量回执output_tokens=0但有实际输出，标记可疑，不能据此宣称输出免费或作完整Token成本比较。
 
 正式冻结输入/结果位于`.cluster/model-evals/reply-final-20261104/`；试运行分别保存在reply-v1和reply-v3，未覆盖旧结果。
+
+## 用户追加的下一轮对照（2026-11-04 14:08）
+
+本轮继续完成，不混换模型。下一轮将GPT换为网关目录中的`gpt-6`、Claude换为`claude-opus-5`，DeepSeek保持`deepseek-v4.1-flash`。三个配置继续high；沿用同一冻结30场景、重复次数及协议组合，先做真实调用可用性探测。此为评测配置，不代表生产默认模型已切换。
+
+当前动态页面没有推理强度选择器；服务端配置冻结在执行记录中，旧聊天页也只能选择完整预设。已向用户说明，尚未收到增加界面设置的实施请求。
+
+Responses省略strict并不保证关闭约束，已修正非strict请求显式false；37项定向回归通过。主对照540组完整保留，原先提前启动的拆分请求归档，最初14个拆分试次因非strict标志问题归档；随后50个试次因测试夹具策略摘要未更新归档，不计模型失败。当前正式拆分改用`reply-ablations-bound-20261104`与冻结版本7639944c1344；显式重绑定策略及snapshot摘要，其他全部事实摘要与原输入一致。新增3项夹具回归通过，启动前验证绑定。协议代码版本15066528b3a6完整门禁通过874项Python（6项跳过）及56项Node；7639944c1344仅增加评测夹具门禁和其测试，尚未单独部署。
+
+用户要求后续每次按模型、协议报告平均耗时：分别统计全部已结束试次（包含超时/纠错）与最终合规试次（包含纠错）的完整耗时；不能只取成功首轮或排除超时后笼统称平均。

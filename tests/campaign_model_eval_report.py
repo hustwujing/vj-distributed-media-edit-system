@@ -29,6 +29,7 @@ def summarize(rows):
     received=[row for row in rows if any(call.get('http_status')==200 for call in row['calls'])]
     used=[call.get('usage_normalized') for call in calls if call.get('usage_normalized')]
     return {'finished':len(rows),'outcomes':dict(collections.Counter(outcome(r) for r in rows)),
+            'valid_result_kinds':dict(collections.Counter(r['kind'] for r in rows if r['contract_valid'])),
             'first_contract_valid':sum(r['first_contract_valid'] for r in rows),
             'first_schema_valid':sum(r['first_schema_valid'] for r in rows),'received_reply_trials':len(received),
             'contract_valid':sum(r['contract_valid'] for r in rows),'dependency_errors':sum(r.get('dependency_error',False) for r in rows),
@@ -129,8 +130,8 @@ def report(directory,ablation_directory,models=MODELS,report_stem='model-reply-c
     lines+=['','合法结果类型分布用于识别合法但仅请求用户输入的回复，不能用保守停下来冒充完成任务：','',
             '| 模型 | 协议 | 合法结果类型与数量 |','| --- | --- | --- |']
     for model in models:
-        for arm in ('baseline','commands_strict'):
-            kinds=collections.Counter(r['kind'] for r in primary if r['model']==model and r['variant']==arm and r['contract_valid'])
+        for arm in ARMS:
+            kinds=collections.Counter(r['kind'] for r in rows if r['model']==model and r['variant']==arm and r['contract_valid'])
             lines.append(f"| {model} | {ARMS[arm]} | "+', '.join(f'{k}: {v}' for k,v in sorted(kinds.items()))+' |')
     lines+=['','## 保留场景','', '| 模型 | 协议 | 已结束 | 首次合法 | 最终合法 | 模型调用异常 |','| --- | --- | ---: | ---: | ---: | ---: |']
     for model in models:
@@ -142,6 +143,16 @@ def report(directory,ablation_directory,models=MODELS,report_stem='model-reply-c
         for arm in ARMS:
             g=summarize([r for r in rows if r['model']==model and r['variant']==arm and r['split']=='development'])
             lines.append(f"| {model} | {ARMS[arm]} | {g['finished']} | {ratio(g['first_contract_valid'],g['received_reply_trials'])} | {ratio(g['contract_valid'],g['finished'])} | {g['dependency_errors']} | {g['mean_seconds']} / {g['valid_mean_seconds']} |")
+    lines+=['','## 同批次首次调用的strict对照','',
+        'commands_plain与commands_strict_generic_feedback在首次调用时使用相同提示、事实和命令Schema，仅strict请求策略不同。后续纠错反馈不同，因此两组最终合规率不能单独归因于strict开关。其他主比较与拆分组分时运行，存在网关负载、缓存和采样波动，不能把耗时差全部解释成协议因果。', '',
+        '| 模型 | 首次调用策略 | 已结束试次 | 首次HTTP 200 | 首次调用即合法 | 首次调用异常 | 首次调用平均秒 |',
+        '| --- | --- | ---: | ---: | ---: | ---: | ---: |']
+    for model in models:
+        for arm in ('commands_plain','commands_strict_generic_feedback'):
+            subset=[r for r in extra if r['model']==model and r['variant']==arm]
+            first=[r['calls'][0] for r in subset if r['calls']]
+            avg=round(statistics.mean(c['seconds'] for c in first),2) if first else None
+            lines.append(f"| {model} | {'非strict' if arm=='commands_plain' else 'strict优先'} | {len(subset)} | {sum(c.get('http_status')==200 for c in first)} | {sum(bool(c.get('contract_valid')) for c in first)} | {sum(bool(c.get('dependency_error')) for c in first)} | {avg} |")
     lines+=['','## 用量和strict实效','',
         '保留原始与规范化用量回执。缺失total不填0、不伪造上游total；可疑的output_tokens=0但有实际输出不用于宣称成本优势。不同协议的缓存计数及缺失字段需单独核对。', '',
         '| 模型 | 协议 | HTTP调用 | strict回退 | strict输出违规 | 缺用量回执 | 可疑零输出回执 |',
