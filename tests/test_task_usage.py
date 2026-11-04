@@ -54,6 +54,18 @@ class UsageTests(unittest.TestCase):
         s=task_usage.snapshot(self.store,self.task);self.assertEqual(s['counts']['llm']['calls'],1);self.assertEqual(s['tokens']['total_tokens']['known'],150)
         with self.store.connect() as db:task_usage.complete(db,self.task,call,'succeeded',normalize({**USAGE,'total_tokens':151}))
         s=task_usage.snapshot(self.store,self.task);self.assertEqual(s['calls'][0]['receipt'],'conflict');self.assertEqual(s['tokens']['total_tokens']['known'],150)
+
+    def test_zero_output_anomaly_is_raw_evidence_not_a_complete_derived_total(self):
+        call=self.call()
+        with self.store.connect() as db:
+            task_usage.complete(db,self.task,call,'succeeded',{'input_tokens':100,'output_tokens':0},usage_anomaly='model_usage_zero_output')
+        result=task_usage.snapshot(self.store,self.task)
+        self.assertEqual(result['calls'][0]['output_tokens'],0)
+        self.assertIsNone(result['calls'][0]['computed_total_tokens'])
+        self.assertEqual(result['calls'][0]['total_source'],'untrusted')
+        self.assertIsNone(result['computed_total']['known'])
+        self.assertEqual(result['computed_total']['missing_calls'],1)
+        self.assertEqual(result['computed_total']['inconsistent_calls'],1)
     def test_completed_tool_then_late_started_is_one_call(self):
         payload={'id':'one','status':'completed','tool_type':'commandExecution','execution':{'attempt_id':'attempt-one'}}
         agent_store.event(self.store,self.task,'tool',payload)

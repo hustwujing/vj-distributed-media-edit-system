@@ -79,13 +79,26 @@ def reserve_tokens(store,lease,run,amount):
 
 
 @contextmanager
-def model_budget(lease,run,amount,receipt):
+def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_reserved_tokens=None,method='unspecified'):
     reservation=reserve_tokens(lease.store,lease,run,amount)
-    try:yield reservation
+    from .telemetry import emit,bind
+    emit('workflow.model_budget_reserved',reservation_id=reservation,reserved_tokens=amount,
+         input_reserved_tokens=input_reserved_tokens,output_reserved_tokens=output_reserved_tokens,method=method)
+    try:
+        with bind(reservation_id=reservation):yield reservation
     finally:
         receipt.finish();usage=receipt.usage or {};used=usage.get('total_tokens');state='settled'
-        if used is None and type(usage.get('input_tokens'))==int and type(usage.get('output_tokens'))==int:
+        anomaly=getattr(receipt,'usage_anomaly','')
+        if anomaly:
+            used=None
+            emit('workflow.model_usage_untrusted','WARNING',reservation_id=reservation,error_code=anomaly,reserved_tokens=amount)
+        if not anomaly and used is None and type(usage.get('input_tokens'))==int and type(usage.get('output_tokens'))==int:
             used=usage['input_tokens']+usage['output_tokens'];state='settled_derived'
+        actual_input=usage.get('input_tokens')
+        if type(actual_input)==int and input_reserved_tokens is not None:
+            emit('workflow.model_input_estimate_checked',reservation_id=reservation,
+                 input_reserved_tokens=input_reserved_tokens,input_tokens=actual_input,
+                 input_underestimated=actual_input>input_reserved_tokens,method=method)
         if type(used)==int:
             from .task_lifecycle import administrative
             from .execution_metrics import measurement_connection
@@ -95,6 +108,8 @@ def model_budget(lease,run,amount,receipt):
                 with administrative(),measurement_connection(ledger) as db:
                     db.execute('UPDATE workflow_model_reservations SET used_tokens=?,state=? WHERE id=? AND attempt_id=?',
                                (used,state,reservation,lease.attempt))
+                emit('workflow.model_budget_settled',reservation_id=reservation,reserved_tokens=amount,
+                     actual_tokens=used,reservation_overrun_tokens=max(0,used-amount),method=method)
             except Exception as exc:
                 from .telemetry import emit
                 emit('workflow.token_receipt_failed','WARNING',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
@@ -126,10 +141,21 @@ def image_token_envelope(images,policy):
     return total
 
 
-def input_token_reservation(adapter,body,client,base,key,lease,deadline,images=(),vision_tokenizer='unconfigured'):
+def input_token_reservation(adapter,body,client,base,key,lease,deadline,images=(),vision_tokenizer='unconfigured',input_token_policy='native'):
     """Count image inputs as model inputs, never as Base64 transport text."""
     from .egress_policy import provider_base
     from .safe_stream import chunks
+    lease.check()
+    if time.monotonic()>=deadline:raise TimeoutError('Agent phase deadline reached')
+    if input_token_policy!='native':
+        from .model_token_estimate import estimate
+        try:value=estimate(body,input_token_policy,adapter.protocol)
+        except (FileNotFoundError,ImportError,OSError):raise ModelServiceError(0,'model_input_estimator_unavailable') from None
+        lease.check()
+        if time.monotonic()>=deadline:raise TimeoutError('Agent phase deadline reached')
+        from .telemetry import emit
+        emit('workflow.model_input_estimate',**value)
+        return value['estimated_input_tokens'],input_token_policy
     image_tokens=image_token_envelope(images,vision_tokenizer)
     try:path,request=adapter.input_token_request(body)
     except NotImplementedError:raise ModelServiceError(0,'model_input_count_unavailable') from None
@@ -198,11 +224,12 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
          schema_digest=graph.digest(protocol.definitions()) if protocol else None)
     deadline=deadline or time.monotonic()+profile.timeout_seconds
     with session() as counter:
-        input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images,configuration.vision_tokenizer)
+        input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images,configuration.vision_tokenizer,configuration.input_token_policy)
     emit('workflow.model_token_reservation',task_id=lease.run_id,step_id=lease.step_id,
          input_tokens=input_tokens,output_tokens=profile.max_output_tokens,image_count=len(images),method=method)
     lease.consume('model',configuration.budget['task_models'])
-    with model_budget(lease,run,input_tokens+profile.max_output_tokens,receipt),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
+    with model_budget(lease,run,input_tokens+profile.max_output_tokens,receipt,input_reserved_tokens=input_tokens,
+                      output_reserved_tokens=profile.max_output_tokens,method=method),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
         with client.post(provider_base(base)+adapter.path,json=body,headers=adapter.headers(key),stream=True,
                          timeout=(10,max(1,min(240,deadline-time.monotonic()))),allow_redirects=False) as response:
             if response.status_code!=200:

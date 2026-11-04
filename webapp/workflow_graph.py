@@ -469,7 +469,7 @@ def asset_digest(asset):
     return digest({key:asset[key] for key in ('id','name','filename','metadata')})
 
 
-def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,scope_confirmed=True,record_message=True):
+def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,scope_confirmed=True,record_message=True,model_configuration=None):
     from .workflow_planning import bind_scope
     authorization=bind_scope(store,raw) if scope_confirmed else Authorization.model_validate(raw)
     identifier=identifier or uuid.uuid4().hex
@@ -479,6 +479,9 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,sco
         existing=db.execute('SELECT id,authorization_json FROM runs WHERE id=?',(identifier,)).fetchone()
         if existing:
             if existing['authorization_json']!=encode(authorization.model_dump()):raise ValueError('Run authorization is immutable')
+            if model_configuration is not None:
+                from .agent_profiles import for_task
+                if for_task(store,identifier).digest!=model_configuration.digest:raise ValueError('Run model configuration is immutable')
             return get(store,existing['id'])
         store.admit_tasks(project,1)
         parent=get(store,parent_run_id) if parent_run_id else None
@@ -501,8 +504,10 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,sco
         ensure(db,identifier,now)
         db.execute('UPDATE execution_limits SET deadline_at=?,budget_seconds=? WHERE task_id=?',
                    (now+authorization.wall_time_budget,authorization.wall_time_budget,identifier))
-        from .agent_profiles import freeze
-        if not db.execute('SELECT task_id FROM agent_run_profiles WHERE task_id=?',(identifier,)).fetchone():freeze(db,identifier,project,now,parent_run_id)
+        from .agent_profiles import freeze,for_task
+        if model_configuration is None and parent_run_id:model_configuration=for_task(store,parent_run_id)
+        if not db.execute('SELECT task_id FROM agent_run_profiles WHERE task_id=?',(identifier,)).fetchone():
+            freeze(db,identifier,project,now,parent_run_id,configuration=model_configuration)
         from .task_usage import attach
         attach(db,identifier,project,now)
         from .observation_schema import register

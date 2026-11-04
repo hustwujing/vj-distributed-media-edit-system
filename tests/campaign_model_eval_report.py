@@ -63,7 +63,12 @@ def report(directory,ablation_directory,models=MODELS,report_stem='model-reply-c
             raise ValueError('Ablation baseline instructions differ from primary')
         ablation_source=json.loads((ablation_directory/'source.json').read_text())
         extra=[json.loads(p.read_text()) for p in (ablation_directory/'results').glob('*/*/*/*/result.json')]
+    recorded=primary+extra
+    stopped_rows=[r for r in recorded if r.get('user_stopped')]
+    primary=[r for r in primary if not r.get('user_stopped')]
+    extra=[r for r in extra if not r.get('user_stopped')]
     rows=primary+extra
+    stop_info=json.loads((directory/'stopped-by-user.json').read_text()) if (directory/'stopped-by-user.json').exists() else None
     primary_expected=len(cases)*len(models)*2*3;development=[c for c in cases if c['split']=='development']
     expected=primary_expected+len(development)*len(models)*3*3
     issues=[]
@@ -71,9 +76,9 @@ def report(directory,ablation_directory,models=MODELS,report_stem='model-reply-c
         if (root/'evaluator-errors.json').exists():issues.extend(json.loads((root/'evaluator-errors.json').read_text()))
     expected_keys={(c['id'],m,a,n) for c in cases for m in models for a in ('baseline','commands_strict') for n in range(3)}
     expected_keys|={(c['id'],m,a,n) for c in development for m in models for a in ('legacy_strict','commands_plain','commands_strict_generic_feedback') for n in range(3)}
-    keys=[(r['case'],r['model'],r['variant'],r['repeat']) for r in rows]
+    keys=[(r['case'],r['model'],r['variant'],r['repeat']) for r in recorded]
     if len(keys)!=len(set(keys)) or set(keys)-expected_keys:raise ValueError('Duplicate or unexpected evaluation trial')
-    complete=set(keys)==expected_keys and not issues and not any(r.get('unscorable') or r.get('user_stopped') for r in rows)
+    complete=set(keys)==expected_keys and not issues and not any(r.get('unscorable') or r.get('user_stopped') for r in recorded)
     grouped=[]
     for model in models:
         for arm in ARMS:
@@ -92,6 +97,7 @@ def report(directory,ablation_directory,models=MODELS,report_stem='model-reply-c
                 else:losses+=1
         paired.append({'model':model,'new_only_valid':wins,'old_only_valid':losses,'same_outcome':ties,'incomplete_or_dependency_excluded':excluded})
     result={'generated_at':time.time(),'complete':complete,'expected_trials':expected,'finished_trials':len(rows),
+            'recorded_trials':len(recorded),'user_stopped_trials':len(stopped_rows),'stop_info':stop_info,
             'source':source,'ablation_source':ablation_source,'ablation_directory':str(ablation_directory),
             'dataset_sha256':hashlib.sha256((directory/'dataset.json').read_bytes()).hexdigest(),'facts_sha256':facts_digest(dataset),
             'groups':grouped,'paired':paired,'summary':summarize(rows),'evaluator_errors':issues,
@@ -100,8 +106,9 @@ def report(directory,ablation_directory,models=MODELS,report_stem='model-reply-c
     protocol_note=('主比较完成后发现Responses省略strict字段仍可能自动启用严格模式，修正为显式strict=false后另冻结拆分实验。提前启动及策略摘要绑定未更新的拆分请求均单独归档，不进入本报告。GPT主比较没有触发strict回退，其他两种模型的传输行为不变，主比较保留。'
                    if source['sha256'].startswith('705dcb9a9211') else
                    '本轮Responses非strict请求显式设置strict=false。模型、协议、high配置、重复次数和超时在启动时冻结，不在进行中的试次间切换。评测脚本和应用源码分别保存来源摘要。')
-    lines=['# 模型回复协议改造与三模型对照报告','',f"更新时间：{time.strftime('%Y-%m-%d %H:%M:%S')}。状态：{'已完成' if complete else '执行中，不能作为最终结论'}。",'',
+    lines=['# 模型回复协议改造与三模型对照报告','',f"更新时间：{time.strftime('%Y-%m-%d %H:%M:%S')}。状态：{'已完成' if complete else '用户停止，属于部分结果' if stop_info else '执行中，不能作为最终结论'}。",'',
         f"已结束 **{len(rows)}/{expected}** 组；主比较 {len(primary)}/{primary_expected} 组。应用源码 `{source['sha256']}`。",'',
+        f"用户中止{len(stopped_rows)}次，另列并排除协议合规率及平均耗时统计。"+(f"未启动{stop_info['not_started']}次，后续拆分实验未执行。" if stop_info else ''),'',
         '本报告评估冻结规划请求的结构和业务契约合法性，不等于方案一定满足全部内容目标或媒体产物成功率，也不计入119条真机通过数。旧基线是本轮改造前的动态structured-profile-v2文本协议，不是main分支的非动态SDK版。','',
         '## 方法和边界','',
         f"30个真实来源场景：首次规划10、后续规划9、失败修复6、用户反馈4、重新授权1。开发{len(development)}、保留{len(cases)-len(development)}；已暴露试运行请求均分入开发集。各模型各场景重复3次，每次最多两次模型纠正。",'',
@@ -165,10 +172,10 @@ def report(directory,ablation_directory,models=MODELS,report_stem='model-reply-c
         '- 每组原始公开回复、逐次调用意图/回执、校验错误和冻结来源均保存在私有评测目录；不保存私有推理，也不发布凭据。', '',
         '逐组结果见同目录CSV；完整私有证据：`'+str(directory)+'`。']
     target=ROOT/'docs'/f'{report_stem}-report.md';target.write_text('\n'.join(lines)+'\n')
-    csv_path=ROOT/'docs'/f'{report_stem}-trials.csv';fields=['case','source_case','split','model','variant','repeat','kind','first_syntax_valid','first_schema_valid','first_contract_valid','contract_valid','dependency_error','unscorable','seconds']
+    csv_path=ROOT/'docs'/f'{report_stem}-trials.csv';fields=['case','source_case','split','model','variant','repeat','kind','first_syntax_valid','first_schema_valid','first_contract_valid','contract_valid','dependency_error','unscorable','user_stopped','seconds']
     with csv_path.open('w',newline='') as out:
         writer=csv.DictWriter(out,fieldnames=fields);writer.writeheader()
-        for r in sorted(rows,key=lambda x:(x['case'],x['model'],x['variant'],x['repeat'])):writer.writerow({k:r.get(k) for k in fields})
+        for r in sorted(recorded,key=lambda x:(x['case'],x['model'],x['variant'],x['repeat'])):writer.writerow({k:r.get(k) for k in fields})
     print(json.dumps({'complete':complete,'finished':len(rows),'expected':expected,'valid':result['summary']['contract_valid'],'report':str(target)}))
     return result
 

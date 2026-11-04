@@ -229,7 +229,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertGreater(len(image),100000)
         self.run['authorization']['model_token_budget']=100000
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',input_token_policy='native',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
         calls=[]
         def post(url,**kwargs):
@@ -249,6 +249,68 @@ class DynamicGatewayTests(unittest.TestCase):
         row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
         self.assertEqual((row['used_tokens'],row['state']),(2500,'settled'))
 
+    def estimated_generation(self,output_tokens=12):
+        import threading
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        from unittest.mock import Mock,patch
+        from tests.test_model_input_count import Response
+        from webapp.workflow_agents import model
+        from webapp.specialist_profiles import get
+        from webapp.workflow_model_protocol import ToolProtocol
+        from webapp.strict_schema import transform
+        request=self.store.query('SELECT * FROM planner_runs WHERE id=?',(self.task['spec']['request_id'],))[0]
+        frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
+        protocol=ToolProtocol(get('media_planner'),frozen,self.task,finalize=True)
+        wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output?'},protocol.schemas['submit_plan'],encode=True)
+        configuration=SimpleNamespace(protocol='anthropic',model='claude-4.6-sonnet',reasoning_effort='high',
+            vision_tokenizer='unconfigured',input_token_policy='claude_bpe_estimate_v1',
+            budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
+        self.actual_model_posts=[]
+        def post(url,**kwargs):
+            self.actual_model_posts.append(url);self.assertTrue(url.endswith('/messages'))
+            rows=self.store.query('SELECT reserved_tokens,state FROM workflow_model_reservations')
+            self.assertEqual(len(rows),1);self.assertEqual(rows[0]['state'],'reserved')
+            self.assertGreater(rows[0]['reserved_tokens'],get('media_planner').max_output_tokens)
+            return nullcontext(Response({'stop_reason':'tool_use','usage':{'input_tokens':100,'output_tokens':output_tokens},
+                'content':[{'type':'tool_use','name':'submit_plan','input':wire}]}))
+        client=Mock();client.post.side_effect=post
+        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+             patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
+            return model(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,
+                get('media_planner'),'Frozen context',protocol=protocol)
+
+    def test_estimated_input_is_reserved_before_generation_and_settles_actual_usage(self):
+        self.assertEqual(self.estimated_generation()['proposal']['kind'],'REQUEST_USER_INPUT')
+        self.assertEqual(len(self.actual_model_posts),1)
+        row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
+        self.assertEqual((row['used_tokens'],row['state']),(112,'settled_derived'))
+
+    def test_estimated_input_cannot_bypass_the_authorized_token_limit(self):
+        self.run['authorization']['model_token_budget']=1
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
+        with self.assertRaises(TaskQuotaReached):self.estimated_generation()
+        self.assertEqual(self.actual_model_posts,[])
+        self.assertFalse(self.store.query('SELECT id FROM workflow_model_reservations'))
+
+    def test_suspect_zero_output_receipt_retains_reservation_and_raw_conflict(self):
+        self.assertEqual(self.estimated_generation(output_tokens=0)['proposal']['kind'],'REQUEST_USER_INPUT')
+        row=self.store.query('SELECT used_tokens,reserved_tokens,state FROM workflow_model_reservations')[0]
+        self.assertIsNone(row['used_tokens']);self.assertEqual(row['state'],'reserved');self.assertGreater(row['reserved_tokens'],100)
+        usage=self.store.query("SELECT input_tokens,output_tokens,receipt,error_code FROM usage_calls WHERE category='llm'")[0]
+        self.assertEqual((usage['input_tokens'],usage['output_tokens']),(100,0))
+        self.assertEqual(usage['receipt'],'conflict');self.assertEqual(usage['error_code'],'model_usage_zero_output')
+
+    def test_actual_usage_over_estimate_is_recorded_and_blocks_further_budget_spending(self):
+        from webapp.workflow_agents import model_budget
+        from webapp.usage_protocol import Receipt
+        self.run['authorization']['model_token_budget']=100
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
+        receipt=Receipt();receipt.usage={'input_tokens':110,'output_tokens':10,'total_tokens':120}
+        with self.lease.bind(),model_budget(self.lease,self.run,50,receipt,input_reserved_tokens=40,output_reserved_tokens=10,method='test_estimate'):pass
+        self.assertEqual(self.store.query('SELECT used_tokens FROM workflow_model_reservations')[0]['used_tokens'],120)
+        with self.lease.bind(),self.assertRaises(TaskQuotaReached),model_budget(self.lease,self.run,1,Receipt()):pass
+
     def test_native_strict_rejection_falls_back_with_separate_receipts_and_same_snapshot(self):
         import threading
         from contextlib import nullcontext
@@ -263,7 +325,7 @@ class DynamicGatewayTests(unittest.TestCase):
         frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,finalize=True)
         wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output is required?'},protocol.schemas['submit_plan'],encode=True)
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',input_token_policy='native',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
         sent=[]
         def post(url,**kwargs):
@@ -298,7 +360,7 @@ class DynamicGatewayTests(unittest.TestCase):
         frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
         protocol=ToolProtocol(get('media_planner'),frozen,self.task)
         wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output?'},protocol.schemas['submit_plan'],encode=True)
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',input_token_policy='native',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'),digest='frozen')
         sent=[]
         def post(url,**kwargs):

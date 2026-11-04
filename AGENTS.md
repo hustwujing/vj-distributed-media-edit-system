@@ -11,6 +11,7 @@
   新增 harness、专业 Agent、LLM 分别读取索引中的对应接入说明。
 - 实施统一 Run/Control Job、Provider 拆分、用户反馈或运行中输入重构前，必读[已确认方案与实施边界](docs/dynamic-plan-todo.md)。质量反馈统一走 run_inputs 和全 Run 排空安全点，Provider 不保留旧字段兼容；逐项核对文末五个边界及验证要求。
 - 新增 operation、为现有 operation 增加实现，或修改其契约/生命周期时，必须先读 [新增与扩展 operation](docs/development/add-operation.md)。
+- 修改或执行真机 case、归因、复测及交接审查时，读取[真机测试与审查规范](docs/development/run-live-campaign.md)。模型选择和计量修改同时读取 LLM、动态工作流及可观测性专项；模型版本、执行 harness 和 strict 传输模式必须分别核实。
 
 ## 通用约定
 

@@ -9,11 +9,18 @@ from . import workflow_graph as graph,agent_store
 from .api_execution import lane
 
 
+class ModelChoice(graph.Contract):
+    profile:str=Field(pattern=r'^[A-Za-z0-9_-]{1,64}$')
+    reasoning_effort:str=Field(min_length=1,max_length=16)
+    profile_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
+
+
 class Start(graph.Contract):
     request_id:str=Field(pattern=r'^[a-f0-9]{32}$')
     confirmed:Literal[True]
     authorization:graph.Authorization
     parent_run_id:str|None=Field(default=None,pattern=r'^[a-f0-9]{32}$')
+    model_choice:ModelChoice|None=None
 
 
 class Reuse(graph.Contract):
@@ -38,6 +45,8 @@ def public(store,run):
     value={k:run[k] for k in ('id','project_id','session_id','parent_run_id','scope_confirmed','goal','status','graph_version','sealed','authorization',
                              'authorization_version','replan_after','repair_context','created_at','updated_at','terminal_reason','delivery','delivered_at','input_sequence','input_barrier_sequence')}
     value['state']=value.pop('status')
+    from .model_selection import for_run
+    value['model_configuration']=for_run(store,run['id'])
     successors=store.query('SELECT id FROM runs WHERE parent_run_id=? ORDER BY created_at DESC LIMIT 1',(run['id'],))
     value['successor_run_id']=successors[0]['id'] if successors else None
     value['activity']=run['activity']
@@ -93,7 +102,10 @@ def register(app,store,own_project):
         else:
             try:operations=catalog()['operations']
             except PermissionError:operations=[]
+        from .model_selection import options
         return {'operations':operations,'profiles':catalogue(),'workers_ready':bool(workers),
+                'model_choices':options(store,project_id),
+                'model_protocol_policy':'native_commands_strict_preferred',
                 'content_fingerprint':graph.content_fingerprint(store,project_id),
                 'authorization_schema':graph.Authorization.model_json_schema()}
 
@@ -107,7 +119,8 @@ def register(app,store,own_project):
     @lane('write')
     def start(project_id:str,body:Start,request:Request):
         own_project(project_id,request);owner=request.state.owner
-        raw=body.authorization.model_dump();identity=graph.digest({'authorization':raw,'parent_run_id':body.parent_run_id})
+        raw=body.authorization.model_dump();identity=graph.digest({'authorization':raw,'parent_run_id':body.parent_run_id,
+            'model_choice':body.model_choice.model_dump() if body.model_choice else None})
         try:
             with store.connect() as db:
                 previous=db.execute('SELECT * FROM workflow_start_requests WHERE id=?',(body.request_id,)).fetchone()
@@ -117,8 +130,10 @@ def register(app,store,own_project):
                 if db.execute("SELECT id FROM execution_subjects WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')",(project_id,)).fetchone():
                     raise ValueError('项目中已有活动任务，请先完成或取消')
                 parent=own_run(project_id,body.parent_run_id,request) if body.parent_run_id else None
+                from .model_selection import resolve
+                configuration=resolve(body.model_choice) if body.model_choice else None
                 identifier=uuid.uuid4().hex
-                run=graph.create(store,project_id,identifier,raw,parent_run_id=parent['id'] if parent else None)
+                run=graph.create(store,project_id,identifier,raw,parent_run_id=parent['id'] if parent else None,model_configuration=configuration)
                 request.state.workflow_observation={'run_id':run['id']}
                 db.execute('INSERT INTO workflow_start_requests VALUES (?,?,?,?,?)',(body.request_id,project_id,owner,identity,run['id']))
                 return public(store,run)

@@ -93,3 +93,9 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 用户批准原本声明的Review后，最终Reviewer快照提供server-owned user_reviews，只包含当前选中Task、当前revision且candidate_digest仍匹配的已应用approve决定。该事实不豁免技术或Agent失败。Manager回显错误的快照绑定字段仍拒绝暂存，但在同一有效租约/请求内给予有界纠正；失效租约、过期请求及图版本竞争不改为可忽略错误。
 
 Manager与最终Reviewer均接收同一来源的已批准用户Review事实。控制快照另含有界history：不可变Task规格/摘要、依赖创建和退休版本、plan选择及replacement关系；最终Review还接收失败事实。旧失败仅作为历史，不重新成为当前交付要求。截断必须明确标识，不能让Agent伪造历史文件来补缺失的数据库事实。
+
+## 用户选择模型与强度
+
+`runs/capabilities.model_choices`提供已配置的模型预设、原生强度档位和profile_digest；创建Run可带model_choice，但不能传入路由、凭据或执行引擎。请求幂等摘要包含model_choice，同键改型号或强度必须拒绝。幂等重放先读取原Run，再考虑当前注册表，不能因后台配置更新拒绝已成功的同请求重放。
+
+profile_digest用于校验预设版本；configuration_digest保存最终配置，覆盖推理强度时两者可以不同。最终配置写入agent_run_profiles并成为所有Control Job和Task的模型来源。已有Run不可改写；自动successor继承父Run冻结配置，显式的新Run选择可以覆盖继承。public.model_configuration只读取持久化记录，不能用当前默认值冒充缺失的历史配置。

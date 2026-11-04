@@ -241,6 +241,8 @@ class AnthropicReceipt(Receipt):
         self.native_usage = {}
         self.has_output_receipt = False
         self.reasoning_tokens = None
+        self.observed_output=False
+        self.usage_anomaly=''
 
     def accept(self, data):
         try:
@@ -250,6 +252,11 @@ class AnthropicReceipt(Receipt):
         if not isinstance(value, dict):
             return
         message = value.get('message') if isinstance(value.get('message'), dict) else value
+        content=message.get('content',[])
+        if isinstance(content,list) and any(isinstance(c,dict) and (
+            c.get('type')=='tool_use' or any(c.get(k) for k in ('text','thinking'))) for c in content):self.observed_output=True
+        part=value.get('content_block') or value.get('delta') or {}
+        if isinstance(part,dict) and (part.get('type')=='tool_use' or any(part.get(k) for k in ('text','thinking','partial_json'))):self.observed_output=True
         if isinstance(message.get('id'), str):
             self.response_id = message['id'][:200]
         usage = message.get('usage')
@@ -267,6 +274,7 @@ class AnthropicReceipt(Receipt):
             created = native.get('cache_creation_input_tokens', 0)
             total_input = fresh + cached + created if fresh is not None else None
             output = native.get('output_tokens') if self.has_output_receipt else None
+            self.usage_anomaly='model_usage_zero_output' if self.observed_output and output==0 else ''
             self.usage = {'input_tokens': total_input, 'output_tokens': output,
                           # Let the common ledger label totals derived from
                           # input/output; do not fabricate a provider receipt.

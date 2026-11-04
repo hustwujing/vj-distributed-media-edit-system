@@ -16,7 +16,7 @@
 
 ## 部署与排障
 
-建议依次阅读配置、部署、隔离与观测指南。
+本分支先按[README 的独立部署入口](../README.md)和 `deploy/dynamic_cluster.py` 操作；下表旧集群操作手册描述 main，只用于理解复用机制，不用于启停本实例。
 
 | 文档 | 内容 |
 | --- | --- |
@@ -32,6 +32,10 @@
 | --- | --- |
 | [仓库开发规则](../AGENTS.md)、[专项开发说明索引](development/README.md) | 精简规则入口与按任务读取的子文档 |
 | [开发与测试](development.md) | 依赖、源码入口、隔离回归、真实服务验收和发布门禁 |
+| [动态工作流开发规范](development/change-dynamic-workflow.md) | 统一 Run、Control Job、输入屏障、修订、授权和模型配置冻结 |
+| [新增 Profile Harness](development/add-profile-harness.md)、[新增专业 Agent](development/add-specialist-agent.md) | 执行引擎、固定角色策略、新命令与结果契约 |
+| [新增 LLM Provider](development/add-llm-provider.md) | 模型协议、strict 回退、输入预算与原始用量回执 |
+| [真机测试与审查](development/run-live-campaign.md) | 配置核验、逐例证据、失败分类、复测和进度报告 |
 | [API 并发与耗时隔离](development/change-api-concurrency.md) | 路由选池、异步 SSE、准入与取消、锁外准备和拥塞回归 |
 | [新增与扩展 operation](development/add-operation.md) | 从能力选型、实现装载到验收交付的开发步骤 |
 | [operation 生命周期开发说明](development/change-operation-lifecycle.md) | 新流程的状态转换、Runner 接线、恢复取消、资源与兼容验证 |
@@ -58,11 +62,15 @@
 
 | 文档 | 范围 |
 | --- | --- |
+| [已确认方案与实施边界](dynamic-plan-todo.md)、[统一 Run 实施记录](unified-run-progress.md) | 已确认设计、源码实现与待部署/真机验收边界 |
+| [当前真机审查矩阵](real-case-campaign/dynamic-case-review.md)、[真机清单](real-case-campaign/dynamic-cases.json) | 当前 119 条及后续模型配置，不能以历史通过替代当前轮次 |
+| [模型计数缺口与改造记录](model-token-counting-gap.md) | 网关探测、本地预算估算、回执异常与验证限制 |
+| [v3 模型设置部署验证](model-v3-deployment-validation.md) | 配置错配处置、冻结门禁、浏览器验证和旧轮证据边界 |
 | [Agent 执行体验清单](agent-execution-experience-todo.md) | 正文与活动、规划预算、用量说明和方案检查 |
 | [Harness 与模型适配、Agent 切换 TODO](harness-adapters-todo.md) | 待实现：公开接口适配、统一上下文、不透明原生快照、跨 Agent 接管及验收 |
 | [文字流与示例库](stream-activity-and-demos.md) | 实时更新、共享示例目录及跨节点导入 |
 | [早期分布式运行与验收配置](distributed-deployment.md) | 重构阶段配置及真实存储验收背景 |
-| [60 条场景设计](real-case-campaign/design.md) | 真实编辑与生成场景的验收设计 |
+| [历史 60 条场景设计](real-case-campaign/design.md) | 原始编辑与生成目标背景；当前清单以动态审查矩阵为准 |
 | [工作流 Agent 审查待办](workflow-agent-review-backlog.md) | 后续问题与修复跟踪 |
 
 机器专属报告与真实用户证据不随源码发布。若在原验证环境维护，可按以下文件名查找：

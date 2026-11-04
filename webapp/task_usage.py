@@ -53,7 +53,7 @@ def start(db,task,category,operation,*,call_id=None,attempt='',step='',revision=
     return call_id
 
 
-def complete(db,task,call,status,usage=None,response_id='',error='',finished=None):
+def complete(db,task,call,status,usage=None,response_id='',error='',finished=None,usage_anomaly=''):
     if status not in ('succeeded','failed','cancelled','incomplete','unknown','running'):raise ValueError('Invalid usage state')
     row=db.execute('SELECT * FROM usage_calls WHERE call_id=? AND task_id=?',(call,task)).fetchone()
     if not row:raise ValueError('Receipt has no matching prior call')
@@ -62,14 +62,14 @@ def complete(db,task,call,status,usage=None,response_id='',error='',finished=Non
     known=any(values[key] is not None for key in FIELDS)
     # Partial receipts can be enriched. Contradictory non-null values are never
     # overwritten or added; they flag a discrepancy for inspection.
-    conflict=any(row[key] is not None and values[key] is not None and row[key]!=values[key] for key in FIELDS)
+    conflict=bool(usage_anomaly) or any(row[key] is not None and values[key] is not None and row[key]!=values[key] for key in FIELDS)
     if known:
         merged=[row[key] if row[key] is not None else values[key] for key in FIELDS]
         receipt='conflict' if conflict or row['receipt']=='conflict' else 'reported'
         db.execute('UPDATE usage_calls SET input_tokens=?,output_tokens=?,total_tokens=?,cached_tokens=?,reasoning_tokens=?,response_id=?,receipt=? WHERE call_id=?',
                    (*merged,row['response_id'] or response_id[:200],receipt,call))
     db.execute("UPDATE usage_calls SET status=?,finished=?,error_code=? WHERE call_id=? AND status IN ('running','unknown')",
-               (status,finished or time.time(),error[:80],call))
+               (status,finished or time.time(),(error or usage_anomaly)[:80],call))
     from .telemetry import emit
     emit('usage.call_receipt',call_id=call,task_id=task,attempt_id=row['attempt_id'] or None,outcome=status,reason='reported' if known else 'missing')
 
@@ -114,7 +114,8 @@ def model_call(lease,model,actor='host',observer=None):
             try:
                 with administrative(),measurement_connection(ledger) as db:
                     if ledger.dsn:db.execute('SELECT call_id FROM usage_calls WHERE call_id=? FOR UPDATE',(call,)).fetchone()
-                    complete(db,lease.run_id,call,observer.status or state,observer.usage,observer.response_id,error)
+                    complete(db,lease.run_id,call,observer.status or state,observer.usage,observer.response_id,error,
+                             usage_anomaly=getattr(observer,'usage_anomaly',''))
             except Exception as exc:
                 from .telemetry import emit
                 emit('usage.receipt_failed','ERROR',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
@@ -199,11 +200,11 @@ def _snapshot(store,task,scope,after,limit,provider_after):
         row=store.query(f"SELECT SUM({field}) AS known,COUNT({field}) AS reported FROM usage_calls WHERE category='llm' AND task_id IN ({marks})",ids)[0]
         tokens[field]={'known':int(row['known']) if row['known'] is not None else None,'reported_calls':row['reported'],'missing_calls':counts['llm']['calls']-row['reported']}
     calculated=store.query(f"""SELECT
-        SUM(CASE WHEN total_tokens IS NOT NULL THEN total_tokens
+        SUM(CASE WHEN receipt='conflict' THEN NULL WHEN total_tokens IS NOT NULL THEN total_tokens
             WHEN input_tokens IS NOT NULL AND output_tokens IS NOT NULL THEN input_tokens+output_tokens ELSE NULL END) AS known,
-        SUM(CASE WHEN total_tokens IS NULL AND input_tokens IS NOT NULL AND output_tokens IS NOT NULL THEN 1 ELSE 0 END) AS derived,
-        SUM(CASE WHEN total_tokens IS NULL AND (input_tokens IS NULL OR output_tokens IS NULL) THEN 1 ELSE 0 END) AS missing,
-        SUM(CASE WHEN total_tokens IS NOT NULL AND input_tokens IS NOT NULL AND output_tokens IS NOT NULL AND total_tokens<>input_tokens+output_tokens THEN 1 ELSE 0 END) AS inconsistent
+        SUM(CASE WHEN receipt<>'conflict' AND total_tokens IS NULL AND input_tokens IS NOT NULL AND output_tokens IS NOT NULL THEN 1 ELSE 0 END) AS derived,
+        SUM(CASE WHEN receipt='conflict' OR (total_tokens IS NULL AND (input_tokens IS NULL OR output_tokens IS NULL)) THEN 1 ELSE 0 END) AS missing,
+        SUM(CASE WHEN receipt='conflict' OR (total_tokens IS NOT NULL AND input_tokens IS NOT NULL AND output_tokens IS NOT NULL AND total_tokens<>input_tokens+output_tokens) THEN 1 ELSE 0 END) AS inconsistent
         FROM usage_calls WHERE category='llm' AND task_id IN ({marks})""",ids)[0]
     computed_total={'known':int(calculated['known']) if calculated['known'] is not None else None,
         'derived_calls':int(calculated['derived'] or 0),'missing_calls':int(calculated['missing'] or 0),
@@ -240,6 +241,7 @@ def _snapshot(store,task,scope,after,limit,provider_after):
         if call['category']=='llm':
             call['computed_total_tokens']=call['total_tokens'] if call['total_tokens'] is not None else call['input_tokens']+call['output_tokens'] if call['input_tokens'] is not None and call['output_tokens'] is not None else None
             call['total_source']='reported' if call['total_tokens'] is not None else 'calculated' if call['computed_total_tokens'] is not None else 'missing'
+            if call['receipt']=='conflict':call['computed_total_tokens']=None;call['total_source']='untrusted'
         call['duration_seconds']=max(0,call['finished']-call['started']) if call['finished'] else None
     from .planning_budget import snapshot as planning
     planning_state=planning(store,task)

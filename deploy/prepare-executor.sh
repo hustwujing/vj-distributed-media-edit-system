@@ -13,6 +13,7 @@ install -d -m 0700 "${VIDEO_USE_EXECUTOR_ROOT:-/var/lib/video-use-executor}"
 # Frozen releases link .venv to the shared dependency directory. Recursive ACL
 # traversal must start at its resolved directory, not at the symlink.
 runtime_venv="$(realpath .venv)"
+.venv/bin/python -m deploy.prepare_tokenizer
 setfacl -R -m u:"$deployment_user":rX,g:"$deployment_group":rX helpers references
 .venv/bin/python -m deploy.runtime_access
 # runtime_access grants traversal to every venv parent. Apply package-directory
@@ -21,6 +22,7 @@ setfacl -m u:"$deployment_user":rx . webapp helpers
 runuser -u "$deployment_user" -- "$runtime_venv/bin/python" -c 'import fastapi, psycopg, redis; assert callable(redis.Redis)'
 setfacl -m g:"$deployment_group":r SKILL.md webapp/*.py
 setfacl -m u:"$deployment_user":r webapp/*.py
+runuser -u "$deployment_user" -- "$runtime_venv/bin/python" -c 'from webapp.model_token_estimate import tokenizer; assert tokenizer().encode_ordinary("budget probe")'
 # Every public static dependency must be readable by the unprivileged API.
 setfacl -R -m u:"$deployment_user":rX webapp/static
 setfacl -m g:"$deployment_group":rx webapp

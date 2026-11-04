@@ -38,7 +38,7 @@ Responses 的 `phase=commentary` 是过程消息，不能作为业务动作执�
 
 业务报告在系统提示和冻结 Task 上下文中复用同一结果契约，均要求 report 对象；不能一处要求对象、另一处要求 JSON 字符串。观测记录公开消息阶段的数量与剩余检查/纠正额度，不记录私有推理内容。
 
-结构化 harness 在生成前调用适配器的 `input_token_request`：Responses 使用 `/responses/input_tokens`，Messages 使用 `/messages/count_tokens`，沿用冻结的模型、路由及凭据。新接入模型/网关必须同时验证计数接口；不可用、非法计数或过期租约时不发起生成，也不按零计数放行。计数请求不计作生成用量；真正生成仍须先预留、后按 usage 回执结算，未知回执继续保留预留。
+结构化 harness 在生成前按冻结的`input_token_policy`确定预留方式。`native`调用适配器的`input_token_request`：Responses使用`/responses/input_tokens`，Messages使用`/messages/count_tokens`，沿用冻结模型、路由及凭据；此模式下接口不可用或计数非法仍拒绝生成。对于已验证且明确配置的Claude/DeepSeek路由，可选本地预估策略，避免调用已知缺失的计数接口。任何方式都必须先校验租约和预算再生成，不按零计数放行。真实回执用于结算；缺失或存在矛盾的回执保留预算。
 
 计数接口不一定完整实现官方协议。本机网关实测漏计图片，因此视觉计量策略 `vision_tokenizer` 随 AgentProfile 冻结，参与配置摘要；默认配置可由 `VIDEO_USE_MODEL_VISION_TOKENIZER` 指定。策略必须匹配实际模型与路由，不能因原生协议相同就采用同一模型费率。当前已实测 gpt-5.6 路由使用 `patch32_1_2`：按未缩放32px patch数量×1.2向上取整，每图另留256；8张1034×650联系表实测输入6683，预留9030（含文本和结构余量）。`native` 只用于已验证完整计入图片的计数服务；`conservative_tiles512` 是可显式选择的保守tile策略，不作为所有模型的默认值；未配置的模型拒绝图片请求，纯文本不受影响。新增模型必须对照真实多图回执核实策略。
 
@@ -49,3 +49,17 @@ Responses 的 `phase=commentary` 是过程消息，不能作为业务动作执�
 原生工具接入必须单独实测工具选择、strict参数和Token计数；HTTP成功不能当作Schema约束确已生效。本机DS4.1路由拒绝强制tool_choice，但auto可以返回工具调用，宿主仍严格要求恰好一个已授权工具动作。不要按模型名猜测或隐藏适配器差异。记录实际请求模式、Schema摘要、回退原因及逐次费用/用量完整度；提供非法结构、缺字段、多动作、额外字段、结束不完整和网关拒绝的测试。
 
 Responses的非strict回退必须显式发送工具字段`strict: false`；省略该字段仍可能由上游自动启用strict。Anthropic和Chat Completions省略strict扩展走各自默认非strict协议。不能把三个协议的默认值混用，也不能仅用“请求不含strict”证明降级成功。若Responses网关连false字段也拒绝，应保留真实接口失败，不能谎报已完成非strict回退。参考[Function calling默认值](https://developers.openai.com/api/docs/guides/function-calling)。
+
+## 本地输入预算预估
+
+配置发布必须与代码版本配套。新增 AgentProfile 字段或改变策略语义时，候选私有配置单独暂存，用候选冻结源码加载验证；不得提前覆盖仍被旧服务重启读取的 `.agent.env`。通过门禁后，停止旧实例、切换服务启动代码，再原子替换候选配置并启动验证。回滚也须恢复配套配置。运行进程仍持有旧环境不能证明磁盘配置可安全重启；检查必须使用实际部署副本重新加载当前配置，不得通过忽略未知字段掩盖版本错配。
+
+用户已明确授权对缺少原生计数接口的Claude和DeepSeek采用本地预估。`model_token_estimate.py`提供版本化`claude_bpe_estimate_v1`和`deepseek_bpe_estimate_v1`；策略与模型、协议一起进入AgentProfile快照。它使用固定cl100k参考分词、逐模型校准系数及消息余量，不声称该分词器等于厂商原生tokenizer。不能仅按模型家族复用系数，也不能据少数短文本验证整个模型。未登记的模型/协议组合拒绝此策略。
+
+文本和完整工具Schema都计入；图片从真实内容块中提取，按尺寸/已验证上界另计，工具参数里的普通JSON不得误认成图片。Base64不会作为文本Token累加。参考分词数据在部署时下载并核验固定SHA，安装到依赖环境的share目录；推理时只读本地文件，缺失或损坏拒绝生成，禁止运行中隐式联网下载。部署必须验证实际服务UID能读取并执行分词。
+
+校准须重建真实请求并比对原request_sha256，再对照上游input_tokens；明确这不是独立验证上游精确性。覆盖中英文、代码、工具Schema、长上下文、单图及多图，保存低估次数和最不利余量。预估只是准入预留，无法保证厂商永不超差；真实用量超出预留仍如实入账并占用预算，后续请求不能继续超支。未知回执不改为预估实际用量。
+
+`workflow.model_input_estimate`在创建预留前记录策略摘要、参考计数、图片预留及余量；`workflow.model_input_estimate_checked`和`workflow.model_budget_reserved/settled`通过reservation_id记录预留、回执偏差和结算。前者通过调用上下文关联，不能伪造尚未创建的预留ID。禁止记录提示正文。实际存在输出但回执output_tokens=0时保留原始数字、标记conflict，不生成可信合计、不释放模型预算。
+
+端上模型选择复用服务端预设，不允许前端提交任意model/base_url/key。新增模型同步model_selection.efforts，按实际原生档位展示；DeepSeek的medium别名映射为high，不能作为独立“中”档展示。见[官方推理档位](https://api-docs.deepseek.com/guides/thinking_mode/)。

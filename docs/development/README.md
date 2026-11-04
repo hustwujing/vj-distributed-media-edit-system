@@ -8,6 +8,7 @@
 | 新增或修改专业 Agent 执行引擎 / SDK harness | [新增 harness](add-profile-harness.md) | 引擎注册、指纹、权限、会话、协议和实际验证 |
 | 新增专业 Agent 角色或输出 Schema | [新增专业 Agent](add-specialist-agent.md) | 固定策略、授权、输入、工具、预算、结构化结果 |
 | 新增模型配置、LLM 或模型传输协议 | [新增 LLM](add-llm-provider.md) | 传输、配置冻结、回执、取消、用量与真实接入 |
+| 修改或执行真机 case、失败归因、复测及多窗口审查 | [真机测试与审查](run-live-campaign.md) | 版本与模型绑定、暂停、内部和浏览器证据、分类及进度报告 |
 | 新增或修改 API 路由、中间件、SSE、上传下载及耗时依赖调用 | [API 并发与耗时隔离](change-api-concurrency.md) | 异步等待、专用池、有界准入、取消、短事务与拥塞验证 |
 | 新增 operation、增加替代实现、修改参数/输入输出契约或生命周期 | [新增与扩展 operation](add-operation.md) | 能力选型、实现与注册、运行时装载、验收、测试和交付 |
 | 新增生命周期，或修改 operation 阶段、推进、恢复和取消协议 | [operation 生命周期开发说明](change-operation-lifecycle.md) | 状态转换、Runner 接线、持久化、调度资源、兼容与故障验证 |

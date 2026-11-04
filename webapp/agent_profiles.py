@@ -48,6 +48,7 @@ class AgentProfile:
     credential_env: str = 'VIDEO_USE_MODEL_API_KEY'
     reasoning_effort: str = 'medium'
     vision_tokenizer: str = 'unconfigured'
+    input_token_policy: str = 'native'
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     budget: dict = field(default_factory=configured_budget)
@@ -73,6 +74,8 @@ class AgentProfile:
             raise ValueError('Reasoning setting is not supported by the selected harness')
         if self.vision_tokenizer not in ('unconfigured','native','patch32_1_2','conservative_tiles512'):
             raise ValueError('Unsupported vision token policy')
+        from .model_token_estimate import validate_policy
+        validate_policy(self.input_token_policy,self.model,self.protocol)
         expected = {'plan_seconds','plan_models','plan_tools','plan_inspections','run_seconds','run_models','task_models','max_output_tokens'}
         if set(self.budget) != expected or any(type(v) is not int or not 1 <= v <= 10_000_000 for v in self.budget.values()):
             raise ValueError('Invalid Agent budget policy')
@@ -99,6 +102,7 @@ def profiles():
     default = AgentProfile(model=model,
                            base_url=os.environ.get('VIDEO_USE_MODEL_BASE_URL', '').rstrip('/'),
                            reasoning_effort=os.environ.get('VIDEO_USE_MODEL_REASONING_EFFORT', 'medium'),
+                           input_token_policy=os.environ.get('VIDEO_USE_MODEL_INPUT_TOKEN_POLICY','native'),
                            vision_tokenizer=os.environ.get('VIDEO_USE_MODEL_VISION_TOKENIZER',
                                'patch32_1_2' if model=='gpt-6-astra' else 'unconfigured'))
     raw = os.environ.get('VIDEO_USE_AGENT_PROFILES_JSON', '{}')
@@ -155,10 +159,10 @@ def initialize(db):
     ''')
 
 
-def freeze(db, task, project, created, parent=None):
+def freeze(db, task, project, created, parent=None,*,configuration=None):
     old = db.execute('SELECT configuration FROM agent_run_profiles WHERE task_id=?', (parent,)).fetchone() if parent else None
     preferred = db.execute('SELECT name FROM agent_project_profiles WHERE project=?', (project,)).fetchone()
-    profile = selected(preferred['name']) if preferred else AgentProfile(**json.loads(old['configuration'])) if old else selected()
+    profile = configuration or (selected(preferred['name']) if preferred else AgentProfile(**json.loads(old['configuration'])) if old else selected())
     db.execute('INSERT INTO agent_run_profiles(task_id,configuration,digest,created) VALUES (?,?,?,?)',
                (task, json.dumps(profile.snapshot(), sort_keys=True), profile.digest, created))
     return profile

@@ -24,7 +24,7 @@
 | [usage_api.py](../../webapp/usage_api.py)、[task_usage.js](../../webapp/static/task_usage.js) | 授权范围、分页及任务/需求/项目用量展示 |
 | [diagnostics.py](../../webapp/diagnostics.py)、[diagnostics_api.py](../../webapp/diagnostics_api.py) | 只读证据汇聚、部分结果、所有者视图和诊断下载 |
 | [observation_collector.py](../../webapp/observation_collector.py)、[observability.html](../../webapp/static/observability.html) | journal 采集、索引、指标导出、告警和受保护看板 |
-| [cluster.py](../../deploy/cluster.py) | 观测服务配置、留存及部署/维护流程 |
+| [dynamic_cluster.py](../../deploy/dynamic_cluster.py) | 本分支独立观测服务配置、部署/维护流程；旧 cluster.py 不用于操作 main |
 
 新增字段或事件前，说明采集点、单位、关联键、权限、存储位置、去重规则、缺失语义和留存方式。优先扩展已有数据来源，避免为同一调用维护第二份累加总数。
 
@@ -67,11 +67,16 @@
 | 成功、失败、取消或 incomplete 回执 | 有有效用量就保留，业务失败不代表消耗为零 |
 | 缺失、非法、负数、布尔或非有限数值 | 按字段校验；缺失/非法保持 null，明确零值才记为零 |
 | 缓存与推理 Token | 分别是输入与输出的子集，不再次加入总数 |
-| 原始 total 缺失 | 只有 input/output 均已知时提供单独的计算合计，并标注来源，不改写原回执 |
+| 原始 total 缺失 | 只有 input/output 均可信且无冲突时提供单独的计算合计，并标注来源，不改写原回执 |
+| 实际输出与零输出回执矛盾 | 保留原始 output_tokens=0，标记 conflict，不纳入可信计算合计，保留预算预留 |
 | 重复、补充及冲突回执 | 重复不累计；补齐原未知字段；非空值矛盾保留冲突，不静默覆盖或相加 |
 | 费用 | 仅展示有证据的数值与明确币种；不混加不同币种，不按当前价格补造历史费用 |
 
 汇总范围为 task/run/project，均限定当前项目；总数覆盖范围内全部记录，不能被明细分页截断。维持一致读快照，检查翻页时新增回执和跨节点补记；公开完整度、reported/missing、冲突及派生统计。原始回执、计算值、授权配额、实测耗时分别表达。
+
+输入估算是请求准入，不是实际 usage。`workflow.model_input_estimate` 记录策略摘要、参考分词、图片和余量；预算预留、回执偏差及结算事件通过 `reservation_id` 关联。估算事件发生在预留创建前，应通过同一调用上下文关联，不能声称它已持有尚不存在的 reservation_id。真实用量超出预留要如实入账并报告偏差，不能截断到预留值；回执缺失或矛盾时不得用估算补造实际消耗。策略开发及校准见[LLM 接入规范](add-llm-provider.md)。
+
+观测还须区分模型预设/版本、实际 profile harness 及传输 strict 模式。记录 Schema 摘要、回退错误码和逐次调用回执；HTTP 200 不证明 strict 被执行，回退重发也不是同一条 HTTP 记录。
 
 ## 5. 修改诊断、采集与告警
 

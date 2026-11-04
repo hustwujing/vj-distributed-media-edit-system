@@ -34,7 +34,7 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 - **可追踪失败**：保留错误分类、执行证据、用量、清理状态；模型判断不能覆盖程序完整性约束。
 - **类型化媒体语义**：音轨存在、静音、响度、文本匹配、Alpha/蒙版、主体范围、一致性和动作时序分别表达。多片段拼接和常用音频处理走受控 operation，并记录资源与测量报告。
 
-部署形态为单机多实例，支持节点接管；它不提供整机故障容灾。专业 Agent 默认使用注册的 `structured-profile-v2` 有界工具循环，底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
+部署形态为单机多实例，支持节点接管；它不提供整机故障容灾。专业 Agent 默认使用注册的 `structured-profile-v3` 新命令工具循环（strict 优先、明确不支持时回退，保留具体字段错误反馈），底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
 
 ## 本机隔离部署
 
@@ -63,6 +63,16 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 本分支不迁移旧 Workflow 数据、不双写旧状态。复用的媒体 operation、工具、图层处理及 CLI 能力仍在仓库中。旧集群运维文档描述 main；维护此分支时以本页和[动态图开发规范](docs/development/change-dynamic-workflow.md)为准。
 
+## 模型与执行协议
+
+动态工作流页面可以选择服务端登记的模型版本与推理强度。本机已准备的默认配置为 **Claude 4.6 Sonnet / high**，部署后以能力接口和 Run 的实际冻结配置核实；仓库不内置机器凭据或保证任意环境具有同样默认值。
+
+选择在创建 Run 时冻结，后续修改浏览器草稿、项目默认值或后台预设不会切换本轮模型。自动 successor 继承原 Run 配置，显式创建新 Run 可另选。预设在确认期间发生变化时，需要刷新核对后重新确认。
+
+`structured-profile-v3` 使用新命令和 strict 优先策略。网关明确拒绝 strict，或返回违反传输 Schema 的参数时，按有界策略回退非 strict 并保留字段错误反馈；超时、鉴权、限流或 5xx 不作为 strict 不支持的证据。本地 Schema、业务契约、证据和授权检查始终执行。选用 Claude 模型不表示切换到 Claude Code SDK harness。
+
+Claude / DeepSeek 的指定模型可显式配置版本化本地输入预算预估，以适配缺少原生计数端点的路由。参考分词、校准余量与图片预算分别记录；预估用于准入，不冒充厂商实际用量。实际回执缺失或矛盾时保留预算并标记待核实。说明见[计数改造记录](docs/model-token-counting-gap.md)，接入规则见[LLM 开发规范](docs/development/add-llm-provider.md)。
+
 ## 开发与测试
 
 依赖安装：`uv sync --locked --extra web --extra web-test`。真实沙盒测试需要 Linux、PostgreSQL 工具、bubblewrap、FFmpeg 和必要权限。
@@ -84,6 +94,8 @@ node --test tests/*.test.mjs
 
 源码、测试快照和已部署版本是不同对象；只认绑定源码摘要的验证证据。冻结部署验证会建立可供测试账号读取的独立源码副本，避免为了测试开放私有部署数据目录。
 
+后续 119 条真机驱动显式选择 Claude 4.6 Sonnet / high，核对新命令 strict 优先策略和每个 Run 的冻结模型，保存到尝试证据。修改驱动或通过模型协议实验不代表这 119 条已经重跑；暂停状态也不因文档更新自动解除。执行、归因和定期汇报按[真机测试与审查规范](docs/development/run-live-campaign.md)。
+
 破坏性架构变更可用 `./deploy.sh deploy --reset-database` 重置专用数据库：完整冻结测试通过后停止本实例、备份数据库，再检查未完成的外部调用与清理记录。存在未收尾记录时拒绝重置；共享 PostgreSQL 服务和 main 数据库不受操作。旧 BOSS 对象及历史证据不会被该命令批量删除。
 
 ## 开发规范与目录
@@ -95,6 +107,7 @@ node --test tests/*.test.mjs
 - [新增 Profile Harness](docs/development/add-profile-harness.md)
 - [新增 LLM Provider 与模型协议](docs/development/add-llm-provider.md)
 - [新增或扩展 operation](docs/development/add-operation.md)
+- [真机测试与审查](docs/development/run-live-campaign.md)
 
 `webapp/` 包含控制器、执行器、协议、API 和原生 JavaScript 界面；`helpers/` 包含媒体能力；`deploy/` 管理独立部署；`tests/` 保存单元、集成与真机驱动；`runtime/public/` 是沙盒公开工具协议；`docs/` 保存规范与报告。
 

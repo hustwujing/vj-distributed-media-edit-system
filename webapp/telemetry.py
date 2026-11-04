@@ -28,6 +28,9 @@ FIELDS.update({'response_message_count','response_commentary_messages','response
                'remaining_calls','remaining_inspections','remaining_corrections'})
 FIELDS.update({'script_sha256','outputs_sha256','output_files','stdout_bytes','stdout_truncated'})
 FIELDS.update({'native_input_tokens','image_envelope_tokens','framing_margin_tokens','input_tokens','output_tokens','image_count','vision_policy_digest'})
+FIELDS.update({'estimated_input_tokens','reference_input_tokens','estimation_policy','estimation_policy_digest','estimate_multiplier',
+               'reservation_id','reserved_tokens','input_reserved_tokens','output_reserved_tokens','actual_tokens',
+               'input_underestimated','reservation_overrun_tokens'})
 _QUEUE = queue.Queue(maxsize=1024)
 _LOCK = threading.Lock()
 _THREAD = None

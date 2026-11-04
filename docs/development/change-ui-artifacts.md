@@ -4,6 +4,8 @@
 
 涉及确认和工具权限时同时读取[Agent 与对话开发说明](change-agent-conversation.md)；涉及验收、候选或用户决策时读取[工作流开发说明](change-workflow.md)；涉及上传、成果发布与跨节点恢复时读取[分布式执行开发说明](change-distributed-execution.md)。
 
+本分支 `/chat` 实际使用 `dynamic.html/js/css`，Run、输入屏障和决策以[动态工作流规范](change-dynamic-workflow.md)为准；下文旧聊天、工具和画布模块只在修改对应复用模块时适用，不能把旧 Plan/Execute 控制语义接回动态页面。
+
 ## 1. 定位页面与数据入口
 
 前端使用原生 JavaScript 模块、HTML 和 CSS，没有 npm 构建步骤。复用现有公共模块、样式和本地资源；新增交互不要顺带引入另一套框架或外部运行时 CDN。测试与环境见[开发与测试](../development.md)。
@@ -11,6 +13,7 @@
 | 改动 | 实现入口 | 需要核对 |
 | --- | --- | --- |
 | 页面入口和项目导航 | [app.py](../../webapp/app.py)、[home.js](../../webapp/static/home.js)、[common.js](../../webapp/static/common.js) | 页面归属、项目切换、base URL、公共组件 |
+| 动态 Run 与模型选择 | [dynamic.js](../../webapp/static/dynamic.js)、[dynamic_models.js](../../webapp/static/dynamic_models.js)、[model_selection.py](../../webapp/model_selection.py)、[workflow_api.py](../../webapp/workflow_api.py) | 模型草稿、预设摘要、Run 冻结配置、输入屏障和质量决策 |
 | 聊天和方案/决策卡片 | [chat.js](../../webapp/static/chat.js)、[plan_readiness.js](../../webapp/static/plan_readiness.js)、[agent_api.py](../../webapp/agent_api.py) | 当前 turn、确认 digest、决策 revision、提交结果 |
 | 文本、活动和状态 | [text_stream.js](../../webapp/static/text_stream.js)、[activity.js](../../webapp/static/activity.js)、[task_progress.js](../../webapp/static/task_progress.js)、[work_status.js](../../webapp/static/work_status.js) | 版本合并、重连、阶段、等待与终态 |
 | 用量 | [task_usage.js](../../webapp/static/task_usage.js)、[usage_api.py](../../webapp/usage_api.py) | 当前任务、关联需求、项目口径与未知值 |
@@ -70,6 +73,10 @@
 - 若修改缩略图缓存或媒体引用，确保同路径新版本不会显示旧画面。跨 API 实例访问应从已发布记录和共享存储恢复，不依赖原实例磁盘。
 
 ## 5. 修改工具表单和图片画布
+
+动态模型表单只提交服务端登记的预设 ID、推理强度和 `profile_digest`，不得接收任意模型路由或凭据。选择草稿按项目保存到 sessionStorage；提交前重新核对能力，过期预设需用户再次确认。当前 Run 的型号和强度只显示其持久化 `model_configuration`，缺失时明确未知，不能从草稿或当前默认值推断。自动 successor 与显式新 Run 的继承规则见动态工作流规范。
+
+相关验证覆盖选择与刷新、上传期间保存选择、预设变更、提交期间禁用、已有 Run 不变、移动端布局及跨项目隔离。使用 `tests/test_model_selection.py`、`tests/dynamic_models.test.mjs`；部署后浏览器入口为 `tests/campaign_model_deployment_smoke.cjs`，必须记录实际执行结果，脚本存在不表示已通过。
 
 工具表单先明确动作、所选素材、参数默认值及适用条件，再同步序列化和后端校验。隐藏的旧字段不能残留在另一个动作的请求中；数值范围、缺省与显式零值需分别处理。浏览器提交素材 ID 和业务参数，路径绑定与计划验证由服务端完成。
 

@@ -84,6 +84,11 @@ async function runCase(browser,spec){
  const control=async(action)=>{await page.locator(`[data-control="${action}"]`).waitFor({state:'visible'});let confirmation=null;if(action==='cancel')page.once('dialog',async dialog=>{confirmation={type:dialog.type(),message:dialog.message()};await dialog.accept();});const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await page.locator(`[data-control="${action}"]`).click();const result=await response;assert.equal(result.status(),202,await result.text());if(action==='cancel'){assert.equal(confirmation?.type,'confirm');state.browser_assertions.push('Cancel required an explicit browser confirmation');}state.events.push({action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);const updated=await read();if(updated.successor_run_id){state.run_id=updated.successor_run_id;state.execute_id=state.run_id;state.run_ids.push(state.run_id);state.task_ids.push(state.run_id);persist();}};
  const start=async(prompt=spec.prompt,targets=targetText(spec),budget=spec.complexity==='simple'?500000:2000000)=>{
   await page.locator('#dynamic-start').waitFor({state:'visible'});await page.locator('#dynamic-goal').fill(prompt);await page.locator('#dynamic-targets').fill(targets);
+  await page.locator('#dynamic-model-profile').selectOption('claude');
+  await page.locator('#dynamic-reasoning-effort').selectOption('high');
+  const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
+  assert.equal(modelCapabilities.model_protocol_policy,'native_commands_strict_preferred');
+  state.model_protocol_policy=modelCapabilities.model_protocol_policy;
   await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
   for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
   await capture('authorization-'+state.run_ids.length);
@@ -92,6 +97,9 @@ async function runCase(browser,spec){
   let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
   if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-submit').click();result=await response;}
   assert.equal(result.status(),202,await result.text());run=await result.json();
+  assert.equal(run.model_configuration.model,'claude-4.6-sonnet');
+  assert.equal(run.model_configuration.reasoning_effort,'high');
+  (state.model_configurations??=[]).push({run_id:run.id,...run.model_configuration});
   state.run_id=run.id;state.execute_id=run.id;state.run_ids.push(run.id);state.task_ids.push(run.id);persist();
   (state.authorizations??=[]).push({run_id:run.id,goal:run.goal,delivery_targets:run.authorization.delivery_targets,
    allowed_assets:run.authorization.allowed_assets,provider_call_budget:run.authorization.provider_call_budget,

@@ -23,6 +23,9 @@ uv sync --locked --extra web --extra web-test
 | `webapp/agent_host.py`、`scheduling.py`、`task_leases.py` | 执行器、资源调度及跨节点租约 |
 | `webapp/workflow_graph.py`、`workflow_planning.py`、`workflow_orchestrator.py` | 新 DAG 契约、滚动提案、正式状态与验收提交 |
 | `webapp/workflow_dispatch.py`、`workflow_executor.py`、`workflow_agents.py` | 调度衔接、执行候选、受限专业 Agent 循环 |
+| `webapp/model_selection.py`、`agent_profiles.py`、`static/dynamic_models.js` | 服务端模型预设、端上选择、强度和 Run 冻结配置 |
+| `webapp/profile_harnesses.py`、`workflow_model_protocol.py`、`model_tool_protocol.py`、`strict_schema.py` | 专业执行引擎、新命令编译、strict 传输与本地验证 |
+| `webapp/model_token_estimate.py`、`model_adapters.py`、`deploy/prepare_tokenizer.py` | 输入预算预估、原始用量回执与离线参考分词资产 |
 | `webapp/workflow_runtime.py`、`workflow_inputs.py` | 复用的媒体执行适配器与输入绑定 |
 | `webapp/operations.py`、`operation_parameters.py` | 能力目录、参数及受控操作 |
 | `webapp/execution_runtime.py`、`execution_reaper.py`、`runtime_image.py` | 沙盒资源、回收与运行时包 |
@@ -49,6 +52,8 @@ Python 入口发现全部 `tests/test_*.py`，不是仅运行名称包含 distri
 - 需要对应能力的用例所用模型、运行时与权限；缺失时可能跳过或失败，必须查看报告。
 
 `deploy/prepare-executor.sh` 用于受信任主机准备运行时及访问权限，会修改系统状态，不是普通依赖安装命令。完整要求见 [执行隔离与恢复](execution-isolation-and-recovery.md)。只有安装 Python 依赖或执行 `--help` 不能证明沙盒可运行。
+
+启用本地输入预估还需要依赖环境中的固定参考分词资产；部署准备负责下载、SHA 校验、安装和服务 UID 读取检查。推理时不得隐式下载。仅安装 `tiktoken` 不代表资产已经可用；模型/策略适配与校准要求见 [LLM 接入规范](development/add-llm-provider.md)。
 
 定向排查也使用同一隔离入口：
 
@@ -77,8 +82,12 @@ VIDEO_USE_TEST_REAL_MODELS=1 .venv/bin/python -m tests.run_distributed_suite
 | `tests/run_live_transcribe_smoke.py` | 真实转写 |
 | `tests/run_live_boss_storage.py` | 真实对象存储加密、跨节点恢复与测试对象清理 |
 | `tests/campaign_suite.py` → `campaign_dynamic_browser.cjs` | 当前分支的 119 条隔离真机 case；逐例内部状态、浏览器和清理审计 |
+| `tests/campaign_model_deployment_smoke.cjs` | 隔离部署上的模型选择、草稿恢复、Run 配置冻结及低预算拦截；不是媒体 case 或模型质量验收 |
+| `tests/campaign_model_eval.py`、`campaign_model_eval_report.py` | 冻结模型回复与协议对照实验；不代替部署后业务测试 |
 
 表中旧 smoke 驱动仍可能默认指向 main；本分支验收使用 `campaign_suite.py`，旧驱动仅作为实现参考。
+
+修改模型选择与预算时，可定向运行 `tests.test_model_selection`、`tests.test_model_token_estimate`、`tests.test_model_input_count`、`tests.test_dynamic_gateway`、`tests.test_task_usage` 及 `tests/dynamic_models.test.mjs`。真机启动、版本绑定、失败归因和每例进度汇报遵守[真机测试与审查](development/run-live-campaign.md)。暂停中的测试不会因代码门禁通过而自动恢复。
 
 真实服务驱动可能消耗额度或写入外部存储。运行前读取对应驱动的配置和目标，使用独立测试项目；常规协议测试不能证明真实服务的质量、取消能力或网络表现。`deploy/cluster_smoke.py` 会临时停止实例做接管验证，仅在维护窗口运行。
 

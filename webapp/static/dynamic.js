@@ -1,10 +1,11 @@
 import {$,api,header,esc,href,toast} from './common.js';
 import {terminalRun,canApproveDecision,acceptsFeedback,inputStatus} from './dynamic_state.js';
+import {chooseModel,choiceIsCurrent,configurationText,effortLabels} from './dynamic_models.js';
 const projectId=document.body.dataset.project;
 const path=suffix=>`api/projects/${projectId}${suffix}`;
 const names={ACTIVE:'进行中',WAITING_USER:'等待处理',CANCELLING:'正在取消',CANCELLED:'已取消',SUCCEEDED:'已完成',FAILED:'未完成',PLANNING:'正在规划',EXECUTING:'正在执行',REVIEWING:'正在审查',IDLE:'暂无执行活动',planning:'正在规划',running:'执行中',ready:'等待执行',blocked:'等待前置结果',leased:'已分配执行器',waiting:'等待外部结果',retry_wait:'等待安全重试',reviewing:'验收中',waiting_user:'等待你的确认',paused:'已暂停',cancelling:'正在取消',cancelled:'已取消',succeeded:'已完成',failed:'未完成'};
 const labels={input_accepted:'补充要求已接收',input_safe_point:'当前任务已排空，开始重新规划',input_batch_applied:'补充要求已处理',manager_result_applied:'规划结果已应用',review_reused_or_blocked:'候选与证据未变，保留已有审查结论',successor_created:'已创建下一轮执行',proposal_applied:'新一轮计划已确定',planning_requested:'开始下一轮规划',proposal_rejected:'提案未通过校验，正在处理',review_requested:'开始验收',task_result_committed:'步骤结果已记录',state_changed:'工作流状态更新',command_processed:'控制请求已处理',delivered:'正式成果已交付',created:'工作流已创建'};
-let project,capabilities,currentId=null,current=null,timer=null,busy=false,lastRender='',lastDecisions='',stopped=false,pendingCommand=null,uploading=0,projectLoad=0,capabilityLoad=0,refreshEpoch=0,lastSnapshot=null;
+let project,capabilities,currentId=null,current=null,timer=null,busy=false,lastRender='',lastDecisions='',stopped=false,pendingCommand=null,uploading=0,projectLoad=0,capabilityLoad=0,refreshEpoch=0,lastSnapshot=null,modelChoice=null;
 // getRandomValues also works on the HTTP intranet entry, unlike randomUUID.
 const uuid=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
 const draftKey=(run,kind)=>`dynamic-draft:${projectId}:${run}:${kind}`;
@@ -14,18 +15,55 @@ function saveInputDraft(){const form=$('dynamic-input-form');if(!form.dataset.ru
  writeDraft(form.dataset.run,'input',{text:$('dynamic-input-content').value,assets:[...$('dynamic-input-assets').selectedOptions].map(x=>x.value),targets:[...$('dynamic-input-targets').selectedOptions].map(x=>x.value),requestId:form.dataset.requestId});}
 function error(message){$('dynamic-error').textContent=message;$('dynamic-error').hidden=!message;}
 function safeName(task){return task.spec.name;}
+function modelControls(){
+ $('dynamic-model-profile').disabled=busy;
+ $('dynamic-reasoning-effort').disabled=busy||!modelChoice;
+ $('dynamic-submit').disabled=busy||uploading>0||!modelChoice;
+}
+function renderModelChoices(){
+ const choices=capabilities.model_choices;
+ modelChoice=chooseModel(choices,modelChoice||readDraft('new','model'));
+ $('dynamic-model-profile').innerHTML='<option value="" disabled>请选择模型</option>'+(choices?.profiles||[]).map(p=>`<option value="${esc(p.id)}" ${p.available?'':'disabled'}>${esc(p.model)}${p.available?'':'（未配置）'}</option>`).join('');
+ $('dynamic-model-profile').value=modelChoice?.profile||'';
+ renderEfforts();modelControls();
+ $('dynamic-model-hint').textContent=modelChoice?'本次选择将在开始时固定，本轮执行过程中不会自动切换。':'暂无已配置的默认模型，请选择可用模型或联系管理员。';
+}
+function renderEfforts(){
+ const profile=capabilities.model_choices?.profiles.find(p=>p.id===modelChoice?.profile);
+ $('dynamic-reasoning-effort').innerHTML=(profile?.reasoning_efforts||[]).map(e=>`<option value="${esc(e)}">${esc(effortLabels[e]||e)}（${esc(e)}）</option>`).join('');
+ $('dynamic-reasoning-effort').value=modelChoice?.reasoning_effort||'';
+}
+$('dynamic-model-profile').onchange=()=>{
+ modelChoice=chooseModel(capabilities.model_choices,{profile:$('dynamic-model-profile').value,reasoning_effort:modelChoice?.reasoning_effort});
+ renderEfforts();modelControls();writeDraft('new','model',modelChoice);
+ $('dynamic-model-hint').textContent=modelChoice?'本次选择将在开始时固定，本轮执行过程中不会自动切换。':'请选择已配置的模型。';
+};
+$('dynamic-reasoning-effort').onchange=()=>{
+ if(modelChoice){modelChoice={...modelChoice,reasoning_effort:$('dynamic-reasoning-effort').value};writeDraft('new','model',modelChoice);}
+};
 async function loadProject(){const epoch=++projectLoad;const value=await api(path(''));if(epoch!==projectLoad)return;
  const previous=[...$('dynamic-assets').querySelectorAll('input')],known=new Set(previous.map(x=>x.value)),selected=new Set(previous.filter(x=>x.checked).map(x=>x.value));
  project=value;header('chat',project);$('dynamic-assets').innerHTML=project.assets.map(a=>`<label><input type="checkbox" value="${esc(a.id)}" ${!known.has(a.id)||selected.has(a.id)?'checked':''}>${esc(a.name)}</label>`).join('')||'<p>可上传素材，也可直接创建生成任务。</p>';if(!$('dynamic-goal').value)$('dynamic-goal').value=project.draft?.prompt||'';}
 async function loadCapabilities(){const epoch=++capabilityLoad;const value=await api(path('/runs/capabilities'));if(epoch!==capabilityLoad)return;
  const limits=Object.fromEntries([...document.querySelectorAll('[data-operation]')].map(input=>[input.dataset.operation,input.value]));capabilities=value;
+ renderModelChoices();
  $('dynamic-provider-limits').innerHTML=capabilities.operations.filter(op=>op.external_side_effects).map(op=>`<label class="dynamic-scope-item"><span>${esc(op.id)}${op.available?'':'（未配置）'}</span><input type="number" min="0" max="10" value="${esc(limits[op.id]??'0')}" data-operation="${esc(op.id)}" data-budget-group="${esc(op.budget_group)}" ${op.available?'':'disabled'} aria-label="${esc(op.id)} 调用上限"></label>`).join('');}
 function authorization(){const budgets={};document.querySelectorAll('[data-operation]').forEach(input=>{const n=Number(input.value);if(n>0)budgets[input.dataset.budgetGroup]=(budgets[input.dataset.budgetGroup]||0)+n;});return {goal:$('dynamic-goal').value.trim(),allowed_assets:[...$('dynamic-assets').querySelectorAll('input:checked')].map(x=>x.value),allowed_operations:['script',...capabilities.operations.filter(op=>!op.external_side_effects&&op.available).map(op=>op.id),...[...document.querySelectorAll('[data-operation]')].filter(x=>Number(x.value)>0).map(x=>x.dataset.operation)],allowed_agent_profiles:['editing_implementer','media_failure_diagnostician','visual_quality_reviewer'],provider_call_budget:budgets,delivery_targets:$('dynamic-targets').value.split(/[\n,，]/).map(x=>x.trim()).filter(Boolean),wall_time_budget:Number($('dynamic-time').value)*60,model_token_budget:Number($('dynamic-token-budget').value),content_fingerprint:capabilities.content_fingerprint};}
-$('dynamic-start').onsubmit=async event=>{event.preventDefault();if(busy||uploading)return;busy=true;$('dynamic-submit').disabled=true;error('');try{const fresh=await api(path('/runs/capabilities'));if(fresh.content_fingerprint!==capabilities.content_fingerprint){capabilities.content_fingerprint=fresh.content_fingerprint;throw new Error('素材或工作区内容已变化，请检查当前执行范围后再次确认。');}const result=await api(path('/runs'),{method:'POST',body:JSON.stringify({request_id:uuid(),confirmed:true,authorization:authorization(),parent_run_id:current?.id||null})});currentId=result.id;lastRender='';await refresh();}catch(e){error(e.message);}finally{busy=false;$('dynamic-submit').disabled=uploading>0;}};
+$('dynamic-start').onsubmit=async event=>{
+ event.preventDefault();if(busy||uploading||!modelChoice)return;
+ const chosen={...modelChoice};busy=true;modelControls();error('');
+ try{
+  const fresh=await api(path('/runs/capabilities'));
+  if(!choiceIsCurrent(fresh.model_choices,chosen)){capabilities=fresh;renderModelChoices();throw new Error('模型配置已更新，请核对模型和推理强度后再次确认。');}
+  if(fresh.content_fingerprint!==capabilities.content_fingerprint){capabilities.content_fingerprint=fresh.content_fingerprint;throw new Error('素材或工作区内容已变化，请检查当前执行范围后再次确认。');}
+  const result=await api(path('/runs'),{method:'POST',body:JSON.stringify({request_id:uuid(),confirmed:true,authorization:authorization(),parent_run_id:current?.id||null,model_choice:chosen})});
+  currentId=result.id;lastRender='';await refresh();
+ }catch(e){error(e.message);}finally{busy=false;modelControls();}
+};
 $('dynamic-upload').onchange=async event=>{const input=event.target,files=[...input.files];uploading++;document.body.dataset.uploading='true';input.disabled=true;$('dynamic-submit').disabled=true;input.parentElement.firstChild.nodeValue='正在上传素材…';
  try{for(const file of files){const form=new FormData();form.append('file',file);const response=await fetch(href(path('/assets')),{method:'POST',body:form,credentials:'same-origin'});if(!response.ok)throw new Error('素材上传失败');}
   await loadProject();await loadCapabilities();
- }catch(e){toast(e.message,true);}finally{input.value='';uploading--;document.body.dataset.uploading=String(uploading>0);input.disabled=uploading>0;input.parentElement.firstChild.nodeValue='上传素材';$('dynamic-submit').disabled=busy||uploading>0;}};
+ }catch(e){toast(e.message,true);}finally{input.value='';uploading--;document.body.dataset.uploading=String(uploading>0);input.disabled=uploading>0;input.parentElement.firstChild.nodeValue='上传素材';modelControls();}};
 async function command(action,payload={},requestId=uuid()){if(!current)return;const submitted=await api(path(`/runs/${current.id}/commands`),{method:'POST',body:JSON.stringify({request_id:requestId,action,payload})});pendingCommand=submitted.id;toast(action==='cancel'?'停止请求已提交，正在回收本地资源':'请求已提交，正在处理');await refresh();}
 document.querySelectorAll('[data-control]').forEach(button=>button.onclick=async()=>{const action=button.dataset.control;if(action==='cancel'&&!window.confirm('确定停止这个工作流？已完成成果会保留，本地任务将回收；外部请求若已提交，会单独核实其状态。'))return;button.disabled=true;try{await command(action);}catch(e){toast(e.message,true);}finally{button.disabled=false;}});
 function syncAssetOptions(select){
@@ -97,6 +135,7 @@ for(const [id,event] of [['dynamic-input-content','input'],['dynamic-input-asset
 
 function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.updated_at||run.graph_version<lastSnapshot.graph_version))return;lastSnapshot={id:run.id,updated_at:run.updated_at,graph_version:run.graph_version};current=run;const receipt=(run.commands||[]).find(c=>c.id===pendingCommand&&c.status!=='pending');if(receipt){pendingCommand=null;if(receipt.status==='applied'&&run.successor_run_id){currentId=run.successor_run_id;lastDecisions='';lastSnapshot=null;queueMicrotask(refresh);return;}if(receipt.status==='rejected')toast(({replan_required:'当前结果需要重新规划。',external_result_requires_resolution:'需要先核实外部请求及结果，不能重复调用。',invalid_or_stale_decision:'确认信息不完整或已过期，请按当前状态重新确认。',workflow_terminal:'本轮已经结束。',cancellation_in_progress:'取消正在处理中。'})[receipt.error_code]||'控制请求未通过，请核对当前状态。',true);else toast('控制请求已处理');}$('dynamic-current').dataset.runId=run.id;$('dynamic-current').dataset.status=run.state;$('dynamic-current').dataset.graphVersion=String(run.graph_version);$('dynamic-current').hidden=false;$('dynamic-title').textContent=run.goal;const cleanup=run.state==='CANCELLING'?` · 待回收 ${run.cleanup_pending} 项`:'';$('dynamic-status').textContent=`${names[run.state]||run.state} · ${names[run.activity]||run.activity}${cleanup} · 计划版本 ${run.graph_version} · ${run.sealed?'计划已封口':'根据结果继续规划'} · 模型预算剩余 ${run.token_usage.remaining}/${run.token_usage.limit} tokens${run.token_usage.reserved_or_unknown?`（${run.token_usage.reserved_or_unknown} 待核实）`:""}`;$('dynamic-updated').textContent=`最后更新 ${new Date(run.updated_at*1000).toLocaleString()}`;$('dynamic-diagnostics').href=href(path(`/runs/${run.id}/diagnostics?download=true`));
  if($('dynamic-input-form').dataset.run!==run.id)saveInputDraft();
+ $('dynamic-model-current').textContent=configurationText(run.model_configuration);
  const active=!terminalRun(run.state);$('dynamic-start').hidden=active;
  document.querySelector('[data-control=pause]').hidden=!active||['WAITING_USER','CANCELLING'].includes(run.state);
  document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER';document.querySelector('[data-control=cancel]').hidden=!active;
