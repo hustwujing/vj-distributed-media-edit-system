@@ -47,7 +47,7 @@ class ModelCommandTests(unittest.TestCase):
         implementation={'name':'New implementation','type':'script','argv':['python','-c','print(1)'],
                         'files':[{'path':'report.txt','roles':['report']}],'basic_reason':'Local repair'}
         cmd={'kind':'APPLY_PLAN','reason':'Replace failed implementation','plan':{
-            'repair_replacements':[{'task_id':'render','implementation':implementation}], 'continuation':{'mode':'wait','tasks':['render']}}}
+            'repair_replacements':[{'task_id':'render','implementation':implementation}], 'continuation':{'mode':'wait'}}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
         replacement=result['replacements']['render'];self.assertTrue(replacement.startswith('render_r_'))
         self.assertEqual(result['add_tasks'][0]['id'],replacement)
@@ -78,7 +78,7 @@ class ModelCommandTests(unittest.TestCase):
                'inputs':{'source':{'step':'prepare','role':'primary_image'}},'files':[{'path':'final.png','roles':['primary_image']}],
                'acceptance':[{'kind':'image'}],'delivery_stage':True}
         cmd={'kind':'APPLY_PLAN','reason':'Typed batch','plan':{'new_tasks':[first,final],
-             'continuation':{'mode':'wait','tasks':['invented-trigger']}}}
+             'continuation':{'mode':'wait'}}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
         self.assertEqual(result['add_dependencies'],[{'upstream':'prepare','downstream':'deliver'}])
         self.assertEqual(result['replan_after'],['deliver'])
@@ -89,6 +89,24 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(EditTransition(type='fade').duration,.4)
         from pydantic import ValidationError
         with self.assertRaises(ValidationError):EditTransition(type='fade',duration=0)
+
+    def test_non_strict_wire_may_omit_optional_fields_but_not_required_fields(self):
+        schema=obj({'required':{'type':'string'},'optional':{'type':'integer'}},['required'])
+        self.assertEqual(transform({'required':'ok'},schema),{'required':'ok'})
+        with self.assertRaises(ValidationError):transform({},schema)
+
+    def test_image_operation_options_are_typed_and_reject_duplicate_parameter_wrappers(self):
+        from webapp.operations import catalog
+        op=next(x for x in catalog()['operations'] if x['id']=='image.local_adjust')
+        f=frozen(False);f['operations']=[op]
+        schema=manager_schema(f,{op['id']:op})
+        task={'id':'adjust','type':'operation','name':'Adjust','objective':'Adjust image',
+              'operation':'image.local_adjust','parameters':{'parameters':{'brightness':1.1}},
+              'inputs':{'source':{'asset':'asset'}},'delivery_stage':True}
+        command={'kind':'COMPLETE','reason':'Adjust','plan':{'new_tasks':[task],'continuation':{'mode':'complete'}}}
+        self.assertEqual(transform(transform(command,schema,encode=True),schema)['plan']['new_tasks'][0]['parameters']['parameters']['brightness'],1.1)
+        task['parameters']={'parameters':{'parameters':{'brightness':1.1}}}
+        with self.assertRaises(ValidationError):transform(command,schema,encode=True)
 
     def test_arbitrary_json_roundtrip_and_duplicate_map_rejection(self):
         schema=obj({'parameters':{'type':'object','additionalProperties':{}},'optional':{'type':'integer'}},['parameters'])
@@ -150,6 +168,17 @@ class ModelCommandTests(unittest.TestCase):
         final=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'},finalize=True)
         self.assertEqual(model_output_limit(profile('media_planner'),final),1024)
 
+    def test_authorization_request_binds_the_existing_goal_in_the_host(self):
+        f=frozen(False);f['goal']='Original immutable goal';f['scope_confirmation_required']=True
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        source=p.schemas['request_authorization'];definition=source['$defs']['AuthorizationExpansion']
+        self.assertNotIn('goal',definition['properties'])
+        current=graph.Authorization(goal=f['goal'],allowed_assets=[],allowed_operations=[],delivery_targets=['artifact'],content_fingerprint='b'*64)
+        payload=current.model_dump();payload.pop('goal')
+        wire=transform({'reason':'Need expanded scope','authorization':payload},source,encode=True)
+        result=p.decode('request_authorization',wire)['proposal']
+        self.assertEqual(result['authorization']['goal'],f['goal'])
+
     def test_agent_repair_projects_same_contract_revision_as_explicit_option(self):
         task={'id':'review','type':'agent','profile':'editing_implementer','name':'Review repair','objective':'Recheck output',
               'outputs':['report.txt'],'output_roles':{'report':'report.txt'},'acceptance':[{'kind':'file'}],
@@ -170,7 +199,7 @@ class ModelCommandTests(unittest.TestCase):
             'id':'evidence','type':'operation','name':'Evidence','objective':'Inspect authorized audio',
             'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},'inputs':{'source':{'asset':'asset'}},
             'acceptance':[{'kind':'json','file':'evidence-report.json'}]}],
-            'continuation':{'mode':'wait','tasks':['evidence']}}}
+            'continuation':{'mode':'wait'}}}
         wire=transform(command,p.schemas['submit_plan'],encode=True)
         result=p.decode('submit_plan',wire)['proposal']['proposal']['add_tasks'][0]
         self.assertEqual(result['inputs']['source']['asset'],'asset');self.assertEqual(result['implementation'],op['implementation'])

@@ -75,6 +75,38 @@ def schema_for(source):
     return result
 
 
+def _wire_defaults(value,node,definitions,wire_definitions,depth=0):
+    """Materialize nullable optionals omitted by a non-strict tool gateway."""
+    if depth>40:raise ValueError('Tool arguments exceed schema depth limit')
+    if '$ref' in node:
+        prefix='#/$defs/'
+        if not node['$ref'].startswith(prefix):return value
+        return _wire_defaults(value,definitions[node['$ref'][len(prefix):]],definitions,wire_definitions,depth+1)
+    for union in ('anyOf','oneOf'):
+        if union in node:
+            for child in node[union]:
+                candidate=_wire_defaults(deepcopy(value),child,definitions,wire_definitions,depth+1)
+                rule=convert(child);rule['$defs']=wire_definitions
+                if Draft202012Validator(rule).is_valid(candidate):return candidate
+            return value
+    if _map(node):
+        if not isinstance(value,list):return value
+        child=node.get('additionalProperties',{});child=child if isinstance(child,dict) else {}
+        return [{**item,'value':_wire_defaults(item.get('value'),child,definitions,wire_definitions,depth+1)}
+                if isinstance(item,dict) and 'value' in item else item for item in value]
+    if node.get('type')=='object' and isinstance(value,dict):
+        required=set(node.get('required',[]));result=deepcopy(value)
+        for key,child in node.get('properties',{}).items():
+            if key in result:result[key]=_wire_defaults(result[key],child,definitions,wire_definitions,depth+1)
+            elif key not in required:result[key]=None
+        return result
+    if node.get('type')=='array' and isinstance(value,list):
+        positional=node.get('prefixItems',[])
+        return [_wire_defaults(item,positional[index] if index<len(positional) else node.get('items',{}),definitions,wire_definitions,depth+1)
+                for index,item in enumerate(value)]
+    return value
+
+
 def _pairs(items,decode_value):
     result={}
     for item in items:
@@ -101,6 +133,7 @@ def transform(value,source,*,encode=False):
         except ValidationError as exc:
             exc.transport_stage=stage;exc.transport_root_schema=schema;exc.transport_value=instance
             raise
+    if not encode:value=_wire_defaults(value,source,definitions,wire['$defs'])
     validate(value,source if encode else wire,'source' if encode else 'wire')
     def walk(value,node,depth=0):
         if depth>40:raise ValueError('Tool arguments exceed schema depth limit')

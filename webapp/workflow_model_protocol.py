@@ -164,7 +164,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         patches.append({'$ref':'#/$defs/'+name})
     patch_items={'anyOf':patches} if patches else obj({'task_id':{'type':'string'},'set':obj({})})
     continuation={'anyOf':[obj({'mode':{'type':'string','enum':['complete']}}),
-        obj({'mode':{'type':'string','enum':['wait']},'tasks':{'type':'array','minItems':1,'maxItems':64,'items':{'type':'string'}}})]}
+        obj({'mode':{'type':'string','enum':['wait']}})]}
     proposal=domain['$defs']['Proposal']['properties']
     plan=obj({'new_tasks':{'type':'array','maxItems':64,'items':{'anyOf':task_variants}},
               'changes':{'type':'array','maxItems':16 if patches else 0,'items':patch_items},
@@ -204,6 +204,8 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
 def compile_manager(command,frozen):
     # Identity comes exclusively from this immutable request, never a fresh DB snapshot.
     result={key:value for key,value in command.items() if key!='plan'}
+    if result.get('kind')=='REQUEST_AUTHORIZATION' and result.get('authorization') is not None:
+        result['authorization']={**result['authorization'],'goal':frozen['goal']}
     result.update(snapshot_digest=frozen['snapshot_digest'],base_graph_version=frozen['graph_version'],
                   authorization_version=frozen['authorization_version'],
                   input_through_sequence=(frozen.get('input_batch') or {}).get('through_sequence',0))
@@ -257,11 +259,12 @@ def compile_manager(command,frozen):
             for ref in task.get('inputs',{}).values():
                 if ref.get('step') and (ref['step'],task['id']) not in edge_keys:
                     dependencies.append({'upstream':ref['step'],'downstream':task['id']});edge_keys.add((ref['step'],task['id']))
-        continuation=plan['continuation'];changed={task['id'] for task in added}|{task['id'] for task in revisions}|set(plan.get('review_again',{}))
+        continuation=plan['continuation'];changed={task['id'] for task in added}|{task['id'] for task in revisions}
+        changed|={identifier for identifier in plan.get('review_again',{}) if identifier in current}
         changed={plan.get('replacements',{}).get(identifier,identifier) for identifier in changed}
         waiting=sorted(identifier for identifier in changed if not any(edge['upstream']==identifier and edge['downstream'] in changed for edge in dependencies))
         if continuation['mode']=='wait' and not waiting:
-            waiting=[plan.get('replacements',{}).get(identifier,identifier) for identifier in continuation.get('tasks',[])]
+            raise CommandError('missing_wait_work','plan.continuation','Wait requires a new, revised, replaced or review_again Task in this batch')
         result['proposal']={'proposal_id':frozen['planning_request_id'],'base_graph_version':frozen['graph_version'],
             'reason':command['reason'],'add_tasks':added,'revise_tasks':revisions,
             'add_dependencies':dependencies,'remove_dependencies':plan.get('remove_dependencies',[]),
@@ -339,8 +342,16 @@ class ToolProtocol:
         self.add('continue_run','draft_control',obj({'reason':command['properties']['reason']}))
         self.add('request_user_input','draft_control',obj({'reason':command['properties']['reason'],
             'question':command['properties']['question'],'options':command['properties']['options']},['reason','question']))
+        defs['AuthorizationExpansion']=deepcopy(defs['Authorization']);auth=defs['AuthorizationExpansion']
+        auth['properties'].pop('goal',None);auth['required']=[key for key in auth.get('required',[]) if key!='goal']
+        authorization=deepcopy(command['properties']['authorization'])
+        def expansion_ref(value):
+            if isinstance(value,dict):return {key:('#/$defs/AuthorizationExpansion' if key=='$ref' and item=='#/$defs/Authorization' else expansion_ref(item)) for key,item in value.items()}
+            if isinstance(value,list):return [expansion_ref(item) for item in value]
+            return value
+        authorization=expansion_ref(authorization)
         self.add('request_authorization','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
-            'authorization':command['properties']['authorization']}),defs))
+            'authorization':authorization}),defs))
         self.add('new_run_required','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
             'new_goal':command['properties']['new_goal'],'authorization':command['properties']['authorization']}),defs))
 
@@ -405,7 +416,7 @@ class ToolProtocol:
             'task_changes':available_changes(self.frozen) if 'submit_plan' in self.schemas else {},
             'identity':'Host binds the original immutable request; do not copy snapshot/version fields.',
             'maps':'Dynamic maps are key/value entry arrays as declared in the tool schema; keys must be unique.',
-            'planning':'Use plan.continuation.mode=complete OR wait with tasks. Task changes contain only allowed set fields.'}
+            'planning':'Use plan.continuation.mode=complete or wait. The host derives wait leaves from the changed dependency graph. Task changes contain only allowed set fields.'}
         if 'submit_typed_plan' in self.schemas or 'commit_plan' in self.schemas:
             from .workflow_plan_draft import summary
             context['model_command_contract'].update(version='plan-draft-v1',planning=

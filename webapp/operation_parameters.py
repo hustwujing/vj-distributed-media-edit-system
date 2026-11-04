@@ -9,6 +9,67 @@ class Parameters(BaseModel):
     model_config=ConfigDict(extra='forbid',allow_inf_nan=False)
 
 
+class SegmentOptions(Parameters):
+    refine:bool=True
+    confidence:float=Field(default=.35,ge=.01,le=.99)
+
+
+class RefineMaskOptions(Parameters):
+    grow:int=Field(default=0,ge=-100,le=100)
+    feather:float=Field(default=0,ge=0,le=100)
+    threshold:int=Field(default=128,ge=0,le=255)
+    remove_small:int=Field(default=0,ge=0,le=1_000_000)
+    fill_holes:bool=False
+
+
+class ProductLayoutOptions(Parameters):
+    width:int=Field(ge=16,le=4096)
+    height:int=Field(ge=16,le=4096)
+    background:str=Field(default='#ffffff',pattern=r'^#[0-9A-Fa-f]{6}$')
+    margin:int|None=Field(default=None,ge=0,le=4096)
+    shadow:bool=True
+    shadow_blur:float=Field(default=18,ge=0,le=100)
+    shadow_x:int=Field(default=8,ge=-4096,le=4096)
+    shadow_y:int=Field(default=12,ge=-4096,le=4096)
+
+
+class ColorMatchOptions(Parameters):
+    strength:float=Field(default=1,ge=0,le=1)
+
+
+class LocalAdjustOptions(Parameters):
+    brightness:float=Field(default=1,ge=.2,le=3)
+    contrast:float=Field(default=1,ge=.2,le=3)
+    saturation:float=Field(default=1,ge=0,le=3)
+    temperature:float=Field(default=0,ge=-1,le=1)
+    gamma:float=Field(default=1,ge=.1,le=5)
+    black_point:int=Field(default=0,ge=0,le=254)
+    white_point:int=Field(default=255,ge=1,le=255)
+    sharpen:float=Field(default=0,ge=0,le=5)
+    blur:float=Field(default=0,ge=0,le=50)
+    auto_white_balance:bool=False
+    auto_levels:bool=False
+    @model_validator(mode='after')
+    def levels(self):
+        if self.black_point>=self.white_point:raise ValueError('Black point must be below white point')
+        return self
+
+
+class BatchExportOptions(Parameters):
+    width:int=Field(ge=16,le=4096)
+    height:int=Field(ge=16,le=4096)
+    fit:Literal['contain','cover']='contain'
+    background:str=Field(default='#ffffff',pattern=r'^#[0-9A-Fa-f]{6}$')
+    format:Literal['png','jpg','webp']='png'
+    quality:int=Field(default=90,ge=40,le=100)
+    watermark:str=Field(default='',max_length=100)
+
+
+IMAGE_OPTION_MODELS={'segment_sam3':SegmentOptions,'refine_mask':RefineMaskOptions,
+    'product_layout':ProductLayoutOptions,'color_match':ColorMatchOptions,
+    'local_adjust':LocalAdjustOptions,'batch_export':BatchExportOptions}
+
+
 class Render(Parameters):
     segments:list[Segment]=Field(min_length=1,max_length=100)
     overlays:list[Overlay]=Field(default_factory=list,max_length=8)
@@ -222,5 +283,8 @@ def model(operation_id,executor,action):
         return create_model('TextImageParameters',__base__=Parameters,**{
             name:(field.annotation,field) for name,field in GenerationParameters.model_fields.items() if name!='duration'})
     from .image_document import ImageTask
-    return create_model(operation_id.replace('.','_')+'Parameters',__base__=Parameters,**{
-        name:(field.annotation,field) for name,field in ImageTask.model_fields.items() if name in IMAGE_PARAMETERS[action]})
+    fields={name:(field.annotation,field) for name,field in ImageTask.model_fields.items() if name in IMAGE_PARAMETERS[action]}
+    if 'parameters' in fields:
+        options=IMAGE_OPTION_MODELS[action]
+        fields['parameters']=(options,Field(default_factory=options))
+    return create_model(operation_id.replace('.','_')+'Parameters',__base__=Parameters,**fields)
