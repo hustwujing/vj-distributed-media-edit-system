@@ -69,8 +69,17 @@ async function before(c){
  }else if(hook==='feedback_cutout'||hook==='feedback_layout'){
   const initial=await wait(r=>r.decisions.some(d=>d.kind==='quality'&&d.request.task_id==='render'),1200);
   state.unified_boundary.before=initial;persist();
+  let edgeFeedback;
+  if(hook==='feedback_cutout'){
+   const task=initial.tasks.find(t=>t.id==='render');
+   const inputs=Object.keys(task.spec.inputs),outputs=Object.keys(task.spec.output_roles);
+   assert.equal(inputs.length,1,'Edge revision requires a single declared reference input');
+   assert.equal(outputs.length,1,'Edge revision requires a single declared output');
+   edgeFeedback=`给render创建新revision：沿用当前输入角色${inputs[0]}对应的已验收透明图作为唯一来源，仅将Alpha通道执行Pillow ImageFilter.MinFilter(3)，RGB保持原值，其他像素处理不变；明确semantics.mask_repair为A/local_edge_repair，reference_role=${inputs[0]}，output_role=${outputs[0]}，max_changed_fraction=0.05。保持现有输入输出角色、512×512透明PNG、人物范围和原技术/Agent验收，不重做source_cutout；保留原人工Review，待用户复核新版。`;
+   state.unified_boundary.feedback_roles={reference:inputs[0],output:outputs[0]};persist();
+  }
   const message=hook==='feedback_cutout'?
-   '给render创建新revision：以原已验收透明图为唯一来源，仅将Alpha通道执行Pillow ImageFilter.MinFilter(3)，RGB保持原值，其他像素处理不变；明确semantics.mask_repair为A/local_edge_repair，reference_role指向原透明图输入角色，output_role为primary_image，max_changed_fraction=0.05。保持512×512透明PNG、人物范围和原技术/Agent验收，不重做source_cutout；保留原人工Review，待用户复核新版。':
+   edgeFeedback:
    '给render创建新revision：仅交换左右构图，prepare_b在左、prepare_a在右，仍各用ImageOps.fit默认方法适配64×64后组成128×64 final.png。两张上游revision与哈希保持，保留技术/Agent验收；保留原人工Review，待用户复核新版。';
   const accepted=await feedback(message);mark({input_id:accepted.id});
  }else if(hook==='reference_before_wan'){
