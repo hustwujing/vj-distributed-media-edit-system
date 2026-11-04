@@ -119,16 +119,18 @@ def validate_temporal_evidence(decision,snapshot,records):
         if video_role in files:video_paths.add(video_role)
         if snapshot.get('review_scope')=='final':video_paths &= set(decision['deliverables'])
         if not video_paths:raise ValueError('Temporal review requires verified video candidates')
+        hashes={item['name']:item.get('sha256') for item in task['quality'].get('files',[]) if item['name'] in files}
         for reference in video_paths:
             samples=[];durations=[];source_intervals=[]
+            expected=hashes.get(reference)
             for row in records:
                 evidence=json.loads(row['evidence_json'])
                 proof=evidence.get('verified_media')
-                if proof and proof.get('source_reference')==reference:
-                    expected=next((item.get('sha256') for item in task['quality'].get('files',[]) if item['name']==reference),None)
+                if proof and (proof.get('source_reference')==reference or
+                              expected and hashes.get(proof.get('source_reference'))==expected):
                     if proof['source_sha256']!=expected:continue
                     evidence=proof
-                elif row['reference']!=reference:continue
+                elif row['reference']!=reference and not (expected and hashes.get(row['reference'])==expected):continue
                 if evidence.get('coverage') not in ('sampled_frame','contact_sheet'):continue
                 duration=evidence.get('duration_seconds');interval=evidence.get('source_frame_interval_seconds')
                 if not isinstance(duration,(int,float)) or not math.isfinite(duration) or duration<=0:continue

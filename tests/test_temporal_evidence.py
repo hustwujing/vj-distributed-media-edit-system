@@ -65,6 +65,38 @@ class TemporalEvidenceTests(unittest.TestCase):
         validate_temporal_evidence({**decision,'deliverables':task['accepted_result'],
             'evidence':[{'inspection_id':'a'*32},{'inspection_id':'b'*32}]},snapshot,[first,alternate])
 
+    def test_identical_verified_outputs_share_content_evidence_but_distinct_bytes_do_not(self):
+        snapshot=self.snapshot();task=snapshot['tasks'][0]
+        task['candidate_result']=['clip.mp4','alias.mp4']
+        task['quality']['files']=[{'name':name,'video':True,'sha256':'c'*64} for name in task['candidate_result']]
+        record={**self.record([i*.5 for i in range(16)]),'reference':'alias.mp4'}
+        decision={'verdict':'pass','evidence':[{'inspection_id':record['id']}]}
+        validate_temporal_evidence(decision,snapshot,[record])
+        task['quality']['files'][1]['sha256']='d'*64
+        with self.assertRaisesRegex(ValueError,'timestamped'):validate_temporal_evidence(decision,snapshot,[record])
+
+    def test_evidence_aliases_require_authoritative_hashes_and_full_sampling(self):
+        snapshot=self.snapshot();task=snapshot['tasks'][0]
+        task['candidate_result']=['clip.mp4','alias.mp4']
+        task['quality']['files']=[{'name':name,'video':True,'sha256':'c'*64} for name in task['candidate_result']]
+        record={**self.record([0,4,7.5]),'reference':'alias.mp4'}
+        decision={'verdict':'pass','evidence':[{'inspection_id':record['id']}]}
+        with self.assertRaisesRegex(ValueError,'sparse'):validate_temporal_evidence(decision,snapshot,[record])
+        record={**self.record([i*.5 for i in range(16)]),'reference':'unfrozen.mp4'}
+        with self.assertRaisesRegex(ValueError,'timestamped'):validate_temporal_evidence(decision,snapshot,[record])
+
+    def test_registered_evidence_for_an_alias_keeps_source_hash_validation(self):
+        snapshot=self.snapshot();task=snapshot['tasks'][0]
+        task['candidate_result']=['clip.mp4','alias.mp4']
+        task['quality']['files']=[{'name':name,'video':True,'sha256':'c'*64} for name in task['candidate_result']]
+        proof={**json.loads(self.record([i*.5 for i in range(16)])['evidence_json']),
+            'source_reference':'alias.mp4','source_sha256':'c'*64}
+        record={'id':'a'*32,'reference':'evidence.json','evidence_json':json.dumps({'verified_media':proof})}
+        decision={'verdict':'pass','evidence':[{'inspection_id':record['id']}]}
+        validate_temporal_evidence(decision,snapshot,[record])
+        record['evidence_json']=json.dumps({'verified_media':{**proof,'source_sha256':'d'*64}})
+        with self.assertRaisesRegex(ValueError,'timestamped'):validate_temporal_evidence(decision,snapshot,[record])
+
     def test_actual_video_window_has_bounded_timestamped_frames(self):
         with tempfile.TemporaryDirectory() as folder:
             source=Path(folder)/'clip.mp4'
