@@ -107,9 +107,9 @@ class ModelCommandTests(unittest.TestCase):
             'kind':'APPLY_PLAN','reason':'Inspect','continuation':{'mode':'wait','tasks':['evidence']}}
         result=p.decode('submit_typed_plan',arguments)
         self.assertEqual(result['command']['tasks'][0]['inputs']['source']['asset'],'asset')
-        self.assertNotIn('acceptance',result['command']['tasks'][0])
+        self.assertEqual(result['command']['tasks'][0]['acceptance'][0]['file'],'invented.json')
         self.assertNotIn('tasks',result['command']['continuation'])
-        self.assertEqual(set(result['_normalizations']),{'continuation.tasks_removed','tasks.0.operation_acceptance_removed','tasks.0.operation_inputs_mapped'})
+        self.assertEqual(set(result['_normalizations']),{'continuation.tasks_removed','tasks.0.operation_inputs_mapped'})
 
     def test_planner_normalizes_common_flat_operation_input_bindings(self):
         from webapp.operations import catalog
@@ -270,6 +270,21 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual([item['kind'] for item in task['acceptance']],['media','json'])
         self.assertTrue(task['acceptance'][0]['decode'])
         self.assertIn('registered operation',task['basic_reason'])
+
+    def test_operation_business_acceptance_is_preserved_without_model_owned_filename(self):
+        from webapp.operations import catalog
+        op=next(x for x in catalog()['operations'] if x['id']=='media.concat_sequence')
+        f=frozen(False);f['operations']=[op]
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
+        draft={'id':'concat','type':'operation','name':'Join','objective':'Join clips','operation':'media.concat_sequence',
+               'parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2},
+               'input_bindings':[{'role':'clip_1','ref':{'asset':'asset'}}],'delivery_stage':True,
+               'acceptance':[{'kind':'media','file':'guessed.mp4','width':640,'height':360,'min_duration':11.8,'max_duration':12.2,'video':True}]}
+        command={'kind':'COMPLETE','reason':'Join','plan':{'new_tasks':[draft],'continuation':{'mode':'complete'}}}
+        task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
+        business=task['acceptance'][0]
+        self.assertEqual((business['file'],business['source'],business['width'],business['height']),('*','user',640,360))
+        self.assertTrue(any(check['source']=='technical' for check in task['acceptance']))
 
     def test_operation_alternative_outputs_select_one_parameter_bound_branch(self):
         from webapp.operations import catalog

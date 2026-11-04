@@ -35,3 +35,4 @@ class DeploymentIdentityTests(unittest.TestCase):
         from deploy import dynamic_cluster
         source=inspect.getsource(dynamic_cluster.initialize)
         self.assertLess(source.index('s.artifacts'),source.index('GRANT SELECT,INSERT,UPDATE,DELETE'))
+        self.assertLess(source.index('image_api.initialize(s)'),source.index('GRANT SELECT,INSERT,UPDATE,DELETE'))

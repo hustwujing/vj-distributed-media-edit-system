@@ -430,14 +430,14 @@ class Orchestrator:
             owner=next(t for t in graph.work_items(run) if t['id']==request['task_id'])
             if not request['lease_id'] or owner['lease_id']!=request['lease_id'] or owner['lease_generation']!=request['lease_generation']:
                 store.execute("UPDATE planner_runs SET status='rejected',error_code='stale_generation' WHERE id=?",(request['id'],))
-                store.execute("UPDATE workflow_plan_drafts SET status='EXPIRED',updated_at=? WHERE planning_request_id=? AND status='OPEN'",(store.now(),request['id']))
+                store.execute("UPDATE workflow_plan_drafts SET status='EXPIRED',updated_at=? WHERE planning_request_id=? AND status IN ('OPEN','COMMITTED')",(store.now(),request['id']))
                 store.execute("UPDATE control_jobs SET status='failed',error_code='stale_generation' WHERE run_id=? AND id=?",(run['id'],request['task_id']))
                 graph.event(store,run,'proposal_rejected',{'request_id':request['id'],'error_code':'stale_generation'})
                 continue
             frozen=json.loads(request['snapshot_json'])
             if run['input_barrier_sequence'] is not None and not frozen.get('input_batch'):
                 store.execute("UPDATE planner_runs SET status='rejected',error_code='new_input_barrier' WHERE id=?",(request['id'],))
-                store.execute("UPDATE workflow_plan_drafts SET status='EXPIRED',updated_at=? WHERE planning_request_id=? AND status='OPEN'",(store.now(),request['id']))
+                store.execute("UPDATE workflow_plan_drafts SET status='EXPIRED',updated_at=? WHERE planning_request_id=? AND status IN ('OPEN','COMMITTED')",(store.now(),request['id']))
                 store.execute("UPDATE control_jobs SET status='cancelled',error_code='new_input_barrier' WHERE run_id=? AND id=?",(run['id'],request['task_id']))
                 continue
             try:
@@ -451,7 +451,7 @@ class Orchestrator:
                 store.execute('UPDATE runs SET repair_context_json=? WHERE id=?',
                     (encode({**run['repair_context'],'last_plan_error':{'code':code,'detail':str(exc)[:1000]}}),run['id']))
                 store.execute("UPDATE planner_runs SET status='rejected',error_code=?,updated_at=? WHERE id=?",(code,store.now(),request['id']))
-                store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE planning_request_id=? AND status='OPEN'",(store.now(),request['id']))
+                store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE planning_request_id=? AND status IN ('OPEN','COMMITTED')",(store.now(),request['id']))
                 store.execute("UPDATE control_jobs SET status='failed',error_code=? WHERE run_id=? AND id=?",(code,run['id'],request['task_id']))
                 if isinstance(exc,AuthorizationRequired):self.decision(run,'plan_change',{'planner_run':request['id'],'proposal':json.loads(request['proposal_json']).get('proposal'),'reason':str(exc)})
                 else:

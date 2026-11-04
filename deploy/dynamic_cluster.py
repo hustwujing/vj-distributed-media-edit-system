@@ -288,7 +288,7 @@ def initialize(source):
     # Initialize lazy object-metadata tables with the business role before the
     # metadata-only orchestrator receives its table grants. Fresh databases do
     # not have historical API traffic to create these tables implicitly.
-    code='from pathlib import Path; from webapp.store import Store; from webapp import agent_store; from webapp.paths import data_root; s=Store(data_root()); s.artifacts; agent_store.initialize(s)'
+    code='from pathlib import Path; from webapp.store import Store; from webapp import agent_store,image_api; from webapp.paths import data_root; s=Store(data_root()); s.artifacts; agent_store.initialize(s); image_api.initialize(s)'
     run([source/'.venv/bin/python','-c',code],cwd=source,env=environment(source=source),timeout=120)
     # The control plane may read receipts but never provider cookies or
     # authorization material. No model/BOSS credentials enter its environment.

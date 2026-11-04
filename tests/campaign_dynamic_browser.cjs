@@ -251,7 +251,7 @@ async function runCase(browser,spec){
    const hook=spec.dynamic_hook;
    await unified.before({spec,state,page,read,wait,appendInput,feedback,approve,api,fault,capture,persist,observeTerminal,control});run=await read();
    if(hook==='cancel_planning'){await wait(w=>w.control_jobs.some(t=>t.control_kind==='PLAN'&&t.status==='running'),90);await control('cancel');run=await wait(w=>terminal(w.state));assert.equal(run.state,'CANCELLED');state.outcome='protocol_passed';}
-   else if(hook==='token_budget'){run=await wait(w=>paused(w),120);assert.equal(run.terminal_reason,'budget_exhausted');state.outcome='protocol_passed';state.browser_assertions.push('Token budget stopped before another model request');}
+   else if(hook==='token_budget'){run=await wait(w=>paused(w),120);assert.equal(run.terminal_reason,'model_token_budget_exhausted');state.outcome='protocol_passed';state.browser_assertions.push('Token budget stopped before another model request');}
    else if(hook==='authorize_provider'||hook==='reject_provider'){
     run=await wait(w=>deciding(w),240);assert.ok(run.decisions.some(d=>d.kind==='plan_change'));
     await approve(hook==='authorize_provider'?'approve':'reject');
@@ -476,7 +476,7 @@ async function runCase(browser,spec){
     state.events.push({action:'cleanup_started',at:Date.now()/1000});persist();await page.goto('about:blank');
     const listing=await api('GET',`/api/projects/${state.project}/runs`);
     for(const item of listing.runs){if(!terminal(item.state)){await api('POST',`/api/projects/${state.project}/runs/${item.id}/commands`,{request_id:uid(),action:'cancel'});const end=Date.now()+180000;while(Date.now()<end){const current=await api('GET',`/api/projects/${state.project}/runs/${item.id}`);if(terminal(current.state))break;await page.waitForTimeout(1000);}}}
-    await probe('inspect');
+    await probe('inspect');state.internal=await probe('final');
     const external=JSON.parse(fs.readFileSync(path.join(directory,'internal-snapshot.json'))).dimensions.external_cleanup.records;
     if(!state.internal?.complete){state.cleanup_retained='Internal evidence is incomplete; retain the project until the audit can be completed';save(path.join(directory,'cleanup.json'),{complete:false,expected_retention:false,reason:state.cleanup_retained});}
     else if(external.some(r=>['unknown','unconfirmed','unsupported'].includes(r.state))){state.cleanup_retained='External state is unresolved; retained durable evidence and project for reconciliation';save(path.join(directory,'cleanup.json'),{complete:false,expected_retention:true,reason:state.cleanup_retained});}

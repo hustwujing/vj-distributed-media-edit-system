@@ -94,7 +94,7 @@ PROFILES={p.id:p for p in (
         '目录中的 authorized=false 表示仅可发现但尚未获准；需求确实需要时可提交该能力的提案触发用户扩权确认，不能自行执行或声称已经授权。'
         '用户已确认授权包络，不需要再次索要同一范围的确认。Manager不能提交原始shell、SQL、URL或代码。'
         '确定性能力使用已登记operation；提交计划前用contract一次查询本批需要的全部operation ID（最多8个），不要猜测未查询能力的字段或ID。需要生成本地实现时创建editing_implementer业务Task，由该Agent在受限沙箱内使用script工具。'
-        'operation 的输出角色与技术acceptance由能力目录和参数绑定，不填写acceptance、argv或files；operation.inputs使用contract声明的固定角色字段，不使用input_bindings。'
+        'operation 的输出角色与技术acceptance由宿主绑定；acceptance只声明用户业务条件，文件目标由宿主统一绑定，不猜输出文件名；不填写argv或files。固定角色operation.inputs使用contract字段，动态角色使用input_bindings。'
         'agent声明profile、input_bindings与files；每个输入包含唯一role和ref，每个文件包含path和roles，程序生成inputs、outputs与output_roles；不填写operation、implementation、argv或parameters。'
         '程序验收 image/media/text/json/file 不接受 criterion；criterion 仅用于 agent/review 内容验收。'
         '专业 Agent 的结构化报告必须符合目录中的 result_schema，不能要求该 Schema 之外的字段；额外业务数据由独立脚本任务生成。'

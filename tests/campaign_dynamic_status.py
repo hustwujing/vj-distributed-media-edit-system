@@ -36,9 +36,11 @@ def failure_classification(state,internal,review,cleanup=None):
         return 'non_program_error'
     return 'pending_classification'
 def status():
-    release=read(REPO/'.cluster/release.json');groups=defaultdict(list)
+    release=read(REPO/'.cluster/release.json');round_state=read(ROOT/'active-round.json');round_started=(round_state.get('started_at',0)
+        if round_state.get('release',{}).get('sha256')==release.get('sha256') else 0);groups=defaultdict(list)
     for case in read(REPO/'docs/real-case-campaign/dynamic-cases.json')['cases']:
-        attempts=sorted((ROOT/'runs'/case['id']).glob('attempt-*/state.json'))
+        attempts=[path for path in sorted((ROOT/'runs'/case['id']).glob('attempt-*/state.json'))
+                  if read(path).get('started_at',0)>=round_started]
         source=attempts[-1] if attempts else None;state=read(source) if source else {}
         if state.get('release',{}).get('sha256')!=release['sha256'] or not source:
             groups['not_run'].append(case['id']);continue

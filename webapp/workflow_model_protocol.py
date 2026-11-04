@@ -43,7 +43,6 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
         if not isinstance(task,dict):continue
         kind=task.get('type')
         if kind=='operation':
-            if 'acceptance' in task:task.pop('acceptance');changes.append(f'tasks.{index}.operation_acceptance_removed')
             bindings=task.get('inputs')
             if task.get('operation') in dynamic_operation_inputs and isinstance(bindings,(dict,list)):
                 mapped=bindings if isinstance(bindings,dict) else binding_map(bindings)
@@ -182,7 +181,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         'description':'Declare each input role once. The host derives the authoritative inputs map.'}
     task_variants=[]
     irrelevant={'script':{'operation','implementation','parameters','profile'},
-                'operation':{'argv','outputs','output_roles','profile','preflight','config_files','acceptance'},
+                'operation':{'argv','outputs','output_roles','profile','preflight','config_files'},
                 'agent':{'argv','operation','implementation','parameters','preflight','config_files'}}
     for kind,removed in irrelevant.items():
         if kind=='script' and not allow_script:continue
@@ -299,7 +298,12 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
-                raw['acceptance']=operation_acceptance(binding,raw.get('parameters',{}))
+                business=[]
+                for check in raw.get('acceptance',[]):
+                    normalized={**check,'file':'*','source':'user'}
+                    if normalized not in business:business.append(normalized)
+                technical=operation_acceptance(binding,raw.get('parameters',{}))
+                raw['acceptance']=[*business,*[check for check in technical if check not in business]]
                 if not raw.get('basic_reason'):
                     raw['basic_reason']='Server-owned registered operation integrity checks'
             for item in files:

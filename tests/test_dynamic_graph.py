@@ -130,12 +130,14 @@ class DynamicGraphTests(unittest.TestCase):
 
     def test_invalid_graph_has_no_partial_task_inserts(self):
         self.tick()
-        self.propose({'proposal_id':'cycle','base_graph_version':0,'reason':'bad cycle','add_tasks':[script('a'),script('b')],
+        request=self.propose({'proposal_id':'cycle','base_graph_version':0,'reason':'bad cycle','add_tasks':[script('a'),script('b')],
             'add_dependencies':[{'upstream':'a','downstream':'b'},{'upstream':'b','downstream':'a'}],'sealed':True})
+        self.store.execute("UPDATE workflow_plan_drafts SET status='COMMITTED' WHERE planning_request_id=?",(request,))
         run=self.tick()
         self.assertEqual(run['graph_version'],0)
         self.assertFalse([t for t in graph.work_items(run) if not t.get('control_kind')])
         self.assertEqual(self.store.query("SELECT error_code FROM planner_runs WHERE proposal_id='cycle'")[0]['error_code'],'invalid_proposal')
+        self.assertEqual(self.store.query('SELECT status FROM workflow_plan_drafts WHERE planning_request_id=?',(request,))[0]['status'],'REJECTED')
 
     def test_scope_expansion_requires_user_decision_and_cannot_be_resumed(self):
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',

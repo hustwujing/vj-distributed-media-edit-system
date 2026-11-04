@@ -37,13 +37,17 @@ class ImageBatch(BaseModel):
     watermark:str=Field(default='',max_length=100)
 
 
-def register(app,store,own_project,lock,wake,public_job):
-    api_execution=app.state.api_execution
+def initialize(store):
     with store.connect() as db:
         db.executescript('''CREATE TABLE IF NOT EXISTS image_documents(project TEXT PRIMARY KEY,revision INTEGER NOT NULL,document TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS image_versions(project TEXT NOT NULL,revision INTEGER NOT NULL,document TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(project,revision));''')
         if 'change' not in {r['name'] for r in db.execute('PRAGMA table_info(image_versions)')}:
             db.execute("ALTER TABLE image_versions ADD COLUMN change TEXT NOT NULL DEFAULT '{}'")
+
+
+def register(app,store,own_project,lock,wake,public_job):
+    api_execution=app.state.api_execution
+    initialize(store)
 
     @app.get('/api/projects/{project}/image-document')
     def document(project:str,request:Request):
