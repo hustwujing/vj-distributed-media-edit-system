@@ -1,0 +1,8 @@
+{
+  "source": "Real accepted image.segment_sam3 subject_cutout foreground",
+  "case": "D36/attempt-002",
+  "release": "1cec5aa1334f",
+  "original_photo": "NASA astronaut public-domain sample distributed with scikit-image",
+  "sha256": "ee97ce0c2d55bfcc92de3484e0d4ce493d8beb90994f8cf65e4cfc33bfcddcdd",
+  "notes": "Deterministic input for feedback protocol tests; no claim of a new SAM3 call."
+}

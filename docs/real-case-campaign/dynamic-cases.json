@@ -5902,9 +5902,9 @@
       "complexity": "dynamic_protocol",
       "title": "抠图候选边缘反馈修订",
       "assets": [
-        "portrait.png"
+        "approved_subject.png"
       ],
-      "prompt": "先用SAM3对portrait.png分割宇航员人物，模式subject_cutout，保留身体、衣物及穿戴物，不包含手持/携带物。mask与透明图保存为已验收非交付中间Task source_cutout。再由Script Task render复制透明图为512×512 final.png，声明人工Review等待边缘修改意见，不能代用户批准。",
+      "prompt": "使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由本地Script Task source_cutout按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体。再由Script Task render按原字节复制为final.png，保留程序和Agent验收，并明确声明人工Review等待局部边缘修改意见，不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。",
       "expect": {
         "kind": "image",
         "width": 512,
@@ -5933,7 +5933,7 @@
         "external_cleanup"
       ],
       "review_decision": "保留原人工Review并检查新候选后批准",
-      "review_reason": "反馈不等于批准；新版候选通过独立像素检查后，在原声明的Review中approve，仍保留技术/Agent/最终验收。",
+      "review_reason": "固定真实已验收抠图作为输入，单独验证局部Alpha反馈及上游复用；SAM3端到端分割保留在S09。",
       "status": "not_run",
       "attempts": [],
       "intervention_actions": [

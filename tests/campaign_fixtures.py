@@ -27,6 +27,7 @@ def write_motion_reference(directory):
 
 def main():
     write_motion_reference(ROOT)
+    shutil.copyfile(Path(__file__).parent/'fixtures/approved_subject.png',ROOT/'approved_subject.png')
     samples=Path('/data/wujing03/miniforge3/envs/reference_video_remix_ocr/lib/python3.10/site-packages/skimage/data')
     shutil.copyfile(samples/'astronaut.png',ROOT/'portrait.png')
     Image.open(samples/'rocket.jpg').convert('RGB').save(ROOT/'rocket.png')
@@ -76,7 +77,7 @@ def main():
        'rocket_source':'SpaceX DSCOVR launch sample distributed by scikit-image; see data documentation',
        'speech_text':sentences,'files':[]}
     names=['portrait.png','rocket.png','card_skew.png','speech_noisy.wav','logo_rgba.png','logo_white.png','mask.png','poster.png','color_grid.png','speech.wav','music.wav','reference_tone.wav','stereo.wav','clip_a.mp4','clip_b.mp4','portrait_clip.mp4','captions.srt']
-    names.append('motion_reference.mp4')
+    names.extend(['motion_reference.mp4','approved_subject.png'])
     for name in names:
         path=ROOT/name;record['files'].append({'name':name,'bytes':path.stat().st_size,'sha256':hashlib.sha256(path.read_bytes()).hexdigest()})
     (ROOT/'manifest.json').write_text(json.dumps(record,ensure_ascii=False,indent=2)+'\n')
