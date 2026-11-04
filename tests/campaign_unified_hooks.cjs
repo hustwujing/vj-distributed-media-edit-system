@@ -31,7 +31,9 @@ async function before(c){
   state.unified_boundary.business_objective=task.spec.objective;persist();
  }
  if(hook==='drain_local'||hook==='drain_agent'){
-  const run=await wait(r=>r.tasks.some(t=>t.status==='running'&&(hook==='drain_local'?t.id==='left':t.type==='agent')),600);
+  const run=await wait(r=>hook==='drain_local'
+   ?['left','right'].every(id=>r.tasks.some(t=>t.id===id&&t.status==='running'))
+   :r.tasks.some(t=>t.status==='running'&&t.type==='agent'),600);
   const started=run.tasks.filter(t=>t.status==='running').map(t=>({id:t.id,revision:t.revision,attempts:t.attempts}));
   await input();mark({started});
  }else if(hook==='planning_inputs'){

@@ -5,6 +5,7 @@ const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');
 const execute=promisify(execFile),assert=require('node:assert/strict');
 const unified=require('./campaign_unified_hooks.cjs');
+const {selectOptional}=require('./campaign_browser_inputs.cjs');
 const REPO=path.resolve(__dirname,'..'),PY=path.join(REPO,'.venv/bin/python');
 const ROOT=path.join(REPO,'.cluster/campaigns/dynamic-plan');
 const BASE=(process.env.DYNAMIC_CASE_BASE||'http://127.0.0.1/distributed-agent-system').replace(/\/$/,'');
@@ -17,6 +18,7 @@ if(requested)assert.equal(cases.length,requested.size,'Unknown case ID');
 const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
 const sha=file=>crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 const UNIFIED_SOURCE=fs.readFileSync(path.join(__dirname,'campaign_unified_hooks.cjs'));
+const INPUT_SOURCE=fs.readFileSync(path.join(__dirname,'campaign_browser_inputs.cjs'));
 const DRIVER_SOURCE=fs.readFileSync(__filename),DRIVER_SHA=crypto.createHash('sha256').update(DRIVER_SOURCE).digest('hex');
 const uid=()=>crypto.randomUUID().replaceAll('-','');
 const currentRelease=()=>JSON.parse(fs.readFileSync(path.join(REPO,'.cluster/release.json')));
@@ -25,7 +27,8 @@ const paused=run=>run.state==='WAITING_USER'&&!run.decisions.length;
 const deciding=run=>run.state==='WAITING_USER'&&run.decisions.length>0;
 const controlActive=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&['ready','running','leased'].includes(job.status));
 const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation']);
-for(const hook of ['unknown_input','frozen_route'])globalHooks.add(hook);
+// Capacity-sensitive parallel-drain coverage also needs an otherwise idle cluster.
+for(const hook of ['unknown_input','frozen_route','drain_local'])globalHooks.add(hook);
 const pauseNewCases=()=>fs.existsSync(path.join(ROOT,'pause-new-cases'));
 
 function targetText(spec){
@@ -48,7 +51,7 @@ async function runCase(browser,spec){
  assert.equal(state.release.namespace,'dynamic-agent');
  save(path.join(directory,'case-definition.json'),spec);fs.writeFileSync(path.join(directory,'driver-snapshot.cjs'),DRIVER_SOURCE);
  const harness=path.join(directory,'harness');fs.mkdirSync(harness,{mode:0o700});state.helper_sha256={};
- for(const name of ['campaign_dynamic_probe.py','campaign_dynamic_faults.py','campaign_probe.py','campaign_archive.py','campaign_complex_checks.py','campaign_dynamic_intervention_checks.py','campaign_unified_hooks.cjs','campaign_unified_checks.py','campaign_feedback_preview.py']){if(name==='campaign_unified_hooks.cjs')fs.writeFileSync(path.join(harness,name),UNIFIED_SOURCE);else fs.copyFileSync(path.join(REPO,'tests',name),path.join(harness,name));state.helper_sha256[name]=sha(path.join(harness,name));}
+ for(const name of ['campaign_dynamic_probe.py','campaign_dynamic_faults.py','campaign_probe.py','campaign_archive.py','campaign_complex_checks.py','campaign_dynamic_intervention_checks.py','campaign_unified_hooks.cjs','campaign_browser_inputs.cjs','campaign_unified_checks.py','campaign_feedback_preview.py']){if(name==='campaign_unified_hooks.cjs')fs.writeFileSync(path.join(harness,name),UNIFIED_SOURCE);else if(name==='campaign_browser_inputs.cjs')fs.writeFileSync(path.join(harness,name),INPUT_SOURCE);else fs.copyFileSync(path.join(REPO,'tests',name),path.join(harness,name));state.helper_sha256[name]=sha(path.join(harness,name));}
  state.evidence_versioning='Driver captured once at process start; helper code frozen per attempt';
  state.fixture_hashes=Object.fromEntries(spec.assets.map(name=>[name,sha(path.join(ROOT,'fixtures',name))]));
  const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage();
@@ -108,8 +111,8 @@ async function runCase(browser,spec){
   (state.reuse_links??=[]).push({source_workflow:state.run_id,task_id:task.id,revision:task.revision,asset_id:asset.id,sha256:asset.metadata.provenance.sha256});persist();return asset.id;};
  const appendInput=async(content,attachments=[],targets=[])=>{
   const origin=state.run_id;await page.locator('#dynamic-input-content').fill(content);
-  await page.locator('#dynamic-input-assets').selectOption(attachments);
-  await page.locator('#dynamic-input-targets').selectOption(targets);
+  await selectOptional(page.locator('#dynamic-input-assets'),attachments);
+  await selectOptional(page.locator('#dynamic-input-targets'),targets);
   const response=page.waitForResponse(r=>r.url().endsWith(`/runs/${origin}/inputs`)&&r.request().method()==='POST');
   await capture('input-before-'+state.events.length);await page.locator('#dynamic-input-submit').click();
   const result=await response;assert.equal(result.status(),202,await result.text());const input=await result.json();state.last_input_request=result.request().postDataJSON();
@@ -121,7 +124,7 @@ async function runCase(browser,spec){
   run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
   if(!state.feedback_baseline&&decision.request.task_id&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
   const card=page.locator(`[data-decision="${decision.id}"]`);await card.locator('[data-feedback]').fill(content);
-  await card.locator('[data-feedback-assets]').selectOption(attachments);
+  await selectOptional(card.locator('[data-feedback-assets]'),attachments);
   const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');
   await capture('feedback-before-'+state.events.length);await card.locator('[data-answer=revise]').click();const result=await response;
   assert.equal(result.status(),202,await result.text());const command=await result.json();state.last_feedback_request=result.request().postDataJSON();state.last_feedback_command=command.id;await commandApplied(command.id);

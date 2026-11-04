@@ -2,8 +2,8 @@
   "campaign": "dynamic-plan-independent-deployment",
   "version": 2,
   "source_count": 77,
-  "new_count": 40,
-  "total_count": 117,
+  "new_count": 41,
+  "total_count": 118,
   "rules": {
     "entry": "Real browser authorization and deployed services; no success-state seeding or mocked live provider results",
     "default_parallel_cases": 2,
@@ -6068,12 +6068,52 @@
       "status": "not_run",
       "attempts": [],
       "expected_business_objective": "将portrait.png缩放为64×64 final.png。"
+    },
+    {
+      "id": "D40",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "已验收音频下游Operation取证",
+      "assets": [
+        "music.wav"
+      ],
+      "prompt": "已确认本次执行范围。使用注册audio.process将music.wav全段降低6dB，保持30秒、原采样率和声道，输出WAV，不做响度归一化。该Task通过验收后，必须创建另一个注册media.evidence Task，purpose=evidence、mode=audio，通过step加audio输出角色引用前一Task已验收的WAV，并显式声明依赖；不得直接读取原素材代替候选，不得用Script代替这两个Operation。两个Task均实际成功后交付处理后的WAV；证据报告留在工作流中供系统最终Review检查，不将evidence Task设为delivery_stage。不需要额外新增业务Review Task。",
+      "expect": {
+        "kind": "audio",
+        "duration": 30,
+        "duration_tolerance": 0.2
+      },
+      "content_checks": [
+        "实际音频RMS比例符合-6dB",
+        "下游Operation绑定已验收音频",
+        "输入kind为audio且SHA与上游一致",
+        "注册证据结果源SHA相同"
+      ],
+      "workflow_min_steps": 2,
+      "dynamic_hook": null,
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "S14可能不产生下游Operation；独立覆盖通用已验收音频类型传递、角色绑定和证据源哈希，防止F59回归。",
+      "status": "not_run",
+      "attempts": []
     }
   ],
   "unified_run_review": {
     "baseline_cases": 99,
-    "new_cases": 18,
-    "defined_cases": 117,
+    "new_cases": 19,
+    "defined_cases": 118,
     "live_validation": "in_progress"
   }
 }
