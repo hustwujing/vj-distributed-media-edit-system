@@ -191,6 +191,9 @@ class Task(Contract):
                 if not re.fullmatch(r'[a-z][a-z0-9_-]{0,39}',role) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}',name):
                     raise ValueError('Invalid Agent output role or filename')
             if self.outputs and set(self.outputs)!=set(self.output_roles.values()):raise ValueError('Agent outputs must match its declared output role filenames')
+            declared=set(self.outputs or self.output_roles.values())
+            if any(check.file!='*' and check.file not in declared for check in self.acceptance):
+                raise ValueError('Agent acceptance file must be a declared output')
             from .specialist_profiles import result_model
             schema=result_model(profile)
             if self.delivery_stage and profile.role in ('REVIEWER','DIAGNOSTICIAN'):
@@ -581,7 +584,9 @@ class ProposalFieldError(ValueError):
 
 def revision_mutable_fields(task_type,user=False):
     fields={'script':['argv'],'operation':['parameters'],'agent':[]}[task_type]
-    return fields+(['objective','inputs','acceptance','semantics'] if user else [])
+    user_fields=['objective','inputs','acceptance','semantics']
+    if task_type=='agent':user_fields+=['outputs','output_roles']
+    return fields+(user_fields if user else [])
 
 
 def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):

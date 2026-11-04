@@ -197,8 +197,7 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         command={'kind':'APPLY_PLAN','reason':'Collect audio evidence','plan':{'new_tasks':[{
             'id':'evidence','type':'operation','name':'Evidence','objective':'Inspect authorized audio',
-            'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},'inputs':{'source':{'asset':'asset'}},
-            'acceptance':[{'kind':'json','file':'evidence-report.json'}]}],
+            'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},'inputs':{'source':{'asset':'asset'}}}],
             'continuation':{'mode':'wait'}}}
         wire=transform(command,p.schemas['submit_plan'],encode=True)
         result=p.decode('submit_plan',wire)['proposal']['proposal']['add_tasks'][0]
@@ -223,6 +222,19 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual([item['kind'] for item in task['acceptance']],['media','json'])
         self.assertTrue(task['acceptance'][0]['decode'])
         self.assertIn('registered operation',task['basic_reason'])
+
+    def test_user_agent_revision_declares_outputs_once_with_files(self):
+        task={'id':'render','type':'agent','profile':'editing_implementer','name':'Export','objective':'Export PNG',
+              'outputs':['final.png'],'output_roles':{'primary_image':'final.png'},
+              'acceptance':[{'kind':'image','file':'final.png'}],'basic_reason':'Local export','delivery_stage':True}
+        f=frozen(task,user=True);schema=manager_schema(f)
+        command={'kind':'APPLY_PLAN','reason':'Add requested JPEG','plan':{'changes':[{'task_id':'render','set':{
+            'objective':'Export PNG and JPEG','files':[{'path':'final.png','roles':['primary_image']},{'path':'final.jpg','roles':['alternate_image']}],
+            'acceptance':[{'kind':'image','file':'final.png'},{'kind':'image','file':'final.jpg'}]}}],
+            'continuation':{'mode':'wait'}}}
+        result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['revise_tasks'][0]
+        self.assertEqual(result['outputs'],['final.png','final.jpg'])
+        self.assertEqual(result['output_roles'],{'primary_image':'final.png','alternate_image':'final.jpg'})
 
     def test_review_uses_only_actual_inspection_ids_and_host_snapshot(self):
         from webapp.workflow_agent_contracts import ReviewDecision

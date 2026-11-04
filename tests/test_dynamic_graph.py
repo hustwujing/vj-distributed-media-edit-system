@@ -98,6 +98,11 @@ class DynamicGraphTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'JSON reports only'):
             graph.Task.model_validate({**task,'outputs':['report.txt'],'output_roles':{'report':'report.txt'}})
 
+    def test_agent_acceptance_cannot_reference_an_undeclared_output(self):
+        task=script(type='agent',profile='editing_implementer',argv=[],outputs=['final.png'],
+                    output_roles={'primary_image':'final.png'},acceptance=[{'kind':'image','file':'final.jpg'}])
+        with self.assertRaisesRegex(ValueError,'declared output'):graph.Task.model_validate(task)
+
     def test_rolling_plan_waits_for_trigger_and_never_delivers_unsealed(self):
         run=self.tick();self.assertEqual(run['status'],'ACTIVE')
         self.assertEqual(len(self.store.query('SELECT * FROM planner_runs')),1)

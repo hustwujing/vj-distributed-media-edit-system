@@ -200,6 +200,7 @@ def title_image(item,width,height,path):
 
 def finish(p,base,work):
     video=not p['output']['audio_only'];duration=p['_duration'];out=p['output'];audio=p['audio']
+    no_audio=video and 'source' not in audio and all(c['mute'] or (c['reverse'] and not c['reverse_audio']) for c in p['clips'])
     args=['-i',base];filters=[];nextinput=1;current='0:v';audio_label='0:a'
     if 'source' in audio:
         # First trim the requested music range. Loop this exact range, not the whole file.
@@ -217,15 +218,16 @@ def finish(p,base,work):
                           '[music][trigger]sidechaincompress=threshold=0.025:ratio=8:attack=20:release=250:makeup=1[ducked]']
                 audio_label='voice';background='ducked'
             filters.append(f'[{audio_label}][{background}]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed]');audio_label='mixed'
-    af=[]
-    if 'source' not in audio:af.append(f'volume={audio["volume"]}')
-    if audio['denoise']:af.append('afftdn=nf=-25')
-    if audio['highpass']:af.append(f'highpass=f={audio["highpass"]}')
-    if audio['normalize']:af.append('loudnorm=I=-16:TP=-1.5:LRA=11')
-    af += [f'apad=whole_dur={duration:.9f}',f'atrim=duration={duration:.9f}',
-           f'afade=t=in:d={audio["fade_in"]}',f'afade=t=out:st={duration-audio["fade_out"]:.9f}:d={audio["fade_out"]}',
-           'alimiter=limit=0.95:level=false:latency=true','aresample=48000','asetpts=N/SR/TB']
-    filters.append(f'[{audio_label}]'+','.join(af)+'[audio]')
+    if not no_audio:
+        af=[]
+        if 'source' not in audio:af.append(f'volume={audio["volume"]}')
+        if audio['denoise']:af.append('afftdn=nf=-25')
+        if audio['highpass']:af.append(f'highpass=f={audio["highpass"]}')
+        if audio['normalize']:af.append('loudnorm=I=-16:TP=-1.5:LRA=11')
+        af += [f'apad=whole_dur={duration:.9f}',f'atrim=duration={duration:.9f}',
+               f'afade=t=in:d={audio["fade_in"]}',f'afade=t=out:st={duration-audio["fade_out"]:.9f}:d={audio["fade_out"]}',
+               'alimiter=limit=0.95:level=false:latency=true','aresample=48000','asetpts=N/SR/TB']
+        filters.append(f'[{audio_label}]'+','.join(af)+'[audio]')
     if video:
         for i,m in enumerate(p['masks']):
             x,y,w,h=m['x'],m['y'],m['width'],m['height'];enabled=f"between(t,{m['start']},{m['end']})"
@@ -248,15 +250,18 @@ def finish(p,base,work):
             # Relative generated ASCII filename avoids filtergraph path injection.
             filters.append(f'[{current}]ass=filename=captions.ass[subbed]');current='subbed'
     target=work/('result.'+out['format'])
-    args+=['-filter_complex',';'.join(filters)]
+    if filters:args+=['-filter_complex',';'.join(filters)]
     if video:
-        args+=['-map',f'[{current}]' if current!='0:v' else '0:v','-map','[audio]']
+        args+=['-map',f'[{current}]' if current!='0:v' else '0:v']
+        args+=['-an'] if no_audio else ['-map','[audio]']
         if current=='0:v':args+=['-c:v','copy']
         else:args+=['-c:v','libx264','-preset','veryfast','-crf',out['crf'],'-pix_fmt','yuv420p','-threads','2']
         # Matroska intermediates round timestamps to milliseconds. Quantize the
         # MP4 video track back onto the already-normalized CFR frame grid; this
         # preserves stream-copy quality and exact rates such as 24/60 fps.
-        args+=['-video_track_timescale',out['fps'],'-c:a','aac','-b:a','192k','-movflags','+faststart']
+        args+=['-video_track_timescale',out['fps']]
+        if not no_audio:args+=['-c:a','aac','-b:a','192k']
+        args+=['-movflags','+faststart']
     else:
         args+=['-map','[audio]','-vn']
         args+= {'wav':['-c:a','pcm_s16le'],'mp3':['-c:a','libmp3lame','-b:a','192k'],'m4a':['-c:a','aac','-b:a','192k','-movflags','+faststart']}[out['format']]
@@ -288,7 +293,10 @@ def render_plan(p,output,keep_work=False):
         result=finish(p,base,work)
         actual=probe(result);fps=p['output']['fps']
         if abs(actual['duration']-p['_duration'])>max(.15,2/fps):raise RuntimeError('Output duration differs from the validated timeline')
-        if not actual['audio_tracks']:raise RuntimeError('Output audio track is missing')
+        audio_expected=(p['output']['audio_only'] or 'source' in p['audio']
+                        or any(not c['mute'] and not (c['reverse'] and not c['reverse_audio']) for c in p['clips']))
+        if audio_expected!=bool(actual['audio_tracks']):
+            raise RuntimeError('Output audio track presence differs from the validated timeline')
         if not p['output']['audio_only']:
             if (actual['width'],actual['height'])!=(p['output']['width'],p['output']['height']):raise RuntimeError('Output dimensions do not match the plan')
             from fractions import Fraction
@@ -303,7 +311,7 @@ def render_plan(p,output,keep_work=False):
                 run_ffmpeg([*seek,'-i',result,'-frames:v','1','-vf',filters,'-q:v','3',frame],f'verify-frame:{i+1}',work)
                 if not frame.is_file():raise RuntimeError('Could not decode a verification frame')
         report={'status':'verified','duration_expected':p['_duration'],'media':actual,
-                'checks':['duration','audio_track']+([] if p['output']['audio_only'] else ['dimensions','frame_rate','decoded_first_middle_last_frames']),
+                'checks':['duration','audio_track_present' if audio_expected else 'audio_track_absent']+([] if p['output']['audio_only'] else ['dimensions','frame_rate','decoded_first_middle_last_frames']),
                 'visual_review_required':not p['output']['audio_only']}
         (work/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
         # Publish only verified files. No replacement of existing renders or sidecars.

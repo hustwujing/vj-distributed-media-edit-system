@@ -147,8 +147,12 @@ class LocalEditingTests(unittest.TestCase):
         expected=frame(normal,.9);actual=frame(reverse,0)
         self.assertLess(np.abs(expected-actual).mean(),15)
         self.assertLess(np.abs(frame(reverse,1.1)-frame(reverse,1.35)).mean(),2)
-        self.assertLess(np.max(np.abs(samples(reverse))),.002)
+        self.assertEqual(probe(reverse)['audio_tracks'],0)
         self.assertAlmostEqual(probe(reverse)['duration'],3,delta=.1)
+
+    def test_all_muted_video_clips_produce_no_audio_track(self):
+        out,_=self.render(self.plan(clips=[{'source':'a','end':1,'mute':True}]),'muted.mp4')
+        self.assertEqual(probe(out)['audio_tracks'],0)
 
     def test_crop_rotate_flip_background_and_mask_timing(self):
         raw=self.plan(clips=[{'source':'pattern','end':1,'crop':[20,0,120,120],'rotate':90,'flip':'horizontal','fit':'blur'}],

@@ -125,7 +125,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
            'description':'Declare each local output file once and its roles. The server derives outputs/output_roles.'}
     task_variants=[]
     irrelevant={'script':{'operation','implementation','parameters','profile'},
-                'operation':{'argv','outputs','output_roles','profile','preflight','config_files'},
+                'operation':{'argv','outputs','output_roles','profile','preflight','config_files','acceptance'},
                 'agent':{'argv','operation','implementation','parameters','preflight','config_files'}}
     for kind,removed in irrelevant.items():
         if kind=='script' and not allow_script:continue
@@ -159,8 +159,10 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     patches=[]
     for index,(identifier,allowed) in enumerate(available_changes(frozen).items()):
         name='TaskChange'+str(index)
+        patch_fields={key:deepcopy(props[key]) for key in allowed if key not in ('outputs','output_roles')}
+        if 'outputs' in allowed or 'output_roles' in allowed:patch_fields['files']=deepcopy(files)
         defs[name]=obj({'task_id':{'type':'string','enum':[identifier]},
-                       'set':obj({key:deepcopy(props[key]) for key in allowed},[])})
+                       'set':obj(patch_fields,[])})
         patches.append({'$ref':'#/$defs/'+name})
     patch_items={'anyOf':patches} if patches else obj({'task_id':{'type':'string'},'set':obj({})})
     continuation={'anyOf':[obj({'mode':{'type':'string','enum':['complete']}}),
@@ -233,8 +235,7 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
-                if not raw.get('acceptance'):
-                    raw['acceptance']=operation_acceptance(binding.get('outputs',[]))
+                raw['acceptance']=operation_acceptance(binding.get('outputs',[]))
                 if not raw.get('basic_reason'):
                     raw['basic_reason']='Server-owned registered operation integrity checks'
             for item in files:
@@ -247,7 +248,17 @@ def compile_manager(command,frozen):
             added.append(raw)
         current={t['id']:t for t in frozen.get('tasks',[])};allowed=available_changes(frozen);revisions=[];seen=set()
         for change in plan.get('changes',[]):
-            identifier=change['task_id'];patch=change['set']
+            identifier=change['task_id'];patch=deepcopy(change['set'])
+            files=patch.pop('files',None)
+            if files is not None:
+                outputs=[];roles={}
+                for item in files:
+                    if item['path'] in outputs:raise CommandError('duplicate_output','plan.changes.set.files','Declare each output path once')
+                    outputs.append(item['path'])
+                    for role in item['roles']:
+                        if role in roles:raise CommandError('duplicate_output_role','plan.changes.set.files.roles','Each role identifies exactly one file')
+                        roles[role]=item['path']
+                patch.update(outputs=outputs,output_roles=roles)
             if identifier in seen:raise CommandError('duplicate_change','plan.changes','Change each Task at most once')
             seen.add(identifier)
             if identifier not in allowed:raise CommandError('revision_not_available','plan.changes.task_id','Task is outside the frozen revision scope')
