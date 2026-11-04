@@ -10,7 +10,7 @@ class CommandError(ValueError):
         super().__init__(message)
 
 
-def normalize_planner_arguments(name,arguments):
+def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
     """Normalize only legacy/redundant planner shapes with one exact meaning."""
     if name!='submit_typed_plan' and not name.startswith(('replace_agent_tasks','replace_operation_tasks_')):
         return arguments,[]
@@ -21,20 +21,38 @@ def normalize_planner_arguments(name,arguments):
     if isinstance(continuation,dict) and 'tasks' in continuation:
         continuation.pop('tasks');changes.append('continuation.tasks_removed')
     tasks=plan.get('tasks')
+    def binding_map(items):
+        mapped={}
+        for item in items:
+            if not isinstance(item,dict):return None
+            binding=None;ref=None
+            if set(item)=={'key','value'}:binding,ref=item['key'],item['value']
+            elif len(item)==1 and isinstance(next(iter(item.values())),dict):binding,ref=next(iter(item.items()))
+            elif isinstance(item.get('ref'),dict):binding,ref=item.get('input_role',item.get('name',item.get('role'))),item['ref']
+            elif isinstance(item.get('value'),dict):binding,ref=item.get('input_role',item.get('name',item.get('key'))),item['value']
+            else:
+                binding=item.get('input_role',item.get('name'))
+                if binding:
+                    ref={key:item[key] for key in ('asset','step','role','repair_candidate') if key in item}
+                elif item.get('role') and 'asset' in item:
+                    binding=item['role'];ref={'asset':item['asset']}
+            if not isinstance(binding,str) or not isinstance(ref,dict) or binding in mapped:return None
+            mapped[binding]=ref
+        return mapped
     for index,task in enumerate(tasks if isinstance(tasks,list) else []):
         if not isinstance(task,dict):continue
         kind=task.get('type')
         if kind=='operation':
             if 'acceptance' in task:task.pop('acceptance');changes.append(f'tasks.{index}.operation_acceptance_removed')
             bindings=task.get('inputs')
-            if isinstance(bindings,list):
-                mapped={};valid=True
-                for item in bindings:
-                    if not isinstance(item,dict):valid=False;break
-                    role=item.get('role',item.get('key'));ref=item.get('ref',item.get('value'))
-                    if not isinstance(role,str) or not isinstance(ref,dict) or role in mapped:valid=False;break
-                    mapped[role]=ref
-                if valid:task['inputs']=mapped;changes.append(f'tasks.{index}.operation_inputs_mapped')
+            if task.get('operation') in dynamic_operation_inputs and isinstance(bindings,(dict,list)):
+                mapped=bindings if isinstance(bindings,dict) else binding_map(bindings)
+                if mapped is not None:
+                    task.pop('inputs');task['input_bindings']=[{'role':role,'ref':ref} for role,ref in mapped.items()]
+                    changes.append(f'tasks.{index}.operation_inputs_mapped')
+            elif isinstance(bindings,list):
+                mapped=binding_map(bindings)
+                if mapped is not None:task['inputs']=mapped;changes.append(f'tasks.{index}.operation_inputs_mapped')
         elif kind in ('agent','script') and 'input_bindings' not in task and isinstance(task.get('inputs'),dict):
             task['input_bindings']=[{'role':role,'ref':ref} for role,ref in task.pop('inputs').items()]
             changes.append(f'tasks.{index}.inputs_mapped')
@@ -188,11 +206,13 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
                     return value
                 for key,value in parameters.pop('$defs',{}).items():defs[prefix+key]=rename(value)
                 bound['parameters']=rename(parameters)
-                inputs=contract['input_contract'];roles=inputs.get('allowed_roles')
+                inputs=contract['input_contract'];roles=inputs.get('allowed_roles');input_field='inputs'
                 if roles is not None:bound['inputs']=obj({role:{'$ref':'#/$defs/InputRef'} for role in sorted(roles)},inputs.get('required_roles',[]))
+                else:bound.pop('inputs',None);bound['input_bindings']=deepcopy(input_bindings);input_field='input_bindings'
                 operation_required=[key for key in required if key!='acceptance']
                 if contract.get('evidence_only'):operation_required.append('purpose')
-                name='OperationCommandTask'+str(index);defs[name]=obj(bound,list(dict.fromkeys([*operation_required,'operation','inputs','parameters'])))
+                operation_required=[key for key in operation_required if key!='inputs']
+                name='OperationCommandTask'+str(index);defs[name]=obj(bound,list(dict.fromkeys([*operation_required,'operation',input_field,'parameters'])))
                 task_variants.append({'$ref':'#/$defs/'+name})
         else:
             name=kind.title()+'CommandTask';defs[name]=obj(fields,required);task_variants.append({'$ref':'#/$defs/'+name})
@@ -334,7 +354,7 @@ def compile_manager(command,frozen):
 
 class ToolProtocol:
     def __init__(self,profile,frozen,task,*,finalize=False,inspections=None,candidate_keys=None,contracts=None,draft=None,store=None):
-        self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.store=store;self._draft=draft;self.schemas={};self.names={}
+        self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.store=store;self._draft=draft;self.contracts=contracts or {};self.schemas={};self.names={}
         self.correction_mode=bool(draft and draft.get('last_error_signature'))
         tools=set(profile.tools)&({'proposal','result'} if finalize else set(profile.tools))
         if 'inspect' in tools:
@@ -441,7 +461,8 @@ class ToolProtocol:
 
     def decode(self,name,arguments):
         if name not in self.schemas:raise CommandError('action_unavailable','tool','Tool is unavailable in this role or phase')
-        arguments,normalizations=normalize_planner_arguments(name,arguments)
+        dynamic={identifier for identifier,contract in self.contracts.items() if contract.get('input_contract',{}).get('allowed_roles') is None}
+        arguments,normalizations=normalize_planner_arguments(name,arguments,dynamic)
         payload=transform(arguments,self.schemas[name]);action=self.names[name]
         if action=='proposal':return {'action':'proposal','proposal':compile_manager(payload,self.frozen),'_model_command':payload}
         if action in ('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration'):

@@ -111,6 +111,19 @@ class ModelCommandTests(unittest.TestCase):
         self.assertNotIn('tasks',result['command']['continuation'])
         self.assertEqual(set(result['_normalizations']),{'continuation.tasks_removed','tasks.0.operation_acceptance_removed','tasks.0.operation_inputs_mapped'})
 
+    def test_planner_normalizes_common_flat_operation_input_bindings(self):
+        from webapp.operations import catalog
+        op=next(x for x in catalog()['operations'] if x['id']=='media.concat_sequence')
+        f=frozen(False);f['operations']=[op]
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op},draft={'status':'OPEN'})
+        base={'id':'concat','type':'operation','name':'Concat','objective':'Join clips','operation':'media.concat_sequence',
+              'parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2},'delivery_stage':True}
+        for inputs in ([{'name':'clip_1','asset':'asset'}],[{'clip_1':{'asset':'asset'}}]):
+            with self.subTest(inputs=inputs):
+                arguments={'tasks':[{**base,'inputs':inputs}],'kind':'APPLY_PLAN','reason':'Join','continuation':{'mode':'wait'}}
+                result=p.decode('submit_typed_plan',arguments)
+                self.assertEqual(result['command']['tasks'][0]['input_bindings'],[{'role':'clip_1','ref':{'asset':'asset'}}])
+
     def test_noncut_transition_default_matches_runtime_contract(self):
         from webapp.operation_parameters import EditTransition
         self.assertEqual(EditTransition(type='cut').duration,0)
@@ -250,7 +263,7 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         draft={'id':'concat','type':'operation','name':'Join clips','objective':'Join the authorized clips',
                'operation':'media.concat_sequence','parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2},
-               'inputs':{'clip_1':{'asset':'asset'}},'delivery_stage':True}
+               'input_bindings':[{'role':'clip_1','ref':{'asset':'asset'}}],'delivery_stage':True}
         wire=transform({'kind':'COMPLETE','reason':'Join clips','plan':{'new_tasks':[draft],
             'continuation':{'mode':'complete'}}},p.schemas['submit_plan'],encode=True)
         task=p.decode('submit_plan',wire)['proposal']['proposal']['add_tasks'][0]
@@ -265,7 +278,7 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         base={'id':'edit','type':'operation','name':'Edit','objective':'Edit video','operation':'media.edit',
               'parameters':{'edit_plan':{'clips':[{'asset':'source'}],'output':{'audio_only':False}}},
-              'inputs':{'source':{'asset':'asset'}},'delivery_stage':True}
+              'input_bindings':[{'role':'source','ref':{'asset':'asset'}}],'delivery_stage':True}
         command={'kind':'COMPLETE','reason':'Edit','plan':{'new_tasks':[base],'continuation':{'mode':'complete'}}}
         task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
         self.assertIn(True,[check.get('video') for check in task['acceptance']])
