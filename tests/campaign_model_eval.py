@@ -250,7 +250,10 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
 
 
 def run(args):
-    configs=config_list();cases=json.loads((EVAL/'dataset.json').read_text())['cases']
+    from tests.campaign_model_fixture import validate as validate_fixture
+    dataset=json.loads((EVAL/'dataset.json').read_text())
+    validate_fixture(dataset,lambda name:graph.digest(policy(name).snapshot()))
+    configs=config_list();cases=dataset['cases']
     if args.cases:cases=[c for c in cases if c['id'] in args.cases.split(',')]
     jobs=[(case,model,variant,n) for case in cases for n in range(args.repeat) for variant in args.variants.split(',') for model in args.models.split(',')]
     save(EVAL/'active-evaluation.json',{'started_at':time.time(),'trial_count':len(jobs),'variants':args.variants,'models':{k:v.public() for k,v in configs.items()},'repeat':args.repeat,'jobs':args.jobs,'business_actions_executed':0})
