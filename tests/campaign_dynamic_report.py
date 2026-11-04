@@ -53,7 +53,9 @@ def attempt(directory,current,spec):
             with file.open('rb') as stream:digest=hashlib.file_digest(stream,'sha256').hexdigest()
             evidence.append({'path':str(file.relative_to(ROOT)),'bytes':file.stat().st_size,'sha256':digest})
     return {'attempt':directory.name,'path':str(directory),'verdict':verdict,'current_release':valid_current,
-            'failure_classification':failure_classification(state,internal,review) if verdict in ('program_failed','artifact_failed','handled_failure','blocked') else None,
+            'failure_classification':failure_classification(state,internal,review) if (
+                verdict in ('program_failed','artifact_failed','handled_failure','blocked') or
+                state.get('status')=='finished' and state.get('outcome') not in ('business_succeeded','protocol_passed')) else None,
             'version':version,'started_at':state.get('started_at'),'finished_at':state.get('finished_at'),
             'outcome':state.get('outcome'),'error':state.get('error'),'issues':issues,'gaps':gaps,
             'run_ids':state.get('run_ids',[]),'project':state.get('project'),

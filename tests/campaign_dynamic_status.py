@@ -25,7 +25,9 @@ def matches_definition(state,spec,directory):
 def failure_classification(state,internal,review):
     if review.get('outcome')=='program_failed' or internal.get('program_issues') or state.get('restore_error'):
         return 'program_error'
-    if (all(review.get(k) for k in ('complete','program_behavior_verified','browser_verified','required_boundary_verified'))
+    # Failure attribution and coverage are independent: a known model stop may
+    # prevent the required protocol boundary from being reached.
+    if (all(review.get(k) for k in ('complete','program_behavior_verified','browser_verified'))
             and internal.get('complete') and internal.get('program_passed')
             and not any(state.get(k) for k in ('audit_error','cleanup_error','restore_error'))):
         return 'non_program_error'
@@ -48,7 +50,8 @@ def status():
             classification=failure_classification(state,internal,review)
             groups[classification].append(case['id'])
             groups['failed'].append({'case':case['id'],'outcome':state.get('outcome'),'error':state.get('error'),
-                                    'review':review.get('failure_origin'),'classification':classification})
+                                    'review':review.get('failure_origin'),'classification':classification,
+                                    'required_boundary_verified':bool(review.get('required_boundary_verified'))})
     keys=('passed','failed','running','not_run','reviewed_pass','pending_review')
     return {'at':datetime.now().astimezone().isoformat(timespec='seconds'),'release':release['sha256'][:12],
             'counts':{k:len(groups[k]) for k in keys},
