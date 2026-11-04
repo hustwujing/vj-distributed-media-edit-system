@@ -70,6 +70,26 @@ class ModelCommandTests(unittest.TestCase):
         cmd['plan']['continuation']={'mode':'complete'};task['files'].append({'path':'other.txt','roles':['report']})
         with self.assertRaises(CommandError):compile_manager(cmd,f)
 
+    def test_host_derives_input_dependencies_and_waits_for_batch_leaves(self):
+        f=frozen(False);schema=manager_schema(f)
+        first={'id':'prepare','type':'agent','profile':'editing_implementer','name':'Prepare','objective':'Prepare image',
+               'files':[{'path':'prepared.png','roles':['primary_image']}],'acceptance':[{'kind':'image'}],'delivery_stage':False}
+        final={'id':'deliver','type':'agent','profile':'editing_implementer','name':'Deliver','objective':'Deliver image',
+               'inputs':{'source':{'step':'prepare','role':'primary_image'}},'files':[{'path':'final.png','roles':['primary_image']}],
+               'acceptance':[{'kind':'image'}],'delivery_stage':True}
+        cmd={'kind':'APPLY_PLAN','reason':'Typed batch','plan':{'new_tasks':[first,final],
+             'continuation':{'mode':'wait','tasks':['invented-trigger']}}}
+        result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
+        self.assertEqual(result['add_dependencies'],[{'upstream':'prepare','downstream':'deliver'}])
+        self.assertEqual(result['replan_after'],['deliver'])
+
+    def test_noncut_transition_default_matches_runtime_contract(self):
+        from webapp.operation_parameters import EditTransition
+        self.assertEqual(EditTransition(type='cut').duration,0)
+        self.assertEqual(EditTransition(type='fade').duration,.4)
+        from pydantic import ValidationError
+        with self.assertRaises(ValidationError):EditTransition(type='fade',duration=0)
+
     def test_arbitrary_json_roundtrip_and_duplicate_map_rejection(self):
         schema=obj({'parameters':{'type':'object','additionalProperties':{}},'optional':{'type':'integer'}},['parameters'])
         native={'parameters':{'nested':{'entries':[{'x':True},None,1.5]},'word':'hello'}}

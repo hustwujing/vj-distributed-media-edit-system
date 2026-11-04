@@ -63,10 +63,12 @@ class EditOutput(Parameters):
 
 class EditTransition(Parameters):
     type:Literal['cut','fade','dissolve','wipeleft','wiperight','slideleft','slideright','fadeblack']='cut'
-    duration:float=Field(default=0,ge=0,le=3)
+    duration:float|None=Field(default=None,ge=0,le=3)
     @model_validator(mode='after')
     def cut_duration(self):
+        if self.duration is None:self.duration=0 if self.type=='cut' else .4
         if self.type=='cut' and self.duration!=0:raise ValueError('Cut transition duration must be zero')
+        if self.type!='cut' and self.duration<=0:raise ValueError('Non-cut transition duration must be positive')
         return self
 
 

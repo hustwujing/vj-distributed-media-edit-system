@@ -494,7 +494,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.workflow_agents.get_profile',return_value=policy), \
              patch('webapp.workflow_agents.model',side_effect=AgentReplyError('{invalid')) as model:
             with self.assertRaises(TaskQuotaReached):execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task)
-        self.assertEqual(model.call_count,2)
+        self.assertEqual(model.call_count,3)
         self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
 
     def test_strict_transport_fallback_does_not_spend_contract_correction(self):
@@ -626,6 +626,30 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(draft['new_tasks'][0]['inputs']['source']['asset'],'asset')
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['proposal']['add_tasks'][0]['inputs']['source']['asset'],'asset')
+
+    def test_compile_invalid_batch_is_feedback_and_never_persisted(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        from webapp.strict_schema import transform
+        base={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write report',
+              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file'}],'delivery_stage':True}
+        step=0
+        def respond(*args,**kwargs):
+            nonlocal step;step+=1;protocol=kwargs['protocol']
+            if step==2:
+                self.assertIn('Typed plan was not persisted',args[4])
+                row=self.store.query('SELECT revision,draft_json FROM workflow_plan_drafts')[0]
+                self.assertEqual(row['revision'],0);self.assertEqual(json.loads(row['draft_json'])['new_tasks'],[])
+            task={**base,**({'basic_reason':'Local report'} if step==2 else {})}
+            payload={'tasks':[task],'kind':'COMPLETE','reason':'Compile batch','continuation':{'mode':'complete'}}
+            wire=transform(payload,protocol.schemas['submit_typed_plan'],encode=True)
+            return protocol.decode('submit_typed_plan',wire)
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(step,2)
+        self.assertEqual(self.store.query('SELECT status,revision FROM workflow_plan_drafts')[0],{'status':'COMMITTED','revision':1})
 
     def test_draft_revision_change_rejects_stale_atomic_commit(self):
         from webapp.workflow_plan_draft import mutate,get as get_draft

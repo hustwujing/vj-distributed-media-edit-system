@@ -252,13 +252,21 @@ def compile_manager(command,frozen):
             invalid=set(patch)-set(allowed[identifier])
             if invalid:raise CommandError('frozen_field_change','plan.changes.set.'+sorted(invalid)[0],'This field is frozen; use an authorized replacement if its contract must change')
             revisions.append({**deepcopy(current[identifier]['spec']),**patch})
-        continuation=plan['continuation']
-        waiting=[plan.get('replacements',{}).get(identifier,identifier) for identifier in continuation.get('tasks',[])]
+        dependencies=list(plan.get('dependencies',[]));edge_keys={(item['upstream'],item['downstream']) for item in dependencies}
+        for task in added:
+            for ref in task.get('inputs',{}).values():
+                if ref.get('step') and (ref['step'],task['id']) not in edge_keys:
+                    dependencies.append({'upstream':ref['step'],'downstream':task['id']});edge_keys.add((ref['step'],task['id']))
+        continuation=plan['continuation'];changed={task['id'] for task in added}|{task['id'] for task in revisions}|set(plan.get('review_again',{}))
+        changed={plan.get('replacements',{}).get(identifier,identifier) for identifier in changed}
+        waiting=sorted(identifier for identifier in changed if not any(edge['upstream']==identifier and edge['downstream'] in changed for edge in dependencies))
+        if continuation['mode']=='wait' and not waiting:
+            waiting=[plan.get('replacements',{}).get(identifier,identifier) for identifier in continuation.get('tasks',[])]
         result['proposal']={'proposal_id':frozen['planning_request_id'],'base_graph_version':frozen['graph_version'],
             'reason':command['reason'],'add_tasks':added,'revise_tasks':revisions,
-            'add_dependencies':plan.get('dependencies',[]),'remove_dependencies':plan.get('remove_dependencies',[]),
+            'add_dependencies':dependencies,'remove_dependencies':plan.get('remove_dependencies',[]),
             'replacements':plan.get('replacements',{}),'review_again':plan.get('review_again',{}),
-            'sealed':continuation['mode']=='complete','replan_after':waiting}
+            'sealed':continuation['mode']=='complete','replan_after':waiting if continuation['mode']=='wait' else []}
     return graph.ManagerResult.model_validate(result).model_dump()
 
 
@@ -405,6 +413,10 @@ class ToolProtocol:
                 draft_state=summary(self._draft.get('draft',self._draft)))
         if 'submit_typed_plan' in self.schemas:
             context['model_command_contract']['repair_options']=repair_options(self.frozen)
+            delivery=[item['id'] for item in self.frozen.get('tasks',[]) if item['status'] not in ('failed','cancelled') and item['spec'].get('delivery_stage')]
+            context['model_command_contract']['completion_requirements']={'current_delivery_stage_tasks':delivery,
+                'complete_requires_delivery_stage':True,
+                'instruction':'If current_delivery_stage_tasks is empty, COMPLETE must add a real business/media Task with delivery_stage=true. Reviewer and report Tasks cannot satisfy this.'}
         context['model_command_contract']['operations']='Query contract before adding an operation Task. Its exact typed Task variant then becomes available inside submit_typed_plan; the host binds the frozen implementation.'
         if 'submit_plan' in self.schemas:
             automatic,user=scopes(self.frozen)

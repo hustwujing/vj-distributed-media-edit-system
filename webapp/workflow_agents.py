@@ -603,8 +603,8 @@ def execute(host,lease,run,task):
                 if draft is not None:
                     from .workflow_plan_draft import record_error
                     _,repeated=record_error(store,task['spec']['request_id'],getattr(exc,'details',[]))
-                    if repeated>=2:
-                        raise TaskQuotaReached('规划草稿连续收到相同的非法命令。',category='agent_contract',scope='turn',used=repeated,limit=2)
+                    if repeated>=3:
+                        raise TaskQuotaReached('规划草稿连续收到相同的非法命令。',category='agent_contract',scope='turn',used=repeated,limit=3)
                 rejections[exc.code]=rejections.get(exc.code,0)+1
                 emit('workflow.agent_correction',task_id=lease.run_id,step_id=lease.step_id,
                      error_code=exc.code,repeated_error_count=rejections[exc.code])
@@ -636,8 +636,20 @@ def execute(host,lease,run,task):
                 from .workflow_plan_draft import prepare_batch
                 command=reply['command'];commit={key:command[key] for key in ('kind','reason','continuation')}
                 fields={key:value for key,value in command.items() if key not in commit}
-                proposal,base_revision,base_digest,candidate,candidate_digest=prepare_batch(
+                try:proposal,base_revision,base_digest,candidate,candidate_digest=prepare_batch(
                     store,task['spec']['request_id'],frozen,fields,commit)
+                except (ValueError,TypeError,KeyError) as exc:
+                    from pydantic import ValidationError
+                    from .workflow_model_protocol import CommandError
+                    if isinstance(exc,ValidationError):details=[{'path':'.'.join(map(str,e['loc'])),'type':e['type'],'message':e['msg'][:240]} for e in exc.errors(include_input=False,include_url=False)[:12]]
+                    elif isinstance(exc,CommandError):details=[{'path':exc.path,'type':exc.code,'message':str(exc)[:1000]}]
+                    else:details=[{'path':getattr(exc,'path','plan'),'type':getattr(exc,'code','compile_contract'),'message':str(exc)[:1000]}]
+                    tool_receipt['status']='failed';correction_rounds+=1
+                    from .workflow_plan_draft import record_error
+                    _,repeated=record_error(store,task['spec']['request_id'],details)
+                    feedback='\nTyped plan was not persisted. Correct only these compile errors and resubmit the complete typed plan:'+graph.encode(details)
+                    if repeated>=3:raise TaskQuotaReached('规划草稿连续产生相同的编译错误。',category='agent_contract',scope='turn',used=repeated,limit=3)
+                    continue
                 reply={**reply,'action':'proposal','proposal':proposal,'_draft_commit':True,
                        '_draft_candidate':candidate,'_draft_candidate_digest':candidate_digest,
                        '_draft_base_revision':base_revision,'_draft_base_digest':base_digest}
@@ -693,8 +705,8 @@ def execute(host,lease,run,task):
                     if draft is not None:
                         from .workflow_plan_draft import record_error
                         _,repeated=record_error(store,task['spec']['request_id'],errors)
-                        if repeated>=2:
-                            raise TaskQuotaReached('规划草稿连续产生相同的语义错误。',category='agent_contract',scope='turn',used=repeated,limit=2)
+                        if repeated>=3:
+                            raise TaskQuotaReached('规划草稿连续产生相同的语义错误。',category='agent_contract',scope='turn',used=repeated,limit=3)
                     current_draft=get_draft(store,task['spec']['request_id']) if draft is not None else None
                     correction_protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,
                         candidate_keys=candidate_keys,contracts=contracts,draft=current_draft,store=store) if current_draft else protocol
@@ -722,8 +734,8 @@ def execute(host,lease,run,task):
                     if draft is not None:
                         from .workflow_plan_draft import record_error
                         _,repeated=record_error(store,task['spec']['request_id'],detail)
-                        if repeated>=2:
-                            raise TaskQuotaReached('规划草稿连续产生相同的引用错误。',category='agent_contract',scope='turn',used=repeated,limit=2)
+                        if repeated>=3:
+                            raise TaskQuotaReached('规划草稿连续产生相同的引用错误。',category='agent_contract',scope='turn',used=repeated,limit=3)
                     current_draft=get_draft(store,task['spec']['request_id']) if draft is not None else None
                     correction_protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,
                         candidate_keys=candidate_keys,contracts=contracts,draft=current_draft,store=store) if current_draft else protocol
