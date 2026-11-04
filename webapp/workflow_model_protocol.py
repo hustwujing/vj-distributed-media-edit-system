@@ -296,7 +296,8 @@ class ToolProtocol:
                 'window_seconds':{'type':'number','exclusiveMinimum':0,'maximum':8}},['ref'])}}))
         if 'contract' in tools:
             operations=[row['id'] for row in frozen.get('operations',[])]
-            if operations:self.add('contract','contract',obj({'operation':{'type':'string','enum':operations}}))
+            if operations:self.add('contract','contract',obj({'operations':{'type':'array','minItems':1,'maxItems':8,
+                'uniqueItems':True,'items':{'type':'string','enum':operations}}}))
         if 'script' in tools:self.add('script','script',obj({'code':{'type':'string','minLength':1,'maxLength':64000}}))
         if 'proposal' in tools:
             if draft is None:self.add('submit_plan','proposal',manager_schema(frozen,contracts))
@@ -368,7 +369,7 @@ class ToolProtocol:
 
     def definitions(self):
         descriptions={'inspect':'Inspect authorized immutable inputs. Returns evidence IDs.',
-            'contract':'Read a frozen operation contract; does not authorize it.',
+            'contract':'Read up to eight frozen operation contracts in one call; this does not authorize execution.',
             'script':'Execute a bounded local implementation in the Task output directory.',
             'submit_plan':'Submit a plan command. Identity and unchanged Task fields are bound by the host.',
             'submit_result':'Submit the declared result. Existing evidence and domain rules remain required.',

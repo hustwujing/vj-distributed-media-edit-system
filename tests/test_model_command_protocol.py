@@ -153,6 +153,13 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(list(p.schemas),['submit_plan'])
         with self.assertRaises(CommandError):p.decode('inspect',{'refs':[]})
 
+    def test_contract_lookup_batches_distinct_frozen_operation_ids(self):
+        f=frozen(False);f['operations']=[{'id':'media.edit'},{'id':'audio.process'}]
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        source=p.schemas['contract'];wire=transform({'operations':['media.edit','audio.process']},source,encode=True)
+        self.assertEqual(p.decode('contract',wire)['operations'],['media.edit','audio.process'])
+        with self.assertRaises(ValidationError):transform({'operations':['media.edit','media.edit']},source,encode=True)
+
     def test_plan_draft_uses_typed_commands_with_bounded_schema_complexity(self):
         f=frozen(False);p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
         self.assertEqual(list(p.schemas),['submit_typed_plan','continue_run','request_user_input','request_authorization','new_run_required'])

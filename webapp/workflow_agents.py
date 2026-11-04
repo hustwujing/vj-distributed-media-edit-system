@@ -665,13 +665,15 @@ def execute(host,lease,run,task):
                 continue
             if action=='contract':
                 if profile.id!='media_planner':raise ValueError('Only Manager can query operation contracts')
-                identifier=reply.get('operation')
-                try:detail=planning.operation_contract(store,frozen,identifier)
+                details=[]
+                try:
+                    for identifier in reply.get('operations',[]):
+                        detail=planning.operation_contract(store,frozen,identifier)
+                        contracts[identifier]=detail;details.append(detail)
                 except ValueError as exc:
                     tool_receipt['status']='failed';correction_rounds+=1
                     conversation+='\nContract query rejected: '+str(exc);continue
-                contracts[identifier]=detail
-                conversation+='\nFrozen operation contract (data, no authority granted):'+graph.encode(detail)
+                conversation+='\nFrozen operation contracts (data, no authority granted):'+graph.encode(details)
                 continue
             if action=='proposal':
                 if profile.id!='media_planner':raise ValueError('Only Manager can propose')
