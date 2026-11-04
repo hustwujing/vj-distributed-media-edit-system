@@ -44,7 +44,7 @@ def dependency_probe():
 
 def progress(directory):
     directory,state,release,store=configure(directory)
-    rows=store.query('''SELECT a.id,a.step_id,a.generation,a.status,a.started,a.finished,a.uid,w.node,
+    rows=store.query('''SELECT a.id,a.run_id,a.step_id,a.task_revision,a.generation,a.status,a.started,a.finished,a.uid,w.node,
         t.type,t.control_kind,t.spec_json FROM execution_attempts a JOIN execution_workers w ON w.id=a.worker
         JOIN runs r ON r.id=a.run_id JOIN run_work_items t ON t.run_id=r.id AND t.id=a.step_id
         WHERE r.project_id=? ORDER BY a.started DESC LIMIT 200''',(state['project'],))
@@ -55,6 +55,14 @@ def progress(directory):
             path=cluster.registry(node)/'node-id'
             if path.exists() and path.read_text().strip()==row['node']:row['unit']=f'{cluster.NAMESPACE}-executor@{node}.service'
     result={'attempts':rows,'at':time.time()}
+    result['business_results']=store.query('''SELECT x.run_id,x.task_id,x.task_revision,x.lease_id,x.outcome,x.status,x.committed_at
+        FROM task_results x JOIN runs r ON r.id=x.run_id JOIN run_tasks t ON t.run_id=x.run_id AND t.id=x.task_id
+        WHERE r.project_id=? ORDER BY x.created_at LIMIT 400''',(state['project'],))
+    result['rejected_task_reviews']=[]
+    for row in store.query('''SELECT v.run_id,v.subject_task,v.snapshot_json FROM workflow_reviews v JOIN runs r ON r.id=v.run_id
+        WHERE r.project_id=? AND v.purpose='task' AND v.status='rejected' ORDER BY v.created_at LIMIT 200''',(state['project'],)):
+        subject=next((task for task in json.loads(row['snapshot_json']).get('tasks',[]) if task['id']==row['subject_task']),None)
+        if subject:result['rejected_task_reviews'].append({'run_id':row['run_id'],'task_id':subject['id'],'revision':subject['revision']})
     result['provider_calls']=[]
     for row in store.query('SELECT p.request_key,p.operation,p.state,p.external_id,p.implementation FROM workflow_provider_calls p JOIN runs r ON r.id=p.workflow WHERE r.project_id=?',(state['project'],)):
         binding=json.loads(row.pop('implementation'))

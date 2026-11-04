@@ -76,7 +76,7 @@ VIDEO_USE_TEST_REAL_MODELS=1 .venv/bin/python -m tests.run_distributed_suite
 | `tests/run_live_generation_case.py` | 真实生成链路 |
 | `tests/run_live_transcribe_smoke.py` | 真实转写 |
 | `tests/run_live_boss_storage.py` | 真实对象存储加密、跨节点恢复与测试对象清理 |
-| `tests/campaign_suite.py` → `campaign_dynamic_browser.cjs` | 当前分支的 118 条隔离真机 case；逐例内部状态、浏览器和清理审计 |
+| `tests/campaign_suite.py` → `campaign_dynamic_browser.cjs` | 当前分支的 119 条隔离真机 case；逐例内部状态、浏览器和清理审计 |
 
 表中旧 smoke 驱动仍可能默认指向 main；本分支验收使用 `campaign_suite.py`，旧驱动仅作为实现参考。
 

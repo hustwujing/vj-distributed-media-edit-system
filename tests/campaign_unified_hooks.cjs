@@ -4,6 +4,28 @@ const crypto=require('node:crypto');
 const key=()=>crypto.randomUUID().replaceAll('-','');
 const activeJob=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&job.status==='running');
 const terminal=run=>['SUCCEEDED','FAILED','CANCELLED'].includes(run.state);
+function verifyDrainedAttempts(boundary,run,facts){
+ const originals=[];
+ for(const old of boundary.started||[]){
+  const task=run.tasks.find(t=>t.id===old.id);assert.ok(task,'Original drained Task history must be retained');
+  const matches=facts.attempts.filter(a=>a.run_id===run.id&&a.step_id===old.id&&a.task_revision===old.revision&&
+   a.started<boundary.input.accepted_at&&a.finished>boundary.input.accepted_at);
+  assert.equal(matches.length,1,'Input must overlap the original executing attempt');
+  const original=matches[0];assert.equal(original.status,'finished','Input must not interrupt an executing attempt');
+  const result=facts.business_results.find(r=>r.run_id===run.id&&r.lease_id===original.id&&r.task_revision===old.revision);
+  assert.ok(result&&result.status==='committed'&&['succeeded','failed'].includes(result.outcome),'Original result must be committed normally');
+  const rejected=facts.rejected_task_reviews.some(r=>r.run_id===run.id&&r.task_id===old.id&&r.revision===old.revision);
+  if(result.outcome==='succeeded'&&!rejected){
+   assert.equal(task.status,'succeeded');assert.equal(task.revision,old.revision);assert.equal(task.attempts,old.attempts);
+  }else{
+   assert.ok(task.revision>=old.revision);
+   for(const next of facts.attempts.filter(a=>a.run_id===run.id&&a.step_id===old.id&&a.task_revision>old.revision))
+    assert.ok(next.started>=result.committed_at,'Failure recovery cannot precede the original committed result');
+  }
+  originals.push(original);
+ }
+ return originals;
+}
 function selectedTask(run,identifier){
  const seen=new Set();while(!seen.has(identifier)){seen.add(identifier);const task=run.tasks.find(item=>item.id===identifier);
   if(task?.selected)return task;
@@ -143,9 +165,11 @@ async function after(c){
   assert.equal(facts.provider_calls.length,1,'Input or restart duplicated a Provider submission');boundary.provider_after=call;
  }
  if(['drain_local','drain_agent'].includes(hook)){
-  for(const old of boundary.started||[]){const task=run.tasks.find(t=>t.id===old.id);assert.ok(task&&task.status==='succeeded');assert.equal(task.revision,old.revision);}
+  const facts=await fault('progress');const originals=verifyDrainedAttempts(boundary,run,facts);
+  boundary.drained_attempts=originals;
+  boundary.drained_results=facts.business_results.filter(r=>originals.some(a=>a.id===r.lease_id));
   if(hook==='drain_local'){
-   const attempts=(await fault('progress')).attempts,left=attempts.find(a=>a.step_id==='left'),right=attempts.find(a=>a.step_id==='right');
+   const left=originals.find(a=>a.step_id==='left'),right=originals.find(a=>a.step_id==='right');
    if(!left||!right||!(left.started<right.finished&&right.started<left.finished&&right.started<boundary.input.accepted_at))
     throw Object.assign(Error('The required parallel Script/local Operation drain boundary was not reached'),{boundary:true});
    boundary.parallel_attempts=[left,right];
@@ -176,4 +200,4 @@ async function after(c){
  persist();
 }
 
-module.exports={before,after,hooks};
+module.exports={before,after,hooks,verifyDrainedAttempts};

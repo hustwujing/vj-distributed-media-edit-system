@@ -2,8 +2,8 @@
   "campaign": "dynamic-plan-independent-deployment",
   "version": 2,
   "source_count": 77,
-  "new_count": 41,
-  "total_count": 118,
+  "new_count": 42,
+  "total_count": 119,
   "rules": {
     "entry": "Real browser authorization and deployed services; no success-state seeding or mocked live provider results",
     "default_parallel_cases": 2,
@@ -6108,12 +6108,53 @@
       "review_reason": "S14可能不产生下游Operation；独立覆盖通用已验收音频类型传递、角色绑定和证据源哈希，防止F59回归。",
       "status": "not_run",
       "attempts": []
+    },
+    {
+      "id": "D41",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "最终交付选择与多视频时序证据",
+      "assets": [
+        "motion_reference.mp4"
+      ],
+      "prompt": "使用motion_reference.mp4完成本次候选选择验证。创建两个本地Script Task：candidate复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。",
+      "expect": {
+        "kind": "video",
+        "width": 128,
+        "height": 96,
+        "duration": 4,
+        "duration_tolerance": 0.1
+      },
+      "content_checks": [
+        "未选交付Task不阻塞时序验收",
+        "非video主角色的被选视频被实际检查",
+        "唯一交付deliver.mp4且SHA与固定输入一致"
+      ],
+      "workflow_min_steps": 2,
+      "dynamic_hook": null,
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": [
+        "browser",
+        "logs",
+        "observability",
+        "database",
+        "cache",
+        "boss",
+        "candidate_archive",
+        "local_cleanup",
+        "external_cleanup"
+      ],
+      "review_decision": "新增",
+      "review_reason": "F63专门回归：同时覆盖未选择的其他Task及同Task非主角色视频选择，不能用单候选成功替代。",
+      "status": "not_run",
+      "attempts": []
     }
   ],
   "unified_run_review": {
     "baseline_cases": 99,
-    "new_cases": 19,
-    "defined_cases": 118,
+    "new_cases": 20,
+    "defined_cases": 119,
     "live_validation": "in_progress"
   }
 }

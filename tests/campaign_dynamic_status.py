@@ -22,14 +22,16 @@ def matches_definition(state,spec,directory):
     helpers=state.get('helper_sha256',{})
     return bool(helpers) and all(value==source_hash(REPO/'tests'/name) for name,value in helpers.items())
 
-def failure_classification(state,internal,review):
+def failure_classification(state,internal,review,cleanup=None):
     if review.get('outcome')=='program_failed' or internal.get('program_issues') or state.get('restore_error'):
         return 'program_error'
     # Failure attribution and coverage are independent: a known model stop may
     # prevent the required protocol boundary from being reached.
     if (all(review.get(k) for k in ('complete','program_behavior_verified','browser_verified'))
             and internal.get('complete') and internal.get('program_passed')
-            and not any(state.get(k) for k in ('audit_error','cleanup_error','restore_error'))):
+            and not any(state.get(k) for k in ('audit_error','restore_error'))
+            and (not state.get('cleanup_error') or
+                 bool(cleanup and cleanup.get('complete') and review.get('cleanup_recovery_verified')))):
         return 'non_program_error'
     return 'pending_classification'
 def status():
@@ -47,7 +49,7 @@ def status():
             reviewed=matches_definition(state,case,directory) and all(review.get(k) for k in ('complete','program_behavior_verified','browser_verified','required_boundary_verified'))
             groups['reviewed_pass' if reviewed else 'pending_review'].append(case['id'])
         else:
-            classification=failure_classification(state,internal,review)
+            classification=failure_classification(state,internal,review,cleanup)
             groups[classification].append(case['id'])
             groups['failed'].append({'case':case['id'],'outcome':state.get('outcome'),'error':state.get('error'),
                                     'review':review.get('failure_origin'),'classification':classification,
