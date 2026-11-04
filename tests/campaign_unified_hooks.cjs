@@ -97,7 +97,7 @@ async function before(c){
    const inputs=Object.keys(task.spec.inputs),outputs=Object.keys(task.spec.output_roles);
    assert.equal(inputs.length,1,'Edge revision requires a single declared reference input');
    assert.equal(outputs.length,1,'Edge revision requires a single declared output');
-   edgeFeedback=`给render创建新revision：沿用当前输入角色${inputs[0]}对应的已验收透明图作为唯一来源，仅将Alpha通道执行Pillow ImageFilter.MinFilter(3)，RGB保持原值，其他像素处理不变；明确semantics.mask_repair为A/local_edge_repair，reference_role=${inputs[0]}，output_role=${outputs[0]}，max_changed_fraction=0.05。保持现有输入输出角色、512×512透明PNG、人物范围和原技术/Agent验收，不重做source_cutout；保留原人工Review，待用户复核新版。`;
+   edgeFeedback=`给render创建新revision：沿用当前输入角色${inputs[0]}对应的已验收透明图作为唯一来源，先计算原Alpha整图的Pillow ImageFilter.MinFilter(3)结果，仅将矩形{{edge_patch_box}}（Pillow坐标，右下边界不含）内的Alpha替换为该结果；矩形外Alpha和全部RGB保持原值，其他像素处理不变；明确semantics.mask_repair为A/local_edge_repair，reference_role=${inputs[0]}，output_role=${outputs[0]}，max_changed_fraction=0.05。保持现有输入输出角色、512×512透明PNG、人物范围和原技术/Agent验收，不重做source_cutout；保留原人工Review，待用户复核新版。`;
    state.unified_boundary.feedback_roles={reference:inputs[0],output:outputs[0]};persist();
   }
   const message=hook==='feedback_cutout'?

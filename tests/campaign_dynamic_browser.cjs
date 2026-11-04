@@ -123,6 +123,13 @@ async function runCase(browser,spec){
  const feedback=async(content,attachments=[])=>{
   run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
   if(!state.feedback_baseline&&decision.request.task_id&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
+  if(content.includes('{{edge_patch_box}}')){
+   assert.ok(state.feedback_baseline,'Local edge feedback requires the original candidate');
+   const original=path.join(directory,state.feedback_baseline.file);
+   const result=await execute(PY,[path.join(harness,'campaign_feedback_preview.py'),original,original,'alpha_erode_patch'],{cwd:REPO,env:helperEnvironment,timeout:60000,maxBuffer:1024*1024});
+   const patch=JSON.parse(result.stdout.trim());assert.ok(patch.expected_changed_pixels>0&&patch.expected_changed_fraction<=.01);
+   state.feedback_patch=patch;content=content.replaceAll('{{edge_patch_box}}',JSON.stringify(patch.patch_box));persist();
+  }
   const card=page.locator(`[data-decision="${decision.id}"]`);await card.locator('[data-feedback]').fill(content);
   await selectOptional(card.locator('[data-feedback-assets]'),attachments);
   const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');
@@ -144,7 +151,7 @@ async function runCase(browser,spec){
   return {run_id:snapshot.id,task_id:task.id,revision:task.revision,path:file,file:name,sha256:digest};
  }
  async function reviewRevisedCandidate(snapshot,decision){
-  const transforms={R11:'border_4',R15:'unchanged',D28:'border_2',D36:'alpha_erode',D37:'swap_halves'};
+  const transforms={R11:'border_4',R15:'unchanged',D28:'border_2',D36:'alpha_erode_patch',D37:'swap_halves'};
   if(!transforms[spec.id]||!state.feedback_baseline)return false;
   const candidate=await downloadCandidate(snapshot,decision,'feedback-reviewed-'+decision.id+'.png',true);
   const result=await execute(PY,[path.join(harness,'campaign_feedback_preview.py'),path.join(directory,state.feedback_baseline.file),path.join(directory,candidate.file),transforms[spec.id]],{cwd:REPO,env:helperEnvironment,timeout:60000,maxBuffer:1024*1024});
