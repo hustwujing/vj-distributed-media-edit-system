@@ -180,7 +180,7 @@ def compile_manager(command,frozen):
 
 
 class ToolProtocol:
-    def __init__(self,profile,frozen,task,*,finalize=False,inspections=None,contracts=None):
+    def __init__(self,profile,frozen,task,*,finalize=False,inspections=None,candidate_keys=None,contracts=None):
         self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.schemas={};self.names={}
         tools=set(profile.tools)&({'proposal','result'} if finalize else set(profile.tools))
         if 'inspect' in tools:
@@ -198,10 +198,12 @@ class ToolProtocol:
             if task.get('control_kind')=='REVIEW':
                 source['properties'].pop('snapshot_digest',None);source['required']=[x for x in source.get('required',[]) if x!='snapshot_digest']
                 identifiers=list(inspections or {})
+                from .workflow_agent_contracts import review_candidate_aliases
+                selections=list(review_candidate_aliases(frozen,inspections or {},candidate_keys or {}))
                 if 'Evidence' in source.get('$defs',{}):
                     source['$defs']['Evidence']['properties']['inspection_id']={'type':'string','enum':identifiers or ['__no_completed_inspections__']}
-                source['properties']['deliverables']['items']={'type':'string','enum':identifiers or ['__no_completed_inspections__']}
-                source['properties']['primary']={'type':'string','enum':['',*identifiers]}
+                source['properties']['deliverables']['items']={'type':'string','enum':selections or ['__no_eligible_delivery_candidates__']}
+                source['properties']['primary']={'type':'string','enum':['',*selections]}
                 if frozen.get('review_scope')=='task':source['properties']['deliverables']['maxItems']=0;source['properties']['primary']['enum']=['']
             if not source:
                 source=obj({'files':obj({name:{'type':'string'} for name in task['spec'].get('outputs',[])},[])})

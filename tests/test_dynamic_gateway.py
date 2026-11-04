@@ -471,6 +471,34 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(model.call_count,4)
         self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
 
+    def test_strict_transport_fallback_does_not_spend_contract_correction(self):
+        from dataclasses import replace
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import threading
+        from webapp.workflow_agents import execute,AgentReplyError
+        from webapp.specialist_profiles import get
+        policy=replace(get('media_planner'),max_turns=6,max_correction_rounds=1,finalize_rounds=2)
+        task={**self.task,'profile':policy.snapshot()}
+        proposal={'proposal_id':'after-strict-fallback','base_graph_version':0,'reason':'Produce the authorized report',
+                  'add_tasks':[fixtures.script()],'sealed':True}
+        calls=0
+        def respond(*args,**kwargs):
+            nonlocal calls;calls+=1
+            if calls==1:
+                error=AgentReplyError('',code='invalid_tool_arguments');error.strict_not_enforced=True
+                error.details=[{'path':'primary','type':'enum','message':'Value violates its declared enum constraint'}]
+                raise error
+            if calls==2:
+                self.assertIn('"correction_rounds_remaining":1',args[4])
+                self.assertFalse(kwargs['transport']['strict'])
+            return self.bind_reply({'action':'proposal','proposal':proposal})
+        with self.lease.bind(),patch('webapp.workflow_agents.get_profile',return_value=policy), \
+             patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task)
+        self.assertEqual(calls,2)
+        self.assertEqual(len(self.store.query("SELECT id FROM planner_runs WHERE status='staged'")),1)
+
     def test_invalid_proposal_is_corrected_before_any_durable_submission(self):
         from types import SimpleNamespace
         import threading

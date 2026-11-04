@@ -32,6 +32,7 @@
 ## 必须保持的不变量
 
 - Manager 提交绑定 snapshot、授权版本、graph 版本与输入 cutoff 的 ManagerResult。结果仅限 CONTINUE、APPLY_PLAN、REQUEST_AUTHORIZATION、REQUEST_USER_INPUT、COMPLETE、NEW_RUN_REQUIRED；只有 APPLY_PLAN/COMPLETE 携带 Proposal；专业 Agent 的 JSON 或进程退出码不构成业务成功。
+- `delivery_stage`表示Task的实际输出文件可直接交付，不表示它是DAG最后一步。Reviewer、Diagnostician、证据和内部检查报告不得成为交付阶段；sealed图必须包含实际业务交付物。内容Reviewer可以阻断上游，但其JSON报告不取得上游媒体的交付所有权。
 - 只有 Orchestrator 提交正式 Task/Workflow 状态、批准产物和最终交付。
 - 领取必须同时满足 `ready` 和空 `lease_id`。执行器提交结果后，调度器不得在控制面处理之前
   重领；没有结果的中断也必须先经过确定性恢复判断。
@@ -73,6 +74,8 @@ Planner 首轮只接收冻结能力摘要；完整 operation 契约通过 `contr
 完整发布必须绑定冻结源码摘要，完成 Python、JavaScript、实际浏览器及对应真机 case。
 修改 case 时维护[审查矩阵](../real-case-campaign/dynamic-case-review.md)；报告区分业务成功、
 模型失败已正确处理、依赖阻塞、程序缺陷、未触发边界和未执行，不把采样缺口计为通过。
+
+Final Reviewer的检查回执同时提供内部inspection_id、短candidate_key、不可变ref及是否可交付。证据引用inspection_id；最终deliverables/primary优先使用candidate_key，宿主在当前attempt和snapshot内解析。精确ref、唯一basename及权威output role可规范化；单一已检查候选可以由宿主自动补齐选择。旧attempt、任意路径和歧义映射拒绝。发布器只接收控制器再次校验后的不可变ref。
 
 共享基础设施的systemd生命周期不得控制独立业务实例：共享PostgreSQL使用Wants/After，不使用Requires/BindsTo/PartOf形成连带停止。自身media/watchdog仍按实际需要保持强依赖。新增依赖须以专用临时服务验证停止与恢复行为，不能通过重启main共享服务做回归。
 

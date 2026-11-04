@@ -15,6 +15,16 @@ from tests.test_dynamic_graph import script
 
 @unittest.skipUnless(os.geteuid()==0 and shutil.which('bwrap'),'Requires privileged sandbox')
 class DynamicExecutionTests(unittest.TestCase):
+    def test_review_contract_and_model_token_exhaustion_are_distinct(self):
+        from webapp.task_leases import TaskQuotaReached
+        from webapp.workflow_executor import quota_error_code
+        review={'control_kind':'REVIEW'}
+        contract=TaskQuotaReached('finalize exhausted',category='agent_finalize',scope='turn',used=2,limit=2)
+        tokens=TaskQuotaReached('tokens exhausted',category='model_tokens',scope='workflow',used=100,limit=100)
+        self.assertEqual(quota_error_code(review,contract),'review_contract_exhausted')
+        self.assertEqual(quota_error_code(review,tokens),'model_token_budget_exhausted')
+        self.assertEqual(quota_error_code({},contract),'budget_exhausted')
+
     def test_rolling_graph_executes_on_two_nodes_and_publishes_only_after_frozen_review(self):
         from webapp import agent_store,workflow_graph as graph
         from webapp.workflow_orchestrator import Orchestrator
@@ -87,9 +97,10 @@ class DynamicExecutionTests(unittest.TestCase):
                     self.assertIn('first report extended',conversation)
                     import re
                     inspection=re.findall(r'"inspection_id":"([a-f0-9]{32})"',conversation)[-1]
+                    candidate=re.findall(r'"candidate_key":"(delivery_[0-9]+)"',conversation)[-1]
                     return {'action':'result','decision':{'snapshot_digest':frozen['snapshot_digest'],'verdict':'pass',
                         'evidence':[{'criterion_index':0,'observation':'Read the combined report text','inspection_id':inspection}],
-                        'deliverables':[inspection]}}
+                        'deliverables':[candidate],'primary':candidate}}
                 from tests.test_dynamic_graph import envelope
                 def bound_model(host,lease,*args,**kwargs):
                     reply=model(host,lease,*args,**kwargs)

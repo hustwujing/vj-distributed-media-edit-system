@@ -71,6 +71,8 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 `structured-profile-v3` 使用新命令和 strict 优先策略。网关明确拒绝 strict，或返回违反传输 Schema 的参数时，按有界策略回退非 strict 并保留字段错误反馈；超时、鉴权、限流或 5xx 不作为 strict 不支持的证据。本地 Schema、业务契约、证据和授权检查始终执行。选用 Claude 模型不表示切换到 Claude Code SDK harness。
 
+最终审查的证据使用内部inspection ID，交付选择使用本次检查生成的短candidate key；宿主将其绑定当前Run、attempt、快照和不可变文件。实际媒体Task拥有交付资格，视觉审查/诊断JSON只负责放行或拒绝，不能替代用户成果。
+
 Claude / DeepSeek 的指定模型可显式配置版本化本地输入预算预估，以适配缺少原生计数端点的路由。参考分词、校准余量与图片预算分别记录；预估用于准入，不冒充厂商实际用量。实际回执缺失或矛盾时保留预算并标记待核实。说明见[计数改造记录](docs/model-token-counting-gap.md)，接入规则见[LLM 开发规范](docs/development/add-llm-provider.md)。
 
 ## 开发与测试

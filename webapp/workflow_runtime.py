@@ -31,6 +31,15 @@ class StepFailure(RuntimeError):
         super().__init__(diagnostic.get('message','本地步骤失败'))
 
 
+def resolve_acceptance_output_roles(acceptance,roles):
+    """Bind registered operation output roles to this attempt's actual files."""
+    roles=roles or {};result=[]
+    for rule in acceptance:
+        target=roles.get(rule.get('file'))
+        result.append({**rule,'file':str(target)} if target else rule)
+    return result
+
+
 class Adapter:
     def __init__(self, store, model, socket_dir):
         self.store, self.model, self.socket_dir = store, model, Path(socket_dir)
@@ -738,7 +747,8 @@ class Adapter:
     @measured('validate')
     def validate(self,w,s,files):
         env=self.environment(w)
-        payload={'files':files,'acceptance':s['spec'].get('acceptance',[])}
+        role_map=getattr(files,'roles',None) or s.get('quality',{}).get('output_roles') or {}
+        payload={'files':files,'acceptance':resolve_acceptance_output_roles(s['spec'].get('acceptance',[]),role_map)}
         from .operations import for_step
         operation=for_step(s['spec'])
         if operation and operation.evidence_only:
@@ -773,7 +783,7 @@ class Adapter:
                 output.seek(0);report=json.loads(output.read(2*1024**2))
                 from .operations import for_step
                 from .operation_result import validate_contract
-                return validate_contract(for_step(s['spec']),report,getattr(files,'roles',None) or s.get('quality',{}).get('output_roles'))
+                return validate_contract(for_step(s['spec']),report,role_map)
         finally:path.unlink(missing_ok=True)
 
     def publish_candidate(self,w,files):

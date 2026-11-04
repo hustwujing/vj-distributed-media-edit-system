@@ -7,6 +7,14 @@ from .task_leases import LeaseLost,TaskQuotaReached
 from .task_lifecycle import TaskLimitReached
 
 
+def quota_error_code(task,exc):
+    category=exc.diagnostic.get('category')
+    if category=='model_tokens':return 'model_token_budget_exhausted'
+    if task.get('control_kind')=='REVIEW' and category in ('agent_turns','agent_seconds','agent_finalize'):
+        return 'review_contract_exhausted'
+    return 'budget_exhausted'
+
+
 def validate_candidate(adapter,workflow,step,files):
     """Model-authored acceptance cannot remove minimum media integrity checks."""
     from pathlib import Path
@@ -128,7 +136,7 @@ def _execute(host,lease):
             status=exc.diagnostic.get('http_status');transient_model=status==429 or isinstance(status,int) and status>=500
         transient_model=bool(task.get('control_kind') and task['type']=='agent' and transient_model)
         if isinstance(exc,TaskQuotaReached):
-            code=('review_incomplete' if task.get('control_kind')=='REVIEW' and exc.diagnostic.get('category') in ('agent_turns','agent_seconds') else 'budget_exhausted')
+            code=quota_error_code(task,exc)
         elif classification=='pre_submit':code='pre_submit'
         elif classification=='model_result':code='model_result'
         elif task['type']=='agent':code='agent_failed'

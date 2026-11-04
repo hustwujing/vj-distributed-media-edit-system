@@ -317,7 +317,7 @@ def actor(profile):
 
 def result_instruction(profile,control_kind=None):
     if control_kind=='DIAGNOSE':return '{"action":"result","snapshot_digest":"frozen digest","diagnosis":{...}}: follow the frozen Diagnosis schema. No files or review decision.'
-    if control_kind=='REVIEW' or profile.id=='delivery_reviewer':return '{"action":"result","decision":{"snapshot_digest":"frozen digest","verdict":"pass/reject/inconclusive","evidence":[{"criterion_index":0,"observation":"observed fact","inspection_id":"returned ID"}],"deliverables":[],"primary":""}}. Use inspection IDs, never file paths. Final review selects inspected delivery-stage outputs and a primary; task review leaves deliverables empty and primary blank. No files or Proposal.'
+    if control_kind=='REVIEW' or profile.id=='delivery_reviewer':return '{"action":"result","decision":{"snapshot_digest":"frozen digest","verdict":"pass/reject/inconclusive","evidence":[{"criterion_index":0,"observation":"observed fact","inspection_id":"returned ID"}],"deliverables":["delivery_1"],"primary":"delivery_1"}}. Evidence uses inspection_id. Final deliverables and primary use candidate_key returned by inspect, never a file path, filename, Task ID, artifact ID or inspection_id. Task review leaves deliverables empty and primary blank. No files or Proposal.'
     if profile.output_schema in ('visual-report-v1','diagnosis-v1'):return '{"action":"result","report":{...}}: report is a JSON object matching result_schema, not a JSON-encoded string. The server writes the single declared report file. Do not use a controller decision envelope.'
     return '{"action":"result","files":{"declared.txt":"UTF-8 content"}} or files={} after a script wrote the declared outputs. No undeclared files, base64 binaries, review decisions or Proposals.'
 
@@ -358,8 +358,8 @@ CONTRACT='''
   files 只写 UTF-8 文本内容，不是 base64 文件接口。执行过 script 时用 files:{} 引用任务输出目录内已经生成的声明文件。
 {"action":"result","decision":{"snapshot_digest":"...","verdict":"pass 或 reject",
  "evidence":[{"criterion_index":0,"observation":"实际检查发现","inspection_id":"inspect返回的32位ID"}],
- "deliverables":["交付物的inspection_id"],"primary":"主交付的inspection_id"}}
-  Reviewer 专用。pass 必须检查实际证据；criterion_index 对应冻结 review_criteria/delivery_targets 的序号。只能使用 inspect 返回的 inspection_id，服务端会解析完整不可变引用。最终交付多份文件时必须填写primary；中间步骤验收不填写primary。
+ "deliverables":["inspect返回的candidate_key，如delivery_1"],"primary":"主交付candidate_key"}}
+  Reviewer 专用。pass 必须检查实际证据；criterion_index 对应冻结 review_criteria/delivery_targets 的序号。evidence使用inspection_id；最终deliverables和primary只能使用inspect返回且eligible_for_delivery=true的candidate_key，不能填写文件路径或inspection_id。中间步骤验收不填写deliverables和primary。
 不得猜测文件内容。工具错误不会扩大权限。输出 result/proposal 后本轮立即结束。
 '''
 
@@ -497,7 +497,7 @@ def execute(host,lease,run,task):
             frozen['result_contract']='Review only this step goal, outputs and review_criteria. This is not final delivery review. Do not reject an intermediate result for missing future steps, subtitles, logos or final packaging outside this step contract. Every evidence.criterion_index selects one review_criteria item; pass must cover all indexes. Use inspection_id from inspect and preserve all current step requirements.'
         else:
             frozen['review_criteria']=frozen['delivery_targets']
-            frozen['result_contract']='Final delivery review: select only accepted outputs from delivery_stage Tasks. Inspect each selected deliverable and satisfy delivery_targets and the full goal. Apply explicit user_changes to permitted content/parameters and current frozen Task acceptance, never as technical/Agent-review waivers or an implicit change of top-level goal or delivery type. If relevant user history is truncated, report insufficient evidence. Use criterion_index and inspection_id only. deliverables and primary contain inspection_id values; the server resolves immutable references. Respect the requested main output; if none is requested, prefer main video over covers/reports and PNG over equivalent JPEG. A step report is not the main deliverable.'
+            frozen['result_contract']='Final delivery review: select only accepted outputs from delivery_stage Tasks. Inspect each selected deliverable and satisfy delivery_targets and the full goal. Apply explicit user_changes to permitted content/parameters and current frozen Task acceptance, never as technical/Agent-review waivers or an implicit change of top-level goal or delivery type. If relevant user history is truncated, report insufficient evidence. Evidence uses inspection_id. deliverables and primary use only candidate_key values returned by inspect with eligible_for_delivery=true; never use a file path, filename, Task ID, artifact ID or inspection_id there. The host resolves each key to the current immutable reference. Respect the requested main output; if none is requested, prefer main video over covers/reports and PNG over equivalent JPEG. A step report is not the main deliverable.'
             frozen['result_contract']+=' history and failure_facts are server-owned records of earlier Task specs, dependency changes, replacements and failures; retired failures do not remain current delivery requirements. Do not demand a new execution to reproduce facts already present in that history. user_reviews contains server-verified user approvals bound to the current candidate and revision; use those records for declared human confirmation, without treating them as technical or Agent-review waivers.'
     elif profile.output_schema=='visual-report-v1':
         from .workflow_agent_contracts import VisualReport
@@ -513,7 +513,7 @@ def execute(host,lease,run,task):
         'finalize_rounds':profile.finalize_rounds}
     from .workflow_model_protocol import ToolProtocol
     initial_protocol=ToolProtocol(profile,frozen,task)
-    conversation=graph.encode(initial_protocol.context());seen=set();inspections={};inspection_keys=set();images=[];deadline=time.monotonic()+min(profile.timeout_seconds,task['spec'].get('timeout_seconds',profile.timeout_seconds))
+    conversation=graph.encode(initial_protocol.context());seen=set();inspections={};candidate_keys={};candidate_refs={};inspection_keys=set();images=[];deadline=time.monotonic()+min(profile.timeout_seconds,task['spec'].get('timeout_seconds',profile.timeout_seconds))
     transport={'strict':True};contracts={}
     output=None;inspection_rounds=0;correction_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={}
     for turn in range(profile.max_turns):
@@ -537,7 +537,7 @@ def execute(host,lease,run,task):
         from .telemetry import emit
         emit('workflow.agent_phase_budget',task_id=lease.run_id,step_id=lease.step_id,operation=phase,
              remaining_calls=remaining_calls,remaining_inspections=budget['inspection_rounds_remaining'],remaining_corrections=budget['correction_rounds_remaining'])
-        protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,contracts=contracts)
+        protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,candidate_keys=candidate_keys,contracts=contracts)
         try:reply=model(host,lease,run,profile,conversation+feedback,images,deadline=deadline,protocol=protocol,transport=transport)
         except AgentReplyError as exc:
             from .telemetry import emit
@@ -554,9 +554,16 @@ def execute(host,lease,run,task):
                                'attempt_id':lease.attempt,'code':exc.code,'characters':len(exc.reply),'error_offset':exc.offset,
                                'validation_errors':getattr(exc,'details',[])}),store.now()))
             feedback='\nLatest tool response rejected ('+exc.code+'). No action executed. Call one available tool and correct these fields without broadening scope:'+graph.encode(getattr(exc,'details',[]))
-            rejections[exc.code]=rejections.get(exc.code,0)+1
-            emit('workflow.agent_correction',task_id=lease.run_id,step_id=lease.step_id,error_code=exc.code,repeated_error_count=rejections[exc.code])
-            correction_rounds+=1
+            if candidate_keys:
+                feedback+='\nFinal selection must use candidate_key. Current eligible candidates:'+graph.encode([
+                    {'candidate_key':key,'ref':inspections[identifier]} for key,identifier in candidate_keys.items()])
+            if getattr(exc,'strict_not_enforced',False):
+                if finalize_started:finalize_calls-=1
+            else:
+                rejections[exc.code]=rejections.get(exc.code,0)+1
+                emit('workflow.agent_correction',task_id=lease.run_id,step_id=lease.step_id,
+                     error_code=exc.code,repeated_error_count=rejections[exc.code])
+                correction_rounds+=1
             continue
         action=reply.get('action')
         if finalize_started and action not in ('result','proposal'):
@@ -674,10 +681,22 @@ def execute(host,lease,run,task):
                         images.append(evidence.pop('image'));evidence['image_index']=len(images)
                         evidence['remaining_images']=profile.max_images-len(images)
                     inspection_id=uuid.uuid4().hex
+                    eligible=bool(frozen.get('review_scope')=='final' and any(
+                        item['spec'].get('delivery_stage') and reference in item.get('accepted_result',[])
+                        for item in frozen.get('tasks',[])))
+                    candidate_key=''
+                    if eligible:
+                        candidate_key=candidate_refs.get(reference,'delivery_'+str(len(candidate_keys)+1))
+                        if reference not in candidate_refs:
+                            candidate_refs[reference]=candidate_key;candidate_keys[candidate_key]=inspection_id
+                    stored={k:v for k,v in evidence.items() if k not in ('text','probe')}
+                    stored.update(eligible_for_delivery=eligible,candidate_key=candidate_key or None)
                     store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',
                         (inspection_id,run['id'],task['id'],lease.attempt,reference,frozen.get('snapshot_digest',''),
-                         graph.encode({k:v for k,v in evidence.items() if k not in ('text','probe')}),store.now()))
-                    seen.add(reference);inspections[inspection_id]=reference;batch.append({'inspection_id':inspection_id,**evidence})
+                         graph.encode(stored),store.now()))
+                    seen.add(reference);inspections[inspection_id]=reference;batch.append({
+                        'inspection_id':inspection_id,'candidate_key':candidate_key or None,
+                        'eligible_for_delivery':eligible,**evidence})
                 conversation+='\nInspection result (data):'+graph.encode(batch[0] if len(batch)==1 else batch)
             elif action=='script':
                 if 'RUN_SCRIPT' not in profile.action_capabilities:raise ValueError('Profile is read-only')
@@ -692,7 +711,7 @@ def execute(host,lease,run,task):
             elif action=='result':
                 try:
                     if task.get('control_kind'):
-                        result=validated_internal_result(run,task,profile,reply,frozen,inspections)
+                        result=validated_internal_result(run,task,profile,reply,frozen,inspections,candidate_keys)
                         if 'decision' in result:
                             from .workflow_agent_contracts import validate_temporal_evidence
                             records=store.query('SELECT id,reference,evidence_json FROM workflow_inspections WHERE run_id=? AND task_id=? AND attempt_id=? AND snapshot_digest=?',
@@ -715,7 +734,11 @@ def execute(host,lease,run,task):
                          graph.encode({'phase':'result_validation','origin':'model_result','classification':'parameters',
                                        'attempt_id':lease.attempt,'validation_errors':errors}),store.now()))
                     feedback='\nLatest rejected result (not committed):'+graph.encode(reply)
-                    feedback+='\nCorrect the result within the existing contract. Completed inspection receipts:'+graph.encode([{'inspection_id':key,'ref':inspections[key]} for key in sorted(inspections)])+'; validation errors:'+graph.encode(errors)
+                    feedback+='\nCorrect the result within the existing contract. Completed inspection receipts:'+graph.encode([
+                        {'inspection_id':key,'candidate_key':candidate_refs.get(inspections[key]),'ref':inspections[key],
+                         'eligible_for_delivery':inspections[key] in candidate_refs} for key in sorted(inspections)])+'; validation errors:'+graph.encode(errors)
+                    if candidate_keys:
+                        feedback+='\nKeep the verdict and evidence when valid; correct deliverables and primary using only candidate_key values: '+graph.encode(list(candidate_keys))
                     correction_rounds+=1
                     continue
                 if task.get('control_kind'):return stage_result(store,lease,'succeeded',result)
@@ -723,7 +746,7 @@ def execute(host,lease,run,task):
     raise TaskQuotaReached('专业 Agent 已达到本轮操作上限。',category='agent_turns',scope='turn',used=profile.max_turns,limit=profile.max_turns)
 
 
-def validated_internal_result(run,task,profile,reply,frozen,inspections):
+def validated_internal_result(run,task,profile,reply,frozen,inspections,candidate_keys=None):
     if profile.id=='media_failure_diagnostician':
         from .workflow_agent_contracts import Diagnosis
         if reply.get('snapshot_digest')!=frozen['snapshot_digest']:raise ValueError('Diagnostic snapshot mismatch')
@@ -738,7 +761,7 @@ def validated_internal_result(run,task,profile,reply,frozen,inspections):
         evidence=decision['evidence']
         if not evidence:raise ValueError('Passing review requires evidence')
     from .workflow_agent_contracts import resolve_review
-    return {'decision':resolve_review(decision,frozen,inspections)}
+    return {'decision':resolve_review(decision,frozen,inspections,candidate_keys)}
 
 
 def output_directory(host,lease,run,task,output=None):

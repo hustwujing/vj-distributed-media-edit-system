@@ -193,6 +193,8 @@ class Task(Contract):
             if self.outputs and set(self.outputs)!=set(self.output_roles.values()):raise ValueError('Agent outputs must match its declared output role filenames')
             from .specialist_profiles import result_model
             schema=result_model(profile)
+            if self.delivery_stage and profile.role in ('REVIEWER','DIAGNOSTICIAN'):
+                raise ValueError('Reviewer and diagnostician report Tasks cannot be delivery stages; mark the actual business output Task for delivery')
             if schema:
                 if len(self.output_roles)!=1:raise ValueError('Report profiles produce exactly one typed JSON report')
                 if any(not name.endswith('.json') for name in self.output_roles.values()):raise ValueError('This Agent profile produces JSON reports only')

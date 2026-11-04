@@ -45,7 +45,9 @@ Manager 不能将业务 Agent 伪装成控制角色，质量批准也不能授�
 
 `inspect.refs` 可一次检查最多8个冻结引用，整批计一个检查轮、每项独立保存证据。进入 finalize 阶段后禁止继续检查；格式错误使用独立纠正预算。相同不可变引用和 offset 不得通过重复审查随机获得通过结论。
 
-模型提交最终验收时，`ReviewDecision.deliverables`和`primary`使用本次检查返回的inspection_id；worker校验其属于当前冻结快照并解析为完整不可变引用后，再提交控制器。`primary`必须属于已检查的`deliverables`；多文件通过时必填。中间步骤验收不得声明最终主交付。主成果由用户目标和验收决定，不由列表首项或`final.mp4`等文件名猜测；解析、worker验证、控制器验证和发布阶段须一致。
+模型提交最终验收时，evidence使用本次检查返回的`inspection_id`；`ReviewDecision.deliverables`和`primary`优先使用同一回执中`eligible_for_delivery=true`的短`candidate_key`。worker将key绑定当前attempt、冻结快照和inspection，再解析为完整不可变引用后提交控制器。当前候选的精确ref、唯一basename和权威output role可以规范化为同一key；只有一个已检查可交付候选且verdict=pass时，宿主可自动补齐deliverables/primary。任意路径、旧attempt或歧义引用仍拒绝。`primary`必须属于已检查的`deliverables`；多文件通过时必填。中间步骤验收不得声明最终主交付。主成果由用户目标和验收决定，不由列表首项或`final.mp4`等文件名跨候选猜测；解析、worker验证、控制器验证和发布阶段须一致。
+
+Reviewer和Diagnostician的JSON报告只用于放行、拒绝和诊断，不得设置`delivery_stage=true`。实际媒体或用户要求的业务文件Task拥有交付资格；Reviewer Task使用current-stage验收并可阻断上游。Manager提示应给出实际产物/审查报告的正反例，服务端Task与sealed-plan校验仍是权威边界，不能依靠模型自觉。
 
 inspect须按格式分流：ZIP只读取有界目录元数据，不解包或解码成员，明确contents_verified=false；它不能进入媒体探测。未知格式及超限目录返回有界输入反馈，不记录伪造检查证据。媒体解码故障保留异常，诊断同时存储引用SHA256以便与不可变候选关联，不记录原始私有路径。
 

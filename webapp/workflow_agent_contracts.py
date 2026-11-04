@@ -10,11 +10,6 @@ def review_criteria(snapshot):
 
 def validate_review_scope(decision,snapshot):
     """A step verdict cannot introduce requirements from later delivery stages."""
-    if snapshot.get('review_scope')=='final' and decision['verdict']=='pass':
-        selected=set(decision['deliverables'])
-        if not selected:raise ValueError('Final review must select deliverables')
-        if len(selected)>1 and not decision.get('primary'):
-            raise ValueError('Final review must explicitly select primary from deliverables; respect the user primary requirement')
     if snapshot.get('review_scope')!='task':return
     if decision.get('primary'):raise ValueError('Step review cannot declare a final primary deliverable')
     expected=set(range(len(review_criteria(snapshot))))
@@ -41,15 +36,13 @@ class ReviewDecision(Contract):
     snapshot_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
     verdict:Literal['pass','reject','inconclusive']
     evidence:list[Evidence]=Field(default_factory=list,max_length=100)
-    deliverables:list[str]=Field(default_factory=list,max_length=100,description='inspection_id values for selected deliverables')
+    deliverables:list[str]=Field(default_factory=list,max_length=100,description='candidate_key values returned by inspect for selected deliverables')
     primary:str=Field(default='',max_length=500,
-        description='For final passing review, select the primary deliverable by inspection_id. Leave empty for step reviews.')
+        description='For final passing review, select the primary deliverable by candidate_key. Leave empty for step reviews.')
     feedback:str=Field(default='',max_length=4000)
     @model_validator(mode='after')
     def supported(self):
         if self.verdict=='pass' and not self.evidence:raise ValueError('Passing review requires evidence')
-        if self.primary and self.primary not in self.deliverables:
-            raise ValueError('Primary must be one of the selected deliverables')
         return self
 
 
@@ -67,16 +60,48 @@ class ResolvedReviewDecision(Contract):
         return self
 
 
-def resolve_review(decision,snapshot,inspections):
+def review_candidate_aliases(snapshot,inspections,candidate_keys):
+    from pathlib import PurePosixPath
+    choices={};ambiguous=set()
+    def add(alias,identifier):
+        if not alias or alias in ambiguous:return
+        if alias in choices and choices[alias]!=identifier:choices.pop(alias);ambiguous.add(alias)
+        else:choices[alias]=identifier
+    for key,identifier in (candidate_keys or {}).items():
+        reference=inspections.get(identifier)
+        if not reference:continue
+        add(key,identifier);add(reference,identifier);add(PurePosixPath(reference).name,identifier)
+        for task in snapshot.get('tasks',[]):
+            if not task['spec'].get('delivery_stage'):continue
+            for role,path in task.get('quality',{}).get('output_roles',{}).items():
+                if path==reference:add(role,identifier)
+    return choices
+
+
+def resolve_review(decision,snapshot,inspections,candidate_keys=None):
     criteria=review_criteria(snapshot)
     if any(item['criterion_index']>=len(criteria) for item in decision['evidence']):raise ValueError('Unknown frozen criterion index')
-    ids={item['inspection_id'] for item in decision['evidence']}|set(decision['deliverables'])|({decision['primary']} if decision.get('primary') else set())
-    if not ids<=set(inspections):raise ValueError('Review must use completed inspection_id values from this attempt')
+    evidence_ids={item['inspection_id'] for item in decision['evidence']}
+    if not evidence_ids<=set(inspections):raise ValueError('Review evidence must use completed inspection_id values from this attempt')
+    candidate_keys=candidate_keys or {};aliases=review_candidate_aliases(snapshot,inspections,candidate_keys)
+    def select(value):
+        if value in aliases:return aliases[value]
+        raise ValueError('Final selection must use a current candidate_key or another unique alias from the same inspect receipt')
+    selected=[select(value) for value in decision['deliverables']]
+    if snapshot.get('review_scope')=='final' and decision['verdict']=='pass' and not selected:
+        unique=list(dict.fromkeys(candidate_keys.values()))
+        if len(unique)==1:selected=unique
+    primary=select(decision['primary']) if decision.get('primary') else ''
+    if not primary and len(set(selected))==1:primary=selected[0]
+    if snapshot.get('review_scope')=='final' and decision['verdict']=='pass':
+        if not selected:raise ValueError('Final review must select an inspected eligible deliverable')
+        if len(set(selected))>1 and not primary:raise ValueError('Multiple final deliverables require an explicit primary candidate_key')
+    if primary and primary not in selected:raise ValueError('Primary candidate_key must be selected')
     return ResolvedReviewDecision.model_validate({**decision,
         'evidence':[{'criterion':criteria[item['criterion_index']],'observation':item['observation'],
                      'ref':inspections[item['inspection_id']],'inspection_id':item['inspection_id']} for item in decision['evidence']],
-        'deliverables':[inspections[item] for item in decision['deliverables']],
-        'primary':inspections[decision['primary']] if decision.get('primary') else ''}).model_dump()
+        'deliverables':[inspections[item] for item in selected],
+        'primary':inspections[primary] if primary else ''}).model_dump()
 
 
 def validate_resolved_review(decision, snapshot, inspections):

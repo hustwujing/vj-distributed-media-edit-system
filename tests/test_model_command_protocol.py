@@ -143,6 +143,24 @@ class ModelCommandTests(unittest.TestCase):
         wire['evidence'][0]['inspection_id']='c'*32
         with self.assertRaises(ValidationError):p.decode('submit_result',wire)
 
+    def test_final_review_selects_short_candidate_keys_not_internal_ids_or_paths(self):
+        from webapp.workflow_agent_contracts import ReviewDecision
+        f=frozen();f.update(result_schema=ReviewDecision.model_json_schema(),review_scope='final')
+        inspections={'b'*32:'edit/final.png'};keys={'delivery_1':'b'*32}
+        f['tasks'][0].update(accepted_result=['edit/final.png'],quality={'output_roles':{'primary_image':'edit/final.png'}})
+        p=ToolProtocol(profile('delivery_reviewer'),f,{'control_kind':'REVIEW'},inspections=inspections,candidate_keys=keys)
+        value={'verdict':'pass','evidence':[{'criterion_index':0,'observation':'Checked','inspection_id':'b'*32}],
+               'deliverables':['delivery_1'],'primary':'delivery_1'}
+        wire=transform(value,p.schemas['submit_result'],encode=True)
+        self.assertEqual(p.decode('submit_result',wire)['decision']['primary'],'delivery_1')
+        exact=transform({**value,'deliverables':['edit/final.png'],'primary':'edit/final.png'},p.schemas['submit_result'],encode=True)
+        self.assertEqual(p.decode('submit_result',exact)['decision']['primary'],'edit/final.png')
+        role=transform({**value,'deliverables':['primary_image'],'primary':'primary_image'},p.schemas['submit_result'],encode=True)
+        self.assertEqual(p.decode('submit_result',role)['decision']['primary'],'primary_image')
+        for invalid in ('b'*32,'edit/other.png'):
+            wire=transform(value,p.schemas['submit_result'],encode=True);wire['primary']=invalid
+            with self.assertRaises(ValidationError):p.decode('submit_result',wire)
+
     def test_gateway_fallback_is_explicit_and_never_auth_or_generic_failure(self):
         self.assertTrue(strict_unsupported(400,{'error':{'code':'unsupported_parameter','param':'tools.0.strict'}}))
         self.assertTrue(strict_unsupported(422,{'error':{'code':'strict_not_supported'}}))

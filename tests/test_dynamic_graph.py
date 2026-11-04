@@ -89,8 +89,10 @@ class DynamicGraphTests(unittest.TestCase):
         profile=next(p for p in catalogue() if p['id']=='visual_quality_reviewer')
         self.assertIn('verdict',profile['result_schema']['properties'])
         task=script(type='agent',profile='visual_quality_reviewer',argv=[],outputs=['report.json'],
-                    output_roles={'report':'report.json'},acceptance=[{'kind':'json','required_keys':['verdict']}])
+                    output_roles={'report':'report.json'},acceptance=[{'kind':'json','required_keys':['verdict']}],delivery_stage=False)
         graph.Task.model_validate(task)
+        with self.assertRaisesRegex(ValueError,'cannot be delivery stages'):
+            graph.Task.model_validate({**task,'delivery_stage':True})
         with self.assertRaisesRegex(ValueError,'fixed Agent result schema'):
             graph.Task.model_validate({**task,'acceptance':[{'kind':'json','required_keys':['verified_lines']}]})
         with self.assertRaisesRegex(ValueError,'JSON reports only'):
@@ -358,21 +360,29 @@ class DynamicGraphTests(unittest.TestCase):
         task=next(t for t in graph.work_items(graph.get(self.store,run['id'])) if t['id']==row['task_id'])
         frozen={**json.loads(row['snapshot_json']),'snapshot_digest':row['snapshot_digest']}
         selected=['edit/master.mp4','edit/final.mp4']
-        ids=['a'*32,'b'*32];inspections=dict(zip(ids,selected))
-        decision={'snapshot_digest':row['snapshot_digest'],'verdict':'pass','deliverables':ids,
+        ids=['a'*32,'b'*32];inspections=dict(zip(ids,selected));keys={'delivery_1':ids[0],'delivery_2':ids[1]}
+        decision={'snapshot_digest':row['snapshot_digest'],'verdict':'pass','deliverables':list(keys),
                   'evidence':[{'criterion_index':0,'observation':'Checked both variants','inspection_id':ids[0]}]}
-        for invalid in (decision,{**decision,'primary':'f'*32}):
-            with self.assertRaisesRegex(ValueError,'[Pp]rimary'):
-                validated_internal_result(run,task,get('delivery_reviewer'),{'decision':invalid},frozen,inspections)
+        with self.assertRaisesRegex(ValueError,'[Pp]rimary'):
+            validated_internal_result(run,task,get('delivery_reviewer'),{'decision':decision},frozen,inspections,keys)
+        with self.assertRaisesRegex(ValueError,'candidate_key'):
+            validated_internal_result(run,task,get('delivery_reviewer'),{'decision':{**decision,'primary':'f'*32}},frozen,inspections,keys)
         self.assertEqual(self.store.query('SELECT status FROM workflow_reviews')[0]['status'],'pending')
-        valid={**decision,'primary':ids[0]}
+        valid={**decision,'primary':'delivery_1'}
         with self.assertRaisesRegex(ValueError,'inspection_id'):
-            validated_internal_result(run,task,get('delivery_reviewer'),{'decision':valid},frozen,{ids[1]:selected[1]})
+            validated_internal_result(run,task,get('delivery_reviewer'),{'decision':valid},frozen,{ids[1]:selected[1]},keys)
         for identifier,reference in inspections.items():
             self.store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',
                 (identifier,run['id'],task['id'],task['lease_id'],reference,row['snapshot_digest'],'{}',self.store.now()))
-        resolved=validated_internal_result(run,task,get('delivery_reviewer'),{'decision':valid},frozen,inspections)['decision']
+        resolved=validated_internal_result(run,task,get('delivery_reviewer'),{'decision':valid},frozen,inspections,keys)['decision']
         self.assertEqual(resolved['primary'],selected[0])
+        by_ref={**valid,'deliverables':selected,'primary':selected[0]}
+        self.assertEqual(validated_internal_result(run,task,get('delivery_reviewer'),{'decision':by_ref},frozen,inspections,keys)['decision']['primary'],selected[0])
+        by_name={**valid,'deliverables':['master.mp4','final.mp4'],'primary':'master.mp4'}
+        self.assertEqual(validated_internal_result(run,task,get('delivery_reviewer'),{'decision':by_name},frozen,inspections,keys)['decision']['primary'],selected[0])
+        only={'delivery_1':ids[0]};automatic={**valid,'deliverables':[],'primary':''}
+        resolved=validated_internal_result(run,task,get('delivery_reviewer'),{'decision':automatic},frozen,{ids[0]:selected[0]},only)['decision']
+        self.assertEqual((resolved['deliverables'],resolved['primary']),([selected[0]],selected[0]))
         self.orchestrator.accept_review(run,task,{'decision':resolved})
         accepted=self.store.query('SELECT status,decision_json FROM workflow_reviews')[0]
         self.assertEqual(accepted['status'],'passed');self.assertEqual(json.loads(accepted['decision_json'])['primary'],selected[0])

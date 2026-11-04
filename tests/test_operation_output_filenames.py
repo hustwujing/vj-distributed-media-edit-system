@@ -3,6 +3,14 @@ from webapp.operations import get
 from webapp.workflows import Step
 
 class OperationOutputFilenameTests(unittest.TestCase):
+    def test_registered_output_role_is_bound_to_the_attempt_file_before_quality_check(self):
+        from webapp.workflow_runtime import resolve_acceptance_output_roles
+        rules=[{'kind':'image','file':'primary_image','width':512},{'kind':'file','file':'literal.png'}]
+        resolved=resolve_acceptance_output_roles(rules,{'primary_image':'edit/run/output/image.png'})
+        self.assertEqual(resolved[0]['file'],'edit/run/output/image.png')
+        self.assertEqual(resolved[1]['file'],'literal.png')
+        self.assertEqual(rules[0]['file'],'primary_image')
+
     def step(self,operation,name):
         return {'id':'operation','name':'operation','kind':'operation','operation':operation,'inputs':{'source':{'asset':'owned'}},
                 'goal':'check result','on_failure':'diagnose','parameters':{},'acceptance':[{'kind':'json','file':name}]}

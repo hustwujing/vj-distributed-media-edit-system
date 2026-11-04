@@ -17,8 +17,12 @@ class Resolution:
 def resolve(error_code,phase='local',classification='') -> Resolution:
     if error_code in ('submission_unknown','result_unavailable'):
         return Resolution('external_reconcile','External side effect state must be reconciled before any replacement call')
+    if error_code=='model_token_budget_exhausted':
+        return Resolution('user_decision','The frozen workflow model-token budget is exhausted')
+    if error_code=='review_contract_exhausted':
+        return Resolution('user_decision','The Reviewer exhausted its bounded contract-correction attempts')
     if error_code=='budget_exhausted':
-        return Resolution('user_decision','The frozen workflow budget is exhausted')
+        return Resolution('user_decision','The frozen workflow operation budget is exhausted')
     if error_code in ('poll_failed','collect_failed'):
         return Resolution('retry_same_revision','The existing external handle can be queried or collected again')
     if error_code in ('technical_validation_failed','quality_failed','model_result','pre_submit','execution_failed',

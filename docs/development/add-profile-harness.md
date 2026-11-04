@@ -51,6 +51,8 @@ structured-profile-v3通过ModelAdapter发送原生工具参数，模型传输DT
 
 严格模式是请求策略，不等于网关已执行约束。明确的strict参数拒绝可在同一预算内回退非strict；HTTP 200但返回违反传输Schema的参数时，拒绝动作、记录约束未执行，并在后续纠正使用非strict。普通超时、鉴权、限流或服务错误不能伪装成strict能力回退。每个HTTP调用保留独立回执，未知用量不能填零；本地Schema、授权及业务验证始终执行。
 
+首次发现网关未执行strict约束属于传输回退，不消耗业务契约纠错次数或finalize提交额度；同一attempt后续直接使用非strict。若非strict回复仍违反本地契约，才计入有界纠错。Reviewer的evidence引用inspection_id，最终选择使用当前inspect回执的candidate_key；字段纠错反馈须列出当前安全候选的key和展示引用，不能只返回泛化enum错误。
+
 finalize有独立调用上限，提前耗尽纠正额度后也不能把所有剩余普通轮数当作额外finalize调用。可执行动作按阶段收敛；重复错误保留计数，反馈指向实际字段，不重复堆积所有旧错误正文。
 
 ## 模型协议对照评测

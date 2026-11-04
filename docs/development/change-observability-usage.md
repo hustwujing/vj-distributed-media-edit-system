@@ -78,6 +78,8 @@
 
 观测还须区分模型预设/版本、实际 profile harness 及传输 strict 模式。记录 Schema 摘要、回退错误码和逐次调用回执；HTTP 200 不证明 strict 被执行，回退重发也不是同一条 HTTP 记录。
 
+额度终态必须区分：`model_token_budget_exhausted`表示真实模型Token准入不足，`review_contract_exhausted`表示Reviewer在有界纠错/finalize次数内未提交合法结果，普通`budget_exhausted`保留给其他执行额度。strict约束未执行的首次传输回退单列事件，不计业务纠错；页面、诊断和报告不得把turn/finalize耗尽显示为Token耗尽。
+
 ## 5. 修改诊断、采集与告警
 
 诊断只读取持久化状态、审计、调用、清理、成果及有限日志证据，不在查询中重试、取消、恢复或生成。新增建议必须有证据支持；缺失、截断和来源不可用用 `complete/gaps` 等字段明确表达。

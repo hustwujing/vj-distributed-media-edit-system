@@ -97,7 +97,10 @@ PROFILES={p.id:p for p in (
         'argv 是包含可执行程序的完整命令，如 ["python","-c","实际 Python 源码"]，不是假设已有工具的参数列表。'
         '程序验收 image/media/text/json/file 不接受 criterion；criterion 仅用于 agent/review 内容验收。'
         '专业 Agent 的结构化报告必须符合目录中的 result_schema，不能要求该 Schema 之外的字段；额外业务数据由独立脚本任务生成。'
-        'continuation=complete必须有delivery_stage=true的真实交付Task，最终Reviewer只能从其产物选择交付。'
+        'delivery_stage表示该Task的输出文件直接交付给用户，不表示它只是DAG的最后一步。continuation=complete必须有delivery_stage=true的真实媒体或业务交付Task。'
+        '视觉Reviewer、诊断、证据及其他JSON检查报告只能阻断或放行上游Task，必须delivery_stage=false；其acceptance使用stage=current。'
+        '例如render_image输出final.png时render_image.delivery_stage=true，review_image输出review.json时review_image.delivery_stage=false；反过来是非法计划。'
+        '最终Reviewer只能从真实交付Task的已验收产物选择交付，不能把review.json当作图片、视频或音频成果。'
         '内容检查使用 agent 验收；仅用户明确要求人工确认时使用 review。最终交付总会经过独立 Reviewer。',
         skills=('workflow-operations','script-runtime','media-semantics'),max_output_tokens=12000,output_schema='manager-result-v1',max_turns=16,
         max_inspection_rounds=9,max_correction_rounds=3,finalize_rounds=4),
