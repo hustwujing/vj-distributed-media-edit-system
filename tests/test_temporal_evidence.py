@@ -51,6 +51,20 @@ class TemporalEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'verified video candidates'):
             validate_temporal_evidence(decision,snapshot,[self.record([i*.5 for i in range(16)])])
 
+    def test_each_selected_video_is_checked_even_with_a_primary_video_role(self):
+        snapshot=self.snapshot();snapshot['review_scope']='final'
+        task=snapshot['tasks'][0];task['spec']['delivery_stage']=True
+        task['candidate_result']=[];task['accepted_result']=['clip.mp4','alternate.mp4']
+        task['quality']['files']=[{'name':name,'video':True} for name in task['accepted_result']]
+        first=self.record([i*.5 for i in range(16)])
+        alternate={**first,'id':'b'*32,'reference':'alternate.mp4'}
+        decision={'verdict':'pass','deliverables':['alternate.mp4'],'evidence':[{'inspection_id':'b'*32}]}
+        validate_temporal_evidence(decision,snapshot,[alternate])
+        with self.assertRaisesRegex(ValueError,'timestamped'):
+            validate_temporal_evidence({**decision,'deliverables':task['accepted_result']},snapshot,[alternate])
+        validate_temporal_evidence({**decision,'deliverables':task['accepted_result'],
+            'evidence':[{'inspection_id':'a'*32},{'inspection_id':'b'*32}]},snapshot,[first,alternate])
+
     def test_actual_video_window_has_bounded_timestamped_frames(self):
         with tempfile.TemporaryDirectory() as folder:
             source=Path(folder)/'clip.mp4'

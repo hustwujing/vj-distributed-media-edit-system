@@ -115,7 +115,8 @@ def validate_temporal_evidence(decision,snapshot,records):
         if snapshot.get('review_scope')=='final' and not files.intersection(decision['deliverables']):
             continue
         video_role=task['quality'].get('output_roles',{}).get('video')
-        video_paths={video_role} if video_role in files else {item['name'] for item in task['quality'].get('files',[]) if item.get('video') and item['name'] in files}
+        video_paths={item['name'] for item in task['quality'].get('files',[]) if item.get('video') and item['name'] in files}
+        if video_role in files:video_paths.add(video_role)
         if snapshot.get('review_scope')=='final':video_paths &= set(decision['deliverables'])
         if not video_paths:raise ValueError('Temporal review requires verified video candidates')
         for reference in video_paths:
