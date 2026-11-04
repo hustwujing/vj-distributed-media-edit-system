@@ -164,8 +164,12 @@ class Task(Contract):
     argv:list[str]=Field(default_factory=list,max_length=100,
         description='script only: complete process argv including executable, e.g. ["python", "-c", "Python source"]. Not a list of flags for an implicit tool. Omit for operation/agent.')
     outputs:list[str]=Field(default_factory=list,max_length=20)
-    preflight:list[str]=Field(default_factory=list,max_length=20)
-    config_files:list[str]=Field(default_factory=list,max_length=20)
+    preflight:list[str]=Field(default_factory=list,max_length=20,
+        description='Existing workspace script paths beginning with edit/. Not commands, package names, or environment requirements. Leave empty unless an actual preflight file exists.',
+        json_schema_extra={'items':{'type':'string','pattern':'^edit/'}})
+    config_files:list[str]=Field(default_factory=list,max_length=20,
+        description='Existing workspace configuration file paths beginning with edit/. No parent traversal or absolute paths.',
+        json_schema_extra={'items':{'type':'string','pattern':'^edit/'}})
     timeout_seconds:int=Field(default=900,ge=10,le=3600)
     retry_policy:Literal['never','safe_once']='never'
     on_failure:Literal['pause','diagnose']=Field(default='pause',description='Use diagnose for model-authored implementations when media_failure_diagnostician is authorized, so bounded repair can resume the original goal.')
@@ -553,6 +557,17 @@ def command(store,identifier,actor,action,payload=None,request_id=None):
         return {'id':request_id,'status':'rejected' if error else 'pending','error_code':error}
 
 
+class ProposalFieldError(ValueError):
+    def __init__(self,path,message):
+        self.path=path;self.code='frozen_field_change'
+        super().__init__(message)
+
+
+def revision_mutable_fields(task_type,user=False):
+    fields={'script':['argv'],'operation':['parameters'],'agent':[]}[task_type]
+    return fields+(['objective','inputs','acceptance','semantics'] if user else [])
+
+
 def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     proposal=Proposal.model_validate(raw)
     if run['sealed'] or run['status'] not in ('ACTIVE',):raise ValueError('Workflow cannot accept proposals')
@@ -652,12 +667,16 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         if row[counter]>=(5 if user_revision_scope is not None else 2):raise ValueError('Task revision budget exhausted')
         frozen=('id','type','name','objective','profile','operation','implementation','inputs','output_roles','acceptance','semantics','delivery_stage',
                 'outputs','preflight','config_files','timeout_seconds','retry_policy','on_failure','basic_reason')
-        if user_revision_scope is not None:frozen=tuple(name for name in frozen if name not in ('objective','inputs','acceptance','semantics'))
+        mutable=revision_mutable_fields(current.type,user_revision_scope is not None)
+        frozen=tuple(name for name in frozen if name not in mutable)
         ordinary_inputs={name:ref for name,ref in replacement.inputs.items() if not ref.repair_candidate}
         if user_revision_scope is None and ordinary_inputs!=current.inputs:raise ValueError('Automatic revision cannot change original source inputs')
         frozen=tuple(name for name in frozen if name!='inputs')
-        if any(getattr(current,name)!=getattr(replacement,name) for name in frozen):
-            raise ValueError('A repair revision cannot change objective, authorization, inputs, outputs, acceptance or execution policy')
+        changed=[name for name in frozen if getattr(current,name)!=getattr(replacement,name)]
+        if changed:
+            index=next(i for i,t in enumerate(proposal.revise_tasks) if t.id==identifier)
+            raise ProposalFieldError('revise_tasks.'+str(index)+'.'+changed[0],
+                'A repair revision cannot change frozen fields: '+', '.join(changed)+'. Allowed changes: '+(', '.join(mutable) or 'diagnostic context only')+'. Use an authorized replacement for a different Task contract.')
         if user_revision_scope is None and current.type!='agent' and current.model_dump()==replacement.model_dump():raise ValueError('Automatic repair must change the failed implementation')
         if current.type=='script':
             if replacement.parameters!=current.parameters:raise ValueError('Script repair changes argv only')

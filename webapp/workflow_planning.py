@@ -174,14 +174,9 @@ def apply(store,run,request):
         raise ValueError('Manager result is stale')
     trigger=json.loads(request['trigger_json']);frozen=json.loads(request['snapshot_json']);context=frozen.get('repair_context',{})
     if result.proposal is None:return apply_control_result(store,run,request,result,frozen)
-    repair_scope=(context.get('subject_task','') if context.get('active') else
-                  trigger.get('task_id') if 'task_id' in trigger else '' if any(key in trigger for key in ('review_rejected','task_review_rejected')) else None)
+    from .workflow_model_protocol import scopes
+    repair_scope,user_scope=scopes(frozen)
     batch=frozen.get('input_batch') or {};input_records=batch.get('inputs',[])
-    user_scope=None
-    if input_records:
-        user_scope=set()
-        for item in input_records:
-            user_scope.update(item['context']['allowed_revision_tasks'])
     proposal,tasks,revisions,edges=validate_proposal(store,run,result.proposal.model_dump(),repair_scope=repair_scope,user_revision_scope=user_scope)
 
     version=run['graph_version']+1;now=store.now()
@@ -213,7 +208,9 @@ def apply(store,run,request):
             if expanded==affected:break
             affected=expanded
         current={task['id']:task for task in active_tasks(run)}
-        for identifier in sorted(affected):
+        # Newly inserted descendants already have revision 0. Only pre-existing
+        # Tasks have a previous immutable revision to supersede.
+        for identifier in sorted(affected & current.keys()):
             row=current[identifier];new_revision=row['revision']+1
             spec=revisions.get(identifier) or Task.model_validate(row['spec'])
             repair_root=identifier in {task.id for task in proposal.revise_tasks}

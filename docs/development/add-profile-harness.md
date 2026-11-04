@@ -3,7 +3,7 @@
 适用于专业 Agent 的执行引擎，以及现有 SDK Agent 引擎的扩展。首先区分两个入口：
 
 - `profile_harnesses.py` 承载动态 Task 的策略执行引擎。当前默认是服务端受控的
-  `structured-profile-v2`，执行明确的 inspect/script/proposal/result 循环。
+  `structured-profile-v3`，通过原生inspect/contract/script/submit_plan/submit_result工具执行受控循环。
 - `harness_adapters.py` 承载 Codex、Claude Code、DeepSeek 等 SDK/子进程协议。
   它们已有启动、会话、事件和恢复机制；需要用 SDK 实现一个专业 Agent harness 时复用这些实现，
   不得把 SDK 可用性直接当作已满足专业 Agent 权限契约。
@@ -44,3 +44,11 @@
 统一 Run 接入还必须验证：Control Job 不创建业务 Task；运行中输入只建立派发屏障，不取消当前模型/工具循环；所有结果仍绑定原 revision/lease。业务报告使用 report 对象，控制角色使用专属 envelope。实际调用记入 specialist_attempt_profiles，不能根据项目默认配置猜测执行的 harness。
 
 Script工具必须返回结构化执行回执：退出码、已声明输出的存在状态/大小/哈希、有界stdout及截断标记。模型应收到实际已执行动作与回执，不能只有泛化的“执行完成”。探索性/分步脚本不要求每次都产出全部最终文件；只有result阶段才独立验收完整声明输出。finalize阶段只接受result/proposal，不再执行script/inspect/contract。每个脚本执行时限还须受当前Agent剩余时间限制；回执不等于业务验收通过。
+
+## 原生结构化命令
+
+structured-profile-v3通过ModelAdapter发送原生工具参数，模型传输DTO在`workflow_model_protocol.py`中编译为权威ManagerResult/Task契约。请求身份由宿主绑定到原冻结快照；任何编译都不能改用最新图版本绕过旧generation检查。变更只携带允许字段；自动replacement由宿主继承目标、验收、语义和交付阶段。Operation须先读取冻结contract，随后在工具Schema中提供精确角色和参数。
+
+严格模式是请求策略，不等于网关已执行约束。明确的strict参数拒绝可在同一预算内回退非strict；HTTP 200但返回违反传输Schema的参数时，拒绝动作、记录约束未执行，并在后续纠正使用非strict。普通超时、鉴权、限流或服务错误不能伪装成strict能力回退。每个HTTP调用保留独立回执，未知用量不能填零；本地Schema、授权及业务验证始终执行。
+
+finalize有独立调用上限，提前耗尽纠正额度后也不能把所有剩余普通轮数当作额外finalize调用。可执行动作按阶段收敛；重复错误保留计数，反馈指向实际字段，不重复堆积所有旧错误正文。

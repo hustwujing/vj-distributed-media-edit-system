@@ -175,14 +175,7 @@ async function after(c){
    boundary.parallel_attempts=[left,right];
   }
  }
- if(['feedback_cutout','feedback_layout'].includes(hook)){
-  const before=boundary.before,root=run.tasks.find(t=>t.id==='render');
-  assert.equal(run.id,before.id);assert.ok(root.revision>before.tasks.find(t=>t.id==='render').revision);
-  for(const task of before.tasks.filter(t=>t.id!=='render'&&t.status==='succeeded')){
-   const retained=run.tasks.find(t=>t.id===task.id);assert.ok(retained);assert.equal(retained.revision,task.revision);assert.equal(retained.attempts,task.attempts);
-   assert.deepEqual(retained.quality.files,task.quality.files);
-  }
- }
+ if(['feedback_cutout','feedback_layout'].includes(hook))verifyFeedbackRevision(boundary.before,run,'render');
  if(hook==='reference_before_wan'){
   const task=selectedTask(run,'reference');assert.ok(task&&(task.revision>boundary.reference_revision||task.id!=='reference'&&task.user_revision_count>0));
   const calls=(await fault('progress')).provider_calls;assert.equal(calls.length,1);boundary.provider_after=calls[0];
@@ -200,4 +193,17 @@ async function after(c){
  persist();
 }
 
-module.exports={before,after,hooks,verifyDrainedAttempts};
+function verifyFeedbackRevision(before,run,identifier){
+ const original=before.tasks.find(t=>t.id===identifier),current=selectedTask(run,identifier);
+ assert.equal(run.id,before.id);assert.ok(original&&current&&current.selected&&current.status==='succeeded');
+ assert.ok(current.user_revision_count>(original.user_revision_count||0),'Feedback revision must retain its user input provenance');
+ if(current.id===identifier)assert.ok(current.revision>original.revision);
+ else{const retired=run.tasks.find(t=>t.id===identifier);assert.ok(retired&&!retired.selected);assert.equal(retired.revision,original.revision);}
+ for(const task of before.tasks.filter(t=>t.id!==identifier&&t.status==='succeeded')){
+  const retained=run.tasks.find(t=>t.id===task.id);assert.ok(retained);assert.equal(retained.revision,task.revision);assert.equal(retained.attempts,task.attempts);
+  assert.deepEqual(retained.quality.files,task.quality.files);
+ }
+ return current;
+}
+
+module.exports={before,after,hooks,verifyDrainedAttempts,verifyFeedbackRevision};

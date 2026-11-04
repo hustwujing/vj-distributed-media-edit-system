@@ -16,7 +16,7 @@
 
 1. 实现并登记 `headers`、`path`、`prepare`、`receipt`、`conversation`、`response_text`。
 2. `prepare` 强制使用已冻结模型，限制输出预算，并拒绝远程文件、任意 URL 和服务端扩权工具。
-3. `conversation` 转换授权文本/图片；`response_text` 只返回完成的公开文本，不暴露隐藏推理。结构化引擎只解析单个 JSON 对象（可接受完整 JSON 围栏）；非空格式错误在原轮次/Token预算内反馈纠正，空或不完整的上游响应单独归类，不伪造工具结果。
+3. `conversation` 转换授权文本/图片；`response_text` 只返回完成的公开文本，不暴露隐藏推理。structured-profile-v3由model_tool_protocol解析唯一原生工具调用，参数先经本地Schema校验再编译；纯文本不构成控制动作。格式错误在原轮次/Token预算内反馈纠正，空或不完整的上游响应单独归类，不伪造工具结果。
 4. 回执解析覆盖 JSON、SSE、跨块拆分、重复累计值、取消、不完整响应和缺失字段。
 5. 原始 total 缺失时保持缺失；预算可以使用已知 input+output 推导值，但记录为 derived，不能伪造上游回执。
 6. 请求前持久化调用意图和预算预留；取消后的用量只能补写既有记录，不能恢复任务或发布结果。
@@ -45,3 +45,5 @@ Responses 的 `phase=commentary` 是过程消息，不能作为业务动作执�
 另加计数的1%（至少256）作为请求结构余量。禁止把Base64字节数当作图片Token，也不得用其他模型的高费率导致系统性假耗尽。日志分别保存native count、图片预留、结构余量、计量策略摘要及实际回执，不能保存图片或完整提示正文。
 
 协议依据：[OpenAI 输入计数](https://developers.openai.com/api/docs/guides/token-counting)、[图像计量](https://developers.openai.com/api/docs/guides/images-vision)、[Claude Token 计数](https://platform.claude.com/docs/en/build-with-claude/token-counting)。
+
+原生工具接入必须单独实测工具选择、strict参数和Token计数；HTTP成功不能当作Schema约束确已生效。本机DS4.1路由拒绝强制tool_choice，但auto可以返回工具调用，宿主仍严格要求恰好一个已授权工具动作。不要按模型名猜测或隐藏适配器差异。记录实际请求模式、Schema摘要、回退原因及逐次费用/用量完整度；提供非法结构、缺字段、多动作、额外字段、结束不完整和网关拒绝的测试。

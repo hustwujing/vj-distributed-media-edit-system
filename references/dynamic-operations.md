@@ -3,17 +3,23 @@
 This is a server-owned technical reference. The authorization envelope, registered
 profiles, tool allowlist and frozen Task contracts remain authoritative. The user
 has already confirmed that envelope; do not ask again for the same scope. Submit
-ManagerResult envelopes only; never execute business tools as the Manager.
+commands through submit_plan only; never execute business tools as the Manager.
 
 ## Manager results and runtime input
 
-Return the frozen `proposal_schema` (ManagerResult). Copy snapshot_digest,
-base_graph_version, authorization_version and input_through_sequence from the
-current request (zero when input_batch is absent). Exactly APPLY_PLAN/COMPLETE
-carry a nested Proposal. CONTINUE preserves the graph; REQUEST_AUTHORIZATION
+Use the native submit_plan tool schema. The trusted host binds snapshot_digest,
+graph/authorization versions and input sequence from the original request;
+do not repeat these fields. Exactly APPLY_PLAN/COMPLETE carry a `plan` command.
+`plan.continuation` is either `{mode:complete}` or `{mode:wait,tasks:[...]}`;
+never combine sealing with a future planning trigger. CONTINUE preserves the graph; REQUEST_AUTHORIZATION
 proposes a full new authorization; REQUEST_USER_INPUT supplies a concrete question;
 NEW_RUN_REQUIRED names the new goal for user confirmation. COMPLETE seals the
-proposal but cannot publish a result directly.
+plan but cannot publish a result directly. New tasks go in `plan.new_tasks`;
+changes use `{task_id,set:{only_allowed_fields}}` in `plan.changes`. The host
+retains all other immutable Task fields. Read model_command_contract.task_changes.
+Map fields use unique `{key,value}` entries according to the tool schema, not
+JSON-encoded strings. These wire commands compile to the domain contracts below;
+they never bypass authorization or lease/snapshot checks.
 
 Process the complete frozen input_batch. Later inputs are deliberately absent and
 will be handled in another round. Do not cancel or replay an external request due
@@ -26,13 +32,13 @@ to changed instructions. A waiting/unknown provider handle must be resolved firs
   both use media. `reviewer=program` uses that target as `kind`; reviewer agent/user
   uses kind agent/review and a nonempty criterion. Do not supply conflicting kind.
 - `script`: complete argv including executable, such as `["python","-c", "actual code"]`;
-  declare output filenames and output_roles. Do not set profile, operation,
+  declare `files:[{path,roles:[...]}]` once; the host derives outputs/output_roles. Do not set profile, operation,
   implementation or parameters. `/workspace` is read-only: explicitly write to
   `VIDEO_USE_STEP_OUTPUT`, or chdir there in the script.
 - `operation`: use the advertised ID, implementation, parameter schema and input
   roles. Output roles/filenames are owned by the operation; omit argv, outputs and
-  output_roles. Bind downstream inputs with step + the advertised role.
-- `agent`: choose a registered profile, declared inputs and output_roles; do not
+  output_roles or files. Bind downstream inputs with step + the advertised role.
+- `agent`: choose a registered profile, declared inputs and files with roles; do not
   supply argv/parameters/implementation. JSON-report profiles must use their
   result_schema. They cannot produce arbitrary additional business fields.
 - Image acceptance supports dimensions/alpha but not decode/fps. `has_alpha` only checks the channel;
@@ -46,13 +52,12 @@ to changed instructions. A waiting/unknown provider handle must be resolved firs
 - Use program checks for deterministic geometry and byte transformations, and
   Agent review for unresolved semantic questions. Do not keep re-inspecting
   unchanged artifacts or create redundant reviews of factual reports.
-- Proposal IDs are unique throughout a workflow, including rejected proposals.
-  The supplied planning_request_id is a suitable unique proposal_id.
+- Proposal IDs are bound by the host to the current immutable planning request.
 - Acceptance declares `source` (`user`, `technical`, `product_default`, `suggestion`) and
   `stage` (`current`, `final`). Suggestions are signals, never blockers. Final rules belong only
   on `delivery_stage=true` tasks. Text rules select contains/token_sequence/line_sequence/
   normalized_text/exact_text. Media rules distinguish audio_track_present from audio_silent.
-- Repair triggers may use `revise_tasks` for the failed logical Task or its dependency ancestors.
+- Repair triggers may use `plan.changes` for the failed logical Task or its dependency ancestors.
   Automatic repairs preserve every frozen field except local script argv or retry-safe local
   operation parameters; a business Agent can get a new revision of the same contract with
   diagnostic context. Never revise a task with active execution/cleanup or unresolved external calls.
@@ -63,6 +68,15 @@ to changed instructions. A waiting/unknown provider handle must be resolved firs
   goal and acceptance. The server rewires affected dependencies with new revisions. Do not
   duplicate automatically redirected edges. Merely appending a similar Task does not unblock
   delivery. Original failure history and cumulative repair/provider budgets remain effective.
+
+The model-facing automatic repair command is `plan.repair_replacements`, with
+`task_id` and a new `implementation` (new ID/type/name, inputs, files, argv or
+registered operation/profile). Omit objective, acceptance, semantics and
+delivery_stage: the host inherits these exact original requirements. User feedback
+instead uses plan.replacements and plan.new_tasks inside its explicit allowed scope.
+Acceptance uses one `kind` discriminator; native tool parameters expose only fields
+valid for that kind. Do not repeat target/reviewer aliases. Each local file declares
+at least one role so it can be bound and reviewed without a second filename list.
 
 ## media.render versus media.edit
 
@@ -161,8 +175,9 @@ Copy every field exactly; never invent an artifact ID or hash. Candidate reads a
 permitted only for `purpose=repair/evidence` within the frozen repair scope and
 only after program integrity verification. They do not approve the original Task.
 
-Plan the collector first with replan_after naming it. After it succeeds, use
-`review_again = {"original_task_id": ["evidence_task_id"]}` to request a bounded
+Plan the collector first with `plan.continuation={mode:wait,tasks:[collector_id]}`.
+After it succeeds, use plan.review_again (a map represented as key/value entries)
+mapping the original task ID to completed evidence task IDs to request a bounded
 new content review of the same candidate and original acceptance. No media revision
 or new provider submission is needed. A final-review evidence gap can instead add
 verified evidence Tasks before sealing again. Repeating the same evidence does not

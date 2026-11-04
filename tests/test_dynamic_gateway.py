@@ -249,6 +249,72 @@ class DynamicGatewayTests(unittest.TestCase):
         row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
         self.assertEqual((row['used_tokens'],row['state']),(2500,'settled'))
 
+    def test_native_strict_rejection_falls_back_with_separate_receipts_and_same_snapshot(self):
+        import threading
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        from unittest.mock import Mock,patch
+        from tests.test_model_input_count import Response
+        from webapp.workflow_agents import model
+        from webapp.specialist_profiles import get
+        from webapp.workflow_model_protocol import ToolProtocol
+        from webapp.strict_schema import transform
+        request=self.store.query('SELECT * FROM planner_runs WHERE id=?',(self.task['spec']['request_id'],))[0]
+        frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
+        protocol=ToolProtocol(get('media_planner'),frozen,self.task,finalize=True)
+        wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output is required?'},protocol.schemas['submit_plan'],encode=True)
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',
+            budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
+        sent=[]
+        def post(url,**kwargs):
+            if url.endswith('/input_tokens'):return nullcontext(Response({'input_tokens':100}))
+            sent.append(kwargs['json'])
+            if len(sent)==1:return nullcontext(Response({'error':{'code':'unsupported_parameter','param':'tools.0.strict'}},400))
+            return nullcontext(Response({'status':'completed','usage':{'input_tokens':100,'output_tokens':20,'total_tokens':120},
+                'output':[{'type':'function_call','name':'submit_plan','arguments':json.dumps(wire)}]}))
+        client=Mock();client.post.side_effect=post;transport={'strict':True}
+        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+             patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
+            reply=model(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,get('media_planner'),
+                'Frozen context',protocol=protocol,transport=transport)
+        self.assertEqual(reply['proposal']['snapshot_digest'],request['snapshot_digest'])
+        self.assertTrue(sent[0]['tools'][0]['strict']);self.assertNotIn('strict',sent[1]['tools'][0])
+        self.assertEqual(sent[0]['input'],sent[1]['input']);self.assertFalse(transport['strict'])
+        rows=self.store.query("SELECT status,receipt,total_tokens FROM usage_calls WHERE category='llm' ORDER BY seq")
+        self.assertEqual([r['status'] for r in rows],['failed','succeeded'])
+        self.assertIsNone(rows[0]['total_tokens']);self.assertEqual(rows[1]['total_tokens'],120)
+
+    def test_accepted_strict_request_with_invalid_wire_downgrades_without_staging_bad_plan(self):
+        import threading
+        from contextlib import nullcontext
+        from types import SimpleNamespace
+        from unittest.mock import Mock,patch
+        from tests.test_model_input_count import Response
+        from webapp.workflow_agents import execute
+        from webapp.specialist_profiles import get
+        from webapp.workflow_model_protocol import ToolProtocol
+        from webapp.strict_schema import transform
+        request=self.store.query('SELECT * FROM planner_runs WHERE id=?',(self.task['spec']['request_id'],))[0]
+        frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
+        protocol=ToolProtocol(get('media_planner'),frozen,self.task)
+        wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output?'},protocol.schemas['submit_plan'],encode=True)
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',
+            budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'),digest='frozen')
+        sent=[]
+        def post(url,**kwargs):
+            if url.endswith('/input_tokens'):return nullcontext(Response({'input_tokens':100}))
+            sent.append(kwargs['json']);self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
+            arguments={**wire,'undeclared':True} if len(sent)==1 else wire
+            return nullcontext(Response({'status':'completed','usage':{'input_tokens':100,'output_tokens':20,'total_tokens':120},
+                'output':[{'type':'function_call','name':'submit_plan','arguments':json.dumps(arguments)}]}))
+        client=Mock();client.post.side_effect=post
+        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+             patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(len(sent),2);self.assertTrue(sent[0]['tools'][0]['strict']);self.assertNotIn('strict',sent[1]['tools'][0])
+        saved=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
+        self.assertEqual(saved['kind'],'REQUEST_USER_INPUT');self.assertNotIn('undeclared',saved)
+
     def test_protocols_expose_only_completed_text_not_hidden_reasoning(self):
         from webapp.model_adapters import get
         examples={
@@ -327,6 +393,22 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertIn('Script receipt (data)',model.call_args_list[-1].args[4])
         self.assertIn('No script, inspect or contract action was executed',model.call_args_list[-1].args[4])
 
+    def test_early_correction_exhaustion_does_not_create_extra_finalize_calls(self):
+        from dataclasses import replace
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import threading
+        from webapp.workflow_agents import execute,AgentReplyError
+        from webapp.specialist_profiles import get
+        from webapp.task_leases import TaskQuotaReached
+        policy=replace(get('media_planner'),max_turns=20,max_correction_rounds=2,finalize_rounds=2)
+        task={**self.task,'profile':policy.snapshot()}
+        with self.lease.bind(),patch('webapp.workflow_agents.get_profile',return_value=policy), \
+             patch('webapp.workflow_agents.model',side_effect=AgentReplyError('{invalid')) as model:
+            with self.assertRaises(TaskQuotaReached):execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task)
+        self.assertEqual(model.call_count,4)
+        self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
+
     def test_invalid_proposal_is_corrected_before_any_durable_submission(self):
         from types import SimpleNamespace
         import threading
@@ -348,7 +430,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=lambda *a,**kw:self.bind_reply(model(*a,**kw))):
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(len(calls),2)
-        self.assertIn('Schema validation errors',calls[1])
+        self.assertIn('Correct these fields using submit_plan',calls[1])
         self.assertEqual(len(self.store.query('SELECT id FROM task_results')),1)
         self.assertEqual(graph.get(self.store,self.run['id'])['graph_version'],0)
         self.assertEqual([r['status'] for r in self.store.query("SELECT status FROM usage_calls WHERE category='tool' AND operation='proposal' ORDER BY seq")],['failed','succeeded'])
@@ -384,8 +466,10 @@ class DynamicGatewayTests(unittest.TestCase):
             nonlocal calls;calls+=1
             if calls==1:
                 frozen=json.loads(args[4])
-                self.assertIn('"report":{...}',frozen['result_contract'])
-                self.assertIn('report is a JSON object',frozen['result_contract'])
+                self.assertIn('submit_result',frozen['model_command_contract']['available_tools'])
+                schema=kwargs['protocol'].schemas['submit_result']
+                self.assertIn('verdict',schema['properties'])
+                self.assertNotIn('files',schema['properties'])
                 return {'action':'inspect','ref':'asset'}
             import re
             found=re.findall(r'"inspection_id":"([a-f0-9]{32})"',args[4]);actual=found[-1] if found else '0'*32

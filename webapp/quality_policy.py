@@ -55,6 +55,18 @@ class Acceptance(BaseModel):
     decode:bool=False
     checker: str | None = Field(default=None,pattern=r'^edit/[A-Za-z0-9_./-]+\.py$')
     required_keys:list[str]=Field(default_factory=list,max_length=40)
+    @classmethod
+    def fields_for_kind(cls,kind):
+        common={'kind','severity','source','stage','file'}
+        fields={
+            'file':{'max_bytes','checker'},
+            'image':{'width','height','max_bytes','checker','has_alpha','transparent_subject','min_transparent_fraction',
+                     'min_visible_fraction','max_partial_alpha_fraction','max_alpha_components','max_alpha_hole_fraction'},
+            'media':{'width','height','min_duration','max_duration','audio_track_present','audio_silent','channel_layout',
+                     'min_loudness_lufs','max_loudness_lufs','tone_hz','tone_tolerance_hz','video','max_bytes','fps','decode','checker'},
+            'text':{'contains','text_match','max_bytes','checker'},'json':{'required_keys','max_bytes','checker'},
+            'subtitle':{'max_bytes','checker'},'review':{'criterion'},'agent':{'criterion'}}
+        return common|fields[kind]
     @model_validator(mode='after')
     def valid(self):
         if self.checker and ('..' in self.checker.split('/') or self.reviewer!='program'):raise ValueError('自定义检查器必须是 edit 内程序检查')
@@ -68,9 +80,7 @@ class Acceptance(BaseModel):
         if self.kind in ('review','agent') and self.severity=='signal':raise ValueError('内容验收是放行条件，signal 仅用于程序检查')
         if self.kind not in ('review','agent') and self.criterion:
             raise ValueError('criterion 只能用于 agent/review；程序验收请填写可计算条件')
-        allowed={'file':{'max_bytes'},'image':{'width','height','max_bytes'},
-                 'media':{'width','height','min_duration','max_duration','audio_track_present','audio_silent','channel_layout','min_loudness_lufs','max_loudness_lufs','tone_hz','video','max_bytes'},
-                 'text':{'contains','max_bytes'},'json':{'max_bytes'},'subtitle':{'max_bytes'},'review':set(),'agent':set()}[self.kind]
+        allowed=self.fields_for_kind(self.kind)
         for name in ('width','height','min_duration','max_duration','audio_track_present','audio_silent','channel_layout','min_loudness_lufs','max_loudness_lufs','tone_hz','video','max_bytes','contains'):
             value=getattr(self,name)
             if value is not None and value!=[] and name not in allowed:

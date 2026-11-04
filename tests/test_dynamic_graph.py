@@ -457,6 +457,27 @@ class DynamicGraphTests(unittest.TestCase):
         selected=self.store.query('SELECT task_id,task_revision FROM workflow_plan_tasks WHERE run_id=? AND graph_version=2 ORDER BY task_id',(run['id'],))
         self.assertEqual([(row['task_id'],row['task_revision']) for row in selected],[('child',1),('first',1),('unrelated',0)])
 
+    def test_revision_and_new_descendant_commit_atomically_without_revising_new_task(self):
+        self.tick();self.propose({'proposal_id':'mixed-initial','base_graph_version':0,'reason':'initial',
+            'add_tasks':[script('first'),script('unrelated')],'sealed':True})
+        run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='execution_failed' WHERE run_id=? AND id='first'",(run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='succeeded' WHERE run_id=? AND id='unrelated'",(run['id'],))
+        self.store.execute("UPDATE runs SET sealed=0,status='ACTIVE' WHERE id=?",(run['id'],))
+        planning.queue(self.store,graph.get(self.store,run['id']),{'task_id':'first'})
+        self.propose({'proposal_id':'mixed-repair','base_graph_version':1,'reason':'repair and add dependent',
+            'revise_tasks':[script('first',argv=['python','-c','print("fixed")'])],
+            'add_tasks':[script('new_child',inputs={'source':{'step':'first','role':'report'}})],
+            'add_dependencies':[{'upstream':'first','downstream':'new_child'}],'sealed':True})
+        result=self.tick();tasks={t['id']:t for t in result['tasks']}
+        self.assertEqual(result['graph_version'],2)
+        self.assertEqual(tasks['first']['revision'],1)
+        self.assertEqual((tasks['new_child']['revision'],tasks['new_child']['status']),(0,'blocked'))
+        self.assertEqual((tasks['unrelated']['revision'],tasks['unrelated']['status']),(0,'succeeded'))
+        history=self.store.query("SELECT revision FROM workflow_task_revisions WHERE run_id=? AND task_id='new_child'",(run['id'],))
+        self.assertEqual([row['revision'] for row in history],[0])
+        self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE run_id=? AND status='staged'",(run['id'],)))
+
     def test_repair_context_survives_an_intermediate_diagnostic_planning_round(self):
         self.tick();self.propose({'proposal_id':'initial-durable-repair','base_graph_version':0,'reason':'initial',
             'add_tasks':[script('first'),script('child')],'add_dependencies':[{'upstream':'first','downstream':'child'}],

@@ -15,6 +15,7 @@ dependencies = [
 [project.optional-dependencies]
 animations = ["manim"]
 web = [
+    "jsonschema>=4.23,<5",
     "fastapi>=0.115,<1",
     "uvicorn>=0.34,<1",
     "python-multipart>=0.0.20,<1",
