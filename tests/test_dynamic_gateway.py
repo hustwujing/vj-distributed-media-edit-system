@@ -606,7 +606,8 @@ class DynamicGatewayTests(unittest.TestCase):
         base={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write the approved report',
               'files':[{'path':'report.txt','roles':['report']}],
               'acceptance':[{'kind':'file'}],'basic_reason':'Local deterministic report','delivery_stage':True}
-        invalid={**base,'inputs':{'source':{'asset':'invented'}}};valid={**base,'inputs':{'source':{'asset':'asset'}}}
+        invalid={**base,'input_bindings':[{'role':'source','ref':{'asset':'invented'}}]}
+        valid={**base,'input_bindings':[{'role':'source','ref':{'asset':'asset'}}]}
         step=0;conversations=[]
         def respond(*args,**kwargs):
             nonlocal step
@@ -623,7 +624,7 @@ class DynamicGatewayTests(unittest.TestCase):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
         self.assertEqual(step,2);self.assertIn('Correct only these fields',conversations[1])
         draft=json.loads(self.store.query('SELECT draft_json FROM workflow_plan_drafts')[0]['draft_json'])
-        self.assertEqual(draft['new_tasks'][0]['inputs']['source']['asset'],'asset')
+        self.assertEqual(draft['new_tasks'][0]['input_bindings'],[{'role':'source','ref':{'asset':'asset'}}])
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['proposal']['add_tasks'][0]['inputs']['source']['asset'],'asset')
 

@@ -75,13 +75,25 @@ class ModelCommandTests(unittest.TestCase):
         first={'id':'prepare','type':'agent','profile':'editing_implementer','name':'Prepare','objective':'Prepare image',
                'files':[{'path':'prepared.png','roles':['primary_image']}],'acceptance':[{'kind':'image'}],'delivery_stage':False}
         final={'id':'deliver','type':'agent','profile':'editing_implementer','name':'Deliver','objective':'Deliver image',
-               'inputs':{'source':{'step':'prepare','role':'primary_image'}},'files':[{'path':'final.png','roles':['primary_image']}],
+               'input_bindings':[{'role':'source','ref':{'step':'prepare','role':'primary_image'}}],
+               'files':[{'path':'final.png','roles':['primary_image']}],
                'acceptance':[{'kind':'image'}],'delivery_stage':True}
         cmd={'kind':'APPLY_PLAN','reason':'Typed batch','plan':{'new_tasks':[first,final],
              'continuation':{'mode':'wait'}}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
         self.assertEqual(result['add_dependencies'],[{'upstream':'prepare','downstream':'deliver'}])
         self.assertEqual(result['replan_after'],['deliver'])
+
+    def test_agent_input_bindings_compile_to_one_authoritative_map(self):
+        f=frozen(False);schema=manager_schema(f)
+        task={'id':'deliver','type':'agent','profile':'editing_implementer','name':'Deliver','objective':'Deliver image',
+              'input_bindings':[{'role':'source','ref':{'asset':'asset'}}],
+              'files':[{'path':'final.png','roles':['primary_image']}],'acceptance':[{'kind':'image'}],'delivery_stage':True}
+        command={'kind':'COMPLETE','reason':'Deliver','plan':{'new_tasks':[task],'continuation':{'mode':'complete'}}}
+        result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['add_tasks'][0]
+        self.assertEqual(result['inputs'],{'source':{'asset':'asset','step':None,'role':None,'repair_candidate':None}})
+        task['input_bindings'].append({'role':'source','ref':{'asset':'asset2'}})
+        with self.assertRaises(CommandError):compile_manager(transform(transform(command,schema,encode=True),schema),f)
 
     def test_noncut_transition_default_matches_runtime_contract(self):
         from webapp.operation_parameters import EditTransition

@@ -128,6 +128,9 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     files={'type':'array','minItems':1,'maxItems':64,'items':obj({'path':{'type':'string','pattern':'^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$'},
            'roles':{'type':'array','minItems':1,'items':{'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'},'maxItems':32}}),
            'description':'Declare each local output file once and its roles. The server derives outputs/output_roles.'}
+    input_bindings={'type':'array','maxItems':100,'uniqueItems':True,'items':obj({
+        'role':{'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'},'ref':{'$ref':'#/$defs/InputRef'}}),
+        'description':'Declare each input role once. The host derives the authoritative inputs map.'}
     task_variants=[]
     irrelevant={'script':{'operation','implementation','parameters','profile'},
                 'operation':{'argv','outputs','output_roles','profile','preflight','config_files','acceptance'},
@@ -137,7 +140,8 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         fields={key:deepcopy(value) for key,value in props.items() if key not in removed|{'outputs','output_roles'}}
         fields['type']={'type':'string','enum':[kind]}
         if kind=='agent':fields['purpose']={'type':'string','enum':['business','repair']}
-        if kind!='operation':fields['files']=files
+        if kind!='operation':
+            fields.pop('inputs',None);fields['input_bindings']=deepcopy(input_bindings);fields['files']=files
         required=[key for key in task.get('required',[]) if key in fields]
         if kind!='operation':required.append('files')
         if kind=='operation':
@@ -164,7 +168,8 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     patches=[]
     for index,(identifier,allowed) in enumerate(available_changes(frozen).items()):
         name='TaskChange'+str(index)
-        patch_fields={key:deepcopy(props[key]) for key in allowed if key not in ('outputs','output_roles')}
+        patch_fields={key:deepcopy(props[key]) for key in allowed if key not in ('outputs','output_roles','inputs')}
+        if 'inputs' in allowed:patch_fields['input_bindings']=deepcopy(input_bindings)
         if 'outputs' in allowed or 'output_roles' in allowed:patch_fields['files']=deepcopy(files)
         defs[name]=obj({'task_id':{'type':'string','enum':[identifier]},
                        'set':obj(patch_fields,[])})
@@ -235,7 +240,10 @@ def compile_manager(command,frozen):
             plan['replacements'][identifier]=implementation['id'];plan.setdefault('new_tasks',[]).append(implementation)
         added=[]
         for task in plan.get('new_tasks',[]):
-            raw=deepcopy(task);files=raw.pop('files',[]);outputs=[];roles={}
+            raw=deepcopy(task);files=raw.pop('files',[]);bindings=raw.pop('input_bindings',None);outputs=[];roles={}
+            if bindings is not None:
+                if len({item['role'] for item in bindings})!=len(bindings):raise CommandError('duplicate_input_role','plan.new_tasks.input_bindings','Declare each input role once')
+                raw['inputs']={item['role']:item['ref'] for item in bindings}
             if raw['type']=='operation':
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
@@ -254,6 +262,10 @@ def compile_manager(command,frozen):
         current={t['id']:t for t in frozen.get('tasks',[])};allowed=available_changes(frozen);revisions=[];seen=set()
         for change in plan.get('changes',[]):
             identifier=change['task_id'];patch=deepcopy(change['set'])
+            bindings=patch.pop('input_bindings',None)
+            if bindings is not None:
+                if len({item['role'] for item in bindings})!=len(bindings):raise CommandError('duplicate_input_role','plan.changes.set.input_bindings','Declare each input role once')
+                patch['inputs']={item['role']:item['ref'] for item in bindings}
             files=patch.pop('files',None)
             if files is not None:
                 outputs=[];roles={}
