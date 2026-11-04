@@ -476,7 +476,9 @@ async function runCase(browser,spec){
    }catch(e){state.cleanup_error=e.message;}
   }
   state.finished_at=Date.now()/1000;state.status='finished';persist();await context.close();
-  if(state.restore_error||state.audit_error||state.cleanup_error||state.internal&&!state.internal.complete||state.internal?.program_passed===false||state.artifact_verification?.passed===false||state.outcome==='test_failed')fs.writeFileSync(path.join(ROOT,'pause-new-cases'),'Review '+spec.id+' '+number+' before launching more cases\n');
+  // A case failure is evidence, not a reason to abandon full-round coverage.
+  // Failed infrastructure restoration can contaminate later cases and must stop dispatch.
+  if(state.restore_error)fs.writeFileSync(path.join(ROOT,'pause-new-cases'),'Infrastructure restoration failed for '+spec.id+' '+number+'; restore the isolated environment before continuing\n');
   console.log(JSON.stringify({case:spec.id,outcome:state.outcome,program_passed:state.internal?.program_passed,complete:state.internal?.complete,cleanup:state.cleanup?.complete,attempt:directory}));
  }
  return state;

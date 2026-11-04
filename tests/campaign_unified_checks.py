@@ -1,6 +1,10 @@
 """Independent pixel and temporal checks for the new Run protocol cases."""
 from pathlib import Path
 import json
+try:
+    from .campaign_feedback_preview import check as check_feedback
+except ImportError:
+    from campaign_feedback_preview import check as check_feedback
 
 
 def check(state,images,videos,database,frame):
@@ -13,17 +17,21 @@ def check(state,images,videos,database,frame):
         rows=database.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
                             (before['id'],task['id'],task['revision']))
         record=json.loads(rows[0]['manifest'])[filename]
-        original=Image.open(database.artifacts.materialize(state['project'],record['artifact']))
+        original_path=database.artifacts.materialize(state['project'],record['artifact'])
+        original=Image.open(original_path)
         if not images:return {},['Missing revised result']
         if case=='D36':
-            from PIL import ImageFilter
-            old=original.convert('RGBA');expected=old.copy();expected.putalpha(old.getchannel('A').filter(ImageFilter.MinFilter(3)))
-            actual=Image.open(images[0]['local_file']).convert('RGBA')
-            matches=np.array_equal(np.asarray(expected),np.asarray(actual))
-            checks['edge_revision_matches_original_alpha_erosion']=bool(matches)
+            preview=check_feedback(original_path,images[0]['local_file'],'alpha_erode_patch')
+            checks['edge_revision_local_patch']=preview
             checks['old_candidate_sha256']=record['sha256']
-            if not matches:errors.append('Edge feedback did not preserve original RGB and apply the declared local Alpha repair')
-            if np.array_equal(np.asarray(old),np.asarray(actual)):errors.append('Requested edge correction did not change the original candidate')
+            if not preview['passed']:errors.append('Edge feedback did not preserve original RGB and apply the declared local Alpha repair')
+            rows=database.query('SELECT quality_json,spec_json FROM run_tasks WHERE run_id=? AND selected=1',(state['run_id'],))
+            measurements=[]
+            for row in rows:
+                if json.loads(row['spec_json']).get('semantics',{}).get('mask_repair'):
+                    measurements.extend(item for item in json.loads(row['quality_json']).get('checks',[]) if item.get('code')=='mask_change_limit')
+            checks['server_mask_measurements']=measurements
+            if not measurements or not all(item.get('passed') for item in measurements):errors.append('Frozen mask repair limit was not measured and enforced')
         else:
             old=np.asarray(original.convert('RGB'));expected=np.concatenate((old[:,64:],old[:,:64]),axis=1)
             matches=np.array_equal(expected,np.asarray(Image.open(images[0]['local_file']).convert('RGB')))
