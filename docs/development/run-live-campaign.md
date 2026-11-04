@@ -13,7 +13,7 @@
 
 普通case并发不得超过驱动和部署的双重上限；增加浏览器jobs时同步核对执行节点沙箱数、CPU/内存准入、用户并发及Provider并发组。并发增加不适用于全局故障注入和独占资源case。容量变更需要新源码/配置摘要、门禁、部署和source lock，不能在进行中的冻结轮次里静默切换。
 
-本轮约定的业务模型为 `claude-4.6-sonnet`，推理强度 `high`，专业角色使用 `structured-profile-v3`。驱动提交前核对 `model_protocol_policy=native_commands_strict_preferred`，创建后核对 Run 的 `model_configuration`，保存实际配置摘要。服务能力策略、Run 冻结配置和每次请求实际 strict/回退是三种不同证据；只核对一个字段不能证明全部生效。
+本轮约定的业务模型为 `claude-4.6-sonnet`，推理强度 `high`，专业角色使用 `structured-profile-v4`。驱动提交前核对 `model_protocol_policy=plan_draft_v1_strict_preferred`，创建后核对 Run 的 `model_configuration`，保存实际配置摘要。每个PLAN还必须核对唯一PlanDraft的snapshot/graph/authorization/input cutoff绑定、revision及COMMITTED/REJECTED/EXPIRED终态。服务能力策略、Run冻结配置、PlanDraft和每次请求实际strict/回退是不同证据；只核对一个字段不能证明全部生效。
 
 改变模型默认值不能追溯修改已有 Run 或重标历史结果。预算边界用例保留设计中的低额度，不能为了让模型执行而放宽；模型选择部署 smoke 不替代正式媒体 case。
 

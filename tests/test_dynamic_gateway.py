@@ -188,8 +188,12 @@ class DynamicGatewayTests(unittest.TestCase):
             finally:connection.close()
         self.assertEqual(post('/image-tools',{'action':'generate'})[0],403)
         self.assertEqual(post('/workflow/agent-result',{'result':{'files':{}}})[0],403)
+        raw={'proposal_id':'manager-raw-script','base_graph_version':0,'reason':'Unsafe raw script',
+             'add_tasks':[fixtures.script()],'sealed':True}
+        self.assertEqual(post('/workflow/proposal',{'proposal':fixtures.envelope(self.store,self.task['spec']['request_id'],raw)})[0],422)
+        agent={**fixtures.script(),'type':'agent','profile':'editing_implementer'};agent.pop('argv',None)
         proposal={'proposal_id':'manager-http','base_graph_version':0,'reason':'Authorized next task',
-                  'add_tasks':[fixtures.script()],'sealed':True}
+                  'add_tasks':[agent],'sealed':True}
         for _ in range(2):
             status,body=post('/workflow/proposal',{'proposal':fixtures.envelope(self.store,self.task['spec']['request_id'],proposal)})
             self.assertEqual(status,200,body);self.assertTrue(body['staged'])
@@ -214,6 +218,26 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertIsNone(unknown['used_tokens']);self.assertEqual(unknown['reserved_tokens'],30)
         with self.lease.bind(),self.assertRaises(TaskQuotaReached),model_budget(self.lease,self.run,1000,Receipt()):pass
         self.assertEqual(self.store.query('SELECT COUNT(*) AS n FROM workflow_model_reservations')[0]['n'],2)
+
+    def test_zero_output_receipt_settles_input_and_retains_only_output_envelope(self):
+        from webapp.workflow_agents import model_budget
+        from webapp.model_adapters import AnthropicReceipt
+        self.run['authorization']['model_token_budget']=50000
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
+        receipt=AnthropicReceipt();receipt.accept(json.dumps({'stop_reason':'tool_use',
+            'content':[{'type':'tool_use','name':'submit_plan','input':{'ok':True}}],
+            'usage':{'input_tokens':1200,'output_tokens':0}}))
+        with self.lease.bind(),model_budget(self.lease,self.run,18000,receipt,
+                input_reserved_tokens=6000,output_reserved_tokens=12000,method='claude_bpe_estimate_v1'):
+            pass
+        row=self.store.query('''SELECT state,reserved_tokens,used_tokens,input_reserved_tokens,
+            output_reserved_tokens,input_settled_tokens,output_settled_tokens FROM workflow_model_reservations''')[0]
+        self.assertEqual(row['state'],'partially_settled_output_unknown')
+        self.assertEqual(row['reserved_tokens'],18000)
+        self.assertEqual(row['used_tokens'],13200)
+        self.assertEqual((row['input_reserved_tokens'],row['output_reserved_tokens']),(6000,12000))
+        self.assertEqual(row['input_settled_tokens'],1200)
+        self.assertIsNone(row['output_settled_tokens'])
 
     def test_multimodal_generation_uses_count_then_settles_real_usage(self):
         import base64,io,threading
@@ -293,10 +317,11 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(self.actual_model_posts,[])
         self.assertFalse(self.store.query('SELECT id FROM workflow_model_reservations'))
 
-    def test_suspect_zero_output_receipt_retains_reservation_and_raw_conflict(self):
+    def test_suspect_zero_output_receipt_partially_settles_and_preserves_raw_conflict(self):
         self.assertEqual(self.estimated_generation(output_tokens=0)['proposal']['kind'],'REQUEST_USER_INPUT')
-        row=self.store.query('SELECT used_tokens,reserved_tokens,state FROM workflow_model_reservations')[0]
-        self.assertIsNone(row['used_tokens']);self.assertEqual(row['state'],'reserved');self.assertGreater(row['reserved_tokens'],100)
+        row=self.store.query('SELECT used_tokens,reserved_tokens,state,output_reserved_tokens FROM workflow_model_reservations')[0]
+        self.assertEqual(row['used_tokens'],100+row['output_reserved_tokens'])
+        self.assertEqual(row['state'],'partially_settled_output_unknown');self.assertGreater(row['reserved_tokens'],100)
         usage=self.store.query("SELECT input_tokens,output_tokens,receipt,error_code FROM usage_calls WHERE category='llm'")[0]
         self.assertEqual((usage['input_tokens'],usage['output_tokens']),(100,0))
         self.assertEqual(usage['receipt'],'conflict');self.assertEqual(usage['error_code'],'model_usage_zero_output')
@@ -358,8 +383,9 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.strict_schema import transform
         request=self.store.query('SELECT * FROM planner_runs WHERE id=?',(self.task['spec']['request_id'],))[0]
         frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
-        protocol=ToolProtocol(get('media_planner'),frozen,self.task)
-        wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output?'},protocol.schemas['submit_plan'],encode=True)
+        from webapp.workflow_plan_draft import get as get_draft
+        protocol=ToolProtocol(get('media_planner'),frozen,self.task,draft=get_draft(self.store,self.task['spec']['request_id']),store=self.store)
+        wire=transform({'reason':'Missing detail','question':'Which output?'},protocol.schemas['request_user_input'],encode=True)
         configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',input_token_policy='native',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'),digest='frozen')
         sent=[]
@@ -368,7 +394,7 @@ class DynamicGatewayTests(unittest.TestCase):
             sent.append(kwargs['json']);self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
             arguments={**wire,'undeclared':True} if len(sent)==1 else wire
             return nullcontext(Response({'status':'completed','usage':{'input_tokens':100,'output_tokens':20,'total_tokens':120},
-                'output':[{'type':'function_call','name':'submit_plan','arguments':json.dumps(arguments)}]}))
+                'output':[{'type':'function_call','name':'request_user_input','arguments':json.dumps(arguments)}]}))
         client=Mock();client.post.side_effect=post
         with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
              patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
@@ -468,7 +494,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.workflow_agents.get_profile',return_value=policy), \
              patch('webapp.workflow_agents.model',side_effect=AgentReplyError('{invalid')) as model:
             with self.assertRaises(TaskQuotaReached):execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task)
-        self.assertEqual(model.call_count,4)
+        self.assertEqual(model.call_count,2)
         self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
 
     def test_strict_transport_fallback_does_not_spend_contract_correction(self):
@@ -520,10 +546,108 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=lambda *a,**kw:self.bind_reply(model(*a,**kw))):
             execute(host,self.lease,self.run,self.task)
         self.assertEqual(len(calls),2)
-        self.assertIn('Correct these fields using submit_plan',calls[1])
+        self.assertIn('Correct only these fields in the server-owned draft',calls[1])
         self.assertEqual(len(self.store.query('SELECT id FROM task_results')),1)
         self.assertEqual(graph.get(self.store,self.run['id'])['graph_version'],0)
         self.assertEqual([r['status'] for r in self.store.query("SELECT status FROM usage_calls WHERE category='tool' AND operation='proposal' ORDER BY seq")],['failed','succeeded'])
+
+    def test_manager_builds_server_owned_draft_before_atomic_proposal_stage(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        from webapp.strict_schema import transform
+        calls=[]
+        task={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write the approved report',
+              'files':[{'path':'report.txt','roles':['report']}],
+              'acceptance':[{'kind':'file'}],'basic_reason':'Local deterministic report','delivery_stage':True}
+        def respond(*args,**kwargs):
+            protocol=kwargs['protocol'];calls.append(list(protocol.schemas))
+            wire=transform({'tasks':[task],'kind':'COMPLETE','reason':'Draft is complete','continuation':{'mode':'complete'}},
+                           protocol.schemas['submit_typed_plan'],encode=True)
+            return protocol.decode('submit_typed_plan',wire)
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        row=self.store.query('SELECT status,revision,draft_json FROM workflow_plan_drafts')[0]
+        self.assertEqual((row['status'],row['revision']),('COMMITTED',1))
+        draft=json.loads(row['draft_json']);self.assertEqual(draft['new_tasks'][0]['id'],'draft_report')
+        staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
+        self.assertEqual(staged['proposal']['add_tasks'][0]['id'],'draft_report')
+        self.assertEqual(calls,[['inspect','contract','submit_typed_plan','continue_run','request_user_input','request_authorization','new_run_required']])
+
+    def test_typed_batch_builds_and_stages_common_plan_in_one_model_call(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        from webapp.strict_schema import transform
+        task={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write report',
+              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file'}],
+              'basic_reason':'Local report','delivery_stage':True}
+        def respond(*args,**kwargs):
+            protocol=kwargs['protocol'];payload={'tasks':[task],'kind':'COMPLETE','reason':'Complete typed batch',
+                'continuation':{'mode':'complete'}}
+            wire=transform(payload,protocol.schemas['submit_typed_plan'],encode=True)
+            return protocol.decode('submit_typed_plan',wire)
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond) as model:
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(model.call_count,1)
+        draft=self.store.query('SELECT status,revision FROM workflow_plan_drafts')[0]
+        self.assertEqual((draft['status'],draft['revision']),('COMMITTED',1))
+        staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
+        self.assertEqual(staged['proposal']['add_tasks'][0]['id'],'draft_report')
+
+    def test_invalid_atomic_draft_is_not_persisted_and_can_be_resubmitted(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute,model_output_limit
+        from webapp.strict_schema import transform
+        base={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write the approved report',
+              'files':[{'path':'report.txt','roles':['report']}],
+              'acceptance':[{'kind':'file'}],'basic_reason':'Local deterministic report','delivery_stage':True}
+        invalid={**base,'inputs':{'source':{'asset':'invented'}}};valid={**base,'inputs':{'source':{'asset':'asset'}}}
+        step=0;conversations=[]
+        def respond(*args,**kwargs):
+            nonlocal step
+            protocol=kwargs['protocol'];conversations.append(args[4]);step+=1
+            self.assertIn('submit_typed_plan',protocol.schemas)
+            self.assertEqual(model_output_limit(args[3],protocol),6144)
+            if step==2:
+                row=self.store.query('SELECT revision,draft_json FROM workflow_plan_drafts')[0]
+                self.assertEqual(row['revision'],0);self.assertEqual(json.loads(row['draft_json'])['new_tasks'],[])
+            name='submit_typed_plan';payload={'tasks':[invalid if step==1 else valid],
+                'kind':'COMPLETE','reason':'Ready' if step==1 else 'Corrected','continuation':{'mode':'complete'}}
+            wire=transform(payload,protocol.schemas[name],encode=True);return protocol.decode(name,wire)
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(step,2);self.assertIn('Correct only these fields',conversations[1])
+        draft=json.loads(self.store.query('SELECT draft_json FROM workflow_plan_drafts')[0]['draft_json'])
+        self.assertEqual(draft['new_tasks'][0]['inputs']['source']['asset'],'asset')
+        staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
+        self.assertEqual(staged['proposal']['add_tasks'][0]['inputs']['source']['asset'],'asset')
+
+    def test_draft_revision_change_rejects_stale_atomic_commit(self):
+        from webapp.workflow_plan_draft import mutate,get as get_draft
+        from webapp.workflow_model_protocol import ToolProtocol
+        from webapp.specialist_profiles import get
+        from webapp.strict_schema import transform
+        from webapp import workflow_planning as planning
+        request=self.store.query('SELECT * FROM planner_runs')[0]
+        frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
+        task={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report',
+              'objective':'Write report','files':[{'path':'report.txt','roles':['report']}],
+              'acceptance':[{'kind':'file'}],'basic_reason':'Local report','delivery_stage':True}
+        mutate(self.store,self.lease,request['id'],'draft_add_tasks',{'tasks':[task]})
+        protocol=ToolProtocol(get('media_planner'),frozen,self.task,draft=get_draft(self.store,request['id']),store=self.store,finalize=True)
+        wire=transform({'kind':'COMPLETE','reason':'Ready','continuation':{'mode':'complete'}},protocol.schemas['commit_plan'],encode=True)
+        reply=protocol.decode('commit_plan',wire)
+        mutate(self.store,self.lease,request['id'],'draft_remove_tasks',{'task_ids':['draft_report']})
+        with self.assertRaises(planning.ProposalSnapshotError):
+            planning.stage(self.store,self.lease,request['id'],reply['proposal'],
+                draft_revision=reply['_draft_revision'],draft_digest=reply['_draft_digest'])
+        self.assertEqual(self.store.query('SELECT status FROM workflow_plan_drafts')[0]['status'],'OPEN')
+        self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
 
     def test_invented_inspection_reference_is_denied_then_corrected_without_read(self):
         from types import SimpleNamespace

@@ -4800,7 +4800,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "先生成128×128 PNG；再单独生成64×64 PNG，第二步启动前必须依赖第一步完成。 第一步开始后等待10秒再处理，确保用户能够在实际执行期间暂停。 两个步骤均使用 type=script，第一步只需程序校验128×128尺寸；测试会保持暂停直到在途第一步完成，再验证第二步没有启动。",
+      "prompt": "先由两个type=agent、profile=editing_implementer的业务Task依次生成128×128 PNG和64×64 PNG，第二步启动前必须依赖第一步完成。第一步由Agent在受限沙箱内等待10秒再处理，确保用户能够在实际执行期间暂停；第一步只需程序校验128×128尺寸。测试会保持暂停直到在途第一步完成，再验证第二步没有启动。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 64,
@@ -5030,7 +5030,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "先生成128×128中间图，再从中间图生成64×64最终PNG。 首轮只能生成中间图，sealed=false，replan_after 指向中间图节点；第二轮读取已验收中间图后再规划最终图。 首轮中间图必须为 type=script 节点 intermediate，开始后先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮必须直接使用 intermediate 已验收的输出作为输入，不得重新从原始素材生成。",
+      "prompt": "先生成128×128中间图，再从中间图生成64×64最终PNG。首轮只能创建type=agent、profile=editing_implementer的intermediate业务Task，sealed=false，replan_after指向intermediate；该Agent在受限沙箱内先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮读取已验收中间图后再规划最终图，必须直接使用intermediate的已验收输出，不得重新从原始素材生成。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "protocol"
       },
@@ -5384,7 +5384,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "首轮添加互不依赖的left与right：left用Script等待12秒后将portrait.png缩放为64×64 left.png；right用image.local_adjust对原图做brightness=1.1。两者都是非交付中间结果。添加依赖两者的export，用Pillow左右拼接为128×64 final.png。稍后会补充要求，存量工作应正常完成。",
+      "prompt": "首轮添加互不依赖的left与right：left为type=agent、profile=editing_implementer的业务Task，由Agent在受限沙箱内等待12秒后将portrait.png缩放为64×64 left.png；right用image.local_adjust对原图做brightness=1.1。两者都是非交付中间结果。添加依赖两者的type=agent、profile=editing_implementer的export业务Task，由Agent用Pillow左右拼接为128×64 final.png。稍后会补充要求，存量工作应正常完成。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 128,
@@ -5585,7 +5585,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "创建render Script Task，把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。",
+      "prompt": "创建type=agent、profile=editing_implementer的render业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 64,
@@ -5628,7 +5628,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "创建render Script Task，将portrait.png缩小为64×64 final.png；技术验收检查尺寸，Agent验收criterion要求画面中央有一个清晰红色实心圆。但第一版故意不画圆，以真实触发Agent拒绝。保持on_failure=pause，不自动重生成或删掉验收；等待用户反馈。",
+      "prompt": "创建type=agent、profile=editing_implementer的render业务Task，将portrait.png缩小为64×64 final.png；技术验收检查尺寸，Agent验收criterion要求画面中央有一个清晰红色实心圆。但第一版任务目标仅缩放原图，不增加圆，以真实触发Agent拒绝。保持on_failure=pause，不自动重生成或删掉验收；等待用户反馈。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "protocol"
       },
@@ -5664,7 +5664,7 @@
       "complexity": "dynamic_protocol",
       "title": "局部蒙版修复比例边界",
       "assets": [],
-      "prompt": "先由Script创建128×128灰度mask：背景0，中央坐标(32,32)到(95,95)为255，(63,63)单像素置0。作为非交付中间结果。再用独立Script填补该孔，输出repaired.png；semantics.mask_repair声明B、local_hole_repair、max_changed_fraction=0.01、reference_role=mask、output_role=mask。显式输入原mask并映射输出mask角色；程序检查尺寸和变化比例，交付修复蒙版。",
+      "prompt": "先由type=agent、profile=editing_implementer的业务Task在受限沙箱内创建128×128灰度mask：背景0，中央坐标(32,32)到(95,95)为255，(63,63)单像素置0，作为非交付中间结果。再由独立的同profile业务Task填补该孔并输出repaired.png；semantics.mask_repair声明B、local_hole_repair、max_changed_fraction=0.01、reference_role=mask、output_role=mask。显式输入原mask并映射输出mask角色；程序检查尺寸和变化比例，交付修复蒙版。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 128,
@@ -5702,7 +5702,7 @@
       "complexity": "dynamic_protocol",
       "title": "持续动作的真实时序证据",
       "assets": [],
-      "prompt": "用本地Script生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断；输入为声明式Python/FFmpeg脚本。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。",
+      "prompt": "创建type=agent、profile=editing_implementer的业务Task，由Agent在受限沙箱内生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；保留技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "video",
         "duration": 4,
@@ -5743,7 +5743,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。",
+      "prompt": "创建type=agent、profile=editing_implementer的业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 64,
@@ -5783,7 +5783,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。",
+      "prompt": "创建type=agent、profile=editing_implementer的业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 64,
@@ -5904,7 +5904,7 @@
       "assets": [
         "approved_subject.png"
       ],
-      "prompt": "使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由本地Script Task source_cutout按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体。再由Script Task render按原字节复制为final.png，保留程序和Agent验收，并明确声明人工Review等待局部边缘修改意见，不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。",
+      "prompt": "使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由type=agent、profile=editing_implementer的source_cutout业务Task按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体；再由同类render业务Task按原字节复制为final.png，保留程序和Agent验收，并明确声明人工Review等待局部边缘修改意见，不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 512,
@@ -5949,7 +5949,7 @@
         "portrait.png",
         "rocket.png"
       ],
-      "prompt": "先用两个image.local_adjust Task prepare_a、prepare_b将portrait.png、rocket.png分别brightness=1.1，作为已验收非交付中间图；再用Script Task render，以Pillow ImageOps.fit默认方法各适配为64×64，a左b右合成128×64 final.png。render声明人工Review等待构图意见，不能代用户批准。",
+      "prompt": "先用两个image.local_adjust Task prepare_a、prepare_b将portrait.png、rocket.png分别brightness=1.1，作为已验收非交付中间图；再创建type=agent、profile=editing_implementer的render业务Task，由Agent在受限沙箱内以Pillow ImageOps.fit默认方法各适配为64×64，a左b右合成128×64 final.png。render声明人工Review等待构图意见，不能代用户批准。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 128,
@@ -5993,7 +5993,7 @@
         "portrait.png",
         "rocket.png"
       ],
-      "prompt": "首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。",
+      "prompt": "首轮创建type=agent、profile=editing_implementer的reference业务Task，由Agent在受限沙箱内先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "video",
         "width": 1280,
@@ -6036,7 +6036,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。",
+      "prompt": "render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试驱动，绝不能写入任何Task的objective或acceptance。创建type=agent、profile=editing_implementer的render业务Task，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。测试驱动会使render首次attempt真实失败。诊断后必须新增同profile的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 64,
@@ -6117,7 +6117,7 @@
       "assets": [
         "motion_reference.mp4"
       ],
-      "prompt": "使用motion_reference.mp4完成本次候选选择验证。创建两个本地Script Task：candidate复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。",
+      "prompt": "使用motion_reference.mp4完成本次候选选择验证。创建两个type=agent、profile=editing_implementer的业务Task：candidate在受限沙箱内复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "video",
         "width": 128,

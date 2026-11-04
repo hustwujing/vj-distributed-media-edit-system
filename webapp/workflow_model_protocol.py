@@ -26,6 +26,56 @@ def change_fields(task_type,user=False):
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage')
 
 
+def operation_acceptance(roles):
+    result=[]
+    for role in roles:
+        if role in ('primary_image','foreground','mask','preview'):kind='image'
+        elif role in ('video','audio'):kind='media'
+        elif role in ('report','plan','transcript'):kind='json'
+        elif role=='subtitle':kind='subtitle'
+        else:kind='file'
+        check={'kind':kind,'source':'technical'}
+        if kind=='media':check['decode']=True;check['video']=role=='video'
+        if check not in result:result.append(check)
+    return result or [{'kind':'file','source':'technical'}]
+
+
+def referenced_schema(root,definitions):
+    """Copy only the transitive local definitions used by one command."""
+    selected={}
+    def visit(value):
+        if isinstance(value,dict):
+            ref=value.get('$ref','')
+            if isinstance(ref,str) and ref.startswith('#/$defs/'):
+                name=ref[8:]
+                if name not in selected:
+                    selected[name]=None;selected[name]=deepcopy(definitions[name]);visit(selected[name])
+            for item in value.values():visit(item)
+        elif isinstance(value,list):
+            for item in value:visit(item)
+    result=deepcopy(root);visit(result)
+    if selected:result['$defs']=selected
+    return result
+
+
+def schema_complexity(definitions):
+    import json
+    value=definitions if isinstance(definitions,list) else [definitions]
+    totals={'schema_bytes':len(json.dumps(value,sort_keys=True,separators=(',',':')).encode()),
+            'schema_max_depth':0,'schema_object_count':0,'schema_union_branches':0,'schema_enum_values':0}
+    def walk(node,depth=0):
+        totals['schema_max_depth']=max(totals['schema_max_depth'],depth)
+        if isinstance(node,dict):
+            if node.get('type')=='object':totals['schema_object_count']+=1
+            totals['schema_union_branches']+=sum(len(node.get(key,[])) for key in ('anyOf','oneOf'))
+            totals['schema_enum_values']+=len(node.get('enum',[]))
+            for child in node.values():walk(child,depth+1)
+        elif isinstance(node,list):
+            for child in node:walk(child,depth+1)
+    walk(value)
+    return totals
+
+
 def available_changes(frozen):
     automatic,user=scopes(frozen);tasks={t['id']:t for t in frozen.get('tasks',[])}
     allowed=set(user) if user is not None else set(tasks) if automatic=='' else {automatic} if automatic else set()
@@ -38,7 +88,26 @@ def available_changes(frozen):
             if name in allowed and row['status'] in (('paused','succeeded','ready','blocked','failed') if user is not None else ('paused','succeeded'))}
 
 
-def manager_schema(frozen,contracts=None):
+def repair_options(frozen):
+    changes=available_changes(frozen);tasks={item['id']:item for item in frozen.get('tasks',[])};options=[]
+    for identifier,fields in changes.items():
+        task=tasks[identifier]
+        if task['spec']['type']=='agent' and not fields:
+            options.append({'action':'rerun_agent_revision','task_id':identifier,'changes_set':{},
+                            'meaning':'Create a new immutable revision with the same Agent contract and current repair context.'})
+        else:options.append({'action':'revise_task','task_id':identifier,'allowed_set_fields':fields})
+    for subject,row in tasks.items():
+        if not row.get('quality',{}).get('technical_valid') or not row.get('quality',{}).get('passed') or not row.get('candidate_result'):continue
+        evidence=[]
+        for identifier,item in tasks.items():
+            source=item['spec'].get('inputs',{}).get('source',{}).get('repair_candidate')
+            if (item['status']=='succeeded' and item['spec'].get('purpose')=='evidence' and item.get('quality',{}).get('verified_evidence')
+                    and source and source['logical_task_id']==subject and source['revision']==row['revision']):evidence.append(identifier)
+        if evidence:options.append({'action':'review_again','task_id':subject,'eligible_evidence_tasks':sorted(evidence)})
+    return options
+
+
+def manager_schema(frozen,contracts=None,*,allow_script=True):
     contracts=contracts or {}
     domain=graph.ManagerResult.model_json_schema();defs=deepcopy(domain['$defs']);task=defs['Task'];props=task['properties']
     from .quality_policy import Acceptance
@@ -51,16 +120,18 @@ def manager_schema(frozen,contracts=None):
         if kind=='text':fields['contains']['minItems']=1;required.append('contains')
         name='CommandAcceptance'+kind.title();defs[name]=obj(fields,required);variants.append({'$ref':'#/$defs/'+name})
     defs['Acceptance']={'anyOf':variants}
-    files={'type':'array','minItems':1,'maxItems':64,'items':obj({'path':{'type':'string','minLength':1,'maxLength':240},
-           'roles':{'type':'array','minItems':1,'items':{'type':'string','minLength':1},'maxItems':32}}),
+    files={'type':'array','minItems':1,'maxItems':64,'items':obj({'path':{'type':'string','pattern':'^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$'},
+           'roles':{'type':'array','minItems':1,'items':{'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'},'maxItems':32}}),
            'description':'Declare each local output file once and its roles. The server derives outputs/output_roles.'}
     task_variants=[]
     irrelevant={'script':{'operation','implementation','parameters','profile'},
                 'operation':{'argv','outputs','output_roles','profile','preflight','config_files'},
                 'agent':{'argv','operation','implementation','parameters','preflight','config_files'}}
     for kind,removed in irrelevant.items():
+        if kind=='script' and not allow_script:continue
         fields={key:deepcopy(value) for key,value in props.items() if key not in removed|{'outputs','output_roles'}}
         fields['type']={'type':'string','enum':[kind]}
+        if kind=='agent':fields['purpose']={'type':'string','enum':['business','repair']}
         if kind!='operation':fields['files']=files
         required=[key for key in task.get('required',[]) if key in fields]
         if kind!='operation':required.append('files')
@@ -68,6 +139,9 @@ def manager_schema(frozen,contracts=None):
             for index,(identifier,contract) in enumerate(sorted(contracts.items())):
                 bound=deepcopy(fields);bound['operation']={'type':'string','enum':[identifier]};bound.pop('implementation',None)
                 parameters=deepcopy(contract['parameters_schema']);prefix='Operation'+str(index)+'_'
+                if contract.get('evidence_only'):
+                    bound['purpose']={'type':'string','enum':['evidence']};bound['delivery_stage']={'type':'boolean','enum':[False]}
+                else:bound['purpose']={'type':'string','enum':['business','repair']}
                 def rename(value):
                     if isinstance(value,dict):return {key:('#/$defs/'+prefix+item[8:] if key=='$ref' and isinstance(item,str) and item.startswith('#/$defs/') else rename(item)) for key,item in value.items()}
                     if isinstance(value,list):return [rename(x) for x in value]
@@ -76,7 +150,9 @@ def manager_schema(frozen,contracts=None):
                 bound['parameters']=rename(parameters)
                 inputs=contract['input_contract'];roles=inputs.get('allowed_roles')
                 if roles is not None:bound['inputs']=obj({role:{'$ref':'#/$defs/InputRef'} for role in sorted(roles)},inputs.get('required_roles',[]))
-                name='OperationCommandTask'+str(index);defs[name]=obj(bound,list(dict.fromkeys([*required,'operation','inputs','parameters'])))
+                operation_required=[key for key in required if key!='acceptance']
+                if contract.get('evidence_only'):operation_required.append('purpose')
+                name='OperationCommandTask'+str(index);defs[name]=obj(bound,list(dict.fromkeys([*operation_required,'operation','inputs','parameters'])))
                 task_variants.append({'$ref':'#/$defs/'+name})
         else:
             name=kind.title()+'CommandTask';defs[name]=obj(fields,required);task_variants.append({'$ref':'#/$defs/'+name})
@@ -108,7 +184,7 @@ def manager_schema(frozen,contracts=None):
         replacement_variants=[]
         for variant in task_variants:
             original_name=variant['$ref'][8:];original=deepcopy(defs[original_name])
-            for key in REPLACEMENT_REQUIREMENT_FIELDS:
+            for key in (*REPLACEMENT_REQUIREMENT_FIELDS,'id'):
                 original['properties'].pop(key,None)
                 original['required']=[x for x in original['required'] if x!=key]
             name=original_name+'ReplacementImplementation';defs[name]=original;replacement_variants.append({'$ref':'#/$defs/'+name})
@@ -143,6 +219,8 @@ def compile_manager(command,frozen):
             if any(key in implementation for key in REPLACEMENT_REQUIREMENT_FIELDS):
                 raise CommandError('frozen_requirement','plan.repair_replacements.implementation','Requirement fields are inherited by the host')
             old=current[identifier]['spec']
+            implementation['id']=(identifier[:24]+'_r_'+graph.digest({
+                'request':frozen['planning_request_id'],'task':identifier})[:8])[:40]
             implementation.update({key:deepcopy(old[key]) for key in REPLACEMENT_REQUIREMENT_FIELDS})
             if identifier in plan.setdefault('replacements',{}):raise CommandError('duplicate_replacement','plan.repair_replacements','Replace each logical Task at most once')
             plan['replacements'][identifier]=implementation['id'];plan.setdefault('new_tasks',[]).append(implementation)
@@ -153,6 +231,10 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
+                if not raw.get('acceptance'):
+                    raw['acceptance']=operation_acceptance(binding.get('outputs',[]))
+                if not raw.get('basic_reason'):
+                    raw['basic_reason']='Server-owned registered operation integrity checks'
             for item in files:
                 if item['path'] in outputs:raise CommandError('duplicate_output','plan.new_tasks.files','Declare each output path once')
                 outputs.append(item['path'])
@@ -171,17 +253,19 @@ def compile_manager(command,frozen):
             if invalid:raise CommandError('frozen_field_change','plan.changes.set.'+sorted(invalid)[0],'This field is frozen; use an authorized replacement if its contract must change')
             revisions.append({**deepcopy(current[identifier]['spec']),**patch})
         continuation=plan['continuation']
+        waiting=[plan.get('replacements',{}).get(identifier,identifier) for identifier in continuation.get('tasks',[])]
         result['proposal']={'proposal_id':frozen['planning_request_id'],'base_graph_version':frozen['graph_version'],
             'reason':command['reason'],'add_tasks':added,'revise_tasks':revisions,
             'add_dependencies':plan.get('dependencies',[]),'remove_dependencies':plan.get('remove_dependencies',[]),
             'replacements':plan.get('replacements',{}),'review_again':plan.get('review_again',{}),
-            'sealed':continuation['mode']=='complete','replan_after':continuation.get('tasks',[])}
+            'sealed':continuation['mode']=='complete','replan_after':waiting}
     return graph.ManagerResult.model_validate(result).model_dump()
 
 
 class ToolProtocol:
-    def __init__(self,profile,frozen,task,*,finalize=False,inspections=None,candidate_keys=None,contracts=None):
-        self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.schemas={};self.names={}
+    def __init__(self,profile,frozen,task,*,finalize=False,inspections=None,candidate_keys=None,contracts=None,draft=None,store=None):
+        self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.store=store;self._draft=draft;self.schemas={};self.names={}
+        self.correction_mode=bool(draft and draft.get('last_error_signature'))
         tools=set(profile.tools)&({'proposal','result'} if finalize else set(profile.tools))
         if 'inspect' in tools:
             refs=frozen.get('inspectable_refs',[])
@@ -192,7 +276,9 @@ class ToolProtocol:
             operations=[row['id'] for row in frozen.get('operations',[])]
             if operations:self.add('contract','contract',obj({'operation':{'type':'string','enum':operations}}))
         if 'script' in tools:self.add('script','script',obj({'code':{'type':'string','minLength':1,'maxLength':64000}}))
-        if 'proposal' in tools:self.add('submit_plan','proposal',manager_schema(frozen,contracts))
+        if 'proposal' in tools:
+            if draft is None:self.add('submit_plan','proposal',manager_schema(frozen,contracts))
+            else:self.add_draft_tools(draft,contracts or {},finalize)
         if 'result' in tools:
             source=deepcopy(frozen.get('result_schema') or {})
             if task.get('control_kind')=='REVIEW':
@@ -212,18 +298,92 @@ class ToolProtocol:
 
     def add(self,name,action,source):self.schemas[name]=source;self.names[name]=action
 
+    def add_draft_tools(self,draft,contracts,finalize):
+        command=manager_schema(self.frozen,contracts,allow_script=False);defs=command['$defs'];plan=command['properties']['plan']['anyOf'][0]['properties']
+        def referenced(item):return referenced_schema(obj({'tasks':{'type':'array','minItems':1,'maxItems':16,'items':item}}),defs)
+        draft_value=draft.get('draft',draft);existing=draft_value.get('new_tasks',[])
+        can_correct=self.correction_mode
+        config_fields={key:deepcopy(plan[key]) for key in ('changes','dependencies','remove_dependencies','repair_replacements','replacements','review_again') if key in plan}
+        commit_fields={'kind':{'type':'string','enum':['APPLY_PLAN','COMPLETE']},'reason':command['properties']['reason'],
+                       'continuation':deepcopy(plan['continuation'])}
+        task_variants=[]
+        if 'AgentCommandTask' in defs:
+            schema=referenced({'$ref':'#/$defs/AgentCommandTask'})
+            task_variants.append({'$ref':'#/$defs/AgentCommandTask'})
+            if can_correct and any(item.get('type')=='agent' for item in existing):self.add('replace_agent_tasks','draft_replace_tasks',schema)
+        for index,identifier in enumerate(sorted(contracts)):
+            name='OperationCommandTask'+str(index)
+            if name in defs:
+                schema=referenced({'$ref':'#/$defs/'+name})
+                task_variants.append({'$ref':'#/$defs/'+name})
+                if can_correct and any(item.get('type')=='operation' and item.get('operation')==identifier for item in existing):
+                    self.add('replace_operation_tasks_'+str(index),'draft_replace_tasks',schema)
+        if not finalize and (not existing or not can_correct):
+            submit={**config_fields,**commit_fields}
+            if task_variants:submit['tasks']={'type':'array','minItems':1,'maxItems':16,'items':{'anyOf':task_variants}}
+            self.add('submit_typed_plan','draft_batch_commit',referenced_schema(obj(submit,['kind','reason','continuation']),defs))
+        if config_fields:
+            schema=referenced_schema(obj(config_fields,[]),defs)
+            if can_correct and any(draft_value.get(key) for key in config_fields):self.add('replace_plan_configuration','draft_replace_configuration',schema)
+        identifiers=[item['id'] for item in existing]
+        if can_correct and identifiers:self.add('remove_draft_tasks','draft_remove_tasks',obj({'task_ids':{'type':'array','minItems':1,'maxItems':16,'uniqueItems':True,'items':{'type':'string','enum':identifiers}}}))
+        if existing or finalize or can_correct:self.add('commit_plan','draft_commit',obj(commit_fields))
+        self.add('continue_run','draft_control',obj({'reason':command['properties']['reason']}))
+        self.add('request_user_input','draft_control',obj({'reason':command['properties']['reason'],
+            'question':command['properties']['question'],'options':command['properties']['options']},['reason','question']))
+        self.add('request_authorization','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
+            'authorization':command['properties']['authorization']}),defs))
+        self.add('new_run_required','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
+            'new_goal':command['properties']['new_goal'],'authorization':command['properties']['authorization']}),defs))
+
     def definitions(self):
-        return [{'name':name,'description':{'inspect':'Inspect authorized immutable inputs. Returns evidence IDs.',
+        descriptions={'inspect':'Inspect authorized immutable inputs. Returns evidence IDs.',
             'contract':'Read a frozen operation contract; does not authorize it.',
             'script':'Execute a bounded local implementation in the Task output directory.',
             'submit_plan':'Submit a plan command. Identity and unchanged Task fields are bound by the host.',
-            'submit_result':'Submit the declared result. Existing evidence and domain rules remain required.'}[name],
-            'schema':schema_for(source)} for name,source in self.schemas.items()]
+            'submit_result':'Submit the declared result. Existing evidence and domain rules remain required.',
+            'submit_typed_plan':'Atomically submit one bounded typed plan. Include all currently known Tasks, dependencies, revisions, replacements and continuation in this call.',
+            'replace_script_tasks':'Replace invalid script Tasks in the server-owned draft without rewriting the plan.',
+            'replace_agent_tasks':'Replace invalid specialist Tasks in the server-owned draft without rewriting the plan.',
+            'replace_plan_configuration':'Replace invalid dependency or revision sections in the server-owned draft.',
+            'remove_draft_tasks':'Remove invalid new Tasks and their draft dependencies.',
+            'commit_plan':'Validate and atomically submit the current server-owned draft.',
+            'continue_run':'Finish this planning round without changing the graph.',
+            'request_user_input':'Request information that is required before planning can continue.',
+            'request_authorization':'Request a complete expanded authorization.',
+            'new_run_required':'Request a successor Run for a changed top-level goal.'}
+        result=[{'name':name,'description':descriptions.get(name,'Append Tasks for one queried Operation to the server-owned draft.'),
+                 'schema':schema_for(source)} for name,source in self.schemas.items()]
+        metrics=schema_complexity(result)
+        if (metrics['schema_bytes']>512000 or metrics['schema_max_depth']>80 or
+                metrics['schema_object_count']>2500 or metrics['schema_union_branches']>1500):
+            raise ValueError('Model command schema exceeds the complexity budget')
+        return result
 
     def decode(self,name,arguments):
         if name not in self.schemas:raise CommandError('action_unavailable','tool','Tool is unavailable in this role or phase')
         payload=transform(arguments,self.schemas[name]);action=self.names[name]
         if action=='proposal':return {'action':'proposal','proposal':compile_manager(payload,self.frozen),'_model_command':payload}
+        if action in ('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration'):
+            if action in ('draft_add_tasks','draft_batch_commit'):
+                existing={item['id'] for item in self.frozen.get('tasks',[])}
+                duplicate=next((item['id'] for item in payload.get('tasks',[]) if item['id'] in existing),None)
+                if duplicate:raise CommandError('existing_task_id','tasks.id','New draft Tasks cannot reuse an existing logical Task ID; use the declared repair/revision command')
+            return {'action':action,'command':payload,'_model_command':payload}
+        if action=='draft_batch_commit':return {'action':action,'command':payload,'_model_command':payload}
+        if action=='draft_commit':
+            from .workflow_plan_draft import compile as compile_draft,compile_value
+            if self.store is None:
+                value=self._draft.get('draft',self._draft);proposal=compile_value(value,self.frozen,payload)
+                revision=self._draft.get('revision',0);draft_digest=graph.digest(value)
+            else:proposal,revision,draft_digest=compile_draft(self.store,self.frozen['planning_request_id'],self.frozen,payload)
+            return {'action':'proposal','proposal':proposal,'_model_command':payload,'_draft_commit':True,
+                    '_draft_revision':revision,'_draft_digest':draft_digest}
+        if action=='draft_control':
+            kinds={'continue_run':'CONTINUE','request_user_input':'REQUEST_USER_INPUT',
+                   'request_authorization':'REQUEST_AUTHORIZATION','new_run_required':'NEW_RUN_REQUIRED'}
+            return {'action':'proposal','proposal':compile_manager({'kind':kinds[name],**payload},self.frozen),
+                    '_model_command':payload,'_draft_commit':True}
         if action=='result':
             if self.task.get('control_kind')=='REVIEW':return {'action':'result','decision':{**payload,'snapshot_digest':self.frozen['snapshot_digest']}}
             if self.task.get('control_kind')=='DIAGNOSE':return {'action':'result','diagnosis':payload,'snapshot_digest':self.frozen['snapshot_digest']}
@@ -238,7 +398,14 @@ class ToolProtocol:
             'identity':'Host binds the original immutable request; do not copy snapshot/version fields.',
             'maps':'Dynamic maps are key/value entry arrays as declared in the tool schema; keys must be unique.',
             'planning':'Use plan.continuation.mode=complete OR wait with tasks. Task changes contain only allowed set fields.'}
-        context['model_command_contract']['operations']='Query contract before adding an operation Task. Its exact input roles and parameter schema then become available in submit_plan; the host binds the frozen implementation.'
+        if 'submit_typed_plan' in self.schemas or 'commit_plan' in self.schemas:
+            from .workflow_plan_draft import summary
+            context['model_command_contract'].update(version='plan-draft-v1',planning=
+                'Use submit_typed_plan once with all currently known typed Tasks, dependencies, revisions, replacements and continuation. The host atomically writes and validates a server-owned draft. If validation reports a specific error, use only the offered replace/remove tool and then commit_plan. Draft commands never execute business work.',
+                draft_state=summary(self._draft.get('draft',self._draft)))
+        if 'submit_typed_plan' in self.schemas:
+            context['model_command_contract']['repair_options']=repair_options(self.frozen)
+        context['model_command_contract']['operations']='Query contract before adding an operation Task. Its exact typed Task variant then becomes available inside submit_typed_plan; the host binds the frozen implementation.'
         if 'submit_plan' in self.schemas:
             automatic,user=scopes(self.frozen)
             context['model_command_contract']['replacement']='Automatic repair uses plan.repair_replacements: choose an implementation; host inherits the original requirement exactly.' if automatic is not None and user is None else 'Authorized user feedback may use plan.replacements with explicitly declared new_tasks.'

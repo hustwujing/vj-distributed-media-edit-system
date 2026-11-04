@@ -26,10 +26,14 @@ def isolate_environment(root, runtime_build=None):
             'ELEVENLABS_API_KEY','OPENAI_API_KEY','ANTHROPIC_API_KEY',
             'HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY'})
         if external and name not in keep:os.environ.pop(name,None)
-    (root/'tmp').mkdir(mode=0o755,parents=True,exist_ok=True)
-    os.environ.update(VIDEO_USE_DATA_DIR=str(root/'data'),VIDEO_USE_EXECUTOR_ROOT=str(root/'executors'),VIDEO_USE_TEST_TMP_ROOT=str(root/'tmp'),
+    task_tmp=root/'tmp';task_tmp.mkdir(mode=0o755,parents=True,exist_ok=True)
+    shared_tmp=Path(__file__).resolve().parents[2]/'t';shared_tmp.mkdir(mode=0o755,exist_ok=True);shared_tmp.chmod(0o1777)
+    os.environ.update(VIDEO_USE_DATA_DIR=str(root/'data'),VIDEO_USE_EXECUTOR_ROOT=str(root/'executors'),VIDEO_USE_TEST_TMP_ROOT=str(task_tmp),
+                      TMPDIR=str(shared_tmp),TMP=str(shared_tmp),TEMP=str(shared_tmp),
                       VIDEO_USE_UID_START='800000',VIDEO_USE_UID_COUNT='128',
                       AWS_EC2_METADATA_DISABLED='true',AWS_CONFIG_FILE='/dev/null',AWS_SHARED_CREDENTIALS_FILE='/dev/null')
+    # tempfile may have cached /tmp before the suite installed isolation.
+    tempfile.tempdir=str(shared_tmp)
     if runtime_build is not None:os.environ['VIDEO_USE_RUNTIME_BUILD']=str(runtime_build)
 
 

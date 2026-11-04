@@ -4,7 +4,7 @@ from contextlib import nullcontext
 from types import SimpleNamespace
 from jsonschema import ValidationError
 from webapp import workflow_graph as graph
-from webapp.workflow_model_protocol import manager_schema,compile_manager,ToolProtocol,CommandError
+from webapp.workflow_model_protocol import manager_schema,compile_manager,ToolProtocol,CommandError,schema_complexity,repair_options
 from webapp.strict_schema import obj,schema_for,transform
 from webapp.model_tool_protocol import request,response,strict_unsupported
 from webapp.model_adapters import get,PublicResponseStructureError
@@ -44,12 +44,14 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_automatic_replacement_inherits_exact_requirement_without_model_retyping(self):
         f=frozen();schema=manager_schema(f)
-        implementation={'id':'new_render','name':'New implementation','type':'script','argv':['python','-c','print(1)'],
+        implementation={'name':'New implementation','type':'script','argv':['python','-c','print(1)'],
                         'files':[{'path':'report.txt','roles':['report']}],'basic_reason':'Local repair'}
         cmd={'kind':'APPLY_PLAN','reason':'Replace failed implementation','plan':{
-            'repair_replacements':[{'task_id':'render','implementation':implementation}], 'continuation':{'mode':'complete'}}}
+            'repair_replacements':[{'task_id':'render','implementation':implementation}], 'continuation':{'mode':'wait','tasks':['render']}}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
-        self.assertEqual(result['replacements'],{'render':'new_render'})
+        replacement=result['replacements']['render'];self.assertTrue(replacement.startswith('render_r_'))
+        self.assertEqual(result['add_tasks'][0]['id'],replacement)
+        self.assertEqual(result['replan_after'],[replacement])
         for key in ('objective','acceptance','semantics','delivery_stage'):
             self.assertEqual(result['add_tasks'][0][key],f['tasks'][0]['spec'][key])
         implementation['acceptance']=[]
@@ -113,6 +115,32 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(list(p.schemas),['submit_plan'])
         with self.assertRaises(CommandError):p.decode('inspect',{'refs':[]})
 
+    def test_plan_draft_uses_typed_commands_with_bounded_schema_complexity(self):
+        f=frozen(False);p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertEqual(list(p.schemas),['submit_typed_plan','continue_run','request_user_input','request_authorization','new_run_required'])
+        self.assertNotIn('commit_plan',p.schemas)
+        self.assertEqual(p.context()['model_command_contract']['version'],'plan-draft-v1')
+        self.assertNotIn('submit_plan',p.schemas)
+        metrics=schema_complexity(p.definitions())
+        self.assertLess(metrics['schema_bytes'],512000)
+        self.assertLess(metrics['schema_max_depth'],80)
+        self.assertLess(metrics['schema_union_branches'],1500)
+        from webapp.workflow_agents import model_output_limit
+        self.assertEqual(model_output_limit(profile('media_planner'),p),6144)
+        final=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'},finalize=True)
+        self.assertEqual(model_output_limit(profile('media_planner'),final),1024)
+
+    def test_agent_repair_projects_same_contract_revision_as_explicit_option(self):
+        task={'id':'review','type':'agent','profile':'editing_implementer','name':'Review repair','objective':'Recheck output',
+              'outputs':['report.txt'],'output_roles':{'report':'report.txt'},'acceptance':[{'kind':'file'}],
+              'basic_reason':'Recheck with failure context','delivery_stage':False}
+        f=frozen(task);f['tasks'][0]['status']='paused';f['tasks'][0]['id']='review';f['trigger']={'task_id':'review'}
+        options=repair_options(f)
+        self.assertIn({'action':'rerun_agent_revision','task_id':'review','changes_set':{},
+            'meaning':'Create a new immutable revision with the same Agent contract and current repair context.'},options)
+        protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertEqual(protocol.context()['model_command_contract']['repair_options'],options)
+
     def test_loaded_operation_contract_exposes_required_roles_and_parameters(self):
         from webapp.operations import catalog
         op=next(x for x in catalog()['operations'] if x['id']=='media.evidence')
@@ -120,7 +148,7 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         command={'kind':'APPLY_PLAN','reason':'Collect audio evidence','plan':{'new_tasks':[{
             'id':'evidence','type':'operation','name':'Evidence','objective':'Inspect authorized audio',
-            'operation':'media.evidence','parameters':{'mode':'audio'},'inputs':{'source':{'asset':'asset'}},
+            'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},'inputs':{'source':{'asset':'asset'}},
             'acceptance':[{'kind':'json','file':'evidence-report.json'}]}],
             'continuation':{'mode':'wait','tasks':['evidence']}}}
         wire=transform(command,p.schemas['submit_plan'],encode=True)
@@ -131,6 +159,21 @@ class ModelCommandTests(unittest.TestCase):
         unread=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'})
         command['plan']['new_tasks'][0]['inputs']={'source':{'asset':'asset'}}
         with self.assertRaises(ValidationError):transform(command,unread.schemas['submit_plan'],encode=True)
+
+    def test_operation_command_inherits_server_owned_technical_acceptance(self):
+        from webapp.operations import catalog
+        op=next(x for x in catalog()['operations'] if x['id']=='media.concat_sequence')
+        f=frozen(False);f['operations']=[op]
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
+        draft={'id':'concat','type':'operation','name':'Join clips','objective':'Join the authorized clips',
+               'operation':'media.concat_sequence','parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2},
+               'inputs':{'clip_1':{'asset':'asset'}},'delivery_stage':True}
+        wire=transform({'kind':'COMPLETE','reason':'Join clips','plan':{'new_tasks':[draft],
+            'continuation':{'mode':'complete'}}},p.schemas['submit_plan'],encode=True)
+        task=p.decode('submit_plan',wire)['proposal']['proposal']['add_tasks'][0]
+        self.assertEqual([item['kind'] for item in task['acceptance']],['media','json'])
+        self.assertTrue(task['acceptance'][0]['decode'])
+        self.assertIn('registered operation',task['basic_reason'])
 
     def test_review_uses_only_actual_inspection_ids_and_host_snapshot(self):
         from webapp.workflow_agent_contracts import ReviewDecision

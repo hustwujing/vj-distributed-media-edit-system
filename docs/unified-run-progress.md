@@ -2,6 +2,14 @@
 
 本记录区分源码实现、开发验证、部署和真机验收；历史部署结果不代表当前版本通过。
 
+## PlanDraft v1 与模型预算分账（2026-11-04）
+
+Manager协议升级为`structured-profile-v4`：每个PLAN Control Job持久化唯一`workflow_plan_drafts`记录，绑定snapshot、graph、authorization和input cutoff。模型使用按Task类型及已查询Operation拆分的白名单命令追加、替换或移除草稿局部；`commit_plan`携带revision/digest在`planning.stage`事务内复核，随后仍复用原ManagerResult、Proposal、授权和DAG应用校验。相同错误连续两次有界停止，Schema执行字节、深度、对象及联合分支门禁。新Planner不暴露Script Task；注册Operation承担确定性能力，自定义实现委派`editing_implementer`。
+
+模型预算表新增input/output预留及结算分量。Claude兼容路由返回非空结果但`output_tokens=0`时，usage账本保留conflict，预算账本结算有效input并仅保留当前命令阶段输出上限，状态为`partially_settled_output_unknown`。PlanDraft编辑请求上限6144、纠错4096、final commit/control 1024；Implementer脚本仍可使用12000。最终工作区摘要完成913项Python门禁（0失败/错误，6项显式GPU/OCR smoke跳过）和59项Node门禁。第一次完整门禁暴露根分区满时测试仍使用`/tmp`，第二次暴露迁移后的跨UID写权限及AF_UNIX路径长度；测试shared temp最终固定到`/data2/wujing03/t`的短路径`01777`基目录，真实PostgreSQL降权启动、媒体broker和长socket竞争用例均通过。119条真机保持暂停，旧结果不重标。
+
+工具集随后按真实模型轨迹收敛：正常阶段使用一个`submit_typed_plan`原子候选，`inspect/contract`保持独立；候选在全部Schema、业务、权限和引用校验通过前不写草稿。提交错误后才开放局部修复工具。开发集12/12合法，平均1.58次模型调用、p95 4次、平均21.2秒、p95 52.5秒；首次未见保留集16/18合法，两条均为Reviewer inconclusive修复路径。服务端增加可执行`repair_options`后，两条分别以1次和2次调用通过；它们已暴露，仅作为回归，不再计未见保留集。所有模型评测均不执行业务Operation或外部媒体Provider，不能代替119条真机。
+
 ## 基线与发布状态
 
 - 分支：`feature/unified-run`；完整工作区基线 `7e667d8`，第一阶段架构提交 `2233fcb`，协议/真机驱动实现 `46ee178`，历史证据归档 `b558797`。

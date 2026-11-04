@@ -12,6 +12,12 @@ class PlanningBudgetExceeded(ValueError):pass
 class PlanningScopeRequired(ProposalReferenceError):code='scope_confirmation_required'
 
 
+def validate_references(store,run,proposal):
+    known={asset['id'] for asset in store.assets(run['project_id'])}
+    if proposal and any(ref.asset and ref.asset not in known for task in proposal.add_tasks for ref in task.inputs.values()):
+        raise ProposalReferenceError('Unknown input asset in this project; copy an existing asset ID exactly. Authorization cannot create a missing asset.')
+
+
 def available_operations(store):
     from .operations import catalog
     advertised={}
@@ -119,6 +125,8 @@ def queue(store,run,trigger):
     store.execute('''INSERT INTO planner_runs(id,run_id,task_id,base_graph_version,authorization_version,
         trigger_json,snapshot_json,snapshot_digest,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,'pending',?,?)''',
         (identifier,run['id'],task_id,run['graph_version'],run['authorization_version'],encode(trigger),encode(frozen),digest(frozen),now,now))
+    from .workflow_plan_draft import create as create_draft
+    create_draft(store,identifier,run['id'],frozen,now)
     from .specialist_profiles import get as profile
     store.execute('''INSERT INTO control_jobs(run_id,id,type,authorization_version,control_kind,snapshot_json,snapshot_digest,spec_json,profile_json,status,created_graph_version,created_at,updated_at)
         VALUES (?,?,'agent',?,'PLAN',?,?,?,?,'ready',?,?,?)''',(run['id'],task_id,run['authorization_version'],encode(frozen),digest(frozen),encode(spec),encode(profile('media_planner').snapshot()),run['graph_version'],now,now))
@@ -127,7 +135,7 @@ def queue(store,run,trigger):
     return identifier
 
 
-def stage(store,lease,request_id,raw):
+def stage(store,lease,request_id,raw,*,draft_revision=None,draft_digest=None):
     result=ManagerResult.model_validate(raw)
     proposal=result.proposal
     with lease.bind(),store.connect() as db:
@@ -149,15 +157,21 @@ def stage(store,lease,request_id,raw):
         if request['status']=='staged':
             if request['proposal_json']!=encode(result.model_dump()):raise ValueError('Planner result is immutable')
             return
+        if draft_revision is not None:
+            draft=db.execute('SELECT * FROM workflow_plan_drafts WHERE planning_request_id=?',(request_id,)).fetchone()
+            if (not draft or draft['status']!='OPEN' or draft['revision']!=draft_revision
+                    or digest(json.loads(draft['draft_json']))!=draft_digest):
+                raise ProposalSnapshotError('Planning draft changed before atomic proposal staging')
         if proposal and db.execute('SELECT id FROM planner_runs WHERE run_id=? AND proposal_id=? AND id<>?',
                       (run['id'],proposal.proposal_id,request_id)).fetchone():
             raise ProposalIdentityError('proposal_id is already used, including rejected proposals; use this planning_request_id as a new proposal_id')
         if proposal and proposal.base_graph_version!=request['base_graph_version']:raise ValueError('Proposal does not match frozen planning version')
-        known={asset['id'] for asset in store.assets(run['project_id'])}
-        if proposal and any(ref.asset and ref.asset not in known for task in proposal.add_tasks for ref in task.inputs.values()):
-            raise ProposalReferenceError('Unknown input asset in this project; copy an existing asset ID exactly. Authorization cannot create a missing asset.')
+        validate_references(store,run,proposal)
         db.execute("UPDATE planner_runs SET proposal_json=?,proposal_id=?,status='staged',lease_id=?,lease_generation=?,updated_at=? WHERE id=?",
                    (encode(result.model_dump()),proposal.proposal_id if proposal else None,lease.attempt,lease.generation,store.now(),request_id))
+        if draft_revision is not None:
+            db.execute("UPDATE workflow_plan_drafts SET status='COMMITTED',updated_at=? WHERE planning_request_id=? AND status='OPEN' AND revision=?",
+                       (store.now(),request_id,draft_revision))
         db.execute('UPDATE runs SET next_reconcile_at=? WHERE id=?',(store.now(),run['id']))
         event(store,run,'proposal_staged',{'proposal_id':proposal.proposal_id if proposal else '', 'result_kind':result.kind,'task_id':lease.step_id})
 
@@ -227,6 +241,7 @@ def apply(store,run,request):
         (version,int(proposal.sealed),encode(proposal.replan_after),repair_context,now,now,run['id'],proposal.base_graph_version)):
         raise ValueError('Graph changed before proposal commit')
     store.execute("UPDATE planner_runs SET status='applied',applied_graph_version=?,updated_at=? WHERE id=?",(version,now,request['id']))
+    store.execute("UPDATE workflow_plan_drafts SET status='COMMITTED',updated_at=? WHERE planning_request_id=? AND status='OPEN'",(now,request['id']))
     store.execute("UPDATE control_jobs SET status='succeeded',error_code='',error_detail='',wait_reason='',updated_at=? WHERE run_id=? AND id=?",(now,run['id'],request['task_id']))
     selected=store.query('SELECT id,revision FROM run_tasks WHERE run_id=? AND selected=1',(run['id'],))
     for item in selected:
@@ -271,6 +286,7 @@ def apply_control_result(store,run,request,result,frozen):
         Orchestrator(store).decision(run,request_kind,data)
         if result.input_through_sequence:defer_batch(store,run,result.input_through_sequence)
     store.execute("UPDATE planner_runs SET status='applied',applied_graph_version=?,updated_at=? WHERE id=?",(run['graph_version'],now,request['id']))
+    store.execute("UPDATE workflow_plan_drafts SET status='COMMITTED',updated_at=? WHERE planning_request_id=? AND status='OPEN'",(now,request['id']))
     store.execute("UPDATE control_jobs SET status='succeeded',error_code='',error_detail='',wait_reason='',updated_at=? WHERE run_id=? AND id=?",(now,run['id'],request['task_id']))
     event(store,run,'manager_result_applied',{'result_kind':result.kind,'through_sequence':result.input_through_sequence})
     return run['graph_version']

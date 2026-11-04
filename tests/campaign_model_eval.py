@@ -88,6 +88,17 @@ def build():
     print(json.dumps({'cases':len(selected),'modes':quotas,'splits':dict(collections.Counter(x['split'] for x in selected))}))
 
 
+def rebind():
+    if (EVAL/'dataset.json').exists():raise ValueError('Dataset already frozen; choose a new evaluation directory')
+    source=Path(os.environ['MODEL_EVAL_SOURCE_DATASET']);dataset=json.loads(source.read_text())
+    from tests.campaign_model_fixture import rebind as bind,validate
+    rebound=bind(dataset,lambda name:graph.digest(policy(name).snapshot()))
+    rebound['rebound_at']=time.time();rebound['rebound_from']=str(source)
+    validate(rebound,lambda name:graph.digest(policy(name).snapshot()))
+    save(EVAL/'dataset.json',rebound)
+    print(json.dumps({'cases':len(rebound['cases']),'source':str(source),'facts_preserved':True}))
+
+
 class EvaluationEvidenceMissing(ValueError):pass
 
 
@@ -172,8 +183,12 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
     if (directory/'result.json').exists():return json.loads((directory/'result.json').read_text())
     directory.mkdir(parents=True,exist_ok=True,mode=0o700)
     config=configs[model_name];adapter=adapter_for(config.protocol);base,key=config.credentials();f=case['frozen'];p=policy('media_planner')
-    compact=variant.startswith('commands');native=variant!='baseline';strict=variant in ('commands_strict','legacy_strict','commands_strict_generic_feedback')
-    protocol=ToolProtocol(p,f,{'control_kind':'PLAN'},finalize=True,contracts=f.get('provided_operation_contracts',{}))
+    draft_mode=variant=='draft_strict';compact=variant.startswith('commands') or draft_mode;native=variant!='baseline';strict=variant in ('commands_strict','legacy_strict','commands_strict_generic_feedback','draft_strict')
+    draft=None
+    if draft_mode:
+        from webapp.workflow_plan_draft import EMPTY
+        draft=copy.deepcopy(EMPTY);p=dataclasses.replace(p,action_capabilities=('PROPOSE',))
+    protocol=ToolProtocol(p,f,{'control_kind':'PLAN'},finalize=not draft_mode,contracts=f.get('provided_operation_contracts',{}),draft=draft)
     if compact:instructions=model_instructions(p,control_kind='PLAN',native_tools=True);context=protocol.context();definitions=protocol.definitions()
     else:
         instructions=(EVAL/'baseline-instructions.txt').read_text();context=copy.deepcopy(f)
@@ -183,13 +198,20 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
     text=graph.encode(context);feedback='';store=FrozenStore(case);calls=[];valid=False;progress=False;kind=None;started=time.time()
     result={'case':case['id'],'split':case['split'],'source_case':case['source_case'],'model':config.model,'variant':variant,'repeat':repeat,
             'started_at':started,'business_actions_executed':0,'validation_scope':'frozen proposal contract; persistence-only counters normalized; no transaction or media execution'}
-    for turn in range(max_corrections+2):
+    correction_count=0;draft_mutations=0
+    for turn in range(10 if draft_mode else max_corrections+2):
+        prepared_candidate=None
         if (EVAL/'stop').exists():result['user_stopped']=True;break
         attempts=[call for call in calls if not (call.get('http_status') in (400,422) and call.get('fallback')=='non_strict_tools')]
-        if len(attempts)>=max_corrections+1:break
+        if (not draft_mode and len(attempts)>=max_corrections+1) or correction_count>max_corrections:break
+        if draft_mode:
+            protocol=ToolProtocol(p,f,{'control_kind':'PLAN'},contracts=f.get('provided_operation_contracts',{}),draft=draft,
+                                  finalize=draft_mutations>=4 or turn>=6)
+            definitions=protocol.definitions()
         body=adapter.conversation(instructions,text+feedback)
         if native:body=tool_request(adapter,body,definitions,strict=strict)
-        body=adapter.prepare(body,config.model,12000,config.reasoning_effort);assert_no_credentials(graph.encode(body),(key,))
+        from webapp.workflow_agents import model_output_limit
+        body=adapter.prepare(body,config.model,model_output_limit(p,protocol) if compact else 12000,config.reasoning_effort);assert_no_credentials(graph.encode(body),(key,))
         record={'turn':turn,'strict_requested':strict if native else False,'request_sha256':graph.digest(body),'at':time.time()}
         if native:
             record['wire_strict_settings']=[(tool.get('function',tool)).get('strict','omitted') for tool in body['tools']]
@@ -210,7 +232,23 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
             if native:
                 name,args=tool_response(adapter,payload);assert_no_credentials(graph.encode(args),(key,));record['syntax_valid']=True
                 save(directory/f'reply-{turn}.json',{'tool':name,'arguments':args})
-                if compact:reply=protocol.decode(name,args)['proposal']
+                if compact:
+                    decoded=protocol.decode(name,args)
+                    if draft_mode and decoded['action']=='draft_batch_commit':
+                        from webapp.workflow_plan_draft import apply_value,compile_value
+                        command=decoded['command'];commit={key:command[key] for key in ('kind','reason','continuation')}
+                        prepared_candidate=apply_value(draft,'draft_batch',{key:value for key,value in command.items() if key not in commit})
+                        decoded={'action':'proposal','proposal':compile_value(prepared_candidate,f,commit)}
+                    if draft_mode and decoded['action'].startswith('draft_'):
+                        from webapp.workflow_plan_draft import apply_value,summary
+                        draft=apply_value(draft,decoded['action'],decoded['command'])
+                        draft.pop('last_error_signature',None)
+                        draft_mutations+=1
+                        record.update(schema_valid=True,draft_command=decoded['action'],draft_revision=len(draft['_commands']))
+                        text+='\nServer-owned draft command accepted; no business action executed. Current bounded structure:'+graph.encode(summary(draft))
+                        feedback=''
+                        calls.append(record);save(directory/f'call-{turn}.json',record);continue
+                    reply=decoded['proposal']
                 else:
                     if name!='submit_plan':raise ValueError('Wrong submission tool')
                     reply=transform(args,graph.ManagerResult.model_json_schema())
@@ -220,7 +258,9 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
                 if raw.get('action')!='proposal':raise ValueError('Finalize requires proposal')
                 reply=raw.get('proposal')
             graph.ManagerResult.model_validate(reply);record['schema_valid']=True
-            kind,progress=validate(reply,case,store);valid=True;record.update(contract_valid=True,goal_progress=progress,kind=kind)
+            kind,progress=validate(reply,case,store);valid=True
+            if prepared_candidate is not None:draft=prepared_candidate;draft_mutations+=1
+            record.update(contract_valid=True,goal_progress=progress,kind=kind)
         except Exception as exc:
             from requests import RequestException
             from pydantic import ValidationError as PydanticError
@@ -234,7 +274,13 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
             else:errors=[{'path':getattr(exc,'path','proposal'),'type':getattr(exc,'code',type(exc).__name__),'message':str(exc)[:500]}]
             for e in errors:assert_no_credentials(e['message'],(key,))
             record.update(error_type=type(exc).__name__,errors=errors,seconds=time.time()-record['at'])
-            feedback='\nLatest submission was rejected before any action. Correct it within the same frozen scope and budget. Errors:'+graph.encode(errors)
+            mechanical=bool(record.get('fallback')=='strict_constraints_not_enforced')
+            if not mechanical:correction_count+=1
+            if draft_mode and not mechanical:draft['last_error_signature']=graph.digest(errors)
+            if draft_mode:
+                corrections=[name for name in protocol.schemas if name.startswith(('replace_','remove_draft'))]
+                if corrections:errors=[{**error,'allowed_actions':corrections} for error in errors]
+            feedback='\nLatest submission was rejected before any action. Correct only the reported fields within the same frozen scope. Errors:'+graph.encode(errors)
             if variant=='commands_strict_generic_feedback':feedback='\nThe previous submission was invalid. Correct it using the declared schema within the original scope. Nothing was applied.'
             if isinstance(exc,EvaluationEvidenceMissing):record['unscorable']=True
             if isinstance(exc,RequestException):record['dependency_error']=True
@@ -271,5 +317,5 @@ def run(args):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['build','run']);p.add_argument('--cases');p.add_argument('--models',default='gpt,claude,ds41');p.add_argument('--variants',default='baseline,commands_strict');p.add_argument('--repeat',type=int,default=3);p.add_argument('--jobs',type=int,default=6);a=p.parse_args()
-    build() if a.action=='build' else run(a)
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('action',choices=['build','rebind','run']);p.add_argument('--cases');p.add_argument('--models',default='gpt,claude,ds41');p.add_argument('--variants',default='baseline,commands_strict');p.add_argument('--repeat',type=int,default=3);p.add_argument('--jobs',type=int,default=6);a=p.parse_args()
+    build() if a.action=='build' else rebind() if a.action=='rebind' else run(a)

@@ -5,7 +5,8 @@ ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT))
 from tests.campaign_model_fixture import facts_digest
 MODELS=['gpt-5.6','claude-4.6-sonnet','deepseek-v4.1-flash']
-ARMS={'baseline':'原动态v2文本协议','legacy_strict':'完整旧契约＋原生strict','commands_plain':'精简命令＋非strict','commands_strict':'精简命令＋strict优先／显式回退','commands_strict_generic_feedback':'精简命令＋strict优先＋泛化反馈'}
+ARMS={'baseline':'原动态v2文本协议','legacy_strict':'完整旧契约＋原生strict','commands_plain':'精简命令＋非strict','commands_strict':'精简命令＋strict优先／显式回退','commands_strict_generic_feedback':'精简命令＋strict优先＋泛化反馈',
+      'draft_strict':'PlanDraft类型化命令＋strict优先／显式回退'}
 
 def percentile(values,p):
     return round(sorted(values)[max(0,math.ceil(len(values)*p)-1)],2) if values else None

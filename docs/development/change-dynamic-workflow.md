@@ -11,7 +11,7 @@
 | 职责 | 实现 | 权威记录 |
 | --- | --- | --- |
 | Task、授权和 Proposal 契约 | `workflow_graph.py` | `runs`、`run_tasks`、`workflow_task_revisions`、`workflow_plan_tasks`、`workflow_dependencies` |
-| 冻结规划与提案 | `workflow_planning.py` | `planner_runs` |
+| 冻结规划、草稿与提案 | `workflow_planning.py`、`workflow_plan_draft.py` | `planner_runs`、`workflow_plan_drafts` |
 | 正式状态、恢复和交付 | `workflow_orchestrator.py` | reconcile generation、命令、审批、验收及交付事务 |
 | 资源选择与领取 | `workflow_dispatch.py`、`scheduling.py`、`task_leases.py` | 既有 execution lease、attempt、资源和清理表 |
 | 执行与候选结果 | `workflow_executor.py`、`execution_runtime.py` | `task_results`、既有不可变对象和步骤检查点 |
@@ -32,6 +32,8 @@
 ## 必须保持的不变量
 
 - Manager 提交绑定 snapshot、授权版本、graph 版本与输入 cutoff 的 ManagerResult。结果仅限 CONTINUE、APPLY_PLAN、REQUEST_AUTHORIZATION、REQUEST_USER_INPUT、COMPLETE、NEW_RUN_REQUIRED；只有 APPLY_PLAN/COMPLETE 携带 Proposal；专业 Agent 的 JSON 或进程退出码不构成业务成功。
+- Manager 不直接生成完整 Proposal。每个 PLAN Control Job 创建唯一 `plan-draft-v1` 草稿；按 Task 类型和已查询 Operation 契约使用白名单命令追加或局部替换内容，`commit_plan` 在同一事务复核草稿 revision/digest、租约和冻结快照后暂存权威 ManagerResult。草稿命令不创建业务 Task、不执行工具，也不授予权限。
+- 新 Planner 协议不暴露 Script Task。确定性处理使用注册 Operation；需要动态代码时创建获授权的 `editing_implementer` Agent Task，由其在受限沙箱内执行。Manager、外部 harness 和 `/workflow/proposal` 均不得提交原始 shell、SQL、URL 或代码。
 - `delivery_stage`表示Task的实际输出文件可直接交付，不表示它是DAG最后一步。Reviewer、Diagnostician、证据和内部检查报告不得成为交付阶段；sealed图必须包含实际业务交付物。内容Reviewer可以阻断上游，但其JSON报告不取得上游媒体的交付所有权。
 - 只有 Orchestrator 提交正式 Task/Workflow 状态、批准产物和最终交付。
 - 领取必须同时满足 `ready` 和空 `lease_id`。执行器提交结果后，调度器不得在控制面处理之前
@@ -60,6 +62,19 @@ Agent 的原始 `/workflow/agent-result` 只是待验证输出，不能携带可
 执行及程序检查失败按冻结错误策略处理；安全同 revision 恢复、Manager revision、外部状态核实和用户决策必须区分。诊断完成和步骤内容拒绝会把实际证据交回 Manager，不能停在诊断终态，也不能通过反复继续刷出通过意见。最终验收拒绝时，后续规划输入包含实际验收反馈。
 
 Planner 首轮只接收冻结能力摘要；完整 operation 契约通过 `contract` 动作按 ID 查询并校验摘要。Reviewer 的检查、格式纠正和 finalize 调用分别计数，finalize 阶段拒绝新增检查。响应结构诊断只记录长度、哈希、对象数量和错误位置，不保存私有推理或敏感正文。
+
+模型命令 Schema 必须从代码类型生成并执行复杂度门禁，至少限制总字节、最大深度、对象数和联合分支数。每个命令只携带其引用闭包内的 `$defs`；不得把完整 Task/Operation 联合契约复制到所有工具。校验失败返回字段路径、错误码和允许的局部草稿动作；相同错误连续两次有界停止，不能重新生成整份计划或无限重试。
+
+### Agent 工具集原则
+
+- 工具按Agent实际工作流和决策边界设计，不镜像内部API。正常Manager阶段只暴露一个`submit_typed_plan`写入口；`inspect`和`contract`因结果会改变后续判断而保持独立，审批、外部副作用和最终发布不并入草稿工具。
+- 只合并总是连续、确定性、封闭域且可在宿主事务中共同校验的步骤。可选分支、需要观察中间结果的步骤、不可逆副作用和用户确认保持分离。复杂规划允许合理的2–4次调用，不以最少调用数替代成功率。
+- 工具目的必须互斥。正常阶段不同时暴露add/configure/submit/commit等重叠入口；提交失败后才按错误临时开放replace/remove和commit，修复完成后收回。
+- 宿主已知的snapshot、版本、授权、实现、replacement身份、默认技术验收和确定性引用映射不由模型填写。工具输入使用语义化短ID和强类型枚举，结果只返回下一决策所需的有界结构。
+- 初始工具集保持小型，Operation完整契约按需加载。工具定义本身计入输入Token，Schema复杂度、模型调用、总Token、p50/p95耗时、重复错误、最终合法率和非法落地数必须共同评测。
+- 草稿修改幂等且无业务副作用；Provider调用、审批和发布继续使用各自的意图、授权、幂等与恢复协议。工具描述或annotation只是提示，执行层仍独立校验。
+
+参考：[OpenAI Function Calling](https://developers.openai.com/api/docs/guides/function-calling)、[OpenAI Programmatic Tool Calling](https://developers.openai.com/api/docs/guides/tools-programmatic-tool-calling)、[Anthropic Writing Effective Tools](https://www.anthropic.com/engineering/writing-tools-for-agents)、[Gemini Function Calling](https://ai.google.dev/gemini-api/docs/function-calling)。
 
 失败要保留阶段、错误分类、来源（模型脚本/注册 operation/Agent）、退出码和关联标识；
 可保留失败检查点，不能把它作为已验收输入。日志不输出提示词、完整脚本、供应商正文或凭据。

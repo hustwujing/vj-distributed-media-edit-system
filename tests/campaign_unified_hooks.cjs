@@ -51,6 +51,11 @@ async function before(c){
   if(task.spec.objective!==spec.expected_business_objective)
    throw Object.assign(Error('The planner did not preserve the declared business objective separately from fault injection'),{boundary:true});
   state.unified_boundary.business_objective=task.spec.objective;persist();
+  let attempt;
+  await wait(async()=>{const facts=await fault('progress');attempt=facts.attempts.find(a=>a.step_id==='render'&&a.status==='running'&&a.unit);return Boolean(attempt);},600);
+  try{await fault('stop_worker',attempt.unit);await wait(r=>r.tasks.some(t=>t.id==='render'&&['failed','paused'].includes(t.status)),300);}
+  finally{await fault('start_worker',attempt.unit);}
+  mark({faulted_attempt:attempt.id,faulted_unit:attempt.unit});
  }
  if(hook==='drain_local'||hook==='drain_agent'){
   const run=await wait(r=>hook==='drain_local'
@@ -171,7 +176,7 @@ async function after(c){
   if(hook==='drain_local'){
    const left=originals.find(a=>a.step_id==='left'),right=originals.find(a=>a.step_id==='right');
    if(!left||!right||!(left.started<right.finished&&right.started<left.finished&&right.started<boundary.input.accepted_at))
-    throw Object.assign(Error('The required parallel Script/local Operation drain boundary was not reached'),{boundary:true});
+    throw Object.assign(Error('The required parallel specialist/local Operation drain boundary was not reached'),{boundary:true});
    boundary.parallel_attempts=[left,right];
   }
  }

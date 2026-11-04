@@ -395,7 +395,16 @@ def initialize(store):
         CREATE TABLE IF NOT EXISTS specialist_attempt_profiles(attempt_id TEXT PRIMARY KEY,run_id TEXT NOT NULL,work_id TEXT NOT NULL,profile_id TEXT NOT NULL,harness_id TEXT NOT NULL,policy_digest TEXT NOT NULL,model TEXT NOT NULL,protocol TEXT NOT NULL,model_config_digest TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_model_reservations(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
-          reserved_tokens INTEGER NOT NULL,used_tokens INTEGER,state TEXT NOT NULL,created_at REAL NOT NULL);
+          reserved_tokens INTEGER NOT NULL,used_tokens INTEGER,state TEXT NOT NULL,created_at REAL NOT NULL,
+          input_reserved_tokens INTEGER,output_reserved_tokens INTEGER,
+          input_settled_tokens INTEGER,output_settled_tokens INTEGER);
+        CREATE TABLE IF NOT EXISTS workflow_plan_drafts(
+          planning_request_id TEXT PRIMARY KEY,run_id TEXT NOT NULL,snapshot_digest TEXT NOT NULL,
+          base_graph_version INTEGER NOT NULL,authorization_version INTEGER NOT NULL,
+          input_through_sequence INTEGER NOT NULL,schema_version TEXT NOT NULL,
+          status TEXT NOT NULL,draft_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
+          last_error_signature TEXT NOT NULL DEFAULT '',repeated_error_count INTEGER NOT NULL DEFAULT 0,
+          created_at REAL NOT NULL,updated_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_orchestrators(
           id TEXT PRIMARY KEY,release TEXT NOT NULL,heartbeat REAL NOT NULL,draining INTEGER NOT NULL DEFAULT 0,
           reconciles INTEGER NOT NULL DEFAULT 0,failures INTEGER NOT NULL DEFAULT 0,last_duration REAL NOT NULL DEFAULT 0);

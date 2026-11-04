@@ -200,8 +200,10 @@ D36输入夹具聚焦：从此前真实SAM3运行中已验收且完整归档的f
 
 2026-11-04 完整轮次执行规则：普通业务、验收或单例审计失败保留原始结果并继续其余case，全部119条执行后统一归因修复；只有故障注入未恢复等会污染后续测试的环境错误自动暂停，人工暂停仍生效。D36人工预览与最终像素验收复用同一个局部Alpha变换检查器，并要求服务器mask_change_limit实际测量通过，防止两处验收定义漂移。首次错误结果不得覆盖。
 
+PlanDraft权限协议审查：D08、D14、D23、D28–D33、D36–D39、D41保留原暂停、滚动规划、排空、反馈、时序、替代和交付选择边界，但不再要求Manager创建原始Script Task。确定性能力继续使用注册Operation；需要自定义本地实现的步骤改为`type=agent/profile=editing_implementer`，由专业Agent在受限沙箱内执行。D39首次失败改由专用真机驱动在已识别的render attempt上注入worker故障，故障文字不进入业务objective或acceptance。业务代码、Planner提示和Schema均不识别case ID。D20/D24以及D40中“不得改用Script”的原负向断言保留。
+
 反馈后置审查同时接受原逻辑Task的新revision及权威replacement链指向的新Task。替代路径必须保留原Task/revision历史、递增user_revision_count且新节点已选中成功；无关已完成上游的revision、attempt和文件哈希仍不变。不能仅按新名称推定合法替代，像素、技术、Agent及原人工Review仍按原标准检查。D36 attempt-005保留原测试断言失败，修改后必须重新真机验证。
 
 ## 后续轮次模型配置（2026-11-04确认）
 
-119条清单保持暂停，历史结果不重标为新配置通过。后续正式执行统一显式选择服务端claude预设、Claude 4.6 Sonnet、high；执行引擎为structured-profile-v3新命令协议，strict优先、明确不支持时可回退。浏览器驱动在提交前选择模型及强度，提交后从Run的冻结model_configuration核对实际型号、强度和协议策略，并将配置摘要纳入每次尝试证据。仅修改环境默认值不能替代逐Run验证。模型预算边界case仍保留原有低额度，不能为了通过而放宽边界。
+119条清单保持暂停，历史结果不重标为新配置通过。后续正式执行统一显式选择服务端claude预设、Claude 4.6 Sonnet、high；执行引擎为structured-profile-v4 PlanDraft命令协议，strict优先、明确不支持时可回退。浏览器驱动在提交前选择模型及强度，提交后从Run的冻结model_configuration核对实际型号、强度和`plan_draft_v1_strict_preferred`策略；逐个PLAN审计草稿绑定和终态，并将配置摘要纳入每次尝试证据。仅修改环境默认值不能替代逐Run验证。模型预算边界case仍保留原有低额度，不能为了通过而放宽边界。

@@ -35,8 +35,11 @@ class PostgresServer:
         self.dsn = f'postgresql://postgres@127.0.0.1:{self.port}/postgres'
 
     def command(self, name, *args):
-        return subprocess.run([*self.prefix, str(self.bin/name), *args], check=True,
-                              capture_output=True, timeout=30)
+        try:return subprocess.run([*self.prefix, str(self.bin/name), *args], check=True,
+                                  capture_output=True, timeout=30)
+        except subprocess.CalledProcessError as exc:
+            exc.add_note((exc.stderr or b'')[-4000:].decode(errors='replace'))
+            raise
 
     def start(self):
         self.command('pg_ctl','-D',str(self.root/'data'),'-l',str(self.root/'server.log'),

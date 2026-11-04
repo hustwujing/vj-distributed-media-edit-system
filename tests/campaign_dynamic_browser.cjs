@@ -87,7 +87,7 @@ async function runCase(browser,spec){
   await page.locator('#dynamic-model-profile').selectOption('claude');
   await page.locator('#dynamic-reasoning-effort').selectOption('high');
   const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
-  assert.equal(modelCapabilities.model_protocol_policy,'native_commands_strict_preferred');
+  assert.equal(modelCapabilities.model_protocol_policy,'plan_draft_v1_strict_preferred');
   state.model_protocol_policy=modelCapabilities.model_protocol_policy;
   await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
   for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}

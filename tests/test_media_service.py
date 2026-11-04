@@ -16,7 +16,7 @@ from webapp import media_service
 @unittest.skipUnless(os.geteuid()==0 and shutil.which('bwrap'),'Requires fixed decoder namespace privileges')
 class MediaBrokerTests(unittest.TestCase):
     def setUp(self):
-        self.temp=tempfile.TemporaryDirectory(prefix='vm-');self.addCleanup(self.temp.cleanup)
+        self.temp=tempfile.TemporaryDirectory(prefix='vm-',dir=tempfile.gettempdir());self.addCleanup(self.temp.cleanup)
         self.root=Path(self.temp.name);self.root.chmod(0o755)
         self.input=self.root/'input.png';Image.new('RGB',(16,16),'blue').save(self.input)
         u=pwd.getpwnam('video-use');os.chown(self.input,u.pw_uid,u.pw_gid);self.input.chmod(0o600)

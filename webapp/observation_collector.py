@@ -192,6 +192,7 @@ def sample(store,archive):
     data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM run_tasks WHERE selected=1 GROUP BY type,status')
     data['views']['control_jobs']=query('control_jobs','SELECT control_kind,status,COUNT(*) AS n FROM control_jobs GROUP BY control_kind,status')
     data['views']['planning']=query('planning','SELECT status,COUNT(*) AS n FROM planner_runs GROUP BY status')
+    data['views']['plan_drafts']=query('plan_drafts','SELECT status,schema_version,COUNT(*) AS n FROM workflow_plan_drafts GROUP BY status,schema_version')
     late=query('late_results',"SELECT COUNT(*) AS n FROM task_results WHERE status='late'")
     data['gauges']['workflow_late_results_total']=late[0]['n'] if late else 0
     for r in queue:

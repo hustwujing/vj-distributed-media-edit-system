@@ -37,3 +37,9 @@
 2026-11-04文档核实时，候选源码`8d39c6778eb6`的冻结门禁完成：Python运行900项、跳过6项，无失败；Node 59项通过。证据在`.cluster/verification/8d39c6778eb6.log`。实际部署记录仍为`deedda4df9cb`，因此新的模型选择、默认配置和计量链路尚不能宣称已经在部署实例验收。部署浏览器smoke与119媒体case仍需分别记录实际结果；后续状态以release和当轮证据为准。
 
 后续部署更新（2026-11-04 17:05 CST）：最终版本`320c25093f7b`已部署，并以该摘要重新完成900项Python（6跳过）、59项Node门禁。模型选择、配置冻结、窄屏和低预算生成前拦截的浏览器smoke通过；默认Claude 4.6 Sonnet/high，本地估算策略已由运行服务加载。119媒体case仍暂停，未重跑；详见[部署验证记录](model-v3-deployment-validation.md)。
+
+## 零输出回执的系统侧结算
+
+外部网关不作为本次修复前提。当前工作区将模型预算拆为input/output的预留及结算分量：若响应包含实际工具或文本输出、`input_tokens`为有效整数但`output_tokens=0`，原usage仍标记`model_usage_zero_output`冲突；预算记录结算该input，并只保留当前命令阶段的output上限，状态为`partially_settled_output_unknown`。它不会把输出记为0，也不会继续占用整笔本地input估算。
+
+PlanDraft普通编辑、局部纠错和final commit/control的output上限分别为6144、4096和1024；需要生成实现代码的Implementer维持12000。该策略只控制授权预算准入，不声称得到准确供应商成本。当前为工作区源码及隔离回归结果，尚未部署或完成新一轮真机验证。

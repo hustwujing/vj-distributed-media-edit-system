@@ -37,6 +37,9 @@ def submit(lease,kind,body):
         lease.validate(db)
         if kind=='proposal':
             if policy.id!='media_planner' or set(body)!={'proposal'}:raise ValueError('Proposal outside Manager scope')
+            candidate=graph.ManagerResult.model_validate(body['proposal'])
+            if candidate.proposal and any(task.type=='script' for task in (*candidate.proposal.add_tasks,*candidate.proposal.revise_tasks)):
+                raise ValueError('Manager raw Script Tasks are disabled; use a registered Operation or editing_implementer')
             planning.stage(lease.store,lease,task['spec']['request_id'],body['proposal'])
             return {'staged':True,'run_id':run['id'],'base_graph_version':run['graph_version']}
         if kind!='result' or 'result' not in policy.tools or set(body)!={'result'}:raise ValueError('Result outside Agent scope')

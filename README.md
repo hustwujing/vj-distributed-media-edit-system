@@ -1,6 +1,6 @@
 # Distributed Agent System
 
-通过自然语言执行媒体处理任务的分布式 Agent 系统。用户先确认目标、素材和预算，Manager 根据实际结果逐轮追加 DAG；专业 Agent、脚本和注册 operation 生成候选结果，独立 Orchestrator 验证后提交正式状态与交付。
+通过自然语言执行媒体处理任务的分布式 Agent 系统。用户先确认目标、素材和预算，Manager 根据实际结果逐轮编辑服务端 PlanDraft；注册 operation 和受限专业 Agent 生成候选结果，独立 Orchestrator 验证后提交正式状态与交付。
 
 当前开发分支为 `feature/unified-run`。设计见[动态工作流方案](video-use-dynamic-agent-workflow-design.md)，逐例验收见[真机测试报告](docs/real-case-campaign/dynamic-test-report.md)。报告中的未执行、未完成和历史版本结果不代表当前版本通过。
 
@@ -14,8 +14,8 @@
                  PostgreSQL 权威状态与命令
                     ↕                 ↕
           独立 Orchestrator       调度器与执行节点
-         校验 / 恢复 / 发布       ├─ Manager：只提交追加提案
-                                ├─ operation / script / 专业 Agent
+         校验 / 恢复 / 发布       ├─ Manager：编辑并原子提交 PlanDraft
+                                ├─ 注册 operation / 专业 Agent
                                 └─ 固定工具、隔离沙盒、独立 reaper
 
 BOSS/S3：加密素材、不可变检查点、候选与交付产物
@@ -25,7 +25,7 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 - **统一身份**：Session 记录会话和消息；Run 是执行与用量根。业务 Task 与 PLAN/REVIEW/DIAGNOSE Control Job 分表，使用同一租约体系，API 统一为 `/runs`。
 - **持续输入与反馈**：输入写入 `run_inputs`，第一条输入建立全 Run 派发屏障；已开始的工作正常结束，在安全点合并重规划。质量反馈也走同一入口，不能豁免技术或 Agent 拒绝；正式交付后输入创建待确认范围的 successor Run。
-- **滚动计划与修复**：支持 `operation`、`script`、`agent` 三类 Task。旧 revision 和结果历史不可改写；失败节点可在原授权、目标、输入输出与验收内产生新 revision，依赖后代随之失效，无关分支继续复用。
+- **滚动计划与修复**：Manager 只规划注册 `operation` 与 `agent` Task；需要动态代码时由 `editing_implementer` 在受限沙箱内执行，Manager 不提交原始 shell、SQL、URL 或代码。旧 revision 和结果历史不可改写；失败节点可在原授权、目标、输入输出与验收内产生新 revision，依赖后代随之失效，无关分支继续复用。
 - **明确授权**：绑定素材内容指纹、操作实现、专业 Agent 策略、模型 Token、外部调用额度和任务期限；扩大范围需要用户确认。
 - **Provider 治理**：外部副作用、授权预算组、调度并发组、路由适配器和实际 Provider 身份分别记录；调用前冻结元数据与恢复句柄，配置变化不得重放生成。
 - **可靠执行**：租约及 generation 约束领取、结果提交与回收。已知外部句柄可继续查询，提交结果未知时禁止自动重复生成。
@@ -34,7 +34,7 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 - **可追踪失败**：保留错误分类、执行证据、用量、清理状态；模型判断不能覆盖程序完整性约束。
 - **类型化媒体语义**：音轨存在、静音、响度、文本匹配、Alpha/蒙版、主体范围、一致性和动作时序分别表达。多片段拼接和常用音频处理走受控 operation，并记录资源与测量报告。
 
-部署形态为单机多实例，支持节点接管；它不提供整机故障容灾。专业 Agent 默认使用注册的 `structured-profile-v3` 新命令工具循环（strict 优先、明确不支持时回退，保留具体字段错误反馈），底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
+部署形态为单机多实例，支持节点接管；它不提供整机故障容灾。专业 Agent 默认使用注册的 `structured-profile-v4` 工具循环：Manager 通过类型化命令修改 snapshot 绑定的 PlanDraft，`commit_plan` 原子编译为权威 Proposal；strict 优先、明确不支持时回退，本地校验始终执行。底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
 
 ## 本机隔离部署
 
@@ -71,11 +71,11 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 选择在创建 Run 时冻结，后续修改浏览器草稿、项目默认值或后台预设不会切换本轮模型。自动 successor 继承原 Run 配置，显式创建新 Run 可另选。预设在确认期间发生变化时，需要刷新核对后重新确认。
 
-`structured-profile-v3` 使用新命令和 strict 优先策略。网关明确拒绝 strict，或返回违反传输 Schema 的参数时，按有界策略回退非 strict 并保留字段错误反馈；超时、鉴权、限流或 5xx 不作为 strict 不支持的证据。本地 Schema、业务契约、证据和授权检查始终执行。选用 Claude 模型不表示切换到 Claude Code SDK harness。
+`structured-profile-v4` 使用 PlanDraft 类型化命令和 strict 优先策略。Task 类型、Operation 参数、草稿修复和控制出口分别使用小型白名单 Schema；相同错误重复两次即有界停止。网关明确拒绝 strict，或返回违反传输 Schema 的参数时，按有界策略回退非 strict 并保留具体字段路径；超时、鉴权、限流或 5xx 不作为 strict 不支持的证据。本地 Schema、业务契约、证据、权限、草稿 revision 和快照绑定始终执行。选用 Claude 模型不表示切换到 Claude Code SDK harness。
 
 最终审查的证据使用内部inspection ID，交付选择使用本次检查生成的短candidate key；宿主将其绑定当前Run、attempt、快照和不可变文件。实际媒体Task拥有交付资格，视觉审查/诊断JSON只负责放行或拒绝，不能替代用户成果。
 
-Claude / DeepSeek 的指定模型可显式配置版本化本地输入预算预估，以适配缺少原生计数端点的路由。参考分词、校准余量与图片预算分别记录；预估用于准入，不冒充厂商实际用量。实际回执缺失或矛盾时保留预算并标记待核实。说明见[计数改造记录](docs/model-token-counting-gap.md)，接入规则见[LLM 开发规范](docs/development/add-llm-provider.md)。
+Claude / DeepSeek 的指定模型可显式配置版本化本地输入预算预估，以适配缺少原生计数端点的路由。参考分词、校准余量与图片预算分别记录；预估用于准入，不冒充厂商实际用量。实际有输出但`output_tokens=0`时，系统单独结算有效input回执并只保留当前命令阶段的输出上限，记录`partially_settled_output_unknown`；原始冲突回执仍保留。说明见[计数改造记录](docs/model-token-counting-gap.md)，接入规则见[LLM 开发规范](docs/development/add-llm-provider.md)。
 
 ## 开发与测试
 
@@ -98,7 +98,7 @@ node --test tests/*.test.mjs
 
 源码、测试快照和已部署版本是不同对象；只认绑定源码摘要的验证证据。冻结部署验证会建立可供测试账号读取的独立源码副本，避免为了测试开放私有部署数据目录。
 
-后续 119 条真机驱动显式选择 Claude 4.6 Sonnet / high，核对新命令 strict 优先策略和每个 Run 的冻结模型，保存到尝试证据。修改驱动或通过模型协议实验不代表这 119 条已经重跑；暂停状态也不因文档更新自动解除。执行、归因和定期汇报按[真机测试与审查规范](docs/development/run-live-campaign.md)。
+后续 119 条真机驱动显式选择 Claude 4.6 Sonnet / high，核对 `structured-profile-v4`、`plan_draft_v1_strict_preferred` 和每个 Run 的冻结模型，并逐 Run 审计 PlanDraft 绑定与终态。修改驱动或通过模型协议实验不代表这 119 条已经重跑；暂停状态也不因文档更新自动解除。执行、归因和定期汇报按[真机测试与审查规范](docs/development/run-live-campaign.md)。
 
 破坏性架构变更可用 `./deploy.sh deploy --reset-database` 重置专用数据库：完整冻结测试通过后停止本实例、备份数据库，再检查未完成的外部调用与清理记录。存在未收尾记录时拒绝重置；共享 PostgreSQL 服务和 main 数据库不受操作。旧 BOSS 对象及历史证据不会被该命令批量删除。
 

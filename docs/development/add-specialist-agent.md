@@ -51,7 +51,7 @@ Reviewer和Diagnostician的JSON报告只用于放行、拒绝和诊断，不得�
 
 inspect须按格式分流：ZIP只读取有界目录元数据，不解包或解码成员，明确contents_verified=false；它不能进入媒体探测。未知格式及超限目录返回有界输入反馈，不记录伪造检查证据。媒体解码故障保留异常，诊断同时存储引用SHA256以便与不可变候选关联，不记录原始私有路径。
 
-当前结构化引擎为 structured-profile-v3。模型调用submit_plan或submit_result等角色专属工具，参数直接表达对应命令/报告，宿主编译为固定内部envelope。业务JSON报告经服务端验证后序列化到唯一声明文件，不二次编码JSON字符串；控制结果与业务files报告不得混用。工具Schema随阶段和已完成检查收敛，提示不得再要求模型输出旧的action/proposal文本包装。
+当前结构化引擎为 structured-profile-v4。Manager调用类型化PlanDraft编辑命令及commit_plan，其他角色调用submit_result等专属工具；宿主编译为固定内部envelope。业务JSON报告经服务端验证后序列化到唯一声明文件，不二次编码JSON字符串；控制结果与业务files报告不得混用。工具Schema随角色、阶段、草稿内容和已完成检查收敛，提示不得再要求模型输出旧的action/proposal文本包装。Implementer可拥有受限script动作，Planner不得拥有原始代码执行或Script Task创建能力。
 
 WorkspacePolicy 独立于角色与能力，必须声明只读工作区、Task 输出、Review scratch 或完整编辑范围；不得从旧 plan/execute 文本推断权限。Control Job 与业务 Task 分开记录真实 harness、profile、模型、phase、尝试和 Token。审查检查/格式纠正/最终提交预算耗尽时标记 review_incomplete 并交回 Manager 补证据，不能自动重生成候选或无界重复 Review。
 

@@ -192,9 +192,22 @@ def inspect(directory,final=False,*,supplement=False):
         check('authorization_ledger_contiguous:'+wid,[grant['version'] for grant in grants]==list(range(1,run['authorization_version']+1)))
         check('current_scope_matches_immutable_grant:'+wid,bool(grants) and json.loads(grants[-1]['authorization_json'])==run['authorization'])
         check('every_work_item_has_a_frozen_grant:'+wid,all(item['authorization_version'] in {grant['version'] for grant in grants} for item in graph.work_items(run)))
-        planner_snapshots=store.query('SELECT id,snapshot_json,proposal_json,status FROM planner_runs WHERE run_id=? ORDER BY created_at',(wid,))
+        planner_snapshots=store.query('SELECT id,snapshot_json,snapshot_digest,proposal_json,status FROM planner_runs WHERE run_id=? ORDER BY created_at',(wid,))
+        plan_drafts=store.query('''SELECT planning_request_id,snapshot_digest,base_graph_version,authorization_version,
+            input_through_sequence,schema_version,status,revision,repeated_error_count FROM workflow_plan_drafts
+            WHERE run_id=? ORDER BY created_at''',(wid,))
+        draft_by_id={item['planning_request_id']:item for item in plan_drafts}
+        check('every_planner_has_bound_draft:'+wid,len(draft_by_id)==len(planner_snapshots) and all(
+            planner['id'] in draft_by_id and draft_by_id[planner['id']]['schema_version']=='plan-draft-v1'
+            for planner in planner_snapshots))
         for planner in planner_snapshots:
             frozen=json.loads(planner['snapshot_json']);batch=frozen.get('input_batch')
+            draft=draft_by_id.get(planner['id'])
+            check('plan_draft_binding:'+planner['id'],bool(draft) and draft['snapshot_digest']==planner['snapshot_digest']
+                and draft['base_graph_version']==frozen['graph_version'] and draft['authorization_version']==frozen['authorization_version']
+                and draft['input_through_sequence']==(batch or {}).get('through_sequence',0))
+            if planner['status']=='applied':check('applied_plan_draft_committed:'+planner['id'],draft['status']=='COMMITTED')
+            elif planner['status']=='rejected':check('rejected_plan_draft_terminal:'+planner['id'],draft['status'] in ('REJECTED','EXPIRED'))
             if not batch:continue
             cutoff=batch['through_sequence']
             check('planner_input_cutoff:'+planner['id'],bool(batch['inputs']) and max(item['sequence'] for item in batch['inputs'])==cutoff)
@@ -216,7 +229,7 @@ def inspect(directory,final=False,*,supplement=False):
         if run['status']=='SUCCEEDED':check('no_unapplied_inputs_at_delivery:'+wid,run['input_barrier_sequence'] is None and not any(item['status'] in ('ACCEPTED','PLANNING') for item in inputs))
         check('control_jobs_are_separate:'+wid,not ({item['id'] for item in run['tasks']}&{item['id'] for item in run['control_jobs']}))
         run['audit']={'leases':leases,'cleanup':cleanup,'provider_calls':provider,'results':results,'events':events,'inputs':inputs,'drain_set':run['drain_set'],
-                      'authorizations':grants,'planner_snapshots':planner_snapshots,'barrier_intervals':intervals,
+                      'authorizations':grants,'planner_snapshots':planner_snapshots,'plan_drafts':plan_drafts,'barrier_intervals':intervals,
                       'task_revisions':store.query('SELECT * FROM workflow_task_revisions WHERE run_id=? ORDER BY task_id,revision',(wid,)),
                       'plan_selections':store.query('SELECT * FROM workflow_plan_tasks WHERE run_id=? ORDER BY graph_version,task_id',(wid,)),
                       'step_checkpoints':store.query('SELECT step,revision,manifest,updated FROM execution_step_checkpoints WHERE workflow=? ORDER BY step,revision',(wid,))}

@@ -2,6 +2,12 @@
 
 当前阶段：已获授权实施全部优化、调整真机 case、隔离部署并完成逐例验收。基线已提交至本地 `feature/unified-run`（`7e667d8`）；GitHub 推送等待可用代理地址。main 增量适配已完成，不作为未完成项。实施进度见[统一 Run 实施记录](unified-run-progress.md)。
 
+## 条目状态口径
+
+本文条目的复选框表示**最终验收**，不表示源码状态：`[x]` 只在完成冻结发布门禁且对应真机证据齐全后勾选。源码已实现但尚未完成 119 条真机验收的条目保留未勾选，并以 `（已实现，待真机验收）` 标注，后附实现入口与开发回归入口。
+
+统一 Run、Provider 拆分、用户反馈修订和运行中输入屏障四节的协议已全部落到源码，并有定向回归覆盖；它们的开放项是部署后的逐例真机验收，不是实现缺口。修改这些机制前仍按本文核对约束，特别是文末五个边界。阅读实现时以代码为准，不要据复选框推断功能缺失。
+
 ## main 适配追齐
 
 已审查范围：`d818cd8..456d3bc`，共17个提交。逐提交事实与适用性见[main增量审查](real-case-campaign/dynamic-main-followup.md)。
@@ -28,7 +34,15 @@
 
 产品口径已确认：主体范围模式、`character_consistent`一致性默认、蒙版A/B/C/D修复等级、动作时序默认值。复杂媒体命令根因已通过24段真实输入复现：单进程24路解码线程耗尽TasksMax；通用修复为兼容片段concat demuxer、不兼容片段先规范化检查点再顺序拼接，并显式估算/限制资源。证据见`.cluster/c22-rootcause-report.json`。因此25条失败的方案层面已齐全，尚待实现与验证。
 
-## Operation Provider 元数据拆分
+## Operation Provider 元数据拆分（已实现，待真机验收）
+
+实现入口：`operations.py` 的 `Operation` 已移除 `provider` 字段，改为 `external_side_effects / budget_group /
+concurrency_group / route_adapter / provider_identity / cleanup_category`，由 `provider_metadata.validate` 在
+构造时校验；`scheduling.py` 读 `concurrency_group`，`provider_calls.py` 与 `workflow_graph.py` 读 `budget_group`，
+`workflow_runtime.py` 读 `route_adapter`，`external_cleanup.py` 读 `cleanup_category` 并复核保存的路由，
+`workflow_reuse.py` 按 `external_side_effects` 判定严格复用。开发回归：`tests.test_provider_metadata`
+覆盖本地契约无外部额度、字段互不耦合、Wan/Ark/jobs 身份与清理类别区分、未知路由拒绝而非回退图片端点，
+以及配置变化后仍使用调用时持久化的路由。下列条目保留为真机验收项。
 
 - [ ] 拆分当前 `Operation.provider` 的多重职责。该字符串同时承担外部副作用标记、前端额度入口、授权计数、调度并发分组、运行时路由类别、外部清理类别和成果复用禁用条件，无法准确表达具体供应商、协议、模型及取消能力。
 - [ ] 为 operation/implementation 定义类型化元数据，至少区分 `external_side_effects`、`budget_group`、`concurrency_group`、`route_adapter` 和 `provider_identity`；具体协议、模型及原始调用路由继续随调用意图持久化，凭据和私有 URL 不进入能力目录或 Manager 快照。
@@ -36,7 +50,17 @@
 - [ ] 更新能力目录、授权页面、Manager 精简索引、调度资源声明、`provider_calls`、`task_lifecycle`、严格成果复用及诊断口径，移除依赖任意字符串分支的隐式行为；新增 provider 时必须注册完整路由和清理适配器，未知类别应拒绝而不是回退到现有图片编辑端点。
 - [ ] 补充契约、授权、并发、恢复及扩展模块测试，覆盖本地 operation、Wan/Ark 图生视频、同步图片生成、转写、替代 implementation、提交未知，以及新模型调用记录在重启或配置变化后的恢复；所有读写统一使用拆分后的类型化字段，不提供旧字段回退。
 
-## 移除 Plan / Execute 历史分层
+## 移除 Plan / Execute 历史分层（已实现，待真机验收）
+
+实现入口：`workflow_graph.py` 建立单一 `Run` 聚合与 `runs / run_tasks / control_jobs` 表，权威状态收敛为
+`ACTIVE / WAITING_USER / CANCELLING / SUCCEEDED / FAILED / CANCELLED`，`activity()` 从控制任务和业务任务派生
+`PLANNING / EXECUTING / REVIEWING / IDLE`，动态路径不再写 `agent_turns`（仅在历史列表中只读合并旧记录），
+`internal`、`__manager_*`、`__review_*` 约定已不存在。PLAN/REVIEW/DIAGNOSE 走 `control_jobs.control_kind`；
+业务 Task 保存真实 `phase`，生命周期与恢复动作由 `operation_lifecycle.py` 的版本化 protocol 决定；
+沙盒策略改为 `execution_contracts.WorkspacePolicy` 的四种类型化值；Profile 改为 `specialist_profiles.py` 的
+`AgentRole` + `ActionCapability`；API 收敛为 `workflow_api.py` 的 `/runs`；reconcile 判定见
+`workflow_orchestrator.Orchestrator.reconcile`。开发回归：`tests.test_runs`、`tests.test_dynamic_execution`、
+`tests.test_dynamic_api`、`tests.test_lifecycle_protocols`、`tests.test_scheduler_v2`。下列条目保留为真机验收项。
 
 以下按不考虑旧数据、旧 API 和旧任务恢复兼容的目标模型设计；本次已获准隔离部署及重建本分支专用数据库；不得修改 main 数据和服务。
 
@@ -51,7 +75,18 @@
 - [ ] 重写 Orchestrator reconcile 判定：graph 为空或开放且 `replan_after` 已满足时创建 PLAN control job；业务 Task 按依赖和生命周期执行；sealed 且无活动/清理/外部调用/待决事项时创建 FINAL REVIEW control job。规划是可重复的控制任务，不再是 Run 的前置阶段。
 - [ ] 建立新模型的契约和竞争测试，覆盖多轮滚动规划、并行业务 Task、控制任务唯一性、授权版本变化、晚到 Proposal/结果、lease generation、最终验收、取消清理，以及 `state` 与派生 `activity` 不矛盾。
 
-## 用户反馈驱动的同 Run 修订
+## 用户反馈驱动的同 Run 修订（已实现，待真机验收）
+
+实现入口：`workflow_graph.DecisionAnswer` 定义 `approve / revise / reject`，`revise` 强制非空 `feedback`
+并绑定 `decision_id` 与 `snapshot_digest`，只有 `revise` 能带 `attachments` 和 `upstream_tasks`；
+`run_inputs.accept` 在同一 `BEGIN IMMEDIATE` 事务内写输入、建立屏障并按 `identity_digest` 幂等；
+`run_inputs.revision_closure` 计算用户修订闭包，`workflow_graph.validate_proposal` 按
+`user_revision_scope` 限制可改字段并分别累计 `repair_count / user_revision_count`；
+`workflow_planning.apply` 为 subject 与受影响后代增加 revision 并清空候选/绑定/租约，保留旧 revision 与
+检查点。前端 `static/dynamic.js` 的决策区提供修改意见、关联素材、上游选择与"按意见修改并继续"，
+草稿按 Run/决策持久化，`canApproveDecision` 限制只有原声明的人工 Review 可批准。开发回归：
+`tests.test_run_feedback`、`tests.test_run_replacements`、`tests.test_user_decisions`。
+下列条目保留为真机验收项（真机要求见本节"完成标准"）。
 
 目标：用户拒绝候选并补充明确修改意见后，在不创建新 Run 的情况下安全地修订受影响子图、重新执行和验收。该协议只处理原目标内的内容修正；改变顶层目标或最终交付类型时创建新 Run，避免把历史成功节点隐式解释成新需求的一部分。
 
@@ -86,7 +121,18 @@
 - [ ] 覆盖新素材授权、content fingerprint 变化、未授权 operation/Profile、Provider 预算增加、提交未知、已有外部句柄、晚到旧 generation 结果和旧 revision 不能解锁下游。
 - [ ] 真机验证至少包含图片抠图边缘修改、两图合成构图修改和 Wan 生成前参考图修改；逐例证明反馈进入 Manager 快照、只重跑受影响闭包、旧候选不发布、最终交付绑定新 revision。
 
-## 运行中输入的排空屏障与统一重规划
+## 运行中输入的排空屏障与统一重规划（已实现，待真机验收）
+
+实现入口：`run_inputs.py` 的 `run_inputs` 表承载 Run 级输入邮箱（`ACCEPTED / PLANNING / APPLIED /
+SUPERSEDED / FAILED`），`accept` 在首条未应用输入时原子写 `runs.input_barrier_sequence` 与
+`run_input_drain` 快照，并限制 pending 条数与总字节；`can_dispatch` 让调度只放行 drain set 中
+已开始的工作；`safe_point_reason` 检查活动租约、未完成 cleanup、staged result、待决决策、未终结
+Provider 调用和控制任务，区分 `input_waiting_external_unknown` 与 `input_waiting_user_decision`；
+`freeze_batch / finish_batch / defer_batch` 冻结本批 sequence 上界并在应用后推进或清除屏障。
+`Orchestrator.process_inputs` 在安全点解除 sealed 并只创建一个 PLAN control job，
+`Orchestrator.queue_plan` 在屏障存在时不另起规划，使诊断事实与用户输入合并为同一轮；
+`workflow_graph.ManagerResult` 实现六类结果包络。开发回归：`tests.test_run_inputs`、
+`tests.test_run_input_races`、`tests.test_run_recovery`。下列条目保留为真机验收项。
 
 设计原则：运行中的用户业务输入不注入当前 Task、不判断与单个 Task 是否相关，也不默认取消模型、脚本、Operation 或 Provider 请求。输入只建立 Run 级派发屏障；屏障建立前已经开始的工作按原状态机完整结束并正常提交结果，屏障后不再启动新的业务 Task。存量工作全部排空后，Orchestrator 在统一安全点把新输入和最新 Run 事实交给一轮 Manager 重新规划。暂停、取消、状态查询仍走独立控制命令，不进入业务输入邮箱。
 
@@ -140,14 +186,16 @@
 
 ## 实施时必须落实的五个边界
 
-以下是已确认统一方案的工程约束，均待实现与验证；不得仅凭本段记录或其他 TODO 勾选宣称完成。无需再次确认产品口径，实施时按此补齐协议、竞争测试和真机证据。
+以下是已确认统一方案的工程约束。五个边界的协议和定向竞争测试均已落到源码（实现与回归入口见下表末列），
+但**都尚未完成部署后的 119 条真机验收**；不得仅凭本段记录、其他 TODO 勾选或开发回归通过宣称完成。
+修改相关机制时按本表核对约束，不要据复选框推断实现缺口。
 
-| 边界 | 实现要求 | 必须验证的结果 |
-| --- | --- | --- |
-| 输入与最终发布竞争 | 输入接收与正式发布使用同一 Run 的事务互斥或条件更新确定顺序；发布事务复核未应用输入、屏障及当前图版本。 | 输入先提交则旧图不得发布；发布先提交则后到输入创建同 Session successor Run。并发与重复请求不能双重发布或重复创建 successor。 |
-| 规划期间再次输入 | 每个 PLAN control job 冻结本批输入 ID 和明确的 sequence 上界；只提交该批处理结果，后到输入保留 ACCEPTED 状态及屏障。 | 后到输入不被旧 Proposal 消费或覆盖；本轮结果应用后继续处理下一批，期间没有业务 Task 偷跑或旧图抢先交付。 |
-| 排空遇到外部未知或用户决策 | 保留屏障，按原句柄核实外部状态；公开具体等待原因、所需决策和已有进展。未知提交不得自动重放，安全恢复须有界。 | 在途 Wan 继续原 external ID；待用户决策或外部核实不能长期伪装成正常执行，也不能通过超时直接清除屏障。 |
-| 修复替代与旧节点关系 | 新 plan 显式记录选中的 Task revision、仍必需的逻辑任务及合法替代关系；替代必须保留原目标覆盖、授权和验收，旧历史保持不可变。 | 被合法替代的旧失败 revision 不再阻塞当前交付；仍必需且未修复的失败节点禁止封口/交付。仅新增相似节点不能自动消除旧要求。 |
-| 相同证据的重复审查 | 以候选内容哈希、验收标准摘要和证据集合身份识别审查对象；仅在出现新证据，或新 revision 实际改变候选内容/验收时允许新的内容审查。传输恢复、格式纠正归同一审查请求并有界。 | 空 Proposal、单纯增加 graph version、改 Task 名或重建 Reviewer 不得重审同一对象碰运气；无新依据时进入明确的待用户处理状态，不能豁免技术或 Agent Review 失败。 |
+| 边界 | 实现要求 | 必须验证的结果 | 实现与开发回归 |
+| --- | --- | --- | --- |
+| 输入与最终发布竞争 | 输入接收与正式发布使用同一 Run 的事务互斥或条件更新确定顺序；发布事务复核未应用输入、屏障及当前图版本。 | 输入先提交则旧图不得发布；发布先提交则后到输入创建同 Session successor Run。并发与重复请求不能双重发布或重复创建 successor。 | `run_inputs.accept` 与 `Orchestrator._publish` 均在 `BEGIN IMMEDIATE` 内执行；发布前复核 `delivered_at`、`input_barrier_sequence` 和未应用输入，终态 `UPDATE` 带 `delivered_at IS NULL AND sealed=1 AND input_barrier_sequence IS NULL` 条件；`accept` 在 `delivered_at` 非空时复用或创建 `scope_confirmed=false` 的 successor。回归 `tests.test_run_input_races` |
+| 规划期间再次输入 | 每个 PLAN control job 冻结本批输入 ID 和明确的 sequence 上界；只提交该批处理结果，后到输入保留 ACCEPTED 状态及屏障。 | 后到输入不被旧 Proposal 消费或覆盖；本轮结果应用后继续处理下一批，期间没有业务 Task 偷跑或旧图抢先交付。 | `run_inputs.freeze_batch` 冻结 `through_sequence` 并置 PLANNING，`finish_batch` 按剩余最小 sequence 推进屏障，`defer_batch` 回退本批；`ManagerResult.input_through_sequence` 绑定本批上界；`can_dispatch` 在屏障期间只放行 drain set。回归 `tests.test_run_inputs` |
+| 排空遇到外部未知或用户决策 | 保留屏障，按原句柄核实外部状态；公开具体等待原因、所需决策和已有进展。未知提交不得自动重放，安全恢复须有界。 | 在途 Wan 继续原 external ID；待用户决策或外部核实不能长期伪装成正常执行，也不能通过超时直接清除屏障。 | `run_inputs.safe_point_reason` 区分 `draining_*`、`input_waiting_external_unknown`、`input_waiting_user_decision`，`Orchestrator.process_inputs` 对后两类置 `WAITING_USER` 并保留屏障；正常 poll 不消耗中断恢复次数，恢复次数有界。回归 `tests.test_run_recovery` |
+| 修复替代与旧节点关系 | 新 plan 显式记录选中的 Task revision、仍必需的逻辑任务及合法替代关系；替代必须保留原目标覆盖、授权和验收，旧历史保持不可变。 | 被合法替代的旧失败 revision 不再阻塞当前交付；仍必需且未修复的失败节点禁止封口/交付。仅新增相似节点不能自动消除旧要求。 | `Proposal.replacements` 经 `validate_proposal` 校验（替代须有冻结修复触发、不得与 revise 并用、不得弱化 objective/acceptance/semantics/delivery_stage、不得引入无关素材或丢输出角色）；`workflow_planning.apply` 写 `run_task_replacements` 并置旧 Task `selected=0`；封口校验要求 `paused/failed` 节点已被 revise、replace 或 review_again 覆盖。回归 `tests.test_run_replacements` |
+| 相同证据的重复审查 | 以候选内容哈希、验收标准摘要和证据集合身份识别审查对象；仅在出现新证据，或新 revision 实际改变候选内容/验收时允许新的内容审查。传输恢复、格式纠正归同一审查请求并有界。 | 空 Proposal、单纯增加 graph version、改 Task 名或重建 Reviewer 不得重审同一对象碰运气；无新依据时进入明确的待用户处理状态，不能豁免技术或 Agent Review 失败。 | `review_identity.identity` 按候选文件 SHA、输入内容、objective、acceptance、semantics 与已核实证据摘要计算身份，不含 Task 名和 graph version；`workflow_reviews` 上 `unique_review_content(run_id,purpose,review_identity)` 唯一索引，`Orchestrator.queue_review` 命中旧结论时改为 `quality_feedback` / `input_question` 决策并记 `review_reused_or_blocked`。回归 `tests.test_run_replacements` |
 
-跨上述边界统一验证多节点竞争、事务中断、旧 generation/快照晚到和进程重启；证据需关联 Run、input sequence、plan version、Task revision、control job、attempt/lease 与发布记录。
+跨上述边界统一验证多节点竞争、事务中断、旧 generation/快照晚到和进程重启；证据需关联 Run、input sequence、plan version、Task revision、control job、attempt/lease 与发布记录。当前这些证据只覆盖隔离开发回归，不覆盖部署后真机。

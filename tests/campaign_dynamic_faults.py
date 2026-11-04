@@ -129,7 +129,8 @@ def act(directory,action,unit=None):
         if action=='stop_worker':
             observed=progress(directory);submitting={p['attempt_id'] for p in observed['submitting']}
             assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['control_kind']
-                      and (row['retry_safe'] or state['case'] in ('D16','D27') and row['id'] in submitting)]
+                      and (row['retry_safe'] or state['case'] in ('D16','D27') and row['id'] in submitting
+                           or state['case']=='D39' and row['step_id']=='render')]
             if not assigned:raise ValueError('No replay-safe QA task is running on this worker')
             cluster.run(['systemctl','kill','--kill-who=main','--signal=SIGKILL',unit])
             cluster.run(['systemctl','stop',unit],timeout=150)

@@ -8,13 +8,13 @@ class ProfileHarness(Protocol):
 
 
 class StructuredProfileHarness:
-    id='structured-profile-v3'
+    id='structured-profile-v4'
     def fingerprint(self):
         from pathlib import Path
         import hashlib
         root=Path(__file__).parent;value=hashlib.sha256()
         for name in ('profile_harnesses.py','workflow_agents.py','workflow_agent_contracts.py','specialist_profiles.py',
-                     'workflow_model_protocol.py','strict_schema.py','model_tool_protocol.py','model_adapters.py','model_token_estimate.py',
+                     'workflow_model_protocol.py','workflow_plan_draft.py','strict_schema.py','model_tool_protocol.py','model_adapters.py','model_token_estimate.py',
                      'workflow_graph.py','workflow_planning.py','quality_policy.py'):
             value.update(name.encode());value.update((root/name).read_bytes())
         return value.hexdigest()

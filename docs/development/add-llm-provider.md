@@ -16,7 +16,7 @@
 
 1. 实现并登记 `headers`、`path`、`prepare`、`receipt`、`conversation`、`response_text`。
 2. `prepare` 强制使用已冻结模型，限制输出预算，并拒绝远程文件、任意 URL 和服务端扩权工具。
-3. `conversation` 转换授权文本/图片；`response_text` 只返回完成的公开文本，不暴露隐藏推理。structured-profile-v3由model_tool_protocol解析唯一原生工具调用，参数先经本地Schema校验再编译；纯文本不构成控制动作。格式错误在原轮次/Token预算内反馈纠正，空或不完整的上游响应单独归类，不伪造工具结果。
+3. `conversation` 转换授权文本/图片；`response_text` 只返回完成的公开文本，不暴露隐藏推理。structured-profile-v4由model_tool_protocol解析唯一原生工具调用，参数先经本地Schema校验再编译；Manager命令修改服务端PlanDraft，其他角色提交类型化结果。纯文本不构成控制动作。格式错误在原轮次/Token预算内反馈纠正，空或不完整的上游响应单独归类，不伪造工具结果。
 4. 回执解析覆盖 JSON、SSE、跨块拆分、重复累计值、取消、不完整响应和缺失字段。
 5. 原始 total 缺失时保持缺失；预算可以使用已知 input+output 推导值，但记录为 derived，不能伪造上游回执。
 6. 请求前持久化调用意图和预算预留；取消后的用量只能补写既有记录，不能恢复任务或发布结果。
@@ -60,6 +60,8 @@ Responses的非strict回退必须显式发送工具字段`strict: false`；省�
 
 校准须重建真实请求并比对原request_sha256，再对照上游input_tokens；明确这不是独立验证上游精确性。覆盖中英文、代码、工具Schema、长上下文、单图及多图，保存低估次数和最不利余量。预估只是准入预留，无法保证厂商永不超差；真实用量超出预留仍如实入账并占用预算，后续请求不能继续超支。未知回执不改为预估实际用量。
 
-`workflow.model_input_estimate`在创建预留前记录策略摘要、参考计数、图片预留及余量；`workflow.model_input_estimate_checked`和`workflow.model_budget_reserved/settled`通过reservation_id记录预留、回执偏差和结算。前者通过调用上下文关联，不能伪造尚未创建的预留ID。禁止记录提示正文。实际存在输出但回执output_tokens=0时保留原始数字、标记conflict，不生成可信合计、不释放模型预算。
+`workflow.model_input_estimate`在创建预留前记录策略摘要、参考计数、图片预留及余量；`workflow.model_input_estimate_checked`和`workflow.model_budget_reserved/settled`通过reservation_id记录预留、回执偏差和结算。前者通过调用上下文关联，不能伪造尚未创建的预留ID。禁止记录提示正文。
+
+输入与输出必须分账保存预留和结算值。实际存在输出但回执`output_tokens=0`时保留原始数字并在usage账本标记conflict；若正整数`input_tokens`可独立解析，则结算该输入并仅保留当前命令阶段的输出上限，状态记为`partially_settled_output_unknown`。不得把0当作真实免费输出，也不得因此继续占用整笔本地输入估算。inspect/contract、草稿编辑、纠错、commit和脚本生成使用分别受限的输出上限；修改上限必须覆盖截断和预算回归。
 
 端上模型选择复用服务端预设，不允许前端提交任意model/base_url/key。新增模型同步model_selection.efforts，按实际原生档位展示；DeepSeek的medium别名映射为high，不能作为独立“中”档展示。见[官方推理档位](https://api-docs.deepseek.com/guides/thinking_mode/)。

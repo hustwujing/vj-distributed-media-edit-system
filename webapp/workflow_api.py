@@ -64,6 +64,8 @@ def public(store,run):
             target['agent_policy']={key:source['profile'][key] for key in ('id','version','harness','model_policy','output_schema','artifact_policy')}
             target['agent_policy']['digest']=graph.digest(source['profile'])
     value['planners']=store.query('SELECT id,base_graph_version,status,applied_graph_version,error_code,created_at,updated_at FROM planner_runs WHERE run_id=? ORDER BY created_at',(run['id'],))
+    value['plan_drafts']=store.query('''SELECT planning_request_id,schema_version,status,revision,
+        repeated_error_count,created_at,updated_at FROM workflow_plan_drafts WHERE run_id=? ORDER BY created_at''',(run['id'],))
     value['decisions']=store.query("SELECT id,kind,graph_version,authorization_version,snapshot_digest,request_json,status FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
     for item in value['decisions']:item['request']=json.loads(item.pop('request_json'))
     value['reviews']=store.query('SELECT id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
@@ -71,8 +73,16 @@ def public(store,run):
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in
         store.query("SELECT subject_task,decision_json FROM workflow_reviews WHERE run_id=? AND purpose='diagnose' AND status='completed' ORDER BY created_at",(run['id'],))]
     value['external_cleanup']=store.query('SELECT state,phase,error FROM execution_external_cleanup WHERE task_id=?',(run['id'],))
-    value['token_usage']=store.query('SELECT COALESCE(SUM(used_tokens),0) AS known,COALESCE(SUM(CASE WHEN used_tokens IS NULL THEN reserved_tokens ELSE 0 END),0) AS reserved_or_unknown FROM workflow_model_reservations WHERE run_id=?',(run['id'],))[0]
-    committed=value['token_usage']['known']+value['token_usage']['reserved_or_unknown'];value['token_usage']['limit']=run['authorization']['model_token_budget']
+    value['token_usage']=store.query('''SELECT
+        COALESCE(SUM(input_settled_tokens),0) AS settled_input,
+        COALESCE(SUM(output_settled_tokens),0) AS settled_output,
+        COALESCE(SUM(CASE WHEN state='partially_settled_output_unknown' THEN output_reserved_tokens ELSE 0 END),0) AS unknown_output_reserved,
+        COALESCE(SUM(CASE WHEN used_tokens IS NULL THEN reserved_tokens ELSE 0 END),0) AS fully_unknown_reserved,
+        COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS committed
+        FROM workflow_model_reservations WHERE run_id=?''',(run['id'],))[0]
+    value['token_usage']['known']=value['token_usage']['settled_input']+value['token_usage']['settled_output']
+    value['token_usage']['reserved_or_unknown']=value['token_usage']['unknown_output_reserved']+value['token_usage']['fully_unknown_reserved']
+    committed=value['token_usage']['committed'];value['token_usage']['limit']=run['authorization']['model_token_budget']
     value['token_usage']['remaining']=max(0,value['token_usage']['limit']-committed)
     value['cleanup_pending']=sum(1 for item in value['external_cleanup'] if item['state']!='complete')+store.query("SELECT COUNT(*) AS n FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],))[0]['n']
     for artifact in value['delivery']:
@@ -105,7 +115,7 @@ def register(app,store,own_project):
         from .model_selection import options
         return {'operations':operations,'profiles':catalogue(),'workers_ready':bool(workers),
                 'model_choices':options(store,project_id),
-                'model_protocol_policy':'native_commands_strict_preferred',
+                'model_protocol_policy':'plan_draft_v1_strict_preferred',
                 'content_fingerprint':graph.content_fingerprint(store,project_id),
                 'authorization_schema':graph.Authorization.model_json_schema()}
 

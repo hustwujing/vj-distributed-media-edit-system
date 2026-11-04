@@ -24,6 +24,7 @@ def initialize(store):
                ('run_inputs','run_id','id','status'),
                ('control_jobs',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),
                ('run_tasks',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),
+               ('workflow_plan_drafts',"(SELECT id FROM runs WHERE id=NEW.run_id)",'planning_request_id','status'),
                ('planner_runs',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),
                ('task_results',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),
                ('workflow_commands',"(SELECT id FROM runs WHERE id=NEW.run_id)",'id','status'),

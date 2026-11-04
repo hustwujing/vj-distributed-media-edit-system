@@ -65,7 +65,7 @@ def proposal_feedback(raw):
     return []
 
 
-def reserve_tokens(store,lease,run,amount):
+def reserve_tokens(store,lease,run,amount,*,input_tokens=None,output_tokens=None):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         lease.validate(db)
@@ -73,14 +73,16 @@ def reserve_tokens(store,lease,run,amount):
         if used+amount>run['authorization']['model_token_budget']:
             raise TaskQuotaReached('工作流模型 Token 预算不足，未发起新的请求。',category='model_tokens',scope='workflow',used=used,limit=run['authorization']['model_token_budget'])
         identifier=uuid.uuid4().hex
-        db.execute("INSERT INTO workflow_model_reservations(id,run_id,attempt_id,reserved_tokens,state,created_at) VALUES (?,?,?,?,'reserved',?)",
-                   (identifier,run['id'],lease.attempt,amount,store.now()))
+        db.execute("""INSERT INTO workflow_model_reservations(
+            id,run_id,attempt_id,reserved_tokens,state,created_at,input_reserved_tokens,output_reserved_tokens)
+            VALUES (?,?,?,?,'reserved',?,?,?)""",
+            (identifier,run['id'],lease.attempt,amount,store.now(),input_tokens,output_tokens))
         return identifier
 
 
 @contextmanager
 def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_reserved_tokens=None,method='unspecified'):
-    reservation=reserve_tokens(lease.store,lease,run,amount)
+    reservation=reserve_tokens(lease.store,lease,run,amount,input_tokens=input_reserved_tokens,output_tokens=output_reserved_tokens)
     from .telemetry import emit,bind
     emit('workflow.model_budget_reserved',reservation_id=reservation,reserved_tokens=amount,
          input_reserved_tokens=input_reserved_tokens,output_reserved_tokens=output_reserved_tokens,method=method)
@@ -89,11 +91,20 @@ def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_re
     finally:
         receipt.finish();usage=receipt.usage or {};used=usage.get('total_tokens');state='settled'
         anomaly=getattr(receipt,'usage_anomaly','')
-        if anomaly:
+        input_settled=usage.get('input_tokens') if type(usage.get('input_tokens')) is int else None
+        output_settled=usage.get('output_tokens') if type(usage.get('output_tokens')) is int else None
+        if anomaly=='model_usage_zero_output' and input_settled is not None and output_reserved_tokens is not None:
+            # Some Anthropic-compatible routes return a valid non-empty response
+            # with output_tokens=0. Settle the independently reported input and
+            # retain only the bounded output envelope as unknown usage.
+            output_settled=None;used=input_settled+output_reserved_tokens;state='partially_settled_output_unknown'
+        elif anomaly:
             used=None
-            emit('workflow.model_usage_untrusted','WARNING',reservation_id=reservation,error_code=anomaly,reserved_tokens=amount)
         if not anomaly and used is None and type(usage.get('input_tokens'))==int and type(usage.get('output_tokens'))==int:
             used=usage['input_tokens']+usage['output_tokens'];state='settled_derived'
+        if anomaly:
+            emit('workflow.model_usage_untrusted','WARNING',reservation_id=reservation,error_code=anomaly,
+                 reserved_tokens=amount,partially_settled=state=='partially_settled_output_unknown')
         actual_input=usage.get('input_tokens')
         if type(actual_input)==int and input_reserved_tokens is not None:
             emit('workflow.model_input_estimate_checked',reservation_id=reservation,
@@ -106,10 +117,13 @@ def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_re
             ledger=Store(lease.store.root,timeout=2,initialize_schema=False,dsn=lease.store.dsn)
             try:
                 with administrative(),measurement_connection(ledger) as db:
-                    db.execute('UPDATE workflow_model_reservations SET used_tokens=?,state=? WHERE id=? AND attempt_id=?',
-                               (used,state,reservation,lease.attempt))
+                    db.execute('''UPDATE workflow_model_reservations SET used_tokens=?,state=?,
+                        input_settled_tokens=?,output_settled_tokens=? WHERE id=? AND attempt_id=?''',
+                        (used,state,input_settled,output_settled,reservation,lease.attempt))
                 emit('workflow.model_budget_settled',reservation_id=reservation,reserved_tokens=amount,
-                     actual_tokens=used,reservation_overrun_tokens=max(0,used-amount),method=method)
+                     actual_tokens=used,reservation_overrun_tokens=max(0,used-amount),method=method,
+                     input_tokens=input_settled,output_tokens=output_settled,
+                     output_tokens_unknown=state=='partially_settled_output_unknown')
             except Exception as exc:
                 from .telemetry import emit
                 emit('workflow.token_receipt_failed','WARNING',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
@@ -200,6 +214,16 @@ def model(host,lease,run,profile,conversation,images=(),deadline=None,protocol=N
         return _model_request(host,lease,run,profile,conversation,images,deadline,protocol,False)
 
 
+def model_output_limit(profile,protocol):
+    if protocol is None:return profile.max_output_tokens
+    if 'submit_typed_plan' in protocol.schemas:return min(profile.max_output_tokens,6144)
+    if 'commit_plan' not in protocol.schemas:return profile.max_output_tokens
+    if getattr(protocol,'correction_mode',False):return min(profile.max_output_tokens,4096)
+    names=set(protocol.schemas)
+    if 'configure_plan' in names:return min(profile.max_output_tokens,4096)
+    return min(profile.max_output_tokens,1024)
+
+
 def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,strict):
     from .agent_profiles import for_task
     from .model_adapters import get,PublicResponseStructureError
@@ -210,26 +234,32 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
     task=graph.work_item(run,lease.step_id)
     instructions=model_instructions(profile,control_kind=task.get('control_kind') if task else None,native_tools=protocol is not None)
     body=adapter.conversation(instructions,conversation,images)
+    definitions=None
     if protocol is not None:
         from .model_tool_protocol import request as tool_request
-        body=tool_request(adapter,body,protocol.definitions(),strict=strict)
-    body=adapter.prepare(body,configuration.model,profile.max_output_tokens,configuration.reasoning_effort)
+        definitions=protocol.definitions();body=tool_request(adapter,body,definitions,strict=strict)
+    output_limit=model_output_limit(profile,protocol)
+    body=adapter.prepare(body,configuration.model,output_limit,configuration.reasoning_effort)
     raw=graph.encode(body);assert_no_credentials(raw,(*secrets(),key))
     receipt=adapter.receipt()
     from .telemetry import emit
+    complexity={}
+    if definitions is not None:
+        from .workflow_model_protocol import schema_complexity
+        complexity=schema_complexity(definitions)
     emit('model.request_configuration',model=configuration.model,protocol=configuration.protocol,
          harness=profile.harness,profile_id=profile.id,configuration_digest=graph.digest(profile.snapshot()),
-         max_output_tokens=profile.max_output_tokens,reasoning_effort=configuration.reasoning_effort,
+         max_output_tokens=output_limit,reasoning_effort=configuration.reasoning_effort,
          structured_output_mode=('strict_tools' if strict else 'non_strict_tools') if protocol else 'text',
-         schema_digest=graph.digest(protocol.definitions()) if protocol else None)
+         schema_digest=graph.digest(definitions) if definitions is not None else None,**complexity)
     deadline=deadline or time.monotonic()+profile.timeout_seconds
     with session() as counter:
         input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images,configuration.vision_tokenizer,configuration.input_token_policy)
     emit('workflow.model_token_reservation',task_id=lease.run_id,step_id=lease.step_id,
-         input_tokens=input_tokens,output_tokens=profile.max_output_tokens,image_count=len(images),method=method)
+         input_tokens=input_tokens,output_tokens=output_limit,image_count=len(images),method=method)
     lease.consume('model',configuration.budget['task_models'])
-    with model_budget(lease,run,input_tokens+profile.max_output_tokens,receipt,input_reserved_tokens=input_tokens,
-                      output_reserved_tokens=profile.max_output_tokens,method=method),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
+    with model_budget(lease,run,input_tokens+output_limit,receipt,input_reserved_tokens=input_tokens,
+                      output_reserved_tokens=output_limit,method=method),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
         with client.post(provider_base(base)+adapter.path,json=body,headers=adapter.headers(key),stream=True,
                          timeout=(10,max(1,min(240,deadline-time.monotonic()))),allow_redirects=False) as response:
             if response.status_code!=200:
@@ -287,7 +317,8 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
         except (ValueError,KeyError,TypeError,IndexError):raise AgentReplyError('',code='invalid_tool_response') from None
         emit('workflow.model_response_structure',task_id=lease.run_id,step_id=lease.step_id,operation=name,
              structured_output_mode='strict_tools' if strict else 'non_strict_tools',
-             text_characters=len(graph.encode(arguments)),text_sha256=graph.digest(arguments),**structure)
+             text_characters=len(graph.encode(arguments)),text_sha256=graph.digest(arguments),
+             transport_valid=True,schema_valid=True,compile_valid=True,**structure)
         return reply
     if isinstance(payload,dict):
         for field in ('choices','output','content'):
@@ -512,16 +543,20 @@ def execute(host,lease,run,task):
         'max_inspection_rounds':profile.max_inspection_rounds,'max_correction_rounds':profile.max_correction_rounds,
         'finalize_rounds':profile.finalize_rounds}
     from .workflow_model_protocol import ToolProtocol
-    initial_protocol=ToolProtocol(profile,frozen,task)
+    draft=None
+    if profile.id=='media_planner':
+        from .workflow_plan_draft import get as get_draft
+        draft=get_draft(store,task['spec']['request_id'])
+    initial_protocol=ToolProtocol(profile,frozen,task,draft=draft,store=store)
     conversation=graph.encode(initial_protocol.context());seen=set();inspections={};candidate_keys={};candidate_refs={};inspection_keys=set();images=[];deadline=time.monotonic()+min(profile.timeout_seconds,task['spec'].get('timeout_seconds',profile.timeout_seconds))
     transport={'strict':True};contracts={}
-    output=None;inspection_rounds=0;correction_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={}
+    output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={}
     for turn in range(profile.max_turns):
         lease.check()
         if host.stop.is_set() or time.monotonic()>deadline:raise LeaseLost('Agent stopped or timed out')
         remaining_calls=profile.max_turns-turn
         if (remaining_calls<=profile.finalize_rounds or inspection_rounds>=profile.max_inspection_rounds
-                or correction_rounds>=profile.max_correction_rounds):
+                or correction_rounds>=profile.max_correction_rounds or profile.id=='media_planner' and draft_mutation_rounds>=4):
             finalize_started=True
         phase='finalize' if finalize_started else 'inspect_or_prepare'
         if finalize_started:
@@ -537,7 +572,9 @@ def execute(host,lease,run,task):
         from .telemetry import emit
         emit('workflow.agent_phase_budget',task_id=lease.run_id,step_id=lease.step_id,operation=phase,
              remaining_calls=remaining_calls,remaining_inspections=budget['inspection_rounds_remaining'],remaining_corrections=budget['correction_rounds_remaining'])
-        protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,candidate_keys=candidate_keys,contracts=contracts)
+        if profile.id=='media_planner':draft=get_draft(store,task['spec']['request_id'])
+        protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,
+                              candidate_keys=candidate_keys,contracts=contracts,draft=draft,store=store)
         try:reply=model(host,lease,run,profile,conversation+feedback,images,deadline=deadline,protocol=protocol,transport=transport)
         except AgentReplyError as exc:
             from .telemetry import emit
@@ -553,24 +590,34 @@ def execute(host,lease,run,task):
                                'origin':'model_reply' if exc.code in ('invalid_json','invalid_tool_json','invalid_tool_arguments') else 'provider_response','classification':'parameters',
                                'attempt_id':lease.attempt,'code':exc.code,'characters':len(exc.reply),'error_offset':exc.offset,
                                'validation_errors':getattr(exc,'details',[])}),store.now()))
-            feedback='\nLatest tool response rejected ('+exc.code+'). No action executed. Call one available tool and correct these fields without broadening scope:'+graph.encode(getattr(exc,'details',[]))
+            details=getattr(exc,'details',[])
+            corrections=[name for name in protocol.schemas if name.startswith(('replace_','remove_draft'))]
+            if corrections:details=[{**item,'allowed_actions':corrections} for item in details]
+            feedback='\nLatest tool response rejected ('+exc.code+'). No action executed. Call one available tool and correct these fields without broadening scope:'+graph.encode(details)
             if candidate_keys:
                 feedback+='\nFinal selection must use candidate_key. Current eligible candidates:'+graph.encode([
                     {'candidate_key':key,'ref':inspections[identifier]} for key,identifier in candidate_keys.items()])
             if getattr(exc,'strict_not_enforced',False):
                 if finalize_started:finalize_calls-=1
             else:
+                if draft is not None:
+                    from .workflow_plan_draft import record_error
+                    _,repeated=record_error(store,task['spec']['request_id'],getattr(exc,'details',[]))
+                    if repeated>=2:
+                        raise TaskQuotaReached('规划草稿连续收到相同的非法命令。',category='agent_contract',scope='turn',used=repeated,limit=2)
                 rejections[exc.code]=rejections.get(exc.code,0)+1
                 emit('workflow.agent_correction',task_id=lease.run_id,step_id=lease.step_id,
                      error_code=exc.code,repeated_error_count=rejections[exc.code])
                 correction_rounds+=1
             continue
         action=reply.get('action')
-        if finalize_started and action not in ('result','proposal'):
+        corrective_draft_actions=('draft_replace_tasks','draft_remove_tasks','draft_replace_configuration')
+        if finalize_started and action not in ('result','proposal',*corrective_draft_actions):
             conversation+='\nFinalize phase: only result/proposal is accepted. No script, inspect or contract action was executed. Submit the completed declared outputs or an explicit bounded result.'
             correction_rounds+=1
             continue
-        if action not in profile.tools:
+        draft_actions=('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration')
+        if action not in profile.tools and action not in (*draft_actions,'draft_batch_commit'):
             from .telemetry import emit
             emit('workflow.agent_contract_rejected','WARNING',task_id=lease.run_id,step_id=lease.step_id,
                  operation='reply',error_code='unsupported_action')
@@ -579,8 +626,31 @@ def execute(host,lease,run,task):
             correction_rounds+=1
             continue
         from .task_usage import execution_call
-        labels={'inspect':'检查已授权输入','contract':'查询冻结能力契约','script':'执行受限脚本','proposal':'提交规划提案','result':'提交候选结果'}
+        labels={'inspect':'检查已授权输入','contract':'查询冻结能力契约','script':'执行受限脚本','proposal':'提交规划提案','result':'提交候选结果',
+                'draft_add_tasks':'追加规划草稿任务','draft_configure':'配置规划草稿'}
+        labels.update({'draft_replace_tasks':'替换规划草稿任务','draft_remove_tasks':'移除规划草稿任务',
+                       'draft_replace_configuration':'修正规划草稿配置','draft_batch_commit':'批量构建并提交规划草稿'})
         with execution_call(lease,'tool',action,revision=task['revision'],actor=actor(profile),label=labels[action]) as tool_receipt:
+            if action=='draft_batch_commit':
+                if profile.id!='media_planner':raise ValueError('Only Manager can submit a planning draft batch')
+                from .workflow_plan_draft import prepare_batch
+                command=reply['command'];commit={key:command[key] for key in ('kind','reason','continuation')}
+                fields={key:value for key,value in command.items() if key not in commit}
+                proposal,base_revision,base_digest,candidate,candidate_digest=prepare_batch(
+                    store,task['spec']['request_id'],frozen,fields,commit)
+                reply={**reply,'action':'proposal','proposal':proposal,'_draft_commit':True,
+                       '_draft_candidate':candidate,'_draft_candidate_digest':candidate_digest,
+                       '_draft_base_revision':base_revision,'_draft_base_digest':base_digest}
+                action='proposal'
+            if action in draft_actions:
+                if profile.id!='media_planner':raise ValueError('Only Manager can update a planning draft')
+                from .workflow_plan_draft import mutate,summary
+                value,revision=mutate(store,lease,task['spec']['request_id'],action,reply['command'])
+                draft_mutation_rounds+=1
+                conversation+='\nServer-owned planning draft updated. No business action executed. Current bounded structure:'+graph.encode(summary(value))
+                emit('workflow.plan_draft_updated',task_id=lease.run_id,step_id=lease.step_id,
+                     operation=action,graph_version=frozen['graph_version'],task_count=len(value['new_tasks']))
+                continue
             if action=='contract':
                 if profile.id!='media_planner':raise ValueError('Only Manager can query operation contracts')
                 identifier=reply.get('operation')
@@ -593,38 +663,73 @@ def execute(host,lease,run,task):
                 continue
             if action=='proposal':
                 if profile.id!='media_planner':raise ValueError('Only Manager can propose')
-                errors=proposal_feedback(reply.get('proposal'))
+                errors=proposal_feedback(reply.get('proposal'));authorization_required=False
                 if not errors:
                     candidate=graph.ManagerResult.model_validate(reply['proposal'])
                     if candidate.proposal:
                         from .workflow_model_protocol import scopes
                         scope,user_scope=scopes(frozen)
                         try:graph.validate_proposal(store,{**graph.get(store,run['id']),'status':'ACTIVE','sealed':False},candidate.proposal.model_dump(),repair_scope=scope,user_revision_scope=user_scope)
-                        except graph.AuthorizationRequired:pass
+                        except graph.AuthorizationRequired:authorization_required=True
                         except ValueError as exc:errors=[{'path':getattr(exc,'path','proposal'),'type':getattr(exc,'code','graph_contract'),'message':str(exc)[:1000]}]
+                        if not errors:
+                            try:planning.validate_references(store,run,candidate.proposal)
+                            except planning.ProposalReferenceError as exc:
+                                errors=[{'path':'proposal','type':getattr(exc,'code','proposal_reference'),'message':str(exc)[:1000]}]
                 if errors:
                     tool_receipt['status']='failed'
                     from .telemetry import emit
                     emit('workflow.agent_contract_rejected','WARNING',task_id=lease.run_id,step_id=lease.step_id,
                          operation=errors[0]['path'] or action,error_code=errors[0]['type'],failures=len(errors))
+                    emit('workflow.plan_validation','WARNING',task_id=lease.run_id,step_id=lease.step_id,
+                         schema_valid=True,compile_valid=True,semantic_valid=False,policy_valid=False,
+                         executable=False,wrong_but_schema_valid=True,error_code=errors[0]['type'])
                     store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',
                         (uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],
                          graph.encode({'phase':'proposal_validation','origin':'model_proposal','classification':'parameters',
                                        'attempt_id':lease.attempt,'validation_errors':errors}),store.now()))
                     feedback='\nLatest rejected plan command (not applied):'+graph.encode(reply.get('_model_command',reply.get('proposal')))
-                    feedback+='\nCorrect these fields using submit_plan and the current allowed changes:'+graph.encode(errors)
                     signature=graph.digest(errors);rejections[signature]=rejections.get(signature,0)+1
+                    if draft is not None:
+                        from .workflow_plan_draft import record_error
+                        _,repeated=record_error(store,task['spec']['request_id'],errors)
+                        if repeated>=2:
+                            raise TaskQuotaReached('规划草稿连续产生相同的语义错误。',category='agent_contract',scope='turn',used=repeated,limit=2)
+                    current_draft=get_draft(store,task['spec']['request_id']) if draft is not None else None
+                    correction_protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,
+                        candidate_keys=candidate_keys,contracts=contracts,draft=current_draft,store=store) if current_draft else protocol
+                    corrections=[name for name in correction_protocol.schemas if name.startswith(('replace_','remove_draft'))]
+                    bounded=[{**item,'allowed_actions':corrections} for item in errors]
+                    feedback+='\nCorrect only these fields in the server-owned draft, then call commit_plan:'+graph.encode(bounded)
                     emit('workflow.agent_correction',task_id=lease.run_id,step_id=lease.step_id,error_code=errors[0]['type'],repeated_error_count=rejections[signature])
                     correction_rounds+=1
                     continue
-                try:planning.stage(store,lease,task['spec']['request_id'],reply['proposal'])
+                if reply.get('_draft_candidate') is not None:
+                    from .workflow_plan_draft import commit_candidate
+                    revision,draft_digest=commit_candidate(store,lease,task['spec']['request_id'],
+                        reply['_draft_base_revision'],reply['_draft_base_digest'],reply['_draft_candidate'],reply['_draft_candidate_digest'])
+                    reply['_draft_revision']=revision;reply['_draft_digest']=draft_digest;draft_mutation_rounds+=1
+                try:planning.stage(store,lease,task['spec']['request_id'],reply['proposal'],
+                    draft_revision=reply.get('_draft_revision'),draft_digest=reply.get('_draft_digest'))
                 except planning.ProposalReferenceError as exc:
                     tool_receipt['status']='failed'
                     store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',
                         (uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],
                          graph.encode({'phase':'proposal_validation','origin':'model_proposal','classification':'parameters',
                                        'attempt_id':lease.attempt,'code':getattr(exc,'code','unknown_input_asset')}),store.now()))
-                    conversation+='\nRejected proposal before staging: '+str(exc)+' Correct it within the frozen scope and budget.'
+                    detail=[{'path':getattr(exc,'path','proposal'),'type':getattr(exc,'code','proposal_reference'),
+                             'message':str(exc)[:1000]}]
+                    if draft is not None:
+                        from .workflow_plan_draft import record_error
+                        _,repeated=record_error(store,task['spec']['request_id'],detail)
+                        if repeated>=2:
+                            raise TaskQuotaReached('规划草稿连续产生相同的引用错误。',category='agent_contract',scope='turn',used=repeated,limit=2)
+                    current_draft=get_draft(store,task['spec']['request_id']) if draft is not None else None
+                    correction_protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,
+                        candidate_keys=candidate_keys,contracts=contracts,draft=current_draft,store=store) if current_draft else protocol
+                    corrections=[name for name in correction_protocol.schemas if name.startswith(('replace_','remove_draft'))]
+                    if corrections:detail[0]['allowed_actions']=corrections
+                    conversation+='\nRejected proposal before staging. Correct only the referenced draft field:'+graph.encode(detail)
                     correction_rounds+=1
                     continue
                 except planning.ProposalIdentityError:
@@ -634,6 +739,10 @@ def execute(host,lease,run,task):
                          operation='proposal',error_code='proposal_id_reused')
                     conversation+='\nProposal ID already used by another request. Submit the corrected proposal with proposal_id='+task['spec']['request_id']+'. Nothing was staged.'
                     continue
+                emit('workflow.plan_validation',task_id=lease.run_id,step_id=lease.step_id,
+                     schema_valid=True,compile_valid=True,semantic_valid=True,policy_valid=not authorization_required,
+                     executable=not authorization_required,
+                     retry_success=correction_rounds>0)
                 return stage_result(store,lease,'succeeded',{'result_kind':reply['proposal']['kind']})
             if action=='inspect':
                 if finalize_started:
