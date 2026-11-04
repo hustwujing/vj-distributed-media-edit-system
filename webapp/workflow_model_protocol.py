@@ -10,6 +10,37 @@ class CommandError(ValueError):
         super().__init__(message)
 
 
+def normalize_planner_arguments(name,arguments):
+    """Normalize only legacy/redundant planner shapes with one exact meaning."""
+    if name!='submit_typed_plan' and not name.startswith(('replace_agent_tasks','replace_operation_tasks_')):
+        return arguments,[]
+    value=deepcopy(arguments);changes=[]
+    plan=value
+    if not isinstance(plan,dict):return value,changes
+    continuation=plan.get('continuation')
+    if isinstance(continuation,dict) and 'tasks' in continuation:
+        continuation.pop('tasks');changes.append('continuation.tasks_removed')
+    tasks=plan.get('tasks')
+    for index,task in enumerate(tasks if isinstance(tasks,list) else []):
+        if not isinstance(task,dict):continue
+        kind=task.get('type')
+        if kind=='operation':
+            if 'acceptance' in task:task.pop('acceptance');changes.append(f'tasks.{index}.operation_acceptance_removed')
+            bindings=task.get('inputs')
+            if isinstance(bindings,list):
+                mapped={};valid=True
+                for item in bindings:
+                    if not isinstance(item,dict):valid=False;break
+                    role=item.get('role',item.get('key'));ref=item.get('ref',item.get('value'))
+                    if not isinstance(role,str) or not isinstance(ref,dict) or role in mapped:valid=False;break
+                    mapped[role]=ref
+                if valid:task['inputs']=mapped;changes.append(f'tasks.{index}.operation_inputs_mapped')
+        elif kind in ('agent','script') and 'input_bindings' not in task and isinstance(task.get('inputs'),dict):
+            task['input_bindings']=[{'role':role,'ref':ref} for role,ref in task.pop('inputs').items()]
+            changes.append(f'tasks.{index}.inputs_mapped')
+    return value,changes
+
+
 def scopes(frozen):
     repair=frozen.get('repair_context') or {};trigger=frozen.get('trigger') or {}
     automatic=(repair.get('subject_task','') if repair.get('active') else trigger.get('task_id')
@@ -410,6 +441,7 @@ class ToolProtocol:
 
     def decode(self,name,arguments):
         if name not in self.schemas:raise CommandError('action_unavailable','tool','Tool is unavailable in this role or phase')
+        arguments,normalizations=normalize_planner_arguments(name,arguments)
         payload=transform(arguments,self.schemas[name]);action=self.names[name]
         if action=='proposal':return {'action':'proposal','proposal':compile_manager(payload,self.frozen),'_model_command':payload}
         if action in ('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration'):
@@ -418,7 +450,7 @@ class ToolProtocol:
                 duplicate=next((item['id'] for item in payload.get('tasks',[]) if item['id'] in existing),None)
                 if duplicate:raise CommandError('existing_task_id','tasks.id','New draft Tasks cannot reuse an existing logical Task ID; use the declared repair/revision command')
             return {'action':action,'command':payload,'_model_command':payload}
-        if action=='draft_batch_commit':return {'action':action,'command':payload,'_model_command':payload}
+        if action=='draft_batch_commit':return {'action':action,'command':payload,'_model_command':payload,'_normalizations':normalizations}
         if action=='draft_commit':
             from .workflow_plan_draft import compile as compile_draft,compile_value
             if self.store is None:

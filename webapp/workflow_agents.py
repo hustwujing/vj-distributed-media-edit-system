@@ -611,6 +611,9 @@ def execute(host,lease,run,task):
                 correction_rounds+=1
             continue
         action=reply.get('action')
+        if reply.get('_normalizations'):
+            emit('workflow.model_command_normalized','WARNING',task_id=lease.run_id,step_id=lease.step_id,
+                 normalizations=reply['_normalizations'])
         corrective_draft_actions=('draft_replace_tasks','draft_remove_tasks','draft_replace_configuration')
         if finalize_started and action not in ('result','proposal',*corrective_draft_actions):
             conversation+='\nFinalize phase: only result/proposal is accepted. No script, inspect or contract action was executed. Submit the completed declared outputs or an explicit bounded result.'

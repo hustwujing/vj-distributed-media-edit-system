@@ -95,6 +95,22 @@ class ModelCommandTests(unittest.TestCase):
         task['input_bindings'].append({'role':'source','ref':{'asset':'asset2'}})
         with self.assertRaises(CommandError):compile_manager(transform(transform(command,schema,encode=True),schema),f)
 
+    def test_planner_normalizes_only_unambiguous_legacy_task_shapes(self):
+        from webapp.operations import catalog
+        op=next(x for x in catalog()['operations'] if x['id']=='media.evidence')
+        f=frozen(False);f['operations']=[op]
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op},draft={'status':'OPEN'})
+        arguments={'tasks':[{'id':'evidence','type':'operation','name':'Evidence','objective':'Inspect audio',
+            'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},
+            'inputs':[{'role':'source','ref':{'asset':'asset'}}],
+            'acceptance':[{'kind':'json','file':'invented.json'}]}],
+            'kind':'APPLY_PLAN','reason':'Inspect','continuation':{'mode':'wait','tasks':['evidence']}}
+        result=p.decode('submit_typed_plan',arguments)
+        self.assertEqual(result['command']['tasks'][0]['inputs']['source']['asset'],'asset')
+        self.assertNotIn('acceptance',result['command']['tasks'][0])
+        self.assertNotIn('tasks',result['command']['continuation'])
+        self.assertEqual(set(result['_normalizations']),{'continuation.tasks_removed','tasks.0.operation_acceptance_removed','tasks.0.operation_inputs_mapped'})
+
     def test_noncut_transition_default_matches_runtime_contract(self):
         from webapp.operation_parameters import EditTransition
         self.assertEqual(EditTransition(type='cut').duration,0)
