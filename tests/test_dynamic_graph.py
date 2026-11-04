@@ -56,6 +56,11 @@ class DynamicGraphTests(unittest.TestCase):
         with self.assertRaises(ValueError):graph.create(self.store,self.f.project,self.f.turn,{**self.authorization,'goal':'different'})
         with self.assertRaises(ValueError):graph.create(self.store,self.f.project,self.f.turn,{**self.authorization,'content_fingerprint':'0'*64})
 
+    def test_planning_snapshot_preserves_operation_output_alternatives(self):
+        frozen=planning.snapshot(self.store,self.run)
+        edit=next(item for item in frozen['operations'] if item['id']=='media.edit')
+        self.assertEqual(edit['output_contract']['alternatives'],['audio','video'])
+
     def test_frozen_manager_schema_exposes_real_acceptance_target_domain(self):
         from pydantic import ValidationError
         from webapp.quality_policy import Acceptance

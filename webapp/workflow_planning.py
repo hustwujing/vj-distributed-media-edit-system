@@ -72,7 +72,8 @@ def snapshot(store,run):
         provider_used[group]=provider_used.get(group,0)+1
     operation_index=[{'id':op['id'],'authorized':op['id'] in run['authorization']['allowed_operations'],
         'available':op.get('available',False),**{key:op[key] for key in ('external_side_effects','budget_group','concurrency_group','route_adapter','provider_identity','cleanup_category')},'implementation':op.get('implementation'),
-        'outputs':op.get('output_contract',{}).get('roles',[]),'contract_digest':digest(op)} for op in operations]
+        'outputs':op.get('output_contract',{}).get('roles',[]),'output_contract':op.get('output_contract',{}),
+        'contract_digest':digest(op)} for op in operations]
     return {'run_id':run['id'],'goal':run['goal'],'graph_version':run['graph_version'],
         'scope_confirmation_required':not run['scope_confirmed'],
         'sealed':run['sealed'],'authorization':run['authorization'],'authorization_version':run['authorization_version'],
