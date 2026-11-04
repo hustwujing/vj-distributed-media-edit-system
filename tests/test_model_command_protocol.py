@@ -152,14 +152,17 @@ class ModelCommandTests(unittest.TestCase):
                         {'error':{'message':'strict is not supported'}}):
             self.assertFalse(strict_unsupported(400,payload))
 
-    def test_all_adapters_keep_tool_schema_and_nonstrict_omits_only_strict(self):
+    def test_nonstrict_explicitly_disables_responses_but_omits_other_extensions(self):
         definitions=[{'name':'submit_plan','description':'Synthetic','schema':obj({'ok':{'type':'boolean'}})}]
         for identifier in ('responses','chat_completions','anthropic'):
             adapter=get(identifier);body=adapter.conversation('rules','question')
             strict=request(adapter,body,definitions,strict=True);plain=request(adapter,body,definitions,strict=False)
             item=strict['tools'][0];other=plain['tools'][0]
             if identifier=='chat_completions':item=item['function'];other=other['function']
-            self.assertTrue(item.pop('strict'));self.assertEqual(item,other)
+            self.assertTrue(item.pop('strict'))
+            if identifier=='responses':self.assertIs(other.pop('strict'),False)
+            else:self.assertNotIn('strict',other)
+            self.assertEqual(item,other)
 
     def test_multiple_calls_incomplete_response_and_unknown_tool_are_not_actions(self):
         call={'type':'function_call','name':'submit_plan','arguments':'{}'}

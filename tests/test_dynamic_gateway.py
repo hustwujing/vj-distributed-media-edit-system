@@ -278,7 +278,7 @@ class DynamicGatewayTests(unittest.TestCase):
             reply=model(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,get('media_planner'),
                 'Frozen context',protocol=protocol,transport=transport)
         self.assertEqual(reply['proposal']['snapshot_digest'],request['snapshot_digest'])
-        self.assertTrue(sent[0]['tools'][0]['strict']);self.assertNotIn('strict',sent[1]['tools'][0])
+        self.assertTrue(sent[0]['tools'][0]['strict']);self.assertIs(sent[1]['tools'][0]['strict'],False)
         self.assertEqual(sent[0]['input'],sent[1]['input']);self.assertFalse(transport['strict'])
         rows=self.store.query("SELECT status,receipt,total_tokens FROM usage_calls WHERE category='llm' ORDER BY seq")
         self.assertEqual([r['status'] for r in rows],['failed','succeeded'])
@@ -311,7 +311,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
              patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
-        self.assertEqual(len(sent),2);self.assertTrue(sent[0]['tools'][0]['strict']);self.assertNotIn('strict',sent[1]['tools'][0])
+        self.assertEqual(len(sent),2);self.assertTrue(sent[0]['tools'][0]['strict']);self.assertIs(sent[1]['tools'][0]['strict'],False)
         saved=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(saved['kind'],'REQUEST_USER_INPUT');self.assertNotIn('undeclared',saved)
 

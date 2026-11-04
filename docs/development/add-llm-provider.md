@@ -47,3 +47,5 @@ Responses 的 `phase=commentary` 是过程消息，不能作为业务动作执�
 协议依据：[OpenAI 输入计数](https://developers.openai.com/api/docs/guides/token-counting)、[图像计量](https://developers.openai.com/api/docs/guides/images-vision)、[Claude Token 计数](https://platform.claude.com/docs/en/build-with-claude/token-counting)。
 
 原生工具接入必须单独实测工具选择、strict参数和Token计数；HTTP成功不能当作Schema约束确已生效。本机DS4.1路由拒绝强制tool_choice，但auto可以返回工具调用，宿主仍严格要求恰好一个已授权工具动作。不要按模型名猜测或隐藏适配器差异。记录实际请求模式、Schema摘要、回退原因及逐次费用/用量完整度；提供非法结构、缺字段、多动作、额外字段、结束不完整和网关拒绝的测试。
+
+Responses的非strict回退必须显式发送工具字段`strict: false`；省略该字段仍可能由上游自动启用strict。Anthropic和Chat Completions省略strict扩展走各自默认非strict协议。不能把三个协议的默认值混用，也不能仅用“请求不含strict”证明降级成功。若Responses网关连false字段也拒绝，应保留真实接口失败，不能谎报已完成非strict回退。参考[Function calling默认值](https://developers.openai.com/api/docs/guides/function-calling)。

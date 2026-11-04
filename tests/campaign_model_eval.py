@@ -191,6 +191,8 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
         if native:body=tool_request(adapter,body,definitions,strict=strict)
         body=adapter.prepare(body,config.model,12000,config.reasoning_effort);assert_no_credentials(graph.encode(body),(key,))
         record={'turn':turn,'strict_requested':strict if native else False,'request_sha256':graph.digest(body),'at':time.time()}
+        if native:
+            record['wire_strict_settings']=[(tool.get('function',tool)).get('strict','omitted') for tool in body['tools']]
         save(directory/f'call-{turn}-intent.json',record)
         try:
             with session() as client:r=client.post(base+adapter.path,json=body,headers=adapter.headers(key),timeout=(10,180),allow_redirects=False)
@@ -200,6 +202,7 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
                 if strict and strict_unsupported(r.status_code,payload):strict=False;record['fallback']='non_strict_tools';calls.append(record);save(directory/f'call-{turn}.json',record);continue
                 calls.append(record);save(directory/f'call-{turn}.json',record);break
             record['usage']=payload.get('usage');record['response_status']=payload.get('status') or payload.get('stop_reason')
+            record['response_strict_settings']=[tool.get('strict','omitted') for tool in payload.get('tools',[]) if tool.get('type')=='function']
             receipt=adapter.receipt();receipt.feed(graph.encode(payload).encode());receipt.finish();record['usage_normalized']=receipt.usage
             usage=record['usage'] or {};record['output_usage_suspect']=usage.get('output_tokens',usage.get('completion_tokens'))==0
             if native:

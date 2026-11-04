@@ -9,6 +9,11 @@ def request(adapter,body,definitions,*,strict):
     for item in definitions:
         common={'name':item['name'],'description':item['description']}
         if strict:common['strict']=True
+        elif adapter.protocol=='responses':
+            # Omission lets Responses normalize compatible schemas into strict
+            # mode. A downgrade must explicitly opt out; other protocols omit
+            # the extension so gateways that do not recognize it can proceed.
+            common['strict']=False
         if adapter.protocol=='responses':tools.append({'type':'function',**common,'parameters':item['schema']})
         elif adapter.protocol=='chat_completions':tools.append({'type':'function','function':{**common,'parameters':item['schema']}})
         elif adapter.protocol=='anthropic':tools.append({**common,'input_schema':item['schema']})
