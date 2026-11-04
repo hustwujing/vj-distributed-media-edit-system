@@ -91,6 +91,12 @@ class InputResolutionTests(unittest.TestCase):
     def test_ambiguous_output_not_silently_selected(self):
         from webapp.workflow_inputs import roles
         with self.assertRaisesRegex(ValueError,'多个候选'):roles({'kind':'operation','operation':'image.edit'},['a.png','b.png'])
+    def test_plain_operation_result_is_bound_to_registered_role_before_validation(self):
+        from webapp.workflow_executor import bind_output_roles
+        step={'spec':{'kind':'operation','operation':'image.batch_export'}}
+        files,roles=bind_output_roles(step,['edit/output/image.webp'])
+        self.assertEqual(roles,{'primary_image':'edit/output/image.webp'})
+        self.assertEqual(files.roles,roles)
 
 class IntentTests(unittest.TestCase):
     def test_multi_stage_cannot_declare_single(self):

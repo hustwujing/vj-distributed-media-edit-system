@@ -15,6 +15,15 @@ def quota_error_code(task,exc):
     return 'budget_exhausted'
 
 
+def bind_output_roles(step,files):
+    from .workflow_inputs import roles
+    role_map=roles(step['spec'],files,getattr(files,'roles',None))
+    if not getattr(files,'roles',None):
+        from .operation_result import ProducedFiles
+        files=ProducedFiles(files,role_map)
+    return files,role_map
+
+
 def validate_candidate(adapter,workflow,step,files):
     """Model-authored acceptance cannot remove minimum media integrity checks."""
     from pathlib import Path
@@ -86,10 +95,9 @@ def _execute(host,lease):
         phase='validate'
         if lease.runtime:lease.runtime.checkpoint()
         record_phase(lease,task,phase,files)
+        files,role_map=bind_output_roles(step,files)
         report=validate_candidate(adapter,view,step,files)
-        from .workflow_inputs import roles
         report['input_versions']={s['id']:s['revision'] for s in view['steps'] if s['id'] in step['spec']['depends_on']}
-        role_map=roles(step['spec'],files,getattr(files,'roles',None))
         if lease.runtime:lease.runtime.checkpoint()
         checkpoints=store.query('SELECT manifest,attempt FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
                                 (run['id'],task['id'],task['revision']))
