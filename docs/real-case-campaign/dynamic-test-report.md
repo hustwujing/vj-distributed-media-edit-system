@@ -2,16 +2,16 @@
 
 本报告包含清单中的全部 119 条 case 的执行状态和所有历史尝试。未执行、未触发目标边界、缺少审查证据以及旧版本结果均不计为当前版本通过。
 
-当前部署：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`。整体验收：**未完成**。
+当前部署：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`。整体验收：**未完成**。
 
-冻结 Python 门禁：850 项，失败 0，错误 0，跳过 6。绑定摘要：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`。
-JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/1cec5aa1334f.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
+冻结 Python 门禁：856 项，失败 0，错误 0，跳过 6。绑定摘要：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`。
+JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/deedda4df9cb.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
 
-统计：需在当前版本复测 112；执行中 4；未执行 3。
+统计：需在当前版本复测 108；用户主动中止，未完成验收 4；未执行 3；程序缺陷 2；通过 2。
 
-当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 0；待归因 0。非程序错误仍是业务或用例失败，不并入业务成功。
+当前版本失败分类：程序错误 2；非程序错误（程序处理正确） 0；待归因 0。非程序错误仍是业务或用例失败，不并入业务成功。
 
-必须完成的额外回归：F48-history-archive：Historical executed revisions must have retained checkpoint manifests and bytes；F52-script-receipts：Implementer must observe real script receipts and submit within bounded phases；F53-bound-correction：Invalid binding is rejected and bounded correction completes the original goal；F54-feedback-approval：Revision retains declared user Review; independent candidate checking precedes approval；F62-acceptance-target-schema：模型可见target Schema枚举缺失；797b8a7已合入，54项定向通过，待全量门禁、部署及真机验证。；F63-temporal-selected-candidates：最终时序校验错误要求未选交付Task的证据；真实快照+相同检查记录复现，移除未选Task后相同证据通过。；F65-drain-failure-recovery：测试断言混淆正常失败恢复与输入导致重跑；已按原attempt/committed结果/后续修订时序通用核对，6项新增测试和54项Node通过，待真机复测。。
+必须完成的额外回归：F48-history-archive：Historical executed revisions must have retained checkpoint manifests and bytes；F52-script-receipts：Implementer must observe real script receipts and submit within bounded phases；F53-bound-correction：Invalid binding is rejected and bounded correction completes the original goal；F54-feedback-approval：Revision retains declared user Review; independent candidate checking precedes approval；F62-acceptance-target-schema：Schema枚举修复已部署，完整门禁通过；当前119轮继续验证实际Manager调用，不能将待真机关闭误写为待开发。；F66-local-edge-fixture-scope：局部请求、5%上限及人工预览已一致；最终检查器残留整图腐蚀已在12dcf71修复。D36 attempt-004原始真机产物回放通过，原测试失败保留；当前完整轮正式复测。；F68-revision-new-descendant：A single valid APPLY_PLAN revises an existing upstream and adds a new downstream. The affected revision closure includes the new node, but apply indexes only the old active Task snapshot, raising KeyError and rolling back every reconcile.；F69-planner-contract-feedback：Current round has repeated sealed+replan_after contradiction; prompt says name replan_after and seal when complete but omits explicit mutual exclusion. Frozen-field rejection lists a broad field family without the actually changed field paths. review_again prerequisite must be exposed in current snapshot/action guidance.；F70-feedback-replacement-assertion：Feedback post-hook requires original render revision increase. Legal explicit replacement creates new logical Task at revision0 with user_revision_count1 while preserving retired original; application succeeds but harness rejects.。
 
 证据根目录：`/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan`；机器可读报告：`report.json`。原始证据保留在本机，不包含在 Git 提交中。
 
@@ -52,7 +52,8 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | `1279067e23d8` | 10 | 10 | 10 |
 | `4e96addac014` | 13 | 13 | 13 |
 | `f1ca02cd1231` | 15 | 19 | 19 |
-| `1cec5aa1334f` | 5 | 8 | 4 |
+| `1cec5aa1334f` | 5 | 9 | 9 |
+| `deedda4df9cb` | 8 | 12 | 12 |
 
 | Case | 场景 | 当前结论 | 尝试次数 |
 | --- | --- | --- | --- |
@@ -157,24 +158,24 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D21 | 诊断后不可变修订并衔接下游 | 需在当前版本复测 | 2 |
 | D22 | 单一Run身份与独立Control Job | 需在当前版本复测 | 5 |
 | D23 | 业务排空与全Run派发屏障 | 需在当前版本复测 | 3 |
-| D24 | 专业Agent在途输入排空 | 执行中 | 4 |
+| D24 | 专业Agent在途输入排空 | 用户主动中止，未完成验收 | 5 |
 | D25 | 规划期间连续输入分批处理 | 需在当前版本复测 | 3 |
 | D26 | Wan在途输入保持原句柄 | 未执行 | 0 |
 | D27 | 外部提交未知时输入屏障 | 未执行 | 0 |
 | D28 | 质量反馈幂等与过期快照 | 需在当前版本复测 | 5 |
 | D29 | 拒绝不能被人工批准且可补证据 | 需在当前版本复测 | 1 |
 | D30 | 局部蒙版修复比例边界 | 需在当前版本复测 | 1 |
-| D31 | 持续动作的真实时序证据 | 需在当前版本复测 | 2 |
+| D31 | 持续动作的真实时序证据 | 用户主动中止，未完成验收 | 4 |
 | D32 | 输入与最终发布竞争 | 需在当前版本复测 | 1 |
-| D33 | 交付后successor输入幂等 | 执行中 | 3 |
+| D33 | 交付后successor输入幂等 | 用户主动中止，未完成验收 | 4 |
 | D34 | 同步外部请求在途输入 | 需在当前版本复测 | 1 |
 | D35 | Provider配置切换后冻结路由恢复 | 未执行 | 0 |
-| D36 | 抠图候选边缘反馈修订 | 执行中 | 3 |
+| D36 | 抠图候选边缘反馈修订 | 程序缺陷 | 5 |
 | D37 | 双图构图反馈修订 | 需在当前版本复测 | 1 |
-| D38 | Wan提交前参考图反馈修订 | 需在当前版本复测 | 2 |
-| D39 | 合法替代失败节点与历史读取 | 需在当前版本复测 | 3 |
-| D40 | 已验收音频下游Operation取证 | 需在当前版本复测 | 1 |
-| D41 | 最终交付选择与多视频时序证据 | 执行中 | 1 |
+| D38 | Wan提交前参考图反馈修订 | 程序缺陷 | 4 |
+| D39 | 合法替代失败节点与历史读取 | 通过 | 5 |
+| D40 | 已验收音频下游Operation取证 | 用户主动中止，未完成验收 | 2 |
+| D41 | 最终交付选择与多视频时序证据 | 通过 | 3 |
 
 Python 门禁跳过项（不计作真实模型通过证据）：
 
@@ -224,7 +225,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "outcome": "test_driver_failed", "findings": ["折叠面板等待 visible 超时，未开始工作流。", "项目已通过认证接口删除，内部审计和清理证据保存。"], "fixes": ["F03"], "reviewed_at": 1793645712.52179}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 阻塞或证据不完整
 
@@ -249,7 +250,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": false, "required_boundary_verified": false, "outcome": "model_proposal_invalid", "findings": ["真实模型响应后 Proposal 校验 ValidationError，graph_version 保持 0，未执行或发布。", "日志、PG、Redis TTL、BOSS 加密头及对象大小、用量、取消和清理符合暂停边界。", "最终截图仍处于上一次 planning 状态，不能用作最终浏览器一致性证据。"], "fixes": ["F04", "F05", "F06", "F07"], "reviewed_at": 1793645712.5219097}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-003 · 阻塞或证据不完整
 
@@ -274,7 +275,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "outcome": "model_contract_failure", "findings": ["裁切节点为 editing_implementer；调用 inspect 使用未授权引用被拒绝，未发布成果。", "最终浏览器截图已与公开状态一致；无虚假正式交付。", "内部 DB 不变量、日志关联、Observer、Redis TTL、BOSS 加密头和清理检查通过。", "业务目标仍未完成，修复后必须复测。"], "reviewed_at": 1793646436.1112537}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-004 · 阻塞或证据不完整
 
@@ -299,7 +300,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": false, "required_boundary_verified": false, "outcome": "model_result_contract_failure", "findings": ["候选裁切通过技术验收，专业 Reviewer 使用缩写证据引用被严格拒绝。", "未绕过证据绑定或发布未经最终验收的结果。需在 F11 修复版本复测业务交付。"], "fixes": ["F11"], "reviewed_at": 1793647925.0526843}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-005 · 阻塞或证据不完整
 
@@ -324,7 +325,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "content_review": {"passed": true, "method": "逐例浏览器最终状态与实际图片；独立像素参考", "checks": {"pixel_mae": 0.0}}, "findings": ["已查看实际 final-browser.png 与 contact-sheet.jpg：操作效果、交付入口、状态均正确。", "独立像素参考 MAE=0；交付文件哈希与数据库记录一致。", "模型提案的无效字段在预算内被反馈纠正，未绕过校验；完整日志中没有执行 ERROR。", "sealed 图、必需节点、技术验收、最终 Reviewer、generation 及仅一次发布检查全部通过。", "实际 LLM 回执与预算结算均为 99235 tokens，无未知模型用量。", "Observer 正常；Redis 独立前缀和 TTL 正常；BOSS 加密对象检查及最终清理完整。"], "reviewed_at": 1793648444.5397625}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 独立成果检查值：`{"pixel_mae": 0.0}`。
 
@@ -546,7 +547,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793736758.545826, "evidence": ["scheduler-starvation.json", "internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "final-browser.png"], "findings": ["两个可用执行器持续心跳，PLAN control_jobs为ready，但execution_attempts为空。", "scheduling.candidates错误地只查询run_tasks，导致独立控制任务被过滤；模型调用和Provider调用均为0。", "浏览器停留在规划/等待执行；没有交付或误标成功。", "已通过正常取消命令收尾；数据库、缓存、BOSS及本地项目清理核对完成。"], "required_retest": "修复候选选择后重跑本case，实际完成Manager、业务Task和Final Review。"}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -575,7 +576,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "engineering_contract", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793737858.5405006, "findings": ["调度缺陷已解除，真实Manager和业务Script均启动。", "Manager直接生成Script，但其已加载技能不含角色到路径列表的运行时契约；列表契约仅存在于Implementer的media-editing技能中。", "实际生成脚本按字符串或自猜形状读取输入，导致类型错误；on_failure=pause且retry_policy=never，因此按既定策略暂停、无伪成功、无外部调用。", "归因为系统提供给脚本作者的接口说明缺漏，修复共享契约后重测，不按纯模型偶发失败结案。", "DB/日志/观测/缓存/BOSS和本地清理均已审查；首次产物及运行日志保留。"], "evidence": ["internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "final-browser.png"], "required_retest": "Manager收到同一份script-runtime契约后完整执行业务、验收与交付。"}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -702,7 +703,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "content_review": {"passed": true, "method": "逐例浏览器最终状态与实际图片；独立像素参考", "checks": {"pixel_mae": 0.0}}, "findings": ["已查看实际 final-browser.png 与 contact-sheet.jpg：操作效果、交付入口、状态均正确。", "独立像素参考 MAE=0；交付文件哈希与数据库记录一致。", "模型提案的无效字段在预算内被反馈纠正，未绕过校验；完整日志中没有执行 ERROR。", "sealed 图、必需节点、技术验收、最终 Reviewer、generation 及仅一次发布检查全部通过。", "实际 LLM 回执与预算结算均为 89754 tokens，无未知模型用量。", "Observer 正常；Redis 独立前缀和 TTL 正常；BOSS 加密对象检查及最终清理完整。"], "reviewed_at": 1793648444.5432842}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 独立成果检查值：`{"pixel_mae": 0.0}`。
 
@@ -993,7 +994,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "content_review": {"passed": true, "method": "逐例浏览器最终状态与实际图片；独立像素参考", "checks": {"pixel_mae": 0.0}}, "findings": ["已查看实际 final-browser.png 与 contact-sheet.jpg：操作效果、交付入口、状态均正确。", "独立像素参考 MAE=0；交付文件哈希与数据库记录一致。", "模型提案的无效字段在预算内被反馈纠正，未绕过校验；完整日志中没有执行 ERROR。", "sealed 图、必需节点、技术验收、最终 Reviewer、generation 及仅一次发布检查全部通过。", "实际 LLM 回执与预算结算均为 81875 tokens，无未知模型用量。", "Observer 正常；Redis 独立前缀和 TTL 正常；BOSS 加密对象检查及最终清理完整。"], "reviewed_at": 1793648444.5462596}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 独立成果检查值：`{"pixel_mae": 0.0}`。
 
@@ -1284,7 +1285,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "content_review": {"passed": true, "method": "实际浏览器截图、镜像方向和独立逐像素参考", "checks": {"pixel_mae": 0.0}}, "findings": ["已查看最终页面和产物图，左右镜像正确，尺寸512×512；像素MAE=0。", "三轮追加图均按正式验收后推进，封口后一次交付；没有执行ERROR或错误放行。", "模型用量 202892 tokens，与预算结算一致；本测试授权上限为500000，非页面默认预算。", "日志、Observer、DB、Redis TTL、5个BOSS加密对象及最终删除回收全部正常。"], "reviewed_at": 1793648727.8735678}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 独立成果检查值：`{"pixel_mae": 0.0}`。
 
@@ -1575,7 +1576,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "outcome": "model_contract_failure", "findings": ["Manager 的 12 轮操作上限生效，连续无效提案未改变 graph_version=0。", "最终浏览器截图已与公开状态一致；无虚假正式交付。", "内部 DB 不变量、日志关联、Observer、Redis TTL、BOSS 加密头和清理检查通过。", "业务目标仍未完成，修复后必须复测。"], "reviewed_at": 1793646436.1113894}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 阻塞或证据不完整
 
@@ -1600,7 +1601,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": false, "required_boundary_verified": false, "outcome": "model_result_contract_failure", "findings": ["图片处理与专业检查完成，最终 Reviewer 未按交付目标逐字引用 criterion，被拒绝。", "未绕过证据绑定或发布未经最终验收的结果。需在 F11 修复版本复测业务交付。"], "fixes": ["F11"], "reviewed_at": 1793647925.052817}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-003 · 程序缺陷
 
@@ -1625,7 +1626,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["业务产物与状态通过，但首页示例缩略图出现大量502，不能作为无程序缺陷通过。", "API有界存储队列返回503被代理错误解释为实例失活，systemd服务始终正常；已按API/Nginx日志定位。"], "fixes": ["F12"], "reviewed_at": 1793650805.869409}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 独立成果检查值：`{"pixel_mae": 0.3073092142740846}`。
 
@@ -1822,7 +1823,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "outcome": "blocked", "failure_origin": "protocol_contract_under_investigation", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793741818.9925559, "findings": ["实际候选512×512亮度1.2图像与独立Pillow参考逐像素一致，MAE=0，但未正式交付。", "实际待决为input_question，不是扩权审批；驱动原错误文案不准确，已另行修正，原state保持。", "最终Reviewer的两次74字符非法JSON记录来自内部multiple_public_blocks错误；随后没有实际inspection而进入inconclusive，相同证据重审被程序阻止。", "原响应未保存逐消息phase，无法还原每个原始文本块；以该冻结审查上下文做真实重放，复现commentary+合法final_answer，旧适配器会错误拒绝，新适配器已通过。", "日志/数据库/观测/缓存/BOSS和清理记录完整；仍需新版本完整case复测，不能把候选正确等同于正式交付通过。"], "candidate_pixel_mae": 0, "evidence": ["internal-final.json", "workflow-latest.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "cleanup.json"], "required_retest": "修正Responses阶段解析后重跑完整S05；核对实际inspection与最终发布。"}
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：cleanup_started。
 
@@ -1851,7 +1852,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_invalid_binding", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793745999.6155562, "findings": ["模型回显了格式合法但值不匹配的规划绑定；程序拒绝暂存，未应用错误图或发布产物。", "浏览器显示规划暂停；业务候选、模型用量、数据库/日志/观测/缓存/BOSS及清理已核对。", "原行为属于安全拒绝模型错误；新修复进一步提供同一有效请求内的有界纠正，不接受错误绑定。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json", "final-browser.png"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -1911,7 +1912,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748664.9152935, "findings": ["Reviewer因RGB源图变为全不透明RGBA拒绝候选；程序技术验收通过并不覆盖Agent拒绝。", "Manager收到原候选/审查意见和完整契约；尝试的replacement违反原要求等校验，被拒绝后请求用户澄清，未发布失败候选。", "按内容判断/修复提案不收敛的非程序失败记录；并未证明具体哪一字段造成每次replacement拒绝，原诊断信息粒度不足作为后续改进点。", "13次模型调用264331 tokens；日志无缺口、数据库/授权/租约、3份候选、5个BOSS对象、Redis、观测与清理正常。"], "evidence": ["internal-final.json", "candidate-archive.json", "failure-browser.png", "cleanup.json"], "failure_origin": "content_review_and_repair_proposal"}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -1951,7 +1952,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["业务产物与状态通过，但首页示例缩略图出现大量502，不能作为无程序缺陷通过。", "API有界存储队列返回503被代理错误解释为实例失活，systemd服务始终正常；已按API/Nginx日志定位。"], "fixes": ["F12"], "reviewed_at": 1793650805.8695157}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 独立成果检查值：`{"pixel_mae": 0.0}`。
 
@@ -2215,7 +2216,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["业务产物与状态通过，但首页示例缩略图出现大量502，不能作为无程序缺陷通过。", "API有界存储队列返回503被代理错误解释为实例失活，systemd服务始终正常；已按API/Nginx日志定位。"], "fixes": ["F12"], "reviewed_at": 1793650805.8696003}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 独立成果检查值：`{"gradient_ratio": 0.28744325829553086}`。
 
@@ -2479,7 +2480,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["业务产物与状态通过，但首页示例缩略图出现大量502，不能作为无程序缺陷通过。", "API有界存储队列返回503被代理错误解释为实例失活，systemd服务始终正常；已按API/Nginx日志定位。"], "fixes": ["F12"], "reviewed_at": 1793650805.8696635}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 独立成果检查值：`{"logo_white_v": [255, 255, 255, 255]}`。
 
@@ -2674,7 +2675,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "fresh_database_artifact_metadata_permission", "findings": ["业务脚本、技术验收、内容修复和最终产物均实际完成，浏览器产物可见且独立内容检查通过。", "业务候选在约5秒内已暂存，但Orchestrator读取artifact_objects时持续触发PostgreSQL InsufficientPrivilege，导致页面长时间停在running；这是程序性部署初始化缺陷。", "internal-final中的immutable_task_contract来自旧审计口径未识别不可变Task revision；审计器已改为核对revision历史、repair_root计数和plan选择，不将合法修订当作原地篡改。", "现场补最小权限后流程恢复并完成清理，但该尝试发生过程序错误，不能计为通过。"], "evidence": ["state.json", "final-browser.png", "artifact-browser.png", "internal-final.json", "artifact-verification.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793703500.0}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -2772,7 +2773,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 阻塞或证据不完整
 
@@ -2795,7 +2796,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-003 · 待逐例审查
 
@@ -2816,7 +2817,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -2843,7 +2844,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "business_target_reached": false, "negative_path_verified": true, "failure_origin": "segmentation_model_quality", "outcome": "handled_failure", "findings": ["真实SAM3及ZIM运行并生成512×512前景和蒙版；已查看独立灰底合成、蒙版及原图。", "候选胸腹服装/拉链附近存在透明裂隙，内容Reviewer的拒绝与实际像素相符。", "工作流及对应验收步骤明确暂停，浏览器显示具体拒绝原因；没有正式交付，也没有通过放宽标准掩盖模型结果。", "数据库、generation/验收绑定、模型用量、日志、Observer、Redis/BOSS与资源清理正常；全部候选和决定已归档。"], "evidence": ["independent-candidate-review.png", "final-browser.png", "candidate-archive.json", "internal-final.json"], "reviewed_at": 1793662616.9256995}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际确认的执行轮次：
 
@@ -2870,7 +2871,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "segmentation_model_quality", "findings": ["实际SAM3/ZIM输出已独立合成灰底并查看原图和蒙版；胸腹拉链附近存在明显透明缺口，内容拒绝与实际像素一致。", "程序将对应验收节点和工作流暂停，没有正式交付；浏览器状态与DB一致，未降低验收要求。", "DB/租约/版本、日志/Observer、模型用量、Redis TTL及前缀、41份BOSS对象/候选归档及清理正常。业务目标未达成，属于模型质量失败被正确拦截。"], "evidence": ["independent-candidate-review.png", "final-browser.png", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793667841.6815321}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -2899,7 +2900,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_review_subject_scope", "findings": ["实际SAM3/ZIM已生成512×512透明图及蒙版；灰底独立查看人物本体保留、持握头盔排除，右侧轮廓在装备处内切。Reviewer将装备纳入主体完整性并拒绝。此处存在主体范围解释，不能凭拒绝断言分割代码错误；程序正确保留候选并阻断正式交付。", "核对失败页面、原始诊断/执行日志、DB状态与候选/验收、模型回执、BOSS归档、Redis隔离前缀与TTL、observer就绪及取消后清理。未将失败候选提升为正式交付；这是失败路径处理通过，不是业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json", "independent-gray-composite.jpg"], "reviewed_at": 1793674614.699318}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -2928,7 +2929,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_refined_cutout_quality_rejected", "findings": ["SAM3及ZIM精修后，模型验收仍认为宇航服/被排除头盔相接处有宽半透明残留与光晕，按冻结边缘标准reject；独立灰底图已查看，不把模型的主体范围判断直接归为程序算法缺陷。", "共享DB重启曾打断zim_refine_edges输入下载，15条OperationalError/计量告警已保留在trace-archive；后台恢复后继续执行并达到真实质量验收，最终因内容拒绝暂停。候选未正式交付，所有租约/清理闭合、模型回执完整。", "逐项核对浏览器、日志/诊断、观测、DB、隔离BOSS/Redis、候选归档与清理；对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-gray-composite.jpg"], "reviewed_at": 1793685057.062541}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -2957,7 +2958,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_subject_scope_and_segmentation_rejected", "findings": ["实际SAM3和ZIM执行成功，首次报告因头盔缺失与边界问题拒绝；Manager追加包含头盔的选择，第二次实际蒙版仍基本只含人物。独立灰底对照确认头盔缺失及右侧遮挡交界形状。", "用户要求提取宇航员人物，模型进一步要求完整保留所持头盔；是否必须纳入存在解释空间，不把模型追加条件表述为用户明确要求。程序按冻结步骤条件接受拒绝结论，paused/quality_failed且无最终交付，未将处理成功冒充业务成功。", "实际浏览器显示对应审查暂停；九维内部审计完整，17次模型调用回执齐全，无程序/依赖异常；项目、65个BOSS对象、Redis及本地缓存清理完成。"], "evidence": ["state.json", "internal-final.json", "candidate-archive.json", "independent-selection-review.jpg", "final-browser.png", "cleanup.json"], "reviewed_at": 1793692635.150537}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -2986,7 +2987,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_no_selection", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793748501.52192, "findings": ["真实SAM3调用19.159秒，英文选择提示返回detections=[]；model-outcome明确no_selection，未产生可用蒙版或透明人像。", "注册operation按冻结on_failure=pause转WAITING_USER，页面明确说明未找到目标并允许补充输入；未误发布、未伪造模型成果。", "此项业务未成功，按模型结果失败且程序正确处理分类；复杂带排除条件的选择提示留待全轮后改进讨论。", "20项数据库不变量通过，真实模型请求/检测结果等5份候选证据归档；日志异常与该失败对应且无缺口，9个BOSS对象、Redis、观测及本地清理均正常。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "candidates/08ff2b7b746c4060a5092a1037d1b750.json", "candidates/62ba52213fa449fba8eabaf5e474d99b.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -3024,7 +3025,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 待逐例审查
 
@@ -3045,7 +3046,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -3124,7 +3125,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "intermediate_review_uses_final_goal", "findings": ["F33：当前步骤只核对OCR内容及位置，TXT是后续导出阶段；内部task Reviewer却以缺少最终TXT为理由拒绝已正确核验的OCR JSON。", "已纳入步骤范围及criterion双重校验修复，待统一部署复测。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793672629.6567168}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -3155,7 +3156,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "artifact_failed", "business_target_reached": false, "failure_origin": "case_prompt_acceptance_ambiguity", "findings": ["真实OCR包含SUMMER/RUN/BEACH/CLUB/15/SECONDS，整理脚本按全部英文文字的字面要求过滤纯数字，Reviewer也明确排除15。独立验收缺少15失败，保留真实输出，不改判为通过。", "同一部署版本将case提示明确为包含数字的全部文字，原terms/坐标/格式验收不变，待重跑。F33中间验收范围修复已实际越过旧失败点，但此例整体仍未通过。", "已查看实际浏览器最终页面与下载文件：JSON/TXT均可交付，缺15与脚本过滤一致。全维度内部审计与清理完整，模型回执、隔离BOSS/Redis和observer正常；独立检查失败保留。"], "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "candidate-archive.json", "cleanup.json", "final-browser.png", "artifact-browser.png"], "reviewed_at": 1793676041.6249824}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -3330,7 +3331,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["实际JPEG生成后技术校验通过，但固定检查器对JPEG使用-ss 0得到空帧，造成误报失败。", "已使用真实JPEG和同一FFmpeg参数复现，非模型错误。"], "fixes": ["F14"], "reviewed_at": 1793650805.8697128}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 ### attempt-002 · 阻塞或证据不完整
 
@@ -3353,7 +3354,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 独立成果检查值：`{"pixel_mae": 2.3709093729654946}`。
 
@@ -3584,7 +3585,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 独立成果检查值：`{"pixel_mae": 2.446629842122396}`。
 
@@ -3815,7 +3816,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 独立成果检查值：`{"waveform_mae": 0.0}`。
 
@@ -4046,7 +4047,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 独立成果检查值：`{"rms_ratio": 0.5011876750914307}`。
 
@@ -4181,7 +4182,7 @@ Call log:
 
 证据缺口：["audit: Command failed: /data2/wujing03/distributed-agent-system/.venv/bin/python /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-006/harness/campaign_dynamic_probe.py final /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-006\nTraceback (most recent call last):\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-006/harness/campaign_dynamic_probe.py\", line 336, in <module>\n    if __name__=='__main__':main()\n                            ~~~~^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-006/harness/campaign_dynamic_probe.py\", line 332, in main\n    else:result=inspect(args.directory,args.action=='final')\n                ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S14/attempt-006/harness/campaign_dynamic_probe.py\", line 165, in inspect\n    assets={asset['id']:asset for asset in store.assets(project)}\n                                           ~~~~~~~~~~~~^^^^^^^^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/releases/9446e2e10695/webapp/store.py\", line 220, in assets\n    rows = self.query('SELECT * FROM assets WHERE project=? ORDER BY created', (project,))\n  File \"/data2/wujing03/distributed-agent-system/.cluster/releases/9446e2e10695/webapp/store.py\", line 137, in query\n    with self.connect(readonly=True) as db:\n         ~~~~~~~~~~~~^^^^^^^^^^^^^^^\n  File \"/data/wujing03/miniforge3/lib/python3.13/contextlib.py\", line 141, in __enter__\n    return next(self.gen)\n  File \"/data2/wujing03/distributed-agent-system/.cluster/releases/9446e2e10695/webapp/store.py\", line 99, in connect\n    db = connect(self.dsn, self.timeout, readonly=readonly)\n  File \"/data2/wujing03/distributed-agent-system/.cluster/releases/9446e2e10695/webapp/database.py\", line 67, in connect\n    raw = psycopg.connect(dsn, connect_timeout=max(1, int(timeout)), row_factory=dict_row)\n  File \"/data2/wujing03/distributed-agent-system/.venv/lib/python3.13/site-packages/psycopg/connection.py\", line 126, in connect\n    raise last_ex.with_traceback(None)\npsycopg.OperationalError: connection failed: connection to server at \"127.0.0.1\", port 15432 failed: server closed the connection unexpectedly\n\tThis probably means the server terminated abnormally\n\tbefore or while processing the request.\n"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：cleanup_started。
 
@@ -4241,7 +4242,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "findings": ["模型校验将单声道源与立体声输出的单个声道直接比较，得到约-9.02dB；该数值没有扣除等功率声道转换。独立统一布局后，中段增益0.50118744、相关0.999999965，符合-6dB。", "同时候选首尾确有固定媒体工具的附加短淡变，不能声称严格全段纯线性缩放已满足。属于模型选择工具默认行为及校验条件不匹配；程序接受冻结质量拒绝并暂停，无正式交付。", "实际浏览器状态与DB一致，九维内部审查完整、模型回执齐全，无程序/依赖异常；项目、BOSS、Redis及本地缓存清理完成。"], "evidence": ["state.json", "internal-final.json", "independent-audio-review.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json"], "reviewed_at": 1793692978.2468224, "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_audio_plan_and_verifier_contract_mismatch"}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -4270,7 +4271,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "audio_channel_gain", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749409.630194, "findings": ["注册audio.process无条件将单声道转双声道，实际全流增益约-9.0103dB而非要求-6dB；固定工具实现问题，独立证据及诊断正确拦截。", "后续模型提案不收敛并触发保守文本预算预留；未覆盖旧拒绝或错误发布。", "38项数据库不变量、日志完整性、9个BOSS对象、Redis、观测和清理正常，失败证据保留。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -4299,7 +4300,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "pcm_layout_metadata", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793750885.5046287, "findings": ["全144万采样独立比较证明增益-5.999992dB、最大误差0.5LSB且保留单声道48kHz；F57增益修复生效。", "WAV缺少显式channel_layout，验收器未从唯一单声道数识别mono，导致错误拒绝；作为新的程序问题F58记录。", "已复核浏览器终态、日志/观测、数据库/租约/授权、候选归档、BOSS、Redis及本地/外部清理；这些安全检查通过不抵消上述业务或程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json", "gain-boundary-review.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -4328,7 +4329,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "accepted_audio_input_type", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793752610.3019419, "findings": ["reduce_gain已正式succeeded，实际mono布局通过channel_count推导且mono验收通过，F58修复实际生效。", "模型的独立审查报告仍给出错误inconclusive，被控制Reviewer拒绝；Manager后续合法新增候选音频证据Task。", "下游resolve对已验收音频仍读取旧audio字段，忽略audio_track_present，造成media.evidence参数类型拒绝；是程序缺陷F59，不能算模型失败。", "旧新review revision及候选字节保留；数据库/租约/授权、日志/观测、13个BOSS对象、Redis和清理正常，无失败成果发布。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -4395,7 +4396,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 独立成果检查值：`{"fade_start_ratio": 0.09680585393219336, "fade_end_ratio": 0.1367136072472471}`。
 
@@ -4472,7 +4473,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_content_evidence_inconclusive", "findings": ["验收模型认为缺少首尾包络验证，给出证据不足并拒绝；程序保留拒绝、暂停工作流及验收节点，没有交付。", "额外独立PCM核查确认候选实际含淡入淡出：首/尾0.2秒RMS比0.0968/0.1372，中段相关性0.999999991，线性淡化参考MAE=6.11e-6。属于模型未充分验证导致的保守拒绝，不是已证明的音频处理程序错误。", "已查看暂停页面；DB/日志/Observer/预算/Redis/BOSS/候选归档及清理正常。独立补核查不回写审批，也不把未交付当业务成功。"], "evidence": ["final-browser.png", "independent-audio-review.json", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793668082.7468646}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -4501,7 +4502,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_audio_evidence_inconclusive", "findings": ["Reviewer因缺少淡化内容证据拒绝。独立PCM分析确认本次候选首秒增益0.048→0.443→0.944，主体约1，尾秒0.950→0.450→0.056，淡化实际正确；模型验收未完成，程序没有绕过拒绝交付。", "核对失败页面、原始诊断/执行日志、DB状态与候选/验收、模型回执、BOSS归档、Redis隔离前缀与TTL、observer就绪及取消后清理。未将失败候选提升为正式交付；这是失败路径处理通过，不是业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json", "independent-audio-review.json"], "reviewed_at": 1793674614.7025504}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -4559,7 +4560,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "findings": ["模型verify_fades脚本把原单声道与输出立体声第一声道按原振幅直接比较，忽略等功率转换；独立核实其中段相等判据必然不通过。统一布局后中段增益1.00000024，首秒递增、末秒递减，淡变实际存在。", "脚本返回1且stderr为空，原fade_verification.json未成为可检查候选；不伪造原报告或声称已从空日志确定全部失败项。程序保留exit1与诊断证据，暂停且未交付。", "实际浏览器状态与DB一致，九维内部审查完整、模型回执齐全，无程序/依赖异常；项目、BOSS、Redis及本地缓存清理完成。"], "evidence": ["state.json", "internal-final.json", "independent-audio-review.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json"], "reviewed_at": 1793692978.2552, "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_audio_verifier_channel_layout_mismatch"}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -4626,7 +4627,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 独立成果检查值：`{"audio_correlation": 0.9999999836042405}`。
 
@@ -4857,7 +4858,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：resume。
 
@@ -4880,7 +4881,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -5050,7 +5051,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "multimodal_token_reservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749090.8390975, "findings": ["仅4次模型调用累计58041 tokens后，视频审查的多模态预留触发500000预算上限；workflow_agents.model将包含图片Base64的整个JSON字节数当作文本Token预留。", "剪切operation成功且候选已归档；错误预算判定阻断后续审查，未误发布。", "页面与WAITING_USER一致，日志/数据库/Redis/观测/BOSS及清理正常；该预算算法问题仍是程序失败，不能因安全停止算非程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -5079,7 +5080,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "vision_envelope_overreservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793750885.5152204, "findings": ["独立图片预留使用与当前模型不匹配的高成本tile上界，多张联系表仍导致错误预算拦截；F56首次修复未闭环，继续计程序失败。", "音视频制作或证据收集已执行，审查停止后无误发布，实际usage与预留分项均已保留。", "已复核浏览器终态、日志/观测、数据库/租约/授权、候选归档、BOSS、Redis及本地/外部清理；这些安全检查通过不抵消上述业务或程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -5314,7 +5315,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "multimodal_token_reservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793749409.630346, "findings": ["视频缩放成功，最终Review因把图片Base64当作文本Token预留而误判预算不足，累计实际100935 tokens。", "页面正确显示等待用户且无正式交付；22项数据库不变量和全部审计维度正常，10个BOSS对象等已清理。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -5343,7 +5344,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "vision_envelope_overreservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793750885.5252395, "findings": ["独立图片预留使用与当前模型不匹配的高成本tile上界，多张联系表仍导致错误预算拦截；F56首次修复未闭环，继续计程序失败。", "音视频制作或证据收集已执行，审查停止后无误发布，实际usage与预留分项均已保留。", "已复核浏览器终态、日志/观测、数据库/租约/授权、候选归档、BOSS、Redis及本地/外部清理；这些安全检查通过不抵消上述业务或程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -5408,7 +5409,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -5549,7 +5550,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_final_review_turn_budget_exhausted", "findings": ["旋转执行及专业视觉审查完成，但最终Reviewer12轮耗尽，含3次JSON格式拒绝；程序按turn_quota_exhausted暂停，没有有效最终结论就不交付。", "实际浏览器暂停与DB一致；九维审计完整、模型回执齐全，无程序/依赖异常；项目、BOSS、Redis及本地缓存清理完成。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793693169.8467877}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -5578,7 +5579,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "vision_envelope_overreservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793750885.5280414, "findings": ["独立图片预留使用与当前模型不匹配的高成本tile上界，多张联系表仍导致错误预算拦截；F56首次修复未闭环，继续计程序失败。", "音视频制作或证据收集已执行，审查停止后无误发布，实际usage与预留分项均已保留。", "已复核浏览器终态、日志/观测、数据库/租约/授权、候选归档、BOSS、Redis及本地/外部清理；这些安全检查通过不抵消上述业务或程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -5643,7 +5644,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -5670,7 +5671,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_content_evidence_inconclusive", "findings": ["Reviewer对保音高、同步及听觉伪影给出inconclusive；程序拒绝交付并暂停对应验收节点。这里没有判定候选音频一定错误，验证的是缺少充分内容证据时不发布。", "已查看最终暂停页面及完整验收决定，核对DB/日志/Observer/用量/Redis/BOSS/候选归档和清理；未降低验收标准。"], "evidence": ["final-browser.png", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793667152.976978}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际确认的执行轮次：
 
@@ -5755,7 +5756,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_audio_evidence_inconclusive", "findings": ["模型验收因缺少自然音高、完整音频与同步证据拒绝。独立检查候选主频仍为440Hz，不能据其reject断言音高实际被改变；程序遵守当前验收结论暂停，没有发布。", "实际页面、用量账本、DB候选/验收及清理一致；24次模型回执完整、11个BOSS对象归档，Redis隔离TTL3585、observer正常。", "逐项核对浏览器、日志/诊断、观测、DB、隔离BOSS/Redis、候选归档与清理；对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-pitch-review.json"], "reviewed_at": 1793685057.0663807}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -5813,7 +5814,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "vision_envelope_overreservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793750885.531542, "findings": ["独立图片预留使用与当前模型不匹配的高成本tile上界，多张联系表仍导致错误预算拦截；F56首次修复未闭环，继续计程序失败。", "音视频制作或证据收集已执行，审查停止后无误发布，实际usage与预留分项均已保留。", "已复核浏览器终态、日志/观测、数据库/租约/授权、候选归档、BOSS、Redis及本地/外部清理；这些安全检查通过不抵消上述业务或程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -5842,7 +5843,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "review_evidence_planning_budget", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793752919.5141008, "findings": ["视频制作及两段注册候选证据已完成；模型审查缺乏有效inspection_id，后续修复提案多次违反不可变契约/依赖和证据归属，被拒绝。", "实际476481/500000 tokens，剩余23519；下一请求原生文本计数32853，单输入已超余额，属于正常预算停止，无图片预留误算。", "48项数据库不变量、18份候选、22个BOSS对象、Redis、日志/观测和双节点清理正常；未发布审查失败结果。"], "evidence": ["internal-final.json", "candidate-archive.json", "final-browser.png", "runtime-evidence.json", "log-index.json", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -5901,7 +5902,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -5984,7 +5985,7 @@ Call log:
 
 证据缺口：["audit: Command failed: /data2/wujing03/distributed-agent-system/.venv/bin/python /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S21/attempt-005/harness/campaign_dynamic_probe.py final /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S21/attempt-005\nTraceback (most recent call last):\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S21/attempt-005/harness/campaign_dynamic_probe.py\", line 336, in <module>\n    if __name__=='__main__':main()\n                            ~~~~^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S21/attempt-005/harness/campaign_dynamic_probe.py\", line 332, in main\n    else:result=inspect(args.directory,args.action=='final')\n                ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S21/attempt-005/harness/campaign_dynamic_probe.py\", line 83, in inspect\n    directory,state,deployed,store=configure(directory)\n                                   ~~~~~~~~~^^^^^^^^^^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S21/attempt-005/harness/campaign_dynamic_probe.py\", line 37, in configure\n    database=store.query('SELECT current_database() AS name')[0]['name']\n             ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/data2/wujing03/distributed-agent-system/.cluster/releases/9446e2e10695/webapp/store.py\", line 137, in query\n    with self.connect(readonly=True) as db:\n         ~~~~~~~~~~~~^^^^^^^^^^^^^^^\n  File \"/data/wujing03/miniforge3/lib/python3.13/contextlib.py\", line 141, in __enter__\n    return next(self.gen)\n  File \"/data2/wujing03/distributed-agent-system/.cluster/releases/9446e2e10695/webapp/store.py\", line 99, in connect\n    db = connect(self.dsn, self.timeout, readonly=readonly)\n  File \"/data2/wujing03/distributed-agent-system/.cluster/releases/9446e2e10695/webapp/database.py\", line 67, in connect\n    raw = psycopg.connect(dsn, connect_timeout=max(1, int(timeout)), row_factory=dict_row)\n  File \"/data2/wujing03/distributed-agent-system/.venv/lib/python3.13/site-packages/psycopg/connection.py\", line 126, in connect\n    raise last_ex.with_traceback(None)\npsycopg.OperationalError: connection failed: connection to server at \"127.0.0.1\", port 15432 failed: Connection refused\n\tIs the server running on that host and accepting TCP/IP connections?\n"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：cleanup_started。
 
@@ -6013,7 +6014,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_audio_contract_mismatch", "findings": ["同版本重跑正常执行后，模型用静音参数处理视频却声明audio=false无音轨；技术门禁发现AAC轨仍存在而拒绝。独立解码PCM全为0，证明静音生效但未满足无音轨契约。", "工作流暂停并保留诊断、无正式交付；3次模型回执、10个BOSS对象归档、Redis隔离TTL3597、observer及清理正常。此次失败与前次共享数据库503中断不同，分别保留。", "逐项核对浏览器、日志/诊断、观测、DB、隔离BOSS/Redis、候选归档与清理；对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-audio-review.json"], "reviewed_at": 1793685057.068609}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -6042,7 +6043,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_audio_contract_mismatch", "findings": ["模型调用静音操作却设置audio=false要求无音轨；实际候选保留AAC轨，独立PCM最大绝对值0，确已静音；只有audio验收条件失败，程序按冻结契约拒绝并暂停，无正式交付。", "实际浏览器暂停与DB一致；九维审计完整、模型回执齐全，无程序/依赖异常；项目、BOSS、Redis及本地缓存清理完成。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "candidate-archive.json", "cleanup.json", "independent-audio-review.json"], "reviewed_at": 1793693169.849091}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -6071,7 +6072,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "mute_instead_of_track_removal", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793750885.5116389, "findings": ["Manager把移除音轨实现为clip.mute=true，保留了静音AAC轨；静音与无音轨不同，程序正确拒绝audio_track_present=false验收。", "按冻结pause策略暂停，未误发布，未把静音轨冒充音轨移除。", "已复核浏览器终态、日志/观测、数据库/租约/授权、候选归档、BOSS、Redis及本地/外部清理；这些安全检查通过不抵消上述业务或程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -6107,7 +6108,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -6219,7 +6220,7 @@ Call log:
 
 执行错误：HTTP 503 /api/projects/b2cd6867c635487b876b6ef6596d9c8f/workflows/7cec8f3dcaf84014b3a7df141c2cca57: {"detail":"数据库暂不可用，请刷新确认状态后再操作。","code":"API_DATABASE_UNAVAILABLE","outcome":"unknown","request_id":"ddfa260f6fcf4e43b433b3598a82be13"}
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：cleanup_started。
 
@@ -6342,7 +6343,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -6673,7 +6674,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：database_read_retry → cleanup_started。
 
@@ -6702,7 +6703,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "vision_envelope_overreservation", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793751156.7208784, "findings": ["editing Agent完成候选，后续Review仍因统一高价tile图片预留误耗尽而停止；与F56首次修复不充分同根因。", "实际167448 tokens及图片预留分项可核对；数据库/租约、日志/观测、候选归档、3个BOSS对象、Redis及本地清理正常；未误发布。"], "evidence": ["internal-final.json", "candidate-archive.json", "final-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -6731,7 +6732,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "review_evidence_planning_budget", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793752763.612684, "findings": ["视频制作和8个注册源/候选证据Task已完成，Reviewer未提交有效检查引用而给出inconclusive；Manager后续修改旧依赖/错误候选证据关联被拒绝。", "实际已结算456254/500000 tokens，剩余43746；下一请求原生输入计数60384，单文本输入已超过余额，属于正常预算停止而非旧图片预留问题。图片预留为8704。", "无审查通过或预算越权发布；83项数据库不变量、34份候选、44个BOSS对象、Redis、日志/观测和清理正常。", "业务未完成，按审查证据/规划不收敛导致的正常预算停止分类；不把安全停止写成业务成功。"], "evidence": ["internal-final.json", "candidate-archive.json", "final-browser.png", "runtime-evidence.json", "log-index.json", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -6767,7 +6768,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -6975,7 +6976,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": false, "required_boundary_verified": false, "outcome": "model_result_contract_failure", "findings": ["真实 audio.transcribe 调用成功且仅一次；字幕/文本候选生成，专业 Reviewer 引用缩写被拒绝。", "未绕过证据绑定或发布未经最终验收的结果。需在 F11 修复版本复测业务交付。"], "fixes": ["F11"], "reviewed_at": 1793647925.052946}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 待逐例审查
 
@@ -7025,7 +7026,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": false, "outcome": "program_failed", "failure_origin": "frontend_consent_race", "findings": ["F27：上传后的能力列表响应将额度重置为0，实际授权provider_call_budget为空，后端正确阻断未授权调用；需要修复前端并复测。"], "reviewed_at": 1793663821.7069924}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际确认的执行轮次：
 
@@ -7612,7 +7613,7 @@ Call log:
 
 执行错误：Unplanned authorization expansion was correctly paused
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -7641,7 +7642,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": false, "outcome": "program_failed", "failure_origin": "frontend_consent_race", "findings": ["F27：上传后的能力列表响应将额度重置为0，实际授权provider_call_budget为空，后端正确阻断未授权调用；需要修复前端并复测。"], "reviewed_at": 1793663821.707131}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际确认的执行轮次：
 
@@ -7668,7 +7669,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "pre_submit_diagnostic_misclassification", "findings": ["模型把512×512原图直接交给要求1280×720参考图的Wan适配器，尺寸校验在prepare阶段拒绝；供应商调用意图、请求及费用回执均不存在。", "F31：固定适配器已报pre_submit，但通用分类错误写为submission_unknown，导致诊断Agent把已知未提交说成待核实收费。程序没有发请求，但诊断与用户应对说明不正确，需修复复测。"], "evidence": ["state.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793668881.95355}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -7697,7 +7698,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_input_constraints", "findings": ["模型仍使用512×512参考图直接申请1280×720视频，Wan固定适配器在发送前拒绝尺寸不匹配；本次没有真正调用图生视频供应商，也没有视频成果。", "F31真机复测通过：持久化错误码和分类均为pre_submit、request_sent=false、cause_type=ValueError，供应商账本为空；浏览器明确显示尚未发起外部请求，诊断事实不再声称提交未知。", "诊断建议属于模型推测，不被自动执行；程序未重试无效输入、未放宽检查或虚报交付。DB/日志/Observer/用量/Redis/BOSS/归档及清理完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "cleanup.json"], "reviewed_at": 1793669748.750889}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -7726,7 +7727,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_portrait_temporal_quality_rejected", "findings": ["本次已实际生成5秒视频并进入内容验收，与历史提交前拒绝不同。独立首中尾样帧可见露齿笑容到闭口表情等嘴部细节变化，模型因此判定时序保真不满足要求并reject；程序暂停且未交付。", "期间一次状态读取503，后续GET恢复200并继续至真实内容验收；浏览器最终暂停和DB一致，没有因短暂依赖错误误报完成。", "已审查实际页面、原始候选、日志/诊断、模型与供应商账本、DB、BOSS归档、Redis隔离TTL、observer及清理；对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-frame-review.jpg"], "reviewed_at": 1793686286.3282933}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -7753,7 +7754,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：cleanup_started。
 
@@ -7782,7 +7783,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "temporal_review_planning_budget", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793753799.991919, "findings": ["初次提交前校验失败明确request_sent=false；经参考图适配和显式replacement恢复，旧失败节点保留可读，实际Wan仅提交1次并收取原external ID。", "生成、最终文件及3段注册时间窗口证据已完成；Final Reviewer未形成满足冻结时序标准的引用，系统没有豁免审查发布。", "25次调用实际472862/500000 tokens，余额27138；下一请求仅原生文本就45592，正常预算停止，未出现旧图片假耗尽。", "84项数据库不变量正常，15份候选、21个BOSS对象、Redis、日志/观测及双节点清理正常；浏览器如实显示待处理及历史替换节点。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -7822,7 +7823,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": false, "required_boundary_verified": false, "outcome": "model_result_contract_failure", "findings": ["文本候选已生成，专业 Reviewer 的证据引用不是实际检查引用，被拒绝。", "未绕过证据绑定或发布未经最终验收的结果。需在 F11 修复版本复测业务交付。"], "fixes": ["F11"], "reviewed_at": 1793647925.0528886}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 待逐例审查
 
@@ -8049,7 +8050,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "fresh_database_artifact_metadata_permission", "findings": ["30秒640x360 MP4实际存在AAC立体声音轨，独立PCM检查为静音，浏览器播放、哈希、数据库、BOSS、Redis和清理证据完整。", "候选在约6秒内已暂存，但Orchestrator读取artifact_objects时持续触发PostgreSQL InsufficientPrivilege；最终有限日志窗口未保留该错误，现场systemd日志和staged result证据已确认。", "现场补最小权限后流程恢复，但该尝试发生过程序错误，不能计为通过；同时新增持久化workflow_reconcile_failures避免后续日志窗口漏报。"], "evidence": ["state.json", "final-browser.png", "artifact-browser.png", "internal-final.json", "artifact-verification.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793703500.0}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -8105,7 +8106,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "final_review_evidence_and_budget", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793753962.1542563, "findings": ["保留静音音轨的视频和全流音频证据已生成；原独立审查报告被显式替换，带同源证据的新审查Task成功，证明修复节点可读取新增同源证据并保持原验收。", "最终控制Reviewer使用错误inspection_id被拒绝，下一纠正请求无法满足预算：已用483589/500000，剩余16411；原生文本输入22808已超过余额。程序正常停止且未越权发布。", "46项数据库不变量正常，旧报告和新报告等14份候选归档保留；17个BOSS对象、Redis、日志/观测与清理全部正常，浏览器显示待处理及退休节点。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "final-browser.png", "log-index.json", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8193,7 +8194,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_contract_mismatch", "findings": ["模型使用mute（静音）却要求audio=false（没有音轨），实际候选有AAC静音轨；独立PCM峰值和RMS均为0，能力完成了静音，模型的操作选择与验收约束冲突。程序未放宽约束，暂停相关节点并阻止下游/交付。", "已查看暂停页面，核对DB/日志/Observer/预算/Redis/BOSS/候选归档及清理，均完整；不把中间文件或失败诊断当作最终成果。", "页面截图时最后一个诊断节点仍在执行，随后内部审计收齐诊断结果；业务暂停状态一致，后续截图驱动已加强逐节点同步。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793669271.116408}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8222,7 +8223,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_contract_mismatch", "findings": ["模型以mute=true生成静音音轨，却声明audio=false要求无音轨，两个4秒中间片段被技术验收拒绝。独立解码两段PCM峰值均为0，证明静音已实现而非泄漏原音；不符合模型自己声明的零音轨契约，后续依赖未运行、无最终交付。", "核对失败页面、原始诊断/执行日志、DB状态与候选/验收、模型回执、BOSS归档、Redis隔离前缀与TTL、observer就绪及取消后清理。未将失败候选提升为正式交付；这是失败路径处理通过，不是业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json", "independent-audio-review.json"], "reviewed_at": 1793674614.7057664}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8251,7 +8252,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_final_review_turn_budget_exhausted", "findings": ["中间成片与本步骤视觉报告已通过，但Final Reviewer耗尽冻结轮次仍未提交最终结论；程序以turn_quota_exhausted暂停，未交付。不能把中间报告pass当作整个任务成功。", "实际浏览器暂停与DB/日志/用量账本一致，模型回执完整，BOSS归档、Redis隔离TTL、observer及清理正常。对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793686190.3321683}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8278,7 +8279,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：cleanup_started。
 
@@ -8316,7 +8317,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["视频检查的结尾时间参数没有作为可纠正的输入错误反馈，导致验收中断。", "未错误交付；执行与候选证据已归档，需在修复版本复测。"], "fixes": ["F23"], "reviewed_at": 1793662209.3984196}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际确认的执行轮次：
 
@@ -8341,7 +8342,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -8368,7 +8369,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_contract_mismatch", "findings": ["模型使用mute（静音）却要求audio=false（没有音轨），实际候选有AAC静音轨；独立PCM峰值和RMS均为0，能力完成了静音，模型的操作选择与验收约束冲突。程序未放宽约束，暂停相关节点并阻止下游/交付。", "已查看暂停页面，核对DB/日志/Observer/预算/Redis/BOSS/候选归档及清理，均完整；不把中间文件或失败诊断当作最终成果。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793669271.120023}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8397,7 +8398,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_invalid_edit_plan", "findings": ["实际执行日志PlanError background must be true or false。模型将颜色字符串填入布尔background字段，固定编辑计划校验拒绝，诊断parameters/registered_operation明确；已有三路中间结果保留，无失败组装候选或正式交付。", "核对失败页面、原始诊断/执行日志、DB状态与候选/验收、模型回执、BOSS归档、Redis隔离前缀与TTL、observer就绪及取消后清理。未将失败候选提升为正式交付；这是失败路径处理通过，不是业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793674614.7096176}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8426,7 +8427,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_audio_contract_mismatch", "findings": ["源B无音轨，固定合成产生静音AAC；模型为中间片声明audio=false而技术门禁拒绝。独立PCM峰值0，证明静音但不是无音轨；后续转场/标题/配乐未完成，无正式交付。", "实际浏览器暂停与DB/日志/用量账本一致，模型回执完整，BOSS归档、Redis隔离TTL、observer及清理正常。对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-audio-review.json"], "reviewed_at": 1793686190.3348968}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started → database_audit_retry。
 
@@ -8462,7 +8463,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -8566,7 +8567,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_review_turn_budget_exhausted", "findings": ["已完成竖版裁切、字幕与Logo合成等候选阶段，但业务验收Agent在冻结轮次内未完成，记录turn_quota_exhausted。程序暂停并保留候选，没有把未完成验收当作最终通过。", "实际浏览器暂停与DB/日志/用量账本一致，模型回执完整，BOSS归档、Redis隔离TTL、observer及清理正常。对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793686190.3404808}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8604,7 +8605,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["重复使用旧提案ID导致 UniqueViolation，属于输入身份校验不完整。", "未错误交付；执行与候选证据已归档，需在修复版本复测。"], "fixes": ["F22"], "reviewed_at": 1793662209.395767}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际确认的执行轮次：
 
@@ -8631,7 +8632,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_content_evidence_inconclusive", "findings": ["Reviewer只检查了抽帧、未验证混音，明确inconclusive；内容验收拒绝，工作流暂停且没有正式交付，未把技术可解码当作内容通过。", "已查看最终暂停页面及完整验收决定，核对DB/日志/Observer/用量/Redis/BOSS/候选归档和清理；未降低验收标准。"], "evidence": ["final-browser.png", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793667152.987148}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际确认的执行轮次：
 
@@ -8658,7 +8659,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_generated_audio_evidence_inconsistent", "findings": ["模型生成的音频审计报告声称两路混音系数为正，但实际记录music系数为负且残差高；内容Reviewer识别到报告解释与数值矛盾并拒绝。", "此处仅确认音频验证证据不充分，没有把它说成已经证明实际混音错误；程序暂停并保留候选，没有发布未经充分验证的成果。", "已查看暂停页面及完整验收决定；DB/日志/Observer/预算/Redis/BOSS/候选归档和清理正常。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793669402.1863832}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8687,7 +8688,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_script_self_check_failure", "findings": ["两次模型核验脚本均RuntimeError music component not confirmed in channel 0，safe_once后暂停；原始日志缺少回归系数，不能据此断定音乐实际未混入。程序记录model_script/execution/returncode=1、保留上游候选、阻止最终交付。", "核对失败页面、原始诊断/执行日志、DB状态与候选/验收、模型回执、BOSS归档、Redis隔离前缀与TTL、observer就绪及取消后清理。未将失败候选提升为正式交付；这是失败路径处理通过，不是业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793674614.7154255}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8716,7 +8717,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_logo_cutout_quality_rejected", "findings": ["实际灰底合成图显示Logo内部V透出背景，蓝色/绿色部分也有半透明污染；Reviewer按保留白色不透明V的冻结要求reject。程序阻止带错误Logo的后续合成及最终交付，候选和诊断完整保留。", "实际浏览器暂停与DB/日志/用量账本一致，模型回执完整，BOSS归档、Redis隔离TTL、observer及清理正常。对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-logo-review.jpg"], "reviewed_at": 1793686190.3431516}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8752,7 +8753,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -8777,7 +8778,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -8804,7 +8805,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "segmentation_model_quality", "findings": ["实际SAM3/ZIM透明人像已独立灰底合成检查：胸前拉链附近有明显透明缺损；内容Reviewer正确拒绝，后续海报没有被发布。", "已查看暂停页面，核对DB/日志/Observer/预算/Redis/BOSS/候选归档及清理，均完整；不把中间文件或失败诊断当作最终成果。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793669271.1260712}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8833,7 +8834,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_result_no_target", "findings": ["SAM3实际调用未找到the person in the portrait目标，ModelResultError、returncode=1，分类model_result。没有分割候选与accepted_result，后续阶段等待，页面失败分类与诊断一致；缓存目录及弃用警告不是本次直接失败原因。", "核对失败页面、原始诊断/执行日志、DB状态与候选/验收、模型回执、BOSS归档、Redis隔离前缀与TTL、observer就绪及取消后清理。未将失败候选提升为正式交付；这是失败路径处理通过，不是业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793674614.7180526}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -8898,7 +8899,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["新规划请求重复使用已拒绝提案ID，导致数据库唯一约束异常。", "未错误交付；执行与候选证据已归档，需在修复版本复测。"], "fixes": ["F22"], "reviewed_at": 1793662209.3974082}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际确认的执行轮次：
 
@@ -8923,7 +8924,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -9013,7 +9014,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["固定文字替换的Python 3.10继承了Python 3.13的PYTHONHOME，真实stderr已定位。", "未错误交付；执行与候选证据已归档，需在修复版本复测。"], "fixes": ["F24"], "reviewed_at": 1793662209.4001973}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际确认的执行轮次：
 
@@ -9040,7 +9041,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_edit_parameters_quality", "findings": ["替换后的30明显比SECONDS小且细、基线偏高，实际候选与内容拒绝一致；程序保留区域外像素，未发布风格不合格图片。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.69734}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9069,7 +9070,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_text_contract_mismatch", "findings": ["OCR已正确识别六个词元，实际TXT按词换行；模型却给同一任务设置包含“SUMMER RUN”“BEACH CLUB”“15 SECONDS”连续带空格短语的契约，因此技术门禁拒绝。问题是规划/脚本格式不一致，不是OCR漏字；后续改字尚未完成，没有交付。", "已审查实际页面、原始候选、日志/诊断、模型与供应商账本、DB、BOSS归档、Redis隔离TTL、observer及清理；对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793686286.311365}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9105,7 +9106,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -9132,7 +9133,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_review_layout_interpretation", "findings": ["独立像素核查证实600×400容器完整置于640×480画布的(20,20)，区域像素MAE=0；模型将等比适配产生的容器内部留白解释为边距不合格而拒绝。记录为模型判定问题，不宣称容器位置错误；未绕过拒绝发布。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.7020416}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9195,7 +9196,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -9222,7 +9223,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_intermediate_acceptance_dimensions", "findings": ["真实分层服务成功返回3层640×640图像及ORA；模型把最终512×512条件用file=*提前套到分层图和720×560概览图，导致中间验收失败。程序正确拒绝尺寸不匹配，没有发布或重复供应商调用。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.7063177}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9251,7 +9252,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_intermediate_dimensions_mismatch", "findings": ["真实分层服务返回640×640合成及图层；模型为该中间阶段要求512×512，技术门禁按冻结尺寸拒绝。候选完整保留，后续图层编辑/最终缩放未执行，未把不符合契约的中间结果当作成品。", "已审查实际页面、原始候选、日志/诊断、模型与供应商账本、DB、BOSS归档、Redis隔离TTL、observer及清理；对应失败路径处理正确，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793686286.3179116}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9287,7 +9288,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -9314,7 +9315,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_invalid_edit_plan", "findings": ["模型把应为布尔值的background写成其他类型，固定编辑器以PlanError拒绝；日志、结构化参数分类和退出码1一致，未生成正式成片。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.7106445}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9343,7 +9344,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_invalid_edit_plan", "findings": ["模型给 title.background 传入颜色字符串，但该字段契约为布尔值；原始 execution.log 显示 PlanError: background must be true or false。程序保留 parameters 诊断并暂停 polish_title_music，下游不交付。", "已浏览最终页面，暂停状态与数据库一致；日志、可观测性、数据库、候选归档、Redis隔离及BOSS九维审查完整，模型用量回执齐全。", "认证删除后项目、BOSS对象、Redis及本地缓存清理完成，无残留对象；业务失败未记作成功。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json"], "reviewed_at": 1793686698.872682}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9431,7 +9432,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_audio_contract_mismatch", "findings": ["两个四宫格中间视频均为10秒636×356/25fps，模型验收要求 audio=false，实际保留静音AAC。独立解码两份候选PCM最大绝对值均为0；静音已实现，无音轨契约未满足，程序如实拒绝，未交付完整四宫格。", "已浏览最终页面，暂停状态与数据库一致；日志、可观测性、数据库、候选归档、Redis隔离及BOSS九维审查完整，模型用量回执齐全。", "认证删除后项目、BOSS对象、Redis及本地缓存清理完成，无残留对象；业务失败未记作成功。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json", "independent-audio-review.json"], "reviewed_at": 1793686698.8764403}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9467,7 +9468,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -9494,7 +9495,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "timeline_eof_seek_rounding", "findings": ["F32：实际8秒30fps视频最后可采样PTS为7.966666秒，timeline_view把寻址时间格式化为7.967秒，导致最后一帧为空并让整节点失败。", "已对同一归档文件复现；工作区修复微秒向下取整后9帧齐全，最后一帧等于独立按序号239解码结果。尚未部署复测，不能计通过。"], "evidence": ["state.json", "runtime-evidence.json", "timeline-fix-reproduction.json", "internal-final.json", "cleanup.json"], "reviewed_at": 1793670452.8525488}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -9550,7 +9551,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_audio_contract_mismatch", "findings": ["模型为中间母版声明audio=false，但所选固定合成输出含AAC音轨；独立解码128000个样本峰值为0，证明静音而非无音轨。程序按该冻结契约拒绝候选，未继续添加音乐/Logo或交付。", "页面、原始执行日志、技术验收与DB一致；这次未触发历史末帧程序缺陷。", "已审查模型回执、候选归档、BOSS、Redis独立前缀和TTL、observer、日志以及资源清理；均符合对应失败收口，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-audio-review.json"], "reviewed_at": 1793683704.098433}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9588,7 +9589,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "findings": ["无帧时间位置导致整个验收任务失败，已改为有界输入反馈。", "未错误交付；执行与候选证据已归档，需在修复版本复测。"], "fixes": ["F23"], "reviewed_at": 1793662209.3993967}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际确认的执行轮次：
 
@@ -9615,7 +9616,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_script_self_check_failure", "findings": ["模型生成的打包脚本自身以RuntimeError(freeze music placement mismatch)失败；按声明的safe_once有限重试一次后暂停，没有无限重试或虚假交付。此记录不把脚本断言本身当作已证实媒体处理程序错误。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.7157028}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9644,7 +9645,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_review_turn_budget_exhausted", "findings": ["quality_review 达到模型轮数预算，记录 TaskQuotaReached/turn_quota_exhausted；未取得有效验收结果，因此暂停且没有正式交付。", "已浏览最终页面，暂停状态与数据库一致；日志、可观测性、数据库、候选归档、Redis隔离及BOSS九维审查完整，模型用量回执齐全。", "认证删除后项目、BOSS对象、Redis及本地缓存清理完成，无残留对象；业务失败未记作成功。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json"], "reviewed_at": 1793686698.8803918}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9707,7 +9708,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_contract_mismatch", "findings": ["模型使用mute却要求audio=false；实际两个候选的音轨峰值和RMS均为0，静音实现正常但仍有音轨。程序严格拦截其与无音轨条件的冲突，下游未完成即暂停。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.71912}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9736,7 +9737,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_audio_contract_mismatch", "findings": ["prepare_a_0_5 和 prepare_a_10_15 均生成5秒640×360/25fps视频，模型要求 audio=false，实际AAC仍在。独立解码两份候选PCM最大绝对值均为0，属于静音和无音轨混淆；程序正确保留失败验收并暂停。", "已浏览最终页面，暂停状态与数据库一致；日志、可观测性、数据库、候选归档、Redis隔离及BOSS九维审查完整，模型用量回执齐全。", "认证删除后项目、BOSS对象、Redis及本地缓存清理完成，无残留对象；业务失败未记作成功。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json", "independent-audio-review.json"], "reviewed_at": 1793686698.8839552}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9774,7 +9775,7 @@ Call log:
 
 执行错误：Unplanned authorization expansion was correctly paused
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际确认的执行轮次：
 
@@ -9830,7 +9831,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_final_review_turn_budget_exhausted", "findings": ["音频处理、真实转写、字幕构造及合成任务已执行；final_quality_review 达到12轮上限，诊断 turn_quota_exhausted。缺少最终结论不能交付，程序暂停且未将候选冒充最终成果。", "已浏览最终页面，暂停状态与数据库一致；日志、可观测性、数据库、候选归档、Redis隔离及BOSS九维审查完整，模型用量回执齐全。", "认证删除后项目、BOSS对象、Redis及本地缓存清理完成，无残留对象；业务失败未记作成功。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json"], "reviewed_at": 1793686698.889389}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9868,7 +9869,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_content_evidence_inconclusive", "findings": ["模型的音频质量报告明确未完成试听/MP3解码对齐证据，Reviewer因此拒绝；已确认文件存在、格式和音量等技术信息，但不把技术指标当作主观降噪质量已通过。程序暂停且未交付。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.7253487}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9897,7 +9898,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_script_loudness_selfcheck_failed", "findings": ["模型 finalize_formats 脚本自检报告 WAV -17.57 LUFS、MP3 -17.36 LUFS，超出其 -16±1 目标。两次执行日志SHA相同，有限重试后暂停；原因为模型脚本产物未通过自身指标，不据此宣称固定音频引擎缺陷。", "已浏览最终页面，暂停状态与数据库一致；日志、可观测性、数据库、候选归档、Redis隔离及BOSS九维审查完整，模型用量回执齐全。", "认证删除后项目、BOSS对象、Redis及本地缓存清理完成，无残留对象；业务失败未记作成功。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json"], "reviewed_at": 1793686698.8935468}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -9926,7 +9927,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "repair_context_not_durable_across_planning_rounds", "findings": ["audio.process主处理成功并生成客观报告；单声道导出内容验收拒绝后，程序没有误交付。", "Manager先新增诊断Task；该Task完成后的下一规划轮丢失原修复范围，后续revise_tasks被按普通扩图拒绝，产生多次invalid_proposal并最终暂停。", "这是通用修复上下文生命周期缺陷，不归因于特定case或模型；已实现Workflow级持久化repair_context并增加跨诊断轮单测。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793706600.0}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -9955,7 +9956,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "sealed_graph_retained_paused_required_tasks", "findings": ["持久化repair_context实际生效：修复根和受影响检查节点产生新revision，后续多格式导出成功。", "Manager新增替代检查节点后仍将图sealed，但两个旧paused业务Task未修订且仍属必需节点；控制器因此无法交付也不再规划，保持running。", "现场保留证据后受控取消。已增加sealed提案门禁：每个paused必需Task必须被revise；控制器对遗留sealed+paused图明确暂停。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793708900.0}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -9982,7 +9983,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：cleanup_started。
 
@@ -10011,7 +10012,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "business_target_reached": false, "negative_path_verified": true, "outcome": "handled_failure", "failure_origin": "model_audio_review_nonconvergence", "findings": ["audio.process主处理、客观报告和WAV/MP3导出均成功；export_mono_formats修订到revision 1且repair_count=1。", "三个音频质量Reviewer连续拒绝或返回非法JSON/evidence ref；40次模型调用约748852 tokens后仍未形成可提交结论。", "程序保持图unsealed并持久化repair context，没有遗弃paused必需Task、没有绕过审查或交付；为避免无新增覆盖的模型循环，测试操作员受控取消。", "数据库revision历史、模型账本、BOSS、Redis、Observer和清理完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793711900.0}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10049,7 +10050,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "intermediate_review_uses_final_goal", "findings": ["F33：warm_trim_master声明的是暖色/原声/15秒中间母版，字幕和Logo属于后续步骤；程序创建task Reviewer时却传入全局交付goal和delivery_targets，导致按缺少未来字幕/Logo拒绝中间产物。", "工作区已改为步骤objective和review_criteria，并在worker/控制器双重校验范围；定向回归通过，尚未部署复测，仍计程序失败。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793671013.2219765}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -10132,7 +10133,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_review_turn_budget_exhausted", "findings": ["内部Reviewer在固定12轮中未提交最终决定；实际记录12次模型调用，并有非法JSON反馈，最终以turn_quota_exhausted暂停。程序未超过固定预算继续调用，也未把未完成验收当作通过。", "候选保留、正式delivery为空；实际页面预算暂停与DB、用量账本一致。", "已审查模型回执、候选归档、BOSS、Redis独立前缀和TTL、observer、日志以及资源清理；均符合对应失败收口，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793683704.1037514}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10199,7 +10200,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_audio_contract_mismatch", "findings": ["split_video_12s 生成12秒640×360/25fps候选，模型要求 audio=false，实际保留静音AAC；独立解码PCM最大绝对值0。程序正确拒绝不符合冻结音轨契约的候选并暂停，后续裁剪、重合成尚未执行。", "已浏览最终页面，暂停状态与数据库一致；日志、可观测性、数据库、候选归档、Redis隔离及BOSS九维审查完整，模型用量回执齐全。", "认证删除后项目、BOSS对象、Redis及本地缓存清理完成，无残留对象；业务失败未记作成功。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json", "runtime-evidence.json", "candidate-archive.json", "independent-audio-review.json"], "reviewed_at": 1793686698.896402}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10266,7 +10267,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "findings": ["海报动画、Logo和最终合成均生成候选，但review_final达到12轮上限并记录turn_quota_exhausted；浏览器显示对应步骤未完成，与数据库paused一致，无最终交付。不能将已有合成候选计为用户任务完成。", "逐例九维证据完整，程序状态和页面一致；模型用量完整，BOSS与Redis隔离；项目删除后BOSS、缓存、本地文件清理完成。"], "evidence": ["internal-final.json", "cleanup.json", "final-browser.png", "candidate-archive.json"], "reviewed_at": 1793686876.7579403, "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_final_review_turn_budget_exhausted"}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10304,7 +10305,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "intermediate_review_uses_final_goal", "findings": ["F33：检查精修人像的task Reviewer错误以尚未制作最终800×600双背景及1600×600对照图为理由拒绝中间节点；与C17同一范围混淆。工作区修复待统一部署复测。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793671470.8064992}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -10387,7 +10388,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_segmentation_review_rejected", "findings": ["实际SAM3生成前景/蒙版，独立灰底查看胸腹部有纵向透明间隙、右侧轮廓内切。Reviewer按本步骤“是否适合作为小孔清理/羽化输入”的条件拒绝，认为超出小孔修复范围；此处不把模型的主体范围解释直接等同于分割程序缺陷。", "程序保留候选并暂停内容验收，没有开始后续合成或正式交付。页面、DB、日志与验收记录一致，11次模型回执、25个BOSS对象归档、Redis隔离TTL3597、observer及清理均正常。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-gray-composite.jpg"], "reviewed_at": 1793682649.279531}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10425,7 +10426,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "undisclosed_image_budget_aborts_agent", "findings": ["F34：真实异常栈确认在第9次图像检查触发隐藏的8张上限ValueError，任务被中断。已将预算进入冻结Profile并改为解码前有界反馈，回归通过，尚未部署复测。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793671470.8062317}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -10454,7 +10455,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_invalid_edit_plan", "findings": ["模型把标题background布尔字段填成颜色字符串#000000。固定编辑计划校验在实际合成前抛PlanError，诊断parameters/registered_operation、returncode=1。两路8秒预处理已验收并保存，合成无候选/accepted_result、无正式交付，页面暂停与DB一致。", "真实原始执行日志证实原因，非此前F34隐藏图像预算错误；本例未重新触发第9张检查边界，不能仅凭不同失败推断该边界已真机通过。", "4次模型用量回执完整、11个BOSS对象已归档、Redis隔离TTL3598、observer就绪、全维度审计和清理完成。判定非程序错误且程序正确拒绝，不算业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793676905.407017}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10483,7 +10484,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_invalid_edit_plan", "findings": ["本次模型仍将titles[0].background写为字符串#000000，固定编辑计划校验要求布尔值；真实日志PlanError在合成前失败、returncode=1，诊断parameters/registered_operation。两路8秒预处理及中间内容验收已成功，合成步骤无正式候选、下游等待且无交付。", "实际浏览器暂停/失败分析与DB一致，25次模型回执完整、10个BOSS对象归档、Redis隔离TTL3597、observer就绪，全维度审计和清理完成。属于模型参数错误，程序拒绝及失败收口正常，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793680004.550873}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10512,7 +10513,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_invalid_edit_plan", "findings": ["原始执行日志再次确认PlanError background must be true or false，模型把布尔标题背景字段填为#000000字符串。固定校验在合成前拒绝，保留两路中间成果，无合成候选/正式交付。", "页面暂停和失败分析与DB一致，12次模型回执、9个BOSS对象归档、Redis隔离TTL3597、observer及清理正常，属于模型参数错误且程序正确拒绝。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793682649.283093}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10550,7 +10551,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "undisclosed_image_budget_aborts_agent", "findings": ["F34：真实异常栈确认在第9次图像检查触发隐藏的8张上限ValueError，任务被中断。已将预算进入冻结Profile并改为解码前有界反馈，回归通过，尚未部署复测。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793671470.8063555}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：pause → command_applied → resume → command_applied → cleanup_started。
 
@@ -10579,7 +10580,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_review_turn_budget_exhausted", "findings": ["24段中间结果与48秒合成/技术检查已生成，但内层Reviewer在固定12轮内未提交结论：实际12次模型调用，其中1次非法JSON、11次inspect（8张图像+3份文本），未发生旧版第9张图像导致的未说明异常。模型没在预算内结束，程序按冻结max_turns=12停止为budget_exhausted/turn_quota_exhausted。", "DAG仍未封口、正式delivery为空，内容review目标保持待验收而非假成功；原暂停/恢复断言实际验证在途上游完成、下游保持未启动直到resume。此例预算失败处理正确，不声称48秒候选通过最终内容验收。", "已核对浏览器预算暂停、诊断与模型账本（26次模型总调用、回执完整）、DB租约/候选、48个BOSS对象归档、Redis隔离TTL3598、observer就绪、取消后完整清理。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793677290.908343}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：pause → command_applied → resume → command_applied → cleanup_started。
 
@@ -10608,7 +10609,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "archive_routed_to_media_probe", "findings": ["对留存候选独立复现：numbered_segments.zip被inspect标为media并送入ffprobe，必然返回1；同次所有MP4/JPEG候选均正常探测。ZIP是合法的分段中间包，不应作为媒体解码或直接终止Reviewer。", "本次原始诊断只记录inspection_probe_failed而未记录目标ref，无法从旧日志直接证明失败调用的引用；该可复现类型分流缺陷及诊断缺口均需修复。当前无正式交付、已保留全部证据。", "已核对实际浏览器：最终验收暂停、没有正式交付；DB、16个BOSS对象归档、Redis独立前缀TTL3598、observer及资源清理均正常。问题集中在检查器类型分流和失败定位信息。"], "evidence": ["state.json", "internal-final.json", "candidate-archive.json", "inspection-type-reproduction.json", "cleanup.json", "final-browser.png", "archive-inspection-fix-reproduction.json"], "reviewed_at": 1793680349.00261}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：pause → command_applied → resume → command_applied → cleanup_started。
 
@@ -10637,7 +10638,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_generated_encoding_command_failed", "findings": ["本次Manager和失败诊断Agent实际读取同一个ZIP目录，均得到24个不同MP4成员和contents_verified=false，未进入媒体探测、未声称验证成员内容；F39部署后的真实触发边界已验证。驱动错误读取简要审计而显示0，原state保留，完整DB证据和独立Python/JavaScript校正记录另存，F40已修正后续驱动。", "模型生成的24路FFmpeg合成命令在打开libx264编码器时返回1。第一阶段已成功生成分段包；第二阶段没有提交有效候选或正式产物，工作流按工具失败暂停并完成诊断。现有stderr不足以确认具体编码参数/线程或资源根因，oom_kill记录为0，不把推测写成事实。", "真实页面与DB状态一致，16次模型回执、7个BOSS对象归档、Redis独立前缀TTL3597、observer健康、资源清理均正常；判定生成脚本/工具执行失败且程序正确收口，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "archive-boundary-review.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793682371.5872328}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：pause → command_applied → resume → command_applied → cleanup_started。
 
@@ -10666,7 +10667,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "repair_context_not_durable_across_planning_rounds", "findings": ["24个独立片段、ZIP目录检查、media.concat_sequence和48秒成片技术检查均真实完成；受控拼接约20秒，无线程资源耗尽。", "最终内容审查拒绝后，Manager经过新增检查Task进入后续轮次时丢失repair scope，修复提案反复无效并最终耗尽模型预算。", "程序正确阻止交付且清理239个BOSS对象，但恢复闭环不完整，按程序失败处理；已用持久化repair_context修复。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793706600.0}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：pause → command_applied → resume → command_applied → archive_directory_inspection_verified → cleanup_started。
 
@@ -10697,7 +10698,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "outcome": "handled_failure", "failure_origin": "model_transport_disconnected_before_response", "findings": ["首个Manager请求被上游RemoteDisconnected中断，模型用量回执未知/0，未生成Proposal或业务Task。", "程序暂停且未重复提交、未产生业务产物或外部副作用，数据库、BOSS、Redis、Observer和清理一致。", "本次未触发24段与repair context边界，不计业务通过，需要复测。"], "evidence": ["state.json", "failure-browser.png", "internal-final.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793708900.0}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10728,7 +10729,7 @@ Call log:
 
 证据缺口：["cleanup"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：pause → command_applied → resume → command_applied → archive_directory_inspection_verified → cleanup_started。
 
@@ -10860,7 +10861,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_plan_contract_mismatch", "findings": ["模型将静音与移除音轨混用，独立PCM证实候选音轨全零但实际音轨存在，严格audio=false检查拒绝；程序未放宽验收或发布未完成视频。", "已查看暂停页面及候选/诊断，核对DB/版本/租约、日志/Observer、用量、Redis TTL/前缀、BOSS/候选归档和资源清理，均完整。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793672154.727963}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -10925,7 +10926,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "undisclosed_image_budget_aborts_agent", "findings": ["F34：真实异常栈确认在第9次图像检查触发隐藏的8张上限ValueError，任务被中断。已将预算进入冻结Profile并改为解码前有界反馈，回归通过，尚未部署复测。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793671470.806439}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -10956,7 +10957,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "explicit_primary_overridden_by_filename_sort", "findings": ["用户明确横版为主交付，Final Reviewer选定横版master_8s_horizontal.mp4及另外两种画幅并在证据中明确主成果。发布代码没有结构化primary选择字段，按final.mp4文件名优先排序，导致360×640竖版被标为唯一主交付。", "独立检查Wrong primary video in UI。属于程序发布语义缺陷，新增明确primary引用、校验与发布绑定，待测试/部署/复测。", "实际浏览器默认播放的是竖版contain视频，与错误primary元数据一致。其余内部审计正常：60次模型回执、37个BOSS对象归档、Redis隔离TTL3594、observer就绪，清理完成；不因此改判主成果程序缺陷。"], "evidence": ["state.json", "artifact-verification.json", "internal-final.json", "final-browser.png", "artifact-browser.png"], "reviewed_at": 1793677414.7866046}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -10985,7 +10986,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_script_output_path_mismatch", "findings": ["模型脚本把FFmpeg成果写入VIDEO_USE_STEP_OUTPUT/edit/trim_a_first8.mp4，但声明文件为输出根目录trim_a_first8.mp4。编码正常结束，固定输出契约检查拒收路径不一致的结果，分类model_script/code/output_contract；accepted/candidate均为空，下游blocked，未交付。", "浏览器暂停与DB/原始执行日志一致，全维度审计与清理完成，属于模型脚本错误且程序拒收正确。此尝试没有进入多画幅主交付阶段，不能据此宣称F37的C25成功路径已验证，须另行重跑。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793679843.027303}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -11117,7 +11118,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "intermediate_review_uses_final_goal", "findings": ["F33：品牌PNG母版已完成，JPEG属于后续导出阶段；内部task Reviewer误用全局PNG+JPEG目标拒绝中间母版。", "已纳入步骤范围及criterion双重校验修复，待统一部署复测。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793672629.656877}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -11338,7 +11339,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_final_review_turn_budget_exhausted", "findings": ["真实停止executor b，stage1_base_loop generation2过期；另一个节点以generation3接管并完成，原执行器已恢复。后续Logo合成、配乐处理均成功；独立解码留存候选60秒1920×1080/30fps/H264，1800帧完整。", "最终Reviewer耗尽12轮，诊断turn_quota_exhausted，缺少有效最终结论；程序暂停且无正式交付。候选可解码不等于用户需求完成，本例作为已正确处理的模型失败，不并入成功。", "实际浏览器显示最终验收暂停，日志与DB一致；九维审计完整、30次模型调用回执齐全；项目、BOSS、Redis及本地缓存清理完成，故障服务恢复。"], "evidence": ["state.json", "internal-final.json", "independent-candidate-review.json", "final-browser.png", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793689381.5437849}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -11378,7 +11379,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "intermediate_review_uses_final_goal", "findings": ["F33：真实文生图与Wan图生视频均成功，15秒1280×720基础跑步视频可用；stage2_review是基础视频审查，却被内部task Reviewer按未来Logo、标题和配乐尚未完成而拒绝。", "与C17/C20同一范围错误，已修复工作区快照和criterion双重校验，待统一部署复测。"], "evidence": ["state.json", "internal-final.json", "final-browser.png", "cleanup.json"], "reviewed_at": 1793672154.7280767}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -11407,7 +11408,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_audio_evidence_inconclusive", "findings": ["真实文生图和15秒图生视频均成功。参考图/Logo/跑步视频中间步骤按各自目标通过，未复现F33因未做最终包装而拒绝中间视频的错误。最终合成候选已生成，但Reviewer明确音频inspect只有元数据，缺少轻音量配乐可听度、主次平衡与削波证据，返回inconclusive。", "程序按内容验收未完成暂停review_final/quality_failed，没有绕过结论、没有正式交付；已查看实际页面，清楚显示证据不足原因。此处不认定音轨实际错误，也不声称最终业务成功。", "49次模型回执、两次供应商调用意图与成功回执、14个BOSS对象归档、Redis隔离TTL3597、observer就绪，DB候选/正式状态一致、清理完成。非法JSON反馈有界，无新增程序错误。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "cleanup.json"], "reviewed_at": 1793677816.8032568}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -11465,7 +11466,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "handled_failure", "business_target_reached": false, "negative_path_verified": true, "failure_origin": "model_review_motion_judgment", "findings": ["模型Reviewer以开场没有持续跑步为由reject。独立抽帧显示0秒站立、2.5秒已有跑步姿态、5秒继续跑步；因此不把其“2.5秒仍站立”的文字当作已证实事实，属于模型验收判断及持续跑步标准解释问题。", "程序遵守冻结步骤的reject结论，暂停后续Logo/标题/混音与最终交付；没有放行被拒绝的视频。实际页面及内部状态一致。", "已审查模型回执、候选归档、BOSS、Redis独立前缀和TTL、observer、日志以及资源清理；均符合对应失败收口，不计业务成功。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json", "independent-running-review.jpg"], "reviewed_at": 1793683704.1105168}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -11505,7 +11506,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 阻塞或证据不完整
 
@@ -11528,7 +11529,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 实际控制步骤：decision_reject → cancel → scope_edited_before_confirmation。
 
@@ -12240,7 +12241,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "delivery_primary_selection", "findings": ["F30：实际final.mp4与原clip参考帧MAE=0，cover.png正确换成prepare_b、像素MAE=0；没有重复预处理。", "Reviewer交付列表先列cover，Orchestrator误把列表首项当主成果，浏览器默认预览封面；独立检查因此失败，不能计通过。", "DB/日志/观测/缓存/BOSS及清理证据完整；已修复发布排序并增加元数据回归，待部署复测。"], "evidence": ["state.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "internal-final.json", "cleanup.json"], "reviewed_at": 1793666364.4439294}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cancel → command_applied → cleanup_started。
 
@@ -12532,7 +12533,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": true, "outcome": "program_failed", "failure_origin": "nonexistent_asset_triggers_unfulfillable_approval", "findings": ["F35：模型引用的5e2dcd089b1942afa3130da41e9a859d并不存在，正确素材是5e2dcd089b194c6b8e41628eebd2621f；程序虽然没有越权执行，却把拼错ID当成可审批扩权。", "已补充stage和controller存在性校验并反馈纠正；合法未授权素材仍走审批。待统一部署复测。"], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "failure-browser.png", "cleanup.json"], "reviewed_at": 1793673886.9432142}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cancel → command_applied → cleanup_started。
 
@@ -12889,7 +12890,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "outcome": "program_failed", "failure_origin": "qa_driver_missing_prior_delivery_guard", "findings": ["测试驱动缺陷：R12要求首次交付后改变目标，但首次最终Reviewer遇到ModelServiceError，用量回执缺失且预算预留保持reserved，程序没有误报用量或交付。驱动将暂停也当作可干预起点，取消旧图后生成了新版成果。", "新版4秒128×64 MP4及封面独立检查通过，旧图没有正式交付，因此不能计为原定R12边界通过。程序错误归属QA驱动，不据此认定应用交付逻辑错误。", "原始state和产物检查保留；已补驱动前置条件和独立前序交付检查，须同应用版本重跑。九维内部审计及清理完成，浏览器成果已查看。"], "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "artifact-browser.png", "cleanup.json"], "reviewed_at": 1793687766.7901516}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cancel → command_applied → cleanup_started。
 
@@ -14024,7 +14025,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "findings": ["Manager 正在进行真实 LLM 请求时取消；任务、租约和本地请求结束，未提交提案或成果。用量回执缺失明确保持 unknown/reserved，而不是伪造零用量。", "已逐例查看实际浏览器截图，状态与数据库一致，没有虚假交付。", "日志/观测、DB、Redis TTL/隔离前缀、BOSS 加密对象检查和项目清理完整。"], "reviewed_at": 1793647690.2979462}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cancel。
 
@@ -14166,7 +14167,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "required_boundary_verified": false, "outcome": "program_failed", "failure_origin": "test_driver", "findings": ["F28：驱动未等待HTTP202之后的控制器命令回执，过早结束观察；本次不计通过，同部署版本重跑。"], "reviewed_at": 1793664443.282115}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：pause → resume → cleanup_started。
 
@@ -14312,7 +14313,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "required_boundary_verified": false, "outcome": "program_failed", "failure_origin": "test_driver", "findings": ["F28：驱动未等待HTTP202之后的控制器命令回执，过早结束观察；本次不计通过，同部署版本重跑。"], "reviewed_at": 1793664443.2821717}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：decision_approve → cleanup_started。
 
@@ -14703,7 +14704,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "findings": ["1024 Token 预算在模型请求前被拒绝，LLM 调用记录及预留均为空；工作流暂停，日志记录 workflow_quota_exhausted。", "已逐例查看实际浏览器截图，状态与数据库一致，没有虚假交付。", "日志/观测、DB、Redis TTL/隔离前缀、BOSS 加密对象检查和项目清理完整。"], "reviewed_at": 1793647690.298673, "limitations": ["当前页面只显示通用暂停文案；具体预算原因可由API/日志核实，待补更明确的用户提示。"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 ### attempt-002 · 阻塞或证据不完整
 
@@ -14726,7 +14727,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-003 · 阻塞或证据不完整
 
@@ -14749,7 +14750,7 @@ Call log:
 
 证据缺口：["logs", "audit incomplete"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-004 · 待逐例审查
 
@@ -14883,7 +14884,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "required_boundary_verified": false, "outcome": "program_failed", "failure_origin": "test_driver", "findings": ["F29：真实密文GCM标签单bit破坏被object_encryption.decrypt认证失败拦截，下游暂停且无交付；驱动误以为会透出InvalidTag并写workflow_diagnostics，实际包装为ValueError，结构化日志保留完整关联栈。", "测试断言修正后重新执行；首次失败和完整服务/对象恢复及清理证据保留。"], "reviewed_at": 1793665109.572967}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -15012,7 +15013,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "findings": ["第二浏览器页新增素材使内容指纹变化，原页明确提示重新确认，未创建工作流。", "已逐例查看实际浏览器截图，状态与数据库一致，没有虚假交付。", "日志/观测、DB、Redis TTL/隔离前缀、BOSS 加密对象检查和项目清理完整。"], "reviewed_at": 1793647690.2988706}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 ### attempt-002 · 通过
 
@@ -15401,7 +15402,7 @@ Call log:
 
 证据缺口：["candidate_archive"]
 
-失败分类：待归因。
+结果分类：待归因。
 
 故障注入：isolation。
 
@@ -15553,7 +15554,7 @@ Call log:
 
 审查与修复记录：{"complete": false, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "outcome": "model_contract_failure", "findings": ["Manager 未按要求调用 editing_implementer，且脚本 argv 只有 flags，运行失败；失败诊断已展示。目标专业 Agent 边界未触发。", "最终浏览器截图已与公开状态一致；无虚假正式交付。", "内部 DB 不变量、日志关联、Observer、Redis TTL、BOSS 加密头和清理检查通过。", "业务目标仍未完成，修复后必须复测。"], "reviewed_at": 1793646436.1114633}
 
-失败分类：待归因。
+结果分类：待归因。
 
 ### attempt-002 · 阻塞或证据不完整
 
@@ -15578,7 +15579,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "outcome": "passed", "content_review": {"passed": true, "method": "Actual browser artifact rendering and independent Lanczos reference pixels", "pixel_mae": 0.0}, "findings": ["实际 DAG 的 resize_portrait 为 editing_implementer 专业 Agent；真实 LLM → script → result → 独立最终验收 → 正式交付完整执行。", "已查看 final-browser.png 和 contact-sheet.jpg；64×64 PNG 与原图等比例缩放内容一致，页头样式已修正。", "所有模型调用均有实际用量回执；账本与预算结算总计一致：62724 tokens。", "数据库无旧 generation 提交、没有提前交付或未验收必需节点；日志和观测完整，无执行 ERROR。", "Redis 独立前缀且有 TTL；3 个 BOSS 对象均位于独立项目空间，大小与加密头正常。", "测试后独立项目、Redis 流、本地缓存与3个BOSS对象完成清理，只保留删除墓碑。"], "reviewed_at": 1793647519.6176088}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 ### attempt-003 · 通过
 
@@ -15711,7 +15712,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_added_user_review", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793750885.5085454, "findings": ["真实editing Agent完成脚本与回执并生成64×64候选，像素与独立LANCZOS参考一致。", "Manager额外声明人工Review，程序在技术验收通过后按声明等待用户；测试不自动替用户批准。业务未交付，模型规划引入人工门槛，程序处理正确。", "已复核浏览器终态、日志/观测、数据库/租约/授权、候选归档、BOSS、Redis及本地/外部清理；这些安全检查通过不抵消上述业务或程序失败。"], "evidence": ["internal-final.json", "candidate-archive.json", "runtime-evidence.json", "failure-browser.png", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -15749,7 +15750,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "business_target_reached": false, "negative_path_verified": true, "outcome": "handled_failure", "failure_origin": "model_final_review_result_invalid", "findings": ["核心边界实际通过：render revision 0真实退出23，诊断后同一逻辑Task变为revision 1且repair_count=1；依赖package自动变为revision 1并成功。", "后续Final Reviewer多轮拒绝/无效结果，最终invalid_result_manifest暂停，程序未绕过审查、未正式交付。", "数据库revision历史、plan选择、模型用量、BOSS、Redis、Observer和清理完整；该次业务未完成，归为非程序失败且程序处理正确。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793706600.0}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -15778,7 +15779,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "business_target_reached": false, "negative_path_verified": true, "outcome": "handled_failure", "failure_origin": "model_final_review_nonconvergence", "findings": ["render真实失败后修订为revision 1且repair_count=1，package自动切换revision 1并成功，核心修订边界再次通过。", "后续Final Reviewer反复返回无效引用/JSON或拒绝，repair context在多轮中保持；为结束无新增覆盖的审查循环，测试操作员受控取消。", "程序未绕过审查或发布成果，revision历史、模型用量、BOSS、Redis、Observer与清理一致。"], "evidence": ["state.json", "final-browser.png", "internal-final.json", "internal-snapshot.json", "candidate-archive.json", "runtime-evidence.json", "cleanup.json"], "reviewed_at": 1793708900.0}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -15818,7 +15819,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793736758.5459816, "evidence": ["scheduler-starvation.json", "internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "failure-browser.png"], "findings": ["两个可用执行器持续心跳，PLAN control_jobs为ready，但execution_attempts为空。", "scheduling.candidates错误地只查询run_tasks，导致独立控制任务被过滤；模型调用和Provider调用均为0。", "浏览器停留在规划/等待执行；没有交付或误标成功。", "已通过正常取消命令收尾；数据库、缓存、BOSS及本地项目清理核对完成。"], "required_retest": "修复候选选择后重跑本case，实际完成Manager、业务Task和Final Review。"}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -15849,7 +15850,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "engineering_contract", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793737858.5406263, "findings": ["调度缺陷已解除，真实Manager和业务Script均启动。", "Manager直接生成Script，但其已加载技能不含角色到路径列表的运行时契约；列表契约仅存在于Implementer的media-editing技能中。", "实际生成脚本按字符串或自猜形状读取输入，导致类型错误；on_failure=pause且retry_policy=never，因此按既定策略暂停、无伪成功、无外部调用。", "归因为系统提供给脚本作者的接口说明缺漏，修复共享契约后重测，不按纯模型偶发失败结案。", "DB/日志/观测/缓存/BOSS和本地清理均已审查；首次产物及运行日志保留。"], "evidence": ["internal-final.json", "runtime-evidence.json", "log-index.json", "cleanup.json", "failure-browser.png"], "required_retest": "Manager收到同一份script-runtime契约后完整执行业务、验收与交付。"}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -15997,7 +15998,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "test_harness_capacity", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793755151.0482998, "findings": ["业务已交付，但right attempt先结束，left随后才开始；没有实际并行，原严格边界断言正确拒绝把它计为通过。", "测试安排在其它case并发占用容量时，且只等left运行即发输入；调整为独占容量并等两分支同时running。应用输入/屏障/交付审计无异常。", "已核对失败页面、内部审计、日志/观测、BOSS/Redis和清理；这是测试程序失败，目标边界未覆盖，需复测。"], "evidence": ["state.json", "internal-final.json", "failure-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：input_accepted → cleanup_started。
 
@@ -16034,7 +16035,7 @@ Call log:
 
 ## D24 · 专业Agent在途输入排空
 
-当前结论：**执行中**。目标边界：`drain_agent`。
+当前结论：**用户主动中止，未完成验收**。目标边界：`drain_agent`。
 
 输入素材：portrait.png。
 执行目标：创建type=agent、profile=editing_implementer的render业务Task，由其script工具等待8秒后把portrait.png缩小为64×64 final.png；不得改用Script Task替代。技术检查后交付。
@@ -16089,7 +16090,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_review_nonconvergence_operator_stopped", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "business_delivery_verified": false, "operator_stopped": true, "resource_limit_reached": false, "reviewed_at": 1793758214.404433, "findings": ["真实editing_implementer执行期间输入入队；原render完整结束，revision0、attempt1保持；输入仅在Agent排空后应用，核心drain_agent边界已实际验证。", "原64×64候选与源图Lanczos缩放逐像素相等；之后最终Reviewer索要8秒等待证据，引发额外生成证据与报告审查。报告Reviewer又混淆业务VisualReport与控制结果schema，并反复不收敛；失败报告未被批准，未交付。", "运行45.4分钟后由测试操作者明确取消；这不是业务成功，也不是程序预算或修订上限自动触发。保留pre-model-nonconvergence-cancel和取消原因。", "57次模型调用，已知1091725tokens，1次无用量回执仍有预留；取消期间记录的ConnectionError/RemoteDisconnected保留，不伪报零用量。", "70项数据库不变量、浏览器取消状态、日志连续性、观测、候选归档及19个BOSS对象/Redis/本地缓存清理正常。已恢复的提案target错误与F62关联，另作Schema修复，不掩盖后续模型审查不收敛。"], "evidence": ["state.json", "internal-final.json", "independent-boundary-review.json", "pre-model-nonconvergence-cancel.json", "model-nonconvergence-stop.json", "final-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：input_accepted → cleanup_started。
 
@@ -16099,7 +16100,7 @@ Call log:
 
 ### attempt-003 · 程序缺陷
 
-版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：是。
+版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-04T10:12:13+08:00 → 2026-11-04T10:32:36+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`test_failed`；项目：`bf37b9389b034f79aff22e2deee15c2d`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-003/cleanup.json)
@@ -16123,7 +16124,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "reviewed_at": 1793760237.057523, "evidence": ["state.json", "internal-final.json", "candidate-archive.json", "review-browser-detail.png", "log-index.json", "observability.json", "cleanup.json", "drain-recovery-facts.json"], "outcome": "program_failed", "failure_origin": "F65_test_drain_recovery_assertion", "required_boundary_verified": true, "findings": ["原Agent在输入期间正常运行，Pillow脚本错误产生revision0的committed failed回执；之后Manager合法修复为revision1成功，最终业务交付成功。", "旧测试将任何revision变化判为输入导致重跑，误报1!==0。通用修复核对原attempt自然结束、原回执提交及恢复时序；真实回执回放通过，6项新增回归及全部54项Node通过。", "已查看真实浏览器，旧失败保留、修复后交付正常；57项数据库不变量正常，日志无缺口，10个BOSS对象、Redis及节点缓存清理完成。", "25次模型调用390773tokens，回执完整。后续仍须按新测试驱动验证，原误报不覆盖。"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：input_accepted → cleanup_started。
 
@@ -16131,32 +16132,63 @@ Call log:
 
 - `6f62654e7f4f45f78776558b3910b082`：创建type=agent、profile=editing_implementer的render业务Task，由其script工具等待8秒后把portrait.png缩小为64×64 final.png；不得改用Script Task替代。技术检查后交付。；Token上限 2000000；外部调用上限 `{}`。
 
-### attempt-004 · 执行中
+### attempt-004 · 通过
 
-版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：是。
-时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
-执行结果：`None`；项目：`6883cc8b34874ca2a6576157e06f0df8`。
-[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/state.json)
+版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 2026-11-04T10:49:41+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`6883cc8b34874ca2a6576157e06f0df8`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-004/cleanup.json)
 
 | 维度 | 已取证 | 说明 |
 | --- | --- | --- |
-| browser | 否 |  |
-| logs | 否 |  |
-| observability | 否 |  |
-| database | 否 |  |
-| cache | 否 |  |
-| boss | 否 |  |
-| candidate_archive | 否 |  |
-| local_cleanup | 否 |  |
-| external_cleanup | 否 |  |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
 
-证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793761037.352117, "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "candidate-archive.json", "review-browser-detail.png", "final-browser.png", "log-index.json", "observability.json", "cleanup.json", "independent-content-review.json"], "findings": ["真实Agent执行期间接收输入，原attempt自然完成并提交succeeded回执；render维持revision0/attempt1，没有重跑，输入应用后正常交付。", "原图缩放与最终64×64候选逐像素相等；实际浏览器显示输入已处理、正式交付唯一。", "33项数据库不变量通过，7次模型调用56616tokens、回执完整；日志/观测/候选、3个BOSS对象/Redis/节点缓存清理全部通过。", "F65修正断言的正常路径实际通过；原失败恢复路径另有attempt-003原始回执回放与单元测试证明。"]}
 
-实际控制步骤：input_accepted。
+实际控制步骤：input_accepted → cleanup_started。
 
 实际确认的执行轮次：
 
 - `f1df94aae8c84dd5bfd897b28b556cfe`：创建type=agent、profile=editing_implementer的render业务Task，由其script工具等待8秒后把portrait.png缩小为64×64 final.png；不得改用Script Task替代。技术检查后交付。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-005 · 用户主动中止，未完成验收
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T11:55:27+08:00 → 2026-11-04T12:09:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`cbc09b04cc664df992dbf0bdb4d50502`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D24/attempt-005/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Original result must be committed normally
+
+审查与修复记录：{"complete": false, "outcome": "user_stopped", "failure_origin": "user_requested_stop", "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": false, "reviewed_at": 1793765491.1942425, "findings": ["用户主动要求停止本轮，正常取消并清理；未完成case验收，不计模型/依赖失败或通过。", "取消前Run、planner请求与诊断另存user-stop-snapshot.json；最终内部审计完整且无程序问题，活动租约已归零。"], "evidence": ["user-stop-snapshot.json", "operator-intervention.json", "internal-final.json", "cleanup.json"]}
+
+结果分类：用户主动中止，不能计为模型失败或验收通过。
+
+实际控制步骤：input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `539b41b98399426a8c86b358403cb5ff`：创建type=agent、profile=editing_implementer的render业务Task，由其script工具等待8秒后把portrait.png缩小为64×64 final.png；不得改用Script Task替代。技术检查后交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D25 · 规划期间连续输入分批处理
 
@@ -16234,7 +16266,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "test_harness_hidden_selector", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793755151.0484378, "findings": ["graph v0的页面正确隐藏空Task选择框；测试驱动无条件selectOption([])等待不可见元素，导致45秒超时，输入并未提交。", "已修复通用可选选择器逻辑，真实浏览器5项验证通过；原1次在途模型调用缺失usage保留未知，不把它报告为免费调用。", "已核对失败页面、内部审计、日志/观测、BOSS/Redis和清理；这是测试程序失败，目标边界未覆盖，需复测。"], "evidence": ["state.json", "internal-final.json", "failure-browser.png", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -16325,7 +16357,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793740376.6717498, "findings": ["合法replacement后保留的旧Task未被graph.get解析，详情API在workflow_api.public读取spec时报KeyError/HTTP500。", "原运行已通过正常取消命令停止；因详情API和审计读取同时受影响，保留项目及原始证据，待修复后补采与清理。", "修复后的只读采集器已补充完整现场审计并标注采集源码；原HTTP500及audit_error仍保留。随后通过认证API删除测试项目，并核实BOSS/Redis/本地清理完成。"], "required_retest": "修复历史Task解析后补齐现场审计、清理并在新版本重跑。", "supplemental_audit": "internal-supplement.json", "cleanup_verified": true}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：command_applied → feedback_accepted → cleanup_started。
 
@@ -16356,7 +16388,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "test_harness_review_flow", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793745999.6157112, "findings": ["同Run反馈、幂等和旧快照拒绝已触发，合法替代后的API正常。", "测试反馈取消原人工Review，随后驱动又拒绝处理合法的新版Review；测试流程与原人工确认要求存在冲突。", "程序没有把反馈当批准、没有强制覆盖审查；驱动已改为独立像素检查新版后approve原声明的Review，原尝试保留失败结论。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json", "failure-browser.png"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：command_applied → feedback_accepted → cleanup_started。
 
@@ -16387,7 +16419,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "control_snapshot_evidence_gap", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793747136.9012759, "findings": ["新版候选通过独立像素复核并已由真实approve命令批准；审批决定已落库。", "后续Manager快照缺少已批准事实，又发出input_question，导致本轮未正式交付。", "属于控制快照上下文缺漏，已增加有界权威历史与当前候选用户审批事实；不修改原失败结论，需新版本复测。", "页面无JavaScript错误，所有内部审计及清理已核对；没有误交付、覆盖旧失败或重复外部调用。"], "evidence": ["internal-final.json", "workflow-latest.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：command_applied → feedback_accepted → decision_approve → command_applied → cleanup_started。
 
@@ -16529,7 +16561,7 @@ Call log:
 
 ## D31 · 持续动作的真实时序证据
 
-当前结论：**需在当前版本复测**。目标边界：`temporal_boundary`。
+当前结论：**用户主动中止，未完成验收**。目标边界：`temporal_boundary`。
 
 输入素材：无。
 执行目标：用本地Script生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断；输入为声明式Python/FFmpeg脚本。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。
@@ -16559,7 +16591,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "F63_temporal_unselected_candidate", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793757543.830113, "findings": ["实际最终Reviewer曾提供通过证据，但校验器对未选交付Task错误要求视频证据，抛出Temporal review requires verified video candidates；真实快照与原始检查记录稳定复现，修复代码回放通过。", "独立全100帧分析确认视频128×96、25fps、4秒；0.04秒开始右移，所有相邻帧均右移，最大中断0秒，实际内容符合原时序要求。", "该程序误拒绝引发额外规划/补证据；确认根因后保存pre-confirmed-defect-cancel并通过正常系统取消结束，未把后续取消记成根因，也未放宽验收。", "67项既有数据库不变量正常不足以证明本逻辑无缺陷；日志无缺口，29个BOSS对象、Redis、节点缓存清理完成。已查看真实浏览器取消状态，原产物/证据均归档。", "模型调用43次，已知tokens 1182855，缺失回执1次；取消时在途调用未知用量仍保留预留。"], "evidence": ["internal-final.json", "temporal-selection-regression.json", "independent-temporal-content-review.json", "pre-confirmed-defect-cancel.json", "confirmed-defect-stop.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -16588,7 +16620,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "reviewed_at": 1793760237.057523, "evidence": ["state.json", "internal-final.json", "candidate-archive.json", "review-browser-detail.png", "log-index.json", "observability.json", "cleanup.json", "cleanup-recovery.json", "artifact-verification.json", "final-browser.png"], "outcome": "handled_failure", "failure_origin": "redis_persistence_outage_cleanup_recovered", "required_boundary_verified": true, "business_delivery_verified": true, "cleanup_recovery_verified": true, "findings": ["实际4秒128×96、25fps视频及生成脚本已交付；独立20时间点测量红方块连续右移，程序和Agent时序验收通过。", "本次只有一个交付视频Task，没有复现F63的多候选选择边界；F63完整真机闭环仍需专门覆盖。", "38项数据库不变量正常，浏览器交付与存储一致；16次模型调用212600tokens，无缺失回执。", "共享Redis落盘故障期间数据库保持业务完成；原cleanup_error保留，恢复后补核对4个BOSS tombstone和零残留，Redis/缓存清理完成。"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -16597,6 +16629,66 @@ Call log:
 实际确认的执行轮次：
 
 - `4e2ea550e6894f13b22c3ec0d092f368`：用本地Script生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断；输入为声明式Python/FFmpeg脚本。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-003 · 通过
+
+版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T10:49:41+08:00 → 2026-11-04T10:56:11+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`a58183b4afb2480d807dc1d0f7bb7f56`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-003/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793761275.3884041, "findings": ["4秒128×96、25fps视频及可复现脚本已正式交付。独立全部100帧检测确认0.04秒内起动、所有帧间持续右移，符合原时序要求。", "注册media.evidence实际采集完整窗口，业务与最终Reviewer引用真实证据；仅一个视频交付Task，F63多候选边界由D41另行验证。", "45项数据库不变量通过；已查看实际视频帧和浏览器交付，播放推进检查正常，13次模型调用261240tokens、回执完整。", "日志无缺口、观测正常，10个BOSS对象、Redis及节点缓存全部清理。"], "evidence": ["internal-final.json", "artifact-verification.json", "independent-full-frame-review.json", "candidate-archive.json", "final-browser.png", "frame-0.50.png", "frame-3.50.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"independent_motion_samples": [{"time": 0.0, "x": 13.5, "pixels": 400}, {"time": 0.2, "x": 18.5, "pixels": 360}, {"time": 0.4, "x": 23.5, "pixels": 400}, {"time": 0.6000000000000001, "x": 28.5, "pixels": 360}, {"time": 0.8, "x": 33.5, "pixels": 400}, {"time": 1.0, "x": 38.5, "pixels": 360}, {"time": 1.2000000000000002, "x": 43.5, "pixels": 400}, {"time": 1.4000000000000001, "x": 48.5, "pixels": 360}, {"time": 1.6, "x": 53.5, "pixels": 400}, {"time": 1.8, "x": 58.5, "pixels": 360}, {"time": 2.0, "x": 64.4475138121547, "pixels": 362}, {"time": 2.2, "x": 69.5, "pixels": 400}, {"time": 2.4000000000000004, "x": 74.4475138121547, "pixels": 362}, {"time": 2.6, "x": 79.5, "pixels": 400}, {"time": 2.8000000000000003, "x": 84.4475138121547, "pixels": 362}, {"time": 3.0, "x": 89.5, "pixels": 400}, {"time": 3.2, "x": 94.4475138121547, "pixels": 362}, {"time": 3.4000000000000004, "x": 99.5, "pixels": 400}, {"time": 3.6, "x": 104.5, "pixels": 360}, {"time": 3.8000000000000003, "x": 109.5, "pixels": 400}]}`。
+
+实际确认的执行轮次：
+
+- `08dc5b8973314ad6a72750c4cd22fd5b`：用本地Script生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断；输入为声明式Python/FFmpeg脚本。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-004 · 用户主动中止，未完成验收
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T12:03:15+08:00 → 2026-11-04T12:09:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`boundary_not_reached`；项目：`6cffffc6f48048abb865a02180939b5b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D31/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Required unified Run boundary was not observed
+
+审查与修复记录：{"complete": false, "outcome": "user_stopped", "failure_origin": "user_requested_stop", "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": false, "reviewed_at": 1793765491.204325, "findings": ["用户主动要求停止本轮，正常取消并清理；未完成case验收，不计模型/依赖失败或通过。", "取消前Run、planner请求与诊断另存user-stop-snapshot.json；最终内部审计完整且无程序问题，活动租约已归零。"], "evidence": ["user-stop-snapshot.json", "operator-intervention.json", "internal-final.json", "cleanup.json"]}
+
+结果分类：用户主动中止，不能计为模型失败或验收通过。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `ea529f6985934038b3c78ed868ee58bb`：用本地Script生成4秒128×96、25fps MP4：白背景、红色方块从左向右持续匀速移动，前0.2秒内开始，全程不中断；输入为声明式Python/FFmpeg脚本。设置semantics.temporal的action=红色方块持续向右移动，transition=continuous，start_by_seconds=0.2，required_coverage=0.9，max_interruption_seconds=0.5；技术与Agent验收。Reviewer必须使用覆盖全4秒的video_window时序证据。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D32 · 输入与最终发布竞争
 
@@ -16636,7 +16728,7 @@ Call log:
 
 ## D33 · 交付后successor输入幂等
 
-当前结论：**执行中**。目标边界：`successor_inputs`。
+当前结论：**用户主动中止，未完成验收**。目标边界：`successor_inputs`。
 
 输入素材：portrait.png。
 执行目标：用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。
@@ -16666,7 +16758,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_added_user_review", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793756422.391353, "findings": ["Manager将普通内容检查规划为用户Review，原图缩放完成并通过技术验收后，系统正确停在WAITING_USER；测试未擅自批准。", "已查看真实浏览器，人工确认与数据库reviewing一致，无交付、越权或重复外部调用。", "19项数据库不变量通过，日志无缺口、观测正常、候选保留；3个BOSS对象、Redis与缓存清理完成。", "2次模型调用34279tokens，回执完整；一次sealed/replan_after错误提案被正确纠正。", "目标是交付后successor输入幂等，但首轮未交付，required boundary尚未触发。本次非程序停止不能替代协议验收，需后续复测。"], "evidence": ["state.json", "internal-final.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：cleanup_started。
 
@@ -16695,7 +16787,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "redis_persistence_outage_cleanup_recovered", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "business_delivery_verified": true, "cleanup_recovery_verified": true, "reviewed_at": 1793760314.8853536, "findings": ["原Run交付后输入创建同Session且parent正确的successor；重复请求复用同一输入，后续输入进入同一successor，两个输入均APPLIED。", "授权前真实快照scope_confirmed=0且没有业务Task；完整确认后执行。原Run交付不变，新图与原素材64×64缩放逐像素一致。", "70项数据库不变量正常，已查看浏览器两个Run及最终交付；20次模型调用239553tokens，无缺失回执。", "共享Redis根分区满导致MISCONF，数据库仍正常完成业务；原cleanup_error保留，恢复后确认6个BOSS tombstone、0残留、两个Redis流及节点缓存清理完成。"], "evidence": ["state.json", "internal-final.json", "independent-successor-review.json", "cleanup-recovery.json", "artifact-verification.json", "candidate-archive.json", "final-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：非程序错误（程序处理正确）。
 
 实际控制步骤：input_accepted → decision_approve → command_applied → cleanup_started。
 
@@ -16703,30 +16795,63 @@ Call log:
 
 - `d4d02d524a1f42c09f1790c63c70af7f`：用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。；Token上限 2000000；外部调用上限 `{}`。
 
-### attempt-003 · 执行中
+### attempt-003 · 通过
 
-版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：是。
-时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
-执行结果：`None`；项目：`1f751e720cd44520b9326548570aab80`。
-[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/state.json)
+版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 2026-11-04T10:53:11+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`1f751e720cd44520b9326548570aab80`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-003/cleanup.json)
 
 | 维度 | 已取证 | 说明 |
 | --- | --- | --- |
-| browser | 否 |  |
-| logs | 否 |  |
-| observability | 否 |  |
-| database | 否 |  |
-| cache | 否 |  |
-| boss | 否 |  |
-| candidate_archive | 否 |  |
-| local_cleanup | 否 |  |
-| external_cleanup | 否 |  |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
 
-证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793761037.352117, "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "candidate-archive.json", "review-browser-detail.png", "final-browser.png", "log-index.json", "observability.json", "cleanup.json", "independent-content-review.json"], "findings": ["原Run交付后创建同Session successor；授权前scope_confirmed=0、无业务Task，重新确认完整范围后才执行。重复及后续输入归属同一successor，两条输入均APPLIED。", "原Run正式交付保持不变；新64×64产物逐像素正确，浏览器两个Run及交付状态一致。", "62项数据库不变量通过，12次模型调用116644tokens、回执完整；Redis已正常提供双流，5个BOSS对象和全部节点缓存清理通过。"]}
+
+实际控制步骤：input_accepted → decision_approve → command_applied → cleanup_started。
 
 实际确认的执行轮次：
 
 - `c3a9df9d74c94484bd0b0f65229c38bf`：用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-004 · 用户主动中止，未完成验收
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T12:01:08+08:00 → 2026-11-04T12:09:47+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`boundary_not_reached`；项目：`e498fd3ca28b40cdbddcf3e9aa0f3910`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D33/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow stopped before the required test boundary: CANCELLED
+
+审查与修复记录：{"complete": false, "outcome": "user_stopped", "failure_origin": "user_requested_stop", "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": false, "reviewed_at": 1793765491.217554, "findings": ["用户主动要求停止本轮，正常取消并清理；未完成case验收，不计模型/依赖失败或通过。", "取消前Run、planner请求与诊断另存user-stop-snapshot.json；最终内部审计完整且无程序问题，活动租约已归零。"], "evidence": ["user-stop-snapshot.json", "operator-intervention.json", "internal-final.json", "cleanup.json"]}
+
+结果分类：用户主动中止，不能计为模型失败或验收通过。
+
+实际控制步骤：input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `815cbfd22edd496d8e95aa0242e05b19`：用本地Script把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D34 · 同步外部请求在途输入
 
@@ -16777,10 +16902,10 @@ Call log:
 
 ## D36 · 抠图候选边缘反馈修订
 
-当前结论：**执行中**。目标边界：`feedback_cutout`。
+当前结论：**程序缺陷**。目标边界：`feedback_cutout`。
 
-输入素材：portrait.png。
-执行目标：先用SAM3对portrait.png分割宇航员人物，模式subject_cutout，保留身体、衣物及穿戴物，不包含手持/携带物。mask与透明图保存为已验收非交付中间Task source_cutout。再由Script Task render复制透明图为512×512 final.png，声明人工Review等待边缘修改意见，不能代用户批准。
+输入素材：approved_subject.png。
+执行目标：使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由本地Script Task source_cutout按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体。再由Script Task render按原字节复制为final.png，保留程序和Agent验收，并明确声明人工Review等待局部边缘修改意见，不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。
 独立成果预期：`{"kind": "image", "width": 512, "height": 512, "alpha": true}`。
 外部调用范围：未预先授权外部付费调用。
 
@@ -16807,7 +16932,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "F64_test_feedback_role_binding", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793757690.9322073, "findings": ["实际render声明输入source、输出final，但测试驱动反馈写死output_role=primary_image，错误要求突破冻结输出契约。程序正确暂停并要求澄清；根因属于测试驱动，不应记成模型失败。", "真实SAM3已完成，source_cutout通过验收；反馈已进入同Run输入邮箱，但合法revision与新版审批尚未触发，不能计为边缘反馈协议通过。", "已查看真实浏览器的契约冲突解释，无错误批准或交付；16次模型调用342025tokens，回执完整，日志/观测/候选、29个BOSS对象/Redis/缓存清理正常。", "通用修复从实际冻结Task读取单一输入和输出角色，不修改原输出契约。3种任意角色名及歧义输出拒绝检查通过，仍待新驱动真机复测。"], "evidence": ["state.json", "internal-final.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：command_applied → feedback_accepted → cleanup_started。
 
@@ -16815,7 +16940,7 @@ Call log:
 
 - `5d36cb69a296431a8f51d6e469da1014`：先用SAM3对portrait.png分割宇航员人物，模式subject_cutout，保留身体、衣物及穿戴物，不包含手持/携带物。mask与透明图保存为已验收非交付中间Task source_cutout。再由Script Task render复制透明图为512×512 final.png，声明人工Review等待边缘修改意见，不能代用户批准。；Token上限 2000000；外部调用上限 `{}`。
 
-### attempt-002 · 待逐例审查
+### attempt-002 · 程序缺陷
 
 版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-04T10:12:13+08:00 → 2026-11-04T10:25:34+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
@@ -16836,9 +16961,9 @@ Call log:
 
 执行错误：Revised candidate failed the independent user-review pixel check; no approval was submitted
 
-审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "reviewed_at": 1793760237.057523, "evidence": ["state.json", "internal-final.json", "candidate-archive.json", "review-browser-detail.png", "log-index.json", "observability.json", "cleanup.json", "feedback-review-853726dc5cb2430da07a26a1391cfa18.json"], "outcome": "handled_failure", "failure_origin": "model_ignored_edge_feedback_and_redis_outage", "required_boundary_verified": false, "cleanup_recovery_verified": true, "findings": ["修订反馈正确绑定实际source/final角色，input APPLIED且render user_revision_count增加，F64角色错误未重现。", "模型修订后的候选与旧图逐像素相同，未执行要求的Alpha局部处理，mask_repair也未声明；独立像素审查拒绝批准，界面停在原声明的人工Review，未交付。", "边缘修订成功及实际mask上限测量边界未触发，仍需复测。45项数据库不变量正常、上游SAM3保留成功。", "Redis因宿主根分区满而进入MISCONF，业务走数据库正常暂停；原清理错误保留，恢复后补清理验证32个BOSS tombstone、0残留、Redis和节点缓存均清除。", "11次模型调用201626tokens，回执完整；日志无缺口，已查看真实浏览器的待审批状态。"]}
+审查与修复记录：{"complete": true, "program_behavior_verified": true, "browser_verified": true, "reviewed_at": 1793760891.8425412, "evidence": ["state.json", "internal-final.json", "candidate-archive.json", "review-browser-detail.png", "log-index.json", "observability.json", "cleanup.json", "feedback-review-853726dc5cb2430da07a26a1391cfa18.json", "review-before-F66.json", "local-patch-oracle-verification.json"], "outcome": "program_failed", "failure_origin": "F66_test_edge_request_exceeds_bound", "required_boundary_verified": false, "cleanup_recovery_verified": true, "findings": ["后续可行性审查更正归因：旧请求要求全图MinFilter3，但实际会改变26825/109453=24.5%主体像素，违反同一请求的5%限制，属于测试设计冲突，不能将整条失败仅归为模型问题。原审查保留在review-before-F66.json。", "修订反馈正确绑定实际source/final角色，input APPLIED且render user_revision_count增加，F64角色错误未重现。", "模型修订后的候选与旧图逐像素相同，未执行要求的Alpha局部处理，mask_repair也未声明；独立像素审查拒绝批准，界面停在原声明的人工Review，未交付。", "边缘修订成功及实际mask上限测量边界未触发，仍需复测。45项数据库不变量正常、上游SAM3保留成功。", "Redis因宿主根分区满而进入MISCONF，业务走数据库正常暂停；原清理错误保留，恢复后补清理验证32个BOSS tombstone、0残留、Redis和节点缓存均清除。", "11次模型调用201626tokens，回执完整；日志无缺口，已查看真实浏览器的待审批状态。"]}
 
-失败分类：非程序错误（程序处理正确）。
+结果分类：程序错误。
 
 实际控制步骤：command_applied → feedback_accepted → cleanup_started。
 
@@ -16846,30 +16971,103 @@ Call log:
 
 - `1cb45782daa442daac92079d6ad088a2`：先用SAM3对portrait.png分割宇航员人物，模式subject_cutout，保留身体、衣物及穿戴物，不包含手持/携带物。mask与透明图保存为已验收非交付中间Task source_cutout。再由Script Task render复制透明图为512×512 final.png，声明人工Review等待边缘修改意见，不能代用户批准。；Token上限 2000000；外部调用上限 `{}`。
 
-### attempt-003 · 执行中
+### attempt-003 · 待逐例审查
 
-版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：是。
-时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
-执行结果：`None`；项目：`bf5b8989cd6c4093b7fd43dde7710039`。
-[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/state.json)
+版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 2026-11-04T11:07:36+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`boundary_not_reached`；项目：`bf5b8989cd6c4093b7fd43dde7710039`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-003/cleanup.json)
 
 | 维度 | 已取证 | 说明 |
 | --- | --- | --- |
-| browser | 否 |  |
-| logs | 否 |  |
-| observability | 否 |  |
-| database | 否 |  |
-| cache | 否 |  |
-| boss | 否 |  |
-| candidate_archive | 否 |  |
-| local_cleanup | 否 |  |
-| external_cleanup | 否 |  |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
 
-证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+执行错误：Timed out waiting for the required workflow boundary
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_segmentation_quality_before_feedback", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793762817.5461009, "findings": ["上游SAM3三次候选分别漏头、只选头盔、纳入头盔和背景，真实Reviewer均拒绝；修复预算耗尽后请求新授权，未自动重建Task绕过预算。", "尚未生成render候选或进入边缘反馈，测试等待目标边界超时；这不是边缘修订协议通过。已查看真实浏览器的拒绝事实及授权决策。", "41项数据库不变量通过，22次模型调用443247tokens，回执完整；日志/观测/候选正常，71个BOSS对象/Redis/节点缓存清理完成。", "正向边缘反馈测试已改为从固定的真实已验收透明素材开始；SAM3分割仍由S09独立覆盖，原失败不抹除。"], "evidence": ["state.json", "internal-final.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
 
 实际确认的执行轮次：
 
 - `3b27819b63d04c588284ab889eb61b92`：先用SAM3对portrait.png分割宇航员人物，模式subject_cutout，保留身体、衣物及穿戴物，不包含手持/携带物。mask与透明图保存为已验收非交付中间Task source_cutout。再由Script Task render复制透明图为512×512 final.png，声明人工Review等待边缘修改意见，不能代用户批准。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-004 · 程序缺陷
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T11:27:43+08:00 → 2026-11-04T11:34:50+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`89c093335bef4a23a6cd651c6d16b1fb`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+独立成果检查错误：["Edge feedback did not preserve original RGB and apply the declared local Alpha repair"]
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "test_harness", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793764204.7723215, "findings": ["程序成功完成局部Alpha修订并保留上游；服务器测量59个变化像素，比例0.054%，小于5%上限。", "最终测试检查器错误使用全图腐蚀，和已通过的局部人工预览不一致；已修复共用变换oracle。原失败不覆盖，修正后原产物回放另存，正在正式复测。"], "evidence": ["final-checker-regression.json", "artifact-verification.json", "state.json", "internal-final.json", "cleanup.json", "final-browser.png"]}
+
+结果分类：程序错误。
+
+实际控制步骤：command_applied → feedback_accepted → decision_approve → command_applied → cleanup_started。
+
+独立成果检查值：`{"edge_revision_matches_original_alpha_erosion": false, "old_candidate_sha256": "ee97ce0c2d55bfcc92de3484e0d4ce493d8beb90994f8cf65e4cfc33bfcddcdd"}`。
+
+实际确认的执行轮次：
+
+- `0ccf92c302224643940b6582297d6791`：使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由本地Script Task source_cutout按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体。再由Script Task render按原字节复制为final.png，保留程序和Agent验收，并明确声明人工Review等待局部边缘修改意见，不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-005 · 程序缺陷
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T11:48:36+08:00 → 2026-11-04T12:03:15+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`c1ca027eebfc476fb55f3b4eacb876dd`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D36/attempt-005/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：The expression evaluated to a falsy value:
+
+  assert.ok(root.revision>before.tasks.find(t=>t.id==='render').revision)
+
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "test_harness_replacement_assertion", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793765131.7679687, "findings": ["F70：应用SUCCEEDED，原render退役保留；render_edge_repair以revision0/user_revision_count1合法替代。后置测试断言只接受原render revision增长，误拒绝替代路径。", "独立人工预览像素检查通过后才approve；程序、Agent、user三层验收保留，服务器mask_change_limit变化59像素/0.054%，上限5%。", "上游source_cutout仍revision0/attempt1；原候选及新候选归档完整，48项数据库不变量全部通过，无程序或依赖审计问题，BOSS、Redis及本地清理完成。", "实际浏览器显示旧节点保留、新修补节点完成和新版final.png交付；检查器中断使正式最终产物验证阶段未执行，仍保留本次测试失败，修复后必须复测。"], "evidence": ["state.json", "internal-final.json", "candidate-archive.json", "cleanup.json", "failure-browser.png", "review-browser-detail.png", "feedback-review-d226e7f1f16d4696b840a425896394c3.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：command_applied → feedback_accepted → decision_approve → command_applied → cleanup_started。
+
+实际确认的执行轮次：
+
+- `e344a275f8d24bc791dff79359ec532b`：使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由本地Script Task source_cutout按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体。再由Script Task render按原字节复制为final.png，保留程序和Agent验收，并明确声明人工Review等待局部边缘修改意见，不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D37 · 双图构图反馈修订
 
@@ -16911,7 +17109,7 @@ Call log:
 
 ## D38 · Wan提交前参考图反馈修订
 
-当前结论：**需在当前版本复测**。目标边界：`reference_before_wan`。
+当前结论：**程序缺陷**。目标边界：`reference_before_wan`。
 
 输入素材：portrait.png、rocket.png。
 执行目标：首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。
@@ -16943,7 +17141,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "program", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793740376.6718822, "findings": ["合法replacement后保留的旧Task未被graph.get解析，详情API在workflow_api.public读取spec时报KeyError/HTTP500。", "原运行已通过正常取消命令停止；因详情API和审计读取同时受影响，保留项目及原始证据，待修复后补采与清理。", "修复后的只读采集器已补充完整现场审计并标注采集源码；原HTTP500及audit_error仍保留。随后通过认证API删除测试项目，并核实BOSS/Redis/本地清理完成。"], "required_retest": "修复历史Task解析后补齐现场审计、清理并在新版本重跑。", "supplemental_audit": "internal-supplement.json", "cleanup_verified": true}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：input_accepted → cleanup_started。
 
@@ -16980,9 +17178,74 @@ Call log:
 
 - `ddbed160ae9e4e6f86fe85d07deed600`：首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。；Token上限 2000000；外部调用上限 `{"video.generate_from_image": 1}`。
 
+### attempt-003 · 通过
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T11:27:43+08:00 → 2026-11-04T11:39:10+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`9d9855e8dbe4468f842450b8e3a6564e`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-003/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793764204.755614, "findings": ["真实在途参考处理期间输入新素材，输入最终APPLIED；旧reference正常结束并保留历史，reference_rocket替代后下游绑定新素材。", "仅一次Wan提交，created晚于输入accepted_at，保留同一external_id进行13次正常poll；视频成功交付。", "数据库63项不变量通过；日志、可观测性、Redis隔离、BOSS加密对象、候选归档及清理完整。", "已查看实际浏览器截图及放大后的状态、历史节点和交付区域；无页面或控制台错误。"], "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "cleanup.json", "candidate-archive.json", "runtime-evidence.json", "log-index.json", "observability.json", "final-browser.png", "artifact-browser.png"]}
+
+实际控制步骤：input_accepted → cleanup_started。
+
+独立成果检查值：`{"revised_reference_uses_selected_asset": true, "provider_submissions_after_reference_input": [{"revision": 0, "created": 1793763305.779733}], "provider_receipts": [{"request_key": "b07ba7f91fe14c2c859b6d5f6f81121b:generate:0", "step": "generate", "revision": 0, "provider": "https://bashscope.bilibili.co/api/v1", "operation": "video.generate_from_image", "state": "succeeded", "external_id": "a0489a22-aca9-4843-ab13-1eedfe48a2d0", "network_seconds": 3.6202112175524235, "poll_count": 13}]}`。
+
+实际确认的执行轮次：
+
+- `b07ba7f91fe14c2c859b6d5f6f81121b`：首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。；Token上限 2000000；外部调用上限 `{"video.generate_from_image": 1}`。
+
+### attempt-004 · 程序缺陷
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T11:48:36+08:00 → 2026-11-04T12:01:08+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`44e151f9133f445bb29e83da8551dc8d`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D38/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：The expression evaluated to a falsy value:
+
+  assert.ok(task&&(task.revision>boundary.reference_revision||task.id!=='reference'&&task.user_revision_count>0))
+
+
+程序问题：["no_reconcile_failures:a11aaf9b9c67477c81124fa1980d323e"]
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "application_planning_apply", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793764939.6659644, "findings": ["F68：同一合法计划修订既有reference并新增下游generate。apply的受影响闭包包含generate，却仅从旧active_tasks快照查节点，触发KeyError。约每15秒重试并事务回滚，模型调用已完成而页面仍显示规划运行。", "已保存原Run/暂存提案、错误栈与取消前内部审计；通过浏览器确认取消结束故障Run，明确属于人工结束，非程序自动恢复。", "没有提前提交Wan，Provider调用为0；输入处理未完成，未覆盖更换参考后生成边界，不能算通过。", "最终浏览器正确显示已取消、原reference已完成、输入处理受阻；数据库记录控制面反复异常。其他审计证据完整，BOSS/Redis/本地清理成功。"], "evidence": ["reconcile-failure-evidence.json", "planning-apply-failure.json", "operator-intervention.json", "internal-snapshot.json", "internal-final.json", "cleanup.json", "failure-browser.png", "review-browser-detail.png"]}
+
+结果分类：程序错误。
+
+实际控制步骤：input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `a11aaf9b9c67477c81124fa1980d323e`：首轮创建Script Task reference，先等待20秒，然后将portrait.png用Pillow ImageOps.fit适配1280×720并保存reference.png，声明为非交付。再创建依赖reference的video.generate_from_image Task generate，使用其primary_image生成5秒1280×720缓慢推镜视频，仅允许一次生成。稍后会在reference处理期间修改参考素材。；Token上限 2000000；外部调用上限 `{"video.generate_from_image": 1}`。
+
 ## D39 · 合法替代失败节点与历史读取
 
-当前结论：**需在当前版本复测**。目标边界：`legal_replacement`。
+当前结论：**通过**。目标边界：`legal_replacement`。
 
 输入素材：portrait.png。
 执行目标：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。
@@ -17015,7 +17278,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "harness_feedback_and_test_contract", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793745999.6158044, "findings": ["原故障被诊断并完成显式replacement；旧节点及API读取正常，下游已重绑到新节点。", "替代Agent生成了候选PNG，但反复调用脚本直到达到轮数上限；工具未反馈实际输出回执，finalize仍允许script，已作通用修复。", "初始模型计划还将故障注入文字并入不可变objective，替代任务继承了该文字；新用例明确纯业务objective，故障只放argv。", "候选未被误批准或交付；预算停止、原失败与新候选、全部内部审计及清理证据保留；完整下游交付必须复测。"], "evidence": ["internal-final.json", "runtime-evidence.json", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json", "failure-browser.png"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -17046,7 +17309,7 @@ Call log:
 
 审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "control_snapshot_evidence_gap", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793747136.9013567, "findings": ["真实故障、诊断、合法replacement和下游package均完成；替代Agent仅执行一次Script便提交结果。", "最终Reviewer/Manager快照缺少完整旧Task规格及替换前依赖，无法核对历史，要求用户重做或调整验收。", "属于控制快照上下文缺漏，已增加有界权威历史与当前候选用户审批事实；不修改原失败结论，需新版本复测。", "页面无JavaScript错误，所有内部审计及清理已核对；没有误交付、覆盖旧失败或重复外部调用。"], "evidence": ["internal-final.json", "workflow-latest.json", "failure-browser.png", "candidate-archive.json", "log-index.json", "observability.json", "cleanup.json"]}
 
-失败分类：程序错误。
+结果分类：程序错误。
 
 实际控制步骤：cleanup_started。
 
@@ -17081,9 +17344,63 @@ Call log:
 
 - `517f68b7173647fa990997d12f2e23e8`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。；Token上限 2000000；外部调用上限 `{}`。
 
+### attempt-004 · 通过
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T11:27:43+08:00 → 2026-11-04T11:39:50+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`c4c94c5605044ccea0a75a47ac076b7c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793764204.7675116, "findings": ["原render revision0 execution_failed保留且selected=false，浏览器显示被新步骤替代；render_fixed实际成功，下游package revision2绑定render_fixed。", "诊断、替代和下游更新未覆盖原错误；最终64×64图片交付通过独立检查。", "数据库61项不变量通过；日志、可观测性、Redis隔离、BOSS加密对象、候选归档及清理完整。", "已查看实际浏览器截图及放大后的状态、历史节点和交付区域；无页面或控制台错误。"], "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "cleanup.json", "candidate-archive.json", "runtime-evidence.json", "log-index.json", "observability.json", "final-browser.png", "artifact-browser.png"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `2093967ce7154382a44ba38d73aa8347`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-005 · 通过
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T11:48:36+08:00 → 2026-11-04T11:55:27+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`1d9a2d085c534c489ddcd990aa45dcd7`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-005/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793764631.3344574, "findings": ["原render以预设exit23失败，revision0及execution_failed原事实保留、selected=false；真实Agent替代render_fixed成功，下游package revision1只绑定替代节点，最终64×64交付。", "一次模型error_code不符合公开格式约束被拒绝并纠正；未覆盖原错误或绕过审查。", "46项数据库不变量全部通过；9个内部维度完整，6个BOSS对象完成加密/归属检查及清理，Redis流和本地缓存清理完成，日志无缺口，观测正常。", "已查看真实浏览器最终状态与历史节点：旧失败明确保留，替代节点和下游完成，仅新版成果交付；无页面或控制台错误。"], "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "candidate-archive.json", "runtime-evidence.json", "log-index.json", "observability.json", "cleanup.json", "final-browser.png", "review-browser-detail.png"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `8c36ff70073e4916b1b59e938be4944e`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试指令，绝不能写入任何Task的objective或acceptance。创建Script Task render，目标是将portrait.png缩放为64×64 final.png，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的package Script Task，以primary_image角色引用render，复制为delivered.png。第一版render脚本明确退出23以触发真实失败。诊断后必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。由依赖原render的package Script Task复制新结果为delivered.png交付，验证依赖自动指向render_fixed；原失败历史必须仍可查看。；Token上限 2000000；外部调用上限 `{}`。
+
 ## D40 · 已验收音频下游Operation取证
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**用户主动中止，未完成验收**。目标边界：`业务成果及全链路状态`。
 
 输入素材：music.wav。
 执行目标：已确认本次执行范围。使用注册audio.process将music.wav全段降低6dB，保持30秒、原采样率和声道，输出WAV，不做响度归一化。该Task通过验收后，必须创建另一个注册media.evidence Task，purpose=evidence、mode=audio，通过step加audio输出角色引用前一Task已验收的WAV，并显式声明依赖；不得直接读取原素材代替候选，不得用Script代替这两个Operation。两个Task均实际成功后交付处理后的WAV；证据报告留在工作流中供系统最终Review检查，不将evidence Task设为delivery_stage。不需要额外新增业务Review Task。
@@ -17117,36 +17434,125 @@ Call log:
 
 - `ede143256f904eb68e7da28d8c11ce29`：已确认本次执行范围。使用注册audio.process将music.wav全段降低6dB，保持30秒、原采样率和声道，输出WAV，不做响度归一化。该Task通过验收后，必须创建另一个注册media.evidence Task，purpose=evidence、mode=audio，通过step加audio输出角色引用前一Task已验收的WAV，并显式声明依赖；不得直接读取原素材代替候选，不得用Script代替这两个Operation。两个Task均实际成功后交付处理后的WAV；证据报告留在工作流中供系统最终Review检查，不将evidence Task设为delivery_stage。不需要额外新增业务Review Task。；Token上限 2000000；外部调用上限 `{}`。
 
+### attempt-002 · 用户主动中止，未完成验收
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T12:04:54+08:00 → 2026-11-04T12:09:44+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`92511861db4e46dfa154cf727dc41309`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D40/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": false, "outcome": "user_stopped", "failure_origin": "user_requested_stop", "program_behavior_verified": false, "browser_verified": false, "required_boundary_verified": false, "reviewed_at": 1793765491.1994867, "findings": ["用户主动要求停止本轮，正常取消并清理；未完成case验收，不计模型/依赖失败或通过。", "取消前Run、planner请求与诊断另存user-stop-snapshot.json；最终内部审计完整且无程序问题，活动租约已归零。"], "evidence": ["user-stop-snapshot.json", "operator-intervention.json", "internal-final.json", "cleanup.json"]}
+
+结果分类：用户主动中止，不能计为模型失败或验收通过。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `31bc0ee302004385aa0315305fea63d6`：已确认本次执行范围。使用注册audio.process将music.wav全段降低6dB，保持30秒、原采样率和声道，输出WAV，不做响度归一化。该Task通过验收后，必须创建另一个注册media.evidence Task，purpose=evidence、mode=audio，通过step加audio输出角色引用前一Task已验收的WAV，并显式声明依赖；不得直接读取原素材代替候选，不得用Script代替这两个Operation。两个Task均实际成功后交付处理后的WAV；证据报告留在工作流中供系统最终Review检查，不将evidence Task设为delivery_stage。不需要额外新增业务Review Task。；Token上限 2000000；外部调用上限 `{}`。
+
 ## D41 · 最终交付选择与多视频时序证据
 
-当前结论：**执行中**。目标边界：`业务成果及全链路状态`。
+当前结论：**通过**。目标边界：`业务成果及全链路状态`。
 
 输入素材：motion_reference.mp4。
 执行目标：使用motion_reference.mp4完成本次候选选择验证。创建两个本地Script Task：candidate复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。
 独立成果预期：`{"kind": "video", "width": 128, "height": 96, "duration": 4, "duration_tolerance": 0.1}`。
 外部调用范围：未预先授权外部付费调用。
 
-### attempt-001 · 执行中
+### attempt-001 · 程序缺陷
 
-版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：是。
-时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
-执行结果：`None`；项目：`061865abb5504c5aad8b113a539dd43b`。
-[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/state.json)
+版本：`1cec5aa1334fd20267ad442be820f6358e0f2a56371251e7c24e9b43c007a968`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T10:47:23+08:00 → 2026-11-04T11:01:08+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`061865abb5504c5aad8b113a539dd43b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-001/cleanup.json)
 
 | 维度 | 已取证 | 说明 |
 | --- | --- | --- |
-| browser | 否 |  |
-| logs | 否 |  |
-| observability | 否 |  |
-| database | 否 |  |
-| cache | 否 |  |
-| boss | 否 |  |
-| candidate_archive | 否 |  |
-| local_cleanup | 否 |  |
-| external_cleanup | 否 |  |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
 
-证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+执行错误：Workflow requested user input or feedback after bounded processing: quality_feedback
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "F67_temporal_identical_alias_evidence", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793761768.7802052, "findings": ["同Task的primary.mp4与deliver.mp4具有同一已验证SHA，且两者与固定输入逐字节相同；模型实际检查了deliver.mp4的完整和密集时序窗口。", "服务端只按路径匹配，误报primary.mp4缺少带时间戳证据，导致Task验收无法通过并最终进入quality_feedback。真实冻结快照与检查记录稳定复现。", "修复按同一冻结Task的权威内容SHA识别等价输出；不接受未知引用、不同SHA或稀疏采样。原始快照/证据回放和49项相关回归通过，尚待新部署真机。", "39项既有数据库不变量通过仍不能覆盖此误拒绝；已查看浏览器质量反馈与候选未交付状态，日志无缺口、观测正常，11个BOSS对象/Redis/缓存已清理。", "33次模型调用657071tokens，回执完整。"], "evidence": ["temporal-alias-regression.json", "internal-final.json", "candidate-archive.json", "failure-browser.png", "log-index.json", "observability.json", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
 
 实际确认的执行轮次：
 
 - `96c62fa3f99b4bdca64fd7a543571116`：使用motion_reference.mp4完成本次候选选择验证。创建两个本地Script Task：candidate复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-002 · 通过
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-04T11:27:43+08:00 → 2026-11-04T11:35:17+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`1de9c64546a64c05879ba28136b92ebe`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793764204.7722366, "findings": ["两个真实视频Task均声明持续动作；仅deliver的alternate角色deliver.mp4正式交付，candidate及primary.mp4未交付。", "同Task的primary.mp4与deliver.mp4权威SHA一致，实际时序取证覆盖deliver.mp4全长，最终Review成功；未选candidate的稀疏证据不阻塞交付。", "数据库37项不变量通过；日志、可观测性、Redis隔离、BOSS加密对象、候选归档及清理完整。", "已查看实际浏览器截图及放大后的状态、历史节点和交付区域；无页面或控制台错误。"], "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "cleanup.json", "candidate-archive.json", "runtime-evidence.json", "log-index.json", "observability.json", "final-browser.png", "artifact-browser.png"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `ccf9e6f0c78e45daaac9007420c1b3e1`：使用motion_reference.mp4完成本次候选选择验证。创建两个本地Script Task：candidate复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-003 · 通过
+
+版本：`deedda4df9cbeaeca7a44877c4c428f50b78646d793e2323c06d7c4d2bd78fce`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-04T11:48:36+08:00 → 2026-11-04T12:04:54+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`36d4aa2cebd04ed98e872a873841ac68`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D41/attempt-003/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793765161.2103655, "findings": ["实际candidate与deliver两个视频Task，deliver包含video/alternate两种角色；最终仅交付alternate对应deliver.mp4。三文件SHA相同，输入素材字节保持。", "实际经历补充注册media.evidence时序取证及再次审查；非法无触发review_again被拒绝，最终在有效审查后交付。Task及最终Review检查所选视频，未将未选candidate强加为最终交付。", "48项数据库不变量通过，11个BOSS对象逐个加密/隔离验证且清理；日志、观测、Redis、候选与运行证据归档完整。", "已查看实际浏览器：3个任务完成，仅deliver.mp4正式交付；浏览器视频播放推进，无页面或控制台错误。"], "evidence": ["state.json", "internal-final.json", "artifact-verification.json", "candidate-archive.json", "runtime-evidence.json", "log-index.json", "observability.json", "cleanup.json", "final-browser.png", "review-browser-detail.png"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `7dca5327ce9d48689252b488c0588ddc`：使用motion_reference.mp4完成本次候选选择验证。创建两个本地Script Task：candidate复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。；Token上限 2000000；外部调用上限 `{}`。

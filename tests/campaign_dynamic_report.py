@@ -15,7 +15,7 @@ except ImportError:
 REPO=Path(__file__).resolve().parents[1]
 ROOT=REPO/'.cluster/campaigns/dynamic-plan'
 DIMENSIONS=('browser','logs','observability','database','cache','boss','candidate_archive','local_cleanup','external_cleanup')
-LABELS={'not_run':'未执行','running':'执行中','passed':'通过','program_failed':'程序缺陷','artifact_failed':'成果验收失败',
+LABELS={'not_run':'未执行','running':'执行中','passed':'通过','program_failed':'程序缺陷','artifact_failed':'成果验收失败','user_stopped':'用户主动中止，未完成验收',
         'handled_failure':'模型/依赖失败已正确处理','blocked':'阻塞或证据不完整','review_required':'待逐例审查','obsolete':'需在当前版本复测'}
 
 def read(path,default=None):
@@ -38,6 +38,7 @@ def attempt(directory,current,spec):
     reviewed=review.get('complete') and review.get('program_behavior_verified') and review.get('browser_verified') and review.get('required_boundary_verified')
     if state.get('status')!='finished':verdict='running'
     elif issues or review.get('outcome')=='program_failed':verdict='program_failed'
+    elif review.get('outcome')=='user_stopped':verdict='user_stopped'
     elif review.get('outcome')=='artifact_failed' or artifact and not artifact.get('passed'):verdict='artifact_failed'
     elif gaps:verdict='blocked'
     elif not reviewed:verdict='review_required'
@@ -134,7 +135,7 @@ def report():
             for label,value in [('执行错误',item['error']),('程序问题',item['issues']),('证据缺口',item['gaps']),('独立成果检查错误',item['artifact_checks'].get('errors')),('审查与修复记录',item['review'])]:
                 if value:lines.extend(['',label+'：'+(value if isinstance(value,str) else json.dumps(value,ensure_ascii=False))])
             if item['failure_classification']:
-                lines.extend(['','失败分类：'+{'program_error':'程序错误','non_program_error':'非程序错误（程序处理正确）','pending_classification':'待归因'}[item['failure_classification']]+'。'])
+                lines.extend(['','结果分类：'+{'program_error':'程序错误','non_program_error':'非程序错误（程序处理正确）','pending_classification':'待归因','user_stopped':'用户主动中止，不能计为模型失败或验收通过'}[item['failure_classification']]+'。'])
             if item['events']:lines.extend(['','实际控制步骤：'+ ' → '.join(e['action'] for e in item['events'])+'。'])
             if item['faults']:lines.extend(['','故障注入：'+ ' → '.join(e['action'] for e in item['faults'])+'。'])
             if item['artifact_checks'].get('checks'):lines.extend(['','独立成果检查值：`'+json.dumps(item['artifact_checks']['checks'],ensure_ascii=False)+'`。'])

@@ -25,6 +25,7 @@ def matches_definition(state,spec,directory):
 def failure_classification(state,internal,review,cleanup=None):
     if review.get('outcome')=='program_failed' or internal.get('program_issues') or state.get('restore_error'):
         return 'program_error'
+    if review.get('outcome')=='user_stopped':return 'user_stopped'
     # Failure attribution and coverage are independent: a known model stop may
     # prevent the required protocol boundary from being reached.
     if (all(review.get(k) for k in ('complete','program_behavior_verified','browser_verified'))
@@ -43,6 +44,8 @@ def status():
             groups['not_run'].append(case['id']);continue
         if state.get('status')!='finished':groups['running'].append(case['id']);continue
         directory=source.parent;review=read(directory/'review.json');artifact=read(directory/'artifact-verification.json');internal=read(directory/'internal-final.json');cleanup=read(directory/'cleanup.json')
+        if failure_classification(state,internal,review,cleanup)=='user_stopped':
+            groups['user_stopped'].append(case['id']);continue
         passed=(state.get('outcome') in ('business_succeeded','protocol_passed') and internal.get('complete') and internal.get('program_passed') and artifact.get('passed',True) and not any(state.get(k) for k in ('audit_error','cleanup_error','restore_error')) and (cleanup.get('complete') or cleanup.get('expected_retention')) and review.get('outcome') not in ('program_failed','artifact_failed','handled_failure'))
         if passed:
             groups['passed'].append(case['id'])
@@ -54,7 +57,7 @@ def status():
             groups['failed'].append({'case':case['id'],'outcome':state.get('outcome'),'error':state.get('error'),
                                     'review':review.get('failure_origin'),'classification':classification,
                                     'required_boundary_verified':bool(review.get('required_boundary_verified'))})
-    keys=('passed','failed','running','not_run','reviewed_pass','pending_review')
+    keys=('passed','failed','running','not_run','reviewed_pass','pending_review','user_stopped')
     return {'at':datetime.now().astimezone().isoformat(timespec='seconds'),'release':release['sha256'][:12],
             'counts':{k:len(groups[k]) for k in keys},
             'failure_counts':{k:len(groups[k]) for k in ('program_error','non_program_error','pending_classification')},
