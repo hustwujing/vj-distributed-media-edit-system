@@ -21,6 +21,10 @@ to changed instructions. A waiting/unknown provider handle must be resolved firs
 
 ## Task and acceptance contracts
 
+- Acceptance `target`, when supplied, is an output type: file/image/media/text/json/subtitle.
+  It is not a filename or output role; put the filename in `file`. Audio and video
+  both use media. `reviewer=program` uses that target as `kind`; reviewer agent/user
+  uses kind agent/review and a nonempty criterion. Do not supply conflicting kind.
 - `script`: complete argv including executable, such as `["python","-c", "actual code"]`;
   declare output filenames and output_roles. Do not set profile, operation,
   implementation or parameters. `/workspace` is read-only: explicitly write to

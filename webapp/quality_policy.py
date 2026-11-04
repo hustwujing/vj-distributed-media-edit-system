@@ -20,7 +20,9 @@ def validate_typed_output_targets(checks,filenames):
 class Acceptance(BaseModel):
     model_config=ConfigDict(extra='forbid',allow_inf_nan=False)
     kind:Literal['file','image','media','text','review','agent','json','subtitle']='file'
-    target: str | None = None
+    target: Literal['file','image','media','text','json','subtitle'] | None = Field(
+        default=None,description='Output type, not a filename, path or role. Use file to select a filename. '
+        'With target present, program reviewer uses that type as kind; agent/user reviewer uses agent/review kind.')
     reviewer: Literal['program','agent','user'] = 'program'
     severity: Literal['required','signal'] = 'required'
     source:Literal['user','technical','product_default','suggestion']='technical'
@@ -57,7 +59,6 @@ class Acceptance(BaseModel):
     def valid(self):
         if self.checker and ('..' in self.checker.split('/') or self.reviewer!='program'):raise ValueError('自定义检查器必须是 edit 内程序检查')
         if self.target is not None:
-            if self.target not in ('file','image','media','text','json','subtitle'):raise ValueError('未知验收对象')
             expected='agent' if self.reviewer=='agent' else 'review' if self.reviewer=='user' else self.target
             if 'kind' in self.model_fields_set and self.kind!=expected:raise ValueError('新旧验收字段冲突')
             self.kind=expected

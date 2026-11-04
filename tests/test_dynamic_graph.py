@@ -56,6 +56,29 @@ class DynamicGraphTests(unittest.TestCase):
         with self.assertRaises(ValueError):graph.create(self.store,self.f.project,self.f.turn,{**self.authorization,'goal':'different'})
         with self.assertRaises(ValueError):graph.create(self.store,self.f.project,self.f.turn,{**self.authorization,'content_fingerprint':'0'*64})
 
+    def test_frozen_manager_schema_exposes_real_acceptance_target_domain(self):
+        from pydantic import ValidationError
+        from webapp.quality_policy import Acceptance
+        self.tick()
+        frozen=json.loads(self.store.query('SELECT snapshot_json FROM planner_runs WHERE run_id=?',(self.run['id'],))[0]['snapshot_json'])
+        target=frozen['proposal_schema']['$defs']['Acceptance']['properties']['target']
+        values=next(item['enum'] for item in target['anyOf'] if 'enum' in item)
+        self.assertEqual(set(values),{'file','image','media','text','json','subtitle'})
+        for value in values:
+            with self.subTest(target=value):
+                extra={'contains':['approved text']} if value=='text' else {}
+                self.assertEqual(Acceptance(target=value,**extra).kind,value)
+                self.assertEqual(Acceptance(target=value,reviewer='agent',criterion='Inspect this output').kind,'agent')
+                self.assertEqual(Acceptance(target=value,reviewer='user',criterion='Confirm this output').kind,'review')
+        for invalid in ('final.png','primary_image','audio','video','unknown'):
+            with self.subTest(invalid=invalid),self.assertRaises(ValidationError) as error:
+                Acceptance(target=invalid)
+            failure=error.exception.errors(include_input=False)[0]
+            self.assertEqual(failure['loc'],('target',))
+            self.assertEqual(failure['type'],'literal_error')
+            self.assertIn('media',failure['msg'])
+        with self.assertRaises(ValidationError):Acceptance(kind='image',target='media')
+
     def test_script_requires_executable_not_flags_for_an_imaginary_tool(self):
         with self.assertRaisesRegex(ValueError,'executable'):
             graph.Task.model_validate(script(argv=['--input-role','source','--output','report.txt']))
