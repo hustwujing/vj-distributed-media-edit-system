@@ -463,7 +463,10 @@ class Gateway:
                 if self.lease:self.lease.consume('transcribe',50)
                 # The native media decoder runs as the unprivileged sandbox user.
                 # The service broker uploads the bounded normalized audio.
-                temporary=self.lease.runtime.path/'data' if self.lease and self.lease.runtime else None
+                # Never fall back to the host's root-backed /tmp. A leased call
+                # owns its runtime data directory; a direct project call owns
+                # only the transcript directory containing the target file.
+                temporary=self.lease.runtime.path/'data' if self.lease and self.lease.runtime else path.parent
                 with tempfile.TemporaryDirectory(dir=temporary) as directory:
                     audio = Path(directory)/'audio.wav'
                     self.extract_audio(asset['filename'], track, audio)

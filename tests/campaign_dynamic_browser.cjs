@@ -497,7 +497,7 @@ async function runCase(browser,spec){
  try{
   const serial=cases.filter(c=>globalHooks.has(c.dynamic_hook));
   const ordinary=cases.filter(c=>!serial.includes(c));let index=0;
-  const concurrency=Math.max(1,Math.min(4,Number(process.env.DYNAMIC_CASE_JOBS||2)));
+  const concurrency=Math.max(1,Math.min(6,Number(process.env.DYNAMIC_CASE_JOBS||2)));
   await Promise.all(Array.from({length:concurrency},async()=>{while(index<ordinary.length&&!pauseNewCases()){const spec=ordinary[index++];await runCase(browser,spec);}}));
   for(const spec of serial){if(pauseNewCases())break;await runCase(browser,spec);}
   if(pauseNewCases())console.log(JSON.stringify({event:'campaign_paused_between_cases',reason:'pause-new-cases marker; unfinished coverage remains not_run'}));

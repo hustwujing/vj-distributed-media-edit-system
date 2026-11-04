@@ -40,6 +40,8 @@ MEDIA=[f'{NAMESPACE}-media@{n}.service' for n in PORTS]
 ORCHESTRATOR=NAMESPACE+'-orchestrator.service'
 OBSERVER=NAMESPACE+'-observer.service'
 SERVICES=APIS+WORKERS+REAPERS+MEDIA+[ORCHESTRATOR,OBSERVER]
+CAPACITY_ENV={'VIDEO_USE_CONCURRENCY':'4','VIDEO_USE_NODE_CONCURRENCY':'4','VIDEO_USE_USER_CONCURRENCY':'8',
+              'VIDEO_USE_NODE_CPU_SLOTS':'12','VIDEO_USE_NODE_MEMORY_MB':'49152'}
 run=templates.run
 env_file=templates.env_file
 private_env=templates.private_env
@@ -91,13 +93,13 @@ def configure(seed):
             'VIDEO_USE_DEPLOYMENT':NAMESPACE,'VIDEO_USE_DISTRIBUTED':'1',
             'VIDEO_USE_DATABASE_URL':f'postgresql://{ROLE}:{secrets.token_hex(24)}@127.0.0.1:{PG_PORT}/{DATABASE}',
             'VIDEO_USE_SESSION_SECRET':secrets.token_hex(32),'VIDEO_USE_AGENT_STREAM_PREFIX':'distributed-agent-system:events:',
-            'VIDEO_USE_CANCEL_POLL_SECONDS':'.5','VIDEO_USE_DRAIN_SECONDS':'30','VIDEO_USE_CONCURRENCY':'2',
-            'VIDEO_USE_NODE_CONCURRENCY':'2','VIDEO_USE_USER_CONCURRENCY':'4','VIDEO_USE_NODE_CPU_SLOTS':'6',
-            'VIDEO_USE_NODE_MEMORY_MB':'24576','VIDEO_USE_TASK_MEMORY_BYTES':str(12*1024**3),
+            'VIDEO_USE_CANCEL_POLL_SECONDS':'.5','VIDEO_USE_DRAIN_SECONDS':'30',**CAPACITY_ENV,
+            'VIDEO_USE_TASK_MEMORY_BYTES':str(12*1024**3),
             'VIDEO_USE_TASK_DISK_BYTES':str(2*1024**3),'VIDEO_USE_WORKSPACE_STORAGE':'disk',
             'VIDEO_USE_GPU_LEASE_ROOT':'/data/wujing03/.media-gpu-leases',
             'VIDEO_USE_EXPECT_ORCHESTRATOR':'1','VIDEO_USE_OBSERVATION_API_PORTS':','.join(map(str,PORTS.values()))})
     private_env(REPO/'.distributed.env',{**env_file(REPO/'.distributed.env'),
+        **CAPACITY_ENV,
         'VIDEO_USE_OBSERVATION_API_PORTS':','.join(map(str,PORTS.values())),
         'VIDEO_USE_DYNAMIC_WORKFLOW':'1'})
     if not (CONF/'observation.env').exists():

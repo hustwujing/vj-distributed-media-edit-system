@@ -51,6 +51,8 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 | 私有配置 / 运行目录 | `/etc/distributed-agent-system` / 本仓库 `.cluster` |
 | 执行节点注册目录 | `/data2/wujing03/da-exec/a`、`b` |
 
+当前隔离实例按两个执行节点、每节点4个沙箱配置，总沙箱准入8；每节点12个CPU slot和48 GiB内存准入，单任务内存上限仍为12 GiB。真机驱动最多并发6条普通case，故障注入和独占资源case仍按驱动规则串行。实际调度还受用户、Provider并发组及节点实时资源限制。
+
 `deploy.sh` 只管理此实例。它复用已有 PostgreSQL、Redis、BOSS 服务，但不重启 main 服务、不写 main 数据，也不使用 main 的会话 Cookie。运行需 root 及已有主机依赖；首次配置从同机现有私有配置读取共享依赖连接信息，并生成独立密钥、账号和命名空间。凭据不纳入 Git。
 
 ```bash

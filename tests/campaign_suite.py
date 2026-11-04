@@ -8,7 +8,7 @@ def main():
  p.add_argument('action',choices=['list','run','report'])
  p.add_argument('--group',choices=['all','original','intervention','dynamic'],default='all')
  p.add_argument('--cases',default='all');p.add_argument('--repeat',type=int,default=1)
- p.add_argument('--jobs',type=int,choices=[1,2,3,4],default=1)
+ p.add_argument('--jobs',type=int,choices=[1,2,3,4,5,6],default=1)
  p.add_argument('--base',default='http://127.0.0.1/distributed-agent-system')
  a=p.parse_args()
  if urlsplit(a.base).path.rstrip('/')!='/distributed-agent-system':p.error('Only the isolated deployment path is allowed')

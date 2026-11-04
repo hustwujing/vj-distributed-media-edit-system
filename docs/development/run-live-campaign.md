@@ -11,6 +11,8 @@
 
 开始前核对冻结源码、case manifest、驱动及部署摘要，确认目标是独立实例，素材和证据位于 `/data2/wujing03`。正在进行的轮次不能静默更换代码、模型或验收标准。修复后建立新的版本绑定并保留首次失败；测试前已存在的暂停不得自行解除。
 
+普通case并发不得超过驱动和部署的双重上限；增加浏览器jobs时同步核对执行节点沙箱数、CPU/内存准入、用户并发及Provider并发组。并发增加不适用于全局故障注入和独占资源case。容量变更需要新源码/配置摘要、门禁、部署和source lock，不能在进行中的冻结轮次里静默切换。
+
 本轮约定的业务模型为 `claude-4.6-sonnet`，推理强度 `high`，专业角色使用 `structured-profile-v3`。驱动提交前核对 `model_protocol_policy=native_commands_strict_preferred`，创建后核对 Run 的 `model_configuration`，保存实际配置摘要。服务能力策略、Run 冻结配置和每次请求实际 strict/回退是三种不同证据；只核对一个字段不能证明全部生效。
 
 改变模型默认值不能追溯修改已有 Run 或重标历史结果。预算边界用例保留设计中的低额度，不能为了让模型执行而放宽；模型选择部署 smoke 不替代正式媒体 case。
