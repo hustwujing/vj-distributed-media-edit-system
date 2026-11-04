@@ -54,8 +54,8 @@ const save=value=>fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(
   result.submitted_choice=responseRun.request().postDataJSON().model_choice;result.frozen_model=run.model_configuration;
   assert.equal(result.frozen_model.model,'deepseek-v4.1-flash');assert.equal(result.frozen_model.reasoning_effort,'low');
   const end=Date.now()+90000;let state;
-  while(Date.now()<end){state=await (await context.request.get(`${base}/api/projects/${project}/runs/${runId}`)).json();if(state.terminal_reason==='budget_exhausted')break;await page.waitForTimeout(500);}
-  assert.equal(state.terminal_reason,'budget_exhausted');
+  while(Date.now()<end){state=await (await context.request.get(`${base}/api/projects/${project}/runs/${runId}`)).json();if(state.terminal_reason==='model_token_budget_exhausted')break;await page.waitForTimeout(500);}
+  assert.equal(state.terminal_reason,'model_token_budget_exhausted');
   const usage=await (await context.request.get(`${base}/api/projects/${project}/runs/${runId}/usage`)).json();
   result.generated_model_calls=usage.counts.llm.calls;assert.equal(result.generated_model_calls,0);
   const changedDefault=await context.request.put(`${base}/api/projects/${project}/agent/profile`,{data:{profile:'claude'}});assert.equal(changedDefault.status(),200);
