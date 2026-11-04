@@ -2,7 +2,7 @@
 from __future__ import annotations
 import argparse,collections,concurrent.futures,copy,dataclasses,hashlib,json,os,sqlite3,sys,time
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]
+ROOT=Path(os.environ.get('MODEL_EVAL_CODE_ROOT',Path(__file__).resolve().parents[1]))
 sys.path.insert(0,str(ROOT))
 from webapp import workflow_graph as graph
 from webapp.workflow_model_protocol import ToolProtocol,scopes
@@ -202,6 +202,8 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
                 if strict and strict_unsupported(r.status_code,payload):strict=False;record['fallback']='non_strict_tools';calls.append(record);save(directory/f'call-{turn}.json',record);continue
                 calls.append(record);save(directory/f'call-{turn}.json',record);break
             record['usage']=payload.get('usage');record['response_status']=payload.get('status') or payload.get('stop_reason')
+            response_model=payload.get('model')
+            if isinstance(response_model,str):record['response_model']=response_model[:200]
             record['response_strict_settings']=[tool.get('strict','omitted') for tool in payload.get('tools',[]) if tool.get('type')=='function']
             receipt=adapter.receipt();receipt.feed(graph.encode(payload).encode());receipt.finish();record['usage_normalized']=receipt.usage
             usage=record['usage'] or {};record['output_usage_suspect']=usage.get('output_tokens',usage.get('completion_tokens'))==0
