@@ -28,6 +28,29 @@ class TemporalEvidenceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'timestamped'):
             validate_temporal_evidence(decision,self.snapshot(),[{**self.record([0,7.5]),'id':'b'*32}])
 
+    def test_final_review_only_requires_evidence_for_selected_delivery_tasks(self):
+        snapshot=self.snapshot();snapshot['review_scope']='final'
+        selected=snapshot['tasks'][0];selected['spec']['delivery_stage']=True
+        selected['accepted_result']=['clip.mp4'];selected['candidate_result']=[]
+        unselected={**selected,'accepted_result':['alternate.mp4'],
+            'quality':{'output_roles':{'video':'alternate.mp4'}}}
+        snapshot['tasks'].insert(0,unselected)
+        decision={'verdict':'pass','deliverables':['clip.mp4'],'evidence':[{'inspection_id':'a'*32}]}
+        records=[self.record([i*.5 for i in range(16)])]
+        validate_temporal_evidence(decision,snapshot,records)
+        with self.assertRaisesRegex(ValueError,'timestamped'):
+            validate_temporal_evidence({**decision,'deliverables':['clip.mp4','alternate.mp4']},snapshot,records)
+        with self.assertRaisesRegex(ValueError,'sparse'):
+            validate_temporal_evidence(decision,snapshot,[self.record([0,4,7.5])])
+
+    def test_selecting_a_report_cannot_bypass_a_delivery_tasks_temporal_gate(self):
+        snapshot=self.snapshot();snapshot['review_scope']='final'
+        task=snapshot['tasks'][0];task['spec']['delivery_stage']=True
+        task['accepted_result']=['clip.mp4','report.json'];task['candidate_result']=[]
+        decision={'verdict':'pass','deliverables':['report.json'],'evidence':[{'inspection_id':'a'*32}]}
+        with self.assertRaisesRegex(ValueError,'verified video candidates'):
+            validate_temporal_evidence(decision,snapshot,[self.record([i*.5 for i in range(16)])])
+
     def test_actual_video_window_has_bounded_timestamped_frames(self):
         with tempfile.TemporaryDirectory() as folder:
             source=Path(folder)/'clip.mp4'

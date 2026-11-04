@@ -112,6 +112,8 @@ def validate_temporal_evidence(decision,snapshot,records):
         semantics=task['spec'].get('semantics',{}).get('temporal',[])
         if not semantics or snapshot.get('review_scope')=='final' and not task['spec'].get('delivery_stage'):continue
         files=set(task['candidate_result']+task['accepted_result'])
+        if snapshot.get('review_scope')=='final' and not files.intersection(decision['deliverables']):
+            continue
         video_role=task['quality'].get('output_roles',{}).get('video')
         video_paths={video_role} if video_role in files else {item['name'] for item in task['quality'].get('files',[]) if item.get('video') and item['name'] in files}
         if snapshot.get('review_scope')=='final':video_paths &= set(decision['deliverables'])
