@@ -34,7 +34,9 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 - **可追踪失败**：保留错误分类、执行证据、用量、清理状态；模型判断不能覆盖程序完整性约束。
 - **类型化媒体语义**：音轨存在、静音、响度、文本匹配、Alpha/蒙版、主体范围、一致性和动作时序分别表达。多片段拼接和常用音频处理走受控 operation，并记录资源与测量报告。
 
-部署形态为单机多实例，支持节点接管；它不提供整机故障容灾。专业 Agent 默认使用注册的 `structured-profile-v4` 工具循环：Manager 通过类型化命令修改 snapshot 绑定的 PlanDraft，`commit_plan` 原子编译为权威 Proposal；strict 优先、明确不支持时回退，本地校验始终执行。底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
+部署形态为单机多实例，支持同机节点接管；它不提供整机故障容灾。当前 observe collector 也只覆盖这种单机拓扑：它跟随本机 systemd journal，探测本机 API、GPU、内存和磁盘，并将索引保存到本地 SQLite；整机失联时无法自行对外告警。结构化遥测协议和任务诊断模型可以复用，但跨物理机部署必须另行接入各机采集 Agent、中央日志/指标后端和独立外部告警，不能直接沿用当前 collector 宣称全集群可观测。
+
+专业 Agent 默认使用注册的 `structured-profile-v4` 工具循环：Manager 通过类型化命令修改 snapshot 绑定的 PlanDraft，`commit_plan` 原子编译为权威 Proposal；strict 优先、明确不支持时回退，本地校验始终执行。底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
 
 ## 本机隔离部署
 
