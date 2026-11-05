@@ -18,6 +18,9 @@ def main():
  a=p.parse_args()
  if urlsplit(a.base).path.rstrip('/')!='/distributed-agent-system':p.error('Only the isolated deployment path is allowed')
  manifest=json.loads((ROOT/'docs/real-case-campaign/dynamic-cases.json').read_text())
+ if a.action=='run' and a.cases=='all':
+  release=json.loads((ROOT/'.cluster/release.json').read_text())
+  if release.get('verification')!='full_gate':p.error('A full campaign requires a release marked verification=full_gate')
  cases=[c for c in manifest['cases'] if a.group=='all' or (a.group=='original' and c['id'][0] in 'SC') or (a.group=='intervention' and c['id'].startswith('R')) or (a.group=='dynamic' and c['id'].startswith('D'))]
  if a.cases!='all':
   wanted=set(a.cases.split(','));cases=[c for c in cases if c['id'] in wanted]

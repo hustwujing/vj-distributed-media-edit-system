@@ -412,11 +412,13 @@ def reset_database():
          '-h',PG_SOCKET,'-p',str(PG_PORT),'-d',DATABASE],input=sql)
 
 
-def deploy(seed,*,reset=False):
+def deploy(seed,*,reset=False,targeted_unverified=False):
     configure(seed);prepare_database()
     source,sha=freeze();prepare_runtime(source)
-    try:gate(source)
-    except (FileNotFoundError,ValueError):verify(source);gate(source)
+    if targeted_unverified:validate_isolation(environment(source=source))
+    else:
+        try:gate(source)
+        except (FileNotFoundError,ValueError):verify(source);gate(source)
     if any(active(s) for s in APIS+WORKERS+[ORCHESTRATOR]):stop()
     if active(OBSERVER):run(['systemctl','stop',OBSERVER])
     backup=ROOT/'backups'/time.strftime('%Y%m%dT%H%M%S');backup.mkdir(parents=True,mode=0o700)
@@ -431,7 +433,8 @@ def deploy(seed,*,reset=False):
     if active(OBSERVER):run(['systemctl','restart',OBSERVER])
     start()
     private_env(ROOT/'runtime.env',{'VIDEO_USE_DEPLOYMENT':NAMESPACE})
-    (ROOT/'release.json').write_text(json.dumps({'source':str(source),'sha256':sha,'deployed_at':time.time(),'namespace':NAMESPACE},indent=2)+'\n')
+    (ROOT/'release.json').write_text(json.dumps({'source':str(source),'sha256':sha,'deployed_at':time.time(),'namespace':NAMESPACE,
+        'verification':'targeted_only' if targeted_unverified else 'full_gate'},indent=2)+'\n')
     print('Independent dynamic workflow deployment ready: '+ENTRY+'/')
 
 
@@ -440,12 +443,13 @@ def main():
     parser.add_argument('action',choices=['deploy','configure','start','stop','restart','status','check'],nargs='?',default='status')
     parser.add_argument('--seed-from',type=Path,default=Path('/data2/wujing03/video-use'))
     parser.add_argument('--reset-database',action='store_true',help='After stopping dedicated services and backing up, replace only the dedicated schema; unresolved calls block reset')
+    parser.add_argument('--targeted-unverified',action='store_true',help='Isolated targeted retest only: deploy without a full gate and mark the release ineligible for a full campaign')
     args=parser.parse_args();os.chdir(REPO)
-    if args.reset_database and args.action!='deploy':parser.error('--reset-database requires deploy')
+    if (args.reset_database or args.targeted_unverified) and args.action!='deploy':parser.error('--reset-database and --targeted-unverified require deploy')
     if os.geteuid()!=0:raise SystemExit('Deployment requires root')
     with open('/run/distributed-agent-system-control.lock','a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        if args.action=='deploy':deploy(args.seed_from,reset=args.reset_database)
+        if args.action=='deploy':deploy(args.seed_from,reset=args.reset_database,targeted_unverified=args.targeted_unverified)
         elif args.action=='configure':configure(args.seed_from);prepare_database()
         elif args.action=='restart':stop();start()
         elif args.action=='check':gate(release());health()
