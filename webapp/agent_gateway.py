@@ -99,6 +99,8 @@ class Gateway:
         self.calls = 0
         self.transcribe_lock = threading.Lock()
         self.lock = threading.Lock()
+        from .gateway_business import GatewayBusinessCore
+        self.business=GatewayBusinessCore(self)
         outer = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -152,45 +154,14 @@ class Gateway:
                     if outer.allowed_paths is not None and path not in outer.allowed_paths:
                         self.reply(403,{'error':'This operation is not authorized for this task'})
                         return
-                    if path == '/context':
-                        if not outer.lease or outer.lease.kind != 'agent':
-                            self.reply(403, {'error':'Public context requires an active Agent task'})
-                        else:
-                            from .harness_context import lookup
-                            row=outer.lease.store.query('SELECT project FROM agent_turns WHERE id=?',(outer.lease.run_id,))[0]
-                            result=lookup(outer.lease.store,row['project'],body)
-                            outer.check()
-                            self.reply(200,result)
-                    elif path in ('/workflow/proposal','/workflow/agent-result'):
-                        from .workflow_gateway import submit
-                        self.reply(200,submit(outer.lease,'proposal' if path.endswith('/proposal') else 'result',body))
-                    elif path=='/workflow/inspect':
-                        if outer.broker:self.reply(200,outer.broker.request('workflow_inspect',body))
-                        else:
-                            from .workflow_gateway import inspect
-                            self.reply(200,inspect(outer,body))
+                    if outer.business.supports(path):
+                        write_gateway_result(self,outer.business.dispatch_value(path,body))
                     elif path == '/transcribe':
                         outer.transcribe(self, body)
                     elif path in ('/image-edit','/image-tools'):
                         outer.image_edit(self, body)
                     elif path == '/canvas-edit':
                         outer.canvas_edit(self,body)
-                    elif path == '/workflow' and outer.workflow_callback:
-                        if not isinstance(body, dict) or body.get('action') not in ('submit', 'status','validate','decision','capabilities','intent','preflight'):
-                            self.reply(422, {'error':'Invalid workflow action'})
-                        elif body['action'] == 'submit' and outer.mode != 'execute':
-                            self.reply(403, {'error':'请先确认方案'})
-                        else:
-                            try:self.reply(200, outer.workflow_callback(body))
-                            except TaskQuotaReached:raise
-                            except ValueError as exc:self.reply(422, {'error':str(exc)[:8000]})
-                    elif path in ('/responses', '/v1/responses'):
-                        if outer.model_adapter.protocol!='responses':self.reply(400,{'error':'Model protocol does not match frozen task configuration'})
-                        else:write_gateway_result(self,outer.forward_result(body))
-                    elif path in ('/messages','/v1/messages','/chat/completions','/v1/chat/completions'):
-                        expected='anthropic' if path.endswith('/messages') else 'chat_completions'
-                        if outer.model_adapter.protocol!=expected:self.reply(400,{'error':'Model protocol does not match frozen task configuration'})
-                        else:write_gateway_result(self,outer.forward_result(body))
                     else:
                         self.reply(404, {'error':'Unsupported gateway endpoint'})
                 except TaskQuotaReached as exc:

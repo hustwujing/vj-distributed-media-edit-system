@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import Mock,patch
 import threading
+import contextlib
+import json
 
 from webapp.gateway_business import GatewayBusinessCore
 from webapp.gateway_contracts import GatewayResult
@@ -11,17 +13,22 @@ class GatewayBusinessTests(unittest.TestCase):
         for protocol,expected in [('responses',{'/responses','/v1/responses'}),
                                   ('anthropic',{'/messages','/v1/messages'}),
                                   ('chat_completions',{'/chat/completions','/v1/chat/completions'})]:
-            gateway=Mock();gateway.model_adapter.protocol=protocol
-            self.assertEqual(set(GatewayBusinessCore(gateway).handlers()),expected)
+            gateway=Mock();gateway.model_adapter.protocol=protocol;gateway.workflow_callback=None
+            routes=set(GatewayBusinessCore(gateway).handlers())
+            self.assertTrue(expected<=routes)
+            all_model={'/responses','/v1/responses','/messages','/v1/messages',
+                       '/chat/completions','/v1/chat/completions'}
+            self.assertEqual(routes&all_model,expected)
 
     def test_model_handler_reuses_gateway_result_and_rejects_invalid_json(self):
-        gateway=Mock();gateway.model_adapter.protocol='responses'
+        gateway=Mock();gateway.model_adapter.protocol='responses';gateway.workflow_callback=None
+        gateway.lease=None;gateway.check=Mock()
         expected=GatewayResult(200,{},[b'ok'],lambda:None);gateway.forward_result.return_value=expected
         core=GatewayBusinessCore(gateway)
         self.assertIs(core.handlers()['/v1/responses'](b'{"input":[]}',Mock()),expected)
         gateway.forward_result.assert_called_once_with({'input':[]})
         for body in (b'{',b'[]'):
-            with self.assertRaises(ValueError):core.model(body,Mock())
+            with self.assertRaises(ValueError):core.decode(body)
 
     def test_shared_model_result_owns_provider_and_usage_stream_lifetime(self):
         from webapp.agent_gateway import Gateway
@@ -51,13 +58,32 @@ class GatewayBusinessTests(unittest.TestCase):
             task_id='task',attempt_id='attempt',generation=1,sandbox_id='sandbox',
             source_ip='172.30.0.8',routes={'/v1/responses'},expires_at=200,
             max_calls=1,max_request_bytes=100,max_response_bytes=100)
-        gateway=Mock();gateway.model_adapter.protocol='responses'
+        gateway=Mock();gateway.model_adapter.protocol='responses';gateway.workflow_callback=None
+        gateway.lease=None;gateway.check=Mock()
         closed=[];gateway.forward_result.return_value=GatewayResult(200,{},[b'ok'],lambda:closed.append(True))
         core=NodeGatewayCore(NodeGatewayAuthorizer(store),GatewayBusinessCore(gateway).handlers())
         headers={'Authorization':'Bearer '+issued.token,'X-Video-Use-Attempt':'attempt',
             'X-Video-Use-Generation':'1','X-Video-Use-Sandbox':'sandbox'}
         result=core.dispatch(headers,'/v1/responses','172.30.0.8',b'{"input":[]}')
         self.assertEqual(b''.join(result),b'ok');self.assertEqual(closed,[True])
+
+    def test_context_and_workflow_routes_share_lease_bound_business_methods(self):
+        gateway=Mock();gateway.model_adapter.protocol='responses';gateway.mode='plan';gateway.broker=None
+        gateway.workflow_callback=Mock(return_value={'status':'ready'});gateway.check=Mock()
+        lease=Mock();lease.kind='agent';lease.run_id='task';lease.bind.return_value=contextlib.nullcontext()
+        lease.store.query.return_value=[{'project':'project'}];gateway.lease=lease
+        core=GatewayBusinessCore(gateway)
+        with patch('webapp.harness_context.lookup',return_value={'turns':[]}) as lookup:
+            result=core.dispatch_value('/context',{'action':'turns'})
+        self.assertEqual(json.loads(b''.join(result.chunks)),{'turns':[]})
+        lookup.assert_called_once_with(lease.store,'project',{'action':'turns'})
+        denied=core.dispatch_value('/workflow',{'action':'submit'})
+        self.assertEqual(denied.status,403);gateway.workflow_callback.assert_not_called()
+        invalid=core.dispatch_value('/workflow',{'action':'unknown'})
+        self.assertEqual(invalid.status,422)
+        accepted=core.dispatch_value('/workflow',{'action':'status'})
+        self.assertEqual(json.loads(b''.join(accepted.chunks)),{'status':'ready'})
+        self.assertGreaterEqual(gateway.check.call_count,4)
 
 
 if __name__=='__main__':unittest.main()
