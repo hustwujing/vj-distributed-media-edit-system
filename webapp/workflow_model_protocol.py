@@ -121,6 +121,29 @@ def required_delivery_extensions(frozen):
         r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',text)}
 
 
+def bind_explicit_delivery_names(raw,filenames,roles,frozen):
+    """Compile one unambiguous requested basename into an Agent file contract."""
+    from pathlib import PurePosixPath
+    aliases={'jpg':'jpeg'}
+    def extension(name):
+        suffix=PurePosixPath(name).suffix.lstrip('.').lower()
+        return aliases.get(suffix,suffix)
+    requested={}
+    for name in required_delivery_names(frozen):requested.setdefault(extension(name),[]).append(name)
+    candidates={}
+    for name in filenames:candidates.setdefault(extension(name),[]).append(name)
+    replacements={values[0]:requested[kind][0] for kind,values in candidates.items()
+                  if len(values)==1 and len(requested.get(kind,[]))==1
+                  and PurePosixPath(values[0]).name!=requested[kind][0]}
+    for old,new_name in replacements.items():
+        path=PurePosixPath(old);new=str(path.with_name(new_name))
+        filenames[filenames.index(old)]=new
+        for role,value in list(roles.items()):
+            if value==old:roles[role]=new
+        for check in raw.get('acceptance',[]):
+            if check.get('file')==old:check['file']=new
+
+
 def required_delivery_roles(frozen):
     import re
     text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[])])
@@ -421,7 +444,9 @@ def compile_manager(command,frozen):
                 for role in item['roles']:
                     if role in roles:raise CommandError('duplicate_output_role','plan.new_tasks.files.roles','Each role identifies exactly one file')
                     roles[role]=item['path']
-            if task['type']!='operation':raw.update(outputs=outputs,output_roles=roles)
+            if task['type']!='operation':
+                bind_explicit_delivery_names(raw,outputs,roles,frozen)
+                raw.update(outputs=outputs,output_roles=roles)
             bind_explicit_delivery_formats(raw,contract_filenames if task['type']=='operation' else outputs,frozen,
                                            role_filenames if task['type']=='operation' else roles)
             if 'delivery_stage' not in raw:
@@ -443,6 +468,7 @@ def compile_manager(command,frozen):
                     for role in item['roles']:
                         if role in roles:raise CommandError('duplicate_output_role','plan.changes.set.files.roles','Each role identifies exactly one file')
                         roles[role]=item['path']
+                bind_explicit_delivery_names(patch,outputs,roles,frozen)
                 patch.update(outputs=outputs,output_roles=roles)
             if identifier in seen:raise CommandError('duplicate_change','plan.changes','Change each Task at most once')
             seen.add(identifier)

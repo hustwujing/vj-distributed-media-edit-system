@@ -34,6 +34,19 @@ class ModelCommandTests(unittest.TestCase):
                'user_changes':[{'content':'Keep evidence.json internal only; deliver final.mp4.'}]}
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
 
+    def test_unique_requested_basename_is_host_compiled_for_agent_revision(self):
+        task={'id':'render','type':'agent','profile':'editing_implementer','name':'Export','objective':'Export video',
+              'outputs':['old.mp4'],'output_roles':{'video':'old.mp4'},'acceptance':[{'kind':'media','file':'old.mp4'}],
+              'basic_reason':'export','delivery_stage':True}
+        value=frozen(task,user=True);value['user_changes']=[{'content':'Deliver final.mp4 and cover.png.'}]
+        command={'kind':'COMPLETE','reason':'Apply requested names','plan':{'changes':[{'task_id':'render','set':{
+            'files':[{'path':'export.mp4','roles':['video']},{'path':'cover.png','roles':['cover']}],
+            'acceptance':[{'kind':'media','file':'export.mp4'},{'kind':'image','file':'cover.png'}],
+            'objective':'Export video and cover'}}]}}
+        revised=compile_manager(command,value)['proposal']['revise_tasks'][0]
+        self.assertEqual(revised['outputs'],['final.mp4','cover.png'])
+        self.assertEqual(revised['output_roles'],{'video':'final.mp4','cover':'cover.png'})
+
     def test_explicit_output_extensions_promote_matching_files_to_delivery(self):
         f=frozen(False);f['goal']='Deliver the edited PNG with original JSON and TXT records'
         task={'id':'records','type':'agent','profile':'editing_implementer','name':'Records','objective':'Write records',
