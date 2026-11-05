@@ -19,7 +19,8 @@ def temporary_root():
 def isolate_environment(root, runtime_build=None):
     root=Path(root)
     keep={'VIDEO_USE_TEST_REAL_MODELS','VIDEO_USE_TEST_SUITE_LOCK','VIDEO_USE_WORKSPACE_STORAGE',
-          'VIDEO_USE_GPU_MANAGER_PATH','VIDEO_USE_GPU_LEASE_ROOT','VIDEO_USE_GPU_DEVICES','VIDEO_USE_CODEX_BIN'}
+          'VIDEO_USE_GPU_MANAGER_PATH','VIDEO_USE_GPU_LEASE_ROOT','VIDEO_USE_GPU_DEVICES','VIDEO_USE_CODEX_BIN',
+          'VIDEO_USE_SOCKET_ROOT'}
     for name in list(os.environ):
         upper=name.upper()
         external=(name.startswith(('VIDEO_USE_','AWS_','PG')) or upper in {
