@@ -33,6 +33,17 @@ class ModelCommandTests(unittest.TestCase):
         finals={(check['file'],check['source'],check['stage']) for check in compiled['acceptance'] if check['stage']=='final'}
         self.assertEqual(finals,{('ocr.json','user','final'),('ocr.txt','user','final')})
 
+    def test_explicit_png_does_not_promote_an_operation_preview(self):
+        from webapp.operations import catalog
+        operation=next(item for item in catalog()['operations'] if item['id']=='image.ocr')
+        f=frozen(False);f['goal']='Deliver the final PNG with original JSON record';f['operations']=[operation]
+        task={'id':'ocr','type':'operation','name':'OCR','objective':'Read text','operation':'image.ocr',
+              'inputs':{'source':{'asset':'asset'}},'parameters':{},'acceptance':[]}
+        result=compile_manager({'kind':'APPLY_PLAN','reason':'Read text','plan':{'new_tasks':[task]}},f)
+        compiled=result['proposal']['add_tasks'][0]
+        finals={(check['file'],check['source']) for check in compiled['acceptance'] if check['stage']=='final'}
+        self.assertEqual(finals,{('ocr.json','user')})
+
     def test_unique_equivalent_delivery_task_replaces_the_old_leaf(self):
         old={'id':'old','type':'agent','profile':'editing_implementer','name':'Old','objective':'Old attempt',
              'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
