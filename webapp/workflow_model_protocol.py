@@ -71,6 +71,22 @@ def change_fields(task_type,user=False):
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage')
 
 
+def delivery_acceptance_signature(spec):
+    from .quality_policy import Acceptance
+    def normalize(value):
+        if isinstance(value,bool) or value is None:return value
+        if isinstance(value,(int,float)):return float(value)
+        if isinstance(value,list):return [normalize(item) for item in value]
+        if isinstance(value,dict):return {key:normalize(item) for key,item in value.items()}
+        return value
+    checks=[]
+    for raw in spec.get('acceptance',[]):
+        check=Acceptance.model_validate(raw).model_dump()
+        if check.get('source','user')!='user' or check.get('stage')!='final' or check.get('reviewer')!='program':continue
+        checks.append(normalize({key:value for key,value in check.items() if key not in ('file','criterion','source','stage')}))
+    return graph.digest(checks) if spec.get('delivery_stage') and checks else None
+
+
 def operation_acceptance(contract,parameters):
     roles=list(contract.get('outputs',[]));alternatives=contract.get('output_contract',{}).get('alternatives',[])
     filenames=contract.get('output_contract',{}).get('filenames')
@@ -370,16 +386,26 @@ def compile_manager(command,frozen):
             for ref in task.get('inputs',{}).values():
                 if ref.get('step') and (ref['step'],task['id']) not in edge_keys:
                     dependencies.append({'upstream':ref['step'],'downstream':task['id']});edge_keys.add((ref['step'],task['id']))
+        replacements=dict(plan.get('replacements',{}))
+        if frozen['graph_version']>0:
+            existing_replaced=set(replacements)
+            for task in added:
+                signature=delivery_acceptance_signature(task)
+                if not signature or task['id'] in replacements.values():continue
+                matches=[identifier for identifier,row in current.items()
+                         if identifier not in existing_replaced and delivery_acceptance_signature(row['spec'])==signature]
+                if len(matches)==1:
+                    replacements[matches[0]]=task['id'];existing_replaced.add(matches[0])
         changed={task['id'] for task in added}|{task['id'] for task in revisions}
         changed|={identifier for identifier in plan.get('review_again',{}) if identifier in current}
-        changed={plan.get('replacements',{}).get(identifier,identifier) for identifier in changed}
+        changed={replacements.get(identifier,identifier) for identifier in changed}
         waiting=sorted(identifier for identifier in changed if not any(edge['upstream']==identifier and edge['downstream'] in changed for edge in dependencies))
         if result['kind']=='APPLY_PLAN' and not waiting:
             raise CommandError('missing_wait_work','plan','APPLY_PLAN requires a new, revised, replaced or review_again Task; use continue_run when no graph change is needed')
         result['proposal']={'proposal_id':frozen['planning_request_id'],'base_graph_version':frozen['graph_version'],
             'reason':command['reason'],'add_tasks':added,'revise_tasks':revisions,
             'add_dependencies':dependencies,'remove_dependencies':plan.get('remove_dependencies',[]),
-            'replacements':plan.get('replacements',{}),'review_again':plan.get('review_again',{}),
+            'replacements':replacements,'review_again':plan.get('review_again',{}),
             'sealed':result['kind']=='COMPLETE','replan_after':waiting if result['kind']=='APPLY_PLAN' else []}
     return graph.ManagerResult.model_validate(result).model_dump()
 
