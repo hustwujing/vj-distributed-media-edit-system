@@ -76,6 +76,31 @@ class OpenSandboxBackendTests(unittest.TestCase):
         runtime.cleanup();self.assertTrue(client.closed);self.assertTrue(self.sdk.session.closed)
         self.assertEqual(self.revoked,[True])
         self.assertEqual(self.lifecycle.deleted[-1][0],'sbx-1')
+        runtime.cleanup()
+        self.assertEqual(self.revoked,[True]);self.assertEqual(len(self.lifecycle.deleted),1)
+
+    def test_begin_cleanup_revokes_gateway_before_sandbox_deletion(self):
+        runtime=self.backend.start(self.lease,self.binding,{'cpu':1,'memory_mb':512},self.spec,
+            lambda files:None,lambda event:None)
+        runtime.begin_cleanup();runtime.begin_cleanup()
+        self.assertEqual(self.revoked,[True]);self.assertEqual(self.lifecycle.deleted,[])
+        runtime.cleanup();self.assertEqual(len(self.lifecycle.deleted),1)
+
+    def test_revoke_failure_does_not_skip_sandbox_deletion_and_is_retryable(self):
+        attempts=[]
+        def grant(identity):
+            material=GatewayGrant('https://172.30.0.1:18880','g'*48,b'ca',('/context',))
+            def revoke():
+                attempts.append(True)
+                if len(attempts)<2:raise OSError('temporary revoke failure')
+            return RuntimeGatewayGrant(material,revoke)
+        spec=AgentRuntimeSpec('codex','model-1','high','sha256:'+'c'*64,
+            'gateway-v1',{'model':'model-1'},grant)
+        runtime=self.backend.start(self.lease,self.binding,{'cpu':1,'memory_mb':512},spec,
+            lambda files:None,lambda event:None)
+        runtime.begin_cleanup();self.assertEqual(len(attempts),1)
+        runtime.cleanup();self.assertEqual(len(attempts),2)
+        self.assertEqual(len(self.lifecycle.deleted),1)
 
     def test_restore_failure_closes_and_deletes_partial_sandbox(self):
         with self.assertRaises(OpenSandboxProvisioningError) as failed:

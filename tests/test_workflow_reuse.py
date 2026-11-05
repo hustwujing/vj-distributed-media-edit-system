@@ -69,7 +69,7 @@ class ReuseTests(unittest.TestCase):
         shutil.copyfile(self.store.project_dir(self.project)/'sources/words.json',workspace/'sources/words.json')
         runtime=SimpleNamespace(store=self.store,lease=lease,project=self.store.project_dir(self.project),workspace=workspace,
             path=workspace,uid=os.getuid(),gid=os.getgid(),service_uid=os.getuid(),service_gid=os.getgid(),limit=limit,
-            quiesce=lambda:None)
+            quiesce=lambda:None,revoked=lambda:False)
         def checkpoint():
             step_checkpoints.save(runtime)
             if after_checkpoint:after_checkpoint()

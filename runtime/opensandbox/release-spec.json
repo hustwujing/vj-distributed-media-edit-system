@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "gateway_protocol": "gateway-v1",
+  "daemon_protocol": 1,
+  "foundation": {
+    "tag": "opensandbox-runtime-foundation:build",
+    "python_image": "docker.m.daocloud.io/library/python@sha256:413041be39649714885528a06586416279db85744b6dcdf290af0ae557d782f6",
+    "debian_mirror": "http://mirrors.aliyun.com",
+    "package_source_is_snapshot": false
+  },
+  "skill_bundle": [
+    {"source": "runtime/public/SKILL.md", "target": "SKILL.md"},
+    {"source": "runtime/public/capabilities.json", "target": "capabilities.json"},
+    {"source": "runtime/public/origin.json", "target": "origin.json"},
+    {"source": "runtime/public/pyvenv.cfg", "target": "pyvenv.cfg"},
+    {"source": "runtime/public/transcribe.py", "target": "transcribe.py"},
+    {"source": "helpers/edit_media.py", "target": "helpers/edit_media.py"},
+    {"source": "helpers/edit_plan.py", "target": "helpers/edit_plan.py"},
+    {"source": "helpers/edit_captions.py", "target": "helpers/edit_captions.py"},
+    {"source": "helpers/preview_style.py", "target": "helpers/preview_style.py"},
+    {"source": "helpers/image_edit.py", "target": "helpers/image_edit.py"},
+    {"source": "helpers/render.py", "target": "helpers/render.py"},
+    {"source": "helpers/grade.py", "target": "helpers/grade.py"},
+    {"source": "helpers/timeline_view.py", "target": "helpers/timeline_view.py"},
+    {"source": "helpers/pack_transcripts.py", "target": "helpers/pack_transcripts.py"},
+    {"source": "helpers/canvas_render.py", "target": "helpers/canvas_render.py"},
+    {"source": "references/canvas-editing.md", "target": "references/canvas-editing.md"},
+    {"source": "references/durable-workflows.md", "target": "references/durable-workflows.md"},
+    {"source": "references/dynamic-media-editing.md", "target": "references/dynamic-media-editing.md"},
+    {"source": "references/dynamic-operations.md", "target": "references/dynamic-operations.md"},
+    {"source": "references/dynamic-script-contract.md", "target": "references/dynamic-script-contract.md"},
+    {"source": "references/edit-plan.md", "target": "references/edit-plan.md"},
+    {"source": "references/image-editing.md", "target": "references/image-editing.md"},
+    {"source": "references/image-workbench.md", "target": "references/image-workbench.md"},
+    {"source": "references/local-editing.md", "target": "references/local-editing.md"},
+    {"source": "references/media-semantics.md", "target": "references/media-semantics.md"},
+    {"source": "references/style-previews.md", "target": "references/style-previews.md"},
+    {"source": "references/video-delivery.md", "target": "references/video-delivery.md"},
+    {"source": "references/workflow-review.md", "target": "references/workflow-review.md"}
+  ],
+  "profiles": {
+    "command-v1": {
+      "tag": "operation-runtime:build",
+      "publish_name": "operation-runtime",
+      "runtime_kind": "command_runtime",
+      "harness": null,
+      "model_routes": [],
+      "gateway_capabilities": []
+    },
+    "agent-codex-v1": {
+      "tag": "agent-runtime-codex:build",
+      "publish_name": "agent-runtime-codex",
+      "runtime_kind": "agent_runtime",
+      "harness": "codex",
+      "harness_version": "0.153.4",
+      "model_routes": ["/responses", "/v1/responses"],
+      "gateway_capabilities": ["model", "context", "workflow", "media_tools"]
+    },
+    "agent-claude-v1": {
+      "tag": "agent-runtime-claude:build",
+      "publish_name": "agent-runtime-claude",
+      "runtime_kind": "agent_runtime",
+      "harness": "claude_code",
+      "harness_version": "0.2.176",
+      "model_routes": ["/messages", "/v1/messages"],
+      "gateway_capabilities": ["model", "context", "workflow", "media_tools"]
+    },
+    "agent-deepseek-v1": {
+      "tag": "agent-runtime-deepseek:build",
+      "publish_name": "agent-runtime-deepseek",
+      "runtime_kind": "agent_runtime",
+      "harness": "deepseek_harness",
+      "harness_version": "0.2.1rc2",
+      "model_routes": ["/chat/completions", "/v1/chat/completions"],
+      "gateway_capabilities": ["model", "context", "workflow", "media_tools"]
+    }
+  }
+}

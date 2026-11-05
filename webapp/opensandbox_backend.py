@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import hashlib
 import json
+import threading
 
 from .runtime_bootstrap import CONTROL_PORT
 from .runtime_client import RuntimeClient
@@ -45,6 +46,7 @@ class OpenSandboxRuntime:
         self.lifecycle=lifecycle;self.session=session;self.client=client
         self.sandbox_id=sandbox_id;self.attempt=attempt;self.local_closed=False
         self.revoke_gateway=revoke_gateway;self.gateway_revoked=False
+        self.sandbox_deleted=False;self.cleanup_error=None;self.cleanup_lock=threading.RLock()
         self.is_remote=True
 
     def open_session(self,instructions,session_id=None):
@@ -66,7 +68,12 @@ class OpenSandboxRuntime:
     def receive_once(self):return self.client.receive_once()
     def set_event_handler(self,handler):self.client.on_event=handler
     def revoked(self):return False
-    def begin_cleanup(self):pass
+    def begin_cleanup(self):
+        with self.cleanup_lock:
+            if self.gateway_revoked:return
+            try:self.revoke_gateway()
+            except Exception as exc:self.cleanup_error=exc
+            else:self.gateway_revoked=True;self.cleanup_error=None
     def pulse(self,seconds):pass
     def quiesce(self):
         try:self.interrupt()
@@ -78,15 +85,14 @@ class OpenSandboxRuntime:
         return WorkspaceCollector(self.session.files).collect(manifest,sink)
 
     def cleanup(self):
-        revoke_error=None
-        if not self.gateway_revoked:
-            try:self.revoke_gateway()
-            except Exception as exc:revoke_error=exc
-            self.gateway_revoked=True
-        if not self.local_closed:
-            self.client.close();self.session.close();self.local_closed=True
-        self.lifecycle.delete_confirmed(self.sandbox_id,expected_attempt=self.attempt)
-        if revoke_error:raise revoke_error
+        with self.cleanup_lock:
+            self.begin_cleanup()
+            if not self.local_closed:
+                self.client.close();self.session.close();self.local_closed=True
+            if not self.sandbox_deleted:
+                self.lifecycle.delete_confirmed(self.sandbox_id,expected_attempt=self.attempt)
+                self.sandbox_deleted=True
+            if self.cleanup_error:raise self.cleanup_error
 
 
 class OpenSandboxBackend:

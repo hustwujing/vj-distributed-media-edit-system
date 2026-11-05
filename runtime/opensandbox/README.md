@@ -29,3 +29,33 @@ local image ID is not portable across nodes.
 The image contains no Provider, database, object-storage or Gateway credential.
 Attempt configuration and short-lived tokens are injected under
 `/run/video-use` after sandbox creation.
+
+## Local release evidence
+
+The following commands are read-only with respect to OpenSandbox, deployed
+services and databases. They inspect local Docker images and write ignored
+reports under `runtime/build/`:
+
+```bash
+python deploy/runtime_release.py --freeze-bundle
+DOCKER=/path/to/docker python deploy/runtime_release.py --max-resident 30
+DOCKER=/path/to/docker python deploy/verify_runtime_images.py
+python deploy/runtime_security_report.py
+```
+
+`release-spec.json` freezes the local image/profile/Harness/Gateway capability
+matrix. `runtime/public/bundle.json` freezes the exact public Skill Bundle and
+Tool Schema. Runtime bootstrap verifies both digests before it activates the
+control endpoint. Gateway routes in a concrete attempt must be a subset of the
+profile's model routes plus the task's authorized business capabilities.
+
+The capacity report reserves host CPU, memory and free workspace disk before
+evaluating command-only, mixed and Agent-only pools. It is a scheduling model,
+not evidence that 30 real sandboxes started successfully.
+
+Publication still requires registry manifest digests, signing, review of raw
+SBOM/vulnerability/license evidence, and an isolated live sandbox campaign.
+The current Aliyun Debian mirror is not a historical snapshot; the generated
+OS package lock records exactly what was built, but a registry publication
+must additionally freeze a package snapshot or archive the verified `.deb`
+inputs before claiming byte-for-byte reproducibility.

@@ -473,7 +473,9 @@ class AgentHost:
                         with administrative(),self.store.connect() as db:terminate_task(db,lease.run_id,exc.reason)
                     lease.lost.set()
                     if lease.runtime:
-                        try:lease.runtime.quiesce()
+                        try:
+                            lease.runtime.begin_cleanup()
+                            lease.runtime.quiesce()
                         except Exception as exc:
                             from .telemetry import emit
                             emit('executor.cleanup_error','WARNING',exc=exc)

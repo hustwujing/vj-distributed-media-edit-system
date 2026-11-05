@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ from .runtime_protocol import RuntimeIdentity
 CONTROL_PORT=18770
 BINDING_KEYS={'harness','runtime_profile','image_digest','skill_digest',
               'tool_schema_digest','gateway_protocol'}
+RUNTIME_BUNDLE=Path('/opt/video-use')
 
 
 def _secure_file(path,root,maximum):
@@ -32,7 +34,39 @@ def _secure_file(path,root,maximum):
     return path
 
 
-def load_config(path):
+def verify_runtime_bundle(binding,root=RUNTIME_BUNDLE):
+    root=Path(root);manifest_path=root/'bundle.json'
+    manifest=json.loads(manifest_path.read_text())
+    if (not isinstance(manifest,dict) or set(manifest)!={'schema_version','skill_digest','tool_schema_digest','files'}
+            or manifest['schema_version']!=1 or not isinstance(manifest['files'],list)):
+        raise ValueError('Invalid Runtime Skill Bundle manifest')
+    records=[];seen=set()
+    for record in manifest['files']:
+        if not isinstance(record,dict) or set(record)!={'path','size','sha256'}:
+            raise ValueError('Invalid Runtime Skill Bundle record')
+        if not isinstance(record['path'],str):raise ValueError('Invalid Runtime Skill Bundle path')
+        relative=Path(record['path'])
+        if relative.is_absolute() or '..' in relative.parts or relative.as_posix() in seen:
+            raise ValueError('Invalid Runtime Skill Bundle path')
+        seen.add(relative.as_posix());path=root/relative
+        if path.is_symlink() or not path.is_file() or path.stat().st_size!=record['size']:
+            raise ValueError('Runtime Skill Bundle file mismatch')
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+        if digest!=record['sha256']:raise ValueError('Runtime Skill Bundle digest mismatch')
+        records.append(record)
+    if records!=sorted(records,key=lambda item:item['path']):
+        raise ValueError('Runtime Skill Bundle records are not canonical')
+    encoded=json.dumps(records,sort_keys=True,separators=(',',':')).encode()
+    skill='sha256:'+hashlib.sha256(encoded).hexdigest()
+    tools=next((item for item in records if item['path']=='capabilities.json'),None)
+    tool_digest='sha256:'+tools['sha256'] if tools else ''
+    if (skill!=manifest['skill_digest'] or tool_digest!=manifest['tool_schema_digest'] or
+            binding['skill_digest']!=skill or binding['tool_schema_digest']!=tool_digest):
+        raise ValueError('Frozen Runtime binding does not match the Skill Bundle')
+    return manifest
+
+
+def load_config(path,*,bundle_root=RUNTIME_BUNDLE):
     path=Path(path);root=path.resolve().parent
     path=_secure_file(path,root,64*1024)
     value=json.loads(path.read_text())
@@ -58,6 +92,7 @@ def load_config(path):
             not re.fullmatch(r'[A-Za-z0-9_.-]{1,128}',binding['runtime_profile']) or
             not re.fullmatch(r'[A-Za-z0-9_.-]{1,64}',binding['gateway_protocol'])):
         raise ValueError('Invalid frozen Runtime digest or protocol')
+    verify_runtime_bundle(binding,bundle_root)
     token_file=_secure_file(value['control_token_file'],root,4096)
     token=token_file.read_text().strip()
     if not 32<=len(token)<=512:raise ValueError('Invalid Runtime control token')
@@ -80,8 +115,8 @@ def load_gateway(path,identity):
     return value['endpoint'],token_file.read_text().strip(),value['allowed_routes'],str(ca_file)
 
 
-def create_runtime(path,*,gateway_port=18766):
-    config=load_config(path);holder={}
+def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
+    config=load_config(path,bundle_root=bundle_root);holder={}
     bridge=StdioHarnessBridge(config['adapter'],
         config['adapter'].runtime_launch(config['harness_config']))
     from .runtime_workspace import WorkspaceExporter

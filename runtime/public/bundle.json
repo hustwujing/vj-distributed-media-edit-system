@@ -1,0 +1,147 @@
+{
+  "files": [
+    {
+      "path": "SKILL.md",
+      "sha256": "8e54c22cd9ba81115d230915e64c001c14716a3f5c86edaad2e8b720488af8c7",
+      "size": 9644
+    },
+    {
+      "path": "capabilities.json",
+      "sha256": "f8de293751d181cb05491d32b3b81b55d372489a426935f20c3dbf8b8ffe023b",
+      "size": 848
+    },
+    {
+      "path": "helpers/canvas_render.py",
+      "sha256": "ef68f6306e6fd2b7c5792291ac58be6bd32ab110e0a936c95734df8944ff0f04",
+      "size": 5254
+    },
+    {
+      "path": "helpers/edit_captions.py",
+      "sha256": "0841a538e370e7177e6f1a058cd0a86c463c7ed813d4fc42f7482543525d33c4",
+      "size": 6317
+    },
+    {
+      "path": "helpers/edit_media.py",
+      "sha256": "fa772fc6339598158eac740e8d393fb32f570dfd1dae9e775b52bbc2e53ff277",
+      "size": 21575
+    },
+    {
+      "path": "helpers/edit_plan.py",
+      "sha256": "8e904b9a1a1cfd7e1cfed3c4900a40ff3a50669d6b2c3d769b786b58a9c5b165",
+      "size": 17169
+    },
+    {
+      "path": "helpers/grade.py",
+      "sha256": "f5df58e81f31c95a621ffba5973fd866f6662fc481a36ebd37a2e68eb81220c2",
+      "size": 13244
+    },
+    {
+      "path": "helpers/image_edit.py",
+      "sha256": "3b6bea91625d88cfc0bf1d858f8894cfeab62529f8e7b0b1be04bd690461fa30",
+      "size": 9826
+    },
+    {
+      "path": "helpers/pack_transcripts.py",
+      "sha256": "f9e419def5f0a014d5e1fd16fdad801013ae068854c1d474c3492297e2304f4b",
+      "size": 7207
+    },
+    {
+      "path": "helpers/preview_style.py",
+      "sha256": "b8bdc551ed502654c20213d9c331180130a8a4d8f7239d8f9f3bcd9dc3574bc5",
+      "size": 4772
+    },
+    {
+      "path": "helpers/render.py",
+      "sha256": "10b886f399e95d940b80c7dff597a76e304c9427c3fd915bf6492942cdc4166d",
+      "size": 28139
+    },
+    {
+      "path": "helpers/timeline_view.py",
+      "sha256": "6c2991cd9dc596442b1b29ac8681c79a51b9a3826c89b4bdbc62dc6b2617dce7",
+      "size": 14939
+    },
+    {
+      "path": "origin.json",
+      "sha256": "60ff87b25639d89b57816b4146043b239d0c26ceaecbdef0abf8383c09661055",
+      "size": 44
+    },
+    {
+      "path": "pyvenv.cfg",
+      "sha256": "f69b2e157b002a95863223bde6afc86d1fff9af87ca08f738fb723cf0061dadf",
+      "size": 60
+    },
+    {
+      "path": "references/canvas-editing.md",
+      "sha256": "551e7c2915efa8d324c8a01baac4e123be41fc061998904b473f8b7a452c46bd",
+      "size": 3009
+    },
+    {
+      "path": "references/durable-workflows.md",
+      "sha256": "95c0cd852421d3f7af8c12562b7ff6c96ac1188705c0e1a2e3634f7e97904e07",
+      "size": 16766
+    },
+    {
+      "path": "references/dynamic-media-editing.md",
+      "sha256": "af8c4585950e4e2db057be98604413bf76c4434d04e428e6646a1e44ff4c3b25",
+      "size": 2915
+    },
+    {
+      "path": "references/dynamic-operations.md",
+      "sha256": "714089437c3c90353c43e89a649e8bb17608d352e7e8a533089cedcd4bb71abf",
+      "size": 12837
+    },
+    {
+      "path": "references/dynamic-script-contract.md",
+      "sha256": "567539da9206bb7fdc96b36142c79a7f4bf2eceb4a66036004f1532037048ed6",
+      "size": 1862
+    },
+    {
+      "path": "references/edit-plan.md",
+      "sha256": "9b2a115e0a51d2d9149be1030f496de46371a9cddcc783e109d03e0e96084f05",
+      "size": 8816
+    },
+    {
+      "path": "references/image-editing.md",
+      "sha256": "0db20fceca70026a4a20bb7cdc41e9a9954d5198ae460067b7d82ec25265f48f",
+      "size": 3612
+    },
+    {
+      "path": "references/image-workbench.md",
+      "sha256": "e49be6bea9253b920d4968b049982feb3241fdd32de7debda9e1bff0782d24fb",
+      "size": 8954
+    },
+    {
+      "path": "references/local-editing.md",
+      "sha256": "a963f3b63ef33adeb434228b838556efcf396b7710eb483152ef888068184179",
+      "size": 7448
+    },
+    {
+      "path": "references/media-semantics.md",
+      "sha256": "2a04bfcabf4ec21b671bb19e95bb4f978eaa0d2c4b1848424f8bfc91b8d20fd0",
+      "size": 4103
+    },
+    {
+      "path": "references/style-previews.md",
+      "sha256": "76dd6bdb511d96d71439b2382efc2edd8593c9a3cc82ca7f243462bda9aeaef2",
+      "size": 3425
+    },
+    {
+      "path": "references/video-delivery.md",
+      "sha256": "00d695afbb822bc2267666d46449140d49f3843d9d669cf19fe79c67bbb918f2",
+      "size": 2866
+    },
+    {
+      "path": "references/workflow-review.md",
+      "sha256": "2e0e06342d8411dd57cee673b2c955ed2546d5a43b58b452bc7d8f0380339475",
+      "size": 5944
+    },
+    {
+      "path": "transcribe.py",
+      "sha256": "a2f8c19c368b7f6ed3c85996375448ff8b3dd710f888b3f18a867b0c5e1b2cd1",
+      "size": 379
+    }
+  ],
+  "schema_version": 1,
+  "skill_digest": "sha256:733ccbfd6bcae4eeb459428fd6ee21c3104f75c8233635c0f17bc909de89eccc",
+  "tool_schema_digest": "sha256:f8de293751d181cb05491d32b3b81b55d372489a426935f20c3dbf8b8ffe023b"
+}
