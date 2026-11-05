@@ -103,7 +103,7 @@ class ModelCommandTests(unittest.TestCase):
         command={'kind':'COMPLETE','reason':'Deliver cutout','plan':{'new_tasks':[task]}}
         result=compile_manager(command,f)['proposal']['add_tasks'][0]
         user=[check for check in result['acceptance'] if check['source']=='user'][0]
-        self.assertEqual(user['file'],'foreground')
+        self.assertEqual(user['file'],'foreground.png')
 
     def test_host_derives_input_dependencies_and_waits_for_batch_leaves(self):
         f=frozen(False);schema=manager_schema(f)
@@ -321,7 +321,7 @@ class ModelCommandTests(unittest.TestCase):
         command={'kind':'COMPLETE','reason':'Join','plan':{'new_tasks':[draft]}}
         task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
         business=task['acceptance'][0]
-        self.assertEqual((business['file'],business['source'],business['width'],business['height']),('video','user',640,360))
+        self.assertEqual((business['file'],business['source'],business['width'],business['height']),('*','user',640,360))
         self.assertTrue(any(check['source']=='technical' for check in task['acceptance']))
 
     def test_operation_alternative_outputs_select_one_parameter_bound_branch(self):

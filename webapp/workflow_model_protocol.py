@@ -302,14 +302,14 @@ def compile_manager(command,frozen):
                     preferred=[]
                     if check.get('transparent_subject') is True:preferred=['foreground','primary_image','image']
                     elif check.get('kind')=='image':preferred=['primary_image','image','foreground','mask','preview']
-                    elif check.get('kind')=='media':
-                        audio=check.get('video') is False or any(check.get(key) is not None for key in
-                            ('audio_track_present','audio_silent','channel_layout','min_loudness_lufs','max_loudness_lufs'))
-                        preferred=['audio'] if audio else ['video','audio']
+                    elif check.get('kind')=='media':preferred=[]
                     elif check.get('kind') in ('text','subtitle'):preferred=['text','subtitle']
                     elif check.get('kind')=='json':preferred=['report','plan']
                     target='*' if raw.get('id') in replacement_ids else next(
                         (role for role in preferred if role in roles),roles[0] if len(roles)==1 else '*')
+                    filenames=(binding.get('output_contract') or {}).get('filenames')
+                    if target!='*' and filenames and len(filenames)==len(roles):
+                        target=dict(zip(roles,filenames)).get(target,target)
                     normalized={**check,'file':target,'source':'user'}
                     if normalized not in business:business.append(normalized)
                 from .quality_policy import Acceptance
