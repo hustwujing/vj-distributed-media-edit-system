@@ -95,6 +95,13 @@ def required_delivery_extensions(frozen):
     for asset in frozen.get('assets',[]):
         for value in (asset.get('name'),asset.get('filename')):
             if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
+    extension=r'(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
+    filename=re.compile(r'(?i)(?<![A-Za-z0-9_.-])[A-Za-z0-9_.-]+\.'+extension+r'(?![A-Za-z0-9_.-])')
+    def omit_non_delivery(match):
+        nearby=text[max(0,match.start()-24):min(len(text),match.end()+40)]
+        excluded=r'(?:非交付|不交付|不要交付|无需交付|不得交付|仅(?:作为|供)?(?:中间|内部|参考)|non[- ]?deliverable|do not deliver|not for delivery|internal only)'
+        return ' ' if re.search(excluded,nearby,re.IGNORECASE) else match.group(0)
+    text=filename.sub(omit_non_delivery,text)
     aliases={'jpg':'jpeg'}
     return {aliases.get(value.lower(),value.lower()) for value in re.findall(
         r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',text)}

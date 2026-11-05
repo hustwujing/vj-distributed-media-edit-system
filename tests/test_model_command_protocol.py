@@ -467,6 +467,14 @@ class ModelCommandTests(unittest.TestCase):
         # The repeated extension outside the exact input filename remains an explicit output request.
         self.assertEqual(required_delivery_extensions(frozen_review),{'mp4','wav'})
 
+    def test_explicit_non_delivery_filename_does_not_create_a_format_requirement(self):
+        from webapp.workflow_model_protocol import required_delivery_extensions
+        frozen={'goal':'保存 reference.png，声明为非交付；最终交付 5 秒 MP4',
+                'authorization':{'delivery_targets':['符合需求的视频及要求的附加文件']}}
+        self.assertEqual(required_delivery_extensions(frozen),{'mp4'})
+        frozen['goal']='reference.png 仅作为中间参考；最终交付 MP4 和 PNG 海报'
+        self.assertEqual(required_delivery_extensions(frozen),{'mp4','png'})
+
     def test_gateway_fallback_is_explicit_and_never_auth_or_generic_failure(self):
         self.assertTrue(strict_unsupported(400,{'error':{'code':'unsupported_parameter','param':'tools.0.strict'}}))
         self.assertTrue(strict_unsupported(422,{'error':{'code':'strict_not_supported'}}))
