@@ -107,7 +107,10 @@ def _execute(host,lease):
         if lease.runtime:lease.runtime.checkpoint()
         record_phase(lease,task,phase,files)
         files,role_map=bind_output_roles(step,files)
-        report=validate_candidate(adapter,view,step,files)
+        from .workflow_runtime import resolve_acceptance_output_roles
+        validation_step={**step,'spec':{**step['spec'],'acceptance':resolve_acceptance_output_roles(
+            step['spec'].get('acceptance',[]),role_map)}}
+        report=validate_candidate(adapter,view,validation_step,files)
         report['input_versions']={s['id']:s['revision'] for s in view['steps'] if s['id'] in step['spec']['depends_on']}
         if lease.runtime:lease.runtime.checkpoint()
         checkpoints=store.query('SELECT manifest,attempt FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
