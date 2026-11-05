@@ -69,3 +69,17 @@ class FrozenCleanupMetadataTests(unittest.TestCase):
             run(self.store,'one')
         self.assertEqual(self.store.query('SELECT state FROM execution_external_cleanup')[0]['state'],'unsupported')
         client.request.assert_not_called()
+
+    def test_missing_frozen_generation_handle_completes_as_unrecoverable_failure(self):
+        import requests
+        from webapp.external_cleanup import run
+        with patch.dict(os.environ,{'VIDEO_USE_IMAGE_VIDEO_BACKEND':'wan'}):
+            binding={**metadata(operations.get('video.generate_from_image')),'protocol':'wan-video-v1','provider':'http://127.0.0.1:9898'}
+        self.store.execute('INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,external_id,inputs,created,updated,implementation) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+            ('one','run','video',0,1,binding['provider'],'video.generate_from_image','waiting','job123','{}',0,0,json.dumps(binding)))
+        missing=requests.HTTPError('missing');missing.provider_error_code='ResourceNotFound'
+        self.store.execute("UPDATE execution_external_cleanup SET phase='poll' WHERE id='one'")
+        with patch('webapp.generation_service.poll',side_effect=missing):run(self.store,'one')
+        self.assertEqual(self.store.query("SELECT state,error FROM execution_external_cleanup WHERE id='one'")[0],
+                         {'state':'complete','error':'上游句柄已不存在，任务结果不可恢复。'})
+        self.assertEqual(self.store.query("SELECT state FROM workflow_provider_calls WHERE request_key='one'")[0]['state'],'failed')
