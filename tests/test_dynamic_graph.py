@@ -392,11 +392,24 @@ class DynamicGraphTests(unittest.TestCase):
             ('交付 final.png 和 record.txt',graph.encode(authorization),self.run['id']))
         self.publish_metadata_fixture(['final.png'],expect_success=False)
         self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'delivery_targets_incomplete')
+        payload=json.loads(self.store.query("SELECT payload_json FROM workflow_graph_events WHERE kind='delivery_blocked'")[0]['payload_json'])
+        self.assertEqual(payload['missing_extensions'],['txt'])
+        self.assertEqual(payload['missing_task_ids'],[])
+
+    def test_input_asset_extension_is_not_treated_as_a_delivery_format(self):
+        authorization={**self.run['authorization'],'delivery_targets':['符合需求的 512x512 图片']}
+        self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
+            ('将 source.png 转为 JPEG，保持内容不变',graph.encode(authorization),self.run['id']))
+        delivered,_=self.publish_metadata_fixture(['final.jpg'])
+        self.assertEqual([item['name'] for item in delivered],['final.jpg'])
 
     def test_each_delivery_stage_leaf_must_contribute_a_selected_file(self):
         self.publish_metadata_fixture(['landscape.mp4','portrait.mp4'],primary_index=0,
                                       expect_success=False,selected_indices=[0])
         self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'delivery_targets_incomplete')
+        payload=json.loads(self.store.query("SELECT payload_json FROM workflow_graph_events WHERE kind='delivery_blocked'")[0]['payload_json'])
+        self.assertEqual(payload['missing_task_ids'],['part_1'])
+        self.assertEqual(payload['missing_extensions'],[])
 
     def test_primary_selection_is_validated_by_worker_and_controller(self):
         from webapp.workflow_agents import validated_internal_result

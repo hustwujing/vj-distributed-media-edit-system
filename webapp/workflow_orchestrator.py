@@ -13,6 +13,22 @@ class ReconcileLost(RuntimeError):pass
 class InvalidProviderHandle(ValueError):pass
 
 
+def required_delivery_extensions(store,run):
+    """Extract output formats without treating authorized input filenames as outputs."""
+    import re
+    explicit=' '.join([run['goal'],*run['authorization'].get('delivery_targets',[])])
+    asset_ids=run['authorization'].get('allowed_assets',[])
+    if asset_ids:
+        placeholders=','.join('?' for _ in asset_ids)
+        for asset in store.query(f'SELECT name,filename FROM assets WHERE id IN ({placeholders})',tuple(asset_ids)):
+            for value in (asset.get('name'),asset.get('filename')):
+                if value:explicit=re.sub(re.escape(value),' ',explicit,flags=re.IGNORECASE)
+    required={ext.lower() for ext in re.findall(
+        r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',explicit)}
+    aliases={'jpg':'jpeg'}
+    return {aliases.get(ext,ext) for ext in required}
+
+
 class Orchestrator:
     def __init__(self,store,owner=None,ttl=15):
         self.store=store;self.owner=owner or uuid.uuid4().hex;self.ttl=ttl
@@ -739,14 +755,17 @@ class Orchestrator:
         upstream_delivery={edge['upstream_task_id'] for edge in run['dependencies']
             if edge['upstream_task_id'] in delivery_tasks and edge['downstream_task_id'] in delivery_tasks}
         required_tasks=delivery_tasks-upstream_delivery
-        if not required_tasks<={accepted[name]['id'] for name in selected}:
+        missing_tasks=required_tasks-{accepted[name]['id'] for name in selected}
+        if missing_tasks:
+            graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
+                'missing_task_ids':sorted(missing_tasks),'missing_extensions':[]})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
-        import re
-        explicit=' '.join([run['goal'],*run['authorization'].get('delivery_targets',[])])
-        required={ext.lower() for ext in re.findall(r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',explicit)}
-        aliases={'jpg':'jpeg'};required={aliases.get(ext,ext) for ext in required}
+        aliases={'jpg':'jpeg'};required=required_delivery_extensions(store,run)
         delivered={aliases.get(name.rsplit('.',1)[-1].lower(),name.rsplit('.',1)[-1].lower()) for name in selected if '.' in name}
-        if not required<=delivered:
+        missing_extensions=required-delivered
+        if missing_extensions:
+            graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
+                'missing_task_ids':[],'missing_extensions':sorted(missing_extensions)})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         artifacts=[];publications=[]
         import mimetypes
