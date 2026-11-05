@@ -1,6 +1,6 @@
 # 分布式执行配置与验证
 
-此文档描述当前分布式执行的配置契约。写入配置和执行测试不等于已部署；不要把新代码指向旧 SQLite 数据目录并假定它会迁移历史数据。
+此文档描述当前分布式执行的应用协议与配置契约。共享 PostgreSQL、S3 对象存储、节点本地缓存和租约机制可用于跨物理机拓扑，但当前仓库内置的 `deploy/dynamic_cluster.py` 只实现单机多实例部署，不提供跨机发布、负载均衡或整机容灾。写入配置和执行测试不等于已部署；不要把新代码指向旧 SQLite 数据目录并假定它会迁移历史数据。
 
 ## API 依赖容量与期限
 
@@ -32,7 +32,7 @@ API 将同步依赖调用隔离到不同的有界执行器。异步 Redis SSE �
 
 受保护观测页提供“API 容量与等待”，包括每实例/每池活动数、队列、拒绝、超时、实际完成、取消和等待/运行累计秒数，以及事件循环滞后、默认线程占用。每 5 秒发布，采集器只展示最近 20 秒快照；缺失保持未知。计数、累计和最大值自进程启动计算；`completed` 是实际工作返回次数，可能同时属于失败或调用方已取消，不能视作成功业务次数。Prometheus 指标以 `video_use_api_pool_`、`video_use_api_gate_`、`video_use_api_loop_` 开头，只使用实例和固定池名标签。
 
-内置单机多实例部署以 [集群操作手册](cluster-operations.md) 为准；早期 BOSS 接入和现场验收背景保存在 [分布式运行与验收配置](distributed-deployment.md)。
+当前仓库的内置单机多实例部署以根目录 [README](../README.md#本机隔离部署) 和 `deploy/dynamic_cluster.py` 为准。早期 BOSS 接入和现场验收背景保存在 [分布式运行与验收配置](distributed-deployment.md)。
 
 ## 配置文件职责
 
@@ -45,7 +45,7 @@ API 将同步依赖调用隔离到不同的有界执行器。异步 Redis SSE �
 | `.storage.env` | S3/BOSS endpoint、bucket、prefix、AWS 凭证及对象加密密钥 |
 | `.distributed.env` | 共享数据库、会话密钥、并发与资源配置；内置部署首次缺失时生成 |
 
-各实例配置由部署脚本写入 `/etc/video-use-cluster/`。`VIDEO_USE_REDIS_URL` 为空时使用数据库快照同步；Redis 不作为任务或成果的权威存储。对话模型、图片/视频供应商和本地图片模型需要分别准备，配置主模型不会自动启用全部能力。
+当前独立实例的各服务配置由部署脚本写入 `/etc/distributed-agent-system/`。`VIDEO_USE_REDIS_URL` 为空时使用数据库快照同步；Redis 不作为任务或成果的权威存储。对话模型、图片/视频供应商和本地图片模型需要分别准备，配置主模型不会自动启用全部能力。
 
 ### 对话模型与沙盒推理强度
 
@@ -62,7 +62,7 @@ VIDEO_USE_MODEL_REASONING_EFFORT=high
 
 ## 共享服务与节点目录
 
-API、执行器、节点 reaper 和外部清理进程使用同一个 PostgreSQL 数据库。素材、检查点、节点输出和交付文件使用同一个 S3 兼容对象桶。各机器的 `VIDEO_USE_DATA_DIR` 是独立缓存目录，可以不同，不要求共享文件系统。
+API、执行器、节点 reaper 和外部清理进程使用同一个 PostgreSQL 数据库。素材、检查点、节点输出和交付文件使用同一个 S3 兼容对象桶。在自行实现的跨机部署中，各机器的 `VIDEO_USE_DATA_DIR` 应是独立缓存目录，可以不同，不要求共享文件系统；这项协议能力不表示当前脚本已能部署这些机器。
 
 ```dotenv
 VIDEO_USE_DISTRIBUTED=1

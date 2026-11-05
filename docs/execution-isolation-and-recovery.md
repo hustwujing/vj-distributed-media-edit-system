@@ -474,10 +474,11 @@ Filesystem permission failures return HTTP 500 with
 `filesystem_permission_denied`, without host paths or raw exception messages;
 they are not reported as an upstream 502 or retried automatically.
 
-Run the node reaper independently of the executor. The built-in cluster uses
-`video-use-watchdog@a/b` with the corresponding executor instances; use the units
-and directory layout from the deployment script. Preserve live runtime records
-until verified cleanup. The preparation script rebuilds the curated runtime
+Run the node reaper independently of the executor. The current independent
+deployment uses `dynamic-agent-watchdog@a/b` with the corresponding
+`dynamic-agent-executor@a/b` instances; use the units and directory layout from
+`deploy/dynamic_cluster.py`. Preserve live runtime records until verified cleanup.
+The preparation script rebuilds the curated runtime
 manifest after dependency changes. Runtime prerequisites are fail-closed; do not
 bypass the reaper or fall back to unsandboxed execution.
 

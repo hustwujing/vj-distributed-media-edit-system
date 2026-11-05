@@ -1,8 +1,7 @@
 # 可观测性操作与排障手册
 
 本手册适用于当前仓库的 `dynamic-agent` 独立部署；服务前缀、端口和私有配置目录以根目录
-[README](../README.md#本机隔离部署) 及 `deploy/dynamic_cluster.py` 为准。旧 main 部署中的 `video-use-*`、18xxx 端口和
-`/etc/video-use-cluster` 不得用于操作本实例。
+[README](../README.md#本机隔离部署) 及 `deploy/dynamic_cluster.py` 为准。
 
 ## 入口
 

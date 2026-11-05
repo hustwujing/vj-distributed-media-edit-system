@@ -36,6 +36,15 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 部署形态为单机多实例，支持同机节点接管；它不提供整机故障容灾。当前 observe collector 也只覆盖这种单机拓扑：它跟随本机 systemd journal，探测本机 API、GPU、内存和磁盘，并将索引保存到本地 SQLite；整机失联时无法自行对外告警。结构化遥测协议和任务诊断模型可以复用，但跨物理机部署必须另行接入各机采集 Agent、中央日志/指标后端和独立外部告警，不能直接沿用当前 collector 宣称全集群可观测。
 
+| 组件角色 | 当前内置部署 | 协议能力与跨机边界 |
+| --- | --- | --- |
+| API / Media | 同机两个 API 实例，每个实例通过本机 Unix Socket 使用 Media Sidecar | API 可复用共享 PostgreSQL/S3 协议；跨机负载均衡、节点发现和 Media 配套部署未由当前脚本提供 |
+| Orchestrator | 单个 `dynamic-agent-orchestrator.service` | owner、TTL 和 reconcile generation 支持多副本竞争；当前未提供多机 unit、滚动发布和副本数监控 |
+| Executor / Coordinator / Scheduler | 同机 a/b 两个 Executor；Coordinator 和 Scheduler 逻辑内嵌于 AgentHost | 共享数据库租约与对象检查点支持多节点协调；当前只安装本机节点 |
+| Watchdog / Reaper | 每个本机执行节点一个独立 Watchdog；Reaper 是其代码角色名 | 必须随执行节点本地部署，不能跨机回收 UID、cgroup、挂载和 GPU 租约 |
+| Observer | 单机 journal 采集、本机资源探测和本地 SQLite 索引 | 遥测协议可复用；跨机需要各机采集 Agent、中央后端和外部告警 |
+| PostgreSQL / Redis / S3 | PostgreSQL 复用本机服务，Redis 是可选实时传输，S3/BOSS 是共享对象层 | 跨机必须另行部署网络可达且符合可用性目标的共享基础设施 |
+
 专业 Agent 默认使用注册的 `structured-profile-v4` 工具循环：Manager 通过类型化命令修改 snapshot 绑定的 PlanDraft，`commit_plan` 原子编译为权威 Proposal；strict 优先、明确不支持时回退，本地校验始终执行。底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
 
 ## 本机隔离部署
