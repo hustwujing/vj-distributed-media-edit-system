@@ -24,7 +24,7 @@ def run(store,identifier):
             db.execute("UPDATE execution_external_cleanup SET state='unconfirmed',error='未确认上游取消，上游可能继续运行。' WHERE id=?",(identifier,));return
         deadline=row['deadline_at'] or now+max(20,float(os.environ.get('VIDEO_USE_EXTERNAL_CLEANUP_SECONDS','300')))
         db.execute("UPDATE execution_external_cleanup SET state='running',attempts=attempts+1,generation=generation+1,owner=?,deadline_at=?,lease_until=?,phase='poll' WHERE id=?",(owner,deadline,min(now+20,deadline),identifier))
-    state,error,next_phase='pending','', 'poll'
+    state,error,next_phase='pending','', 'poll';policy=''
     try:
         if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',row['external_id']):raise ValueError('Invalid upstream ID')
         base=provider_base(row['provider'])
@@ -56,9 +56,13 @@ def run(store,identifier):
     except NotImplementedError:
         state='unsupported';error='该上游接口不支持已验证的取消能力，任务可能继续运行。'
     except Exception as exc:
-        from .telemetry import emit
-        emit('provider.cleanup_failed','WARNING',exc=exc,task_id=row['task_id'],external_id=row['external_id'])
-        error='尚未确认上游停止，将在收尾预算内继续核实。'
+        if policy=='generation_protocol' and getattr(exc,'provider_error_code','')=='ResourceNotFound':
+            state='complete';row['_provider_terminal']='failed'
+            error='上游句柄已不存在，任务结果不可恢复。'
+        else:
+            from .telemetry import emit
+            emit('provider.cleanup_failed','WARNING',exc=exc,task_id=row['task_id'],external_id=row['external_id'])
+            error='尚未确认上游停止，将在收尾预算内继续核实。'
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         if row['attempts']+1>=3 and state not in ('complete','unsupported'):state='unconfirmed';error='未确认上游取消，上游可能继续运行。'
