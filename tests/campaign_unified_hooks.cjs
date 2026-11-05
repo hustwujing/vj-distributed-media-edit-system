@@ -186,12 +186,13 @@ async function after(c){
   const calls=(await fault('progress')).provider_calls;assert.equal(calls.length,1);boundary.provider_after=calls[0];
  }
  if(hook==='legal_replacement'){
-  const old=run.tasks.find(t=>t.id==='render'),replacement=selectedTask(run,'render'),child=run.tasks.find(t=>t.id==='package');
+  const old=run.tasks.find(t=>t.id==='render'),edge=(run.replacements||[]).find(item=>item.old_task_id==='render');
+  const replacement=edge&&run.tasks.find(t=>t.id===edge.new_task_id),child=run.tasks.find(t=>t.id==='package');
   assert.ok(old&&!old.selected&&old.error_code==='execution_failed'&&old.revision===0);
-  assert.ok(replacement&&replacement.id==='render_fixed'&&replacement.type==='agent'&&replacement.status==='succeeded');
+  assert.ok(replacement&&replacement.selected&&replacement.type==='agent'&&replacement.status==='succeeded');
   assert.ok(child?.revision>0&&child.status==='succeeded');
   assert.ok(Object.values(child.spec.inputs).some(ref=>ref.step===replacement.id));
-  assert.ok((run.replacements||[]).some(item=>item.old_task_id===old.id&&item.new_task_id===replacement.id));
+  assert.equal(edge.old_task_id,old.id);
   boundary.observed=true;boundary.replacement={old:old.id,current:replacement.id,child_revision:child.revision};
  }
  if(!boundary.observed)throw Object.assign(Error('Required unified Run boundary was not observed'),{boundary:true});
