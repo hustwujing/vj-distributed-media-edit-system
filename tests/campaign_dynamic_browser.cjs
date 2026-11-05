@@ -12,6 +12,7 @@ const BASE=(process.env.DYNAMIC_CASE_BASE||'http://127.0.0.1/distributed-agent-s
 const MODEL_PROFILE=process.env.DYNAMIC_MODEL_PROFILE||'claude';
 const EXPECT_MODEL=process.env.DYNAMIC_EXPECT_MODEL||'claude-4.6-sonnet';
 const MODEL_EFFORT=process.env.DYNAMIC_MODEL_EFFORT||'high';
+const TOKEN_BUDGET_MULTIPLIER=Math.max(1,Math.min(4,Number(process.env.DYNAMIC_TOKEN_BUDGET_MULTIPLIER||1)));
 const baseURL=new URL(BASE);
 assert.equal(baseURL.pathname,'/distributed-agent-system','Refusing a main/unknown application path');
 const manifest=JSON.parse(fs.readFileSync(path.join(REPO,'docs/real-case-campaign/dynamic-cases.json')));
@@ -85,7 +86,7 @@ async function runCase(browser,spec){
  const capture=async(label)=>{await page.screenshot({path:path.join(directory,label+'.png'),fullPage:true});};
  const commandApplied=async id=>{const end=Date.now()+90000;while(Date.now()<end){const value=await read(),receipt=value.commands.find(c=>c.id===id);if(receipt&&receipt.status!=='pending'){assert.equal(receipt.status,'applied','Control command rejected: '+receipt.error_code);state.events.push({action:'command_applied',command_id:id,at:Date.now()/1000});persist();return value;}await page.waitForTimeout(500);}throw Error('Control command was not processed before the deadline');};
  const control=async(action)=>{await page.locator(`[data-control="${action}"]`).waitFor({state:'visible'});let confirmation=null;if(action==='cancel')page.once('dialog',async dialog=>{confirmation={type:dialog.type(),message:dialog.message()};await dialog.accept();});const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await page.locator(`[data-control="${action}"]`).click();const result=await response;assert.equal(result.status(),202,await result.text());if(action==='cancel'){assert.equal(confirmation?.type,'confirm');state.browser_assertions.push('Cancel required an explicit browser confirmation');}state.events.push({action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);const updated=await read();if(updated.successor_run_id){state.run_id=updated.successor_run_id;state.execute_id=state.run_id;state.run_ids.push(state.run_id);state.task_ids.push(state.run_id);persist();}};
- const start=async(prompt=spec.prompt,targets=targetText(spec),budget=spec.complexity==='simple'?500000:2000000)=>{
+ const start=async(prompt=spec.prompt,targets=targetText(spec),budget=(spec.complexity==='simple'?500000:2000000)*TOKEN_BUDGET_MULTIPLIER)=>{
   await page.locator('#dynamic-start').waitFor({state:'visible'});await page.locator('#dynamic-goal').fill(prompt);await page.locator('#dynamic-targets').fill(targets);
   await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
   await page.locator('#dynamic-reasoning-effort').selectOption(MODEL_EFFORT);
