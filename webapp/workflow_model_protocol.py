@@ -89,7 +89,8 @@ def delivery_acceptance_signature(spec):
 
 def _delivery_request_text(frozen):
     import re
-    changes=[item.get('content','') for item in frozen.get('user_changes',[]) if isinstance(item,dict)]
+    records=[*frozen.get('user_changes',[]),*((frozen.get('input_batch') or {}).get('inputs') or [])]
+    changes=[item.get('content','') for item in records if isinstance(item,dict)]
     text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[]),*changes])
     for value in frozen.get('input_asset_names',[]):
         if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
