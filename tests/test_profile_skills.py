@@ -9,6 +9,12 @@ from webapp import specialist_profiles as profiles
 from webapp.workflow_agents import model_instructions
 
 class ProfileSkillTests(unittest.TestCase):
+ def test_repair_prompts_require_evidence_first_and_measured_layouts(self):
+  manager=profiles.get('media_planner').prompt
+  implementer=profiles.get('editing_implementer').prompt
+  self.assertIn('audio_envelope',manager);self.assertIn('review_again',manager)
+  self.assertIn('textbbox',implementer);self.assertIn('可见内容bbox',implementer)
+
  def test_every_script_author_and_diagnostician_receives_the_executable_runtime_contract(self):
   import os,re
   for identifier in ('media_planner','editing_implementer','media_failure_diagnostician'):

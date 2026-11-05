@@ -10,6 +10,8 @@ from .task_lifecycle import TaskLimitReached
 def quota_error_code(task,exc):
     category=exc.diagnostic.get('category')
     if category=='model_tokens':return 'model_token_budget_exhausted'
+    if task.get('control_kind')=='PLAN' and category in ('agent_turns','agent_seconds','agent_finalize'):
+        return 'planning_contract_exhausted'
     if task.get('control_kind')=='REVIEW' and category in ('agent_turns','agent_seconds','agent_finalize'):
         return 'review_contract_exhausted'
     return 'budget_exhausted'

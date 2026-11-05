@@ -104,6 +104,35 @@ class AudioEvidenceTests(unittest.TestCase):
             self.assertTrue(audio_evidence(silence,sample_seconds=1)['audio_silent'])
             self.assertAlmostEqual(dominant_frequency(tone,sample_seconds=1),440,delta=8)
 
+    def test_audio_evidence_supports_bounded_offsets(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'levels.wav'
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i',
+                'sine=frequency=440:duration=2','-af','volume=0.5',str(path)],check=True)
+            measured=audio_evidence(path,sample_seconds=.5,offset_seconds=1)
+            self.assertEqual(measured['measurement_scope'],'sampled')
+            self.assertEqual(measured['measurement_offset_seconds'],1)
+
+    def test_audio_envelope_and_comparison_are_bounded_measurements(self):
+        import subprocess,json
+        from webapp.media_evidence_operation import collect
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);source=root/'fade.wav';reference=root/'tone.wav'
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i',
+                'sine=frequency=440:duration=2','-af','afade=t=out:st=1:d=1',str(source)],check=True)
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i',
+                'sine=frequency=440:duration=2',str(reference)],check=True)
+            envelope=root/'envelope';envelope.mkdir();collect(source,'audio',envelope,
+                {'mode':'audio_envelope','offset':1,'window_seconds':1})
+            report=json.loads((envelope/'evidence-report.json').read_text())
+            self.assertGreater(report['envelope'][0]['mean_volume_db'],report['envelope'][-1]['mean_volume_db'])
+            compared=root/'compared';compared.mkdir();collect(source,'audio',compared,
+                {'mode':'audio_compare','offset':0,'window_seconds':1},reference=reference)
+            comparison=json.loads((compared/'evidence-report.json').read_text())['comparison']
+            self.assertGreater(comparison['normalized_correlation'],.95)
+            self.assertEqual(comparison['interpretation'],'bounded_signal_similarity_not_source_separation_or_identity')
+
 
 class MaskChangeTests(unittest.TestCase):
     def test_change_limit_uses_subject_area_not_empty_canvas(self):

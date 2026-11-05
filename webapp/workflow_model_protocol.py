@@ -156,6 +156,16 @@ def repair_options(frozen):
             if (item['status']=='succeeded' and item['spec'].get('purpose')=='evidence' and item.get('quality',{}).get('verified_evidence')
                     and source and source['logical_task_id']==subject and source['revision']==row['revision']):evidence.append(identifier)
         if evidence:options.append({'action':'review_again','task_id':subject,'eligible_evidence_tasks':sorted(evidence)})
+    for review in frozen.get('review_feedback',[]):
+        decision=review.get('decision',{});subject=review.get('subject_task')
+        if decision.get('verdict')!='inconclusive' or subject not in tasks:continue
+        text=(decision.get('feedback') or '').lower();modes=[]
+        if any(word in text for word in ('fade','淡出','淡入','rms','响度','音量包络')):modes.append('audio_envelope')
+        if any(word in text for word in ('mix','混音','原声','music','声源')):modes.append('audio_compare')
+        if any(word in text for word in ('pixel','像素','边距','位置','frame','帧')):modes.append('video_window')
+        options.append({'action':'collect_evidence_then_review_again','task_id':subject,
+                        'operation':'media.evidence','suggested_modes':list(dict.fromkeys(modes or ['auto'])),
+                        'meaning':'Keep the accepted candidate immutable. Add evidence Tasks for the missing facts, then use review_again; do not rerender unchanged media.'})
     return options
 
 
