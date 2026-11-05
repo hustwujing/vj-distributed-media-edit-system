@@ -29,10 +29,8 @@ def failure_error_code(task,phase,calls,classification):
 def bind_output_roles(step,files):
     from .workflow_inputs import roles
     role_map=roles(step['spec'],files,getattr(files,'roles',None))
-    if not getattr(files,'roles',None):
-        from .operation_result import ProducedFiles
-        files=ProducedFiles(files,role_map)
-    return files,role_map
+    from .operation_result import ProducedFiles
+    return ProducedFiles(list(files),role_map),role_map
 
 
 def validate_candidate(adapter,workflow,step,files):
