@@ -752,8 +752,18 @@ class Orchestrator:
         if primary not in selected:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
         delivery_tasks={task['id'] for task in graph.active_tasks(run) if task['spec']['delivery_stage']}
-        upstream_delivery={edge['upstream_task_id'] for edge in run['dependencies']
-            if edge['upstream_task_id'] in delivery_tasks and edge['downstream_task_id'] in delivery_tasks}
+        downstream={task['id']:set() for task in graph.active_tasks(run)}
+        for edge in run['dependencies']:
+            if edge['upstream_task_id'] in downstream and edge['downstream_task_id'] in downstream:
+                downstream[edge['upstream_task_id']].add(edge['downstream_task_id'])
+        upstream_delivery=set()
+        for identifier in delivery_tasks:
+            pending=list(downstream[identifier]);seen=set()
+            while pending:
+                current=pending.pop()
+                if current in seen:continue
+                seen.add(current);pending.extend(downstream[current])
+            if seen & delivery_tasks:upstream_delivery.add(identifier)
         required_tasks=delivery_tasks-upstream_delivery
         missing_tasks=required_tasks-{accepted[name]['id'] for name in selected}
         if missing_tasks:
