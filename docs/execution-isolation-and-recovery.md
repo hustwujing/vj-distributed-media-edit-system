@@ -260,7 +260,9 @@ Cancelled tasks cannot be changed to successful by a late completion.
   消耗时支持终止任务、记录事件及限制来源，不能把普通依赖查询一概当作攻击。
 - 维护运行镜像、依赖和内核安全更新，复核 seccomp 与实际工作负载兼容性。
   面向公网不可信代码时评估 gVisor/microVM；这是待评估的更强隔离方案，
-  不表示当前已经具备独立内核或虚拟机边界。
+  不表示当前已经具备独立内核或虚拟机边界。已对齐但尚未实现的
+  OpenSandbox/gVisor 与 bwrap 混合执行方案见
+  [分布式执行 TODO 第 13 节](distributed-execution-todo.md#13-opensandboxgvisor-混合执行后端设计已对齐尚未实现)。
 
 ### 对抗性验收
 

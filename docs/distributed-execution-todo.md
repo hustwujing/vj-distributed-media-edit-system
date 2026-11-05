@@ -304,6 +304,406 @@ API / 网关将取消意图写入共享数据库，并保存清理意图
 
 涉及入口：`webapp/agent_host.py`、`webapp/agent_store.py`、`webapp/agent_api.py`、`webapp/static/chat.js`，以及 Redis 配置和部署。
 
+## 13. OpenSandbox/gVisor 混合执行后端（设计已对齐，尚未实现）
+
+记录日期：2026-11-05。
+
+状态：方案边界已完成讨论和静态探查，尚未修改本系统代码、数据库和部署。当前 Agent 与本地任务仍使用既有 `bubblewrap + 独立 UID + cgroup + seccomp + node watchdog`；本机独立安装的 OpenSandbox/gVisor 仅用于基础设施验证，不代表本系统已接入。以下复用既有租约、授权、检查点、外部调用、用量、验收和清理机制，不建立第二套业务状态机。
+
+### 13.1 目标、非目标与路由原则
+
+目标：把运行环境抽象成版本化 Backend，在不改变 Workflow、Run、Task、Control Job、候选验收及 Orchestrator 唯一提交语义的前提下，提高 CPU Agent 和动态脚本的宿主内核隔离强度，并保留现有 GPU 执行能力。
+
+```text
+Task / Control Job
+    -> ExecutionRequirements
+    -> Scheduler + Resource Claim
+        -> OpenSandboxBackend：CPU Agent、CPU Script、普通受控工具
+        -> LocalBwrapBackend：GPU Operation、GPU Script、暂未迁移的宿主能力
+```
+
+固定原则：
+
+- [ ] Agent 默认进入 OpenSandbox + gVisor；GPU 能力优先拆成类型化 Operation，由 Agent 经 Node Capability Gateway 调用。
+- [ ] SAM/ZIM、CUDA/PyTorch、NVENC/NVDEC 等 GPU Operation 暂时继续使用现有 bwrap、GPU lease 和指定 GPU UUID。
+- [ ] 动态代码不自动等于 Direct GPU Agent。优先由 CPU Agent 生成有界脚本，冻结脚本摘要后交给 GPU Script Executor。
+- [ ] 只有无法用已注册 Operation、Operation 组合、有界 GPU Script 或长驻 GPU Session Operation 表达，并通过受信任 Profile 审查的任务，才允许 Direct GPU Agent。
+- [ ] Backend、runtime profile、镜像摘要和 Skill Bundle 在 Attempt 创建时冻结；重试、恢复或容量不足时不得静默切换到权限更高的 Backend。
+- [ ] OpenSandbox 容量不足进入 `resource_wait`；不能自动回退 bwrap。GPU 无容量同样等待，不能降级 CPU 或选择未授权设备。
+- [ ] 沙箱 Backend 只负责运行空间，不接管业务状态、授权、预算、外部调用语义、验收或成果发布。
+
+首期非目标：gVisor GPU、任意公网访问、跨 Backend 热迁移、自动权限降级、替换现有 Artifact/Checkpoint 系统、替换 Orchestrator，以及把 Node Gateway 变成通用 HTTP 代理。
+
+### 13.2 多机部署拓扑与服务职责
+
+```text
+中央控制面
+├── PostgreSQL：权威租约、Attempt、预算、Provider Call、Usage 和 Cleanup
+├── Scheduler：Backend、节点和资源匹配
+├── Orchestrator：业务状态唯一提交、节点失联 Fencing 和全局 Reconcile
+└── Redis / 中央观测后端：实时事件与观测，不承担正确性
+
+每台物理执行机
+├── Executor：公共执行协调
+├── Watchdog：本机异常清理
+├── Node Capability Gateway：新增业务服务
+├── OpenSandbox Server -> Docker -> runsc/gVisor
+└── Observer Agent：日志和指标上报
+```
+
+- [ ] 每台物理执行机部署一个 Node Capability Gateway，不按沙箱部署，也不经过公网 Nginx。
+- [ ] 每台 OpenSandbox Docker 执行机运行本机 Lifecycle Server；Docker Backend 不通过远程 Docker Socket 跨机控制。
+- [ ] 现有 Watchdog 增加 OpenSandbox 清理驱动，不新增独立 Sandbox Reaper 服务。
+- [ ] 现有 Orchestrator 增加节点心跳 Fencing、未结算调用和超时 Cleanup 的全局扫描，不另建中央 Sweeper 服务。
+- [ ] Usage outbox 由 Node Gateway 本机重放；全局未结算检查进入 Orchestrator Reconcile，规模达到独立扩容要求后再拆服务。
+- [ ] Console 只需中央部署一份，不随每台执行机部署；它不是执行正确性依赖。
+- [ ] 当前单机 journal Observer 不能冒充多机观测。跨物理机时每机采集并上送中央日志/指标后端。
+
+职责边界：
+
+| 组件 | 负责 | 不负责 |
+| --- | --- | --- |
+| Scheduler | Backend、节点、资源和 Profile 匹配 | 启动 Harness、提交正式业务状态 |
+| Executor | Attempt 执行编排、文件准备、结果收集 | Workflow 正式状态提交 |
+| SandboxBackend | 创建、运行、命令、文件、销毁和 Reconcile | Provider 凭据、业务预算和验收 |
+| Node Capability Gateway | 沙箱身份、模型/工具出口、预算准入、Usage 结算、连接取消 | 创建沙箱、修改 Workflow 正式状态 |
+| Watchdog | 撤权、物理销毁、Cleanup Receipt | 业务重试和新 Attempt 创建 |
+| Orchestrator | Fencing、权威状态和最终提交 | 直接操作节点 Docker |
+| Observer | 日志、指标、告警和诊断 | Usage 与计费事实来源 |
+
+### 13.3 公共执行抽象与数据库绑定
+
+目标接口保持最小，具体 Backend 不向上泄露 Docker、bwrap 或 runsc 细节：
+
+```text
+SandboxBackend
+  capacity
+  prepare
+  start
+  execute
+  cancel
+  collect_outputs
+  checkpoint
+  cleanup
+  reconcile
+```
+
+`ExecutionRequirements` 至少包含 CPU、内存、GPU 数量与 capability、runtime profile、workspace policy、network policy 和所需 Gateway capability。要求来自注册实现和冻结 Task，不信任 Agent 自报。
+
+- [ ] 先将现有 `TaskRuntime`、UID/cgroup、bwrap、GPU lease 和 reaper 封装为 `LocalBwrapBackend`，第一阶段不得改变行为。
+- [ ] 新增 `OpenSandboxBackend`，只通过 Lifecycle API、Files/Command API 和 server proxy 操作沙箱。
+- [ ] `execution_attempts` 增加 `backend`、`runtime_profile`、`backend_handle`、`runtime_image_digest`、`skill_bundle_digest`、`provisioning_state`、`provisioning_request_id` 和 `node_epoch`。
+- [ ] `execution_resource_claims` 增加 `backend`、`runtime_profile` 和可选 `gpu_uuid`；资源释放仍以 Cleanup 完成而非业务终态为准。
+- [ ] OpenSandbox metadata 写入 `attempt_id`、`task_id`、`generation`、`backend` 和 runtime profile，用于创建结果未知后的唯一找回与孤儿清理。
+- [ ] 创建响应超时时不得直接重建。按 Attempt metadata 查找：唯一匹配则恢复句柄；无匹配且确认未创建才重试；多个匹配全部隔离并告警。
+
+建议的 Backend 生命周期：
+
+```text
+requested -> provisioning -> ready -> running -> stopping -> cleaning -> complete
+                                |                       |          -> quarantined
+                                -> failed               -> retrying
+```
+
+### 13.4 CPU Agent Runtime OCI 镜像
+
+OpenSandbox基础镜像不包含 Codex、Claude或DeepSeek Harness，不能直接调度 Agent。必须通过受控构建产出版本化 OCI 镜像；运行时禁止联网安装 npm/pip/apt 依赖。
+
+首个链路验证可使用统一 CPU 镜像，正式环境按 Harness 拆分：
+
+```text
+agent-runtime-codex@sha256:...
+agent-runtime-claude@sha256:...
+agent-runtime-deepseek@sha256:...
+```
+
+镜像包含：
+
+- [ ] Agent Runtime Daemon、`sandbox_entry`、Harness Bridge、统一事件适配和 Gateway Client。
+- [ ] 固定版本 Codex、Claude Agent SDK或DeepSeek Harness及其二进制摘要。
+- [ ] Python、Node、FFmpeg/ffprobe及受控系统工具；依赖和本地动态库由构建清单固定。
+- [ ] 版本化 Skill Bundle：`runtime/public/SKILL.md`、公开 references、确定性 helpers、capabilities和Tool Schema。
+- [ ] Node Gateway内部 CA 证书、Gateway协议Schema及Runtime Daemon协议Schema。
+- [ ] SBOM、镜像签名、构建来源和漏洞扫描结果。
+
+镜像禁止包含：Provider API key、PostgreSQL/Redis/BOSS长期凭据、用户素材、Checkpoint、Gateway临时Token、Docker Socket、宿主机私有目录和GPU设备。
+
+运行时注入：`/workspace`、`/state`、本次 Attempt配置和短期 Gateway Token。镜像默认只启动无业务副作用的 init；完成恢复、Token写入和Daemon健康检查后，Executor才允许启动Harness Turn。
+
+`runtime_image.py` 现有工具、Harness、库和执行契约指纹应扩展为OCI构建输入，而不是在OpenSandbox中继续挂载整棵宿主目录。Runtime Profile冻结镜像digest、Harness版本、Daemon协议、Skill digest、Tool Schema digest、Gateway协议和Checkpoint格式。
+
+Skill只描述如何使用能力，不授予权限。不得打包整机 `~/.codex/skills` 或 `~/.updream_skills`；内部平台、数据库、运维和带宿主认证的Skill通过可信控制面或类型化Gateway能力提供。Skill更新产生新Bundle和新Profile，运行中Attempt不热更新。
+
+### 13.5 Agent Runtime Daemon与三条数据通道
+
+Agent Runtime Daemon运行在每个Agent沙箱内，负责管理Harness进程和双向协议：初始化、打开/恢复Session、运行Turn、Tool响应、Cancel、事件流、退出状态及Session导出。它不持有数据库或Provider凭据，不提交正式状态。
+
+```text
+控制与Agent事件：Executor <-> OpenSandbox server proxy <-> Runtime Daemon <-> Harness
+模型和受控工具：Harness -> Gateway Client -> Node Capability Gateway -> Provider/工具
+文件和成果：Artifact Store <-> Executor/OpenSandbox Files API <-> Workspace
+```
+
+- [ ] Runtime Daemon使用双向WebSocket或等价的有界双向协议；普通 `commands.run` 日志流不足以承载长期Harness stdin/stdout RPC。
+- [ ] Runtime Daemon输出统一 `message.delta`、`tool.call`、`tool.result`、`turn.completed`、错误和诊断事件；Executor继续经现有事件/Redis/API SSE送达浏览器。
+- [ ] Runtime Daemon与Executor的控制Token、Node Gateway Capability Token分离，互不替代。
+- [ ] Cancel先通过控制通道终止Harness进程组；Daemon无响应时Executor请求删除沙箱，Watchdog最终确认物理销毁。
+- [ ] Runtime Daemon不直接连接浏览器；Node Gateway不承载Workspace、浏览器SSE或OpenSandbox生命周期流量。
+
+### 13.6 Node Capability Gateway与内部网络
+
+Node Capability Gateway运行在沙箱宿主机、gVisor沙箱之外。它是现有Unix Gateway业务校验的网络化Transport，不是OpenSandbox Ingress Gateway，也不是通用代理。
+
+每台执行机预建专用Docker internal bridge，例如：
+
+```text
+network: opensandbox-agent
+subnet:  172.30.0.0/24（部署前必须检查与节点路由不冲突）
+host:    172.30.0.1
+gateway: 172.30.0.1:18880
+```
+
+OpenSandbox使用自定义`network_mode`，动态端口只发布到`127.0.0.1`。网络还必须关闭容器间通信，并通过节点防火墙只允许沙箱访问Node Gateway端口，拒绝宿主其他端口、其他沙箱、公司内网、公网和云metadata。`--internal`本身不替代这些规则。
+
+- [ ] Gateway仅监听内部bridge地址，不监听`0.0.0.0`，不经公网Nginx暴露。
+- [ ] 沙箱使用内部TLS校验Gateway证书；不允许`-k`、任意URL、环境代理或netrc。
+- [ ] Gateway路由固定为版本化模型、上下文、Workflow和工具接口；上游URL由可信配置构造，用户和Agent不能指定。
+- [ ] 现有`agent_gateway.py`业务核心提取为共享`GatewayCore`，保留Unix Transport供bwrap，新增HTTPS Transport供OpenSandbox，避免两份授权和计量实现漂移。
+- [ ] Gateway进程使用低权限账号，不持有Docker Socket和任意宿主命令权限；数据库角色只开放租约、授权、Provider调用和Usage所需接口。
+
+每个Attempt生成短期随机Capability Token。数据库只保存Token哈希，Grant绑定Attempt、Generation、Sandbox ID、来源IP、允许路由、过期时间、调用/字节预算。实际授权取Runtime Profile需求、节点Gateway支持能力与Task冻结授权的交集。
+
+每次调用依次检查Token、来源、Sandbox ID、Generation、Lease、路由Schema和预算。Grant撤销时拒绝新请求并主动关闭该Grant全部活跃Provider Socket；仅把数据库字段标为revoked不足以停止已建立的流。
+
+### 13.7 Provider调用、用户用量与多机账本
+
+多机部署中PostgreSQL是唯一权威账本。Gateway内存、Redis、Observer和本地outbox均不能作为用户消耗事实来源。
+
+```text
+调用前：写Provider Call Intent -> 原子预留estimated input + max output -> 发起请求
+调用后：保存原始Usage Receipt -> 幂等结算actual usage -> 释放未使用预留
+```
+
+- [ ] 复用现有`provider_calls`、`task_usage`和`usage_protocol`，记录user/run/task/attempt/generation/gateway/model/provider关联。
+- [ ] 多Gateway并发预算通过PostgreSQL短事务与唯一约束控制，不能依赖进程锁或本地计数。
+- [ ] Streaming期间Gateway本地累计，最终按Provider Receipt结算；不按每个delta写账本。
+- [ ] 非空输出却`output_tokens=0`沿用冲突回执处理，不能记作零成本；可信input可单独结算，output保持unknown和阶段上限。
+- [ ] 请求字节可能已发出但未取得可靠回执时进入`submission_unknown`，不能自动重提模型或生成请求。
+- [ ] 数据库不可用时拒绝新Provider副作用；已建立流可有界完成，Receipt写入本机持久outbox，恢复后按`provider_call_id`幂等补交。未结算前不能宣称费用已确认。
+- [ ] Observer采集Gateway事件并构建视图，但不参与预算正确性。跨机必须每机采集并上送中央后端。
+
+### 13.8 OpenSandbox恢复与检查点
+
+权威恢复采用“新建干净沙箱 + 逻辑检查点恢复”，不恢复原容器PID、内存、Socket或正在运行的进程，也不把Docker/gVisor快照当作权威数据源。
+
+```text
+固定Runtime镜像
++ Artifact Store中的Workspace Checkpoint
++ Session Bundle
++ 当前Revision的Step Checkpoint
++ PostgreSQL权威上下文
++ 新Gateway Grant
+= 新OpenSandbox执行环境
+```
+
+恢复顺序：创建新Attempt/Generation，按固定image digest创建空闲沙箱，读取最后一个已提交Checkpoint Manifest，从对象存储恢复并校验project/revision/size/SHA-256，设置UID和权限，重新生成只读业务上下文，签发绑定新Sandbox ID的Gateway Grant，完成恢复前检查后再启动Harness。
+
+- [ ] 只认数据库已提交的Checkpoint指针；对象已上传但引用未提交属于孤儿，不能参与恢复。
+- [ ] 节点本地目录和镜像缓存只是缓存，跨机恢复不得依赖原节点。
+- [ ] Session恢复要求Harness、runtime image、Skill Bundle、Gateway协议和Checkpoint格式兼容；不兼容时恢复业务文件和步骤成果，但创建新原生会话。
+- [ ] 动态Workflow仅恢复当前Task revision、声明依赖、已验收上游输出和授权修复候选；旧revision与未验收文件不能进入新沙箱。
+- [ ] OpenSandbox Docker snapshot主要保存可写文件层，不是进程/内存快照；gVisor overlay/filestore还存在完整性限制，且本地镜像不能天然跨机。它未来最多作为可丢弃缓存优化，不替代现有Artifact/Checkpoint协议。
+- [ ] Executor或进程崩溃默认创建新Attempt和新沙箱；MVP不接管仍在运行的Harness进程。
+
+### 13.9 Watchdog、Fencing和异常状态
+
+正常路径由Executor主动清理；异常路径由独立Watchdog权威清理；OpenSandbox TTL只在Executor和Watchdog同时失效时兜底。
+
+```text
+Lease/permit失效
+  -> 标记cleanup_requested
+  -> 撤销Gateway Grant并关闭活跃连接
+  -> 中断Runtime Daemon/Harness
+  -> DELETE OpenSandbox sandbox
+  -> GET/list+metadata确认不存在
+  -> 清理本地句柄和临时数据
+  -> Cleanup Receipt complete
+  -> 释放Resource Claim
+```
+
+- [ ] 未确认沙箱消失前不释放物理资源，不把业务取消或数据库Lease过期当作清理完成。
+- [ ] 删除失败进入有界退避；超过Cleanup deadline后对应Backend/节点进入draining或quarantined。
+- [ ] Watchdog删除前核对Sandbox metadata中的Attempt和Generation，旧Cleanup回执不能误删后继沙箱。
+- [ ] 节点心跳超时后中央Orchestrator fence节点、递增Generation、撤销全部Grant并停止调度；不能由其他节点因“本地找不到容器”宣称旧节点已清理。
+- [ ] 旧节点恢复后，本机Watchdog扫描OpenSandbox metadata，删除全部失权沙箱；清理完成后节点才能重新ready。
+- [ ] 数据库故障时新副作用fail closed；本地单调Permit仍会到期并触发清理。纯本地结果可暂存但不能正式提交。
+
+异常必须结构化区分：创建明确失败、创建结果未知、Provider提交未知、Usage未结算、输出收集失败、Checkpoint损坏、删除重试、Cleanup隔离、节点失联和旧Generation迟到。安全自动重试仅限查询、同一Sandbox ID删除、幂等结算、条件对象写及可证明请求字节未发送的连接失败。
+
+### 13.10 GPU边界和后续条件
+
+本机静态探查表明RTX 4090架构可被gVisor nvproxy覆盖，但当前宿主驱动、NVIDIA Container Toolkit、CDI、精确GPU UUID分配和OpenSandbox GPU租约均不满足生产迁移要求。首期不修改驱动、不停止现有GPU任务，也不以旧runsc或强制ABI冒充作为生产方案。
+
+- [ ] GPU Operation继续使用现有bwrap、指定`/dev/nvidiaN`、GPU UUID和GPU lease。
+- [ ] OpenSandbox API当前只表达GPU数量，未来若迁移GPU需增加设备ID/UUID、能力、节点租约和并发冲突控制。
+- [ ] Direct GPU Agent仅允许注册Profile；判定前必须证明无法用类型化Operation、组合Operation、有界Script或长驻GPU Session表达。
+- [ ] gVisor GPU迁移需单独完成驱动严格兼容、Toolkit/CDI、`nvproxy`、compute/video capability、CUDA/PyTorch/SAM/ZIM/NVENC/NVDEC及并发回收验收。
+
+### 13.11 实施顺序与验收门禁
+
+实施顺序：
+
+1. 提取`LocalBwrapBackend`及公共Backend contract，保持线上行为不变。
+2. 增加数据库字段、生命周期状态和Backend contract tests；先不部署OpenSandbox路径。
+3. 建设内部网络、Node Capability Gateway、Grant和共享Usage账本对接。
+4. 构建并签名首个CPU Agent Runtime镜像及Runtime Daemon。
+5. 实现OpenSandboxBackend的create/files/daemon/collect/delete/reconcile。
+6. 先迁移无GPU确定性Script，再迁移Reviewer/Diagnostician，最后迁移需要长期Harness会话的CPU Implementer。
+7. 扩展多机Observer、节点Fencing和Watchdog故障演练；GPU保持原Backend。
+
+验收清单：
+
+- [ ] 同一Task在两种Backend上的授权、输入、输出、验收和Cleanup contract一致。
+- [ ] 沙箱只能访问Node Gateway；公网、内网、metadata、宿主其他端口和同网沙箱均失败。
+- [ ] Token复制到其他沙箱、旧Generation、过期Lease和未授权Route均被拒绝。
+- [ ] Runtime镜像、Harness、Skill、Tool Schema和Gateway协议摘要写入Attempt并可审计。
+- [ ] 创建响应丢失时找回唯一沙箱，不重复创建；Executor kill后Watchdog销毁并确认无残留。
+- [ ] Node Gateway kill、数据库断连、节点重启和删除失败均有有界恢复，不能丢Usage或提前释放资源。
+- [ ] 多Gateway并发预算不超限；重复Receipt不重复累计；未知Usage不记零。
+- [ ] 跨物理机从共享Checkpoint恢复，不读取原节点目录；损坏、越权或不兼容Session明确拒绝或降级新会话。
+- [ ] Provider提交未知、旧Attempt晚到和节点恢复不会产生第二次外部副作用或覆盖新成果。
+- [ ] OpenSandbox达到容量上限时进入资源等待，不回退bwrap；GPU等待不改用未授权设备。
+- [ ] 为现有119条真机矩阵补充Backend、Gateway、恢复、清理和故障证据；历史通过不代替新路径验收。
+
+### 13.12 沙箱启动速度优化
+
+目标不是只压缩Docker/runsc创建时间，而是分别控制调度、镜像、沙箱、Runtime、Workspace、Session和Harness恢复。优化前必须记录每段延迟；不能用单一“create latency”掩盖大文件恢复或Harness初始化。
+
+```text
+Agent Ready时间
+= scheduler_wait
++ image_prepare
++ sandbox_create/acquire
++ daemon_ready
++ workspace_restore
++ session_restore
++ harness_resume
+```
+
+#### 13.12.1 不可变Runtime镜像与节点预拉取
+
+- [ ] 按Harness构建`agent-runtime-codex`、`agent-runtime-claude`和`agent-runtime-deepseek`，使用digest调度，不使用浮动tag。
+- [ ] 把Harness、Runtime Daemon、Skill Bundle、Tool Schema、Python/Node/FFmpeg和固定依赖移到构建期；运行时不执行apt/pip/npm安装。
+- [ ] Runtime Profile发布后，由节点后台预拉取active镜像并校验签名、digest和架构。
+- [ ] 节点上报`cached`、`pulling`、`pullable`和`unavailable`，Scheduler优先缓存命中节点，但缓存不能改变Backend、授权或冻结Profile。
+- [ ] 优化镜像层次：变化频率低的系统/Harness层在下，Skill和Runtime Daemon独立分层，减少小版本升级的重复拉取。
+
+#### 13.12.2 干净Warm Pool
+
+每个Runtime Profile维护少量从未装载用户数据的预热沙箱。预热完成条件是gVisor已启动、Runtime Daemon健康、Harness二进制和公共依赖可用；不提前创建真实Agent Session或Gateway Grant。
+
+- [ ] 定义每Profile的`min_idle`、`target_idle`、`max_idle`、并发补池和缩容窗口，容量计入节点及OpenSandbox总上限。
+- [ ] 领取必须原子地把干净沙箱绑定Attempt；领取失败不能让两个Attempt共享同一沙箱。
+- [ ] 任务完成后的用户沙箱始终销毁，不清洗后回池；Pool只补充新建的干净沙箱。
+- [ ] Warm Pool禁止包含Workspace、Session、素材、Attempt配置、Gateway Token、Provider连接和用户缓存。
+- [ ] Pool补充在任务清理之外异步执行，补池失败影响后续冷启动但不能把已完成Cleanup改回失败。
+- [ ] 记录pool命中、冷启动、补池失败、空闲成本和不同Profile的实际需求，再决定常驻数量；不能为每个低频Profile无界预热。
+
+#### 13.12.3 每物理节点Artifact Cache
+
+每台物理执行机维护一份可信、可删除、容量有界的Artifact缓存；同一物理机上的逻辑执行节点共享该缓存，跨物理机不要求同步。
+
+```text
+PostgreSQL Manifest + Artifact Store = 权威状态
+Node Artifact Cache                 = 可丢弃副本
+Sandbox Workspace                   = 单Attempt临时副本
+```
+
+- [ ] 缓存按Artifact ID及密文SHA-256寻址，优先保存对象存储密文；Executor在Attempt私有staging中校验、解密和物化明文。
+- [ ] 缓存目录不挂载给沙箱，不保存Gateway Token、Provider凭据、Session Cookie、可写Workspace或进程状态。
+- [ ] 下载使用临时文件、大小/hash/认证校验和原子rename；同一对象并发下载使用文件锁或single-flight去重。
+- [ ] 配置容量上限、LRU/访问时间淘汰、损坏隔离、磁盘水位和清理指标；缓存完全删除只降低性能，不影响恢复正确性。
+- [ ] Executor按Checkpoint Manifest从缓存命中或对象存储下载，再把本次授权文件写入OpenSandbox；沙箱不能列举节点缓存或其他项目对象。
+- [ ] 节点可上报受限的cache hint供调度评分，不向普通任务暴露完整用户Artifact清单。
+
+#### 13.12.4 增量Checkpoint与恢复
+
+Checkpoint保存当前完整逻辑Manifest，但保存时只上传新增/修改对象，未变化文件复用旧Artifact；授权删除从新Manifest移除或记录墓碑。恢复不顺序重放任意长度的delta链，而是以一个已提交完整Manifest确定当前文件集合。
+
+- [ ] 保存阶段比较路径、大小和SHA-256，只上传变化对象；复用对象必须满足同项目归属、published状态和有效引用。
+- [ ] 恢复阶段只下载当前节点缓存缺失的Artifact；全新节点无缓存时仍可从Artifact Store完整恢复。
+- [ ] 使用Attempt私有临时目录恢复，全部文件完成project/revision/size/hash、路径、链接和数量校验后再原子发布Workspace。
+- [ ] 删除墓碑、blocked deletion和Workspace Policy保持现有授权语义，不能因增量算法把未授权删除推广到后续版本。
+- [ ] Session Bundle和Step Checkpoint分别版本化，不与普通Workspace文件混成一个不可审计大包。
+- [ ] 对每个Checkpoint记录逻辑总大小、变化字节、复用字节、远端下载字节和本地缓存命中率。
+
+#### 13.12.5 按角色最小恢复
+
+恢复集合由Task、Role、Revision和授权确定，不默认把整个项目复制进每个Agent沙箱：
+
+| 角色/任务 | 默认恢复范围 |
+| --- | --- |
+| Manager | PlanDraft、能力目录、上下文、元数据和必要低清证据 |
+| Reviewer | 当前候选、预览、验收条件、上游已验收摘要 |
+| Diagnostician | 相关日志、诊断、失败输入摘要和受控证据 |
+| Implementer | 授权脚本、Workspace、必要素材和依赖Step成果 |
+| GPU Operation | 明确输入文件和参数，不恢复Agent Session |
+
+- [ ] 大视频和模型资产不因普通Agent Turn自动恢复；优先由类型化Operation读取，Agent使用元数据、预览或受控查询。
+- [ ] Role恢复策略属于版本化Runtime/Task contract，不能由Agent临时扩大。
+- [ ] 缺少声明输入时明确失败，不能通过扫描项目目录猜测最新文件。
+
+#### 13.12.6 Prefetch与并行恢复
+
+- [ ] Scheduler确定候选节点后可预拉取固定镜像和不可变Artifact，但正式获得Lease前不得启动Harness、签发可用Grant或产生Provider副作用。
+- [ ] Workspace、Session Bundle、Step Checkpoint和授权素材可并行预取；每项独立限流、取消和记录错误。
+- [ ] Lease获得后并行执行文件物化、Attempt配置生成和Grant准备，最终统一校验后进入Ready。
+- [ ] Prefetch结果绑定Artifact digest而非Attempt执行权；候选变化时可保留为普通节点缓存，不能据此提交业务状态。
+- [ ] 限制并行恢复的磁盘、网络和CPU峰值，防止批量冷启动拖垮Gateway、对象存储或控制面。
+
+#### 13.12.7 Session体积与短期保活边界
+
+- [ ] Session Bundle只保留不可重建的Harness状态、线程标识和已批准项目记忆；排除下载缓存、日志、锁、临时文件和可重建索引。
+- [ ] 恢复前校验Harness、镜像、Skill、Daemon协议和Checkpoint格式；不兼容时恢复业务文件并创建新Session。
+- [ ] 默认Attempt完成后销毁沙箱。未来可实验同用户、同Session、同Profile、同Generation的短期保活窗口，但需单独授权、容量、撤权和清理设计。
+- [ ] 短期保活不能成为恢复正确性依赖，不能跨用户复用完成过任务的沙箱，也不能让旧Token和权限跨Attempt存活。
+
+#### 13.12.8 Lazy Pull与gVisor原生快照的后续阶段
+
+- [ ] 在镜像、Warm Pool和Artifact恢复稳定后，再评估eStargz/Nydus/OverlayBD等Lazy Pull；记录首个文件访问尾延迟和Registry依赖，不能只比较pull完成时间。
+- [ ] gVisor原生Checkpoint/Restore仅用于公共Runtime初始化加速的后续实验，不替代逻辑Checkpoint。快照点必须在无用户数据、无Token、无Provider连接时建立。
+- [ ] Restore Hook必须重置随机/唯一状态、网络连接、Attempt配置和Gateway Grant；不能复制预热实例的身份。
+- [ ] 验证CPU特征、runsc版本、镜像digest、Skill、Daemon协议和节点文件系统兼容；不兼容时回退干净Warm Pool而不是强制恢复。
+- [ ] OpenSandbox Docker filesystem snapshot不作为进程/内存恢复或跨机权威状态；任何快照缓存均可删除和重建。
+
+#### 13.12.9 指标、基线和完成条件
+
+必须分别记录：
+
+```text
+scheduler_wait_ms
+image_pull_ms
+warm_pool_wait_ms
+sandbox_create_ms / sandbox_acquire_ms
+workspace_restore_ms
+session_restore_ms
+daemon_ready_ms
+harness_resume_ms
+agent_first_event_ms
+artifact_cache_hit_ratio
+warm_pool_hit_ratio
+remote_restore_bytes
+```
+
+- [ ] 基线覆盖冷节点、镜像缓存命中、Warm Pool命中、Artifact缓存命中/未命中及跨物理机恢复；报告并发、数据规模、Profile和p50/p95/p99。
+- [ ] Ready边界固定为Runtime Daemon健康、Workspace/Session校验完成、Grant生效且Harness可接收Turn；不能使用较早的容器Running冒充Agent Ready。
+- [ ] 优化不得跳过权限、hash、Session兼容、Lease、Generation和Cleanup检查；性能失败可回退冷启动，不能回退高权限Backend。
+- [ ] Warm Pool、节点缓存和Prefetch均有独立容量及故障指标，不得让性能组件成为新的权威状态或业务单点。
+
+启动优化实施优先级：先完成Harness专用镜像、节点预拉取、干净Warm Pool、Node Artifact Cache、增量Checkpoint、角色最小恢复及并行Prefetch；随后优化镜像层和Lazy Pull；最后才评估gVisor内存Checkpoint、后台恢复和短期Session保活。
+
+完成标准：CPU Agent在至少两台物理执行机上通过固定镜像和Skill运行；任一节点、Executor、Gateway或OpenSandbox进程故障后，旧Generation失权、沙箱可回收、Usage可核实、Checkpoint可在另一节点恢复；GPU链路保持现有行为且无权限回退。启动优化还需证明缓存全失效时仍正确恢复，命中时达到单独批准的Agent Ready延迟目标。所有实现、部署和真机证据齐备前，本节保持未完成状态。
+
 ## 本会话的固定版本验收
 
 共享工作区存在并行修改。本会话已对源码指纹 `695955c0ed2cdb84cfb73b73c6043becce5884c79971d9c255035a5d393685d0` 完成独立副本验收：336项Python测试、12项前端测试、浏览器回归及真实加密BOSS恢复全部通过，无失败或跳过，9个远端测试对象已清理。源码和证据已封存，参见[固定版本最终验收](distributed-final-verification.md)。该结论不自动适用于之后的工作区修改；真实跨物理机生产演练不在此记录范围内。
