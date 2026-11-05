@@ -11,8 +11,8 @@ is accepted by the runtime build.
    that digest as `BASE_IMAGE`.
 3. Publish the base output by digest as the CPU Command Runtime and record the same
    digest as `RUNTIME_BASE` for Agent images.
-4. Build each Harness image independently. `codex` can be built alone without
-   preparing the Claude and DeepSeek SDK wheels.
+4. Build each Harness image independently with the `codex`, `claude` or
+   `deepseek` target. `codex` does not require the SDK wheels.
 5. Sign, scan and publish by digest; floating tags are not runtime inputs.
 
 `deploy/build-agent-runtime.sh` accepts `DOCKER=/path/to/docker` for hosts where

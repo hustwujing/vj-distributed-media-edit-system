@@ -25,11 +25,13 @@ case "${1:-}" in
     "$docker_bin" build --network=none -f runtime/opensandbox/base.Dockerfile \
       --build-arg "BASE_IMAGE=$BASE_IMAGE" -t agent-runtime-base:build .
     ;;
-  codex)
-    test -x vendor/codex
+  codex|claude|deepseek)
+    harness="$1"
+    test "$harness" != codex || test -x vendor/codex
+    test "$harness" = codex || test -d wheels
     require_digest RUNTIME_BASE "${RUNTIME_BASE:-}"
-    "$docker_bin" build --network=none -f runtime/opensandbox/codex.Dockerfile \
-      --build-arg "RUNTIME_BASE=$RUNTIME_BASE" -t agent-runtime-codex:build .
+    "$docker_bin" build --network=none -f "runtime/opensandbox/$harness.Dockerfile" \
+      --build-arg "RUNTIME_BASE=$RUNTIME_BASE" -t "agent-runtime-$harness:build" .
     ;;
   harnesses)
     test -d wheels
@@ -40,5 +42,5 @@ case "${1:-}" in
         --build-arg "RUNTIME_BASE=$RUNTIME_BASE" -t "agent-runtime-$harness:build" .
     done
     ;;
-  *) echo 'usage: build-agent-runtime.sh foundation|base|codex|harnesses' >&2; exit 2;;
+  *) echo 'usage: build-agent-runtime.sh foundation|base|codex|claude|deepseek|harnesses' >&2; exit 2;;
 esac

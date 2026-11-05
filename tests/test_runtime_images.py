@@ -33,7 +33,7 @@ class RuntimeImageDefinitionTests(unittest.TestCase):
     def test_build_script_has_offline_runtime_phases_and_is_shell_valid(self):
         script=ROOT/'deploy/build-agent-runtime.sh';value=script.read_text()
         self.assertIn('--network=none',value)
-        self.assertIn('foundation|base|codex|harnesses',value)
+        self.assertIn('foundation|base|codex|claude|deepseek|harnesses',value)
         self.assertIn('${DOCKER:-docker}',value)
         subprocess.run(['/bin/bash','-n',str(script)],check=True)
 
