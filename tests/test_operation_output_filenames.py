@@ -10,6 +10,14 @@ class OperationOutputFilenameTests(unittest.TestCase):
         self.assertEqual(delivery_candidate_refs(task),{'edit/final.mp4'})
         report={'accepted_result':['edit/report.json'],'quality':{'output_roles':{'report':'edit/report.json'}}}
         self.assertEqual(delivery_candidate_refs(report),{'edit/report.json'})
+        requested_report={'accepted_result':['edit/ocr.json','edit/ocr-preview.png'],
+            'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'ocr.json'}]},
+            'quality':{'output_roles':{'report':'edit/ocr.json','preview':'edit/ocr-preview.png'}}}
+        self.assertEqual(delivery_candidate_refs(requested_report),{'edit/ocr.json'})
+        requested={'accepted_result':['edit/ocr.json','edit/ocr-preview.png'],
+                   'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'ocr.json'}]},
+                   'quality':{'output_roles':{'report':'edit/ocr.json','preview':'edit/ocr-preview.png'}}}
+        self.assertEqual(delivery_candidate_refs(requested),{'edit/ocr.json'})
     def test_registered_output_role_is_bound_to_the_attempt_file_before_quality_check(self):
         from webapp.workflow_runtime import resolve_acceptance_output_roles
         rules=[{'kind':'image','file':'primary_image','width':512},{'kind':'file','file':'literal.png'}]
