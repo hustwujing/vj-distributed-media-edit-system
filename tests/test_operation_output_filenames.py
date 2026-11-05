@@ -66,6 +66,29 @@ class OperationOutputFilenameTests(unittest.TestCase):
             {'criterion_index':0,'observation':'First report checked','inspection_id':report_a_id},
             {'criterion_index':0,'observation':'Second report checked','inspection_id':report_b_id}]}
         self.assertEqual(resolve_review(ambiguous,snapshot,inspections,keys)['deliverables'],[video])
+
+    def test_final_review_rejects_reports_without_requested_audio_formats(self):
+        from webapp.workflow_agent_contracts import resolve_review,validate_resolved_review
+        wav_id='a'*32;mp3_id='b'*32;report_id='c'*32
+        wav='edit/final.wav';mp3='edit/final.mp3';report='edit/audio-process-report.json'
+        task={'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'*'}]},
+              'accepted_result':[wav,mp3,report],
+              'quality':{'output_roles':{'audio':wav,'alternate_audio':mp3,'report':report}}}
+        snapshot=self.review_snapshot([task]);snapshot['goal']='Deliver WAV and MP3 plus the inspection report'
+        inspections={wav_id:wav,mp3_id:mp3,report_id:report}
+        keys={'delivery_1':wav_id,'delivery_2':mp3_id,'delivery_3':report_id}
+        reports_only={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':'delivery_3',
+                      'deliverables':['delivery_3'],'evidence':[
+                          {'criterion_index':0,'observation':'Report checked','inspection_id':report_id}]}
+        resolved=resolve_review(reports_only,snapshot,inspections,keys)
+        with self.assertRaisesRegex(ValueError,'required formats: mp3, wav'):
+            validate_resolved_review(resolved,snapshot,inspections)
+        complete={**reports_only,'primary':'delivery_1','deliverables':['delivery_1','delivery_2','delivery_3'],
+                  'evidence':[
+                      {'criterion_index':0,'observation':'WAV checked','inspection_id':wav_id},
+                      {'criterion_index':0,'observation':'MP3 checked','inspection_id':mp3_id},
+                      {'criterion_index':0,'observation':'Report checked','inspection_id':report_id}]}
+        validate_resolved_review(resolve_review(complete,snapshot,inspections,keys),snapshot,inspections)
     def test_registered_output_role_is_bound_to_the_attempt_file_before_quality_check(self):
         from webapp.workflow_runtime import resolve_acceptance_output_roles
         rules=[{'kind':'image','file':'primary_image','width':512},{'kind':'file','file':'literal.png'}]

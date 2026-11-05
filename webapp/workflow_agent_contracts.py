@@ -184,6 +184,18 @@ def validate_resolved_review(decision, snapshot, inspections):
             raise ValueError('Final selection must contain inspected approved candidates')
         if len(selected)>1 and not decision['primary']:
             raise ValueError('Multiple final deliverables require an explicit primary')
+        from .workflow_model_protocol import required_delivery_extensions,required_delivery_roles
+        aliases={'jpg':'jpeg'}
+        selected_extensions={aliases.get(ref.rsplit('.',1)[-1].lower(),ref.rsplit('.',1)[-1].lower())
+                             for ref in selected if '.' in ref}
+        missing_extensions=required_delivery_extensions(snapshot)-selected_extensions
+        if missing_extensions:
+            raise ValueError('Final selection is missing required formats: '+', '.join(sorted(missing_extensions)))
+        selected_roles={role for task in snapshot['tasks'] for role,path in task.get('quality',{}).get('output_roles',{}).items()
+                        if path in selected}
+        missing_roles=required_delivery_roles(snapshot)-selected_roles
+        if missing_roles:
+            raise ValueError('Final selection is missing required roles: '+', '.join(sorted(missing_roles)))
 
 
 def validate_temporal_evidence(decision,snapshot,records):

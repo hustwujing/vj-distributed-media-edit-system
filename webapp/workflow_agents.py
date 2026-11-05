@@ -894,7 +894,10 @@ def validated_internal_result(run,task,profile,reply,frozen,inspections,candidat
         evidence=decision['evidence']
         if not evidence:raise ValueError('Passing review requires evidence')
     from .workflow_agent_contracts import resolve_review
-    return {'decision':resolve_review(decision,frozen,inspections,candidate_keys)}
+    resolved=resolve_review(decision,frozen,inspections,candidate_keys)
+    from .workflow_agent_contracts import validate_resolved_review
+    validate_resolved_review(resolved,frozen,inspections)
+    return {'decision':resolved}
 
 
 def output_directory(host,lease,run,task,output=None):
