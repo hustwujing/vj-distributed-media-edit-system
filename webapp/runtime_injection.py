@@ -14,6 +14,17 @@ RUNTIME_CONFIG=RUNTIME_ROOT+'/runtime.json'
 RUNTIME_PENDING=RUNTIME_ROOT+'/runtime.json.pending'
 CONTROL_TOKEN=RUNTIME_ROOT+'/control.token'
 HARNESS_CONFIG=RUNTIME_ROOT+'/harness-config.json'
+GATEWAY_CONFIG=RUNTIME_ROOT+'/gateway.json'
+GATEWAY_TOKEN=RUNTIME_ROOT+'/gateway.token'
+GATEWAY_CA=RUNTIME_ROOT+'/gateway-ca.pem'
+
+
+@dataclass(frozen=True)
+class GatewayGrant:
+    endpoint: str
+    token: str
+    ca: bytes
+    allowed_routes: tuple[str,...]
 
 
 @dataclass(frozen=True)
@@ -24,18 +35,29 @@ class RuntimeBundle:
     binding: dict
     harness_config: dict
     control_token: str
+    gateway: GatewayGrant | None = None
 
     @classmethod
-    def create(cls,identity,harness,profile,binding,harness_config,token=None):
+    def create(cls,identity,harness,profile,binding,harness_config,token=None,gateway=None):
         return cls(identity,harness,dict(profile),dict(binding),dict(harness_config),
-                   token or secrets.token_urlsafe(32))
+                   token or secrets.token_urlsafe(32),gateway)
 
     def runtime_config(self):
-        return {'identity':{'attempt_id':self.identity.attempt_id,
+        value={'identity':{'attempt_id':self.identity.attempt_id,
                             'generation':self.identity.generation,
                             'sandbox_id':self.identity.sandbox_id},
                 'harness':self.harness,'profile':self.profile,'binding':self.binding,
                 'control_token_file':CONTROL_TOKEN,'harness_config_file':HARNESS_CONFIG}
+        if self.gateway:value['gateway_config_file']=GATEWAY_CONFIG
+        return value
+
+    def gateway_config(self):
+        if not self.gateway:return None
+        return {'identity':{'attempt_id':self.identity.attempt_id,
+                            'generation':self.identity.generation,
+                            'sandbox_id':self.identity.sandbox_id},
+                'endpoint':self.gateway.endpoint,'allowed_routes':list(self.gateway.allowed_routes),
+                'token_file':GATEWAY_TOKEN,'ca_file':GATEWAY_CA}
 
 
 class RuntimeInjector:
@@ -69,6 +91,13 @@ class RuntimeInjector:
         if not 32<=len(token)<=512:raise ValueError('Invalid Runtime control token')
         receipts={HARNESS_CONFIG:self._write_verified(HARNESS_CONFIG,harness,0o600),
                   CONTROL_TOKEN:self._write_verified(CONTROL_TOKEN,token,0o600)}
+        if bundle.gateway:
+            if not 32<=len(bundle.gateway.token)<=512 or not bundle.gateway.ca:
+                raise ValueError('Invalid Gateway grant material')
+            receipts[GATEWAY_TOKEN]=self._write_verified(GATEWAY_TOKEN,bundle.gateway.token.encode(),0o600)
+            receipts[GATEWAY_CA]=self._write_verified(GATEWAY_CA,bundle.gateway.ca,0o600)
+            receipts[GATEWAY_CONFIG]=self._write_verified(
+                GATEWAY_CONFIG,self._encoded(bundle.gateway_config()),0o600)
         runtime=self._encoded(bundle.runtime_config())
         if bundle.control_token.encode() in runtime:
             raise ValueError('Runtime configuration must not contain the control token')

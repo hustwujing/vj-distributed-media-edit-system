@@ -2,7 +2,8 @@ import json
 import unittest
 
 from webapp.runtime_injection import (
-    CONTROL_TOKEN,HARNESS_CONFIG,RUNTIME_CONFIG,RUNTIME_PENDING,RuntimeBundle,RuntimeInjector,
+    CONTROL_TOKEN,GATEWAY_CA,GATEWAY_CONFIG,GATEWAY_TOKEN,HARNESS_CONFIG,RUNTIME_CONFIG,
+    RUNTIME_PENDING,GatewayGrant,RuntimeBundle,RuntimeInjector,
 )
 from webapp.runtime_protocol import RuntimeIdentity
 
@@ -52,6 +53,17 @@ class RuntimeInjectionTests(unittest.TestCase):
         files=FakeFiles();files.data[RUNTIME_CONFIG]=b'stale'
         RuntimeInjector(files).inject(self.bundle(),lambda _:None)
         self.assertEqual(files.operations[0],('delete',RUNTIME_CONFIG,True))
+
+    def test_gateway_grant_is_separate_from_control_token_and_precedes_activation(self):
+        base=self.bundle();gateway=GatewayGrant('https://172.30.0.1:18880','g'*48,b'public-ca',
+            ('/v1/responses','/context'))
+        bundle=RuntimeBundle.create(base.identity,base.harness,base.profile,base.binding,
+            base.harness_config,token=base.control_token,gateway=gateway)
+        files=FakeFiles();receipts=RuntimeInjector(files).inject(bundle,lambda _:None)
+        self.assertTrue({GATEWAY_CA,GATEWAY_CONFIG,GATEWAY_TOKEN}<=set(receipts))
+        runtime=json.loads(files.data[RUNTIME_CONFIG])
+        self.assertEqual(runtime['gateway_config_file'],GATEWAY_CONFIG)
+        self.assertNotIn(gateway.token,files.data[RUNTIME_CONFIG].decode())
 
 
 if __name__=='__main__':unittest.main()

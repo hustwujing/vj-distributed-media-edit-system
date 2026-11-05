@@ -43,6 +43,21 @@ class RuntimeBootstrapTests(unittest.TestCase):
         self.assertEqual(command[:3],['/opt/venv/bin/python','/opt/harness_bridge.py','claude_code'])
         self.assertEqual(command[-1],str(self.harness))
 
+    def test_gateway_grant_starts_only_a_loopback_client(self):
+        value=self.write();gateway_token=self.root/'gateway.token';gateway_ca=self.root/'gateway-ca.pem'
+        gateway_config=self.root/'gateway.json'
+        gateway_token.write_text('g'*48);gateway_ca.write_text('public-ca')
+        gateway_token.chmod(0o600);gateway_ca.chmod(0o600)
+        gateway_config.write_text(json.dumps({'identity':value['identity'],
+            'endpoint':'https://172.30.0.1:18880','allowed_routes':['/v1/responses'],
+            'token_file':str(gateway_token),'ca_file':str(gateway_ca)}));gateway_config.chmod(0o600)
+        value['gateway_config_file']=str(gateway_config)
+        self.config.write_text(json.dumps(value));self.config.chmod(0o600)
+        app=create_runtime(self.config,gateway_port=0)
+        with TestClient(app) as client:
+            self.assertEqual(app.state.gateway_server.address[0],'127.0.0.1')
+            self.assertEqual(client.get('/healthz').status_code,200)
+
     def test_group_readable_or_outside_files_are_rejected(self):
         self.write();self.token.chmod(0o640)
         with self.assertRaisesRegex(ValueError,'owner-only'):load_config(self.config)

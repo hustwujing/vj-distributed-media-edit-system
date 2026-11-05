@@ -37,7 +37,7 @@ def load_config(path):
     path=_secure_file(path,root,64*1024)
     value=json.loads(path.read_text())
     required={'identity','harness','profile','binding','control_token_file','harness_config_file'}
-    if not isinstance(value,dict) or set(value)!=required:
+    if not isinstance(value,dict) or not required<=set(value) or set(value)-required-{'gateway_config_file'}:
         raise ValueError('Invalid Runtime bootstrap configuration')
     identity=value['identity'];profile=value['profile'];binding=value['binding']
     if not isinstance(identity,dict) or set(identity)!={'attempt_id','generation','sandbox_id'}:
@@ -64,10 +64,23 @@ def load_config(path):
     harness_config=_secure_file(value['harness_config_file'],root,64*1024)
     return {'identity':runtime_identity,'adapter':adapter,
             'profile':SimpleNamespace(**profile),'binding':binding,'token':token,
-            'harness_config':str(harness_config)}
+            'harness_config':str(harness_config),
+            'gateway_config':value.get('gateway_config_file')}
 
 
-def create_runtime(path):
+def load_gateway(path,identity):
+    path=Path(path);root=path.resolve().parent
+    path=_secure_file(path,root,64*1024);value=json.loads(path.read_text())
+    required={'identity','endpoint','allowed_routes','token_file','ca_file'}
+    if not isinstance(value,dict) or set(value)!=required or value['identity']!={
+            'attempt_id':identity.attempt_id,'generation':identity.generation,'sandbox_id':identity.sandbox_id}:
+        raise ValueError('Invalid Gateway grant configuration')
+    token_file=_secure_file(value['token_file'],root,4096)
+    ca_file=_secure_file(value['ca_file'],root,1024*1024)
+    return value['endpoint'],token_file.read_text().strip(),value['allowed_routes'],str(ca_file)
+
+
+def create_runtime(path,*,gateway_port=18766):
     config=load_config(path);holder={}
     bridge=StdioHarnessBridge(config['adapter'],
         config['adapter'].runtime_launch(config['harness_config']))
@@ -79,6 +92,14 @@ def create_runtime(path):
     holder['service']=app.state.runtime_service
     app.state.harness_controller=controller
     app.router.add_event_handler('shutdown',controller.close)
+    app.state.gateway_server=None
+    if config['gateway_config']:
+        from .runtime_gateway import GatewayClient,GatewayClientServer
+        endpoint,token,routes,ca=load_gateway(config['gateway_config'],config['identity'])
+        gateway=GatewayClient(endpoint,token,config['identity'],routes,ca)
+        server=GatewayClientServer(gateway,port=gateway_port);server.start()
+        app.state.gateway_server=server
+        app.router.add_event_handler('shutdown',server.close)
     return app
 
 

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from .runtime_bootstrap import CONTROL_PORT
 from .runtime_client import RuntimeClient
-from .runtime_injection import RuntimeBundle,RuntimeInjector
+from .runtime_injection import GatewayGrant,RuntimeBundle,RuntimeInjector
 from .runtime_protocol import RuntimeIdentity
 from .sandbox_backends import OPEN_SANDBOX,BackendConfigurationError
 
@@ -29,6 +29,7 @@ class AgentRuntimeSpec:
     tool_schema_digest: str
     gateway_protocol: str
     harness_config: dict
+    gateway_grant: GatewayGrant | None = None
 
 
 class OpenSandboxRuntime:
@@ -66,6 +67,8 @@ class OpenSandboxBackend:
     def start(self,lease,binding,resources,spec,restore_workspace,on_event,*,timeout=3600):
         if binding.backend!=OPEN_SANDBOX:
             raise BackendConfigurationError('OpenSandboxBackend requires an opensandbox binding')
+        if spec.gateway_grant is None:
+            raise BackendConfigurationError('OpenSandbox Agent requires a frozen Gateway grant')
         payload=self.lifecycle.create(lease,binding,resources,timeout=timeout,
             entrypoint=BOOTSTRAP_ENTRYPOINT)
         sandbox_id=(payload or {}).get('id')
@@ -76,7 +79,7 @@ class OpenSandboxBackend:
             frozen=self.frozen_binding(binding,spec)
             bundle=RuntimeBundle.create(identity,spec.harness,
                 {'model':spec.model,'reasoning_effort':spec.reasoning_effort},
-                frozen,spec.harness_config)
+                frozen,spec.harness_config,gateway=spec.gateway_grant)
             session=self.sdk.connect(sandbox_id)
             RuntimeInjector(session.files).inject(bundle,restore_workspace)
             endpoint,headers=session.websocket_endpoint(CONTROL_PORT)

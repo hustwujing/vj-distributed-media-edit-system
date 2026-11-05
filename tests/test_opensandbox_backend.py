@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 from webapp.opensandbox_backend import AgentRuntimeSpec,BOOTSTRAP_ENTRYPOINT,OpenSandboxBackend,OpenSandboxProvisioningError
-from webapp.runtime_injection import RUNTIME_CONFIG
+from webapp.runtime_injection import GatewayGrant,RUNTIME_CONFIG
 from webapp.sandbox_backends import BackendBinding,OPEN_SANDBOX
 
 
@@ -49,8 +49,9 @@ class OpenSandboxBackendTests(unittest.TestCase):
         self.lease=SimpleNamespace(attempt='a'*32,generation=2,run_id='task')
         self.binding=BackendBinding(OPEN_SANDBOX,'agent-v1',
             'registry/agent@sha256:'+'a'*64,'sha256:'+'b'*64)
+        gateway=GatewayGrant('https://172.30.0.1:18880','g'*48,b'ca',('/v1/responses','/context'))
         self.spec=AgentRuntimeSpec('codex','model-1','high','sha256:'+'c'*64,
-            'gateway-v1',{'model':'model-1'})
+            'gateway-v1',{'model':'model-1'},gateway)
 
     def test_start_wires_create_files_proxy_and_runtime_initialization(self):
         restored=[]
