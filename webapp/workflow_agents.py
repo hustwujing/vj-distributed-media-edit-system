@@ -225,11 +225,11 @@ def model_output_limit(profile,protocol):
 
 
 def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,strict):
-    from .agent_profiles import for_task
+    from .agent_profiles import for_specialist
     from .model_adapters import get,PublicResponseStructureError
     from .egress_policy import provider_base,session,assert_no_credentials,secrets
     from .task_usage import model_call
-    configuration=for_task(host.store,lease.run_id)
+    configuration=for_specialist(host.store,lease.run_id,profile.id)
     adapter=get(configuration.protocol);base,key=configuration.credentials()
     task=graph.work_item(run,lease.step_id)
     instructions=model_instructions(profile,control_kind=task.get('control_kind') if task else None,native_tools=protocol is not None)
@@ -503,8 +503,8 @@ def execute(host,lease,run,task):
     store=host.store;profile=get_profile(task['spec']['profile'])
     if graph.digest(profile.snapshot())!=graph.digest(task['profile']):raise ValueError('Frozen Agent profile is unavailable; replan is required')
     lease.start_compute()
-    from .agent_profiles import for_task
-    configuration=for_task(store,run['id'])
+    from .agent_profiles import for_specialist
+    configuration=for_specialist(store,run['id'],profile.id)
     store.execute('INSERT OR IGNORE INTO specialist_attempt_profiles VALUES (?,?,?,?,?,?,?,?,?,?)',
         (lease.attempt,run['id'],task['id'],profile.id,profile.harness,graph.digest(task['profile']),configuration.model,configuration.protocol,configuration.digest,store.now()))
     if task.get('control_kind'):

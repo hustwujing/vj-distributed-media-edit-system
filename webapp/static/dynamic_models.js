@@ -15,5 +15,7 @@ export function choiceIsCurrent(choices,choice){
 
 export function configurationText(configuration){
  if(!configuration)return '本轮模型配置未记录';
- return `${configuration.model} · 推理强度：${effortLabels[configuration.reasoning_effort]||configuration.reasoning_effort}`;
+ const labels={media_planner:'Manager',editing_implementer:'Implementer',visual_quality_reviewer:'Task Reviewer',media_failure_diagnostician:'Diagnostician',delivery_reviewer:'Final Reviewer'};
+ const roles=Object.entries(configuration.roles||{}).map(([role,value])=>`${labels[role]||role}=${value.model}/${effortLabels[value.reasoning_effort]||value.reasoning_effort}`);
+ return `${configuration.model} · 推理强度：${effortLabels[configuration.reasoning_effort]||configuration.reasoning_effort}${roles.length?' · '+roles.join('，'):''}`;
 }

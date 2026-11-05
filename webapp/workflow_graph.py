@@ -483,7 +483,8 @@ def asset_digest(asset):
     return digest({key:asset[key] for key in ('id','name','filename','metadata')})
 
 
-def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,scope_confirmed=True,record_message=True,model_configuration=None):
+def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,scope_confirmed=True,record_message=True,
+           model_configuration=None,role_model_configurations=None):
     from .workflow_planning import bind_scope
     authorization=bind_scope(store,raw) if scope_confirmed else Authorization.model_validate(raw)
     identifier=identifier or uuid.uuid4().hex
@@ -521,7 +522,7 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,sco
         from .agent_profiles import freeze,for_task
         if model_configuration is None and parent_run_id:model_configuration=for_task(store,parent_run_id)
         if not db.execute('SELECT task_id FROM agent_run_profiles WHERE task_id=?',(identifier,)).fetchone():
-            freeze(db,identifier,project,now,parent_run_id,configuration=model_configuration)
+            freeze(db,identifier,project,now,parent_run_id,configuration=model_configuration,role_profiles=role_model_configurations)
         from .task_usage import attach
         attach(db,identifier,project,now)
         from .observation_schema import register

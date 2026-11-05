@@ -55,6 +55,8 @@ inspect须按格式分流：ZIP只读取有界目录元数据，不解包或解�
 
 当前结构化引擎为 structured-profile-v4。Manager调用类型化PlanDraft编辑命令及commit_plan，其他角色调用submit_result等专属工具；宿主编译为固定内部envelope。业务JSON报告经服务端验证后序列化到唯一声明文件，不二次编码JSON字符串；控制结果与业务files报告不得混用。工具Schema随角色、阶段、草稿内容和已完成检查收敛，提示不得再要求模型输出旧的action/proposal文本包装。Implementer可拥有受限script动作，Planner不得拥有原始代码执行或Script Task创建能力。
 
+专家模型映射由`VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON`配置，键是非Implementer的Specialist Profile ID，值是服务端登记的Agent Profile名。Manager、Reviewer和Diagnostician不接受用户覆盖。Implementer使用用户在页面选择的沙盒Harness/模型/推理强度；两类配置在Run创建时分别冻结。模型选择不改变Profile权限、工具、提示、WorkspacePolicy或验收职责。
+
 WorkspacePolicy 独立于角色与能力，必须声明只读工作区、Task 输出、Review scratch 或完整编辑范围；不得从旧 plan/execute 文本推断权限。Control Job 与业务 Task 分开记录真实 harness、profile、模型、phase、尝试和 Token。审查检查/格式纠正/最终提交预算耗尽时标记 review_incomplete 并交回 Manager 补证据，不能自动重生成候选或无界重复 Review。
 
 会编写 Script Task argv、实际执行脚本或诊断脚本的角色必须加载同一份 `script-runtime` 契约，不能仅在 Implementer 文档里说明运行接口。`VIDEO_USE_STEP_INPUTS` 始终为角色到绝对路径列表的映射；单文件也取列表元素，不提供标量兼容。接口示例应作为可执行示例验证，并检查实际角色提示确实注入该技能。模型脚本在诊断角色已授权时规划 `on_failure=diagnose`，保留显式停止策略和权限边界。

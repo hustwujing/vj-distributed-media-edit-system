@@ -20,5 +20,6 @@ test('stale, unavailable and invalid effort settings cannot pass confirmation',(
 });
 test('historical run badge uses its frozen settings and leaves missing history unknown',()=>{
  assert.match(configurationText({model:'deepseek-v4.1-flash',reasoning_effort:'medium'}),/deepseek-v4.1-flash.*中/);
+ assert.match(configurationText({model:'claude-4.6-sonnet',reasoning_effort:'high',roles:{editing_implementer:{model:'deepseek-v4.1-flash',reasoning_effort:'low'}}}),/Implementer=deepseek-v4.1-flash\/低/);
  assert.equal(configurationText(null),'本轮模型配置未记录');
 });

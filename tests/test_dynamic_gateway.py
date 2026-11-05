@@ -266,7 +266,7 @@ class DynamicGatewayTests(unittest.TestCase):
                 'output':[{'type':'message','content':[{'type':'output_text','text':'{"action":"result","files":{}}'}]}]}))
         client=Mock();client.post.side_effect=post
         host=SimpleNamespace(store=self.store,stop=threading.Event())
-        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+        with self.lease.bind(),patch('webapp.agent_profiles.for_specialist',return_value=configuration), \
                 patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
             reply=model(host,self.lease,self.run,get('media_planner'),'frozen context',[image])
         self.assertEqual(reply['action'],'result');self.assertEqual(len(calls),2)
@@ -299,7 +299,7 @@ class DynamicGatewayTests(unittest.TestCase):
             return nullcontext(Response({'stop_reason':'tool_use','usage':{'input_tokens':100,'output_tokens':output_tokens},
                 'content':[{'type':'tool_use','name':'submit_plan','input':wire}]}))
         client=Mock();client.post.side_effect=post
-        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+        with self.lease.bind(),patch('webapp.agent_profiles.for_specialist',return_value=configuration), \
              patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
             return model(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,
                 get('media_planner'),'Frozen context',protocol=protocol)
@@ -360,7 +360,7 @@ class DynamicGatewayTests(unittest.TestCase):
             return nullcontext(Response({'status':'completed','usage':{'input_tokens':100,'output_tokens':20,'total_tokens':120},
                 'output':[{'type':'function_call','name':'submit_plan','arguments':json.dumps(wire)}]}))
         client=Mock();client.post.side_effect=post;transport={'strict':True}
-        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+        with self.lease.bind(),patch('webapp.agent_profiles.for_specialist',return_value=configuration), \
              patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
             reply=model(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,get('media_planner'),
                 'Frozen context',protocol=protocol,transport=transport)
@@ -396,7 +396,7 @@ class DynamicGatewayTests(unittest.TestCase):
             return nullcontext(Response({'status':'completed','usage':{'input_tokens':100,'output_tokens':20,'total_tokens':120},
                 'output':[{'type':'function_call','name':'request_user_input','arguments':json.dumps(arguments)}]}))
         client=Mock();client.post.side_effect=post
-        with self.lease.bind(),patch('webapp.agent_profiles.for_task',return_value=configuration), \
+        with self.lease.bind(),patch('webapp.agent_profiles.for_specialist',return_value=configuration), \
              patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
         self.assertEqual(len(sent),2);self.assertTrue(sent[0]['tools'][0]['strict']);self.assertIs(sent[1]['tools'][0]['strict'],False)

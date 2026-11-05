@@ -21,6 +21,7 @@
 5. 原始 total 缺失时保持缺失；预算可以使用已知 input+output 推导值，但记录为 derived，不能伪造上游回执。
 6. 请求前持久化调用意图和预算预留；取消后的用量只能补写既有记录，不能恢复任务或发布结果。
 7. 接入配置校验、模型列表、实际执行方及诊断。SDK harness 的协议兼容表也需核实，不允许静默回落到另一协议。
+   页面只展示服务端登记的沙盒Agent Profile，由用户选择Harness/模型/推理强度；专家角色模型由`VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON`配置。Run必须分别冻结沙盒选择和每个专家Profile的实际模型摘要，恢复时不得重新读取当前默认值。
 8. 响应结构观测记录 payload 类型、公开文本长度/哈希、消息或动作对象数量、JSON 错误类型和位置；不记录完整提示、私有推理或敏感正文。迟到响应必须受 request epoch、Task revision 和 generation 约束，不能覆盖已确认的取消或新结论。
 
 ## 验证与完成标准

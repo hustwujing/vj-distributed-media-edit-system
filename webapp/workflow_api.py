@@ -140,10 +140,12 @@ def register(app,store,own_project):
                 if db.execute("SELECT id FROM execution_subjects WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')",(project_id,)).fetchone():
                     raise ValueError('项目中已有活动任务，请先完成或取消')
                 parent=own_run(project_id,body.parent_run_id,request) if body.parent_run_id else None
-                from .model_selection import resolve
+                from .model_selection import resolve,resolve_roles
                 configuration=resolve(body.model_choice) if body.model_choice else None
+                roles=resolve_roles(configuration)
                 identifier=uuid.uuid4().hex
-                run=graph.create(store,project_id,identifier,raw,parent_run_id=parent['id'] if parent else None,model_configuration=configuration)
+                run=graph.create(store,project_id,identifier,raw,parent_run_id=parent['id'] if parent else None,
+                                 model_configuration=configuration,role_model_configurations=roles)
                 request.state.workflow_observation={'run_id':run['id']}
                 db.execute('INSERT INTO workflow_start_requests VALUES (?,?,?,?,?)',(body.request_id,project_id,owner,identity,run['id']))
                 return public(store,run)

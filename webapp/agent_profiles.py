@@ -134,6 +134,31 @@ def for_task(store, task):
     return AgentProfile(**json.loads(rows[0]['configuration'])) if rows else selected()
 
 
+def role_defaults():
+    from .specialist_profiles import PROFILES
+    raw=os.environ.get('VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON','{}')
+    if len(raw)>16384:raise ValueError('Specialist model defaults exceed limit')
+    value=json.loads(raw)
+    allowed={identifier for identifier,profile in PROFILES.items() if str(profile.role)!='IMPLEMENTER'}
+    if not isinstance(value,dict) or not set(value)<=allowed or any(not isinstance(v,str) for v in value.values()):
+        raise ValueError('Invalid specialist model defaults')
+    registry=profiles();fallback=selected().name
+    result={identifier:value.get(identifier,fallback) for identifier in allowed}
+    if any(name not in registry for name in result.values()):raise ValueError('Specialist model default is not registered')
+    return result
+
+
+def for_specialist(store,task,specialist_profile):
+    if not specialist_profile:return for_task(store,task)
+    rows=store.query('SELECT configuration FROM agent_run_role_profiles WHERE task_id=? AND specialist_profile=?',(task,specialist_profile))
+    return AgentProfile(**json.loads(rows[0]['configuration'])) if rows else for_task(store,task)
+
+
+def role_configurations(store,task):
+    return {row['specialist_profile']:AgentProfile(**json.loads(row['configuration'])) for row in
+            store.query('SELECT specialist_profile,configuration FROM agent_run_role_profiles WHERE task_id=? ORDER BY specialist_profile',(task,))}
+
+
 def current():
     from .task_leases import CURRENT
     lease = CURRENT.get()
@@ -152,6 +177,9 @@ def initialize(db):
         generation INTEGER NOT NULL DEFAULT 0, created REAL NOT NULL);
       CREATE TABLE IF NOT EXISTS agent_project_profiles(
         project TEXT PRIMARY KEY, name TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS agent_run_role_profiles(
+        task_id TEXT NOT NULL,specialist_profile TEXT NOT NULL,configuration TEXT NOT NULL,
+        digest TEXT NOT NULL,created REAL NOT NULL,PRIMARY KEY(task_id,specialist_profile));
       CREATE TABLE IF NOT EXISTS agent_attempt_profiles(
         attempt_id TEXT PRIMARY KEY,task_id TEXT NOT NULL,configuration TEXT NOT NULL,
         digest TEXT NOT NULL,created REAL NOT NULL,native_session_id TEXT NOT NULL DEFAULT '',
@@ -159,12 +187,22 @@ def initialize(db):
     ''')
 
 
-def freeze(db, task, project, created, parent=None,*,configuration=None):
+def freeze(db, task, project, created, parent=None,*,configuration=None,role_profiles=None):
     old = db.execute('SELECT configuration FROM agent_run_profiles WHERE task_id=?', (parent,)).fetchone() if parent else None
     preferred = db.execute('SELECT name FROM agent_project_profiles WHERE project=?', (project,)).fetchone()
     profile = configuration or (selected(preferred['name']) if preferred else AgentProfile(**json.loads(old['configuration'])) if old else selected())
     db.execute('INSERT INTO agent_run_profiles(task_id,configuration,digest,created) VALUES (?,?,?,?)',
                (task, json.dumps(profile.snapshot(), sort_keys=True), profile.digest, created))
+    if role_profiles is None and parent:
+        inherited=db.execute('SELECT specialist_profile,configuration,digest FROM agent_run_role_profiles WHERE task_id=?',(parent,)).fetchall()
+        for row in inherited:db.execute('INSERT INTO agent_run_role_profiles VALUES (?,?,?,?,?)',(task,row['specialist_profile'],row['configuration'],row['digest'],created))
+    else:
+        configured=role_profiles or {identifier:profiles()[name] for identifier,name in role_defaults().items()}
+        from .specialist_profiles import PROFILES
+        configured={**configured,**{identifier:configuration or selected() for identifier,value in PROFILES.items() if str(value.role)=='IMPLEMENTER'}}
+        for identifier,value in configured.items():
+            db.execute('INSERT INTO agent_run_role_profiles VALUES (?,?,?,?,?)',
+                       (task,identifier,json.dumps(value.snapshot(),sort_keys=True),value.digest,created))
     return profile
 
 
@@ -184,3 +222,7 @@ def public_for_task(store,task):
     result=profile.public()|{'configuration_known':recorded}
     if not recorded:result.update(harness='历史未记录',model='历史未记录',reasoning_effort='历史未记录')
     return result
+
+
+def public_roles(store,task):
+    return {identifier:profile.public() for identifier,profile in role_configurations(store,task).items()}

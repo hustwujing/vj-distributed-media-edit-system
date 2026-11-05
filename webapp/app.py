@@ -394,7 +394,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM workflow_control WHERE run_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_intents WHERE run_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_job_results WHERE job_id IN (SELECT id FROM jobs WHERE project=?)',(project_id,))
-        for table in ('agent_messages','agent_render_observations','execution_activities','agent_routes','agent_run_profiles','agent_attempt_profiles','agent_context_events'):
+        for table in ('agent_messages','agent_render_observations','execution_activities','agent_routes','agent_run_profiles','agent_run_role_profiles','agent_attempt_profiles','agent_context_events'):
             store.execute(f'DELETE FROM {table} WHERE task_id IN ('+tasks+')',(project_id,project_id))
         store.execute('DELETE FROM usage_calls WHERE task_id IN ('+tasks+')',(project_id,project_id))
         store.execute('DELETE FROM usage_tasks WHERE project_id=?',(project_id,))

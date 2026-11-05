@@ -33,6 +33,30 @@ class ModelSelectionTests(unittest.TestCase):
         self.assertEqual(self.b.get(self.prefix+'/capabilities').status_code,404)
         run=self.a.post(self.prefix,json=self.body()).json()
         self.assertEqual((run['model_configuration']['model'],run['model_configuration']['reasoning_effort']),('claude-4.6-sonnet','high'))
+        self.assertIn('editing_implementer',run['model_configuration']['roles'])
+
+    def test_sandbox_choice_and_system_expert_models_are_frozen_separately(self):
+        response=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('deepseek41','low')})
+        self.assertEqual(response.status_code,202,response.text);run=response.json();frozen=run['model_configuration']['roles']
+        self.assertEqual(frozen['media_planner']['model'],'claude-4.6-sonnet')
+        self.assertEqual(frozen['editing_implementer']['model'],'deepseek-v4.1-flash')
+        self.assertEqual(frozen['editing_implementer']['reasoning_effort'],'low')
+        self.assertEqual(frozen['media_failure_diagnostician']['model'],'claude-4.6-sonnet')
+        self.assertEqual(agent_profiles.for_specialist(self.app.state.store,run['id'],'editing_implementer').model,'deepseek-v4.1-flash')
+        rows=self.app.state.store.query('SELECT specialist_profile,digest FROM agent_run_role_profiles WHERE task_id=?',(run['id'],))
+        self.assertEqual(len(rows),5);self.assertTrue(all(len(row['digest'])==64 for row in rows))
+
+    def test_expert_models_are_system_config_only(self):
+        configured=json.dumps({'media_planner':'deepseek41','visual_quality_reviewer':'claude',
+            'media_failure_diagnostician':'deepseek41','delivery_reviewer':'claude'})
+        with patch.dict(os.environ,{'VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON':configured}):
+            run=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('claude','low')}).json()
+        roles=run['model_configuration']['roles']
+        self.assertEqual(roles['media_planner']['model'],'deepseek-v4.1-flash')
+        self.assertEqual(roles['media_failure_diagnostician']['model'],'deepseek-v4.1-flash')
+        self.assertEqual(roles['editing_implementer']['model'],'claude-4.6-sonnet')
+        forged={**self.body(),'role_model_choices':{'media_planner':self.choice('claude')}}
+        self.assertEqual(self.a.post(self.prefix,json=forged).status_code,422)
 
     def test_choice_is_frozen_and_idempotent_replay_survives_registry_change(self):
         body={**self.body(),'model_choice':self.choice('deepseek41','low')}

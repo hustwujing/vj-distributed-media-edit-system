@@ -31,6 +31,8 @@ class ModelTokenEstimateTests(unittest.TestCase):
         self.assertEqual(AgentProfile(**p.snapshot()).digest,p.digest)
         self.assertNotEqual(p.digest,AgentProfile(harness='claude_code',protocol='anthropic',model=body['model']).digest)
         with self.assertRaises(ValueError):AgentProfile(input_token_policy=policy)
+        newer=self.body('claude-sonnet-5-5')
+        self.assertEqual(estimate(newer,policy)['estimate_multiplier'],2.4)
 
     def test_images_are_counted_by_pixels_not_compressed_bytes(self):
         values=[]

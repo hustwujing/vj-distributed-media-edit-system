@@ -9,6 +9,9 @@ const {selectOptional}=require('./campaign_browser_inputs.cjs');
 const REPO=path.resolve(__dirname,'..'),PY=path.join(REPO,'.venv/bin/python');
 const ROOT=path.join(REPO,'.cluster/campaigns/dynamic-plan');
 const BASE=(process.env.DYNAMIC_CASE_BASE||'http://127.0.0.1/distributed-agent-system').replace(/\/$/,'');
+const MODEL_PROFILE=process.env.DYNAMIC_MODEL_PROFILE||'claude';
+const EXPECT_MODEL=process.env.DYNAMIC_EXPECT_MODEL||'claude-4.6-sonnet';
+const MODEL_EFFORT=process.env.DYNAMIC_MODEL_EFFORT||'high';
 const baseURL=new URL(BASE);
 assert.equal(baseURL.pathname,'/distributed-agent-system','Refusing a main/unknown application path');
 const manifest=JSON.parse(fs.readFileSync(path.join(REPO,'docs/real-case-campaign/dynamic-cases.json')));
@@ -84,8 +87,8 @@ async function runCase(browser,spec){
  const control=async(action)=>{await page.locator(`[data-control="${action}"]`).waitFor({state:'visible'});let confirmation=null;if(action==='cancel')page.once('dialog',async dialog=>{confirmation={type:dialog.type(),message:dialog.message()};await dialog.accept();});const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await page.locator(`[data-control="${action}"]`).click();const result=await response;assert.equal(result.status(),202,await result.text());if(action==='cancel'){assert.equal(confirmation?.type,'confirm');state.browser_assertions.push('Cancel required an explicit browser confirmation');}state.events.push({action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);const updated=await read();if(updated.successor_run_id){state.run_id=updated.successor_run_id;state.execute_id=state.run_id;state.run_ids.push(state.run_id);state.task_ids.push(state.run_id);persist();}};
  const start=async(prompt=spec.prompt,targets=targetText(spec),budget=spec.complexity==='simple'?500000:2000000)=>{
   await page.locator('#dynamic-start').waitFor({state:'visible'});await page.locator('#dynamic-goal').fill(prompt);await page.locator('#dynamic-targets').fill(targets);
-  await page.locator('#dynamic-model-profile').selectOption('claude');
-  await page.locator('#dynamic-reasoning-effort').selectOption('high');
+  await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
+  await page.locator('#dynamic-reasoning-effort').selectOption(MODEL_EFFORT);
   const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
   assert.equal(modelCapabilities.model_protocol_policy,'plan_draft_v1_strict_preferred');
   state.model_protocol_policy=modelCapabilities.model_protocol_policy;
@@ -97,8 +100,10 @@ async function runCase(browser,spec){
   let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
   if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-submit').click();result=await response;}
   assert.equal(result.status(),202,await result.text());run=await result.json();
-  assert.equal(run.model_configuration.model,'claude-4.6-sonnet');
-  assert.equal(run.model_configuration.reasoning_effort,'high');
+  assert.equal(run.model_configuration.model,EXPECT_MODEL);
+  assert.equal(run.model_configuration.reasoning_effort,MODEL_EFFORT);
+  assert.equal(run.model_configuration.roles.editing_implementer.model,EXPECT_MODEL);
+  assert.equal(run.model_configuration.roles.editing_implementer.reasoning_effort,MODEL_EFFORT);
   (state.model_configurations??=[]).push({run_id:run.id,...run.model_configuration});
   state.run_id=run.id;state.execute_id=run.id;state.run_ids.push(run.id);state.task_ids.push(run.id);persist();
   (state.authorizations??=[]).push({run_id:run.id,goal:run.goal,delivery_targets:run.authorization.delivery_targets,

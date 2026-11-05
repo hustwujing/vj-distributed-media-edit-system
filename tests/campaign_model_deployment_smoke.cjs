@@ -24,7 +24,7 @@ const save=value=>fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(
   const profiles=await context.request.get(`${base}/api/projects/${project}/agent/profiles`);assert.equal(profiles.status(),200);
   const configuration=await profiles.json();result.model_profiles=configuration.profiles;
   result.selected_profile=configuration.selected;assert.equal(result.selected_profile,'claude');
-  for(const [name,model,policy] of [['claude','claude-4.6-sonnet','claude_bpe_estimate_v1'],['claude5','claude-opus-5','claude_bpe_estimate_v1'],['deepseek','deepseek-v4-flash','deepseek_bpe_estimate_v1'],['deepseek41','deepseek-v4.1-flash','deepseek_bpe_estimate_v1']]){
+  for(const [name,model,policy] of [['claude','claude-4.6-sonnet','claude_bpe_estimate_v1'],['claude55','claude-sonnet-5-5','claude_bpe_estimate_v1'],['claude5','claude-opus-5','claude_bpe_estimate_v1'],['deepseek','deepseek-v4-flash','deepseek_bpe_estimate_v1'],['deepseek41','deepseek-v4.1-flash','deepseek_bpe_estimate_v1']]){
    const p=result.model_profiles.find(p=>p.name===name);assert.ok(p?.available);assert.equal(p.model,model);assert.equal(p.input_token_policy,policy);
    if(name==='claude')assert.equal(p.reasoning_effort,'high');
    const selected=await context.request.put(`${base}/api/projects/${project}/agent/profile`,{data:{profile:name}});assert.equal(selected.status(),200);assert.equal((await selected.json()).model,model);

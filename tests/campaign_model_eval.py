@@ -174,7 +174,8 @@ def config_list():
         os.environ.update(c.environment())
     from webapp.agent_profiles import profiles
     p=profiles()
-    return {'gpt':p['default'],'claude':p['claude'],'ds41':dataclasses.replace(p['deepseek'],model='deepseek-v4.1-flash')}
+    return {'gpt':p['default'],'claude':p['claude'],'claude55':p['claude55'],
+            'ds41':dataclasses.replace(p['deepseek'],model='deepseek-v4.1-flash')}
 
 
 def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
@@ -236,7 +237,7 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
                     decoded=protocol.decode(name,args)
                     if draft_mode and decoded['action']=='draft_batch_commit':
                         from webapp.workflow_plan_draft import apply_value,compile_value
-                        command=decoded['command'];commit={key:command[key] for key in ('kind','reason','continuation')}
+                        command=decoded['command'];commit={key:command[key] for key in ('kind','reason')}
                         prepared_candidate=apply_value(draft,'draft_batch',{key:value for key,value in command.items() if key not in commit})
                         decoded={'action':'proposal','proposal':compile_value(prepared_candidate,f,commit)}
                     if draft_mode and decoded['action'].startswith('draft_'):

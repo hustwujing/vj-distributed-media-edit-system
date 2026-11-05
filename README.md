@@ -67,9 +67,9 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 ## 模型与执行协议
 
-动态工作流页面可以选择服务端登记的模型版本与推理强度。本机已准备的默认配置为 **Claude 4.6 Sonnet / high**，部署后以能力接口和 Run 的实际冻结配置核实；仓库不内置机器凭据或保证任意环境具有同样默认值。
+动态工作流页面可以选择服务端登记的沙盒 Harness、模型版本与推理强度；该选择只作用于 Implementer。Manager、Reviewer和Diagnostician的模型由服务端`VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON`配置，不开放给用户修改。本机已准备的默认沙盒配置为 **Claude 4.6 Sonnet / high**，并登记了Claude Sonnet 5.5供测试；部署后以能力接口和Run的实际冻结角色映射核实。仓库不内置机器凭据或保证任意环境具有同样默认值。
 
-选择在创建 Run 时冻结，后续修改浏览器草稿、项目默认值或后台预设不会切换本轮模型。自动 successor 继承原 Run 配置，显式创建新 Run 可另选。预设在确认期间发生变化时，需要刷新核对后重新确认。
+沙盒选择和服务端专家映射都在创建Run时分别冻结，后续修改浏览器草稿、项目默认值或后台预设不会切换本轮模型。自动successor继承原Run配置，显式创建新Run可另选沙盒配置。预设在确认期间发生变化时，需要刷新核对后重新确认。
 
 `structured-profile-v4` 使用 PlanDraft 类型化命令和 strict 优先策略。Task 类型、Operation 参数、草稿修复和控制出口分别使用小型白名单 Schema；相同错误重复两次即有界停止。Manager只选择`APPLY_PLAN`或`COMPLETE`，宿主从草稿依赖图派生等待叶节点，并从`stage=final`业务验收派生交付资格；replacement ID、依赖、revision和技术验收同样由宿主生成。自动修复阶段只开放冻结范围内的revision/replacement，不能自由新增无关Task。网关明确拒绝strict，或返回违反传输Schema的参数时，按有界策略回退非strict并保留具体字段路径；超时、鉴权、限流或5xx不作为strict不支持的证据。本地Schema、业务契约、Provider约束、证据、权限、草稿revision和快照绑定始终执行。选用Claude模型不表示切换到Claude Code SDK harness。
 

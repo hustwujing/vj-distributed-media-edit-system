@@ -17,9 +17,11 @@ def options(store,project):
     preferred=store.query('SELECT name FROM agent_project_profiles WHERE project=?',(project,))
     default=preferred[0]['name'] if preferred and preferred[0]['name'] in registry else selected().name
     default_effort=lambda p:p.reasoning_effort if p.reasoning_effort in efforts(p) else 'high'
+    from .agent_profiles import role_defaults
+    defaults=role_defaults()
     return {'default_profile':default,'default_effort':default_effort(registry[default]),
         'profiles':[{'id':name,'model':p.model,'reasoning_efforts':efforts(p),'default_effort':default_effort(p),
-            'profile_digest':p.digest,'available':bool(p.base_url and os.environ.get(p.credential_env))}
+            'profile_digest':p.digest,'harness':p.harness,'available':bool(p.base_url and os.environ.get(p.credential_env))}
             for name,p in registry.items()]}
 
 
@@ -32,9 +34,20 @@ def resolve(choice):
     return replace(profile,reasoning_effort=choice.reasoning_effort)
 
 
+def resolve_roles(sandbox_configuration=None):
+    from .specialist_profiles import PROFILES
+    from .agent_profiles import role_defaults
+    registry=profiles();defaults=role_defaults();result={}
+    for identifier,profile in PROFILES.items():
+        result[identifier]=(sandbox_configuration or selected()) if str(profile.role)=='IMPLEMENTER' else registry[defaults[identifier]]
+    return result
+
+
 def for_run(store,identifier):
     rows=store.query('SELECT configuration,digest FROM agent_run_profiles WHERE task_id=?',(identifier,))
     if not rows:return None
     value=json.loads(rows[0]['configuration'])
+    from .agent_profiles import public_roles
     return {'profile':value['name'],'model':value['model'],'reasoning_effort':value['reasoning_effort'],
-            'configuration_digest':rows[0]['digest'],'input_token_policy':value.get('input_token_policy','unrecorded')}
+            'configuration_digest':rows[0]['digest'],'input_token_policy':value.get('input_token_policy','unrecorded'),
+            'roles':public_roles(store,identifier)}

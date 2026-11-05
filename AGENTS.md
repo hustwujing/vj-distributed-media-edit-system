@@ -27,6 +27,7 @@
 - 专业 Agent 的检查、格式纠正和最终提交预算分开；进入 finalize 后不能继续扩张检查范围。能力目录使用冻结摘要和按需契约查询，查询不授予权限。
 - Manager 规划必须通过 snapshot 绑定的服务端 PlanDraft 和类型化命令；只有原子 `commit_plan` 可进入权威 Proposal 校验。Planner 不得提交原始 shell、SQL、URL、代码或 Script Task；动态本地实现委派获授权 Implementer，确定性处理使用注册 operation。
 - Manager 不填写 continuation、replacement ID、依赖派生、revision、技术验收或 delivery_stage；宿主按 `APPLY_PLAN`/`COMPLETE`、输入绑定和 `stage=final` 业务验收编译这些字段。自动修复只修改冻结范围，Reviewer/Diagnostician 报告不能成为交付输入。
+- 专家角色模型由服务端配置并按Run冻结，不能接受用户覆盖；页面模型选择仅控制沙盒Implementer的Harness、模型和推理强度。模型选择不得改变角色能力、提示、workspace policy或授权。
 - 模型输入/输出预算分账。非空输出的 `output_tokens=0` 是冲突回执：保留原始回执，可信 input 可单独结算，输出只保留阶段上限并明确标记 unknown；不得记作零成本或永久占用整笔输入估算。
 - 真机用例变更先更新审查矩阵，再修改驱动。逐例保留浏览器和内部状态证据、首次失败及复测版本；
   模型/依赖异常与程序缺陷分开报告，未执行、未触发边界和证据缺失不能计为通过。

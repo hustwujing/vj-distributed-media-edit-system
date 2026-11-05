@@ -2,14 +2,14 @@
 
 本报告包含清单中的全部 119 条 case 的执行状态和所有历史尝试。未执行、未触发目标边界、缺少审查证据以及旧版本结果均不计为当前版本通过。
 
-当前部署：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`。整体验收：**未完成**。
+当前部署：`866818d0fdd6cf58c355cddc2e5f6fe1abe5f87d49976279e19cb436d403c5fe`。整体验收：**未完成**。
 
-冻结 Python 门禁：934 项，失败 0，错误 0，跳过 6。绑定摘要：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`。
-JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/33fe7eb23ee6.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
+冻结 Python 门禁：936 项，失败 0，错误 0，跳过 6。绑定摘要：`866818d0fdd6cf58c355cddc2e5f6fe1abe5f87d49976279e19cb436d403c5fe`。
+JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/866818d0fdd6.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
 
-统计：需在当前版本复测 115；待逐例审查 4。
+统计：需在当前版本复测 117；待逐例审查 2。
 
-当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 0；待归因 3。非程序错误仍是业务或用例失败，不并入业务成功。
+当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 0；待归因 1。非程序错误仍是业务或用例失败，不并入业务成功。
 
 必须完成的额外回归：F48-history-archive：Historical executed revisions must have retained checkpoint manifests and bytes；F52-script-receipts：Implementer must observe real script receipts and submit within bounded phases；F53-bound-correction：Invalid binding is rejected and bounded correction completes the original goal；F54-feedback-approval：Revision retains declared user Review; independent candidate checking precedes approval；F62-acceptance-target-schema：Schema枚举修复已部署，完整门禁通过；当前119轮继续验证实际Manager调用，不能将待真机关闭误写为待开发。；F66-local-edge-fixture-scope：局部请求、5%上限及人工预览已一致；最终检查器残留整图腐蚀已在12dcf71修复。D36 attempt-004原始真机产物回放通过，原测试失败保留；当前完整轮正式复测。；F68-revision-new-descendant：A single valid APPLY_PLAN revises an existing upstream and adds a new downstream. The affected revision closure includes the new node, but apply indexes only the old active Task snapshot, raising KeyError and rolling back every reconcile.；F69-planner-contract-feedback：Current round has repeated sealed+replan_after contradiction; prompt says name replan_after and seal when complete but omits explicit mutual exclusion. Frozen-field rejection lists a broad field family without the actually changed field paths. review_again prerequisite must be exposed in current snapshot/action guidance.；F70-feedback-replacement-assertion：Feedback post-hook requires original render revision increase. Legal explicit replacement creates new logical Task at revision0 with user_revision_count1 while preserving retired original; application succeeds but harness rejects.。
 
@@ -75,6 +75,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | `2fed8e8317c0` | 2 | 5 | 5 |
 | `d96b2f7222cd` | 1 | 1 | 1 |
 | `33fe7eb23ee6` | 4 | 5 | 5 |
+| `866818d0fdd6` | 2 | 2 | 2 |
 
 | Case | 场景 | 当前结论 | 尝试次数 |
 | --- | --- | --- | --- |
@@ -137,12 +138,12 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | C26 | OCR定位后真实AI消除 | 需在当前版本复测 | 4 |
 | C27 | 文生图再编辑品牌海报 | 需在当前版本复测 | 6 |
 | C28 | 文生视频竖版包装 | 需在当前版本复测 | 4 |
-| C29 | 1080p长片与节点接管 | 待逐例审查 | 6 |
+| C29 | 1080p长片与节点接管 | 需在当前版本复测 | 6 |
 | C30 | 女孩图片到15秒海滩跑步完整视频 | 需在当前版本复测 | 6 |
 | R01 | 待确认时改交付名称 | 需在当前版本复测 | 7 |
 | R02 | 待确认时改尺寸与格式 | 需在当前版本复测 | 5 |
 | R03 | 待确认时改素材选择与顺序 | 需在当前版本复测 | 5 |
-| R04 | 部分完成时追加输出格式 | 待逐例审查 | 14 |
+| R04 | 部分完成时追加输出格式 | 待逐例审查 | 15 |
 | R05 | 部分完成时重做一个分支参数 | 需在当前版本复测 | 6 |
 | R06 | 部分完成时替换一个分支素材 | 需在当前版本复测 | 5 |
 | R07 | 导出过程中更换封面 | 需在当前版本复测 | 7 |
@@ -190,11 +191,11 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D32 | 输入与最终发布竞争 | 需在当前版本复测 | 2 |
 | D33 | 交付后successor输入幂等 | 需在当前版本复测 | 8 |
 | D34 | 同步外部请求在途输入 | 需在当前版本复测 | 2 |
-| D35 | Provider配置切换后冻结路由恢复 | 待逐例审查 | 4 |
+| D35 | Provider配置切换后冻结路由恢复 | 待逐例审查 | 5 |
 | D36 | 抠图候选边缘反馈修订 | 需在当前版本复测 | 7 |
 | D37 | 双图构图反馈修订 | 需在当前版本复测 | 2 |
 | D38 | Wan提交前参考图反馈修订 | 需在当前版本复测 | 8 |
-| D39 | 合法替代失败节点与历史读取 | 待逐例审查 | 15 |
+| D39 | 合法替代失败节点与历史读取 | 需在当前版本复测 | 15 |
 | D40 | 已验收音频下游Operation取证 | 需在当前版本复测 | 4 |
 | D41 | 最终交付选择与多视频时序证据 | 需在当前版本复测 | 5 |
 
@@ -16165,7 +16166,7 @@ Call log:
 
 ## C29 · 1080p长片与节点接管
 
-当前结论：**待逐例审查**。目标边界：`worker_restart`。
+当前结论：**需在当前版本复测**。目标边界：`worker_restart`。
 
 输入素材：clip_a.mp4、logo_rgba.png、music.wav。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A循环制成60秒1920×1080、30fps短片，H.264 CRF18 slow高质量编码；加右上96像素Logo，去原声并循环music；分阶段保存成果并检查完整解码。执行中可能发生节点重启，应安全续跑。 用于节点接管验证的本地执行节点请声明 retry_policy=safe_once；正式处理前在同一执行节点等待15秒。
@@ -16337,7 +16338,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 ### attempt-006 · 待逐例审查
 
-版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：是。
+版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-05T11:06:47+08:00 → 2026-11-05T11:13:57+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`paused_or_failed`；项目：`948c8ed6ea6e4892aa33d3b090891e66`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C29/attempt-006/cleanup.json)
@@ -17454,7 +17455,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 ### attempt-014 · 待逐例审查
 
-版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：是。
+版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-05T11:02:34+08:00 → 2026-11-05T11:06:47+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`paused_or_failed`；项目：`feba301a77b74084afc309121b869ffa`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-014/cleanup.json)
@@ -17478,6 +17479,33 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `a6a1b5aa5f154a2b87c24f127063b7cf`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-015 · 待逐例审查
+
+版本：`866818d0fdd6cf58c355cddc2e5f6fe1abe5f87d49976279e19cb436d403c5fe`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-05T11:52:52+08:00 → 2026-11-05T11:57:04+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`de8b611777d24625bc2aa23e61862ef0`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/R04/attempt-015/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：input_accepted → cleanup_started。
+
+独立成果检查值：`{"recomputed_image_operations": 0, "reused_sources": {"prepare_a": "references/prepare_a.png", "prepare_b": "references/prepare_b.png"}, "reuse_pixel_checks": [{"name": "final.png", "mae": 0.0, "reference": "accepted upstream objects"}, {"name": "final.jpg", "mae": 3.1945393880208335, "reference": "accepted upstream objects"}]}`。
+
+实际确认的执行轮次：
+
+- `d8393fb5a9b146e792fb1bccc455d56e`：先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。export 声明 retry_policy=safe_once，正式处理前等待20秒。最后通过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{}`。
 
 ## R05 · 部分完成时重做一个分支参数
 
@@ -25078,7 +25106,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 ### attempt-004 · 待逐例审查
 
-版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：是。
+版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-05T11:13:57+08:00 → 2026-11-05T11:14:58+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`boundary_not_reached`；项目：`3547dafe052447a1af7c16b279a364f5`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-004/cleanup.json)
@@ -25104,6 +25132,35 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `874d1f33453d4110ba62ec148859a598`：使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持整体形象，只允许一次生成。；Token上限 2000000；外部调用上限 `{"video.generate_from_image": 1}`。
+
+### attempt-005 · 待逐例审查
+
+版本：`866818d0fdd6cf58c355cddc2e5f6fe1abe5f87d49976279e19cb436d403c5fe`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-05T11:57:04+08:00 → 2026-11-05T11:58:15+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`boundary_not_reached`；项目：`38048621f1c04d88a3c8c5e2bbe5ec27`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-005/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow stopped before the required test boundary: WAITING_USER
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `7403c4a3c6124a7483aa3af784b8bf6a`：使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持整体形象，只允许一次生成。；Token上限 2000000；外部调用上限 `{"video.generate_from_image": 1}`。
 
 ## D36 · 抠图候选边缘反馈修订
 
@@ -25655,7 +25712,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 ## D39 · 合法替代失败节点与历史读取
 
-当前结论：**待逐例审查**。目标边界：`legal_replacement`。
+当前结论：**需在当前版本复测**。目标边界：`legal_replacement`。
 
 输入素材：portrait.png。
 执行目标：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”。首轮render必须创建type=operation、operation=image.perspective，source绑定portrait.png，parameters.points固定为[[0,0],[511,0],[511,511],[600,600]]；越界点只属于本测试的确定性运行时失败参数，绝不能写入objective或acceptance。render声明程序image 64×64验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。render提交明确的execution_failed后，诊断必须新增type=agent、profile=editing_implementer的替代Task，保持render的原目标、输入、primary_image输出角色和验收，用repair_replacements显式替换render；替代Task ID由宿主生成，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用权威replacement映射中的新Task结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。
@@ -26119,7 +26176,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 ### attempt-015 · 待逐例审查
 
-版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：是。
+版本：`33fe7eb23ee66f53c879bbe9f21753113719500a973eb4ea6096422289a1f9a0`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-05T10:57:01+08:00 → 2026-11-05T11:01:40+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`business_succeeded`；项目：`99e6d04ccea14f9db3433ae9f62f9dab`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-015/cleanup.json)
