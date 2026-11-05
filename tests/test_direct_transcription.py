@@ -13,8 +13,7 @@ from webapp.execution_intent import declare, completion_problem
 from webapp.task_leases import Coordinator
 
 
-class Reply:
-    def reply(self,status,body):self.status,self.body=status,body
+def payload(result):return json.loads(b''.join(result.chunks))
 
 
 class DirectTranscriptionTests(unittest.TestCase):
@@ -46,7 +45,7 @@ class DirectTranscriptionTests(unittest.TestCase):
             self.assertEqual(self.calls()[0]['state'],'submitting')
             return {'text':'Real contract test','words':[],'usage':{'seconds':1}}
         with self.lease.bind(),patch.dict(os.environ,{'ELEVENLABS_API_KEY':'unit-only'}),patch('transcribe.call_scribe',side_effect=provider):
-            response=Reply();self.g.transcribe(response,{'asset':'speech','language':'en','speakers':1})
+            response=self.g.transcribe_result({'asset':'speech','language':'en','speakers':1})
         self.assertEqual(response.status,200)
         self.assertEqual(self.calls()[0]['state'],'succeeded')
         self.assertEqual(self.calls()[0]['operation'],'audio.transcribe')
@@ -54,7 +53,7 @@ class DirectTranscriptionTests(unittest.TestCase):
         self.assertIsNone(completion_problem(self.f.store,self.f.turn,[{'name':'speech.txt'}]))
     def test_ambiguous_timeout_preserves_submission_and_blocks_false_completion(self):
         with self.lease.bind(),patch.dict(os.environ,{'ELEVENLABS_API_KEY':'unit-only'}),patch('transcribe.call_scribe',side_effect=TimeoutError('unit timeout')):
-            with self.assertRaises(TimeoutError):self.g.transcribe(Reply(),{'asset':'speech'})
+            with self.assertRaises(TimeoutError):self.g.transcribe_result({'asset':'speech'})
         self.assertEqual(self.calls()[0]['state'],'submitting')
         self.assertEqual(completion_problem(self.f.store,self.f.turn,[{'name':'error.json'}])[0],'paused')
     def test_wrong_intent_is_actionable_and_never_calls_provider(self):
@@ -62,9 +61,9 @@ class DirectTranscriptionTests(unittest.TestCase):
         raw={'route':'single','operations':['script'],'goal':'local','estimated_seconds':30}
         self.f.store.execute('UPDATE execution_intents SET intent=? WHERE run_id=?',(json.dumps(raw),self.f.plan))
         with self.lease.bind(),patch('transcribe.call_scribe') as provider:
-            response=Reply();self.g.transcribe(response,{'asset':'speech'})
+            response=self.g.transcribe_result({'asset':'speech'})
         self.assertEqual(response.status,422)
-        self.assertIn('audio.transcribe',response.body['error']);provider.assert_not_called()
+        self.assertIn('audio.transcribe',payload(response)['error']);provider.assert_not_called()
         self.assertFalse(self.calls())
     def test_manual_batch_keeps_separate_receipts_for_each_asset(self):
         self.lease.release();s=self.f.store
@@ -77,7 +76,7 @@ class DirectTranscriptionTests(unittest.TestCase):
         self.g.assets['second']={**self.g.assets['speech'],'id':'second','name':'second.wav','filename':'second.wav'}
         with self.lease.bind(),patch.dict(os.environ,{'ELEVENLABS_API_KEY':'unit-only'}),patch('transcribe.call_scribe',return_value={'text':'test','words':[]}):
             for asset in ('speech','second'):
-                response=Reply();self.g.transcribe(response,{'asset':asset});self.assertEqual(response.status,200)
+                response=self.g.transcribe_result({'asset':asset});self.assertEqual(response.status,200)
         rows=s.query('SELECT request_key,state,authorization FROM workflow_provider_calls WHERE workflow=?',(job['id'],))
         self.assertEqual(len(rows),2);self.assertEqual(len({r['request_key'] for r in rows}),2)
         self.assertTrue(all(r['state']=='succeeded' and json.loads(r['authorization'])['origin']=='manual' for r in rows))
@@ -107,8 +106,8 @@ def extract(filename,track,path):
         out.setnchannels(1);out.setsampwidth(2);out.setframerate(16000);out.writeframes(b'\\x00\\x10'*16000)
 g.extract_audio=extract
 with patch.dict(os.environ,{'ELEVENLABS_API_KEY':'test-only'}),patch('transcribe.call_scribe',return_value={'text':'new','words':[]}) as provider:
-    reply=Mock();g.transcribe(reply,{'asset':'speech'})
-    assert reply.reply.call_args.args[0]==200,reply.reply.call_args
+    result=g.transcribe_result({'asset':'speech'})
+    assert result.status==200,result.status
     provider.assert_called_once()
 g.broker.request.assert_called_once_with('refresh_transcript',{'asset':'speech','track':0})
 path=root/'edit/transcripts/speech.json'

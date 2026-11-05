@@ -159,11 +159,8 @@ class OutputIsolationTests(unittest.TestCase):
         gateway=object.__new__(Gateway)
         gateway.assets={'own':{'metadata':{'kind':'video','audio_tracks':[{}]}}}
         gateway.mode='plan'
-        handler=Mock()
-        gateway.transcribe(handler,{'asset':'/etc/passwd'})
-        self.assertEqual(handler.reply.call_args.args[0],404)
-        gateway.transcribe(handler,{'asset':'own'})
-        self.assertEqual(handler.reply.call_args.args[0],403)
+        self.assertEqual(gateway.transcribe_result({'asset':'/etc/passwd'}).status,404)
+        self.assertEqual(gateway.transcribe_result({'asset':'own'}).status,403)
 
     def test_cached_transcription_does_not_decode_or_spend_credits(self):
         with tempfile.TemporaryDirectory(dir=TEST_TMP) as directory:
@@ -172,14 +169,15 @@ class OutputIsolationTests(unittest.TestCase):
             gateway=object.__new__(Gateway)
             gateway.assets={'own':{'id':'own','name':'own.mp4','filename':'own.mp4','metadata':{'kind':'video','audio_tracks':[{}]}}}
             gateway.project_dir=root;gateway.mode='execute';gateway.transcribe_lock=threading.Lock()
-            gateway.notify=Mock();gateway.extract_audio=Mock();handler=Mock()
+            gateway.notify=Mock();gateway.extract_audio=Mock()
             sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'helpers'))
             with patch.dict(os.environ,{'ELEVENLABS_API_KEY':'test-only-key'}),patch('transcribe.call_scribe') as call:
-                gateway.transcribe(handler,{'asset':'own'})
+                result=gateway.transcribe_result({'asset':'own'})
                 call.assert_not_called();gateway.extract_audio.assert_not_called()
-            self.assertEqual(handler.reply.call_args.args[0],200)
-            self.assertEqual(handler.reply.call_args.args[1]['path'],SANDBOX_WORKSPACE+'/transcripts/own.json')
-            self.assertNotIn('test-only-key',str(handler.reply.call_args))
+            self.assertEqual(result.status,200)
+            value=json.loads(b''.join(result.chunks))
+            self.assertEqual(value['path'],SANDBOX_WORKSPACE+'/transcripts/own.json')
+            self.assertNotIn('test-only-key',str(value))
 
     def test_new_transcription_uses_isolated_extractor_and_caches_result(self):
         with tempfile.TemporaryDirectory(dir=TEST_TMP) as directory:
@@ -192,12 +190,12 @@ class OutputIsolationTests(unittest.TestCase):
                 with wave.open(str(path),'wb') as wav:
                     wav.setnchannels(1);wav.setsampwidth(2);wav.setframerate(16000)
                     wav.writeframes(array.array('h',[1000,-1000]*8000).tobytes())
-            gateway.extract_audio=Mock(side_effect=extract);handler=Mock()
+            gateway.extract_audio=Mock(side_effect=extract)
             sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'helpers'))
             with patch.dict(os.environ,{'ELEVENLABS_API_KEY':'test-only-key'}),patch('transcribe.call_scribe',return_value={'text':'real response shape','words':[]}) as call:
-                gateway.transcribe(handler,{'asset':'own'})
+                result=gateway.transcribe_result({'asset':'own'})
                 call.assert_called_once();gateway.extract_audio.assert_called_once()
-            self.assertEqual(handler.reply.call_args.args[0],200)
+            self.assertEqual(result.status,200)
             self.assertTrue((root/'edit/transcripts/own.json').is_file())
 
 

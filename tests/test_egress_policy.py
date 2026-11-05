@@ -1,4 +1,5 @@
 import base64
+import json
 import unittest
 from unittest.mock import patch
 from webapp.egress_policy import model_input,provider_base,session
@@ -16,9 +17,9 @@ class EgressTests(unittest.TestCase):
         try:
             with self.assertRaises(PermissionError) as error:client.request('workflow_preflight',{'action':'preflight'})
             self.assertNotIn('PRIVATE',str(error.exception))
-            reply=Mock();client.relay('workflow_preflight',{'action':'preflight'},reply)
-            status,body=reply.reply.call_args.args
-            self.assertEqual(status,500)
+            result=client.result('workflow_preflight',{'action':'preflight'})
+            body=json.loads(b''.join(result.chunks))
+            self.assertEqual(result.status,500)
             self.assertEqual(body['error']['code'],'filesystem_permission_denied')
             self.assertNotIn('PRIVATE',str(body))
         finally:

@@ -156,12 +156,6 @@ class Gateway:
                         return
                     if outer.business.supports(path):
                         write_gateway_result(self,outer.business.dispatch_value(path,body))
-                    elif path == '/transcribe':
-                        outer.transcribe(self, body)
-                    elif path in ('/image-edit','/image-tools'):
-                        outer.image_edit(self, body)
-                    elif path == '/canvas-edit':
-                        outer.canvas_edit(self,body)
                     else:
                         self.reply(404, {'error':'Unsupported gateway endpoint'})
                 except TaskQuotaReached as exc:
@@ -218,10 +212,11 @@ class Gateway:
             row = self.lease.store.query(f'SELECT status FROM {table} WHERE id=?', (self.lease.run_id,))[0]
             if row['status'] != 'running' and not (self.dynamic_task and row['status']=='waiting'):raise LeaseLost('Task is no longer running')
 
-    def canvas_edit(self,handler,body):
+    def canvas_result(self,body):
         from fastapi import HTTPException
+        from .gateway_contracts import json_result
         if not self.canvas_callback:
-            handler.reply(403,{'error':'当前对话没有绑定画布图层'});return
+            return json_result(403,{'error':'当前对话没有绑定画布图层'})
         dest=None;committed=False
         try:
             if not isinstance(body,dict):raise HTTPException(422,'参数应为 JSON 对象')
@@ -262,9 +257,9 @@ class Gateway:
             result=self.canvas_callback(body,new_asset)
             committed=result['applied']
             if committed:self.notify('progress',{'text':f'选中图层已更新，画布已保存为版本 {result["after"]["revision"]}'})
-            handler.reply(200,result)
-        except HTTPException as exc:handler.reply(exc.status_code,{'error':exc.detail})
-        except (ValueError,TypeError,subprocess.SubprocessError):handler.reply(422,{'error':'图层参数或图片数据无效'})
+            return json_result(200,result)
+        except HTTPException as exc:return json_result(exc.status_code,{'error':exc.detail})
+        except (ValueError,TypeError,subprocess.SubprocessError):return json_result(422,{'error':'图层参数或图片数据无效'})
         finally:
             if dest and not committed:dest.unlink(missing_ok=True)
 
@@ -409,42 +404,35 @@ class Gateway:
                 else:nodes.extend(value.values())
         if len(json.dumps(body).encode())>32*1024**2:raise ValueError('模型输入总大小超限')
 
-    def transcribe(self, handler, body):
+    def transcribe_result(self,body):
+        from .gateway_contracts import json_result
         asset = self.assets.get(body.get('asset'))
         if not asset or asset['metadata'].get('kind') not in ('video','audio'):
-            handler.reply(404, {'error':'Only assets from this project can be transcribed.'})
-            return
+            return json_result(404,{'error':'Only assets from this project can be transcribed.'})
         if self.mode != 'execute':
-            handler.reply(403, {'error':'当前是方案讨论阶段；请提出转写方案，由用户确认执行后调用。'})
-            return
+            return json_result(403,{'error':'当前是方案讨论阶段；请提出转写方案，由用户确认执行后调用。'})
         if asset['metadata'].get('duration',0)>int(os.environ.get('VIDEO_USE_MAX_TRANSCRIBE_SECONDS','7200')):
-            handler.reply(422,{'error':'音频超过单次转写时长限制，请先分段。'})
-            return
+            return json_result(422,{'error':'音频超过单次转写时长限制，请先分段。'})
         track = body.get('audio_track', 0)
         language = body.get('language')
         speakers = body.get('speakers')
         if not isinstance(track, int) or track < 0 or track >= len(asset['metadata'].get('audio_tracks', [])):
-            handler.reply(422, {'error':'Invalid audio track'})
-            return
+            return json_result(422,{'error':'Invalid audio track'})
         if language is not None and (not isinstance(language, str) or len(language)>12):
-            handler.reply(422, {'error':'Invalid language'})
-            return
+            return json_result(422,{'error':'Invalid language'})
         if speakers is not None and (not isinstance(speakers, int) or not 1 <= speakers <= 32):
-            handler.reply(422, {'error':'Invalid speaker count'})
-            return
+            return json_result(422,{'error':'Invalid speaker count'})
         from .execution_intent import enforce_direct
         try:enforce_direct(getattr(self,'lease',None),'audio.transcribe')
         except ValueError as exc:
-            handler.reply(422, {'error':str(exc)})
-            return
+            return json_result(422,{'error':str(exc)})
         with self.transcribe_lock:
             sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'helpers'))
             from transcribe import call_scribe, peak_dbfs, transcript_path
             self.notify('progress', {'text':'正在转写当前项目素材：'+asset['name']})
             key = os.environ.get('ELEVENLABS_API_KEY', '')
             if not key:
-                handler.reply(503, {'error':'ElevenLabs is not configured'})
-                return
+                return json_result(503,{'error':'ElevenLabs is not configured'})
             source = self.project_dir/'sources'/asset['filename']
             path = transcript_path(self.project_dir/'edit', source, track)
             if not path.exists():
@@ -464,8 +452,7 @@ class Gateway:
                         if (wav.getnchannels(),wav.getsampwidth(),wav.getframerate())!=(1,2,16000):
                             raise ValueError('Invalid extracted audio format')
                     if peak_dbfs(audio) < -60:
-                        handler.reply(422, {'error':'所选音轨几乎无声，请选择其他音轨。'})
-                        return
+                        return json_result(422,{'error':'所选音轨几乎无声，请选择其他音轨。'})
                     from .provider_calls import intent, update, request_time
                     call_workflow={'id':self.lease.run_id,'run_id':self.lease.run_id,'origin':'direct','manual':self.lease.kind=='manual'} if self.lease else None
                     call_step={'id':'direct-transcribe-'+str(body['asset'])+'-'+str(track),'revision':0,'attempts':0,
@@ -499,15 +486,16 @@ class Gateway:
                 if not target.exists():
                     with target.open('x') as f:f.write(path.read_text())
                     os.chown(target,self.uid,self.gid);target.chmod(0o600)
-            handler.reply(200, {'transcript':json.loads(path.read_text()),
+            return json_result(200,{'transcript':json.loads(path.read_text()),
                                'path':SANDBOX_WORKSPACE+'/transcripts/'+path.name})
 
     @observed('host','operation','处理图片工具请求')
-    def image_edit(self,handler,body):
-        if self.broker:return self.broker.relay('image',body,handler)
+    def image_result(self,body):
+        from .gateway_contracts import json_result
+        if self.broker:return self.broker.result('image',body)
         from .image_document import ImageTask,check_task
         if self.mode!='execute':
-            handler.reply(403,{'error':'请先确认图片处理方案，再执行模型任务。'});return
+            return json_result(403,{'error':'请先确认图片处理方案，再执行模型任务。'})
         try:
             if not isinstance(body,dict):raise ValueError('请求必须为对象')
             if 'target_asset' in body:
@@ -523,9 +511,9 @@ class Gateway:
         except (ValueError,TypeError) as exc:
             from .telemetry import emit
             emit('image.validation_failed','ERROR',exc=exc)
-            handler.reply(422,{'error':str(exc)[:600]});return
+            return json_result(422,{'error':str(exc)[:600]})
         if not self.image_lock.acquire(blocking=False):
-            handler.reply(409,{'error':'本轮已有图片任务执行中'});return
+            return json_result(409,{'error':'本轮已有图片任务执行中'})
         process=None
         try:
             self.count_image_call(task.action)
@@ -578,11 +566,11 @@ class Gateway:
                     total+=path.stat().st_size
                     if total>64*1024**2:raise RuntimeError('结果超过单轮传输限制，请减小分辨率')
                     files.append({'name':name,'data':base64.b64encode(path.read_bytes()).decode()})
-                handler.reply(200,{'files':files})
+                return json_result(200,{'files':files})
         except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as exc:
             from .telemetry import emit
             emit('image.execution_failed','ERROR',exc=exc)
-            handler.reply(502,{'error':str(exc)[:600]})
+            return json_result(502,{'error':str(exc)[:600]})
         finally:
             if process and process.poll() is None:
                 with contextlib.suppress(ProcessLookupError):os.killpg(process.pid,signal.SIGTERM)

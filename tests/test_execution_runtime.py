@@ -292,12 +292,11 @@ finally:
         from webapp.agent_gateway import Gateway
         gateway=Gateway(self.runtime.path/'tool-gateway.sock',self.env['project'],self.env['assets'],
             'execute','test','','',self.runtime.uid,self.runtime.gid,lambda *_:None,lambda *_:None,self.env['workspace'])
-        handler=Mock()
         try:
             gateway.start()
-            gateway.image_edit(handler,{'action':'local_adjust','asset':'image','parameters':{'brightness':1.2}})
-            self.assertEqual(handler.reply.call_args.args[0],200,handler.reply.call_args)
-            self.assertTrue(handler.reply.call_args.args[1]['files'])
+            result=gateway.image_result({'action':'local_adjust','asset':'image','parameters':{'brightness':1.2}})
+            self.assertEqual(result.status,200)
+            self.assertTrue(json.loads(b''.join(result.chunks))['files'])
         finally:gateway.close()
 
     def test_gateway_http_runs_without_root_and_uses_scoped_broker(self):

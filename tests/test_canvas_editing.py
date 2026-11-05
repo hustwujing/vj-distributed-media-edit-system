@@ -130,15 +130,15 @@ class CanvasEditingTests(unittest.TestCase):
         account=pwd.getpwnam('video-use');g.uid=account.pw_uid;g.gid=account.pw_gid
         g.canvas_callback=lambda body,asset:agent_patch(self.store,self.pid,turn,body,asset)
         buf=io.BytesIO();Image.new('RGB',(40,30),'blue').save(buf,format='PNG')
-        handler=Mock();g.canvas_edit(handler,{'apply':True,'patch':{},'image':base64.b64encode(buf.getvalue()).decode()})
-        self.assertEqual(handler.reply.call_args.args[0],200,handler.reply.call_args)
-        result=handler.reply.call_args.args[1];self.assertTrue(result['applied']);self.assertEqual(result['after']['revision'],2)
+        response=g.canvas_result({'apply':True,'patch':{},'image':base64.b64encode(buf.getvalue()).decode()})
+        self.assertEqual(response.status,200)
+        result=json.loads(b''.join(response.chunks));self.assertTrue(result['applied']);self.assertEqual(result['after']['revision'],2)
         layer=result['after']['layers'][0];asset=next(a for a in self.store.assets(self.pid) if a['id']==layer['asset'])
         self.assertEqual(asset['metadata']['width'],40)
         with Image.open(g.project_dir/'sources'/asset['filename']) as im:self.assertEqual(im.getpixel((10,10)),(0,0,255,255))
         count=len(list((g.project_dir/'sources').iterdir()))
-        g.canvas_edit(handler,{'apply':True,'patch':{},'image':base64.b64encode(buf.getvalue()).decode()})
-        self.assertEqual(handler.reply.call_args.args[0],409);self.assertEqual(len(list((g.project_dir/'sources').iterdir())),count)
+        response=g.canvas_result({'apply':True,'patch':{},'image':base64.b64encode(buf.getvalue()).decode()})
+        self.assertEqual(response.status,409);self.assertEqual(len(list((g.project_dir/'sources').iterdir())),count)
 
 
 if __name__=='__main__':unittest.main()

@@ -90,11 +90,12 @@ class Client:
                     **{key:error.get(key) for key in ('category','scope','used','limit','reset_at')})
             raise ValueError(error.get('message','Task tool failed') if isinstance(error,dict) else error)
         return response['body']
-    def relay(self,operation,body,handler):
-        try:handler.reply(200,self.request(operation,body))
-        except TaskQuotaReached as exc:handler.reply(403,{'error':{'type':'quota','message':str(exc),**exc.diagnostic}})
-        except PermissionError:handler.reply(500,{'error':FILE_PERMISSION_ERROR})
-        except ValueError as exc:handler.reply(422,{'error':str(exc)})
+    def result(self,operation,body):
+        from .gateway_contracts import json_result
+        try:return json_result(200,self.request(operation,body))
+        except TaskQuotaReached as exc:return json_result(403,{'error':{'type':'quota','message':str(exc),**exc.diagnostic}})
+        except PermissionError:return json_result(500,{'error':FILE_PERMISSION_ERROR})
+        except ValueError as exc:return json_result(422,{'error':str(exc)})
 
 
 class GatewayProcess:
@@ -174,11 +175,8 @@ class GatewayProcess:
                         response={'status':200,'body':{}}
                     elif operation=='image':
                         if gateway.allowed_paths is not None and '/image-tools' not in gateway.allowed_paths:raise ValueError('Image tools are not authorized')
-                        class Reply:
-                            value=None
-                            def reply(self,status,payload):self.value={'status':status,'body':payload}
-                        reply=Reply();gateway.image_edit(reply,body)
-                        response=reply.value
+                        result=gateway.image_result(body)
+                        response={'status':result.status,'body':json.loads(b''.join(result.chunks))}
                     else:raise ValueError('Unknown privileged operation')
             except TaskQuotaReached as exc:
                 from .task_leases import record_quota

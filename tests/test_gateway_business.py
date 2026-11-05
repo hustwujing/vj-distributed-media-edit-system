@@ -85,5 +85,13 @@ class GatewayBusinessTests(unittest.TestCase):
         self.assertEqual(json.loads(b''.join(accepted.chunks)),{'status':'ready'})
         self.assertGreaterEqual(gateway.check.call_count,4)
 
+    def test_file_tool_routes_use_gateway_results_without_handler_objects(self):
+        from webapp.agent_gateway import Gateway
+        gateway=object.__new__(Gateway);gateway.mode='plan';gateway.assets={};gateway.broker=None
+        self.assertEqual(gateway.image_result({'target_asset':'foreign','prompt':'x'}).status,403)
+        self.assertEqual(gateway.transcribe_result({'asset':'foreign'}).status,404)
+        gateway.canvas_callback=None
+        self.assertEqual(gateway.canvas_result({'apply':True}).status,403)
+
 
 if __name__=='__main__':unittest.main()

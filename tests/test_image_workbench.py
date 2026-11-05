@@ -114,9 +114,9 @@ class ImageWorkbenchTests(unittest.TestCase):
     def test_agent_image_gateway_respects_mode_and_rejects_foreign_asset(self):
         from unittest.mock import Mock
         from webapp.agent_gateway import Gateway
-        g=object.__new__(Gateway);g.mode='plan';g.assets={};handler=Mock()
-        g.image_edit(handler,{'target_asset':self.aid,'prompt':'x'});self.assertEqual(handler.reply.call_args.args[0],403)
-        g.mode='execute';g.image_edit(handler,{'target_asset':'foreign','prompt':'x'});self.assertEqual(handler.reply.call_args.args[0],422)
+        g=object.__new__(Gateway);g.mode='plan';g.assets={}
+        self.assertEqual(g.image_result({'target_asset':self.aid,'prompt':'x'}).status,403)
+        g.mode='execute';self.assertEqual(g.image_result({'target_asset':'foreign','prompt':'x'}).status,422)
         g.image_calls=0;g.local_image_calls=0
         for _ in range(4):g.count_image_call('generate')
         with self.assertRaisesRegex(RuntimeError,'4次'):g.count_image_call('generate')
