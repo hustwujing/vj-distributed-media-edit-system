@@ -121,6 +121,13 @@ class InMemoryGrantStore:
         for identifier in identifiers:self.revoke(identifier)
         return len(identifiers)
 
+    def sweep_expired(self):
+        with self.lock:
+            identifiers=[grant.id for grant in self.by_id.values()
+                if not grant.revoked and grant.expires_at<=self.clock()]
+        for identifier in identifiers:self.revoke(identifier)
+        return len(identifiers)
+
 
 class GrantAuthority:
     def __init__(self,store):self.store=store
@@ -248,3 +255,23 @@ class RuntimeGrantFactory:
         from .runtime_injection import GatewayGrant
         material=GatewayGrant(self.endpoint,issued.token,self.ca,self.routes)
         return RuntimeGatewayGrant(material,lambda:self.authority.revoke(issued.id))
+
+
+class GrantReaper:
+    def __init__(self,store,interval=1):
+        if not 0.05<=interval<=60:raise ValueError('Invalid Gateway reaper interval')
+        self.store=store;self.interval=interval;self.stop=threading.Event();self.thread=None
+    def start(self):
+        if self.thread and self.thread.is_alive():return
+        self.stop.clear()
+        def run():
+            while not self.stop.wait(self.interval):
+                try:self.store.sweep_expired()
+                except Exception as exc:
+                    from .telemetry import emit
+                    emit('node_gateway.reaper_failed','ERROR',exc=exc)
+        self.thread=threading.Thread(target=run,daemon=True,name='node-gateway-grant-reaper')
+        self.thread.start()
+    def close(self):
+        self.stop.set()
+        if self.thread:self.thread.join(timeout=min(3,self.interval+1))
