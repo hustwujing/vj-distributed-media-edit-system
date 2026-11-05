@@ -298,12 +298,17 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
-                business=[]
+                business=[];inherited_technical=[]
                 for check in raw.get('acceptance',[]):
+                    if check.get('source')=='technical':
+                        if check not in inherited_technical:inherited_technical.append(check)
+                        continue
                     normalized={**check,'file':'*','source':'user'}
                     if normalized not in business:business.append(normalized)
-                technical=operation_acceptance(binding,raw.get('parameters',{}))
-                raw['acceptance']=[*business,*[check for check in technical if check not in business]]
+                from .quality_policy import Acceptance
+                technical=[Acceptance.model_validate(check).model_dump() for check in operation_acceptance(binding,raw.get('parameters',{}))]
+                raw['acceptance']=[*business,*inherited_technical,
+                                   *[check for check in technical if check not in business and check not in inherited_technical]]
                 if not raw.get('basic_reason'):
                     raw['basic_reason']='Server-owned registered operation integrity checks'
             for item in files:

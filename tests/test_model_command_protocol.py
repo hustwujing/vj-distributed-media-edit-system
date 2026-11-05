@@ -58,6 +58,25 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(ValidationError):transform(cmd,schema,encode=True)
         with self.assertRaises(CommandError):compile_manager(cmd,f)
 
+    def test_operation_replacement_does_not_reclassify_inherited_technical_acceptance(self):
+        from webapp.operations import catalog
+        op=next(item for item in catalog()['operations'] if item['id']=='image.perspective')
+        spec={'id':'render','type':'operation','name':'render','objective':'Preserve the image requirement',
+              'operation':'image.perspective','implementation':op['implementation'],
+              'inputs':{'source':{'asset':'asset'}},'parameters':{'points':[[0,0],[1,0],[1,1],[0,1]]},
+              'acceptance':[{'kind':'image','file':'*','width':64,'height':64,'source':'user'},
+                            {'kind':'image','file':'*','source':'technical'}],
+              'semantics':{'policy_version':'media-semantics-v1'},'delivery_stage':False}
+        f=frozen(spec);f['operations']=[{**op,'authorized':True}]
+        implementation={'name':'Replacement operation','type':'operation','operation':'image.perspective',
+                        'inputs':{'source':{'asset':'asset'}},
+                        'parameters':{'points':[[0,0],[1,0],[1,1],[0,1]]},'basic_reason':'Bounded repair'}
+        cmd={'kind':'APPLY_PLAN','reason':'Replace failed operation','plan':{
+            'repair_replacements':[{'task_id':'render','implementation':implementation}],
+            'continuation':{'mode':'wait'}}}
+        schema=manager_schema(f,{'image.perspective':op});result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
+        self.assertEqual(result['add_tasks'][0]['acceptance'],f['tasks'][0]['spec']['acceptance'])
+
     def test_output_declaration_has_one_source_and_continuation_is_exclusive(self):
         f=frozen(False);schema=manager_schema(f)
         task={'id':'render','type':'script','name':'render','objective':'Write','argv':['python','-c','pass'],

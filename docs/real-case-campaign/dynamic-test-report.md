@@ -9,7 +9,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 
 统计：需在当前版本复测 117；待逐例审查 2。
 
-当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 0；待归因 2。非程序错误仍是业务或用例失败，不并入业务成功。
+当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 0；待归因 1。非程序错误仍是业务或用例失败，不并入业务成功。
 
 必须完成的额外回归：F48-history-archive：Historical executed revisions must have retained checkpoint manifests and bytes；F52-script-receipts：Implementer must observe real script receipts and submit within bounded phases；F53-bound-correction：Invalid binding is rejected and bounded correction completes the original goal；F54-feedback-approval：Revision retains declared user Review; independent candidate checking precedes approval；F62-acceptance-target-schema：Schema枚举修复已部署，完整门禁通过；当前119轮继续验证实际Manager调用，不能将待真机关闭误写为待开发。；F66-local-edge-fixture-scope：局部请求、5%上限及人工预览已一致；最终检查器残留整图腐蚀已在12dcf71修复。D36 attempt-004原始真机产物回放通过，原测试失败保留；当前完整轮正式复测。；F68-revision-new-descendant：A single valid APPLY_PLAN revises an existing upstream and adds a new downstream. The affected revision closure includes the new node, but apply indexes only the old active Task snapshot, raising KeyError and rolling back every reconcile.；F69-planner-contract-feedback：Current round has repeated sealed+replan_after contradiction; prompt says name replan_after and seal when complete but omits explicit mutual exclusion. Frozen-field rejection lists a broad field family without the actually changed field paths. review_again prerequisite must be exposed in current snapshot/action guidance.；F70-feedback-replacement-assertion：Feedback post-hook requires original render revision increase. Legal explicit replacement creates new logical Task at revision0 with user_revision_count1 while preserving retired original; application succeeds but harness rejects.。
 
@@ -72,7 +72,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | `c10f57d134ef` | 119 | 120 | 120 |
 | `7e8d07d55556` | 21 | 21 | 21 |
 | `0a738b322166` | 6 | 6 | 6 |
-| `2fed8e8317c0` | 2 | 2 | 2 |
+| `2fed8e8317c0` | 2 | 5 | 5 |
 
 | Case | 场景 | 当前结论 | 尝试次数 |
 | --- | --- | --- | --- |
@@ -167,7 +167,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D11 | 过期审批与重复命令拒绝 | 需在当前版本复测 | 4 |
 | D12 | 跨项目读取与控制拒绝 | 需在当前版本复测 | 4 |
 | D13 | 模型预算耗尽有界暂停 | 需在当前版本复测 | 9 |
-| D14 | BOSS 内容校验与候选不放行 | 待逐例审查 | 8 |
+| D14 | BOSS 内容校验与候选不放行 | 待逐例审查 | 9 |
 | D15 | 授权内容指纹失效拒绝 | 需在当前版本复测 | 5 |
 | D16 | 外部提交未知不重复生成 | 需在当前版本复测 | 5 |
 | D17 | 观测服务中断不影响业务状态 | 需在当前版本复测 | 5 |
@@ -192,7 +192,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D36 | 抠图候选边缘反馈修订 | 需在当前版本复测 | 7 |
 | D37 | 双图构图反馈修订 | 需在当前版本复测 | 2 |
 | D38 | Wan提交前参考图反馈修订 | 需在当前版本复测 | 8 |
-| D39 | 合法替代失败节点与历史读取 | 待逐例审查 | 10 |
+| D39 | 合法替代失败节点与历史读取 | 待逐例审查 | 12 |
 | D40 | 已验收音频下游Operation取证 | 需在当前版本复测 | 4 |
 | D41 | 最终交付选择与多视频时序证据 | 需在当前版本复测 | 5 |
 
@@ -21852,7 +21852,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 ### attempt-008 · 待逐例审查
 
-版本：`2fed8e8317c0baa5b213838be7c36153eebc4d88243f050c62d884d5bb5534eb`；是否当前部署：是。
+版本：`2fed8e8317c0baa5b213838be7c36153eebc4d88243f050c62d884d5bb5534eb`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-05T09:50:55+08:00 → 2026-11-05T09:52:01+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`test_failed`；项目：`ee0e293e16de4fb4b230ba761284b924`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-008/cleanup.json)
@@ -21880,6 +21880,33 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `928092e8009f4171ad25bb417a63d298`：先生成128×128中间图，再从中间图生成64×64最终PNG。首轮只能创建type=agent、profile=editing_implementer的intermediate业务Task，sealed=false，replan_after指向intermediate；该Agent在受限沙箱内先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮读取已验收中间图后再规划最终图，必须直接使用intermediate的已验收输出，不得重新从原始素材生成。Manager不得直接提交脚本或代码。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-009 · 待逐例审查
+
+版本：`2fed8e8317c0baa5b213838be7c36153eebc4d88243f050c62d884d5bb5534eb`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-05T10:06:49+08:00 → 2026-11-05T10:08:28+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`protocol_passed`；项目：`95a3295015c34f35b67f37c03a18ffd5`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D14/attempt-009/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+故障注入：stop_orchestrator → drain_workers → start_orchestrator → stop_orchestrator → corrupt_object → release_workers → start_orchestrator → restore_object。
+
+实际确认的执行轮次：
+
+- `28ea2cbd6796420281911313b759d25a`：先生成128×128中间图，再从中间图生成64×64最终PNG。首轮只能创建type=agent、profile=editing_implementer的intermediate业务Task，sealed=false，replan_after指向intermediate；该Agent在受限沙箱内先等待15秒再生成128×128 PNG，只校验尺寸，不限制alpha通道。第二轮读取已验收中间图后再规划最终图，必须直接使用intermediate的已验收输出，不得重新从原始素材生成。Manager不得直接提交脚本或代码。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D15 · 授权内容指纹失效拒绝
 
@@ -25544,7 +25571,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 当前结论：**待逐例审查**。目标边界：`legal_replacement`。
 
 输入素材：portrait.png。
-执行目标：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试驱动，绝不能写入任何Task的objective或acceptance。创建type=agent、profile=editing_implementer的render业务Task，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。测试驱动会使render首次attempt真实失败。诊断后必须新增同profile的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。
+执行目标：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”。首轮render必须创建type=operation、operation=image.perspective，source绑定portrait.png，parameters.points固定为[[0,0],[511,0],[511,511],[600,600]]；越界点只属于本测试的确定性运行时失败参数，绝不能写入objective或acceptance。render声明程序image 64×64验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。render提交明确的execution_failed后，诊断必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、primary_image输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。
 独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
 外部调用范围：未预先授权外部付费调用。
 
@@ -25843,7 +25870,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 ### attempt-010 · 待逐例审查
 
-版本：`2fed8e8317c0baa5b213838be7c36153eebc4d88243f050c62d884d5bb5534eb`；是否当前部署：是。
+版本：`2fed8e8317c0baa5b213838be7c36153eebc4d88243f050c62d884d5bb5534eb`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-05T09:52:01+08:00 → 2026-11-05T09:53:30+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`test_failed`；项目：`7c84f74aae6344e4b6b761bc89104147`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-010/cleanup.json)
@@ -25874,6 +25901,70 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `892da18464594f1289d1b5a0c01dc9ec`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试驱动，绝不能写入任何Task的objective或acceptance。创建type=agent、profile=editing_implementer的render业务Task，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。测试驱动会使render首次attempt真实失败。诊断后必须新增同profile的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-011 · 待逐例审查
+
+版本：`2fed8e8317c0baa5b213838be7c36153eebc4d88243f050c62d884d5bb5534eb`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-05T10:08:28+08:00 → 2026-11-05T10:11:10+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`97a79c6804a84eada5f567cf628bc21b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-011/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：The expression evaluated to a falsy value:
+
+  assert.ok(old&&!old.selected&&old.error_code==='execution_failed'&&old.revision===0)
+
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `b2e1d2a04ddc4cafb666721346b24446`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”。首轮render必须创建type=operation、operation=image.perspective，source绑定portrait.png，parameters.points固定为[[0,0],[511,0],[511,511],[600,600]]；越界点只属于本测试的确定性运行时失败参数，绝不能写入objective或acceptance。render声明程序image 64×64验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。render提交明确的execution_failed后，诊断必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、primary_image输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。；Token上限 2000000；外部调用上限 `{}`。
+
+### attempt-012 · 待逐例审查
+
+版本：`2fed8e8317c0baa5b213838be7c36153eebc4d88243f050c62d884d5bb5534eb`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-05T10:11:53+08:00 → 2026-11-05T10:14:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`001853b40f9f49a39621964cdc4fcc05`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D39/attempt-012/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：The expression evaluated to a falsy value:
+
+  assert.ok(old&&!old.selected&&old.error_code==='execution_failed'&&old.revision===0)
+
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `c7e31185fc9641f6bcd00050c52f2105`：render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”。首轮render必须创建type=operation、operation=image.perspective，source绑定portrait.png，parameters.points固定为[[0,0],[511,0],[511,511],[600,600]]；越界点只属于本测试的确定性运行时失败参数，绝不能写入objective或acceptance。render声明程序image 64×64验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。render提交明确的execution_failed后，诊断必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、primary_image输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。；Token上限 2000000；外部调用上限 `{}`。
 
 ## D40 · 已验收音频下游Operation取证
 
