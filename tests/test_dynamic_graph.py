@@ -256,6 +256,25 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertNotIn('revised',available(self.store,run,self.store.now()))
         self.assertNotIn('revised',{row['step_id'] for row in candidates(self.store)})
 
+    def test_late_diagnosis_cannot_stop_a_newer_running_revision(self):
+        self.tick();task=script(retry_policy='never');task['on_failure']='diagnose'
+        self.propose({'proposal_id':'stale-diagnosis','base_graph_version':0,'reason':'diagnose failure',
+                      'add_tasks':[task],'sealed':True});run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='agent_failed' WHERE run_id=? AND id='first'",(run['id'],))
+        run=graph.get(self.store,run['id']);self.orchestrator.queue_review(run,'first',purpose='diagnose')
+        run=graph.get(self.store,run['id']);diagnosis=next(t for t in graph.work_items(run) if t.get('control_kind')=='DIAGNOSE')
+        row=self.store.query("SELECT snapshot_digest FROM workflow_reviews WHERE id=?",(diagnosis['id'],))[0]
+        self.store.execute("UPDATE run_tasks SET revision=1,status='running',error_code='',lease_id='new-attempt' WHERE run_id=? AND id='first'",(run['id'],))
+        self.store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='' WHERE id=?",(run['id'],))
+        self.orchestrator.accept_diagnosis(graph.get(self.store,run['id']),diagnosis,{
+            'snapshot_digest':row['snapshot_digest'],'diagnosis':{'facts':['old failure'],'uncertainties':[],
+            'recommendations':['repair old revision'],'error_code':'agent_failed',
+            'recommended_action':'stop','target_task_id':'first'}})
+        current=graph.get(self.store,run['id']);subject=next(t for t in current['tasks'] if t['id']=='first')
+        self.assertEqual((current['status'],current['terminal_reason']),('ACTIVE',''))
+        self.assertEqual((subject['revision'],subject['status'],subject['lease_id']),(1,'running','new-attempt'))
+        self.assertTrue(self.store.query("SELECT seq FROM workflow_graph_events WHERE kind='diagnosis_stale'"))
+
     def test_internal_model_transport_failure_retries_same_frozen_request_only(self):
         run=self.tick();manager=next(task for task in graph.work_items(run) if task.get('control_kind'))
         self.store.execute("UPDATE run_tasks SET status='running',attempts=1 WHERE run_id=? AND id=?",(run['id'],manager['id']))
