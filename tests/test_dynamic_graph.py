@@ -435,6 +435,14 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(payload['missing_extensions'],['txt'])
         self.assertEqual(payload['missing_task_ids'],[])
 
+    def test_explicit_delivery_filename_cannot_be_replaced_by_same_format(self):
+        authorization={**self.run['authorization'],'delivery_targets':['final.mp4 and cover.png']}
+        self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
+            ('Deliver final.mp4 and cover.png',graph.encode(authorization),self.run['id']))
+        self.publish_metadata_fixture(['clip_128x64.mp4','cover.png'],primary_index=0,expect_success=False)
+        payload=json.loads(self.store.query("SELECT payload_json FROM workflow_graph_events WHERE kind='delivery_blocked'")[0]['payload_json'])
+        self.assertEqual(payload['missing_names'],['final.mp4'])
+
     def test_explicit_report_role_must_be_selected(self):
         authorization={**self.run['authorization'],'delivery_targets':['final report']}
         self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
@@ -496,6 +504,9 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(validated_internal_result(run,task,get('delivery_reviewer'),{'decision':by_ref},frozen,inspections,keys)['decision']['primary'],selected[0])
         by_name={**valid,'deliverables':['master.mp4','final.mp4'],'primary':'master.mp4'}
         self.assertEqual(validated_internal_result(run,task,get('delivery_reviewer'),{'decision':by_name},frozen,inspections,keys)['decision']['primary'],selected[0])
+        exact_name={**frozen,'user_changes':[{'content':'Keep both variants but deliver requested.mp4 as the primary video.'}]}
+        with self.assertRaisesRegex(ValueError,'required filenames'):
+            validated_internal_result(run,task,get('delivery_reviewer'),{'decision':valid},exact_name,inspections,keys)
         only={'delivery_1':ids[0]};automatic={**valid,'deliverables':[],'primary':''}
         resolved=validated_internal_result(run,task,get('delivery_reviewer'),{'decision':automatic},frozen,{ids[0]:selected[0]},only)['decision']
         self.assertEqual((resolved['deliverables'],resolved['primary']),([selected[0]],selected[0]))

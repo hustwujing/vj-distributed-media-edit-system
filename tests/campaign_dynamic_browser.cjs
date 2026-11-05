@@ -332,7 +332,7 @@ async function runCase(browser,spec){
     run=await wait(w=>deciding(w),600);const original=run.id;
     const source=run.tasks.find(task=>task.id==='prepare_a'&&task.status==='succeeded');assert.ok(source);
     const asset=await reuse(source);
-    const accepted=await feedback(`将整体交付从64×48改为32×24 PNG。请通过NEW_RUN_REQUIRED提出完整新目标和范围，明确使用新加入的已验收素材${asset}，不要重复亮度处理，不再人工Review。确认前不得执行新方向。`,[asset]);
+    const accepted=await feedback(`将整体交付从64×48改为32×24 PNG。请通过NEW_RUN_REQUIRED提出完整新目标和范围，明确使用新加入的已验收素材${asset}，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，不要重复亮度处理，不再人工Review。确认前不得执行新方向。`,[asset]);
     run=await wait(w=>w.decisions.some(d=>d.kind==='new_run'),900);
     assert.equal(run.id,original);assert.equal(run.delivery.length,0);
     await approve('approve');assert.notEqual(state.run_id,original);

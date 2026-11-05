@@ -13,8 +13,8 @@ class ReconcileLost(RuntimeError):pass
 class InvalidProviderHandle(ValueError):pass
 
 
-def required_delivery_extensions(store,run):
-    """Extract output formats without treating authorized input filenames as outputs."""
+def delivery_requirements(store,run):
+    """Extract output requirements without treating authorized input filenames as outputs."""
     asset_ids=run['authorization'].get('allowed_assets',[])
     input_names=[]
     if asset_ids:
@@ -22,8 +22,15 @@ def required_delivery_extensions(store,run):
         for asset in store.query(f'SELECT name,filename FROM assets WHERE id IN ({placeholders})',tuple(asset_ids)):
             for value in (asset.get('name'),asset.get('filename')):
                 if value:input_names.append(value)
-    from .workflow_model_protocol import required_delivery_extensions as required
-    return required({'goal':run['goal'],'authorization':run['authorization'],'input_asset_names':input_names})
+    changes=store.query("SELECT content FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence",(run['id'],))
+    from .workflow_model_protocol import required_delivery_extensions,required_delivery_names
+    frozen={'goal':run['goal'],'authorization':run['authorization'],'input_asset_names':input_names,
+            'user_changes':changes}
+    return required_delivery_extensions(frozen),required_delivery_names(frozen)
+
+
+def required_delivery_extensions(store,run):
+    return delivery_requirements(store,run)[0]
 
 
 class Orchestrator:
@@ -782,12 +789,18 @@ class Orchestrator:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':sorted(missing_tasks),'missing_extensions':[]})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
-        aliases={'jpg':'jpeg'};required=required_delivery_extensions(store,run)
+        aliases={'jpg':'jpeg'};required,required_names=delivery_requirements(store,run)
         delivered={aliases.get(name.rsplit('.',1)[-1].lower(),name.rsplit('.',1)[-1].lower()) for name in selected if '.' in name}
         missing_extensions=required-delivered
         if missing_extensions:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':sorted(missing_extensions)})
+            self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
+        from pathlib import PurePosixPath
+        missing_names=required_names-{PurePosixPath(name).name for name in selected}
+        if missing_names:
+            graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
+                'missing_task_ids':[],'missing_extensions':[],'missing_names':sorted(missing_names)})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         from .workflow_model_protocol import required_delivery_roles
         delivered_roles={role for name in selected for role,path in accepted[name].get('quality',{}).get('output_roles',{}).items() if path==name}
