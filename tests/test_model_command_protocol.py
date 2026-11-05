@@ -38,7 +38,8 @@ class ModelCommandTests(unittest.TestCase):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Export','objective':'Export video',
               'outputs':['old.mp4'],'output_roles':{'video':'old.mp4'},'acceptance':[{'kind':'media','file':'old.mp4'}],
               'basic_reason':'export','delivery_stage':True}
-        value=frozen(task,user=True);value['user_changes']=[{'content':'Deliver final.mp4 and cover.png.'}]
+        value=frozen(task,user=True)
+        value['input_batch']['inputs'][0]['content']='Deliver final.mp4 and cover.png.'
         command={'kind':'COMPLETE','reason':'Apply requested names','plan':{'changes':[{'task_id':'render','set':{
             'files':[{'path':'export.mp4','roles':['video']},{'path':'cover.png','roles':['cover']}],
             'acceptance':[{'kind':'media','file':'export.mp4'},{'kind':'image','file':'cover.png'}],
