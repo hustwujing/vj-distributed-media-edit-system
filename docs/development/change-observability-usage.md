@@ -24,7 +24,7 @@
 | [usage_api.py](../../webapp/usage_api.py)、[task_usage.js](../../webapp/static/task_usage.js) | 授权范围、分页及任务/需求/项目用量展示 |
 | [diagnostics.py](../../webapp/diagnostics.py)、[diagnostics_api.py](../../webapp/diagnostics_api.py) | 只读证据汇聚、部分结果、所有者视图和诊断下载 |
 | [observation_collector.py](../../webapp/observation_collector.py)、[observability.html](../../webapp/static/observability.html) | journal 采集、索引、指标导出、告警和受保护看板 |
-| [dynamic_cluster.py](../../deploy/dynamic_cluster.py) | 本分支独立观测服务配置、部署/维护流程；旧 cluster.py 不用于操作 main |
+| [dynamic_cluster.py](../../deploy/dynamic_cluster.py) | 当前独立观测服务的配置、部署与维护流程 |
 
 新增字段或事件前，说明采集点、单位、关联键、权限、存储位置、去重规则、缺失语义和留存方式。优先扩展已有数据来源，避免为同一调用维护第二份累加总数。
 

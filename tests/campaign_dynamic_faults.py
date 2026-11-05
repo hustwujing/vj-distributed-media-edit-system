@@ -7,6 +7,7 @@ from pathlib import Path
 import time
 from campaign_dynamic_probe import configure,save
 from deploy import dynamic_cluster as cluster
+from deploy import systemd_templates
 
 
 def dependency_probe():
@@ -15,7 +16,7 @@ def dependency_probe():
     prefix=cluster.NAMESPACE+'-qa-dependency-'+uuid.uuid4().hex[:12]
     provider=prefix+'-db.service';consumer=prefix+'-client.service'
     paths=[Path('/run/systemd/system')/name for name in (provider,consumer)]
-    header=cluster.unit_text(cluster.templates.unit_header('Isolated QA dependency client')).split('[Service]',1)[0]
+    header=systemd_templates.unit_header(cluster.template_config(cluster.release()),'Isolated QA dependency client').split('[Service]',1)[0]
     header=header.replace('video-use-db.service',provider)
     service='[Service]\nType=exec\nExecStart=/usr/bin/sleep 120\nDynamicUser=yes\nPrivateNetwork=yes\nNoNewPrivileges=yes\nProtectSystem=strict\n'
     try:
