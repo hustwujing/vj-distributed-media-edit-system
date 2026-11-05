@@ -26,6 +26,13 @@ def envelope(store,request_id,proposal=None,kind='APPLY_PLAN',**extra):
 
 
 class DynamicGraphTests(unittest.TestCase):
+    def test_model_token_budget_supports_doubled_campaign_limit(self):
+        authorization=graph.Authorization(goal='bounded',allowed_assets=[],allowed_operations=[],
+            delivery_targets=['result'],content_fingerprint='a'*64,model_token_budget=4000000)
+        self.assertEqual(authorization.model_token_budget,4000000)
+        with self.assertRaises(ValueError):
+            graph.Authorization.model_validate({**authorization.model_dump(),'model_token_budget':4000001})
+
     def setUp(self):
         self.f=fixtures.WorkflowTests();self.f.setUp();self.store=self.f.store
         self.authorization={'goal':'Make a report','allowed_assets':['asset'],'allowed_operations':['script'],

@@ -58,7 +58,7 @@ class Authorization(Contract):
     agent_profile_digests:dict[str,str]=Field(default_factory=dict,max_length=20)
     provider_call_budget:dict[str,int]=Field(default_factory=dict,max_length=50)
     cost_budget:float|None=Field(default=None,ge=0)
-    model_token_budget:int=Field(default=80000,ge=1024,le=2000000)
+    model_token_budget:int=Field(default=80000,ge=1024,le=4000000)
     wall_time_budget:int=Field(default=7200,ge=60,le=86400)
     max_tasks:int=Field(default=64,ge=1,le=256)
     max_planning_rounds:int=Field(default=16,ge=1,le=64)
