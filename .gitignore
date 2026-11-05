@@ -67,6 +67,8 @@ project.md
 .cluster/
 /workspace/
 /runtime/build/
+/wheels/
+/vendor/
 
 # Private environment variants (publish templates only)
 .env.*

@@ -1,0 +1,12 @@
+ARG PYTHON_IMAGE
+FROM ${PYTHON_IMAGE}
+ARG PYTHON_IMAGE
+ARG DEBIAN_MIRROR=http://deb.debian.org
+
+RUN case "$PYTHON_IMAGE" in *@sha256:????????????????????????????????????????????????????????????????) ;; *) echo 'PYTHON_IMAGE must be immutable' >&2; exit 1;; esac && \
+    sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+      ca-certificates ffmpeg git jq ripgrep && \
+    rm -rf /var/lib/apt/lists/* && \
+    test -x /usr/bin/ffmpeg && test -x /usr/bin/ffprobe

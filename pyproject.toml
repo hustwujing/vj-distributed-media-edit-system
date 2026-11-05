@@ -36,5 +36,8 @@ harnesses = ["claude-agent-sdk==0.2.176", "deepseek-harness-sdk==0.2.1rc2"]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = []
+[tool.setuptools.packages.find]
+include = ["webapp*"]
+
+[tool.setuptools.package-data]
+webapp = ["static/**/*"]
