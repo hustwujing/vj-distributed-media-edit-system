@@ -106,8 +106,10 @@ class Operation:
         result['permissions']={'read_declared_inputs':True,'write_attempt_outputs':True,
             'network':'registered_provider' if self.external_side_effects else 'none','external_side_effects':self.external_side_effects,
             'arbitrary_commands':False,'model_profile':self.model_profile}
+        filenames=list(self.output_files) if self.output_files is not None else None
         result['output_contract']={'roles':list(self.outputs),'primary':self.outputs[0] if self.outputs else None,
-                                   'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':list(self.output_files) if self.output_files is not None else None}
+                                   'role_filenames':dict(zip(self.outputs,filenames or [])),
+                                   'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':filenames}
         parameter_schema=contract(self).parameters.model_json_schema()
         inputs=contract(self)
         result['input_contract']={'required_roles':sorted(inputs.required_inputs),

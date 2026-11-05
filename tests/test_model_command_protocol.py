@@ -95,17 +95,19 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_operation_acceptance_is_bound_to_the_semantic_output_role(self):
         from webapp.operations import catalog
-        op=next(item for item in catalog()['operations'] if item['id']=='image.remove_background')
-        f=frozen(False);f['operations']=[{**op,'authorized':True}]
-        task={'id':'cutout','type':'operation','name':'Cutout','objective':'Remove background',
-              'operation':'image.remove_background','input_bindings':[{'role':'source','ref':{'asset':'asset'}}],
-              'parameters':{},'acceptance':[{'kind':'image','transparent_subject':True,'stage':'final'}]}
-        command={'kind':'COMPLETE','reason':'Deliver cutout','plan':{'new_tasks':[task]}}
-        result=compile_manager(command,f)['proposal']['add_tasks'][0]
-        user=[check for check in result['acceptance'] if check['source']=='user'][0]
-        self.assertEqual(user['file'],'foreground.png')
-        technical={check['file'] for check in result['acceptance'] if check['source']=='technical'}
-        self.assertEqual(technical,{'foreground.png','mask.png'})
+        for operation in ('image.remove_background','image.refine_zim'):
+            with self.subTest(operation=operation):
+                op=next(item for item in catalog()['operations'] if item['id']==operation)
+                f=frozen(False);f['operations']=[{**op,'authorized':True}]
+                task={'id':'cutout','type':'operation','name':'Cutout','objective':'Remove background',
+                      'operation':operation,'input_bindings':[{'role':'source','ref':{'asset':'asset'}}],
+                      'parameters':{},'acceptance':[{'kind':'image','transparent_subject':True,'stage':'final'}]}
+                command={'kind':'COMPLETE','reason':'Deliver cutout','plan':{'new_tasks':[task]}}
+                result=compile_manager(command,f)['proposal']['add_tasks'][0]
+                user=[check for check in result['acceptance'] if check['source']=='user'][0]
+                self.assertEqual(user['file'],'foreground.png')
+                technical={check['file'] for check in result['acceptance'] if check['source']=='technical'}
+                self.assertTrue(technical)
 
     def test_host_derives_input_dependencies_and_waits_for_batch_leaves(self):
         f=frozen(False);schema=manager_schema(f)

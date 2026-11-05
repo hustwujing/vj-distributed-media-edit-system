@@ -260,9 +260,10 @@ def validate(raw, workspace):
                 item['position'] = choice(item.get('position','bottom'), ('top','center','bottom'), 'title.position')
     if 'subtitles' in p:
         s = p['subtitles']
-        fields(s, 'file from_transcripts words_per_line size color highlight position outline', 'subtitles')
+        fields(s, 'file from_transcripts clip_to_output words_per_line size color highlight position outline', 'subtitles')
         if audio_only: raise PlanError('Audio-only output cannot burn subtitles')
         from_transcripts = flag(s, 'from_transcripts')
+        s['clip_to_output'] = flag(s, 'clip_to_output', True)
         if ('file' in s) == from_transcripts: raise PlanError('Choose subtitles.file OR from_transcripts')
         if 'file' in s:
             s['file'] = str(local_file(s['file'], root))

@@ -312,9 +312,8 @@ def compile_manager(command,frozen):
                     elif check.get('kind')=='json':preferred=['report','plan']
                     target='*' if raw.get('id') in replacement_ids else next(
                         (role for role in preferred if role in roles),roles[0] if len(roles)==1 else '*')
-                    filenames=(binding.get('output_contract') or {}).get('filenames')
-                    if target!='*':
-                        target=dict(zip(roles,filenames)).get(target,'*') if filenames and len(filenames)==len(roles) else '*'
+                    role_filenames=(binding.get('output_contract') or {}).get('role_filenames',{})
+                    if target!='*':target=role_filenames.get(target,'*')
                     normalized={**check,'file':target,'source':'user'}
                     if normalized not in business:business.append(normalized)
                 from .quality_policy import Acceptance

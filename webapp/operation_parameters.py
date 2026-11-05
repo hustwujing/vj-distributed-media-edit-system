@@ -174,6 +174,7 @@ class EditTitle(Parameters):
 class EditSubtitles(Parameters):
     asset:str|None=Field(default=None,min_length=1,max_length=100)
     from_transcripts:bool=False
+    clip_to_output:bool=Field(default=True,description='For output-timeline SRT, discard cues after the rendered duration and clip a cue crossing the end. Disable for strict rejection.')
     words_per_line:int=Field(default=6,ge=1,le=20)
     size:int|None=Field(default=None,ge=10,le=200)
     color:str=Field(default='#FFFFFF',pattern=r'^#[0-9A-Fa-f]{6}$')
