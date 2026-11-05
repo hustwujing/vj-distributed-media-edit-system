@@ -51,10 +51,12 @@ class DynamicGatewayTests(unittest.TestCase):
             return [str(path) if item=='/workspace/sources/tone.wav' else sys.executable if item=='/opt/venv/bin/python'
                     else item.replace("'/opt'",repr(module_root)) if "sys.path.insert(0,'/opt')" in item else item for item in argv]
         with patch.object(self.lease,'runtime',object()),patch('webapp.agent_sandbox.command',side_effect=command):
-            result=inspect_media(host,self.lease,self.run,self.task,{'ref':'asset','path':path,'offset_seconds':0})
+            result=inspect_media(host,self.lease,self.run,self.task,
+                {'ref':'asset','path':path,'offset_seconds':0,'window_seconds':1})
         self.assertEqual(result['coverage'],'technical_metadata_and_full_audio_measurement')
         self.assertFalse(result['audio_measurement']['audio_silent'])
         self.assertEqual(result['audio_measurement']['measurement_scope'],'full')
+        self.assertFalse(result['requested_window_applied'])
 
     def test_exhausted_image_budget_is_feedback_before_any_pixel_decoder(self):
         from PIL import Image

@@ -1073,8 +1073,9 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
                 'source_frame_interval_seconds':1/source_fps if source_fps>0 else None,
                 'preview_background':'#b8bec8' if evidence.get('still_image') else None,'timestamp_seconds':evidence['offset_seconds'],
                 'image':'data:image/jpeg;base64,'+base64.b64encode(sampled.stdout).decode()}
-    if evidence.get('window_seconds') is not None:raise InspectionInputError('Temporal contact sheets require a video stream')
     audios=[s for s in probe.get('streams',[]) if s.get('codec_type')=='audio']
+    if evidence.get('window_seconds') is not None and not audios:
+        raise InspectionInputError('Temporal contact sheets require a video stream')
     measurement=None
     if audios:
         script=("import json,sys;sys.path.insert(0,'/opt');"
@@ -1089,4 +1090,5 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
             raise MediaInspectionError('inspection_audio_measurement_invalid',measured.returncode,reference) from None
     return {**evidence,'probe':probe,'audio_measurement':measurement,
             'coverage':'technical_metadata_and_full_audio_measurement' if measurement else 'technical_metadata_only',
+            'requested_window_applied':False if evidence.get('window_seconds') is not None else None,
             'limitation':'Audio signal level was measured across the full stream, but dialogue content has not been listened to; use an authorized transcript for dialogue criteria.'}
