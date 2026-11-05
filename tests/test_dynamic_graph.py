@@ -318,7 +318,7 @@ class DynamicGraphTests(unittest.TestCase):
             with self.assertRaises(PermissionError):metadata.collect_garbage()
         self.assertEqual(len(self.store.query('SELECT id FROM artifact_objects')),1)
 
-    def publish_metadata_fixture(self,names,primary_index=0,expect_success=True):
+    def publish_metadata_fixture(self,names,primary_index=0,expect_success=True,selected_indices=None):
         """Exercise publication of previously accepted metadata, not decoding."""
         from unittest.mock import patch
         self.tick();self.propose({'proposal_id':'publish-order','base_graph_version':0,'reason':'Deliver selected files',
@@ -335,9 +335,13 @@ class DynamicGraphTests(unittest.TestCase):
                 (graph.encode([logical]),self.run['id'],task))
         run=graph.get(self.store,self.run['id'])
         with patch.dict('os.environ',{'VIDEO_USE_OBJECT_BUCKET':'publication-metadata-fixture'}):
-            decision={'deliverables':selected}
+            reviewed=selected if selected_indices is None else [selected[index] for index in selected_indices]
+            decision={'deliverables':reviewed}
             if primary_index is not None:decision['primary']=selected[primary_index]
             self.orchestrator.publish(run,{'decision_json':graph.encode(decision)})
+            if not expect_success:
+                result=graph.get(self.store,run['id'])
+                self.assertEqual(result['status'],'WAITING_USER');self.assertIsNone(result['delivered_at']);return result['delivery'],hashes
             if primary_index is None:
                 result=graph.get(self.store,run['id'])
                 self.assertEqual(result['status'],'WAITING_USER');self.assertIsNone(result['delivered_at'])
@@ -346,8 +350,6 @@ class DynamicGraphTests(unittest.TestCase):
                 return result['delivery'],hashes
             self.orchestrator.publish(graph.get(self.store,run['id']),{'decision_json':graph.encode({'deliverables':list(reversed(selected))})})
         result=graph.get(self.store,run['id'])
-        if not expect_success:
-            self.assertEqual(result['status'],'WAITING_USER');self.assertIsNone(result['delivered_at']);return result['delivery'],hashes
         self.assertEqual(result['status'],'SUCCEEDED')
         self.assertEqual(len(self.store.query("SELECT seq FROM workflow_graph_events WHERE kind='delivered'")),1)
         return result['delivery'],hashes
@@ -382,6 +384,11 @@ class DynamicGraphTests(unittest.TestCase):
         self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
             ('交付 final.png 和 record.txt',graph.encode(authorization),self.run['id']))
         self.publish_metadata_fixture(['final.png'],expect_success=False)
+        self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'delivery_targets_incomplete')
+
+    def test_each_delivery_stage_task_must_contribute_a_selected_file(self):
+        self.publish_metadata_fixture(['landscape.mp4','portrait.mp4'],primary_index=0,
+                                      expect_success=False,selected_indices=[0])
         self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'delivery_targets_incomplete')
 
     def test_primary_selection_is_validated_by_worker_and_controller(self):

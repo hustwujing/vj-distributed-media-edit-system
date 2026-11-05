@@ -73,6 +73,7 @@ class DynamicExecutionTests(unittest.TestCase):
                         code=("import os,json;from pathlib import Path;i=json.loads(os.environ['VIDEO_USE_STEP_INPUTS']);assert Path(i['source'][0]).name=='allowed.png';assert not Path('/workspace/sources/foreign.png').exists();assert not Path('/workspace/edit/unrelated.txt').exists();assert Path('/workspace/conversation.jsonl').read_text()=='';Path(os.environ['VIDEO_USE_STEP_OUTPUT'],'report.txt').write_text('first report')" if first else
                               "import os,json;from pathlib import Path;i=json.loads(os.environ['VIDEO_USE_STEP_INPUTS']);assert not list(Path('/workspace/sources').iterdir());Path(os.environ['VIDEO_USE_STEP_OUTPUT'],'report.txt').write_text(Path(i['source'][0]).read_text()+' extended')")
                         task=script('first' if first else 'second',argv=['python','-c',code])
+                        task['delivery_stage']=not first
                         task['inputs']={'source':{'asset':'allowed'}} if first else {'source':{'step':'first','role':'report'}}
                         if not first:task.update(type='agent',profile='editing_implementer',argv=[])
                         return {'action':'proposal','proposal':{'proposal_id':'round-'+str(frozen['graph_version']),

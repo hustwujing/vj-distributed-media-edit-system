@@ -575,8 +575,6 @@ class Orchestrator:
             frozen['supporting_tasks']=[{'id':task['id'],'revision':task['revision'],'status':task['status'],
                 'objective':task['spec']['objective'],'output_roles':task.get('quality',{}).get('output_roles',{})}
                 for task in complete_tasks if not task['spec'].get('delivery_stage') and task['spec'].get('purpose')!='evidence']
-            frozen['tasks']=[task for task in complete_tasks
-                if task['spec'].get('delivery_stage') or task['spec'].get('purpose')=='evidence']
             frozen['provider_receipts']=[]
             for call in store.query('''SELECT request_key,provider,operation,state,external_id,implementation
                     FROM workflow_provider_calls WHERE workflow=? ORDER BY created''',(run['id'],)):
@@ -737,6 +735,9 @@ class Orchestrator:
         primary=decision.get('primary') or (selected[0] if len(set(selected))==1 else '')
         if primary not in selected:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
+        required_tasks={task['id'] for task in graph.active_tasks(run) if task['spec']['delivery_stage']}
+        if not required_tasks<={accepted[name]['id'] for name in selected}:
+            self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         import re
         explicit=' '.join([run['goal'],*run['authorization'].get('delivery_targets',[])])
         required={ext.lower() for ext in re.findall(r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',explicit)}
