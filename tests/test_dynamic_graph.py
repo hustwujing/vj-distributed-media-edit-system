@@ -240,6 +240,22 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertFalse([r for r in coordinator.candidates() if r.get('step_id')=='first'])
         self.assertEqual(self.store.query("SELECT COUNT(*) AS n FROM execution_attempts WHERE step_id='first'")[0]['n'],1)
 
+    def test_revised_repair_can_run_while_another_business_task_is_paused(self):
+        from webapp.workflow_dispatch import candidates,available
+        self.tick();self.propose({'proposal_id':'parallel-repair','base_graph_version':0,'reason':'Two independent tasks',
+            'add_tasks':[script('failed'),script('revised')],'sealed':False,'replan_after':['failed','revised']})
+        run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='agent_failed' WHERE run_id=? AND id='failed'",(run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='ready',repair_count=1 WHERE run_id=? AND id='revised'",(run['id'],))
+        self.store.execute("UPDATE runs SET status='ACTIVE' WHERE id=?",(run['id'],))
+        run=graph.get(self.store,run['id'])
+        self.assertIn('revised',available(self.store,run,self.store.now()))
+        self.assertIn('revised',{row['step_id'] for row in candidates(self.store)})
+        self.store.execute("UPDATE run_tasks SET repair_count=0 WHERE run_id=? AND id='revised'",(run['id'],))
+        run=graph.get(self.store,run['id'])
+        self.assertNotIn('revised',available(self.store,run,self.store.now()))
+        self.assertNotIn('revised',{row['step_id'] for row in candidates(self.store)})
+
     def test_internal_model_transport_failure_retries_same_frozen_request_only(self):
         run=self.tick();manager=next(task for task in graph.work_items(run) if task.get('control_kind'))
         self.store.execute("UPDATE run_tasks SET status='running',attempts=1 WHERE run_id=? AND id=?",(run['id'],manager['id']))

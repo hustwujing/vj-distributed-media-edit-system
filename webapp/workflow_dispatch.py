@@ -11,7 +11,8 @@ def candidates(store):
         WHERE (w.status='ACTIVE' OR (w.status='WAITING_USER' AND w.input_barrier_sequence IS NOT NULL AND w.terminal_reason NOT IN ('user_paused','user_rejected')))
           AND (w.scope_confirmed=1 OR s.control_kind<>'')
           AND s.selected=1 AND s.status='ready' AND s.lease_id='' AND s.next_run_at<=?
-          AND (w.input_barrier_sequence IS NOT NULL OR s.control_kind<>'' OR s.purpose IN ('repair','evidence') OR NOT EXISTS(
+          AND (w.input_barrier_sequence IS NOT NULL OR s.control_kind<>'' OR s.purpose IN ('repair','evidence')
+              OR s.repair_count>0 OR s.user_revision_count>0 OR NOT EXISTS(
               SELECT 1 FROM run_tasks held WHERE held.run_id=w.id AND held.selected=1 AND held.status='paused'))
           AND (w.input_barrier_sequence IS NULL OR s.control_kind<>'' OR EXISTS(SELECT 1 FROM run_input_drain d WHERE d.run_id=w.id AND d.task_id=s.id AND d.revision=s.revision))
           AND t.status NOT IN ('succeeded','failed','cancelled','cancelling')
@@ -27,7 +28,8 @@ def available(store,run,now):
     control_only=run['input_barrier_sequence'] is None and any(t['status']=='paused' and not t.get('control_kind') for t in graph.work_items(run))
     from .run_inputs import can_dispatch
     return [task['id'] for task in graph.work_items(run) if (run['scope_confirmed'] or task.get('control_kind')) and can_dispatch(run,task) and task['status']=='ready' and not task['lease_id'] and task['next_run_at']<=now
-            and (not control_only or task.get('control_kind') or task['purpose'] in ('repair','evidence'))
+            and (not control_only or task.get('control_kind') or task['purpose'] in ('repair','evidence')
+                 or task.get('repair_count',0)>0 or task.get('user_revision_count',0)>0)
             and run['id']+'|'+task['id'] not in leased
             and all(edge['upstream_task_id'] in done for edge in run['dependencies'] if edge['downstream_task_id']==task['id'])]
 
