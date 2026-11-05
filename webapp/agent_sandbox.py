@@ -369,7 +369,8 @@ def validate_generated(env,names):
         import tempfile
         runtime=env['runtime']
         runtime.lease.check()
-        socket_path=runtime.path/(uuid.uuid4().hex[:12]+'.sock')
+        from .paths import temporary_socket
+        socket_path=temporary_socket(runtime.path)
         try:
             with socket.socket(socket.AF_UNIX) as sock, tempfile.TemporaryFile() as output_check, tempfile.TemporaryFile() as errors:
                 sock.bind(str(socket_path));os.chown(socket_path,env['uid'],env['gid']);socket_path.chmod(0o600)
