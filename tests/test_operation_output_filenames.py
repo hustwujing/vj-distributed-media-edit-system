@@ -22,6 +22,50 @@ class OperationOutputFilenameTests(unittest.TestCase):
                    'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'ocr.json'}]},
                    'quality':{'output_roles':{'report':'edit/ocr.json','preview':'edit/ocr-preview.png'}}}
         self.assertEqual(delivery_candidate_refs(requested),{'edit/ocr.json'})
+
+    def review_snapshot(self,tasks):
+        return {'review_scope':'final','snapshot_digest':'f'*64,
+                'goal':'Deliver the final MP4 and include the inspection report',
+                'authorization':{'delivery_targets':[]},'assets':[],
+                'delivery_targets':['final output'],'tasks':tasks}
+
+    def test_final_review_adds_unique_cited_required_report(self):
+        from webapp.workflow_agent_contracts import resolve_review
+        video_id='a'*32;report_id='b'*32
+        video='edit/final.mp4';report='edit/final.report.json'
+        task={'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'*'}]},
+              'accepted_result':[video,report],
+              'quality':{'output_roles':{'video':video,'report':report}}}
+        decision={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':'delivery_1',
+                  'deliverables':['delivery_1'],'evidence':[
+                      {'criterion_index':0,'observation':'Video checked','inspection_id':video_id},
+                      {'criterion_index':0,'observation':'Report checked','inspection_id':report_id}]}
+        resolved=resolve_review(decision,self.review_snapshot([task]),{video_id:video,report_id:report},
+                                {'delivery_1':video_id,'delivery_2':report_id})
+        self.assertEqual(resolved['deliverables'],[video,report])
+        self.assertEqual(resolved['primary'],video)
+
+    def test_final_review_does_not_guess_uncited_or_ambiguous_required_report(self):
+        from webapp.workflow_agent_contracts import resolve_review
+        video_id='a'*32;report_a_id='b'*32;report_b_id='c'*32
+        video='edit/final.mp4';report_a='edit/report-a.json';report_b='edit/report-b.json'
+        def task(reference,roles):
+            return {'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'*'}]},
+                    'accepted_result':[reference],'quality':{'output_roles':roles}}
+        inspections={video_id:video,report_a_id:report_a,report_b_id:report_b}
+        keys={'delivery_1':video_id,'delivery_2':report_a_id,'delivery_3':report_b_id}
+        base={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':'delivery_1',
+              'deliverables':['delivery_1']}
+        snapshot=self.review_snapshot([task(video,{'video':video}),task(report_a,{'report':report_a})])
+        uncited={**base,'evidence':[{'criterion_index':0,'observation':'Video checked','inspection_id':video_id}]}
+        self.assertEqual(resolve_review(uncited,snapshot,inspections,keys)['deliverables'],[video])
+        snapshot=self.review_snapshot([task(video,{'video':video}),task(report_a,{'report':report_a}),
+                                       task(report_b,{'report':report_b})])
+        ambiguous={**base,'evidence':[
+            {'criterion_index':0,'observation':'Video checked','inspection_id':video_id},
+            {'criterion_index':0,'observation':'First report checked','inspection_id':report_a_id},
+            {'criterion_index':0,'observation':'Second report checked','inspection_id':report_b_id}]}
+        self.assertEqual(resolve_review(ambiguous,snapshot,inspections,keys)['deliverables'],[video])
     def test_registered_output_role_is_bound_to_the_attempt_file_before_quality_check(self):
         from webapp.workflow_runtime import resolve_acceptance_output_roles
         rules=[{'kind':'image','file':'primary_image','width':512},{'kind':'file','file':'literal.png'}]
