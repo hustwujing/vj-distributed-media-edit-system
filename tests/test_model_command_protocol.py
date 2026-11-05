@@ -55,6 +55,17 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(CommandError) as raised:compile_manager(command,value)
         self.assertEqual((raised.exception.code,raised.exception.path),('same_run_revision_required','kind'))
 
+    def test_applied_user_change_keeps_its_authorized_revision_scope(self):
+        value=frozen(user=True);record=value['input_batch']['inputs'][0]
+        record['context']['targets']=['render'];value['input_batch']=None;value['user_changes']=[record]
+        schema=manager_schema(value)
+        changes=schema['properties']['plan']['anyOf'][0]['properties']['changes']
+        self.assertEqual(changes['maxItems'],16)
+        command={'kind':'COMPLETE','reason':'Apply retained input','plan':{'changes':[{
+            'task_id':'render','set':{'objective':'Updated after the input drain'}}]}}
+        revised=compile_manager(command,value)['proposal']['revise_tasks'][0]
+        self.assertEqual(revised['objective'],'Updated after the input drain')
+
     def test_explicit_output_extensions_promote_matching_files_to_delivery(self):
         f=frozen(False);f['goal']='Deliver the edited PNG with original JSON and TXT records'
         task={'id':'records','type':'agent','profile':'editing_implementer','name':'Records','objective':'Write records',

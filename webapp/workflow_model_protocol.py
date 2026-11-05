@@ -59,7 +59,7 @@ def scopes(frozen):
     repair=frozen.get('repair_context') or {};trigger=frozen.get('trigger') or {}
     automatic=(repair.get('subject_task','') if repair.get('active') else trigger.get('task_id')
                if 'task_id' in trigger else '' if any(k in trigger for k in ('review_rejected','task_review_rejected')) else None)
-    records=(frozen.get('input_batch') or {}).get('inputs',[])
+    records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
     user=set().union(*(set(item['context']['allowed_revision_tasks']) for item in records)) if records else None
     return automatic,user
 
