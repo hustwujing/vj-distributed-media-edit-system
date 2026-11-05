@@ -90,6 +90,8 @@ def delivery_acceptance_signature(spec):
 def required_delivery_extensions(frozen):
     import re
     text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[])])
+    for value in frozen.get('input_asset_names',[]):
+        if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
     for asset in frozen.get('assets',[]):
         for value in (asset.get('name'),asset.get('filename')):
             if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)

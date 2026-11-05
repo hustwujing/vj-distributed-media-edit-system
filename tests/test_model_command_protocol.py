@@ -457,6 +457,16 @@ class ModelCommandTests(unittest.TestCase):
             wire=transform(value,p.schemas['submit_result'],encode=True);wire['primary']=invalid
             with self.assertRaises(ValidationError):p.decode('submit_result',wire)
 
+    def test_input_asset_filename_is_not_a_required_delivery_format(self):
+        from webapp.workflow_model_protocol import required_delivery_extensions
+        frozen_review={'goal':'Use music.wav under the video and deliver MP4',
+                       'authorization':{'delivery_targets':['complete video and requested attachments']},
+                       'input_asset_names':['music.wav']}
+        self.assertEqual(required_delivery_extensions(frozen_review),{'mp4'})
+        frozen_review['goal']='Use music.wav under the video and deliver MP4 plus WAV'
+        # The repeated extension outside the exact input filename remains an explicit output request.
+        self.assertEqual(required_delivery_extensions(frozen_review),{'mp4','wav'})
+
     def test_gateway_fallback_is_explicit_and_never_auth_or_generic_failure(self):
         self.assertTrue(strict_unsupported(400,{'error':{'code':'unsupported_parameter','param':'tools.0.strict'}}))
         self.assertTrue(strict_unsupported(422,{'error':{'code':'strict_not_supported'}}))

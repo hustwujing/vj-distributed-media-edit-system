@@ -15,18 +15,15 @@ class InvalidProviderHandle(ValueError):pass
 
 def required_delivery_extensions(store,run):
     """Extract output formats without treating authorized input filenames as outputs."""
-    import re
-    explicit=' '.join([run['goal'],*run['authorization'].get('delivery_targets',[])])
     asset_ids=run['authorization'].get('allowed_assets',[])
+    input_names=[]
     if asset_ids:
         placeholders=','.join('?' for _ in asset_ids)
         for asset in store.query(f'SELECT name,filename FROM assets WHERE id IN ({placeholders})',tuple(asset_ids)):
             for value in (asset.get('name'),asset.get('filename')):
-                if value:explicit=re.sub(re.escape(value),' ',explicit,flags=re.IGNORECASE)
-    required={ext.lower() for ext in re.findall(
-        r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',explicit)}
-    aliases={'jpg':'jpeg'}
-    return {aliases.get(ext,ext) for ext in required}
+                if value:input_names.append(value)
+    from .workflow_model_protocol import required_delivery_extensions as required
+    return required({'goal':run['goal'],'authorization':run['authorization'],'input_asset_names':input_names})
 
 
 class Orchestrator:
@@ -586,6 +583,13 @@ class Orchestrator:
         frozen={'graph_version':run['graph_version'],'authorization_version':run['authorization_version'],
                 'goal':run['goal'],'delivery_targets':run['authorization']['delivery_targets'],'sealed':run['sealed'],
                 'tasks':[t for t in graph.work_items(run) if not t.get('control_kind') and (not subject or t['id']==subject)]}
+        asset_ids=run['authorization'].get('allowed_assets',[])
+        frozen['input_asset_names']=[]
+        if asset_ids:
+            placeholders=','.join('?' for _ in asset_ids)
+            for asset in store.query(f'SELECT name,filename FROM assets WHERE id IN ({placeholders})',tuple(asset_ids)):
+                frozen['input_asset_names'].extend(value for value in (asset.get('name'),asset.get('filename')) if value)
+        frozen['input_asset_names']=list(dict.fromkeys(frozen['input_asset_names']))
         frozen['review_scope']=purpose
         if purpose=='final':
             complete_tasks=frozen['tasks']
