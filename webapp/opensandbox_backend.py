@@ -29,13 +29,20 @@ class AgentRuntimeSpec:
     tool_schema_digest: str
     gateway_protocol: str
     harness_config: dict
-    gateway_grant: GatewayGrant | None = None
+    gateway_grant_factory: object = None
+
+
+@dataclass(frozen=True)
+class RuntimeGatewayGrant:
+    material: GatewayGrant
+    revoke: object
 
 
 class OpenSandboxRuntime:
-    def __init__(self,lifecycle,session,client,sandbox_id,attempt):
+    def __init__(self,lifecycle,session,client,sandbox_id,attempt,revoke_gateway):
         self.lifecycle=lifecycle;self.session=session;self.client=client
         self.sandbox_id=sandbox_id;self.attempt=attempt;self.local_closed=False
+        self.revoke_gateway=revoke_gateway;self.gateway_revoked=False
 
     def open_session(self,instructions,session_id=None):
         return self.client.call('session.open',{'instructions':instructions,'session_id':session_id})
@@ -48,9 +55,15 @@ class OpenSandboxRuntime:
     def receive_once(self):return self.client.receive_once()
 
     def cleanup(self):
+        revoke_error=None
+        if not self.gateway_revoked:
+            try:self.revoke_gateway()
+            except Exception as exc:revoke_error=exc
+            self.gateway_revoked=True
         if not self.local_closed:
             self.client.close();self.session.close();self.local_closed=True
         self.lifecycle.delete_confirmed(self.sandbox_id,expected_attempt=self.attempt)
+        if revoke_error:raise revoke_error
 
 
 class OpenSandboxBackend:
@@ -67,27 +80,34 @@ class OpenSandboxBackend:
     def start(self,lease,binding,resources,spec,restore_workspace,on_event,*,timeout=3600):
         if binding.backend!=OPEN_SANDBOX:
             raise BackendConfigurationError('OpenSandboxBackend requires an opensandbox binding')
-        if spec.gateway_grant is None:
-            raise BackendConfigurationError('OpenSandbox Agent requires a frozen Gateway grant')
+        if spec.gateway_grant_factory is None:
+            raise BackendConfigurationError('OpenSandbox Agent requires a Gateway grant factory')
         payload=self.lifecycle.create(lease,binding,resources,timeout=timeout,
             entrypoint=BOOTSTRAP_ENTRYPOINT)
         sandbox_id=(payload or {}).get('id')
         if not sandbox_id:raise OpenSandboxProvisioningError(ValueError('Create response has no sandbox id'))
-        session=client=None
+        session=client=None;gateway_grant=None
         try:
             identity=RuntimeIdentity(lease.attempt,lease.generation,sandbox_id)
+            gateway_grant=spec.gateway_grant_factory(identity)
+            if not isinstance(gateway_grant,RuntimeGatewayGrant):
+                raise BackendConfigurationError('Gateway grant factory returned an invalid grant')
             frozen=self.frozen_binding(binding,spec)
             bundle=RuntimeBundle.create(identity,spec.harness,
                 {'model':spec.model,'reasoning_effort':spec.reasoning_effort},
-                frozen,spec.harness_config,gateway=spec.gateway_grant)
+                frozen,spec.harness_config,gateway=gateway_grant.material)
             session=self.sdk.connect(sandbox_id)
             RuntimeInjector(session.files).inject(bundle,restore_workspace)
             endpoint,headers=session.websocket_endpoint(CONTROL_PORT)
             client=self.runtime_client_factory(endpoint,identity,bundle.control_token,on_event,
                 headers=headers)
             client.connect();client.call('runtime.initialize',frozen)
-            return OpenSandboxRuntime(self.lifecycle,session,client,sandbox_id,lease.attempt)
+            return OpenSandboxRuntime(self.lifecycle,session,client,sandbox_id,lease.attempt,
+                gateway_grant.revoke)
         except Exception as exc:
+            if gateway_grant is not None:
+                try:gateway_grant.revoke()
+                except Exception:pass
             if client is not None:client.close()
             if session is not None:session.close()
             cleanup_error=None

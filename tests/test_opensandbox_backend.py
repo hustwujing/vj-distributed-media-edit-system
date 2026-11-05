@@ -1,7 +1,8 @@
 import unittest
 from types import SimpleNamespace
 
-from webapp.opensandbox_backend import AgentRuntimeSpec,BOOTSTRAP_ENTRYPOINT,OpenSandboxBackend,OpenSandboxProvisioningError
+from webapp.opensandbox_backend import (AgentRuntimeSpec,BOOTSTRAP_ENTRYPOINT,OpenSandboxBackend,
+    OpenSandboxProvisioningError,RuntimeGatewayGrant)
 from webapp.runtime_injection import GatewayGrant,RUNTIME_CONFIG
 from webapp.sandbox_backends import BackendBinding,OPEN_SANDBOX
 
@@ -49,9 +50,13 @@ class OpenSandboxBackendTests(unittest.TestCase):
         self.lease=SimpleNamespace(attempt='a'*32,generation=2,run_id='task')
         self.binding=BackendBinding(OPEN_SANDBOX,'agent-v1',
             'registry/agent@sha256:'+'a'*64,'sha256:'+'b'*64)
-        gateway=GatewayGrant('https://172.30.0.1:18880','g'*48,b'ca',('/v1/responses','/context'))
+        self.revoked=[]
+        def grant(identity):
+            self.grant_identity=identity
+            material=GatewayGrant('https://172.30.0.1:18880','g'*48,b'ca',('/v1/responses','/context'))
+            return RuntimeGatewayGrant(material,lambda:self.revoked.append(True))
         self.spec=AgentRuntimeSpec('codex','model-1','high','sha256:'+'c'*64,
-            'gateway-v1',{'model':'model-1'},gateway)
+            'gateway-v1',{'model':'model-1'},grant)
 
     def test_start_wires_create_files_proxy_and_runtime_initialization(self):
         restored=[]
@@ -65,9 +70,11 @@ class OpenSandboxBackendTests(unittest.TestCase):
         self.assertEqual(client.kwargs['headers'],{'X-Route':'one'})
         self.assertEqual(client.calls[0],('connect',))
         self.assertEqual(client.calls[1][0],'runtime.initialize')
+        self.assertEqual(self.grant_identity.sandbox_id,'sbx-1')
         opened=runtime.open_session('rules')['session_id'];runtime.run_turn(opened,'work')
         self.assertEqual(runtime.receive_once(),'frame')
         runtime.cleanup();self.assertTrue(client.closed);self.assertTrue(self.sdk.session.closed)
+        self.assertEqual(self.revoked,[True])
         self.assertEqual(self.lifecycle.deleted[-1][0],'sbx-1')
 
     def test_restore_failure_closes_and_deletes_partial_sandbox(self):
@@ -76,6 +83,7 @@ class OpenSandboxBackendTests(unittest.TestCase):
                 lambda files:(_ for _ in ()).throw(IOError('restore failed')),lambda event:None)
         self.assertIsInstance(failed.exception.cause,IOError)
         self.assertTrue(self.sdk.session.closed)
+        self.assertEqual(self.revoked,[True])
         self.assertEqual(self.lifecycle.deleted,[('sbx-1',{'expected_attempt':self.lease.attempt})])
         self.assertEqual(self.runtimes,[])
 
