@@ -325,11 +325,15 @@ class DynamicGraphTests(unittest.TestCase):
             with self.assertRaises(PermissionError):metadata.collect_garbage()
         self.assertEqual(len(self.store.query('SELECT id FROM artifact_objects')),1)
 
-    def publish_metadata_fixture(self,names,primary_index=0,expect_success=True,selected_indices=None):
+    def publish_metadata_fixture(self,names,primary_index=0,expect_success=True,selected_indices=None,
+                                 dependencies=None,delivery_indices=None):
         """Exercise publication of previously accepted metadata, not decoding."""
         from unittest.mock import patch
+        delivery_indices=set(range(len(names))) if delivery_indices is None else set(delivery_indices)
         self.tick();self.propose({'proposal_id':'publish-order','base_graph_version':0,'reason':'Deliver selected files',
-            'add_tasks':[script('part_'+str(i),outputs=[name],output_roles={'result':name}) for i,name in enumerate(names)],'sealed':True})
+            'add_tasks':[script('part_'+str(i),outputs=[name],output_roles={'result':name},delivery_stage=i in delivery_indices)
+                         for i,name in enumerate(names)],
+            'add_dependencies':dependencies or [],'sealed':True})
         self.tick();selected=[];hashes={}
         for index,name in enumerate(names):
             task='part_'+str(index);logical=f'edit/runs/{self.run["id"]}/{task}/output/{name}'
@@ -410,6 +414,13 @@ class DynamicGraphTests(unittest.TestCase):
         payload=json.loads(self.store.query("SELECT payload_json FROM workflow_graph_events WHERE kind='delivery_blocked'")[0]['payload_json'])
         self.assertEqual(payload['missing_task_ids'],['part_1'])
         self.assertEqual(payload['missing_extensions'],[])
+
+    def test_delivery_leaf_detection_traverses_non_delivery_tasks(self):
+        delivered,_=self.publish_metadata_fixture(['transparent.png','layout.json','poster.png'],primary_index=2,
+            selected_indices=[2],delivery_indices=[0,2],dependencies=[
+                {'upstream':'part_0','downstream':'part_1'},
+                {'upstream':'part_1','downstream':'part_2'}])
+        self.assertEqual([item['name'] for item in delivered],['poster.png'])
 
     def test_primary_selection_is_validated_by_worker_and_controller(self):
         from webapp.workflow_agents import validated_internal_result
