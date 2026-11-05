@@ -386,7 +386,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.publish_metadata_fixture(['final.png'],expect_success=False)
         self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'delivery_targets_incomplete')
 
-    def test_each_delivery_stage_task_must_contribute_a_selected_file(self):
+    def test_each_delivery_stage_leaf_must_contribute_a_selected_file(self):
         self.publish_metadata_fixture(['landscape.mp4','portrait.mp4'],primary_index=0,
                                       expect_success=False,selected_indices=[0])
         self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'delivery_targets_incomplete')

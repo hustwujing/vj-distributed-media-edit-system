@@ -735,7 +735,10 @@ class Orchestrator:
         primary=decision.get('primary') or (selected[0] if len(set(selected))==1 else '')
         if primary not in selected:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
-        required_tasks={task['id'] for task in graph.active_tasks(run) if task['spec']['delivery_stage']}
+        delivery_tasks={task['id'] for task in graph.active_tasks(run) if task['spec']['delivery_stage']}
+        upstream_delivery={edge['upstream_task_id'] for edge in run['dependencies']
+            if edge['upstream_task_id'] in delivery_tasks and edge['downstream_task_id'] in delivery_tasks}
+        required_tasks=delivery_tasks-upstream_delivery
         if not required_tasks<={accepted[name]['id'] for name in selected}:
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         import re
