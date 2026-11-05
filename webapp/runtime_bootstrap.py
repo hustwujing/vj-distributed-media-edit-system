@@ -1,0 +1,105 @@
+"""Trusted image entrypoint that wires Runtime Daemon to one frozen Harness."""
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import time
+from types import SimpleNamespace
+
+from .harness_adapters import get as harness_adapter
+from .runtime_daemon import create_app
+from .runtime_harness import HarnessController,StdioHarnessBridge
+from .runtime_protocol import RuntimeIdentity
+
+
+CONTROL_PORT=18770
+BINDING_KEYS={'harness','runtime_profile','image_digest','skill_digest',
+              'tool_schema_digest','gateway_protocol'}
+
+
+def _secure_file(path,root,maximum):
+    path=Path(path)
+    try:path.resolve().relative_to(root.resolve())
+    except ValueError as exc:raise ValueError('Runtime file is outside the trusted directory') from exc
+    info=path.lstat()
+    if not stat.S_ISREG(info.st_mode) or info.st_uid!=os.getuid() or info.st_mode&0o077:
+        raise ValueError('Runtime file must be owner-only and regular')
+    if info.st_size>maximum:raise ValueError('Runtime file exceeds size limit')
+    return path
+
+
+def load_config(path):
+    path=Path(path);root=path.resolve().parent
+    path=_secure_file(path,root,64*1024)
+    value=json.loads(path.read_text())
+    required={'identity','harness','profile','binding','control_token_file','harness_config_file'}
+    if not isinstance(value,dict) or set(value)!=required:
+        raise ValueError('Invalid Runtime bootstrap configuration')
+    identity=value['identity'];profile=value['profile'];binding=value['binding']
+    if not isinstance(identity,dict) or set(identity)!={'attempt_id','generation','sandbox_id'}:
+        raise ValueError('Invalid Runtime identity configuration')
+    runtime_identity=RuntimeIdentity(**identity)
+    adapter=harness_adapter(value['harness'])
+    if not isinstance(profile,dict) or set(profile)!={'model','reasoning_effort'}:
+        raise ValueError('Invalid Harness profile configuration')
+    if any(not isinstance(profile[key],str) or not profile[key] or len(profile[key])>200 for key in profile):
+        raise ValueError('Invalid Harness profile value')
+    if (not isinstance(binding,dict) or set(binding)!=BINDING_KEYS or
+            binding['harness']!=adapter.id or
+            any(not isinstance(item,str) or not item or len(item)>300 for item in binding.values())):
+        raise ValueError('Invalid frozen Runtime binding')
+    if (not re.fullmatch(r'.+@sha256:[0-9a-f]{64}',binding['image_digest']) or
+            any(not re.fullmatch(r'sha256:[0-9a-f]{64}',binding[key])
+                for key in ('skill_digest','tool_schema_digest')) or
+            not re.fullmatch(r'[A-Za-z0-9_.-]{1,128}',binding['runtime_profile']) or
+            not re.fullmatch(r'[A-Za-z0-9_.-]{1,64}',binding['gateway_protocol'])):
+        raise ValueError('Invalid frozen Runtime digest or protocol')
+    token_file=_secure_file(value['control_token_file'],root,4096)
+    token=token_file.read_text().strip()
+    if not 32<=len(token)<=512:raise ValueError('Invalid Runtime control token')
+    harness_config=_secure_file(value['harness_config_file'],root,64*1024)
+    return {'identity':runtime_identity,'adapter':adapter,
+            'profile':SimpleNamespace(**profile),'binding':binding,'token':token,
+            'harness_config':str(harness_config)}
+
+
+def create_runtime(path):
+    config=load_config(path);holder={}
+    bridge=StdioHarnessBridge(config['adapter'],
+        config['adapter'].runtime_launch(config['harness_config']))
+    controller=HarnessController(config['adapter'],config['profile'],bridge,
+        lambda event:holder['service'].publish(event),config['binding'])
+    app=create_app(config['identity'],config['token'],controller.dispatch,
+        lambda:{'ready':True,'state':controller.state,'harness':config['adapter'].id,
+                'runtime_profile':config['binding']['runtime_profile']})
+    holder['service']=app.state.runtime_service
+    app.state.harness_controller=controller
+    app.router.add_event_handler('shutdown',controller.close)
+    return app
+
+
+def wait_for_config(path,seconds):
+    deadline=time.monotonic()+seconds;path=Path(path)
+    while time.monotonic()<deadline:
+        if path.exists():return path
+        time.sleep(.1)
+    raise TimeoutError('Runtime bootstrap configuration was not injected')
+
+
+def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--config',default='/run/video-use/runtime.json')
+    parser.add_argument('--wait-seconds',type=int,default=300)
+    args=parser.parse_args()
+    if not 1<=args.wait_seconds<=900:parser.error('wait-seconds must be between 1 and 900')
+    app=create_runtime(wait_for_config(args.config,args.wait_seconds))
+    import uvicorn
+    uvicorn.run(app,host='127.0.0.1',port=CONTROL_PORT,ws_max_size=1024*1024,
+                access_log=False,server_header=False)
+
+
+if __name__=='__main__':main()

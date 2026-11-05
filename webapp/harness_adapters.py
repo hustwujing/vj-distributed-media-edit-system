@@ -53,6 +53,9 @@ class HarnessAdapter:
         return ['/opt/venv/bin/python', '/opt/sandbox_entry.py', '--command',
                 '/opt/venv/bin/python', '/opt/harness_bridge.py', self.id, '/opt/harness-config.json']
 
+    def runtime_launch(self,config='/run/video-use/harness-config.json'):
+        return ['/opt/venv/bin/python','/opt/harness_bridge.py',self.id,config]
+
     def available(self):
         return True
 
@@ -87,6 +90,9 @@ class CodexAdapter(HarnessAdapter):
 
     def launch(self):
         return ['/opt/venv/bin/python', '/opt/sandbox_entry.py', '/opt/codex']
+
+    def runtime_launch(self,config='/run/video-use/harness-config.json'):
+        return ['/opt/codex','app-server','--listen','stdio://']
 
     def events(self, message):
         method = message.get('method', '')
