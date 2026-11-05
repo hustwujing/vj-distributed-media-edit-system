@@ -101,7 +101,8 @@ def required_delivery_extensions(frozen):
 def required_delivery_roles(frozen):
     import re
     text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[])])
-    return {'report'} if re.search(r'报告|\breport\b',text,re.IGNORECASE) else set()
+    pattern=r'(?:交付|输出|保存|附上|deliver|provide|include|output|save|attach).{0,48}(?:报告|\breport\b)'
+    return {'report'} if re.search(pattern,text,re.IGNORECASE) else set()
 
 
 def bind_explicit_delivery_formats(raw,filenames,frozen,role_filenames=None):
