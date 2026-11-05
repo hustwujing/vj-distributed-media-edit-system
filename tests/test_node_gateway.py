@@ -1,8 +1,9 @@
 import unittest
 import threading
 
+from webapp.gateway_contracts import GatewayResult
 from webapp.node_gateway import (
-    GatewayAuthorizationError,GatewayBudgetError,GatewayResult,GrantAuthority,
+    GatewayAuthorizationError,GatewayBudgetError,GrantAuthority,
     InMemoryGrantStore,NodeGatewayAuthorizer,NodeGatewayCore,RuntimeGrantFactory,
 )
 

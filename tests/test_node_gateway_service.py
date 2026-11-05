@@ -2,7 +2,8 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from webapp.node_gateway import (GatewayResult,GrantAuthority,InMemoryGrantStore,
+from webapp.gateway_contracts import GatewayResult
+from webapp.node_gateway import (GrantAuthority,InMemoryGrantStore,
     NodeGatewayAuthorizer,NodeGatewayCore)
 from webapp.node_gateway_service import create_app
 

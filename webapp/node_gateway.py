@@ -15,6 +15,7 @@ import uuid
 from urllib.parse import urlsplit
 
 from .runtime_protocol import RuntimeIdentity
+from .gateway_contracts import GatewayResult
 
 
 class GatewayAuthorizationError(PermissionError):
@@ -184,14 +185,6 @@ class NodeGatewayAuthorizer:
         except (KeyError,ValueError):raise GatewayAuthorizationError('Invalid Gateway identity headers') from None
         grant_id=self.store.reserve(token_hash(token),identity,path,source_ip,request_bytes)
         return CallPermit(self.store,grant_id)
-
-
-@dataclass
-class GatewayResult:
-    status: int
-    headers: dict
-    chunks: object
-    close: object
 
 
 class AuthorizedResult:

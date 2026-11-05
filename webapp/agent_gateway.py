@@ -46,6 +46,16 @@ class UnixHTTPServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer)
         finally:self.connections.release()
 
 
+def write_gateway_result(handler,result):
+    try:
+        handler.send_response(result.status)
+        for name,value in result.headers.items():handler.send_header(name,value)
+        handler.send_header('Connection','close');handler.end_headers();handler.close_connection=True
+        for chunk in result.chunks:
+            if chunk:handler.wfile.write(chunk);handler.wfile.flush()
+    finally:result.close()
+
+
 class Gateway:
     lease = None
     broker = None
@@ -176,11 +186,11 @@ class Gateway:
                             except ValueError as exc:self.reply(422, {'error':str(exc)[:8000]})
                     elif path in ('/responses', '/v1/responses'):
                         if outer.model_adapter.protocol!='responses':self.reply(400,{'error':'Model protocol does not match frozen task configuration'})
-                        else:outer.forward(self, body)
+                        else:write_gateway_result(self,outer.forward_result(body))
                     elif path in ('/messages','/v1/messages','/chat/completions','/v1/chat/completions'):
                         expected='anthropic' if path.endswith('/messages') else 'chat_completions'
                         if outer.model_adapter.protocol!=expected:self.reply(400,{'error':'Model protocol does not match frozen task configuration'})
-                        else:outer.forward(self, body)
+                        else:write_gateway_result(self,outer.forward_result(body))
                     else:
                         self.reply(404, {'error':'Unsupported gateway endpoint'})
                 except TaskQuotaReached as exc:
@@ -296,21 +306,24 @@ class Gateway:
         if self.thread.is_alive():self.thread.join(timeout=3)
         self.socket_path.unlink(missing_ok=True)
 
-    def forward(self, handler, body):
+    def forward_result(self,body):
+        from .gateway_contracts import GatewayResult
+        def encoded(status,payload):
+            data=json.dumps(payload,ensure_ascii=False,separators=(',',':')).encode()
+            return GatewayResult(status,{'Content-Type':'application/json','Content-Length':str(len(data))},[data],lambda:None)
         self.check()
         role=None;dynamic=None
         if self.dynamic_task:
             from .workflow_gateway import context
             dynamic,_,role=context(self.lease)
-        from .egress_policy import model_input,provider_base,session,assert_no_credentials,denial
+        from .egress_policy import provider_base,session,assert_no_credentials,denial
         try:
             output_limit=min(self.profile.budget['max_output_tokens'],role.max_output_tokens) if role else self.profile.budget['max_output_tokens']
             body=self.model_adapter.prepare(body,self.model,output_limit,self.profile.reasoning_effort)
             provider_base(self.base_url);assert_no_credentials(json.dumps(body),[self.key])
         except ValueError:
             denial(self.lease,'model_input_denied')
-            handler.reply(403,{'error':'模型输入中的远程地址或外部能力不符合任务网络策略。'})
-            return
+            return encoded(403,{'error':'模型输入中的远程地址或外部能力不符合任务网络策略。'})
         if self.broker and self.model_adapter.protocol=='responses':
             body=self.broker.request('normalize',body)
         elif self.lease and self.lease.runtime and self.model_adapter.protocol=='responses':
@@ -338,31 +351,35 @@ class Gateway:
         from .workflow_agents import model_budget
         observer=self.model_adapter.receipt()
         budget=model_budget(self.lease,dynamic,len(json.dumps(body).encode())+output_limit,observer) if dynamic else contextlib.nullcontext()
-        with budget, model_call(self.lease,self.model,actor='sandbox_agent',observer=observer) as receipt, session() as client, client.post(self.base_url + self.model_adapter.path, json=body,
-                           headers=self.model_adapter.headers(self.key),
-                           stream=True, timeout=(15, 240),allow_redirects=False) as response:
+        stack=contextlib.ExitStack()
+        try:
+            stack.enter_context(budget)
+            receipt=stack.enter_context(model_call(self.lease,self.model,actor='sandbox_agent',observer=observer))
+            client=stack.enter_context(session())
+            response=stack.enter_context(client.post(self.base_url + self.model_adapter.path, json=body,
+                headers=self.model_adapter.headers(self.key),stream=True,
+                timeout=(15,240),allow_redirects=False))
             if response.status_code != 200:
                 receipt.status='failed'
                 if response.status_code in (401,403,404,408,429) or response.status_code>=500:
                     self.note_model_unavailable()
-                handler.reply(response.status_code, {'error':{'message':f'Model provider HTTP {response.status_code}',
-                                                             'type':'provider_error','code':'model_provider_http_error','http_status':response.status_code}})
-                return
-            handler.send_response(200)
-            handler.send_header('Content-Type', response.headers.get('Content-Type', 'text/event-stream'))
-            handler.send_header('Connection', 'close')
-            handler.end_headers()
-            handler.close_connection = True
+                status=response.status_code;stack.close()
+                return encoded(status,{'error':{'message':f'Model provider HTTP {status}',
+                    'type':'provider_error','code':'model_provider_http_error','http_status':status}})
             from .egress_policy import secrets
             from .safe_stream import SafeEvents,chunks
             guard=SafeEvents((*secrets(),self.key))
-            for chunk in chunks(response):
-                if chunk:
-                    receipt.feed(chunk)
-                    self.check()
-                    for safe in guard.feed(chunk):
-                        handler.wfile.write(safe);handler.wfile.flush()
-            for safe in guard.finish():handler.wfile.write(safe);handler.wfile.flush()
+            def stream():
+                try:
+                    for chunk in chunks(response):
+                        if chunk:
+                            receipt.feed(chunk);self.check()
+                            yield from guard.feed(chunk)
+                    yield from guard.finish()
+                finally:stack.close()
+            return GatewayResult(200,{'Content-Type':response.headers.get('Content-Type','text/event-stream')},stream(),stack.close)
+        except Exception:
+            stack.close();raise
 
     def normalize_native_images(self,body):
         """Normalize native inline media through the same isolated decoder."""

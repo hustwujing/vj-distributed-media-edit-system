@@ -130,9 +130,9 @@ class EgressTests(unittest.TestCase):
             try:
                 self.assertEqual(post(b'{')[1]['error']['code'],'invalid_json')
                 self.assertEqual(post(b'[]')[1]['error']['code'],'invalid_request')
-                with patch.object(gateway,'forward',side_effect=ValueError('PRIVATE implementation detail')):
+                with patch.object(gateway,'forward_result',side_effect=ValueError('PRIVATE implementation detail')):
                     status,value=post(b'{}');self.assertEqual(status,422);self.assertEqual(value['error']['code'],'request_validation_failed');self.assertNotIn('PRIVATE',json.dumps(value))
-                with patch.object(gateway,'forward',side_effect=TaskQuotaReached('额度已用完',category='model',scope='task',used=40,limit=40)):
+                with patch.object(gateway,'forward_result',side_effect=TaskQuotaReached('额度已用完',category='model',scope='task',used=40,limit=40)):
                     status,value=post(b'{}');self.assertEqual(status,403);self.assertEqual(value['error']['code'],'task_quota_exhausted');self.assertEqual(value['error']['used'],40)
             finally:gateway.close()
 
@@ -148,7 +148,7 @@ class EgressTests(unittest.TestCase):
         gateway.lease=Mock();gateway.lease.runtime=None;gateway.lock=threading.Lock();gateway.calls=gateway.profile.budget['run_models']
         gateway.model='model';gateway.base_url='https://provider.invalid';gateway.key='test-key'
         with patch('webapp.agent_gateway.quota_status',return_value={'blocked':False}),self.assertRaises(TaskQuotaReached) as error:
-            gateway.forward(Mock(),{'input':[]})
+            gateway.forward_result({'input':[]})
         self.assertEqual(error.exception.diagnostic['scope'],'turn');gateway.lease.consume.assert_not_called()
 
     def test_model_health_uses_http_status_not_error_words(self):
@@ -165,9 +165,9 @@ class EgressTests(unittest.TestCase):
         response=Mock();response.__enter__=Mock(return_value=response);response.__exit__=Mock(return_value=False);client.post.return_value=response
         with patch('webapp.egress_policy.session',return_value=client):
             response.status_code=400
-            gateway.forward(Mock(),{'input':[{'type':'input_text','text':'503 connection are ordinary words here'}]})
+            gateway.forward_result({'input':[{'type':'input_text','text':'503 connection are ordinary words here'}]})
             gateway.note_model_unavailable.assert_not_called()
-            response.status_code=503;gateway.forward(Mock(),{'input':[]})
+            response.status_code=503;gateway.forward_result({'input':[]})
             gateway.note_model_unavailable.assert_called_once()
         gateway.lease=Mock();gateway.lease.check.side_effect=LeaseLost('cancelled')
         Gateway.note_model_unavailable(gateway);gateway.lease.store.execute.assert_not_called()
