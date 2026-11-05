@@ -65,6 +65,8 @@ def snapshot(store,run):
     feedback=[{**{key:row[key] for key in ('id','purpose','subject_task','graph_version','status')},
                'decision':json.loads(row['decision_json'])} for row in store.query(
         "SELECT id,purpose,subject_task,graph_version,status,decision_json FROM workflow_reviews WHERE run_id=? AND status='rejected' AND decision_json<>'{}' ORDER BY updated_at DESC LIMIT 10",(run['id'],))]
+    applied_inputs=store.query("SELECT sequence,content,source,context_json FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence DESC LIMIT 101",(run['id'],))
+    for change in applied_inputs:change['context']=json.loads(change.pop('context_json'))
     reservations=store.query('SELECT COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS used FROM workflow_model_reservations WHERE run_id=?',(run['id'],))[0]['used']
     provider_used={}
     for call in store.query('SELECT implementation FROM workflow_provider_calls WHERE workflow=?',(run['id'],)):
@@ -88,6 +90,7 @@ def snapshot(store,run):
         'sealed':run['sealed'],'authorization':run['authorization'],'authorization_version':run['authorization_version'],
         'repair_context':run.get('repair_context',{}),'repair_candidates':descriptors(store,run),
         'history':history_snapshot(store,run),'user_reviews':user_reviews(store,run),
+        'user_changes':list(reversed(applied_inputs[:100])),'user_changes_truncated':len(applied_inputs)>100,
         'tasks':[{k:task[k] for k in ('id','spec','status','revision','authorization_version','accepted_result','quality','error_code','error_detail')}
                  for task in active_tasks(run)],
         'dependencies':run['dependencies'],'assets':[a for a in assets if a['id'] in permitted],
