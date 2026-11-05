@@ -37,14 +37,15 @@ class WebSocketTransport:
 
 
 class RuntimeClient:
-    def __init__(self,url,identity,token,on_event,*,api_key='',timeout=30,connector=None):
+    def __init__(self,url,identity,token,on_event,*,headers=None,api_key='',timeout=30,connector=None):
         self.url=url;self.protocol=ExecutorProtocol(identity,token);self.on_event=on_event
-        self.timeout=timeout;self.api_key=api_key
+        self.timeout=timeout;self.headers=dict(headers or {});self.api_key=api_key
         self.connector=connector or self._connect_transport
         self.connection=None
 
     def _connect_transport(self):
-        headers={'OPEN-SANDBOX-API-KEY':self.api_key} if self.api_key else {}
+        headers=dict(self.headers)
+        if self.api_key:headers['OPEN-SANDBOX-API-KEY']=self.api_key
         return WebSocketTransport(self.url,headers=headers,timeout=self.timeout)
 
     def connect(self):

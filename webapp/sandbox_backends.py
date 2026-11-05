@@ -86,12 +86,14 @@ def select_backend(resources, *, environ=None, local_profile=''):
 
 class RuntimeBackends:
     """Runtime factory registry keyed by an in-memory frozen binding."""
-    def __init__(self, local_factory):
-        self.local_factory=local_factory
+    def __init__(self, local_factory, opensandbox_factory=None):
+        self.local_factory=local_factory;self.opensandbox_factory=opensandbox_factory
 
     def create(self, lease, binding):
         if binding.backend==LOCAL_BWRAP:
             return self.local_factory(lease)
+        if self.opensandbox_factory is not None:
+            return self.opensandbox_factory(lease,binding)
         raise BackendNotReady(
             'OpenSandbox execution transport is not enabled; refusing local fallback')
 
@@ -139,13 +141,13 @@ class OpenSandboxClient:
         if status!=200:raise RuntimeError('OpenSandbox list failed with HTTP '+str(status))
         return self._items(payload)
 
-    def create(self, lease, binding, resources, *, timeout=3600):
+    def create(self, lease, binding, resources, *, timeout=3600,entrypoint=None):
         body={'image':{'uri':binding.image_digest},
             'timeout':max(60,int(timeout)),
             'resourceLimits':{'cpu':str(max(1,int(resources['cpu']))),
                               'memory':str(max(512,int(resources['memory_mb'])))+'Mi'},
             'metadata':self.metadata(lease,binding),
-            'entrypoint':['tail','-f','/dev/null'],
+            'entrypoint':entrypoint or ['tail','-f','/dev/null'],
             'networkPolicy':{'defaultAction':'deny','egress':[]}}
         try:
             status,payload=self.transport.request('POST','/v1/sandboxes',body=body,

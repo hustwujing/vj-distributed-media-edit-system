@@ -69,6 +69,12 @@ class BackendSelectionTests(unittest.TestCase):
         with self.assertRaisesRegex(BackendNotReady,'refusing local fallback'):
             registry.create(lease,BackendBinding(OPEN_SANDBOX,'p',IMAGE,'s'))
 
+    def test_registry_dispatches_configured_remote_factory(self):
+        local=Mock();remote=Mock(return_value='remote-runtime');lease=object()
+        registry=RuntimeBackends(local,remote);binding=BackendBinding(OPEN_SANDBOX,'p',IMAGE,'s')
+        self.assertEqual(registry.create(lease,binding),'remote-runtime')
+        remote.assert_called_once_with(lease,binding);local.assert_not_called()
+
     def test_agent_host_freezes_selection_on_first_runtime_request(self):
         from webapp.agent_host import AgentHost
         binding=BackendBinding(LOCAL_BWRAP,'local-v1')
