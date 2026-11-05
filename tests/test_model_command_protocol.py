@@ -4,7 +4,8 @@ from contextlib import nullcontext
 from types import SimpleNamespace
 from jsonschema import ValidationError
 from webapp import workflow_graph as graph
-from webapp.workflow_model_protocol import manager_schema,compile_manager,ToolProtocol,CommandError,schema_complexity,repair_options
+from webapp.workflow_model_protocol import (manager_schema,compile_manager,ToolProtocol,CommandError,
+    schema_complexity,repair_options,required_delivery_extensions,required_delivery_names)
 from webapp.strict_schema import obj,schema_for,transform
 from webapp.model_tool_protocol import request,response,strict_unsupported
 from webapp.model_adapters import get,PublicResponseStructureError
@@ -21,6 +22,18 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_applied_user_change_adds_exact_delivery_names_but_not_inputs(self):
+        value={'goal':'Edit source.mp4','authorization':{'delivery_targets':['video and cover']},
+               'input_asset_names':['source.mp4'],
+               'user_changes':[{'content':'Reuse source.mp4; deliver final.mp4 and cover.png.'}]}
+        self.assertEqual(required_delivery_names(value),{'final.mp4','cover.png'})
+        self.assertEqual(required_delivery_extensions(value),{'mp4','png'})
+
+    def test_non_delivery_filename_is_not_required_after_user_change(self):
+        value={'goal':'Deliver final.mp4','authorization':{'delivery_targets':['video']},
+               'user_changes':[{'content':'Keep evidence.json internal only; deliver final.mp4.'}]}
+        self.assertEqual(required_delivery_names(value),{'final.mp4'})
+
     def test_explicit_output_extensions_promote_matching_files_to_delivery(self):
         f=frozen(False);f['goal']='Deliver the edited PNG with original JSON and TXT records'
         task={'id':'records','type':'agent','profile':'editing_implementer','name':'Records','objective':'Write records',

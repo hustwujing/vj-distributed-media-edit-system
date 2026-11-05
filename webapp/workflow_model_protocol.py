@@ -87,21 +87,35 @@ def delivery_acceptance_signature(spec):
     return graph.digest(checks) if spec.get('delivery_stage') and checks else None
 
 
-def required_delivery_extensions(frozen):
+def _delivery_request_text(frozen):
     import re
-    text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[])])
+    changes=[item.get('content','') for item in frozen.get('user_changes',[]) if isinstance(item,dict)]
+    text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[]),*changes])
     for value in frozen.get('input_asset_names',[]):
         if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
     for asset in frozen.get('assets',[]):
         for value in (asset.get('name'),asset.get('filename')):
             if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
     extension=r'(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
-    filename=re.compile(r'(?i)(?<![A-Za-z0-9_.-])[A-Za-z0-9_.-]+\.'+extension+r'(?![A-Za-z0-9_.-])')
+    filename=re.compile(r'(?i)(?<![A-Za-z0-9_.-])[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+extension+r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])')
     def omit_non_delivery(match):
-        nearby=text[max(0,match.start()-24):min(len(text),match.end()+40)]
+        after=text[match.end():]
+        endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
+        nearby=match.group(0)+after[:min(endings) if endings else len(after)]
         excluded=r'(?:非交付|不交付|不要交付|无需交付|不得交付|仅(?:作为|供)?(?:中间|内部|参考)|non[- ]?deliverable|do not deliver|not for delivery|internal only)'
         return ' ' if re.search(excluded,nearby,re.IGNORECASE) else match.group(0)
-    text=filename.sub(omit_non_delivery,text)
+    return filename.sub(omit_non_delivery,text),filename
+
+
+def required_delivery_names(frozen):
+    """Return explicit output basenames from the confirmed scope and applied input."""
+    text,filename=_delivery_request_text(frozen)
+    return {match.group(0) for match in filename.finditer(text)}
+
+
+def required_delivery_extensions(frozen):
+    import re
+    text,_=_delivery_request_text(frozen)
     aliases={'jpg':'jpeg'}
     return {aliases.get(value.lower(),value.lower()) for value in re.findall(
         r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',text)}
