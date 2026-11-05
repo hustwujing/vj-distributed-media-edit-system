@@ -108,9 +108,11 @@ convert still images to video with a script when needed.
 
 Top-level layout is sequence, horizontal (2 clips), vertical (2), or grid (4).
 Split layouts use the shortest clip; split_audio selects the view's audio track.
-For transitions, set transition.type to cut/fade/dissolve/wipeleft/wiperight/
+For transitions, set transition.type to cut/fade/pixel_dissolve/wipeleft/wiperight/
 slideleft/slideright/fadeblack and duration to at most 3 seconds and half the
-shortest clip. Transitions overlap clips: subtract overlaps from final duration.
+shortest clip. `fade` is a linear crossfade. `pixel_dissolve` randomly replaces
+pixels and must not be used for a crossfade request. Transitions overlap clips:
+subtract overlaps from final duration.
 
 The optional top-level audio object uses asset, mode (mix/replace), audio_track,
 start/end, offset, loop, volume, duck, denoise, highpass, fade_in and fade_out.

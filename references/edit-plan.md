@@ -53,7 +53,7 @@ JSON 未知字段、非法时间、工作区外文件和不存在的素材均会
 - `layout`：sequence（默认）、horizontal（左右两段）、vertical（上下两段）、grid（四段）。
 - 分屏各格等大，相应画布维度须能被 4 整除；以最短段结束。
 - `split_audio`：默认 0，保留第几个视图的音轨；配乐在分屏之后处理。
-- `transition`：默认 `{"type":"cut","duration":0}`。支持 fade、dissolve、wipeleft、wiperight、slideleft、slideright、fadeblack。
+- `transition`：默认 `{"type":"cut","duration":0}`。支持 fade（线性交叉淡化）、pixel_dissolve（随机像素溶解）、wipeleft、wiperight、slideleft、slideright、fadeblack。
 - 非硬切转场默认 0.4 秒，最多 3 秒且不超过最短段的一半；至少两段，仅 sequence；音频同步交叉淡化。
 - 转场占用两段重叠时间，不额外增加片长。`repeat` 内部的重复边界仍然硬切。
 

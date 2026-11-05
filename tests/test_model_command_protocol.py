@@ -128,7 +128,11 @@ class ModelCommandTests(unittest.TestCase):
         from webapp.operation_parameters import EditTransition
         self.assertEqual(EditTransition(type='cut').duration,0)
         self.assertEqual(EditTransition(type='fade').duration,.4)
+        self.assertEqual(EditTransition(type='pixel_dissolve').duration,.4)
+        schema=EditTransition.model_json_schema()
+        self.assertIn('linear crossfade',schema['properties']['type']['description'])
         from pydantic import ValidationError
+        with self.assertRaises(ValidationError):EditTransition(type='dissolve')
         with self.assertRaises(ValidationError):EditTransition(type='fade',duration=0)
 
     def test_non_strict_wire_may_omit_optional_fields_but_not_required_fields(self):

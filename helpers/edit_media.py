@@ -164,7 +164,8 @@ def assemble(p,paths,work):
         lastv,lasta='v0','a0'
         for i in range(1,len(paths)):
             if video:
-                filters.append(f'[{lastv}][v{i}]xfade=transition={p["transition"]["type"]}:duration={d}:offset={total-d:.9f}[vx{i}]');lastv=f'vx{i}'
+                effect='dissolve' if p['transition']['type']=='pixel_dissolve' else p['transition']['type']
+                filters.append(f'[{lastv}][v{i}]xfade=transition={effect}:duration={d}:offset={total-d:.9f}[vx{i}]');lastv=f'vx{i}'
             filters.append(f'[{lasta}][a{i}]acrossfade=d={d}:c1=tri:c2=tri[ax{i}]');lasta=f'ax{i}'
             total+=p['clips'][i]['_duration']*p['clips'][i]['repeat']-d
         if video:filters.append(f'[{lastv}]null[v]')

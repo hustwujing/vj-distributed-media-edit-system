@@ -17,6 +17,12 @@ from deploy import dynamic_cluster as cluster
 ROOT=REPO/'.cluster/campaigns/dynamic-plan'
 
 
+def candidate_archive_disposition(state,record):
+    if record.get('artifact'):return 'archive'
+    if state=='candidate':return 'not_committed'
+    return 'missing_required_artifact'
+
+
 def save(path,value):
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
     temporary=path.with_suffix(path.suffix+'.tmp');temporary.write_text(json.dumps(value,ensure_ascii=False,indent=2)+'\n')
@@ -293,6 +299,17 @@ def inspect(directory,final=False,*,supplement=False):
                     record=manifest.get(name,{})
                     item={'run_id':run['id'],'task_id':task['id'],'revision':checkpoint['revision'],'logical_path':name,
                           'state':('accepted' if name in task['accepted_result'] else 'candidate') if checkpoint['revision']==task['revision'] else 'historical_checkpoint','sha256':record.get('sha256')}
+                    disposition=candidate_archive_disposition(item['state'],record)
+                    if disposition=='not_committed':
+                        # Failed validation may preserve a model-declared path in
+                        # candidate_result even though no artifact was committed.
+                        # The absence is complete evidence; there are no bytes to archive.
+                        item['availability']='not_committed'
+                        candidate_records.append(item)
+                        continue
+                    if disposition=='missing_required_artifact':
+                        item['error_type']='MissingArtifact';archive_errors.append(item);candidate_records.append(item)
+                        continue
                     try:
                         identifier=record['artifact']
                         if identifier not in copied:

@@ -204,7 +204,7 @@ def validate(raw, workspace):
         c['_duration'] += round(c['freeze_end'] * fps) / fps
     transition = p.setdefault('transition', {'type':'cut', 'duration':0})
     fields(transition, 'type duration', 'transition')
-    transition['type'] = choice(transition.get('type', 'cut'), ('cut','fade','dissolve','wipeleft','wiperight','slideleft','slideright','fadeblack'), 'transition.type')
+    transition['type'] = choice(transition.get('type', 'cut'), ('cut','fade','pixel_dissolve','wipeleft','wiperight','slideleft','slideright','fadeblack'), 'transition.type')
     transition['duration'] = number(transition.get('duration', 0 if transition['type']=='cut' else .4), 0, 3, 'transition.duration')
     if transition['type']=='cut':
         if transition['duration'] != 0: raise PlanError('cut duration must be zero')

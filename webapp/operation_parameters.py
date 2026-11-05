@@ -123,8 +123,9 @@ class EditOutput(Parameters):
 
 
 class EditTransition(Parameters):
-    type:Literal['cut','fade','dissolve','wipeleft','wiperight','slideleft','slideright','fadeblack']='cut'
-    duration:float|None=Field(default=None,ge=0,le=3)
+    type:Literal['cut','fade','pixel_dissolve','wipeleft','wiperight','slideleft','slideright','fadeblack']=Field(
+        default='cut',description='Transition effect. fade is a linear crossfade; pixel_dissolve randomly replaces pixels and is not a crossfade.')
+    duration:float|None=Field(default=None,ge=0,le=3,description='Overlap duration in seconds; overlaps shorten the assembled timeline.')
     @model_validator(mode='after')
     def cut_duration(self):
         if self.duration is None:self.duration=0 if self.type=='cut' else .4
