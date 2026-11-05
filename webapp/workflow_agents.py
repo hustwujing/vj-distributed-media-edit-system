@@ -1074,5 +1074,19 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
                 'preview_background':'#b8bec8' if evidence.get('still_image') else None,'timestamp_seconds':evidence['offset_seconds'],
                 'image':'data:image/jpeg;base64,'+base64.b64encode(sampled.stdout).decode()}
     if evidence.get('window_seconds') is not None:raise InspectionInputError('Temporal contact sheets require a video stream')
-    return {**evidence,'probe':probe,'coverage':'technical_metadata_only',
-            'limitation':'Audio content has not been listened to; use an authorized transcript for dialogue criteria.'}
+    audios=[s for s in probe.get('streams',[]) if s.get('codec_type')=='audio']
+    measurement=None
+    if audios:
+        script=("import json,sys;sys.path.insert(0,'/opt');"
+                "from media_evidence import audio_evidence;"
+                "print(json.dumps(audio_evidence(sys.argv[1]),allow_nan=False,separators=(',',':')))" )
+        measured=subprocess.run(agent_sandbox.command(dict(env,workspace_policy='REVIEW_SCRATCH_ONLY'),None,
+            ['/opt/venv/bin/python','-c',script,'/workspace/'+relative]),capture_output=True,timeout=50)
+        if measured.returncode or len(measured.stdout)>8192:
+            raise MediaInspectionError('inspection_audio_measurement_failed',measured.returncode,reference)
+        try:measurement=json.loads(measured.stdout)
+        except (TypeError,ValueError,json.JSONDecodeError):
+            raise MediaInspectionError('inspection_audio_measurement_invalid',measured.returncode,reference) from None
+    return {**evidence,'probe':probe,'audio_measurement':measurement,
+            'coverage':'technical_metadata_and_full_audio_measurement' if measurement else 'technical_metadata_only',
+            'limitation':'Audio signal level was measured across the full stream, but dialogue content has not been listened to; use an authorized transcript for dialogue criteria.'}

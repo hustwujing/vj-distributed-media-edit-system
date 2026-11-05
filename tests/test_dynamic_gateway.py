@@ -37,6 +37,25 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(result['coverage'],'still_image')
         self.assertTrue(result['image'].startswith('data:image/jpeg;base64,'))
 
+    def test_audio_inspection_measures_the_full_stream(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from webapp.workflow_agents import inspect_media
+        import subprocess,sys
+        path=self.store.root/'tone.wav'
+        subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i','sine=frequency=440:duration=1',str(path)],check=True)
+        env={'assets':[{'id':'asset','filename':'tone.wav'}]}
+        host=SimpleNamespace(store=self.store,workflow_runner=SimpleNamespace(adapter=SimpleNamespace(environment=lambda _:env)))
+        module_root=str((__import__('pathlib').Path(__file__).resolve().parents[1]/'webapp'))
+        def command(env,gateway,argv):
+            return [str(path) if item=='/workspace/sources/tone.wav' else sys.executable if item=='/opt/venv/bin/python'
+                    else item.replace("'/opt'",repr(module_root)) if "sys.path.insert(0,'/opt')" in item else item for item in argv]
+        with patch.object(self.lease,'runtime',object()),patch('webapp.agent_sandbox.command',side_effect=command):
+            result=inspect_media(host,self.lease,self.run,self.task,{'ref':'asset','path':path,'offset_seconds':0})
+        self.assertEqual(result['coverage'],'technical_metadata_and_full_audio_measurement')
+        self.assertFalse(result['audio_measurement']['audio_silent'])
+        self.assertEqual(result['audio_measurement']['measurement_scope'],'full')
+
     def test_exhausted_image_budget_is_feedback_before_any_pixel_decoder(self):
         from PIL import Image
         from types import SimpleNamespace
