@@ -68,6 +68,16 @@ class RunInputTests(unittest.TestCase):
         self.assertEqual([item['id'] for item in batch['inputs']],[second['id']])
         self.assertIsNone(self.coordinator.claim(run['id'],'workflow',step_id='right'))
 
+    def test_applied_input_remains_in_later_manager_snapshots(self):
+        accepted=self.send('Change left brightness to 1.35')
+        self.f.tick();self.reply();run=self.f.tick()
+        self.assertEqual(self.store.query('SELECT status FROM run_inputs')[0]['status'],'APPLIED')
+        frozen=planning.snapshot(self.store,run)
+        self.assertFalse(frozen['user_changes_truncated'])
+        self.assertEqual(frozen['user_changes'],[{
+            'sequence':1,'content':'Change left brightness to 1.35','source':'user',
+            'context':accepted['context']}])
+
     def test_pending_user_decision_prevents_safe_point(self):
         self.f.orchestrator.decision(self.run,'quality',{'task_id':'left','revision':0})
         self.send();run=self.f.tick()
