@@ -75,6 +75,14 @@ def snapshot(store,run):
         'outputs':op.get('output_contract',{}).get('roles',[]),'output_contract':op.get('output_contract',{}),
         'constraints':op.get('constraints'),
         'contract_digest':digest(op)} for op in operations]
+    media_constraints=[]
+    for task in active_tasks(run):
+        accepted=set(task.get('accepted_result',[]));roles=task.get('quality',{}).get('output_roles',{})
+        for item in task.get('quality',{}).get('files',[]):
+            if item.get('name') not in accepted or item.get('kind')!='media':continue
+            media_constraints.append({'task_id':task['id'],'revision':task['revision'],'reference':item['name'],
+                'roles':[role for role,path in roles.items() if path==item['name']],
+                **{key:item.get(key) for key in ('duration','width','height','fps','video','audio_track_present')}})
     return {'run_id':run['id'],'goal':run['goal'],'graph_version':run['graph_version'],
         'scope_confirmation_required':not run['scope_confirmed'],
         'sealed':run['sealed'],'authorization':run['authorization'],'authorization_version':run['authorization_version'],
@@ -83,6 +91,7 @@ def snapshot(store,run):
         'tasks':[{k:task[k] for k in ('id','spec','status','revision','authorization_version','accepted_result','quality','error_code','error_detail')}
                  for task in active_tasks(run)],
         'dependencies':run['dependencies'],'assets':[a for a in assets if a['id'] in permitted],
+        'upstream_media_constraints':media_constraints,
         'diagnostics':diagnostics,'diagnostics_truncated':len(store.query('SELECT step FROM workflow_diagnostics WHERE workflow=? LIMIT 769',(run['id'],)))>768,
         'review_feedback':feedback,'review_feedback_truncated':len(store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND status='rejected' LIMIT 11",(run['id'],)))>10,
         'budget_state':{'model_tokens':{'limit':run['authorization']['model_token_budget'],'used_or_reserved':reservations,

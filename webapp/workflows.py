@@ -61,9 +61,9 @@ class Step(BaseModel):
             if op.executor=='image_sync' and self.parameters.get('fit','native')=='native' and any(c.width is not None or c.height is not None for c in self.acceptance):
                 raise ValueError('上游原始尺寸不保证；精确尺寸要求需显式选择 fit: contain/cover，或另设本地调整步骤')
             if op.output_files is not None:
-                invalid=[check.file for check in self.acceptance if check.file!='*' and check.file not in op.output_files]
+                invalid=[check.file for check in self.acceptance if check.file!='*' and check.file not in (*op.output_files,*op.outputs)]
                 if invalid:raise ValueError('验收文件不属于该 operation 的输出契约：'+','.join(invalid)+'；实际支持：'+','.join(op.output_files))
-                validate_typed_output_targets(self.acceptance,op.output_files)
+                validate_typed_output_targets([check for check in self.acceptance if check.file not in op.outputs],op.output_files)
 
         elif self.operation or self.parameters or self.implementation:raise ValueError('只有 operation 步骤接受 operation/parameters/implementation')
         if self.kind == 'script':

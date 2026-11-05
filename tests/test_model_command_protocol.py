@@ -93,6 +93,18 @@ class ModelCommandTests(unittest.TestCase):
         cmd['plan'].pop('continuation');task['files'].append({'path':'other.txt','roles':['report']})
         with self.assertRaises(CommandError):compile_manager(cmd,f)
 
+    def test_operation_acceptance_is_bound_to_the_semantic_output_role(self):
+        from webapp.operations import catalog
+        op=next(item for item in catalog()['operations'] if item['id']=='image.remove_background')
+        f=frozen(False);f['operations']=[{**op,'authorized':True}]
+        task={'id':'cutout','type':'operation','name':'Cutout','objective':'Remove background',
+              'operation':'image.remove_background','input_bindings':[{'role':'source','ref':{'asset':'asset'}}],
+              'parameters':{},'acceptance':[{'kind':'image','transparent_subject':True,'stage':'final'}]}
+        command={'kind':'COMPLETE','reason':'Deliver cutout','plan':{'new_tasks':[task]}}
+        result=compile_manager(command,f)['proposal']['add_tasks'][0]
+        user=[check for check in result['acceptance'] if check['source']=='user'][0]
+        self.assertEqual(user['file'],'foreground')
+
     def test_host_derives_input_dependencies_and_waits_for_batch_leaves(self):
         f=frozen(False);schema=manager_schema(f)
         first={'id':'prepare','type':'agent','profile':'editing_implementer','name':'Prepare','objective':'Prepare image',
@@ -309,7 +321,7 @@ class ModelCommandTests(unittest.TestCase):
         command={'kind':'COMPLETE','reason':'Join','plan':{'new_tasks':[draft]}}
         task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
         business=task['acceptance'][0]
-        self.assertEqual((business['file'],business['source'],business['width'],business['height']),('*','user',640,360))
+        self.assertEqual((business['file'],business['source'],business['width'],business['height']),('video','user',640,360))
         self.assertTrue(any(check['source']=='technical' for check in task['acceptance']))
 
     def test_operation_alternative_outputs_select_one_parameter_bound_branch(self):

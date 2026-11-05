@@ -8,6 +8,15 @@ def review_criteria(snapshot):
     return snapshot.get('review_criteria') or snapshot.get('delivery_targets') or []
 
 
+def delivery_candidate_refs(task):
+    """Return authoritative outputs, excluding auxiliary evidence when real outputs exist."""
+    accepted=set(task.get('accepted_result',[]));roles=task.get('quality',{}).get('output_roles',{})
+    if not roles:return accepted
+    auxiliary={'report','plan','manifest','evidence'}
+    primary={path for role,path in roles.items() if role not in auxiliary and path in accepted}
+    return primary or {path for path in roles.values() if path in accepted}
+
+
 def validate_review_scope(decision,snapshot):
     """A step verdict cannot introduce requirements from later delivery stages."""
     if snapshot.get('review_scope')!='task':return
@@ -120,7 +129,7 @@ def validate_resolved_review(decision, snapshot, inspections):
             raise ValueError('Task review cannot select final deliverables')
     elif snapshot['review_scope']=='final' and decision['verdict']=='pass':
         selected=set(decision['deliverables'])
-        approved={ref for task in snapshot['tasks'] if task['spec']['delivery_stage'] for ref in task['accepted_result']}
+        approved={ref for task in snapshot['tasks'] if task['spec']['delivery_stage'] for ref in delivery_candidate_refs(task)}
         if not selected or not selected<=approved or not selected<=set(inspections.values()):
             raise ValueError('Final selection must contain inspected approved candidates')
         if len(selected)>1 and not decision['primary']:

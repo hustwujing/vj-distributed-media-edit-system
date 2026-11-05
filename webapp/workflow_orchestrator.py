@@ -571,6 +571,18 @@ class Orchestrator:
                 'tasks':[t for t in graph.work_items(run) if not t.get('control_kind') and (not subject or t['id']==subject)]}
         frozen['review_scope']=purpose
         if purpose=='final':
+            complete_tasks=frozen['tasks']
+            frozen['supporting_tasks']=[{'id':task['id'],'revision':task['revision'],'status':task['status'],
+                'objective':task['spec']['objective'],'output_roles':task.get('quality',{}).get('output_roles',{})}
+                for task in complete_tasks if not task['spec'].get('delivery_stage') and task['spec'].get('purpose')!='evidence']
+            frozen['tasks']=[task for task in complete_tasks
+                if task['spec'].get('delivery_stage') or task['spec'].get('purpose')=='evidence']
+            frozen['provider_receipts']=[]
+            for call in store.query('''SELECT request_key,provider,operation,state,external_id,implementation
+                    FROM workflow_provider_calls WHERE workflow=? ORDER BY created''',(run['id'],)):
+                implementation=json.loads(call.pop('implementation'))
+                frozen['provider_receipts'].append({**call,**{key:implementation.get(key,'') for key in
+                    ('provider_identity','route_adapter','model')}})
             changes=store.query("SELECT sequence,content,source,context_json FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence DESC LIMIT 101",(run['id'],))
             for change in changes:change['context']=json.loads(change.pop('context_json'))
             frozen['user_changes']=list(reversed(changes[:100]));frozen['user_changes_truncated']=len(changes)>100
@@ -725,6 +737,13 @@ class Orchestrator:
         primary=decision.get('primary') or (selected[0] if len(set(selected))==1 else '')
         if primary not in selected:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
+        import re
+        explicit=' '.join([run['goal'],*run['authorization'].get('delivery_targets',[])])
+        required={ext.lower() for ext in re.findall(r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',explicit)}
+        aliases={'jpg':'jpeg'};required={aliases.get(ext,ext) for ext in required}
+        delivered={aliases.get(name.rsplit('.',1)[-1].lower(),name.rsplit('.',1)[-1].lower()) for name in selected if '.' in name}
+        if not required<=delivered:
+            self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         artifacts=[];publications=[]
         import mimetypes
         from pathlib import PurePosixPath

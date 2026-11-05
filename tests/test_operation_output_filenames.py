@@ -3,6 +3,13 @@ from webapp.operations import get
 from webapp.workflows import Step
 
 class OperationOutputFilenameTests(unittest.TestCase):
+    def test_delivery_candidates_use_real_output_roles_over_reports_and_verify_files(self):
+        from webapp.workflow_agent_contracts import delivery_candidate_refs
+        task={'accepted_result':['edit/final.mp4','edit/final.report.json','edit/final.verify_0.jpg'],
+              'quality':{'output_roles':{'video':'edit/final.mp4','report':'edit/final.report.json'}}}
+        self.assertEqual(delivery_candidate_refs(task),{'edit/final.mp4'})
+        report={'accepted_result':['edit/report.json'],'quality':{'output_roles':{'report':'edit/report.json'}}}
+        self.assertEqual(delivery_candidate_refs(report),{'edit/report.json'})
     def test_registered_output_role_is_bound_to_the_attempt_file_before_quality_check(self):
         from webapp.workflow_runtime import resolve_acceptance_output_roles
         rules=[{'kind':'image','file':'primary_image','width':512},{'kind':'file','file':'literal.png'}]

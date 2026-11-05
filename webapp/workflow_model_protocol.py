@@ -283,7 +283,7 @@ def compile_manager(command,frozen):
             implementation.update({key:deepcopy(old[key]) for key in REPLACEMENT_REQUIREMENT_FIELDS})
             if identifier in plan.setdefault('replacements',{}):raise CommandError('duplicate_replacement','plan.repair_replacements','Replace each logical Task at most once')
             plan['replacements'][identifier]=implementation['id'];plan.setdefault('new_tasks',[]).append(implementation)
-        added=[]
+        added=[];replacement_ids=set(plan.get('replacements',{}).values())
         for task in plan.get('new_tasks',[]):
             raw=deepcopy(task);files=raw.pop('files',[]);bindings=raw.pop('input_bindings',None);outputs=[];roles={}
             if bindings is not None:
@@ -298,7 +298,19 @@ def compile_manager(command,frozen):
                     if check.get('source')=='technical':
                         if check not in inherited_technical:inherited_technical.append(check)
                         continue
-                    normalized={**check,'file':'*','source':'user'}
+                    roles=list(binding.get('outputs',[]))
+                    preferred=[]
+                    if check.get('transparent_subject') is True:preferred=['foreground','primary_image','image']
+                    elif check.get('kind')=='image':preferred=['primary_image','image','foreground','mask','preview']
+                    elif check.get('kind')=='media':
+                        audio=check.get('video') is False or any(check.get(key) is not None for key in
+                            ('audio_track_present','audio_silent','channel_layout','min_loudness_lufs','max_loudness_lufs'))
+                        preferred=['audio'] if audio else ['video','audio']
+                    elif check.get('kind') in ('text','subtitle'):preferred=['text','subtitle']
+                    elif check.get('kind')=='json':preferred=['report','plan']
+                    target='*' if raw.get('id') in replacement_ids else next(
+                        (role for role in preferred if role in roles),roles[0] if len(roles)==1 else '*')
+                    normalized={**check,'file':target,'source':'user'}
                     if normalized not in business:business.append(normalized)
                 from .quality_policy import Acceptance
                 technical=[Acceptance.model_validate(check).model_dump() for check in operation_acceptance(binding,raw.get('parameters',{}))]

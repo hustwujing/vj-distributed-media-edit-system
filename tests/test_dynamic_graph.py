@@ -318,7 +318,7 @@ class DynamicGraphTests(unittest.TestCase):
             with self.assertRaises(PermissionError):metadata.collect_garbage()
         self.assertEqual(len(self.store.query('SELECT id FROM artifact_objects')),1)
 
-    def publish_metadata_fixture(self,names,primary_index=0):
+    def publish_metadata_fixture(self,names,primary_index=0,expect_success=True):
         """Exercise publication of previously accepted metadata, not decoding."""
         from unittest.mock import patch
         self.tick();self.propose({'proposal_id':'publish-order','base_graph_version':0,'reason':'Deliver selected files',
@@ -346,6 +346,8 @@ class DynamicGraphTests(unittest.TestCase):
                 return result['delivery'],hashes
             self.orchestrator.publish(graph.get(self.store,run['id']),{'decision_json':graph.encode({'deliverables':list(reversed(selected))})})
         result=graph.get(self.store,run['id'])
+        if not expect_success:
+            self.assertEqual(result['status'],'WAITING_USER');self.assertIsNone(result['delivered_at']);return result['delivery'],hashes
         self.assertEqual(result['status'],'SUCCEEDED')
         self.assertEqual(len(self.store.query("SELECT seq FROM workflow_graph_events WHERE kind='delivered'")),1)
         return result['delivery'],hashes
@@ -374,6 +376,13 @@ class DynamicGraphTests(unittest.TestCase):
 
     def test_multiple_deliverables_without_primary_are_not_published(self):
         self.publish_metadata_fixture(['master_8s_horizontal.mp4','final.mp4'],primary_index=None)
+
+    def test_explicit_file_delivery_targets_must_all_be_selected(self):
+        authorization={**self.run['authorization'],'delivery_targets':['最终 PNG 及原始 TXT 记录']}
+        self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
+            ('交付 final.png 和 record.txt',graph.encode(authorization),self.run['id']))
+        self.publish_metadata_fixture(['final.png'],expect_success=False)
+        self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'delivery_targets_incomplete')
 
     def test_primary_selection_is_validated_by_worker_and_controller(self):
         from webapp.workflow_agents import validated_internal_result

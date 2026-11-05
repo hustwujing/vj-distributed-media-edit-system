@@ -1,5 +1,9 @@
 # 可观测性操作与排障手册
 
+本手册适用于当前仓库的 `dynamic-agent` 独立部署；服务前缀、端口和私有配置目录以根目录
+[README](../README.md#本机隔离部署) 及 `deploy/dynamic_cluster.py` 为准。旧 main 部署中的 `video-use-*`、18xxx 端口和
+`/etc/video-use-cluster` 不得用于操作本实例。
+
 ## 入口
 
 以 root 在项目目录执行，命令始终读取已部署版本：
@@ -23,7 +27,7 @@
 
 ## 集中检索、指标与看板
 
-`video-use-observer.service` 将专用 journal 中的结构化 JSON 收集到 `.cluster/observability/observations.sqlite3`。业务不依赖此服务完成状态提交。HTTP 仅监听 `127.0.0.1:18768`，所有数据端点要求 Bearer 凭据；凭据保存在 `/etc/video-use-cluster/observation.env`，不放在命令参数或 URL 中，不在报告中展示。
+`dynamic-agent-observer.service` 将 `dynamic-agent` 专用 journal 中的结构化 JSON 收集到 `.cluster/observability/observations.sqlite3`。业务不依赖此服务完成状态提交。HTTP 仅监听 `127.0.0.1:19768`，所有数据端点要求 Bearer 凭据；凭据保存在 `/etc/distributed-agent-system/observation.env`，不放在命令参数或 URL 中，不在报告中展示。
 
 通过 SSH 本地端口转发访问 `/dashboard`，将凭据填入密码框；页面不将其持久化到浏览器存储。视图包含集群/资源、任务日志、上游调用、存储依赖、告警与观测健康。数据接口：`/health`、`/snapshot`、`/logs`、`/alerts`、`/metrics`。`/metrics` 是 Prometheus 文本格式；当前看板直接读取采集器，无需另外安装 Grafana/Prometheus。
 
@@ -42,9 +46,9 @@
 7. 数据库不可达：root 诊断尽可能返回采集器证据并标注缺口；用户接口无法确认权限时拒绝返回任务信息。采集器自身故障时检查 systemd 和专用 journal。
 
 ```bash
-journalctl --namespace=video-use -u video-use-executor@a --since '30 minutes ago' -o cat
-journalctl --namespace=video-use -u video-use-observer --since '30 minutes ago' -o cat
-systemctl status video-use-observer.service
+journalctl --namespace=dynamic-agent -u dynamic-agent-executor@a --since '30 minutes ago' -o cat
+journalctl --namespace=dynamic-agent -u dynamic-agent-observer --since '30 minutes ago' -o cat
+systemctl status dynamic-agent-observer.service
 ```
 
 HTTP 延迟指标记录处理到响应头就绪的时间，SSE 长连接的持续时间不作为任务计算耗时。phase 指标为各次调用累计耗时；任务 wall_seconds 单独给出，两者不能直接相减推断并行任务等待时间。查询有上限，complete=false 或 gaps 表示部分证据缺失/截断，不能宣称完整。
@@ -66,7 +70,7 @@ HTTP 延迟指标记录处理到响应头就绪的时间，SSE 长连接的持�
 - 诊断包：按需生成，调用者负责保管和删除，默认不会自动上传第三方。
 - 采集器：CPUQuota 100%、MemoryMax 512 MiB、最多 16 个并发 HTTP 处理线程；查询限制最多 200 条，sqlite 访问超时 0.2 秒。采集故障不授权任务重放。
 
-`deploy.sh stop` 停止业务服务并进入维护模式，**保留观测服务运行**以支持停机排障；`start` 恢复业务并退出维护。完整关闭观测器可由运维显式运行 `systemctl stop video-use-observer.service`，业务启动脚本会再次启动它。部署升级会重启观测服务，短暂中断由 journal cursor 回补；cursor 不再有效时回读最近五分钟，并标记采集缺口。
+`deploy.sh stop` 停止业务服务并进入维护模式，**保留观测服务运行**以支持停机排障；`start` 恢复业务并退出维护。完整关闭观测器可由运维显式运行 `systemctl stop dynamic-agent-observer.service`，业务启动脚本会再次启动它。部署升级会重启观测服务，短暂中断由 journal cursor 回补；cursor 不再有效时回读最近五分钟，并标记采集缺口。
 
 回退时使用保留的已验证 release 及备份 unit/配置，保留新增观测表（属于增量表/触发器），不覆盖新产生的业务数据。正式数据库恢复应单独处理备份后的数据，诊断工具不提供破坏性一键回滚。
 

@@ -807,8 +807,9 @@ def execute(host,lease,run,task):
                         images.append(evidence.pop('image'));evidence['image_index']=len(images)
                         evidence['remaining_images']=profile.max_images-len(images)
                     inspection_id=uuid.uuid4().hex
+                    from .workflow_agent_contracts import delivery_candidate_refs
                     eligible=bool(frozen.get('review_scope')=='final' and any(
-                        item['spec'].get('delivery_stage') and reference in item.get('accepted_result',[])
+                        item['spec'].get('delivery_stage') and reference in delivery_candidate_refs(item)
                         for item in frozen.get('tasks',[])))
                     candidate_key=''
                     if eligible:
