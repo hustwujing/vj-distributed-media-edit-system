@@ -6036,7 +6036,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”；故障注入和替代流程只属于测试驱动，绝不能写入任何Task的objective或acceptance。创建type=agent、profile=editing_implementer的render业务Task，声明source输入、primary_image输出角色、程序image尺寸验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。测试驱动会使render首次attempt真实失败。诊断后必须新增同profile的render_fixed Task，保持render的原目标、输入、输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。",
+      "prompt": "render的objective必须原样设为“将portrait.png缩放为64×64 final.png。”。首轮render必须创建type=operation、operation=image.perspective，source绑定portrait.png，parameters.points固定为[[0,0],[511,0],[511,511],[600,600]]；越界点只属于本测试的确定性运行时失败参数，绝不能写入objective或acceptance。render声明程序image 64×64验收以及on_failure=diagnose。首轮同时创建依赖render的type=agent、profile=editing_implementer的package业务Task，以primary_image角色引用render并复制为delivered.png。render提交明确的execution_failed后，诊断必须新增type=agent、profile=editing_implementer的render_fixed Task，保持render的原目标、输入、primary_image输出角色和验收，用replacements显式将render替换为render_fixed，不能覆盖旧节点或删去要求。依赖原render的package必须通过新revision使用render_fixed结果并交付delivered.png；原失败历史必须仍可查看。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 64,

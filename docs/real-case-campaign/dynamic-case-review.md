@@ -173,7 +173,7 @@ D01–D21 全部保留。分别更新：Manager/Reviewer/Diagnosis 改为 contro
 
 | D39 | 诊断后显式合法替代失败Task，并自动重绑下游 | 原失败节点仍能通过API/浏览器查看，保持原revision与错误；新Agent Task覆盖原要求；下游新revision只消费替代节点；旧节点不再阻塞当前交付 |
 
-D39用于确定性覆盖F49的历史节点读取路径，不能依赖D28/D38的模型偶然选择replacement。保留原D21的同一逻辑Task修订目标；当前总计117条。
+D39用于确定性覆盖F49的历史节点读取路径，不能依赖D28/D38的模型偶然选择replacement。它以注册Operation的越界点参数产生已提交的确定性`execution_failed`，再替换为同契约Agent Task；worker中断只证明结果未知，不能作为可自动替代的已确认失败。保留原D21的同一逻辑Task修订目标；当前总计119条。
 
 质量反馈用例 R11/R15/D28/D36/D37 保留原本声明的人工 Review。新版候选必须先通过独立像素变换检查，再在真实浏览器中 approve；不能把 revise 当批准，也不要求取消原人工验收来让自动化继续。出现技术失败或要求Agent验收但尚未通过时，驱动禁止批准。测试保存反馈前候选、复核后的候选、两者哈希和独立检查报告。
 
@@ -200,7 +200,7 @@ D36输入夹具聚焦：从此前真实SAM3运行中已验收且完整归档的f
 
 2026-11-04 完整轮次执行规则：普通业务、验收或单例审计失败保留原始结果并继续其余case，全部119条执行后统一归因修复；只有故障注入未恢复等会污染后续测试的环境错误自动暂停，人工暂停仍生效。D36人工预览与最终像素验收复用同一个局部Alpha变换检查器，并要求服务器mask_change_limit实际测量通过，防止两处验收定义漂移。首次错误结果不得覆盖。
 
-PlanDraft权限协议审查：D08、D14、D23、D28–D33、D36–D39、D41保留原暂停、滚动规划、排空、反馈、时序、替代和交付选择边界，但不再要求Manager创建原始Script Task。确定性能力继续使用注册Operation；需要自定义本地实现的步骤改为`type=agent/profile=editing_implementer`，由专业Agent在受限沙箱内执行。D39首次失败改由专用真机驱动在已识别的render attempt上注入worker故障，故障文字不进入业务objective或acceptance。业务代码、Planner提示和Schema均不识别case ID。D20/D24以及D40中“不得改用Script”的原负向断言保留。
+PlanDraft权限协议审查：D08、D14、D23、D28–D33、D36–D39、D41保留原暂停、滚动规划、排空、反馈、时序、替代和交付选择边界，但不再要求Manager创建原始Script Task。确定性能力继续使用注册Operation；需要自定义本地实现的步骤改为`type=agent/profile=editing_implementer`，由专业Agent在受限沙箱内执行。D39首节点使用注册Operation的越界点参数形成已提交失败；参数不进入业务objective或acceptance，replacement仍必须换成同业务契约的Agent Task。业务代码、Planner提示和Schema均不识别case ID。D20/D24以及D40中“不得改用Script”的原负向断言保留。
 
 反馈后置审查同时接受原逻辑Task的新revision及权威replacement链指向的新Task。替代路径必须保留原Task/revision历史、递增user_revision_count且新节点已选中成功；无关已完成上游的revision、attempt和文件哈希仍不变。不能仅按新名称推定合法替代，像素、技术、Agent及原人工Review仍按原标准检查。D36 attempt-005保留原测试断言失败，修改后必须重新真机验证。
 

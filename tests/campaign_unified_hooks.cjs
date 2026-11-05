@@ -51,11 +51,11 @@ async function before(c){
   if(task.spec.objective!==spec.expected_business_objective)
    throw Object.assign(Error('The planner did not preserve the declared business objective separately from fault injection'),{boundary:true});
   state.unified_boundary.business_objective=task.spec.objective;persist();
-  let attempt;
-  await wait(async()=>{const facts=await fault('progress');attempt=facts.attempts.find(a=>a.step_id==='render'&&a.status==='running'&&a.unit);return Boolean(attempt);},600);
-  try{await fault('stop_worker',attempt.unit);await wait(r=>r.tasks.some(t=>t.id==='render'&&['failed','paused'].includes(t.status)),300);}
-  finally{await fault('start_worker',attempt.unit);}
-  mark({faulted_attempt:attempt.id,faulted_unit:attempt.unit});
+  assert.equal(task.type,'operation');assert.equal(task.spec.operation,'image.perspective');
+  const failed=await wait(r=>r.tasks.some(t=>t.id==='render'&&['failed','paused'].includes(t.status)),300);
+  const render=failed.tasks.find(t=>t.id==='render');assert.equal(render.error_code,'execution_failed');
+  const facts=await fault('progress'),attempt=facts.attempts.find(a=>a.step_id==='render');
+  mark({failed_attempt:attempt?.id||null,error_code:render.error_code});
  }
  if(hook==='drain_local'||hook==='drain_agent'){
   const run=await wait(r=>hook==='drain_local'
