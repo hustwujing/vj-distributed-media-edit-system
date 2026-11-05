@@ -348,7 +348,8 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
-                contract_filenames=list((binding.get('output_contract') or {}).get('filenames') or [])
+                contract=(binding.get('output_contract') or {})
+                contract_filenames=[name for role,name in contract.get('role_filenames',{}).items() if role!='preview']
                 if raw.get('id') in replacement_ids:
                     if not raw.get('basic_reason'):raw['basic_reason']='Server-owned registered operation integrity checks'
                     added.append(raw);continue
