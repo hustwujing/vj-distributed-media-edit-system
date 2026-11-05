@@ -45,6 +45,8 @@ class OperationOutputFilenameTests(unittest.TestCase):
         contract=get('image.refine_zim').public()['output_contract']
         self.assertEqual(contract['role_filenames'],{'foreground':'foreground.png','mask':'mask.png'})
         self.assertIn('zim-preview.jpg',contract['filenames'])
+        self.assertEqual(get('audio.process').public()['output_contract']['role_filenames'],
+                         {'report':'audio-process-report.json'})
 
     def test_script_media_acceptance_requires_a_declared_media_output(self):
         step={'id':'verify','name':'verify','kind':'script','argv':['python','edit/check.py'],

@@ -82,6 +82,7 @@ class Operation:
     model_profile:str='none'
     implementation_id:str=''
     output_files:tuple[str,...]|None=None
+    role_filenames:tuple[tuple[str,str],...]=()
     reuse_safe:bool=False
     evidence_only:bool=False
     def __post_init__(self):
@@ -89,6 +90,9 @@ class Operation:
             raise ValueError('Verified evidence collectors cannot submit external effects or substitute model judgments')
         from .provider_metadata import validate
         validate(self)
+        mapped=dict(self.role_filenames)
+        if len(mapped)!=len(self.role_filenames) or not set(mapped)<=set(self.outputs):
+            raise ValueError('Operation role filenames must bind unique declared output roles')
 
     def public(self):
         result=asdict(self)
@@ -104,8 +108,9 @@ class Operation:
             'network':'registered_provider' if self.external_side_effects else 'none','external_side_effects':self.external_side_effects,
             'arbitrary_commands':False,'model_profile':self.model_profile}
         filenames=list(self.output_files) if self.output_files is not None else None
+        role_filenames=dict(zip(self.outputs,filenames or []));role_filenames.update(self.role_filenames)
         result['output_contract']={'roles':list(self.outputs),'primary':self.outputs[0] if self.outputs else None,
-                                   'role_filenames':dict(zip(self.outputs,filenames or [])),
+                                   'role_filenames':role_filenames,
                                    'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':filenames}
         parameter_schema=contract(self).parameters.model_json_schema()
         inputs=contract(self)
@@ -194,7 +199,7 @@ for action in ('render','edit','timeline','analyze','review','pack','concat_sequ
 REGISTRY['media.evidence']=Operation('media.evidence','evidence','fixed_media',('image','video','audio'),('report','preview'),
     cpu=1,memory_mb=2048,timeout=300,reuse_safe=True,evidence_only=True,output_files=('evidence-report.json','preview.jpg'))
 REGISTRY['audio.process']=Operation('audio.process','audio_process','fixed_media',('audio','video'),('audio','report'),
-    memory_mb=2048,timeout=1800,reuse_safe=True)
+    memory_mb=2048,timeout=1800,reuse_safe=True,role_filenames=(('report','audio-process-report.json'),))
 REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,external_side_effects=True,budget_group='audio.transcribe',concurrency_group='elevenlabs',route_adapter='elevenlabs',provider_identity='elevenlabs',cleanup_category='unqueryable_sync',output_files=('transcript.json',))
 REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,external_side_effects=True,budget_group='image.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api')
 REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_image',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)

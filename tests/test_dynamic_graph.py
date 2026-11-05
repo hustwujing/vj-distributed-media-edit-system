@@ -400,6 +400,14 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(payload['missing_extensions'],['txt'])
         self.assertEqual(payload['missing_task_ids'],[])
 
+    def test_explicit_report_role_must_be_selected(self):
+        authorization={**self.run['authorization'],'delivery_targets':['final report']}
+        self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
+            ('Deliver final.png and an objective report',graph.encode(authorization),self.run['id']))
+        self.publish_metadata_fixture(['final.png','report.json'],expect_success=False)
+        payload=json.loads(self.store.query("SELECT payload_json FROM workflow_graph_events WHERE kind='delivery_blocked'")[0]['payload_json'])
+        self.assertEqual(payload['missing_roles'],['report'])
+
     def test_input_asset_extension_is_not_treated_as_a_delivery_format(self):
         authorization={**self.run['authorization'],'delivery_targets':['符合需求的 512x512 图片']}
         self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',

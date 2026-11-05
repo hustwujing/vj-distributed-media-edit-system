@@ -125,7 +125,7 @@ def inspect(directory,final=False,*,supplement=False):
         check('graph_versions_monotonic:'+wid,[e['graph_version'] for e in applied]==list(range(1,run['graph_version']+1)))
         if run['terminal_reason']=='delivery_targets_incomplete':
             blocked=[json.loads(e['payload_json']) for e in events if e['kind']=='delivery_blocked']
-            explained=bool(blocked and (blocked[-1].get('missing_task_ids') or blocked[-1].get('missing_extensions')))
+            explained=bool(blocked and (blocked[-1].get('missing_task_ids') or blocked[-1].get('missing_extensions') or blocked[-1].get('missing_roles')))
             check('delivery_target_block_explained:'+wid,explained,blocked[-1] if blocked else {})
         for dependency in run['dependencies']:
             check('owned_dependency:'+dependency['downstream_task_id'],dependency['upstream_task_id'] in taskmap and dependency['downstream_task_id'] in taskmap)

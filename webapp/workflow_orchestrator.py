@@ -778,6 +778,13 @@ class Orchestrator:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':sorted(missing_extensions)})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
+        from .workflow_model_protocol import required_delivery_roles
+        delivered_roles={role for name in selected for role,path in accepted[name].get('quality',{}).get('output_roles',{}).items() if path==name}
+        missing_roles=required_delivery_roles(run)-delivered_roles
+        if missing_roles:
+            graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
+                'missing_task_ids':[],'missing_extensions':[],'missing_roles':sorted(missing_roles)})
+            self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         artifacts=[];publications=[]
         import mimetypes
         from pathlib import PurePosixPath
