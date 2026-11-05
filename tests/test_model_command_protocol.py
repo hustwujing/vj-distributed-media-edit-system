@@ -21,6 +21,18 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_explicit_output_extensions_promote_matching_files_to_delivery(self):
+        f=frozen(False);f['goal']='Deliver the edited PNG with original JSON and TXT records'
+        task={'id':'records','type':'agent','profile':'editing_implementer','name':'Records','objective':'Write records',
+              'files':[{'path':'ocr.json','roles':['json']},{'path':'ocr.txt','roles':['text']}],
+              'acceptance':[{'kind':'json','file':'ocr.json','stage':'current','source':'technical'},
+                            {'kind':'text','file':'ocr.txt','contains':['text'],'stage':'current','source':'user'}]}
+        result=compile_manager({'kind':'COMPLETE','reason':'Deliver records','plan':{'new_tasks':[task]}},f)
+        compiled=result['proposal']['add_tasks'][0]
+        self.assertTrue(compiled['delivery_stage'])
+        finals={(check['file'],check['source'],check['stage']) for check in compiled['acceptance'] if check['stage']=='final'}
+        self.assertEqual(finals,{('ocr.json','user','final'),('ocr.txt','user','final')})
+
     def test_unique_equivalent_delivery_task_replaces_the_old_leaf(self):
         old={'id':'old','type':'agent','profile':'editing_implementer','name':'Old','objective':'Old attempt',
              'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
