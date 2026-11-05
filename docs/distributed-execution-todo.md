@@ -310,7 +310,7 @@ API / 网关将取消意图写入共享数据库，并保存清理意图
 
 状态：方案边界已完成讨论和静态探查，开发分支已开始提取 Backend 路由和 OpenSandbox Lifecycle 客户端，但尚未修改数据库或部署。当前默认路径仍使用既有 `bubblewrap + 独立 UID + cgroup + seccomp + node watchdog`；OpenSandbox 执行传输、Runtime Daemon、Gateway 和持久化绑定尚未接入，本机独立安装的 OpenSandbox/gVisor 不代表本系统已接入。以下复用既有租约、授权、检查点、外部调用、用量、验收和清理机制，不建立第二套业务状态机。
 
-2026-11-05 实现进展：新增进程内不可变 `BackendBinding`、CPU/GPU 路由、无静默回退的 Runtime registry，以及带 Attempt metadata 对账和删除确认的 OpenSandbox create/list/delete 客户端；`AgentHost` 的本地 Runtime 创建已统一经过 registry。Runtime Daemon 已具备传输无关的双向协议内核和 ASGI WebSocket 控制端点，覆盖 Attempt/Generation/Sandbox 身份绑定、Token 握手、幂等 RPC、事件序号、ACK、有界背压和断线重放；Harness 进程驱动与 Executor WebSocket 客户端尚未接入。单元测试全部使用 mock 或进程内 transport，不连接 OpenSandbox、不创建沙箱、不修改数据库。数据库冻结、Files/Command API、Harness Driver、Workspace、Gateway、Watchdog 和部署仍按下列未完成项推进。
+2026-11-05 实现进展：新增进程内不可变 `BackendBinding`、CPU/GPU 路由、无静默回退的 Runtime registry，以及带 Attempt metadata 对账和删除确认的 OpenSandbox create/list/delete 客户端；`AgentHost` 的本地 Runtime 创建已统一经过 registry。Runtime Daemon 已具备传输无关的双向协议内核和 ASGI WebSocket 控制端点，覆盖 Attempt/Generation/Sandbox 身份绑定、Token 握手、幂等 RPC、事件序号、ACK、有界背压和断线重放；沙箱内 Harness Driver 已实现有界 stdio JSON-RPC、统一事件转换、生命周期检查、超时和进程组清理，但尚未接入 Runtime 镜像入口及 Executor WebSocket 客户端。单元测试全部使用 mock、假进程或进程内 transport，不连接 OpenSandbox、不创建沙箱、不修改数据库。数据库冻结、Files/Command API、镜像 wiring、Workspace、Gateway、Watchdog 和部署仍按下列未完成项推进。
 
 ### 13.1 目标、非目标与路由原则
 
