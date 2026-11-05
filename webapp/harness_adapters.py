@@ -54,7 +54,7 @@ class HarnessAdapter:
                 '/opt/venv/bin/python', '/opt/harness_bridge.py', self.id, '/opt/harness-config.json']
 
     def runtime_launch(self,config='/run/video-use/harness-config.json'):
-        return ['/opt/venv/bin/python','/opt/harness_bridge.py',self.id,config]
+        return ['/opt/venv/bin/python','-m','webapp.harness_bridge',self.id,config]
 
     def available(self):
         return True

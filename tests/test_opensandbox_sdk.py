@@ -39,6 +39,8 @@ class OpenSandboxSDKTests(unittest.TestCase):
         self.assertEqual([call[0] for call in service.calls],['mkdir','write','move','delete'])
         self.assertEqual(service.calls[0][1]['mode'],700)
         self.assertEqual(service.calls[1][1]['mode'],600)
+        self.assertEqual((service.calls[1][1]['owner'],service.calls[1][1]['group']),
+            ('video-use','video-use'))
         with self.assertRaisesRegex(ValueError,'mode'):files.write('/bad',b'',0o1000)
 
     def test_endpoint_uses_server_proxy_path_and_required_headers(self):

@@ -47,9 +47,10 @@ class BackendBinding:
     runtime_profile: str
     image_digest: str = ''
     skill_digest: str = ''
+    runtime_kind: str = LOCAL_BWRAP
 
     def __post_init__(self):
-        if self.backend not in BACKENDS:
+        if self.backend not in BACKENDS or self.runtime_kind not in (LOCAL_BWRAP,'agent_runtime','command_runtime'):
             raise BackendConfigurationError('Unknown sandbox backend: '+self.backend)
 
 
@@ -68,32 +69,39 @@ def select_backend(resources, *, environ=None, local_profile=''):
             'VIDEO_USE_CPU_SANDBOX_BACKEND must be local_bwrap or opensandbox')
     if backend == LOCAL_BWRAP:
         return BackendBinding(LOCAL_BWRAP, local_profile or 'local')
-    profile = environ.get('VIDEO_USE_OPEN_SANDBOX_RUNTIME_PROFILE', '')
-    image = environ.get('VIDEO_USE_OPEN_SANDBOX_IMAGE_DIGEST', '')
-    skills = environ.get('VIDEO_USE_OPEN_SANDBOX_SKILL_DIGEST', '')
+    kind=resources.get('sandbox_kind','agent_runtime')
+    if kind not in ('agent_runtime','command_runtime'):
+        raise BackendConfigurationError('CPU task is not eligible for OpenSandbox')
+    prefix='VIDEO_USE_OPEN_SANDBOX_AGENT_' if kind=='agent_runtime' else 'VIDEO_USE_OPEN_SANDBOX_COMMAND_'
+    profile = environ.get(prefix+'RUNTIME_PROFILE', '')
+    image = environ.get(prefix+'IMAGE_DIGEST', '')
+    skills = environ.get(prefix+('SKILL_DIGEST' if kind=='agent_runtime' else 'BUNDLE_DIGEST'), '')
     missing = [name for name, value in (
-        ('VIDEO_USE_OPEN_SANDBOX_RUNTIME_PROFILE', profile),
-        ('VIDEO_USE_OPEN_SANDBOX_IMAGE_DIGEST', image),
-        ('VIDEO_USE_OPEN_SANDBOX_SKILL_DIGEST', skills),
+        (prefix+'RUNTIME_PROFILE', profile),
+        (prefix+'IMAGE_DIGEST', image),
+        (prefix+('SKILL_DIGEST' if kind=='agent_runtime' else 'BUNDLE_DIGEST'), skills),
     ) if not value]
     if missing:
         raise BackendConfigurationError('OpenSandbox configuration missing: '+', '.join(missing))
     if not _immutable_image(image):
         raise BackendConfigurationError(
-            'VIDEO_USE_OPEN_SANDBOX_IMAGE_DIGEST must use image@sha256:<64 hex>')
-    return BackendBinding(OPEN_SANDBOX, profile, image, skills)
+            prefix+'IMAGE_DIGEST must use image@sha256:<64 hex>')
+    return BackendBinding(OPEN_SANDBOX,profile,image,skills,kind)
 
 
 class RuntimeBackends:
     """Runtime factory registry keyed by an in-memory frozen binding."""
-    def __init__(self, local_factory, opensandbox_factory=None):
+    def __init__(self, local_factory, opensandbox_factory=None,command_factory=None):
         self.local_factory=local_factory;self.opensandbox_factory=opensandbox_factory
+        self.command_factory=command_factory
 
     def create(self, lease, binding):
         if binding.backend==LOCAL_BWRAP:
             return self.local_factory(lease)
-        if self.opensandbox_factory is not None:
+        if binding.runtime_kind=='agent_runtime' and self.opensandbox_factory is not None:
             return self.opensandbox_factory(lease,binding)
+        if binding.runtime_kind=='command_runtime' and self.command_factory is not None:
+            return self.command_factory(lease,binding)
         raise BackendNotReady(
             'OpenSandbox execution transport is not enabled; refusing local fallback')
 

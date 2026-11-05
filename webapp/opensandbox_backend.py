@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
+import json
 
 from .runtime_bootstrap import CONTROL_PORT
 from .runtime_client import RuntimeClient
@@ -43,6 +45,7 @@ class OpenSandboxRuntime:
         self.lifecycle=lifecycle;self.session=session;self.client=client
         self.sandbox_id=sandbox_id;self.attempt=attempt;self.local_closed=False
         self.revoke_gateway=revoke_gateway;self.gateway_revoked=False
+        self.is_remote=True
 
     def open_session(self,instructions,session_id=None):
         return self.client.call('session.open',{'instructions':instructions,'session_id':session_id})
@@ -51,8 +54,28 @@ class OpenSandboxRuntime:
         return self.client.call('turn.start',{'session_id':session_id,'text':text})
 
     def interrupt(self):return self.client.call('turn.interrupt',{})
-    def export_session(self):return self.client.call('session.export',{})
+    def export_session(self):
+        result=self.client.call('session.export',{});reference=result.pop('manifest_ref',None)
+        if reference:
+            data=self.session.files.read(reference['path'])
+            if len(data)!=reference['size'] or hashlib.sha256(data).hexdigest()!=reference['sha256']:
+                raise ValueError('Runtime export manifest integrity mismatch')
+            result['manifest']=json.loads(data)
+        else:result.setdefault('manifest',{'workspace':{},'state':{}})
+        return result
     def receive_once(self):return self.client.receive_once()
+    def set_event_handler(self,handler):self.client.on_event=handler
+    def revoked(self):return False
+    def begin_cleanup(self):pass
+    def pulse(self,seconds):pass
+    def quiesce(self):
+        try:self.interrupt()
+        except Exception:pass
+    def checkpoint(self):return self.export_session()
+    def close(self):self.cleanup()
+    def collect(self,manifest,sink):
+        from .runtime_workspace import WorkspaceCollector
+        return WorkspaceCollector(self.session.files).collect(manifest,sink)
 
     def cleanup(self):
         revoke_error=None
@@ -78,10 +101,11 @@ class OpenSandboxBackend:
                 'gateway_protocol':spec.gateway_protocol}
 
     def start(self,lease,binding,resources,spec,restore_workspace,on_event,*,timeout=3600):
-        if binding.backend!=OPEN_SANDBOX:
-            raise BackendConfigurationError('OpenSandboxBackend requires an opensandbox binding')
+        if binding.backend!=OPEN_SANDBOX or binding.runtime_kind!='agent_runtime':
+            raise BackendConfigurationError('OpenSandboxBackend requires an agent_runtime binding')
         if spec.gateway_grant_factory is None:
             raise BackendConfigurationError('OpenSandbox Agent requires a Gateway grant factory')
+        lease.start_compute()
         payload=self.lifecycle.create(lease,binding,resources,timeout=timeout,
             entrypoint=BOOTSTRAP_ENTRYPOINT)
         sandbox_id=(payload or {}).get('id')

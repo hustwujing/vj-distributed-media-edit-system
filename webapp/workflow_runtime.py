@@ -49,6 +49,8 @@ class Adapter:
         lease = CURRENT.get()
         if lease and lease.runtime is None:
             lease.runtime = lease.runtime_factory()
+        if lease and getattr(lease.runtime,'is_command',False):
+            return lease.runtime.environment(self.store,w,self.model)
         if w.get('dynamic'):
             from .execution_contracts import WorkspacePolicy
             return agent_sandbox.prepare(self.store,w['project'],self.model,run_id=w['run_id'],
@@ -400,6 +402,9 @@ class Adapter:
 
     def isolated(self, env, payload, timeout, cancelled):
         """No model/provider gateway is exposed to background local scripts."""
+        runtime=env.get('runtime')
+        if runtime and getattr(runtime,'is_command',False):
+            return runtime.execute_payload(env,payload,timeout,cancelled)
         relative=env.get('step_output')
         if relative:
             parent=env['workspace']

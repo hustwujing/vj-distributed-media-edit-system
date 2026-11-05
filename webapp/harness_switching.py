@@ -186,13 +186,15 @@ def reconcile(store, task=None):
                 event(store, switch['task_id'], 'harness_switch', {'switch_id': switch['id'], 'state': state, 'reason': reason})
 
 
-def record_session(store, project, profile, identity, restore_mode):
-    from .runtime_image import fingerprint
+def record_session(store, project, profile, identity, restore_mode, runtime_profile=None):
+    if runtime_profile is None:
+        from .runtime_image import fingerprint
+        runtime_profile=fingerprint()
     store.execute('''INSERT INTO agent_native_sessions VALUES (?,?,?,?,?,?,?,?)
       ON CONFLICT(project) DO UPDATE SET harness=excluded.harness,adapter_version=excluded.adapter_version,
       runtime_profile=excluded.runtime_profile,configuration_digest=excluded.configuration_digest,
       native_session_id=excluded.native_session_id,restore_mode=excluded.restore_mode,updated=excluded.updated''',
-                  (project, profile.harness, profile.adapter_version, fingerprint(), profile.digest, identity, restore_mode, store.now()))
+                  (project, profile.harness, profile.adapter_version, runtime_profile, profile.digest, identity, restore_mode, store.now()))
     from .task_leases import CURRENT
     lease=CURRENT.get()
     if lease:

@@ -40,7 +40,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
     def test_sdk_harness_uses_fixed_bridge_command(self):
         self.write('claude_code');config=load_config(self.config)
         command=config['adapter'].runtime_launch(config['harness_config'])
-        self.assertEqual(command[:3],['/opt/venv/bin/python','/opt/harness_bridge.py','claude_code'])
+        self.assertEqual(command[:4],['/opt/venv/bin/python','-m','webapp.harness_bridge','claude_code'])
         self.assertEqual(command[-1],str(self.harness))
 
     def test_gateway_grant_starts_only_a_loopback_client(self):

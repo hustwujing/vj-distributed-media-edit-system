@@ -1,0 +1,25 @@
+{
+  "command": {
+    "image": "registry.example/operation-runtime@sha256:<64-hex>",
+    "runtime_kind": "command_runtime",
+    "daemon_protocol": 1
+  },
+  "codex": {
+    "image": "registry.example/agent-runtime-codex@sha256:<64-hex>",
+    "harness": "codex",
+    "daemon_protocol": 1,
+    "gateway_protocol": "gateway-v1"
+  },
+  "claude": {
+    "image": "registry.example/agent-runtime-claude@sha256:<64-hex>",
+    "harness": "claude_code",
+    "daemon_protocol": 1,
+    "gateway_protocol": "gateway-v1"
+  },
+  "deepseek": {
+    "image": "registry.example/agent-runtime-deepseek@sha256:<64-hex>",
+    "harness": "deepseek_harness",
+    "daemon_protocol": 1,
+    "gateway_protocol": "gateway-v1"
+  }
+}

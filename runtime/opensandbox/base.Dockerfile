@@ -1,0 +1,28 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG BASE_IMAGE
+RUN case "$BASE_IMAGE" in *@sha256:????????????????????????????????????????????????????????????????) ;; *) echo 'BASE_IMAGE must be immutable' >&2; exit 1;; esac
+
+ENV PATH=/opt/venv/bin:/usr/bin:/bin \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    HOME=/state
+
+RUN python -m venv /opt/venv && \
+    addgroup --gid 10001 video-use && \
+    adduser --uid 10001 --gid 10001 --disabled-password --home /state video-use && \
+    install -d -o video-use -g video-use -m 0700 /workspace /state /run/video-use
+
+COPY wheels /wheels
+COPY pyproject.toml /src/pyproject.toml
+COPY LICENSE /src/LICENSE
+COPY webapp /src/webapp
+COPY runtime/public /opt/video-use
+RUN /opt/venv/bin/pip install --no-index --find-links=/wheels '/src[web]' && \
+    rm -rf /wheels /root/.cache && \
+    test -x /usr/bin/ffmpeg && test -x /usr/bin/ffprobe
+
+USER 10001:10001
+WORKDIR /workspace
+ENTRYPOINT ["/opt/venv/bin/python","-m","webapp.runtime_bootstrap"]
+CMD ["--config","/run/video-use/runtime.json"]

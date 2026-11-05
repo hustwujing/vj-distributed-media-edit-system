@@ -240,6 +240,8 @@ class TaskRuntime:
             lease.runtime=None
             raise
 
+    def revoked(self):return (self.path/'revoked').exists()
+
     def pulse(self,seconds):
         if not self.closed:self.identity.save(permit_until=time.monotonic()+max(0,seconds))
 

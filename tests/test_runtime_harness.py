@@ -69,7 +69,8 @@ class RuntimeHarnessTests(unittest.TestCase):
         self.assertEqual(self.events[0].kind,'turn.ended')
         self.assertEqual(self.controller.state,'session')
         self.assertEqual(self.controller.dispatch('session.export',{}),
-            {'session_id':'session-1','native_state':'owned_by_harness'})
+            {'session_id':'session-1','native_state':'owned_by_harness',
+             'manifest_ref':None})
 
     def test_frozen_profile_and_lifecycle_are_enforced(self):
         with self.assertRaisesRegex(HarnessStateError,'frozen'):

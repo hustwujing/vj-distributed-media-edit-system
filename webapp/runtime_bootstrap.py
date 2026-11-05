@@ -84,8 +84,10 @@ def create_runtime(path,*,gateway_port=18766):
     config=load_config(path);holder={}
     bridge=StdioHarnessBridge(config['adapter'],
         config['adapter'].runtime_launch(config['harness_config']))
+    from .runtime_workspace import WorkspaceExporter
     controller=HarnessController(config['adapter'],config['profile'],bridge,
-        lambda event:holder['service'].publish(event),config['binding'])
+        lambda event:holder['service'].publish(event),config['binding'],
+        WorkspaceExporter())
     app=create_app(config['identity'],config['token'],controller.dispatch,
         lambda:{'ready':True,'state':controller.state,'harness':config['adapter'].id,
                 'runtime_profile':config['binding']['runtime_profile']})

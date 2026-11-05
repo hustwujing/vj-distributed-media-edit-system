@@ -84,7 +84,10 @@ class Operation:
     output_files:tuple[str,...]|None=None
     reuse_safe:bool=False
     evidence_only:bool=False
+    execution_mode:str='local_bwrap'
     def __post_init__(self):
+        if self.execution_mode not in ('local_bwrap','opensandbox_command','host_control'):
+            raise ValueError('Unsupported operation execution mode')
         if self.evidence_only and (self.external_side_effects or self.gpu or self.model_profile!='none'):
             raise ValueError('Verified evidence collectors cannot submit external effects or substitute model judgments')
         from .provider_metadata import validate
@@ -187,12 +190,13 @@ for action in ('render','edit','timeline','analyze','review','pack','concat_sequ
     output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',),'concat_sequence':('video','report'),'normalize_clip':('video','report')}[action]
     input_kinds=('json',) if action=='pack' else ('video','json') if action=='timeline' else ('video',) if action in ('analyze','review','concat_sequence','normalize_clip') else ('video','audio','image','subtitle','json')
     op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800,reuse_safe=True,
+                 execution_mode='opensandbox_command',
                  output_files=('final.mp4','compiler-report.json') if action in ('concat_sequence','normalize_clip') else None)
     REGISTRY[op.id]=op
 REGISTRY['media.evidence']=Operation('media.evidence','evidence','fixed_media',('image','video','audio'),('report','preview'),
-    cpu=1,memory_mb=2048,timeout=300,reuse_safe=True,evidence_only=True,output_files=('evidence-report.json','preview.jpg'))
+    cpu=1,memory_mb=2048,timeout=300,reuse_safe=True,evidence_only=True,output_files=('evidence-report.json','preview.jpg'),execution_mode='opensandbox_command')
 REGISTRY['audio.process']=Operation('audio.process','audio_process','fixed_media',('audio','video'),('audio','report'),
-    memory_mb=2048,timeout=1800,reuse_safe=True)
+    memory_mb=2048,timeout=1800,reuse_safe=True,execution_mode='opensandbox_command')
 REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,external_side_effects=True,budget_group='audio.transcribe',concurrency_group='elevenlabs',route_adapter='elevenlabs',provider_identity='elevenlabs',cleanup_category='unqueryable_sync',output_files=('transcript.json',))
 REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,external_side_effects=True,budget_group='image.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api')
 REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_image',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)

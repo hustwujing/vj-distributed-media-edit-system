@@ -56,7 +56,7 @@ def terminate(process):
 
 
 class AgentHost:
-    def __init__(self, root=None):
+    def __init__(self, root=None, opensandbox_factory=None,opensandbox_command_factory=None):
         from .telemetry import setup
         setup('worker')
         self.store = Store(Path(root) if root is not None else data_root())
@@ -76,7 +76,9 @@ class AgentHost:
         from .harness_adapters import get as harness_adapter
         self.available_profiles=[p for p in profiles().values() if p.base_url and os.environ.get(p.credential_env) and harness_adapter(p.harness).available()]
         self.identities = IdentityPool()
-        self.runtime_backends = RuntimeBackends(lambda lease:TaskRuntime(lease,self.identities))
+        self.runtime_backends = RuntimeBackends(
+            lambda lease:TaskRuntime(lease,self.identities),opensandbox_factory,
+            opensandbox_command_factory)
         self.coordinator = Coordinator(self.store, self.identities.node,
             os.environ.get('VIDEO_USE_RELEASE', 'local-v1'), self.model if self.available_profiles or self.base_url and self.key else '',
             float(os.environ.get('VIDEO_USE_LEASE_SECONDS', '45')))
@@ -86,6 +88,18 @@ class AgentHost:
         if binding is None:
             from .scheduling import requirements
             resources=requirements(self.store,lease.run_id,lease.kind,step_id=lease.step_id)
+            sandbox_kind='agent_runtime' if lease.kind=='agent' else None
+            if lease.kind=='workflow' and lease.step_id:
+                workflow=workflows.get(self.store,lease.run_id)
+                step=next((item for item in workflow['steps'] if item['id']==lease.step_id),None) if workflow else None
+                if step and step['spec'].get('kind')=='script' and not resources.get('gpu'):
+                    sandbox_kind='command_runtime'
+                elif step and step['spec'].get('kind')=='operation' and not resources.get('gpu'):
+                    from .operations import for_step
+                    operation=for_step(step['spec'])
+                    if operation and operation.execution_mode=='opensandbox_command' and not operation.external_side_effects:
+                        sandbox_kind='command_runtime'
+            resources={**resources,**({'sandbox_kind':sandbox_kind} if sandbox_kind else {'host_devices':True})}
             binding=select_backend(resources,
                 local_profile=os.environ.get('VIDEO_USE_LOCAL_RUNTIME_PROFILE','local'))
             lease.backend_binding=binding
@@ -109,6 +123,11 @@ class AgentHost:
         row = agent_store.turn(self.store, run_id)
         if not row or row['status'] != 'running':
             return
+        lease=CURRENT.get()
+        if lease and getattr(lease.runtime,'is_remote',False):
+            from .agent_profiles import for_task
+            from .remote_agent import RemoteAgentRunner
+            return RemoteAgentRunner(self).run(lease,row,for_task(self.store,run_id))
         project_id, mode = row['project'], row['mode']
         from . import workflow_review
         review_request=None

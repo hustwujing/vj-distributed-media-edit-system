@@ -47,9 +47,9 @@ class OpenSandboxBackendTests(unittest.TestCase):
         def factory(*args,**kwargs):
             runtime=Runtime(*args,**kwargs);self.runtimes.append(runtime);return runtime
         self.backend=OpenSandboxBackend(self.lifecycle,self.sdk,runtime_client_factory=factory)
-        self.lease=SimpleNamespace(attempt='a'*32,generation=2,run_id='task')
+        self.lease=SimpleNamespace(attempt='a'*32,generation=2,run_id='task',start_compute=lambda:None)
         self.binding=BackendBinding(OPEN_SANDBOX,'agent-v1',
-            'registry/agent@sha256:'+'a'*64,'sha256:'+'b'*64)
+            'registry/agent@sha256:'+'a'*64,'sha256:'+'b'*64,'agent_runtime')
         self.revoked=[]
         def grant(identity):
             self.grant_identity=identity

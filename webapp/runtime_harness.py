@@ -94,10 +94,11 @@ class StdioHarnessBridge:
 
 class HarnessController:
     """Map normalized Runtime RPCs onto one frozen HarnessAdapter."""
-    def __init__(self,adapter,profile,bridge,publish,expected):
+    def __init__(self,adapter,profile,bridge,publish,expected,exporter=None):
         self.adapter=adapter;self.profile=profile;self.bridge=bridge;self.publish=publish
         self.expected=dict(expected);self.state='created';self.session_id=None
         self.lock=threading.RLock()
+        self.exporter=exporter
 
     def event(self,event):
         with self.lock:
@@ -140,7 +141,8 @@ class HarnessController:
             return self.adapter.interrupt(self.bridge.rpc,self.session_id)
         if method=='session.export':
             if self.state!='session':raise HarnessStateError('Cannot export a running Harness session')
-            return {'session_id':self.session_id,'native_state':'owned_by_harness'}
+            return {'session_id':self.session_id,'native_state':'owned_by_harness',
+                    'manifest_ref':self.exporter.export_descriptor() if self.exporter else None}
         raise HarnessStateError('Unsupported Runtime method')
 
     def close(self):

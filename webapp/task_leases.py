@@ -170,7 +170,7 @@ class Lease:
     control_only: bool = False
 
     def validate(self, db):
-        if self.runtime and (self.runtime.path/'revoked').exists():
+        if self.runtime and self.runtime.revoked():
             self.lost.set()
         row = db.execute('SELECT * FROM execution_leases WHERE attempt=?', (self.attempt,)).fetchone()
         if (self.lost.is_set() or not row or not row['active'] or row['worker'] != self.worker

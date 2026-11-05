@@ -6,11 +6,12 @@ from urllib.parse import urlsplit,urlunsplit
 
 
 class OpenSandboxFiles:
-    def __init__(self,service,*,write_entry=None,move_entry=None):
+    def __init__(self,service,*,write_entry=None,move_entry=None,owner='video-use',group='video-use'):
         if write_entry is None:
             from opensandbox.models.filesystem import WriteEntry,MoveEntry
             write_entry,move_entry=WriteEntry,MoveEntry
         self.service=service;self.write_entry=write_entry;self.move_entry=move_entry
+        self.owner=owner;self.group=group
 
     @staticmethod
     def _mode(value):
@@ -19,10 +20,12 @@ class OpenSandboxFiles:
         return int(format(value,'o'))
 
     def mkdir(self,path,mode):
-        self.service.create_directories([self.write_entry(path=path,mode=self._mode(mode))])
+        self.service.create_directories([self.write_entry(path=path,mode=self._mode(mode),
+            owner=self.owner,group=self.group)])
 
     def write(self,path,data,mode):
-        self.service.write_files([self.write_entry(path=path,data=data,mode=self._mode(mode))])
+        self.service.write_files([self.write_entry(path=path,data=data,mode=self._mode(mode),
+            owner=self.owner,group=self.group)])
 
     def read(self,path):
         return self.service.read_bytes(path)
@@ -36,12 +39,21 @@ class OpenSandboxFiles:
     def move(self,source,target):
         self.service.move_files([self.move_entry(source=source,destination=target)])
 
+    def list(self,path,depth=100):
+        try:
+            from opensandbox.models.filesystem import DirectoryListEntry
+            entry=DirectoryListEntry(path=path,depth=depth)
+        except ImportError:entry={'path':path,'depth':depth}
+        return self.service.list_directory(entry)
+
 
 class OpenSandboxSDKSession:
     def __init__(self,sandbox,config):self.sandbox=sandbox;self.config=config
 
     @property
     def files(self):return OpenSandboxFiles(self.sandbox.files)
+    @property
+    def commands(self):return self.sandbox.commands
 
     def websocket_endpoint(self,port,path='/control'):
         endpoint=self.sandbox.get_endpoint(port)
