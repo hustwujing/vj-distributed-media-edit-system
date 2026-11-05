@@ -669,7 +669,14 @@ class Orchestrator:
         diagnosis=Diagnosis.model_validate(data['diagnosis']).model_dump()
         store.execute("UPDATE workflow_reviews SET status='completed',decision_json=?,updated_at=? WHERE id=?",(encode(diagnosis),store.now(),rows[0]['id']))
         store.execute("UPDATE control_jobs SET status='succeeded',error_code='',error_detail='',wait_reason='' WHERE run_id=? AND id=?",(run['id'],task['id']))
-        subject=next(t for t in graph.work_items(run) if t['id']==rows[0]['subject_task'])
+        frozen=json.loads(rows[0]['snapshot_json'])
+        prior=next((t for t in frozen['tasks'] if t['id']==rows[0]['subject_task']),None)
+        subject=next((t for t in graph.work_items(run) if t['id']==rows[0]['subject_task']),None)
+        if not prior or not subject or subject['revision']!=prior['revision'] or not subject.get('selected',1):
+            graph.event(store,run,'diagnosis_stale',{'task_id':rows[0]['subject_task'],'request_id':rows[0]['id'],
+                'diagnosed_revision':prior['revision'] if prior else None,
+                'current_revision':subject['revision'] if subject else None})
+            return
         from .workflow_repair import resolve
         resolution=resolve(subject['error_code'],subject['phase'])
         if resolution.action=='manager_revision':
