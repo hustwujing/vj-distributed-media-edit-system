@@ -26,7 +26,7 @@ const terminal=s=>['SUCCEEDED','FAILED','CANCELLED'].includes(s);
 const paused=run=>run.state==='WAITING_USER'&&!run.decisions.length;
 const deciding=run=>run.state==='WAITING_USER'&&run.decisions.length>0;
 const controlActive=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&['ready','running','leased'].includes(job.status));
-const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation']);
+const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation','legal_replacement']);
 // Capacity-sensitive parallel-drain coverage also needs an otherwise idle cluster.
 for(const hook of ['unknown_input','frozen_route','drain_local'])globalHooks.add(hook);
 const pauseNewCases=()=>fs.existsSync(path.join(ROOT,'pause-new-cases'));

@@ -15,6 +15,17 @@ def quota_error_code(task,exc):
     return 'budget_exhausted'
 
 
+def failure_error_code(task,phase,calls,classification):
+    if classification in ('pre_submit','model_result','result_unavailable'):return classification
+    if task['type']=='agent':return 'agent_failed'
+    if phase in ('submit','sync') and calls:
+        return 'provider_failed' if calls[0]['state'] in ('failed','rejected') else 'submission_unknown'
+    if phase=='poll':return 'poll_failed'
+    if phase=='collect':return 'collect_failed'
+    if phase=='validate':return 'technical_validation_failed'
+    return 'execution_failed'
+
+
 def bind_output_roles(step,files):
     from .workflow_inputs import roles
     role_map=roles(step['spec'],files,getattr(files,'roles',None))
@@ -145,14 +156,6 @@ def _execute(host,lease):
         transient_model=bool(task.get('control_kind') and task['type']=='agent' and transient_model)
         if isinstance(exc,TaskQuotaReached):
             code=quota_error_code(task,exc)
-        elif classification=='pre_submit':code='pre_submit'
-        elif classification=='model_result':code='model_result'
-        elif task['type']=='agent':code='agent_failed'
-        elif phase in ('submit','sync') and calls:
-            code='provider_failed' if calls[0]['state'] in ('failed','rejected') else 'submission_unknown'
-        elif phase=='poll':code='poll_failed'
-        elif phase=='collect':code='collect_failed'
-        elif phase=='validate':code='technical_validation_failed'
-        else:code='execution_failed'
+        else:code=failure_error_code(task,phase,calls,classification)
         stage_result(store,lease,'failed',{'error_code':code,'phase':phase,
                                          'classification':classification,'transient':transient_model})

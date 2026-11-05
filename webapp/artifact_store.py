@@ -14,6 +14,13 @@ import uuid
 from .execution_metrics import measured
 
 
+class ArtifactUnavailable(ValueError):
+    def __init__(self,sha256=None):
+        self.diagnostic={'code':'result_unavailable','error_type':type(self).__name__}
+        if sha256:self.diagnostic['reference_sha256']=sha256
+        super().__init__('Verified artifact bytes are unavailable')
+
+
 def logical_path(value):
     path = PurePosixPath(value)
     if not value or path.is_absolute() or '..' in path.parts or '\\' in value or str(path)!=value:
@@ -235,6 +242,8 @@ class ArtifactStore:
                 output.flush();os.fsync(output.fileno())
             if size!=record['size'] or digest.hexdigest()!=record['sha256']:raise ValueError('Artifact integrity mismatch')
             os.replace(temporary,destination)
+        except ArtifactUnavailable:raise
+        except Exception as exc:raise ArtifactUnavailable(record['sha256']) from exc
         finally:
             Path(temporary).unlink(missing_ok=True)
         return destination

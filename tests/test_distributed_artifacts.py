@@ -7,7 +7,7 @@ import uuid
 
 from tests.distributed_support import PostgresServer,S3Server
 from webapp import agent_store
-from webapp.artifact_store import ArtifactStore,S3Objects
+from webapp.artifact_store import ArtifactStore,ArtifactUnavailable,S3Objects
 from webapp.store import Store
 from webapp.task_leases import Coordinator,LeaseLost
 
@@ -65,7 +65,9 @@ class DistributedArtifactTests(unittest.TestCase):
         record=self.files_a.record(self.project,value['id'])
         self.backend.client.put_object(Bucket=self.backend.bucket,Key=record['object_key'],Body=b'corrupt')
         target=self.b.root/'verified.bin'
-        with self.assertRaises(ValueError):self.files_b.materialize(self.project,value['id'],target)
+        with self.assertRaises(ArtifactUnavailable) as caught:self.files_b.materialize(self.project,value['id'],target)
+        self.assertEqual(caught.exception.diagnostic['code'],'result_unavailable')
+        self.assertIsInstance(caught.exception.__cause__,ValueError)
         self.assertFalse(target.exists())
 
     def test_gc_cannot_remove_published_or_republish_deleting_object(self):

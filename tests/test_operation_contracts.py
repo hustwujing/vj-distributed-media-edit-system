@@ -63,6 +63,12 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(dispatch_kind({'workflow_status':'reviewing'}),'agent')
         self.assertEqual(dispatch_kind({'workflow_status':'ready'}),'workflow')
         self.assertEqual(classify_error('SyntaxError','local'),'code')
+    def test_unavailable_dependency_is_not_reclassified_as_agent_failure(self):
+        from webapp.workflow_executor import failure_error_code
+        detail={'code':'result_unavailable','error_type':'ArtifactUnavailable'}
+        classification=classify_error(detail,'local')
+        self.assertEqual(classification,'result_unavailable')
+        self.assertEqual(failure_error_code({'type':'agent'},'local',[],classification),'result_unavailable')
     def test_dependencies_must_match_input_references(self):
         with self.assertRaisesRegex(ValueError,'depends_on'):
             validate_plan({'key':'x','name':'x','steps':[{'id':'s','name':'s','kind':'operation','operation':'image.remove_background','inputs':{'source':{'step':'before','role':'foreground'}},'goal':'cutout','on_failure':'pause','acceptance':[{'kind':'agent','criterion':'subject'}]}]})
