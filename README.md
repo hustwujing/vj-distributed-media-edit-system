@@ -71,7 +71,7 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 选择在创建 Run 时冻结，后续修改浏览器草稿、项目默认值或后台预设不会切换本轮模型。自动 successor 继承原 Run 配置，显式创建新 Run 可另选。预设在确认期间发生变化时，需要刷新核对后重新确认。
 
-`structured-profile-v4` 使用 PlanDraft 类型化命令和 strict 优先策略。Task 类型、Operation 参数、草稿修复和控制出口分别使用小型白名单 Schema；相同错误重复两次即有界停止。网关明确拒绝 strict，或返回违反传输 Schema 的参数时，按有界策略回退非 strict 并保留具体字段路径；超时、鉴权、限流或 5xx 不作为 strict 不支持的证据。本地 Schema、业务契约、证据、权限、草稿 revision 和快照绑定始终执行。选用 Claude 模型不表示切换到 Claude Code SDK harness。
+`structured-profile-v4` 使用 PlanDraft 类型化命令和 strict 优先策略。Task 类型、Operation 参数、草稿修复和控制出口分别使用小型白名单 Schema；相同错误重复两次即有界停止。Manager只选择`APPLY_PLAN`或`COMPLETE`，宿主从草稿依赖图派生等待叶节点，并从`stage=final`业务验收派生交付资格；replacement ID、依赖、revision和技术验收同样由宿主生成。自动修复阶段只开放冻结范围内的revision/replacement，不能自由新增无关Task。网关明确拒绝strict，或返回违反传输Schema的参数时，按有界策略回退非strict并保留具体字段路径；超时、鉴权、限流或5xx不作为strict不支持的证据。本地Schema、业务契约、Provider约束、证据、权限、草稿revision和快照绑定始终执行。选用Claude模型不表示切换到Claude Code SDK harness。
 
 最终审查的证据使用内部inspection ID，交付选择使用本次检查生成的短candidate key；宿主将其绑定当前Run、attempt、快照和不可变文件。实际媒体Task拥有交付资格，视觉审查/诊断JSON只负责放行或拒绝，不能替代用户成果。
 

@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from webapp.operations import InputRef,for_image,get,catalog
 from webapp.workflows import Step,validate_plan
 from webapp.quality_policy import Acceptance
@@ -29,6 +30,30 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(for_image('generate').id,'image.edit')
         self.assertEqual(len({o['id'] for o in catalog()['operations']}),len(catalog()['operations']))
         self.assertEqual(get('video.generate_from_image').outputs,('video',))
+    def test_provider_reference_size_constraint_is_checked_before_submission(self):
+        from webapp.workflow_graph import Task,validate_operation_input_constraints
+        common={'type':'operation','name':'generate','objective':'Generate video','operation':'video.generate_from_image',
+                'implementation':'generation_async@1','parameters':{'prompt':'push in','width':1280,'height':720,'duration':5},
+                'inputs':{'source':{'asset':'portrait'}},'acceptance':[{'kind':'media','video':True}]}
+        task=Task.model_validate({'id':'generate',**common})
+        assets={'portrait':{'metadata':{'kind':'image','width':512,'height':512}}}
+        environment={'VIDEO_USE_IMAGE_VIDEO_BACKEND':'wan','VIDEO_USE_IMAGE_VIDEO_URL':'http://127.0.0.1:9898',
+                     'VIDEO_USE_IMAGE_VIDEO_KEY':'test','VIDEO_USE_IMAGE_VIDEO_MODEL':'wan2.6-i2v'}
+        with patch.dict('os.environ',environment,clear=False),self.assertRaisesRegex(ValueError,'preprocessing Task'):
+            validate_operation_input_constraints(task,{'generate':task},assets)
+        assets['portrait']['metadata'].update(width=1280,height=720)
+        with patch.dict('os.environ',environment,clear=False):validate_operation_input_constraints(task,{'generate':task},assets)
+    def test_reviewer_report_cannot_be_a_delivery_dependency(self):
+        from webapp.workflow_graph import Task,validate_delivery_dependencies
+        review=Task.model_validate({'id':'review','type':'agent','profile':'visual_quality_reviewer','name':'Review',
+            'objective':'Review output','outputs':['review.json'],'output_roles':{'review_report':'review.json'},
+            'acceptance':[{'kind':'json','file':'review.json'}]})
+        delivery=Task.model_validate({'id':'deliver','type':'agent','profile':'editing_implementer','name':'Deliver',
+            'objective':'Deliver the accepted image','inputs':{'review_report':{'step':'review','role':'review_report'}},
+            'outputs':['final.png'],'output_roles':{'primary_image':'final.png'},
+            'acceptance':[{'kind':'image','file':'final.png','stage':'final'}],'delivery_stage':True})
+        with self.assertRaisesRegex(ValueError,'evidence, not deliverable inputs'):
+            validate_delivery_dependencies(delivery,{'review':review,'deliver':delivery})
     def test_references_cannot_mix_asset_and_step_or_omit_role(self):
         for value in ({'asset':'a','step':'s','role':'image'},{'step':'s'},{'url':'https://host/private'},{}):
             with self.assertRaises(ValueError):InputRef.model_validate(value)

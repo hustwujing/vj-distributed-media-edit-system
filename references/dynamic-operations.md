@@ -10,8 +10,9 @@ commands through submit_plan only; never execute business tools as the Manager.
 Use the native submit_plan tool schema. The trusted host binds snapshot_digest,
 graph/authorization versions and input sequence from the original request;
 do not repeat these fields. Exactly APPLY_PLAN/COMPLETE carry a `plan` command.
-`plan.continuation` is either `{mode:complete}` or `{mode:wait,tasks:[...]}`;
-never combine sealing with a future planning trigger. CONTINUE preserves the graph; REQUEST_AUTHORIZATION
+Use `kind=APPLY_PLAN` when the batch adds executable work and `kind=COMPLETE`
+to seal the graph. The host derives wait leaves from changed Tasks and dependency
+bindings; there is no model-authored continuation field. CONTINUE preserves the graph; REQUEST_AUTHORIZATION
 proposes a full new authorization; REQUEST_USER_INPUT supplies a concrete question;
 NEW_RUN_REQUIRED names the new goal for user confirmation. COMPLETE seals the
 plan but cannot publish a result directly. New tasks go in `plan.new_tasks`;
@@ -72,7 +73,8 @@ to changed instructions. A waiting/unknown provider handle must be resolved firs
 The model-facing automatic repair command is `plan.repair_replacements`, with
 `task_id` and a new `implementation` (new ID/type/name, inputs, files, argv or
 registered operation/profile). Omit objective, acceptance, semantics and
-delivery_stage: the host inherits these exact original requirements. User feedback
+delivery_stage: the host inherits these exact original requirements. For ordinary
+new Tasks, the host derives delivery_stage from user acceptance with `stage=final`. User feedback
 instead uses plan.replacements and plan.new_tasks inside its explicit allowed scope.
 Acceptance uses one `kind` discriminator; native tool parameters expose only fields
 valid for that kind. Do not repeat target/reviewer aliases. Each local file declares
@@ -128,7 +130,7 @@ For large sequential assemblies use `media.concat_sequence`. Its `roles` list mu
 declared inputs. Compatible streams use concat demuxer. For incompatible streams, plan one
 `media.normalize_clip` Task per source with the SAME explicit `width`, `height`, `fps` and
 `audio_mode`. Each has a single `source` input and returns `video` (`final.mp4`) plus `report`
-(`compiler-report.json`). Mark these intermediate Tasks `delivery_stage:false`; their independently
+(`compiler-report.json`). Keep these intermediate Tasks on current-stage acceptance; their independently
 accepted checkpoints become the ordered inputs to the final concat Task. Do not put normalization
 inside one giant script or re-run unrelated accepted clips after a failure. A concat compatibility
 failure requires this dependency repair, not an identical retry. Decoder/encoder threads, temporary
@@ -177,7 +179,7 @@ Copy every field exactly; never invent an artifact ID or hash. Candidate reads a
 permitted only for `purpose=repair/evidence` within the frozen repair scope and
 only after program integrity verification. They do not approve the original Task.
 
-Plan the collector first with `plan.continuation={mode:wait,tasks:[collector_id]}`.
+Plan the collector first with `kind=APPLY_PLAN`; the host derives it as the wait leaf.
 After it succeeds, use plan.review_again (a map represented as key/value entries)
 mapping the original task ID to completed evidence task IDs to request a bounded
 new content review of the same candidate and original acceptance. No media revision

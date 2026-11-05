@@ -17,12 +17,12 @@ def frozen(task=None,user=False):
           'basic_reason':'local report','delivery_stage':True}
     return {'graph_version':3,'authorization_version':2,'snapshot_digest':'a'*64,'planning_request_id':'request-a',
             'tasks':[] if task is False else [{'id':'render','status':'paused','revision':2,'spec':graph.Task.model_validate(task or spec).model_dump()}],
-            'dependencies':[],'trigger':{'task_id':'render'},'input_batch':{'through_sequence':7,'inputs':[{'context':{'allowed_revision_tasks':['render']}}]} if user else None}
+            'dependencies':[],'trigger':{} if task is False else {'task_id':'render'},'input_batch':{'through_sequence':7,'inputs':[{'context':{'allowed_revision_tasks':['render']}}]} if user else None}
 
 
 class ModelCommandTests(unittest.TestCase):
     def test_changes_preserve_frozen_contract_and_bind_original_request(self):
-        f=frozen();command={'kind':'APPLY_PLAN','reason':'Repair script','plan':{'changes':[{'task_id':'render','set':{'argv':['python','-c','print(1)']}}],'continuation':{'mode':'complete'}}}
+        f=frozen();command={'kind':'COMPLETE','reason':'Repair script','plan':{'changes':[{'task_id':'render','set':{'argv':['python','-c','print(1)']}}]}}
         schema=manager_schema(f);wire=transform(command,schema,encode=True);result=compile_manager(transform(wire,schema),f)
         revised=result['proposal']['revise_tasks'][0]
         self.assertEqual(revised,{**f['tasks'][0]['spec'],'argv':['python','-c','print(1)']})
@@ -35,7 +35,7 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_user_feedback_has_only_its_authorized_edit_fields(self):
         f=frozen(user=True);schema=manager_schema(f)
-        cmd={'kind':'APPLY_PLAN','reason':'User feedback','plan':{'changes':[{'task_id':'render','set':{'objective':'Updated goal'}}],'continuation':{'mode':'complete'}}}
+        cmd={'kind':'COMPLETE','reason':'User feedback','plan':{'changes':[{'task_id':'render','set':{'objective':'Updated goal'}}]}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)
         self.assertEqual(result['input_through_sequence'],7)
         self.assertEqual(result['proposal']['revise_tasks'][0]['objective'],'Updated goal')
@@ -44,10 +44,11 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_automatic_replacement_inherits_exact_requirement_without_model_retyping(self):
         f=frozen();schema=manager_schema(f)
+        self.assertEqual(schema['properties']['plan']['anyOf'][0]['properties']['new_tasks']['maxItems'],0)
         implementation={'name':'New implementation','type':'script','argv':['python','-c','print(1)'],
                         'files':[{'path':'report.txt','roles':['report']}],'basic_reason':'Local repair'}
         cmd={'kind':'APPLY_PLAN','reason':'Replace failed implementation','plan':{
-            'repair_replacements':[{'task_id':'render','implementation':implementation}], 'continuation':{'mode':'wait'}}}
+            'repair_replacements':[{'task_id':'render','implementation':implementation}]}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
         replacement=result['replacements']['render'];self.assertTrue(replacement.startswith('render_r_'))
         self.assertEqual(result['add_tasks'][0]['id'],replacement)
@@ -72,33 +73,35 @@ class ModelCommandTests(unittest.TestCase):
                         'inputs':{'source':{'asset':'asset'}},
                         'parameters':{'points':[[0,0],[1,0],[1,1],[0,1]]},'basic_reason':'Bounded repair'}
         cmd={'kind':'APPLY_PLAN','reason':'Replace failed operation','plan':{
-            'repair_replacements':[{'task_id':'render','implementation':implementation}],
-            'continuation':{'mode':'wait'}}}
+            'repair_replacements':[{'task_id':'render','implementation':implementation}]}}
         schema=manager_schema(f,{'image.perspective':op});result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
         self.assertEqual(result['add_tasks'][0]['acceptance'],f['tasks'][0]['spec']['acceptance'])
 
-    def test_output_declaration_has_one_source_and_continuation_is_exclusive(self):
+    def test_output_declaration_and_completion_are_host_derived(self):
         f=frozen(False);schema=manager_schema(f)
         task={'id':'render','type':'script','name':'render','objective':'Write','argv':['python','-c','pass'],
-              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file'}],'basic_reason':'local','delivery_stage':True}
-        cmd={'kind':'COMPLETE','reason':'Done planning','plan':{'new_tasks':[task],'continuation':{'mode':'complete'}}}
+              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'local'}
+        cmd={'kind':'COMPLETE','reason':'Done planning','plan':{'new_tasks':[task]}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)
         self.assertEqual(result['proposal']['add_tasks'][0]['outputs'],['report.txt']);self.assertEqual(result['proposal']['replan_after'],[])
-        cmd['plan']['continuation']['tasks']=['render']
+        self.assertTrue(result['proposal']['add_tasks'][0]['delivery_stage'])
+        task['delivery_stage']=True
         with self.assertRaises(ValidationError):transform(cmd,schema,encode=True)
-        cmd['plan']['continuation']={'mode':'complete'};task['files'].append({'path':'other.txt','roles':['report']})
+        task.pop('delivery_stage')
+        cmd['plan']['continuation']={'mode':'complete'}
+        with self.assertRaises(ValidationError):transform(cmd,schema,encode=True)
+        cmd['plan'].pop('continuation');task['files'].append({'path':'other.txt','roles':['report']})
         with self.assertRaises(CommandError):compile_manager(cmd,f)
 
     def test_host_derives_input_dependencies_and_waits_for_batch_leaves(self):
         f=frozen(False);schema=manager_schema(f)
         first={'id':'prepare','type':'agent','profile':'editing_implementer','name':'Prepare','objective':'Prepare image',
-               'files':[{'path':'prepared.png','roles':['primary_image']}],'acceptance':[{'kind':'image'}],'delivery_stage':False}
+               'files':[{'path':'prepared.png','roles':['primary_image']}],'acceptance':[{'kind':'image'}]}
         final={'id':'deliver','type':'agent','profile':'editing_implementer','name':'Deliver','objective':'Deliver image',
                'input_bindings':[{'role':'source','ref':{'step':'prepare','role':'primary_image'}}],
                'files':[{'path':'final.png','roles':['primary_image']}],
-               'acceptance':[{'kind':'image'}],'delivery_stage':True}
-        cmd={'kind':'APPLY_PLAN','reason':'Typed batch','plan':{'new_tasks':[first,final],
-             'continuation':{'mode':'wait'}}}
+               'acceptance':[{'kind':'image','stage':'final'}]}
+        cmd={'kind':'APPLY_PLAN','reason':'Typed batch','plan':{'new_tasks':[first,final]}}
         result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
         self.assertEqual(result['add_dependencies'],[{'upstream':'prepare','downstream':'deliver'}])
         self.assertEqual(result['replan_after'],['deliver'])
@@ -107,8 +110,8 @@ class ModelCommandTests(unittest.TestCase):
         f=frozen(False);schema=manager_schema(f)
         task={'id':'deliver','type':'agent','profile':'editing_implementer','name':'Deliver','objective':'Deliver image',
               'input_bindings':[{'role':'source','ref':{'asset':'asset'}}],
-              'files':[{'path':'final.png','roles':['primary_image']}],'acceptance':[{'kind':'image'}],'delivery_stage':True}
-        command={'kind':'COMPLETE','reason':'Deliver','plan':{'new_tasks':[task],'continuation':{'mode':'complete'}}}
+              'files':[{'path':'final.png','roles':['primary_image']}],'acceptance':[{'kind':'image','stage':'final'}]}
+        command={'kind':'COMPLETE','reason':'Deliver','plan':{'new_tasks':[task]}}
         result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['add_tasks'][0]
         self.assertEqual(result['inputs'],{'source':{'asset':'asset','step':None,'role':None,'repair_candidate':None}})
         task['input_bindings'].append({'role':'source','ref':{'asset':'asset2'}})
@@ -123,12 +126,12 @@ class ModelCommandTests(unittest.TestCase):
             'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},
             'inputs':[{'role':'source','ref':{'asset':'asset'}}],
             'acceptance':[{'kind':'json','file':'invented.json'}]}],
-            'kind':'APPLY_PLAN','reason':'Inspect','continuation':{'mode':'wait','tasks':['evidence']}}
+            'kind':'APPLY_PLAN','reason':'Inspect'}
         result=p.decode('submit_typed_plan',arguments)
         self.assertEqual(result['command']['tasks'][0]['inputs']['source']['asset'],'asset')
         self.assertEqual(result['command']['tasks'][0]['acceptance'][0]['file'],'invented.json')
-        self.assertNotIn('tasks',result['command']['continuation'])
-        self.assertEqual(set(result['_normalizations']),{'continuation.tasks_removed','tasks.0.operation_inputs_mapped'})
+        self.assertNotIn('continuation',result['command'])
+        self.assertEqual(set(result['_normalizations']),{'tasks.0.operation_inputs_mapped'})
 
     def test_planner_normalizes_common_flat_operation_input_bindings(self):
         from webapp.operations import catalog
@@ -136,10 +139,10 @@ class ModelCommandTests(unittest.TestCase):
         f=frozen(False);f['operations']=[op]
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op},draft={'status':'OPEN'})
         base={'id':'concat','type':'operation','name':'Concat','objective':'Join clips','operation':'media.concat_sequence',
-              'parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2},'delivery_stage':True}
+              'parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2}}
         for inputs in ([{'name':'clip_1','asset':'asset'}],[{'clip_1':{'asset':'asset'}}]):
             with self.subTest(inputs=inputs):
-                arguments={'tasks':[{**base,'inputs':inputs}],'kind':'APPLY_PLAN','reason':'Join','continuation':{'mode':'wait'}}
+                arguments={'tasks':[{**base,'inputs':inputs}],'kind':'APPLY_PLAN','reason':'Join'}
                 result=p.decode('submit_typed_plan',arguments)
                 self.assertEqual(result['command']['tasks'][0]['input_bindings'],[{'role':'clip_1','ref':{'asset':'asset'}}])
 
@@ -166,8 +169,8 @@ class ModelCommandTests(unittest.TestCase):
         schema=manager_schema(f,{op['id']:op})
         task={'id':'adjust','type':'operation','name':'Adjust','objective':'Adjust image',
               'operation':'image.local_adjust','parameters':{'parameters':{'brightness':1.1}},
-              'inputs':{'source':{'asset':'asset'}},'delivery_stage':True}
-        command={'kind':'COMPLETE','reason':'Adjust','plan':{'new_tasks':[task],'continuation':{'mode':'complete'}}}
+              'inputs':{'source':{'asset':'asset'}},'acceptance':[{'kind':'image','stage':'final'}]}
+        command={'kind':'COMPLETE','reason':'Adjust','plan':{'new_tasks':[task]}}
         self.assertEqual(transform(transform(command,schema,encode=True),schema)['plan']['new_tasks'][0]['parameters']['parameters']['brightness'],1.1)
         task['parameters']={'parameters':{'parameters':{'brightness':1.1}}}
         with self.assertRaises(ValidationError):transform(command,schema,encode=True)
@@ -193,8 +196,7 @@ class ModelCommandTests(unittest.TestCase):
         from webapp.strict_schema import validation_feedback
         schema=manager_schema(frozen(False));command={'kind':'COMPLETE','reason':'Plan','plan':{'new_tasks':[{
             'id':'render','type':'script','name':'render','objective':'Write','argv':['python','-c','pass'],
-            'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file'}],'basic_reason':'local','delivery_stage':True}],
-            'continuation':{'mode':'complete'}}}
+            'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'local'}]}}
         wire=transform(command,schema,encode=True)
         wire['plan']['new_tasks'][0]['profile']='PRIVATE_VALUE'
         try:transform(wire,schema)
@@ -260,6 +262,7 @@ class ModelCommandTests(unittest.TestCase):
             'meaning':'Create a new immutable revision with the same Agent contract and current repair context.'},options)
         protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
         self.assertEqual(protocol.context()['model_command_contract']['repair_options'],options)
+        self.assertNotIn('tasks',protocol.schemas['submit_typed_plan']['properties'])
 
     def test_loaded_operation_contract_exposes_required_roles_and_parameters(self):
         from webapp.operations import catalog
@@ -268,8 +271,7 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         command={'kind':'APPLY_PLAN','reason':'Collect audio evidence','plan':{'new_tasks':[{
             'id':'evidence','type':'operation','name':'Evidence','objective':'Inspect authorized audio',
-            'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},'inputs':{'source':{'asset':'asset'}}}],
-            'continuation':{'mode':'wait'}}}
+            'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},'inputs':{'source':{'asset':'asset'}}}]}}
         wire=transform(command,p.schemas['submit_plan'],encode=True)
         result=p.decode('submit_plan',wire)['proposal']['proposal']['add_tasks'][0]
         self.assertEqual(result['inputs']['source']['asset'],'asset');self.assertEqual(result['implementation'],op['implementation'])
@@ -286,12 +288,13 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         draft={'id':'concat','type':'operation','name':'Join clips','objective':'Join the authorized clips',
                'operation':'media.concat_sequence','parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2},
-               'input_bindings':[{'role':'clip_1','ref':{'asset':'asset'}}],'delivery_stage':True}
-        wire=transform({'kind':'COMPLETE','reason':'Join clips','plan':{'new_tasks':[draft],
-            'continuation':{'mode':'complete'}}},p.schemas['submit_plan'],encode=True)
+               'input_bindings':[{'role':'clip_1','ref':{'asset':'asset'}}],
+               'acceptance':[{'kind':'media','stage':'final'}]}
+        wire=transform({'kind':'COMPLETE','reason':'Join clips','plan':{'new_tasks':[draft]}},p.schemas['submit_plan'],encode=True)
         task=p.decode('submit_plan',wire)['proposal']['proposal']['add_tasks'][0]
-        self.assertEqual([item['kind'] for item in task['acceptance']],['media','json'])
-        self.assertTrue(task['acceptance'][0]['decode'])
+        self.assertEqual([item['kind'] for item in task['acceptance']],['media','media','json'])
+        self.assertEqual([item['source'] for item in task['acceptance']],['user','technical','technical'])
+        self.assertTrue(task['acceptance'][1]['decode'])
         self.assertIn('registered operation',task['basic_reason'])
 
     def test_operation_business_acceptance_is_preserved_without_model_owned_filename(self):
@@ -301,9 +304,9 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         draft={'id':'concat','type':'operation','name':'Join','objective':'Join clips','operation':'media.concat_sequence',
                'parameters':{'roles':['clip_1'],'audio_mode':'preserve','threads':2},
-               'input_bindings':[{'role':'clip_1','ref':{'asset':'asset'}}],'delivery_stage':True,
-               'acceptance':[{'kind':'media','file':'guessed.mp4','width':640,'height':360,'min_duration':11.8,'max_duration':12.2,'video':True}]}
-        command={'kind':'COMPLETE','reason':'Join','plan':{'new_tasks':[draft],'continuation':{'mode':'complete'}}}
+               'input_bindings':[{'role':'clip_1','ref':{'asset':'asset'}}],
+               'acceptance':[{'kind':'media','file':'guessed.mp4','width':640,'height':360,'min_duration':11.8,'max_duration':12.2,'video':True,'stage':'final'}]}
+        command={'kind':'COMPLETE','reason':'Join','plan':{'new_tasks':[draft]}}
         task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
         business=task['acceptance'][0]
         self.assertEqual((business['file'],business['source'],business['width'],business['height']),('*','user',640,360))
@@ -316,8 +319,9 @@ class ModelCommandTests(unittest.TestCase):
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},contracts={op['id']:op})
         base={'id':'edit','type':'operation','name':'Edit','objective':'Edit video','operation':'media.edit',
               'parameters':{'edit_plan':{'clips':[{'asset':'source'}],'output':{'audio_only':False}}},
-              'input_bindings':[{'role':'source','ref':{'asset':'asset'}}],'delivery_stage':True}
-        command={'kind':'COMPLETE','reason':'Edit','plan':{'new_tasks':[base],'continuation':{'mode':'complete'}}}
+              'input_bindings':[{'role':'source','ref':{'asset':'asset'}}],
+              'acceptance':[{'kind':'media','stage':'final'}]}
+        command={'kind':'COMPLETE','reason':'Edit','plan':{'new_tasks':[base]}}
         task=p.decode('submit_plan',transform(command,p.schemas['submit_plan'],encode=True))['proposal']['proposal']['add_tasks'][0]
         self.assertIn(True,[check.get('video') for check in task['acceptance']])
         self.assertNotIn(False,[check.get('video') for check in task['acceptance']])
@@ -333,8 +337,7 @@ class ModelCommandTests(unittest.TestCase):
         f=frozen(task,user=True);schema=manager_schema(f)
         command={'kind':'APPLY_PLAN','reason':'Add requested JPEG','plan':{'changes':[{'task_id':'render','set':{
             'objective':'Export PNG and JPEG','files':[{'path':'final.png','roles':['primary_image']},{'path':'final.jpg','roles':['alternate_image']}],
-            'acceptance':[{'kind':'image','file':'final.png'},{'kind':'image','file':'final.jpg'}]}}],
-            'continuation':{'mode':'wait'}}}
+            'acceptance':[{'kind':'image','file':'final.png'},{'kind':'image','file':'final.jpg'}]}}]}}
         result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['revise_tasks'][0]
         self.assertEqual(result['outputs'],['final.png','final.jpg'])
         self.assertEqual(result['output_roles'],{'primary_image':'final.png','alternate_image':'final.jpg'})

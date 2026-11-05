@@ -494,7 +494,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.workflow_agents.get_profile',return_value=policy), \
              patch('webapp.workflow_agents.model',side_effect=AgentReplyError('{invalid')) as model:
             with self.assertRaises(TaskQuotaReached):execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task)
-        self.assertEqual(model.call_count,3)
+        self.assertEqual(model.call_count,2)
         self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='staged'"))
 
     def test_strict_transport_fallback_does_not_spend_contract_correction(self):
@@ -560,10 +560,10 @@ class DynamicGatewayTests(unittest.TestCase):
         calls=[]
         task={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write the approved report',
               'files':[{'path':'report.txt','roles':['report']}],
-              'acceptance':[{'kind':'file'}],'basic_reason':'Local deterministic report','delivery_stage':True}
+              'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'Local deterministic report'}
         def respond(*args,**kwargs):
             protocol=kwargs['protocol'];calls.append(list(protocol.schemas))
-            wire=transform({'tasks':[task],'kind':'COMPLETE','reason':'Draft is complete','continuation':{'mode':'complete'}},
+            wire=transform({'tasks':[task],'kind':'COMPLETE','reason':'Draft is complete'},
                            protocol.schemas['submit_typed_plan'],encode=True)
             return protocol.decode('submit_typed_plan',wire)
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
@@ -582,11 +582,10 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.workflow_agents import execute
         from webapp.strict_schema import transform
         task={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write report',
-              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file'}],
-              'basic_reason':'Local report','delivery_stage':True}
+              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file','stage':'final'}],
+              'basic_reason':'Local report'}
         def respond(*args,**kwargs):
-            protocol=kwargs['protocol'];payload={'tasks':[task],'kind':'COMPLETE','reason':'Complete typed batch',
-                'continuation':{'mode':'complete'}}
+            protocol=kwargs['protocol'];payload={'tasks':[task],'kind':'COMPLETE','reason':'Complete typed batch'}
             wire=transform(payload,protocol.schemas['submit_typed_plan'],encode=True)
             return protocol.decode('submit_typed_plan',wire)
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond) as model:
@@ -605,7 +604,7 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.strict_schema import transform
         base={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write the approved report',
               'files':[{'path':'report.txt','roles':['report']}],
-              'acceptance':[{'kind':'file'}],'basic_reason':'Local deterministic report','delivery_stage':True}
+              'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'Local deterministic report'}
         invalid={**base,'input_bindings':[{'role':'source','ref':{'asset':'invented'}}]}
         valid={**base,'input_bindings':[{'role':'source','ref':{'asset':'asset'}}]}
         step=0;conversations=[]
@@ -618,7 +617,7 @@ class DynamicGatewayTests(unittest.TestCase):
                 row=self.store.query('SELECT revision,draft_json FROM workflow_plan_drafts')[0]
                 self.assertEqual(row['revision'],0);self.assertEqual(json.loads(row['draft_json'])['new_tasks'],[])
             name='submit_typed_plan';payload={'tasks':[invalid if step==1 else valid],
-                'kind':'COMPLETE','reason':'Ready' if step==1 else 'Corrected','continuation':{'mode':'complete'}}
+                'kind':'COMPLETE','reason':'Ready' if step==1 else 'Corrected'}
             wire=transform(payload,protocol.schemas[name],encode=True);return protocol.decode(name,wire)
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
@@ -635,7 +634,7 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.workflow_agents import execute
         from webapp.strict_schema import transform
         base={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write report',
-              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file'}],'delivery_stage':True}
+              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file','stage':'final'}]}
         step=0
         def respond(*args,**kwargs):
             nonlocal step;step+=1;protocol=kwargs['protocol']
@@ -644,7 +643,7 @@ class DynamicGatewayTests(unittest.TestCase):
                 row=self.store.query('SELECT revision,draft_json FROM workflow_plan_drafts')[0]
                 self.assertEqual(row['revision'],0);self.assertEqual(json.loads(row['draft_json'])['new_tasks'],[])
             task={**base,**({'basic_reason':'Local report'} if step==2 else {})}
-            payload={'tasks':[task],'kind':'COMPLETE','reason':'Compile batch','continuation':{'mode':'complete'}}
+            payload={'tasks':[task],'kind':'COMPLETE','reason':'Compile batch'}
             wire=transform(payload,protocol.schemas['submit_typed_plan'],encode=True)
             return protocol.decode('submit_typed_plan',wire)
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
@@ -662,10 +661,10 @@ class DynamicGatewayTests(unittest.TestCase):
         frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
         task={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report',
               'objective':'Write report','files':[{'path':'report.txt','roles':['report']}],
-              'acceptance':[{'kind':'file'}],'basic_reason':'Local report','delivery_stage':True}
+              'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'Local report'}
         mutate(self.store,self.lease,request['id'],'draft_add_tasks',{'tasks':[task]})
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,draft=get_draft(self.store,request['id']),store=self.store,finalize=True)
-        wire=transform({'kind':'COMPLETE','reason':'Ready','continuation':{'mode':'complete'}},protocol.schemas['commit_plan'],encode=True)
+        wire=transform({'kind':'COMPLETE','reason':'Ready'},protocol.schemas['commit_plan'],encode=True)
         reply=protocol.decode('commit_plan',wire)
         mutate(self.store,self.lease,request['id'],'draft_remove_tasks',{'task_ids':['draft_report']})
         with self.assertRaises(planning.ProposalSnapshotError):

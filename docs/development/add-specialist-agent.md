@@ -49,6 +49,8 @@ Manager 不能将业务 Agent 伪装成控制角色，质量批准也不能授�
 
 Reviewer和Diagnostician的JSON报告只用于放行、拒绝和诊断，不得设置`delivery_stage=true`。实际媒体或用户要求的业务文件Task拥有交付资格；Reviewer Task使用current-stage验收并可阻断上游。Manager提示应给出实际产物/审查报告的正反例，服务端Task与sealed-plan校验仍是权威边界，不能依靠模型自觉。
 
+Manager命令不暴露`delivery_stage`字段。业务Task通过`source=user, stage=final`的验收声明最终需求，宿主据此派生交付资格；Reviewer或Diagnostician报告被引用为交付输入时，Proposal校验必须拒绝。
+
 inspect须按格式分流：ZIP只读取有界目录元数据，不解包或解码成员，明确contents_verified=false；它不能进入媒体探测。未知格式及超限目录返回有界输入反馈，不记录伪造检查证据。媒体解码故障保留异常，诊断同时存储引用SHA256以便与不可变候选关联，不记录原始私有路径。
 
 当前结构化引擎为 structured-profile-v4。Manager调用类型化PlanDraft编辑命令及commit_plan，其他角色调用submit_result等专属工具；宿主编译为固定内部envelope。业务JSON报告经服务端验证后序列化到唯一声明文件，不二次编码JSON字符串；控制结果与业务files报告不得混用。工具Schema随角色、阶段、草稿内容和已完成检查收敛，提示不得再要求模型输出旧的action/proposal文本包装。Implementer可拥有受限script动作，Planner不得拥有原始代码执行或Script Task创建能力。

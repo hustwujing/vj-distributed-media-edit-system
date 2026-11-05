@@ -589,6 +589,36 @@ def revision_mutable_fields(task_type,user=False):
     return fields+(user_fields if user else [])
 
 
+def validate_operation_input_constraints(task,specs,assets):
+    if task.type!='operation':return
+    from .operations import get as operation
+    constraints=operation(task.operation,task.implementation).public().get('constraints') or {}
+    if constraints.get('reference_size_policy')!='match_output':return
+    reference=task.inputs.get('source');target=(task.parameters.get('width'),task.parameters.get('height'))
+    actual=None
+    if reference and reference.asset:
+        metadata=assets[reference.asset]['metadata'];actual=(metadata.get('width'),metadata.get('height'))
+    elif reference and reference.step in specs:
+        parent=specs[reference.step]
+        sizes={(rule.width,rule.height) for rule in parent.acceptance
+               if rule.kind=='image' and rule.width is not None and rule.height is not None}
+        if len(sizes)==1:actual=next(iter(sizes))
+    if None in target or actual!=target:
+        raise ProposalFieldError('tasks.'+task.id+'.inputs.source',
+            'The selected Provider requires its reference image to match the requested output size. Add an accepted preprocessing Task with explicit '
+            +str(target[0])+'x'+str(target[1])+' image acceptance and bind that output as source.')
+
+
+def validate_delivery_dependencies(task,specs):
+    if not task.delivery_stage:return
+    from .specialist_profiles import get as profile
+    for role,reference in task.inputs.items():
+        parent=specs.get(reference.step) if reference.step else None
+        if parent and parent.type=='agent' and profile(parent.profile).role in ('REVIEWER','DIAGNOSTICIAN'):
+            raise ProposalFieldError('tasks.'+task.id+'.inputs.'+role,
+                'Reviewer and diagnostician reports are evidence, not deliverable inputs. Mark the real accepted producer with final-stage business acceptance instead of adding a pass-through delivery Agent.')
+
+
 def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     proposal=Proposal.model_validate(raw)
     if run['sealed'] or run['status'] not in ('ACTIVE',):raise ValueError('Workflow cannot accept proposals')
@@ -781,6 +811,8 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                 parent=specs[ref.step]
                 roles=operation(parent.operation,parent.implementation).outputs if parent.type=='operation' else parent.output_roles
                 if ref.role not in roles:raise ValueError('Unknown upstream output role')
+        validate_operation_input_constraints(task,specs,owned_assets)
+        validate_delivery_dependencies(task,specs)
     if any(count>authorization.provider_call_budget.get(name,0) for name,count in calls.items()):
         raise AuthorizationRequired('Cumulative provider call budget exceeded')
     if not set(proposal.replan_after)<=set(specs):raise ValueError('Unknown replan trigger')
