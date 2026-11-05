@@ -24,6 +24,18 @@ def delivery_candidate_refs(task):
     return primary or {path for path in roles.values() if path in accepted}
 
 
+def approved_delivery_refs(snapshot):
+    """Return delivery candidates, including auxiliary roles explicitly requested by the user."""
+    from .workflow_model_protocol import required_delivery_roles
+    required_roles=required_delivery_roles(snapshot);approved=set()
+    for task in snapshot.get('tasks',[]):
+        if not task.get('spec',{}).get('delivery_stage'):continue
+        accepted=set(task.get('accepted_result',[]));approved.update(delivery_candidate_refs(task))
+        approved.update(path for role,path in task.get('quality',{}).get('output_roles',{}).items()
+                        if role in required_roles and path in accepted)
+    return approved
+
+
 def validate_review_scope(decision,snapshot):
     """A step verdict cannot introduce requirements from later delivery stages."""
     if snapshot.get('review_scope')!='task':return
@@ -94,6 +106,35 @@ def review_candidate_aliases(snapshot,inspections,candidate_keys):
     return choices
 
 
+def required_reviewed_deliverables(snapshot,decision,inspections,candidate_keys):
+    """Return unique required attachments that this final review actually inspected."""
+    if snapshot.get('review_scope')!='final' or decision.get('verdict')!='pass':return []
+    from .workflow_model_protocol import required_delivery_extensions,required_delivery_roles
+    required_extensions=required_delivery_extensions(snapshot)
+    required_roles=required_delivery_roles(snapshot)
+    if not required_extensions and not required_roles:return []
+    cited={inspections[item['inspection_id']] for item in decision.get('evidence',[]) if item['inspection_id'] in inspections}
+    inspected={inspections[identifier]:identifier for identifier in (candidate_keys or {}).values() if identifier in inspections}
+    candidates=[]
+    for task in snapshot.get('tasks',[]):
+        if not task.get('spec',{}).get('delivery_stage'):continue
+        approved=approved_delivery_refs({'tasks':[task],'goal':snapshot.get('goal',''),
+            'authorization':snapshot.get('authorization',{}),'assets':snapshot.get('assets',[])})
+        roles=task.get('quality',{}).get('output_roles',{})
+        for reference in approved & cited & set(inspected):
+            extension=reference.rsplit('.',1)[-1].lower() if '.' in reference else ''
+            extension='jpeg' if extension=='jpg' else extension
+            candidates.append((inspected[reference],extension,{role for role,path in roles.items() if path==reference}))
+    required=[]
+    for extension in required_extensions:
+        matches=[item for item in candidates if item[1]==extension]
+        if len(matches)==1:required.append(matches[0][0])
+    for role in required_roles:
+        matches=[item for item in candidates if role in item[2]]
+        if len(matches)==1:required.append(matches[0][0])
+    return list(dict.fromkeys(required))
+
+
 def resolve_review(decision,snapshot,inspections,candidate_keys=None):
     criteria=review_criteria(snapshot)
     if any(item['criterion_index']>=len(criteria) for item in decision['evidence']):raise ValueError('Unknown frozen criterion index')
@@ -104,6 +145,8 @@ def resolve_review(decision,snapshot,inspections,candidate_keys=None):
         if value in aliases:return aliases[value]
         raise ValueError('Final selection must use a current candidate_key or another unique alias from the same inspect receipt')
     selected=[select(value) for value in decision['deliverables']]
+    selected.extend(identifier for identifier in required_reviewed_deliverables(
+        snapshot,decision,inspections,candidate_keys) if identifier not in selected)
     if snapshot.get('review_scope')=='final' and decision['verdict']=='pass' and not selected:
         unique=list(dict.fromkeys(candidate_keys.values()))
         if len(unique)==1:selected=unique
@@ -136,7 +179,7 @@ def validate_resolved_review(decision, snapshot, inspections):
             raise ValueError('Task review cannot select final deliverables')
     elif snapshot['review_scope']=='final' and decision['verdict']=='pass':
         selected=set(decision['deliverables'])
-        approved={ref for task in snapshot['tasks'] if task['spec']['delivery_stage'] for ref in delivery_candidate_refs(task)}
+        approved=approved_delivery_refs(snapshot)
         if not selected or not selected<=approved or not selected<=set(inspections.values()):
             raise ValueError('Final selection must contain inspected approved candidates')
         if len(selected)>1 and not decision['primary']:
