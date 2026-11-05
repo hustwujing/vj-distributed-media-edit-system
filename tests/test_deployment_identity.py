@@ -1,9 +1,24 @@
 import unittest
+from pathlib import Path
+import tempfile
 from unittest.mock import patch
 from webapp.deployment_identity import namespace,socket_root,cgroup_member
 
 
 class DeploymentIdentityTests(unittest.TestCase):
+    def test_private_environment_roundtrip_preserves_literal_secrets(self):
+        from deploy import common
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/'private.env'
+            values={'KEY':'literal $(command) `value` with spaces','EMPTY':''}
+            common.private_env(path,values)
+            self.assertEqual(common.env_file(path),values)
+            self.assertEqual(path.stat().st_mode&0o777,0o600)
+    def test_dynamic_node_identity_ranges_do_not_overlap(self):
+        from deploy import dynamic_cluster as cluster
+        self.assertNotEqual(cluster.registry('a'),cluster.registry('b'))
+        self.assertNotEqual(cluster.data('node','a'),cluster.data('node','b'))
+        self.assertGreaterEqual(abs(cluster.UIDS['a']-cluster.UIDS['b']),64)
     def test_shared_database_restart_does_not_stop_private_services(self):
         from deploy import dynamic_cluster as cluster
         from deploy import systemd_templates

@@ -5,7 +5,7 @@ description: Install video-use into the current agent (Claude Code, Codex, Herme
 
 # vj-distributed-media-edit-system — Agent skill installation
 
-Use this file for installing or reconnecting the **local Agent skill**. For daily editing, read [SKILL.md](SKILL.md); helper scripts live in `helpers/`. For the distributed Web service, use the [configuration guide](docs/distributed-execution-configuration.md) and [deployment guide](docs/cluster-operations.md). Registering the skill does not deploy the Web service.
+Use this file for installing or reconnecting the **local Agent skill**. For daily editing, read [SKILL.md](SKILL.md); helper scripts live in `helpers/`. For the distributed Web service, use the [configuration guide](docs/distributed-execution-configuration.md) and the project [deployment entry](README.md#本机隔离部署). Registering the skill does not deploy the Web service.
 
 ## What you're doing
 

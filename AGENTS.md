@@ -19,8 +19,7 @@
 - 输入归属、方案确认、版本绑定和租约校验不能因功能扩展被绕过。状态与交付相关改动参考 [程序正确性审查原则](docs/program-correctness-audit.md)。
 - 测试使用独立数据与隔离入口；先验证直接影响的行为，发布检查按现有部署流程执行。文档改动检查链接、示例和代码一致性即可。
 - 交付时说明改动、验证结果及未验证边界；历史验收不代表当前代码通过，工作区修改不代表已部署。
-- 本机独立部署通过 `deploy/dynamic_cluster.py` / `deploy.sh` 管理。不得以旧 `deploy/cluster.py`
-  或旧真机驱动操作 main；服务名、端口、数据目录、UID/cgroup、数据库、Redis 前缀和 BOSS 前缀必须独立。
+- 本机独立部署通过 `deploy/dynamic_cluster.py` / `deploy.sh` 管理；共享部署原语与 unit 模板分别位于 `deploy/common.py` 和 `deploy/systemd_templates.py`。不得以其他真机驱动操作 main；服务名、端口、数据目录、UID/cgroup、数据库、Redis 前缀和 BOSS 前缀必须独立。
 - 动态 Task 的正式状态只由 Orchestrator 提交；执行器仅保存候选和回执。不得绕过 sealed、
   授权包络、候选验证或旧 generation 防护来让测试通过。
 - 修复使用逻辑 Task + 不可变 revision；只允许原授权、目标、输入输出和验收内的实现修订。修复根计数，受影响后代换 revision，无关分支复用；旧 revision、结果和 plan 选择记录不得覆盖。

@@ -4,7 +4,7 @@ from pathlib import Path
 from tests.suite_lock import suite_lock
 from tests.distributed_support import PostgresServer,S3Server,free_port
 from tests.isolation import isolate_environment
-from deploy.cluster import environment
+from deploy.dynamic_cluster import environment
 
 
 def main():

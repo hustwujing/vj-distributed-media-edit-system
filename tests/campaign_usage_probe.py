@@ -2,7 +2,7 @@
 import json,os,sys,time
 from pathlib import Path
 REPO=Path(__file__).resolve().parents[1];sys.path.insert(0,str(REPO))
-from deploy import cluster
+from deploy import dynamic_cluster as cluster
 release=json.loads((cluster.ROOT/'release.json').read_text());sys.path.insert(0,release['source']);os.environ.update(cluster.environment())
 from webapp.store import Store
 root=REPO/'.cluster/campaigns/20261101-task-usage';store=Store(cluster.data('node','a'),initialize_schema=False)

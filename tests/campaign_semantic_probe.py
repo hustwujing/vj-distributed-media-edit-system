@@ -1,5 +1,5 @@
 import os,json,requests
-from deploy.cluster import environment
+from deploy.dynamic_cluster import environment
 os.environ.update(environment())
 from webapp.semantic_review import CHOICES
 proposal={'user_request':'请将图片a处理成64×64 PNG，保持比例，居中裁切。','proposal':'输入：图片a，640×480。使用Pillow等比缩放并居中裁切，保存small.png；核对64×64尺寸和PNG可读性；保留原图，失败时停止并保留错误信息。预计20秒，本地处理不调用外部服务。方案参数已齐备，等待用户批准执行。','intent':{'route':'single','operations':['script'],'goal':'将a处理成64×64PNG','estimated_seconds':20},'assets':[{'id':'a','kind':'image','width':640,'height':480}]}

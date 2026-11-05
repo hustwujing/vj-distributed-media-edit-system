@@ -24,7 +24,8 @@ class ReaperStateTests(unittest.TestCase):
         self.pool=IdentityPool(root/'node',start=480000,size=1)
     def tearDown(self):self.temp.cleanup()
     def test_service_capabilities_allow_cleanup_in_live_worker_mount_namespace(self):
-        from deploy import cluster
+        from deploy import dynamic_cluster as cluster
+        from deploy import systemd_templates
         attempt='c'*32;run=self.pool.root/'runs'/attempt;run.mkdir();(run/'data').mkdir()
         script="""import os,sys,subprocess
 from pathlib import Path
@@ -46,7 +47,8 @@ print('mounted' if os.path.ismount(target) else 'clean',flush=True)
                     'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip()}
             (self.pool.root/'records/480000.json').write_text(json.dumps(record))
             (self.pool.root/'identities/480000').write_text(json.dumps(record))
-            capabilities=next(line.split('=',1)[1] for line in cluster.reaper_unit().splitlines() if line.startswith('CapabilityBoundingSet='))
+            unit=systemd_templates.reaper_unit(cluster.template_config(cluster.REPO))
+            capabilities=next(line.split('=',1)[1] for line in unit.splitlines() if line.startswith('CapabilityBoundingSet='))
             bounded='-all,'+','.join('+'+cap.removeprefix('CAP_').lower() for cap in capabilities.split())
             env={**os.environ,'VIDEO_USE_EXECUTOR_ROOT':str(self.pool.root),'VIDEO_USE_UID_START':'480000','VIDEO_USE_UID_COUNT':'1'}
             command=['setpriv','--bounding-set='+bounded,sys.executable,'-m','webapp.execution_reaper','clean','480000',attempt]

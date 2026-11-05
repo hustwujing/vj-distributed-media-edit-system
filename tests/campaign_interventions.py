@@ -69,10 +69,11 @@ def specification():
 
 def configure():
     sys.path.insert(0,str(REPO))
-    from deploy import cluster
+    from deploy import dynamic_cluster as cluster
     release=json.loads((cluster.ROOT/'release.json').read_text())
     source=Path(release['source']);sys.path.insert(0,str(source))
     os.environ.update(cluster.environment())
+    cluster.validate_isolation(os.environ)
     os.environ['VIDEO_USE_RUNTIME_BUILD']=str(source/'runtime/build')
     from webapp.store import Store
     from webapp.operations import get
@@ -478,7 +479,7 @@ def main():
     parser.add_argument('--run-id')
     parser.add_argument('--cases',default='all');parser.add_argument('--jobs',type=int,default=1,choices=[1,2])
     parser.add_argument('--repeat',type=int,default=1);parser.add_argument('--timeout',type=int,default=900)
-    parser.add_argument('--base',default='http://10.194.49.8/video-use')
+    parser.add_argument('--base',default='http://127.0.0.1/distributed-agent-system')
     args=parser.parse_args();cases=specification()
     if args.cases!='all':
         ids=args.cases.split(',');cases=[c for c in cases if c['id'] in ids]

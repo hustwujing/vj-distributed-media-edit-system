@@ -638,7 +638,7 @@ video-use-orchestrator.service
 | `webapp/agent_gateway.py` | 增加 Proposal/Agent Result 的受控提交协议 |
 | `webapp/operations.py` | 与 Agent Profile 共同组成可委派能力目录 |
 | `webapp/static/` | 展示动态图版本、规划中、等待用户、执行和验收状态 |
-| `deploy/cluster.py` | 增加 Orchestrator unit、健康和部署检查 |
+| `deploy/dynamic_cluster.py` | 增加 Orchestrator unit、健康和部署检查 |
 
 ### 15.1 复用策略
 

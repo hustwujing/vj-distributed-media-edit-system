@@ -3,7 +3,7 @@ import json,os,tempfile,time,threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
-from deploy.cluster import environment
+from deploy.dynamic_cluster import environment
 os.environ.update(environment())
 os.environ.update(VIDEO_USE_DATABASE_URL='',VIDEO_USE_DISTRIBUTED='0',VIDEO_USE_OBJECT_BUCKET='')
 from webapp.store import Store
