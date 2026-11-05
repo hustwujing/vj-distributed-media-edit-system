@@ -21,6 +21,30 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_unique_equivalent_delivery_task_replaces_the_old_leaf(self):
+        old={'id':'old','type':'agent','profile':'editing_implementer','name':'Old','objective':'Old attempt',
+             'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
+             'acceptance':[{'kind':'image','file':'old.png','width':1024,'height':768,'source':'user','stage':'final'}],
+             'basic_reason':'old'}
+        f=frozen(old);f['graph_version']=2;f['tasks'][0].update(id='old',status='succeeded')
+        new={'id':'fixed','type':'agent','profile':'editing_implementer','name':'Fixed','objective':'Fixed attempt',
+             'files':[{'path':'fixed.png','roles':['image']}],
+             'acceptance':[{'kind':'image','width':1024,'height':768,'stage':'final','source':'user'}]}
+        result=compile_manager({'kind':'COMPLETE','reason':'Use the fixed candidate','plan':{'new_tasks':[new]}},f)
+        self.assertEqual(result['proposal']['replacements'],{'old':'fixed'})
+
+    def test_ambiguous_equivalent_delivery_tasks_are_not_guessed_as_replacements(self):
+        old={'id':'old','type':'agent','profile':'editing_implementer','name':'Old','objective':'Old attempt',
+             'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
+             'acceptance':[{'kind':'image','file':'old.png','width':1024,'height':768,'source':'user','stage':'final'}],
+             'basic_reason':'old'}
+        f=frozen(old);f['graph_version']=2;f['tasks'][0]['id']='old';second=json.loads(json.dumps(f['tasks'][0]));second['id']='other';second['spec']['id']='other';f['tasks'].append(second)
+        new={'id':'fixed','type':'agent','profile':'editing_implementer','name':'Fixed','objective':'Fixed attempt',
+             'files':[{'path':'fixed.png','roles':['image']}],
+             'acceptance':[{'kind':'image','width':1024,'height':768,'stage':'final','source':'user'}]}
+        result=compile_manager({'kind':'COMPLETE','reason':'Keep distinct variants','plan':{'new_tasks':[new]}},f)
+        self.assertEqual(result['proposal']['replacements'],{})
+
     def test_inconclusive_review_recommends_evidence_before_rerender(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render video',
               'outputs':['final.mp4'],'output_roles':{'video':'final.mp4'},'acceptance':[{'kind':'media'}],
