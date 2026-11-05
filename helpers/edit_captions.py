@@ -66,7 +66,11 @@ def cues_for_plan(p):
     settings = p['subtitles']
     if 'file' in settings:
         cues = parse_srt(settings['file'])
-        if any(c['end'] > p['_duration']+.05 for c in cues):
+        if settings.get('clip_to_output',True):
+            cues=[{**cue,'end':min(cue['end'],p['_duration'])} for cue in cues if cue['start']<p['_duration']]
+            cues=[cue for cue in cues if cue['end']>cue['start']]
+            if not cues:raise PlanError('SRT has no cues within the rendered duration')
+        elif any(c['end'] > p['_duration']+.05 for c in cues):
             raise PlanError('SRT must use output times and end within the rendered duration')
         return cues
     cues = []

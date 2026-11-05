@@ -183,13 +183,22 @@ class LocalEditingTests(unittest.TestCase):
         self.assertEqual(probe(out)['width'],160)
 
     def test_input_srt_is_last_and_timed(self):
-        srt=self.root/'edit/input.srt';srt.write_text('1\n00:00:00,300 --> 00:00:00,700\nhello\n你好\n')
+        srt=self.root/'edit/input.srt';srt.write_text(
+            '1\n00:00:00,300 --> 00:00:00,700\nhello\n你好\n\n'
+            '2\n00:00:00,900 --> 00:00:01,300\nclipped\n\n'
+            '3\n00:00:01,400 --> 00:00:01,600\noutside\n')
         raw=self.plan(clips=[{'source':'a','end':1}],subtitles={'file':'edit/input.srt','size':16},
                       masks=[{'x':0,'y':0,'width':160,'height':120,'mode':'black'}])
         out,_=self.render(raw,'srt.mp4')
         self.assertLess(frame(out,.1).max(),5)
         self.assertGreater(frame(out,.5).max(),150)
-        self.assertEqual(parse_srt(out.with_suffix('.srt'))[0]['text'],'hello\n你好')
+        cues=parse_srt(out.with_suffix('.srt'))
+        self.assertEqual(cues[0]['text'],'hello\n你好')
+        self.assertEqual(cues[1]['text'],'clipped')
+        self.assertEqual(cues[1]['end'],1)
+        self.assertNotIn('outside',out.with_suffix('.srt').read_text())
+        strict=self.plan(clips=[{'source':'a','end':1}],subtitles={'file':'edit/input.srt','clip_to_output':False})
+        with self.assertRaisesRegex(Exception,'end within'):cues_for_plan(validate(strict,self.root))
 
     def test_selected_font_has_distinct_chinese_glyphs(self):
         from PIL import ImageFont

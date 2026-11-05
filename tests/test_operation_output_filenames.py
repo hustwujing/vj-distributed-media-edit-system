@@ -33,6 +33,11 @@ class OperationOutputFilenameTests(unittest.TestCase):
         self.assertIsNone(get('image.batch_export').output_files)
         self.assertEqual(get('image.remove_background').output_files,('foreground.png','mask.png'))
 
+    def test_role_filename_mapping_excludes_diagnostic_attachments(self):
+        contract=get('image.refine_zim').public()['output_contract']
+        self.assertEqual(contract['role_filenames'],{'foreground':'foreground.png','mask':'mask.png'})
+        self.assertIn('zim-preview.jpg',contract['filenames'])
+
     def test_script_media_acceptance_requires_a_declared_media_output(self):
         step={'id':'verify','name':'verify','kind':'script','argv':['python','edit/check.py'],
               'outputs':['report.json','frame.jpg'],'goal':'verify the video','on_failure':'diagnose',
