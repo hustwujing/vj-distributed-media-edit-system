@@ -89,7 +89,7 @@ VIDEO_USE_TEST_REAL_MODELS=1 .venv/bin/python -m tests.run_distributed_suite
 
 修改模型选择与预算时，可定向运行 `tests.test_model_selection`、`tests.test_model_token_estimate`、`tests.test_model_input_count`、`tests.test_dynamic_gateway`、`tests.test_task_usage` 及 `tests/dynamic_models.test.mjs`。真机启动、版本绑定、失败归因和每例进度汇报遵守[真机测试与审查](development/run-live-campaign.md)。暂停中的测试不会因代码门禁通过而自动恢复。
 
-真实服务驱动可能消耗额度或写入外部存储。运行前读取对应驱动的配置和目标，使用独立测试项目；常规协议测试不能证明真实服务的质量、取消能力或网络表现。`deploy/cluster_smoke.py` 会临时停止实例做接管验证，仅在维护窗口运行。
+真实服务驱动可能消耗额度或写入外部存储。运行前读取对应驱动的配置和目标，使用独立测试项目；常规协议测试不能证明真实服务的质量、取消能力或网络表现。需要停服或故障注入的当前验收统一通过 `tests/campaign_suite.py` 执行，并遵守[真机测试与审查](development/run-live-campaign.md)。
 
 ## 发布与文档检查
 

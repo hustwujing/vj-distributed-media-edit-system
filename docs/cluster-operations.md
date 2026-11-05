@@ -56,8 +56,6 @@ node --test tests/*.test.mjs
 
 ## 验收与维护
 
-`/data2/wujing03/video-use/.cluster/releases/<已部署版本>/.venv/bin/python deploy/cluster_smoke.py` 对专用测试项目执行实际API切换、强杀节点A、删除该测试项目在A的缓存、节点B恢复与分支汇合、最终Agent验收和跨API取消。它会临时停止实例，仅在维护/验收窗口运行；不调用图片或视频生成服务，最终验收会调用配置的Agent模型。
-
 日志例子：
 
 ```bash
