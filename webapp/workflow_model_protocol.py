@@ -375,6 +375,11 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
 def compile_manager(command,frozen):
     # Identity comes exclusively from this immutable request, never a fresh DB snapshot.
     result={key:value for key,value in command.items() if key!='plan'}
+    input_records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
+    if (result.get('kind')=='NEW_RUN_REQUIRED' and input_records
+            and all((item.get('context') or {}).get('targets') for item in input_records)):
+        raise CommandError('same_run_revision_required','kind',
+            'The current user input targets existing Tasks. Revise only that authorized Task closure in this Run.')
     if result.get('kind')=='REQUEST_AUTHORIZATION' and result.get('authorization') is not None:
         result['authorization']={**result['authorization'],'goal':frozen['goal']}
     result.update(snapshot_digest=frozen['snapshot_digest'],base_graph_version=frozen['graph_version'],

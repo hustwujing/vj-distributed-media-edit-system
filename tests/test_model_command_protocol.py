@@ -47,6 +47,12 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(revised['outputs'],['final.mp4','cover.png'])
         self.assertEqual(revised['output_roles'],{'video':'final.mp4','cover':'cover.png'})
 
+    def test_targeted_task_input_cannot_request_a_successor_run(self):
+        value=frozen(user=True);value['input_batch']['inputs'][0]['context']['targets']=['render']
+        command={'kind':'NEW_RUN_REQUIRED','reason':'Move the targeted change','new_goal':'Different run'}
+        with self.assertRaises(CommandError) as raised:compile_manager(command,value)
+        self.assertEqual((raised.exception.code,raised.exception.path),('same_run_revision_required','kind'))
+
     def test_explicit_output_extensions_promote_matching_files_to_delivery(self):
         f=frozen(False);f['goal']='Deliver the edited PNG with original JSON and TXT records'
         task={'id':'records','type':'agent','profile':'editing_implementer','name':'Records','objective':'Write records',
