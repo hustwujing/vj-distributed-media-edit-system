@@ -87,6 +87,32 @@ def delivery_acceptance_signature(spec):
     return graph.digest(checks) if spec.get('delivery_stage') and checks else None
 
 
+def required_delivery_extensions(frozen):
+    import re
+    text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[])])
+    for asset in frozen.get('assets',[]):
+        for value in (asset.get('name'),asset.get('filename')):
+            if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
+    aliases={'jpg':'jpeg'}
+    return {aliases.get(value.lower(),value.lower()) for value in re.findall(
+        r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',text)}
+
+
+def bind_explicit_delivery_formats(raw,filenames,frozen):
+    aliases={'jpg':'jpeg'};required=required_delivery_extensions(frozen);acceptance=list(raw.get('acceptance',[]))
+    matches=[]
+    for name in filenames:
+        if '.' not in name:continue
+        extension=aliases.get(name.rsplit('.',1)[-1].lower(),name.rsplit('.',1)[-1].lower())
+        if extension in required:matches.append(name)
+    for name in matches:
+        existing=[check for check in acceptance if check.get('file') in (name,'*')]
+        user=next((check for check in existing if check.get('source','user')=='user'),None)
+        if user:user['stage']='final';user['file']=name
+        elif existing:acceptance.append({**existing[0],'source':'user','stage':'final','file':name})
+    raw['acceptance']=acceptance
+
+
 def operation_acceptance(contract,parameters):
     roles=list(contract.get('outputs',[]));alternatives=contract.get('output_contract',{}).get('alternatives',[])
     filenames=contract.get('output_contract',{}).get('filenames')
@@ -314,6 +340,7 @@ def compile_manager(command,frozen):
         added=[];replacement_ids=set(plan.get('replacements',{}).values())
         for task in plan.get('new_tasks',[]):
             raw=deepcopy(task);files=raw.pop('files',[]);bindings=raw.pop('input_bindings',None);outputs=[];roles={}
+            contract_filenames=[]
             if bindings is not None:
                 if len({item['role'] for item in bindings})!=len(bindings):raise CommandError('duplicate_input_role','plan.new_tasks.input_bindings','Declare each input role once')
                 raw['inputs']={item['role']:item['ref'] for item in bindings}
@@ -321,6 +348,7 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
+                contract_filenames=list((binding.get('output_contract') or {}).get('filenames') or [])
                 if raw.get('id') in replacement_ids:
                     if not raw.get('basic_reason'):raw['basic_reason']='Server-owned registered operation integrity checks'
                     added.append(raw);continue
@@ -355,6 +383,7 @@ def compile_manager(command,frozen):
                     if role in roles:raise CommandError('duplicate_output_role','plan.new_tasks.files.roles','Each role identifies exactly one file')
                     roles[role]=item['path']
             if task['type']!='operation':raw.update(outputs=outputs,output_roles=roles)
+            bind_explicit_delivery_formats(raw,contract_filenames if task['type']=='operation' else outputs,frozen)
             if 'delivery_stage' not in raw:
                 raw['delivery_stage']=any(check.get('source','user')=='user' and check.get('stage')=='final' for check in raw.get('acceptance',[]))
             added.append(raw)
