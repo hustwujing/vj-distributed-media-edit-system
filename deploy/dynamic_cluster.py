@@ -264,8 +264,9 @@ def verify(source,selection=()):
     shutil.copyfile(source/'runtime/build/manifest.json',directory/'runtime/build/manifest.json')
     log=ROOT/'verification'/f'{source.name}.log';log.parent.mkdir(parents=True,exist_ok=True)
     with log.open('w') as stream:
+        socket_root=REPO.parent/'vu-tmp'/('s-'+source.name);socket_root.mkdir(parents=True,exist_ok=True)
         result=subprocess.run([directory/'.venv/bin/python','-m','tests.run_distributed_suite',*selection],cwd=directory,
-            env={**os.environ,'TMPDIR':str(REPO.parent/'vu-tmp')},stdout=stream,stderr=subprocess.STDOUT,timeout=1800)
+            env={**os.environ,'TMPDIR':str(REPO.parent/'vu-tmp'),'VIDEO_USE_SOCKET_ROOT':str(socket_root)},stdout=stream,stderr=subprocess.STDOUT,timeout=1800)
         if result.returncode:raise RuntimeError('Python verification failed: '+str(log))
         if not selection:
             result=subprocess.run(['node','--test',*map(str,sorted((directory/'tests').glob('*.test.mjs')))],cwd=directory,stdout=stream,stderr=subprocess.STDOUT,timeout=300)

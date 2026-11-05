@@ -14,7 +14,9 @@ def data_root() -> Path:
 def temporary_socket(directory) -> Path:
     """Keep attempt-local AF_UNIX names short on data-disk installations."""
     import uuid
-    path=Path(directory)/(uuid.uuid4().hex[:12]+'.sock')
+    root=Path(os.environ.get('VIDEO_USE_SOCKET_ROOT',directory))
+    root.mkdir(parents=True,exist_ok=True)
+    path=root/(uuid.uuid4().hex[:12]+'.sock')
     if len(os.fsencode(path))>=108:
         raise ValueError('Executor socket directory exceeds the Linux AF_UNIX path limit')
     return path
