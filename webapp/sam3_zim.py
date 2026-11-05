@@ -37,9 +37,13 @@ def run_sam3(req,work):
         wait_health(endpoint,process);output=work/'sam3';output.mkdir()
         payload={'image':req['source'],'output_dir':str(output),'draft_id':'selection'}
         if req.get('prompt'):
-            result=request_json(endpoint+'/segment/text',{**payload,'labels':[req['prompt']],'build_material_groups':False,'confidence':req.get('confidence',.35)})
-            data=json.loads(Path(result['detections']).read_text());records=[r for r in data['detections'] if r.get('recommended')]
-            if not records:records=data['detections']
+            confidence=req.get('confidence',.35);records=[]
+            for threshold in dict.fromkeys((confidence,max(.1,confidence/2))):
+                result=request_json(endpoint+'/segment/text',{**payload,'labels':[req['prompt']],
+                    'build_material_groups':False,'confidence':threshold})
+                data=json.loads(Path(result['detections']).read_text());records=[r for r in data['detections'] if r.get('recommended')]
+                if not records:records=data['detections']
+                if records:break
             if not records:raise NoSelectionError('SAM3 did not find the described object')
             record=max(records,key=lambda r:(float(r.get('score',0)),int(r.get('mask_pixels',0))));mask=output/record['mask'];preview=output/record['preview']
         else:
