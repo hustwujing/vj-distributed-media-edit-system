@@ -44,6 +44,17 @@ class ModelCommandTests(unittest.TestCase):
         finals={(check['file'],check['source']) for check in compiled['acceptance'] if check['stage']=='final'}
         self.assertEqual(finals,{('ocr.json','user')})
 
+    def test_explicit_report_request_promotes_the_registered_report_role(self):
+        from webapp.operations import catalog
+        operation=next(item for item in catalog()['operations'] if item['id']=='audio.process')
+        f=frozen(False);f['goal']='Deliver a WAV and the objective audio-process report';f['operations']=[operation]
+        task={'id':'process','type':'operation','name':'Process','objective':'Process audio','operation':'audio.process',
+              'inputs':{'source':{'asset':'asset'}},'parameters':{},'acceptance':[{'kind':'media','stage':'final'}]}
+        result=compile_manager({'kind':'COMPLETE','reason':'Deliver audio and report','plan':{'new_tasks':[task]}},f)
+        compiled=result['proposal']['add_tasks'][0]
+        finals={(check['file'],check['source']) for check in compiled['acceptance'] if check['stage']=='final'}
+        self.assertIn(('audio-process-report.json','user'),finals)
+
     def test_unique_equivalent_delivery_task_replaces_the_old_leaf(self):
         old={'id':'old','type':'agent','profile':'editing_implementer','name':'Old','objective':'Old attempt',
              'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
