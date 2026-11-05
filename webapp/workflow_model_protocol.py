@@ -369,6 +369,9 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     fields['plan']={'anyOf':[plan,{'type':'null'}]}
     if frozen.get('scope_confirmation_required'):
         fields['kind']['enum']=['REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED']
+    input_records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
+    if input_records and all((item.get('context') or {}).get('targets') for item in input_records):
+        fields['kind']['enum']=[kind for kind in fields['kind']['enum'] if kind!='NEW_RUN_REQUIRED']
     result=obj(fields,['kind','reason']);result['$defs']=defs
     return result
 
