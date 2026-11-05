@@ -244,6 +244,20 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE task_id=?',(manager['id'],))[0]['status'],'pending')
         self.assertNotEqual(current['status'],'WAITING_USER')
 
+    def test_sealed_failure_keeps_ready_diagnosis_dispatchable(self):
+        self.tick();task=script(retry_policy='never');task['on_failure']='diagnose'
+        self.propose({'proposal_id':'diagnose-failure','base_graph_version':0,'reason':'diagnose a known failure',
+                      'add_tasks':[task],'sealed':True});run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='running',attempts=1 WHERE run_id=? AND id='first'",(run['id'],))
+        current=graph.get(self.store,run['id']);failed=next(t for t in graph.work_items(current) if t['id']=='first')
+        self.orchestrator.task_failure(current,failed,{'error_code':'execution_failed','phase':'local','classification':'execution'})
+        current=graph.get(self.store,run['id']);diagnosis=next(t for t in graph.work_items(current) if t.get('control_kind')=='DIAGNOSE')
+        self.assertEqual((current['status'],current['terminal_reason']),('ACTIVE','failure_diagnosis'))
+        self.assertEqual(diagnosis['status'],'ready')
+        self.orchestrator.advance_graph(current,{t['id'] for t in graph.work_items(current) if t['status']=='succeeded'})
+        current=graph.get(self.store,run['id'])
+        self.assertEqual((current['status'],current['terminal_reason']),('ACTIVE','failure_diagnosis'))
+
     def test_interrupted_nonretryable_task_requires_controller_recovery(self):
         from webapp.task_leases import Coordinator
         self.tick();self.propose({'proposal_id':'one','base_graph_version':0,'reason':'no replay',

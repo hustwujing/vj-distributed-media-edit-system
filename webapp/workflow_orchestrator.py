@@ -413,10 +413,13 @@ class Orchestrator:
             self.queue_plan(graph.get(store,run['id']),{'review_incomplete':review['id'],'task_id':review['subject_task']})
             return
         if not retry:
-            self.set_status(run,'WAITING_USER',code)
-            if not task.get('control_kind') and task['spec'].get('on_failure')=='diagnose' and code not in ('submission_unknown','budget_exhausted','model_token_budget_exhausted','result_unavailable'):
+            diagnose=(not task.get('control_kind') and task['spec'].get('on_failure')=='diagnose'
+                      and code not in ('submission_unknown','budget_exhausted','model_token_budget_exhausted','result_unavailable'))
+            if diagnose:
                 self.open_repair(run,task['id'],'execution_failure',error_code=code)
                 self.queue_review(graph.get(store,run['id']),task['id'],purpose='diagnose')
+                self.set_status(graph.get(store,run['id']),'ACTIVE','failure_diagnosis')
+            else:self.set_status(run,'WAITING_USER',code)
 
     def apply_planner(self,run):
         store=self.store
@@ -537,7 +540,8 @@ class Orchestrator:
         active_planners=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
         business=[t for t in graph.work_items(run) if not t.get('control_kind')]
         if run['sealed'] and any(t['status']=='paused' for t in business):
-            self.set_status(run,'WAITING_USER','sealed_graph_unresolved');return
+            diagnosing=any(t.get('control_kind')=='DIAGNOSE' and t['status'] in ('ready','running','retry_wait') for t in graph.work_items(run))
+            self.set_status(run,'ACTIVE' if diagnosing else 'WAITING_USER','failure_diagnosis' if diagnosing else 'sealed_graph_unresolved');return
         if not run['sealed'] and not active_planners:
             ready=not business or set(run['replan_after'])<=done
             if ready:
