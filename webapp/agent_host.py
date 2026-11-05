@@ -28,6 +28,7 @@ from .image_canvas import bind_context,agent_patch
 from .task_leases import Coordinator, CURRENT, LeaseLost
 from .execution_resources import IdentityPool
 from .execution_runtime import TaskRuntime
+from .sandbox_backends import RuntimeBackends,select_backend
 from .task_lifecycle import TaskLimitReached, administrative
 
 from .agent_context import INSTRUCTIONS
@@ -75,9 +76,20 @@ class AgentHost:
         from .harness_adapters import get as harness_adapter
         self.available_profiles=[p for p in profiles().values() if p.base_url and os.environ.get(p.credential_env) and harness_adapter(p.harness).available()]
         self.identities = IdentityPool()
+        self.runtime_backends = RuntimeBackends(lambda lease:TaskRuntime(lease,self.identities))
         self.coordinator = Coordinator(self.store, self.identities.node,
             os.environ.get('VIDEO_USE_RELEASE', 'local-v1'), self.model if self.available_profiles or self.base_url and self.key else '',
             float(os.environ.get('VIDEO_USE_LEASE_SECONDS', '45')))
+
+    def _runtime(self,lease):
+        binding=getattr(lease,'backend_binding',None)
+        if binding is None:
+            from .scheduling import requirements
+            resources=requirements(self.store,lease.run_id,lease.kind,step_id=lease.step_id)
+            binding=select_backend(resources,
+                local_profile=os.environ.get('VIDEO_USE_LOCAL_RUNTIME_PROFILE','local'))
+            lease.backend_binding=binding
+        return self.runtime_backends.create(lease,binding)
 
     def redact(self, text):
         from .egress_policy import scrub,secrets
@@ -453,7 +465,7 @@ class AgentHost:
             with lease.bind():
                 from .workflow_graph import get as graph_get
                 if graph_get(self.store,lease.run_id):
-                    lease.runtime_factory=lambda:TaskRuntime(lease,self.identities)
+                    lease.runtime_factory=lambda:self._runtime(lease)
                     from .scheduling import requirements
                     if requirements(self.store,lease.run_id,'workflow',step_id=lease.step_id)['gpu']:
                         from .image_sandbox import allocation_for
@@ -473,7 +485,7 @@ class AgentHost:
                 if lease.kind == 'manual':
                     row = self.store.job(lease.run_id)
                     if not row or row['status']=='cancelled':return
-                    lease.runtime_factory=lambda:TaskRuntime(lease,self.identities)
+                    lease.runtime_factory=lambda:self._runtime(lease)
                     from .manual_async import tick as manual_tick
                     if manual_tick(self,lease):return
                     unknown=self.store.query("SELECT id FROM execution_provider_calls WHERE run_id=? AND status='submitting'",(lease.run_id,))
@@ -491,7 +503,7 @@ class AgentHost:
                         if allocation.acquire() is None:
                             allocation.release();defer_resource(lease);return
                         lease.gpu_reservation=allocation
-                    runtime=lease.runtime=TaskRuntime(lease,self.identities)
+                    runtime=lease.runtime=self._runtime(lease)
                     from .manual_executor import run
                     run(self,lease)
                     return
@@ -512,7 +524,7 @@ class AgentHost:
                         agent_store.finish(self.store, lease.run_id, 'paused', row['text'], row['artifacts'],
                             '执行曾中断，已提交成果保留；未自动重放可能产生外部影响的命令。请停止本轮并基于已有成果重新规划。')
                         return
-                lease.runtime_factory = lambda: TaskRuntime(lease, self.identities)
+                lease.runtime_factory = lambda: self._runtime(lease)
                 if lease.kind == 'workflow':
                     from .scheduling import next_step
                     from .operations import for_step

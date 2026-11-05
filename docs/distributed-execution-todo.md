@@ -304,11 +304,13 @@ API / 网关将取消意图写入共享数据库，并保存清理意图
 
 涉及入口：`webapp/agent_host.py`、`webapp/agent_store.py`、`webapp/agent_api.py`、`webapp/static/chat.js`，以及 Redis 配置和部署。
 
-## 13. OpenSandbox/gVisor 混合执行后端（设计已对齐，尚未实现）
+## 13. OpenSandbox/gVisor 混合执行后端（设计已对齐，实现中）
 
 记录日期：2026-11-05。
 
-状态：方案边界已完成讨论和静态探查，尚未修改本系统代码、数据库和部署。当前 Agent 与本地任务仍使用既有 `bubblewrap + 独立 UID + cgroup + seccomp + node watchdog`；本机独立安装的 OpenSandbox/gVisor 仅用于基础设施验证，不代表本系统已接入。以下复用既有租约、授权、检查点、外部调用、用量、验收和清理机制，不建立第二套业务状态机。
+状态：方案边界已完成讨论和静态探查，开发分支已开始提取 Backend 路由和 OpenSandbox Lifecycle 客户端，但尚未修改数据库或部署。当前默认路径仍使用既有 `bubblewrap + 独立 UID + cgroup + seccomp + node watchdog`；OpenSandbox 执行传输、Runtime Daemon、Gateway 和持久化绑定尚未接入，本机独立安装的 OpenSandbox/gVisor 不代表本系统已接入。以下复用既有租约、授权、检查点、外部调用、用量、验收和清理机制，不建立第二套业务状态机。
+
+2026-11-05 首批实现进展：新增进程内不可变 `BackendBinding`、CPU/GPU 路由、无静默回退的 Runtime registry，以及带 Attempt metadata 对账和删除确认的 OpenSandbox create/list/delete 客户端；`AgentHost` 的本地 Runtime 创建已统一经过 registry。单元测试全部使用 mock transport，不连接 OpenSandbox、不创建沙箱、不修改数据库。数据库冻结、Files/Command API、Runtime Daemon、Workspace、Gateway、Watchdog 和部署仍按下列未完成项推进。
 
 ### 13.1 目标、非目标与路由原则
 
