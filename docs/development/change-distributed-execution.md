@@ -8,7 +8,7 @@
 
 当前分布式模式使用 PostgreSQL 保存共享任务与执行记录，使用 S3 兼容对象存储保存加密素材、检查点和成果。各实例的数据目录是本地缓存；Redis 用于可选实时传输，不承担任务归属和正式成果的权威记录。应用仍有 SQLite 兼容路径，不能据此推断多节点可通过共享 SQLite 文件协调。
 
-内置部署是单机多实例，本机 PostgreSQL 和多个执行实例仍会一起受宿主故障影响。跨节点协议和测试不能证明整机容灾。配置以[分布式执行配置](../distributed-execution-configuration.md)为准，实际拓扑和发布过程以[集群操作手册](../cluster-operations.md)为准；[执行隔离与恢复](../execution-isolation-and-recovery.md)提供隔离与恢复机制说明，并单独标识历史实施记录。
+内置部署是单机多实例，本机 PostgreSQL 和多个执行实例仍会一起受宿主故障影响。跨节点协议和测试不能证明整机容灾。配置以[分布式执行配置](../distributed-execution-configuration.md)为准，实际拓扑和发布过程以根目录 [README](../../README.md#本机隔离部署) 及 `deploy/dynamic_cluster.py` 为准；[执行隔离与恢复](../execution-isolation-and-recovery.md)提供隔离与恢复机制说明，并单独标识历史实施记录。
 
 | 变更 | 实现入口 | 阅读重点 |
 | --- | --- | --- |
@@ -21,7 +21,7 @@
 | 外部任务和清理 | [provider_calls.py](../../webapp/provider_calls.py)、[external_cleanup.py](../../webapp/external_cleanup.py) | 提交意图、供应商句柄、查询/取消、独立清理租约 |
 | 检查点与恢复 | [checkpoints.py](../../webapp/checkpoints.py)、[step_checkpoints.py](../../webapp/step_checkpoints.py)、[session_checkpoint.py](../../webapp/session_checkpoint.py) | 项目与步骤快照、修订、会话打包、版本保留 |
 | 对象上传和成果引用 | [artifact_store.py](../../webapp/artifact_store.py)、[artifact_transfer.py](../../webapp/artifact_transfer.py)、[object_encryption.py](../../webapp/object_encryption.py)、[artifacts.py](../../webapp/artifacts.py) | 不可变对象、加密校验、逻辑引用、提交和 GC |
-| 部署与运维 | [cluster.py](../../deploy/cluster.py)、[prepare-executor.sh](../../deploy/prepare-executor.sh)、[executor_admin.py](../../webapp/executor_admin.py) | 运行包、系统权限、服务生命周期、排空和核实 |
+| 部署与运维 | [dynamic_cluster.py](../../deploy/dynamic_cluster.py)、[prepare-executor.sh](../../deploy/prepare-executor.sh)、[executor_admin.py](../../webapp/executor_admin.py) | 运行包、系统权限、服务生命周期、排空和核实 |
 
 按任务选读入口。只有需要改变通用机制时才修改调度或隔离层，operation 特例留在其实现中。
 
@@ -109,8 +109,8 @@
 
 ## 7. 完成标准与部署影响
 
-交付前列明变更涉及的状态和数据库字段、租约/清理语义、检查点格式、运行包指纹、配置、系统权限和服务进程。同步[配置说明](../distributed-execution-configuration.md)及[部署手册](../cluster-operations.md)中的对应行为，避免只改代码而让旧服务缺少回收器或依赖。
+交付前列明变更涉及的状态和数据库字段、租约/清理语义、检查点格式、运行包指纹、配置、系统权限和服务进程。同步[配置说明](../distributed-execution-configuration.md)、根目录 [README](../../README.md#本机隔离部署) 及 `deploy/dynamic_cluster.py` 中的对应行为，避免只改代码而让已部署服务缺少回收器或依赖。
 
 发布按既有冻结源码、验证、备份、排空、更新及健康检查流程执行。重启只运行已部署版本；工作区代码发布需走部署入口。停止期间仍有未清理资源时保留所需 reaper 和数据库，不能将所有进程退出当成清理成功。数据库恢复需明确处理备份之后的数据，不能把代码回退等同于数据库回滚。
 
-`deploy/cluster_smoke.py` 会停止实例并验证接管，只在维护/验收窗口执行。开发测试与生产故障演练分开安排。完成说明应包含定向及全量证据、故障后的实际资源状态、兼容与恢复限制，以及真实存储、供应商、多机环境和部署的未验证边界；文档修改不要求执行上述部署或故障演练。
+当前隔离部署的真机验收使用 `tests/campaign_suite.py`，并按[真机测试与审查](run-live-campaign.md)安排停服、故障注入和证据保留。开发测试与生产故障演练分开安排。完成说明应包含定向及全量证据、故障后的实际资源状态、兼容与恢复限制，以及真实存储、供应商、多机环境和部署的未验证边界；文档修改不要求执行上述部署或故障演练。

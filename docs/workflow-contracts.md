@@ -62,7 +62,7 @@ quality 仅批准效果；external_call 必须有明确 replacement 提案及版
 
 数据库新增表/列均在既有事务内增量创建。存储中的旧 local/image 步骤一次性迁移为 script/operation，之后入口与运行时均只接受新格式，已完成文件不重放。验收 kind 的兼容属于另一维度，仍保留。旧确认方案缺执行意图时，直接模型工具入口拒绝并要求工作流或重新规划；这是权限收紧，不自动推断短任务授权。
 
-运行环境改动需核对 runtime manifest、tool-app、服务账号/ACL、固定入口及独立 reaper。可信服务主机由管理员配置，不能通过模型输入自选。当前集群使用 PostgreSQL 与共享对象存储，备份、冻结源码和发布步骤按[集群操作手册](cluster-operations.md)执行；SQLite 兼容数据的备份不能替代 PostgreSQL 备份。不得以未配置或仅模拟通过的上游能力宣布端到端完成。
+运行环境改动需核对 runtime manifest、tool-app、服务账号/ACL、固定入口及独立 reaper。可信服务主机由管理员配置，不能通过模型输入自选。当前集群使用 PostgreSQL 与共享对象存储，备份、冻结源码和发布步骤按根目录 [README](../README.md#本机隔离部署) 及 `deploy/dynamic_cluster.py` 执行；SQLite 兼容数据的备份不能替代 PostgreSQL 备份。不得以未配置或仅模拟通过的上游能力宣布端到端完成。
 
 ## 跨方案严格复用
 

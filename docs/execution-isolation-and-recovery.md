@@ -1,6 +1,6 @@
 # Execution isolation and restart recovery
 
-Current development rules are in [distributed execution development](development/change-distributed-execution.md), configuration in [distributed execution configuration](distributed-execution-configuration.md), and deployment in [cluster operations](cluster-operations.md). The dated implementation and design sections below are historical context, not proof of current deployment or test results.
+Current development rules are in [distributed execution development](development/change-distributed-execution.md), configuration in [distributed execution configuration](distributed-execution-configuration.md), and deployment in the project [README](../README.md#本机隔离部署) with `deploy/dynamic_cluster.py`. The dated implementation and design sections below are historical context, not proof of current deployment or test results.
 
 ## Deployment boundary
 
@@ -433,8 +433,8 @@ launchers and embedded API workers** before starting the new version. Old code
 does not honor execution leases and cannot safely coexist with the new protocol.
 
 The built-in deployment freezes and verifies source, backs up state, drains and
-stops the old services, then updates and starts the new release as documented in
-[cluster operations](cluster-operations.md). It is not an automatic rolling
+stops the running services, then updates and starts the new release as documented
+in the project [README](../README.md#本机隔离部署). It is not an automatic rolling
 upgrade. API restarts do not own or kill worker task processes.
 
 ## Installation and operations

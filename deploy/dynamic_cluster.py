@@ -16,7 +16,8 @@ import time
 
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO))
-from deploy import cluster as templates
+from deploy import common
+from deploy import systemd_templates
 
 NAMESPACE='dynamic-agent'
 ROOT=REPO/'.cluster'
@@ -42,10 +43,13 @@ OBSERVER=NAMESPACE+'-observer.service'
 SERVICES=APIS+WORKERS+REAPERS+MEDIA+[ORCHESTRATOR,OBSERVER]
 CAPACITY_ENV={'VIDEO_USE_CONCURRENCY':'4','VIDEO_USE_NODE_CONCURRENCY':'4','VIDEO_USE_USER_CONCURRENCY':'8',
               'VIDEO_USE_NODE_CPU_SLOTS':'12','VIDEO_USE_NODE_MEMORY_MB':'49152'}
-run=templates.run
-env_file=templates.env_file
-private_env=templates.private_env
-active=templates.active
+run=common.run
+env_file=common.env_file
+private_env=common.private_env
+
+
+def active(name):return common.active(name,runner=run)
+def parallel_service(action,names):return common.parallel_service(action,names,runner=run)
 
 
 def data(role,node):return ROOT/(role+'-'+node)
@@ -146,35 +150,22 @@ def prepare_database():
     run(prefix,input=f"SELECT 'CREATE ROLE {ORCHESTRATOR_ROLE} LOGIN PASSWORD ''{orchestrator_password}''' WHERE NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='{ORCHESTRATOR_ROLE}')\n\\gexec\n")
 
 
-def use_templates(source):
-    templates.REPO=REPO;templates.ROOT=ROOT;templates.RELEASE=source;templates.CONF=CONF;templates.EXECUTORS=EXECUTORS
-
-
-def unit_text(text):
-    text=(text.replace('video-use',NAMESPACE).replace(NAMESPACE+'-db.service','video-use-db.service')
-            .replace('--root-path /'+NAMESPACE,'--root-path '+ENTRY).replace('/run/vu-media-','/run/da-media-')
-            .replace('RuntimeDirectory=vu-media-','RuntimeDirectory=da-media-')
-            .replace('RuntimeDirectory='+NAMESPACE+'-agent\n','RuntimeDirectory='+NAMESPACE+'-agent-%i\n')
-            .replace('/run/'+NAMESPACE+'-agent ', '/run/'+NAMESPACE+'-agent-%i '))
-    # The database is shared infrastructure. Requires would stop these private
-    # services when main restarts it, without starting them again on recovery.
-    lines=[]
-    for line in text.splitlines():
-        if line.startswith('Requires=') and 'video-use-db.service' in line[9:].split():
-            own=[unit for unit in line[9:].split() if unit!='video-use-db.service']
-            if own:lines.append('Requires='+' '.join(own))
-            lines.append('Wants=video-use-db.service')
-        else:lines.append(line)
-    return '\n'.join(lines)+'\n'
+def template_config(source):
+    return systemd_templates.ServiceConfig(
+        repo=REPO,root=ROOT,release=source,conf=CONF,executors=EXECUTORS,
+        namespace=NAMESPACE,service_user=NAMESPACE,database_service='video-use-db.service',
+        root_path=ENTRY,agent_runtime=NAMESPACE+'-agent-%i',media_runtime_prefix='da-media-',
+        require_database=False,worker_memory_max='28G',worker_cpu_quota='600%',
+        worker_tasks_max=1024,observer_port=OBS_PORT)
 
 
 def install_units(source):
-    use_templates(source)
-    units={NAMESPACE+'-api@.service':unit_text(templates.api_unit()),
-           NAMESPACE+'-executor@.service':unit_text(templates.worker_unit()).replace('MemoryMax=14G','MemoryMax=28G').replace('CPUQuota=300%','CPUQuota=600%').replace('TasksMax=512','TasksMax=1024'),
-           NAMESPACE+'-watchdog@.service':unit_text(templates.reaper_unit()),
-           NAMESPACE+'-media@.service':unit_text(templates.media_unit()),
-           OBSERVER:unit_text(templates.observer_unit()).replace('--root '+str(ROOT/'observability'),'--root '+str(ROOT/'observability')+' --port '+str(OBS_PORT))}
+    config=template_config(source)
+    units={NAMESPACE+'-api@.service':systemd_templates.api_unit(config),
+           NAMESPACE+'-executor@.service':systemd_templates.worker_unit(config),
+           NAMESPACE+'-watchdog@.service':systemd_templates.reaper_unit(config),
+           NAMESPACE+'-media@.service':systemd_templates.media_unit(config),
+           OBSERVER:systemd_templates.observer_unit(config)}
     units[ORCHESTRATOR]=f'''[Unit]
 Description=Dynamic workflow deterministic orchestrator
 After=network.target video-use-db.service
@@ -242,7 +233,7 @@ def freeze():
             dependency.parent.mkdir(parents=True,exist_ok=True)
             run(['cp','-a','--reflink=auto',REPO/'.venv',dependency],timeout=180)
         (target/'.venv').symlink_to(dependency,target_is_directory=True)
-    if templates.digest(target)!=original:raise ValueError('Frozen source differs from working tree')
+    if common.digest(target,runner=run)!=original:raise ValueError('Frozen source differs from working tree')
     return target,original
 
 
@@ -272,7 +263,7 @@ def verify(source,selection=()):
             result=subprocess.run(['node','--test',*map(str,sorted((directory/'tests').glob('*.test.mjs')))],cwd=directory,stdout=stream,stderr=subprocess.STDOUT,timeout=300)
             if result.returncode:raise RuntimeError('Frontend verification failed: '+str(log))
     report=directory/'docs/test-evidence/distributed-suite.json'
-    if json.loads(report.read_text())['source_sha256']!=templates.digest(source):raise ValueError('Verification source mismatch')
+    if json.loads(report.read_text())['source_sha256']!=common.digest(source,runner=run):raise ValueError('Verification source mismatch')
     (source/'docs/test-evidence').mkdir(exist_ok=True,parents=True)
     shutil.copyfile(report,source/'docs/test-evidence/distributed-suite.json')
     return log
@@ -280,7 +271,7 @@ def verify(source,selection=()):
 
 def gate(source):
     report=json.loads((source/'docs/test-evidence/distributed-suite.json').read_text())
-    if not report['passed'] or report['selection']!=['all Python tests'] or report['source_sha256']!=templates.digest(source):
+    if not report['passed'] or report['selection']!=['all Python tests'] or report['source_sha256']!=common.digest(source,runner=run):
         raise ValueError('Full verification for this exact release is required')
     validate_isolation(environment(source=source))
 
@@ -309,11 +300,10 @@ def initialize(source):
 
 
 def nginx_config(maintenance=False):
-    text=templates.nginx_config(maintenance).replace('video_use_cluster','dynamic_agent_cluster')
-    for old,new in ((18765,PROXY_PORT),(18766,PORTS['a']),(18767,PORTS['b'])):text=text.replace(str(old),str(new))
     # A bounded API queue returning 503 is alive. Treating that response as
     # peer failure ejects both replicas during a burst and turns overload into 502.
-    return text.replace('error timeout http_502 http_503 http_504;', 'error timeout http_502 http_504;')
+    return systemd_templates.nginx_config(namespace=NAMESPACE,proxy_port=PROXY_PORT,
+        api_ports=PORTS.values(),maintenance=maintenance,retry_503=False)
 
 
 def proxy(maintenance=False):
@@ -356,12 +346,12 @@ def stop():
     output=run(['systemctl','list-units','--all','--plain','--no-legend',NAMESPACE+'-qa-orchestrator-*.service'],check=False).stdout
     import re
     extra=[line.split()[0] for line in output.splitlines() if line.split() and re.fullmatch(NAMESPACE+r'-qa-orchestrator-[a-f0-9]{12}\.service',line.split()[0])]
-    templates.parallel_service('stop',[s for s in APIS+WORKERS+[ORCHESTRATOR]+extra if active(s)])
+    parallel_service('stop',[s for s in APIS+WORKERS+[ORCHESTRATOR]+extra if active(s)])
     for _ in range(60):
         if not any(list((registry(n)/'records').glob('*.json')) for n in PORTS):break
         time.sleep(1)
     else:raise RuntimeError('Cleanup remains pending; independent watchdogs retained')
-    templates.parallel_service('stop',[s for s in REAPERS+MEDIA if active(s)])
+    parallel_service('stop',[s for s in REAPERS+MEDIA if active(s)])
 
 
 def health():
@@ -377,8 +367,8 @@ def health():
 
 
 def start():
-    templates.parallel_service('start',REAPERS+MEDIA)
-    templates.parallel_service('start',APIS+WORKERS+[ORCHESTRATOR,OBSERVER])
+    parallel_service('start',REAPERS+MEDIA)
+    parallel_service('start',APIS+WORKERS+[ORCHESTRATOR,OBSERVER])
     health();proxy();(ROOT/'observability/maintenance').unlink(missing_ok=True)
 
 

@@ -66,19 +66,19 @@ API、执行器、节点 reaper 和外部清理进程使用同一个 PostgreSQL 
 
 ```dotenv
 VIDEO_USE_DISTRIBUTED=1
-VIDEO_USE_DATABASE_URL=postgresql://video_use:REPLACE_PASSWORD@db.example/video_use
+VIDEO_USE_DATABASE_URL=postgresql://distributed_agent_system:REPLACE_PASSWORD@db.example/distributed_agent_system
 VIDEO_USE_OBJECT_ENDPOINT=https://objects.example
-VIDEO_USE_OBJECT_BUCKET=video-use
-VIDEO_USE_OBJECT_PREFIX=video-use
+VIDEO_USE_OBJECT_BUCKET=shared-artifacts
+VIDEO_USE_OBJECT_PREFIX=distributed-agent-system
 VIDEO_USE_OBJECT_REQUIRE_ENCRYPTION=1
 VIDEO_USE_OBJECT_ENCRYPTION_KEY=REPLACE_WITH_BASE64_ENCODED_32_BYTE_KEY
 AWS_ACCESS_KEY_ID=REPLACE_ACCESS_KEY
 AWS_SECRET_ACCESS_KEY=REPLACE_SECRET_KEY
 AWS_DEFAULT_REGION=us-east-1
 VIDEO_USE_SESSION_SECRET=REPLACE_WITH_THE_SAME_64_HEX_CHARACTERS_ON_ALL_API_REPLICAS
-VIDEO_USE_DATA_DIR=/var/lib/video-use-data
-VIDEO_USE_EXECUTOR_ROOT=/var/lib/video-use-executor
-VIDEO_USE_RUNTIME_BUILD=/opt/video-use/runtime/build
+VIDEO_USE_DATA_DIR=/var/lib/distributed-agent-system/data
+VIDEO_USE_EXECUTOR_ROOT=/var/lib/distributed-agent-system/executor
+VIDEO_USE_RUNTIME_BUILD=/opt/distributed-agent-system/runtime/build
 VIDEO_USE_CANCEL_POLL_SECONDS=0.5
 VIDEO_USE_WORKSPACE_STORAGE=tmpfs
 ```

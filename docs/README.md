@@ -16,12 +16,11 @@
 
 ## 部署与排障
 
-本分支先按[README 的独立部署入口](../README.md)和 `deploy/dynamic_cluster.py` 操作；下表旧集群操作手册描述 main，只用于理解复用机制，不用于启停本实例。
+本分支按[README 的独立部署入口](../README.md)和 `deploy/dynamic_cluster.py` 操作。
 
 | 文档 | 内容 |
 | --- | --- |
 | [分布式执行配置](distributed-execution-configuration.md) | 共享数据库、加密对象存储、会话密钥和节点参数 |
-| [集群操作手册](cluster-operations.md) | 单机多实例拓扑、发布、启停、备份与版本检查 |
 | [执行隔离与恢复](execution-isolation-and-recovery.md) | 运行时、任务身份、资源限额、回收器和恢复边界 |
 | [可观测性操作手册](observability-operations.md) | 任务诊断、日志、指标、告警及留存 |
 | [自然语言任务控制](natural-language-controls.md) | 查询、暂停、继续和取消的分类及权限边界 |

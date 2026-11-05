@@ -1,6 +1,5 @@
 """Single-host, independently rooted distributed installation. Never deletes data."""
 import argparse
-import concurrent.futures
 import fcntl
 import hashlib
 import json
@@ -8,7 +7,6 @@ import os
 from pathlib import Path
 import pwd
 import secrets
-import shlex
 import shutil
 import sqlite3
 import subprocess
@@ -17,6 +15,8 @@ import time
 
 REPO=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(REPO))
+from deploy import common
+from deploy import systemd_templates
 RELEASE=REPO
 ROOT=REPO/'.cluster'
 EXECUTORS=REPO.parent/'vu-exec'
@@ -37,30 +37,15 @@ PROXY=Path('/etc/nginx/conf.d/00-video-use-cluster.conf')
 
 
 def run(args,*,env=None,input=None,check=True,timeout=120,cwd=None):
-    result=subprocess.run([str(x) for x in args],env=env,input=input,text=True,capture_output=True,timeout=timeout,cwd=cwd)
-    if check and result.returncode:
-        # Private command input/environment can contain credentials. Never print it.
-        raise RuntimeError(f'{Path(str(args[0])).name} failed (exit {result.returncode}); inspect service logs')
-    return result
+    return common.run(args,env=env,input=input,check=check,timeout=timeout,cwd=cwd)
 
 
 def env_file(path):
-    values={}
-    for line in Path(path).read_text().splitlines():
-        if not line.strip() or line.lstrip().startswith('#'):continue
-        key,value=line.split('=',1);parts=shlex.split(value)
-        if len(parts)>1:raise ValueError('Invalid environment entry: '+key)
-        values[key]=parts[0] if parts else ''
-    return values
+    return common.env_file(path)
 
 
 def private_env(path,values):
-    path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
-    temporary=path.with_suffix(path.suffix+'.new')
-    fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_TRUNC,0o600)
-    with os.fdopen(fd,'w') as stream:
-        for key,value in sorted(values.items()):stream.write(key+'='+shlex.quote(str(value))+'\n')
-    temporary.chmod(0o600);temporary.replace(path)
+    return common.private_env(path,values)
 
 
 def environment(node='a'):
@@ -78,101 +63,16 @@ def registry(node):return EXECUTORS/node
 def data(role,node):return ROOT/(role+'-'+node)
 
 
-def unit_header(description):
-    return f'''[Unit]
-Description={description}
-After=network.target video-use-db.service
-Requires=video-use-db.service
-
-[Service]
-WorkingDirectory={RELEASE}
-EnvironmentFile={REPO}/.env
-EnvironmentFile={REPO}/.agent.env
-EnvironmentFile={REPO}/.storage.env
-EnvironmentFile={REPO}/.distributed.env
-Environment=PYTHONDONTWRITEBYTECODE=1
-EnvironmentFile={CONF}/observation.env
-Environment=VIDEO_USE_RELEASE={RELEASE.name}
-Environment=VIDEO_USE_INSTANCE=%n
-LogNamespace=video-use
-Environment=PYTHONUNBUFFERED=1
-Restart=on-failure
-RestartSec=5
-KillMode=control-group
-ProtectHome=true
-ProtectSystem=strict
-ProtectKernelTunables=true
-ProtectKernelModules=true
-PrivateTmp=true
-LimitNOFILE=4096
-'''
+def template_config():
+    return systemd_templates.ServiceConfig(
+        repo=REPO,root=ROOT,release=RELEASE,conf=CONF,executors=EXECUTORS,
+        namespace='video-use',service_user='video-use')
 
 
-def api_unit():
-    header=unit_header('Video Use distributed API %i').replace('Requires=video-use-db.service','Requires=video-use-db.service video-use-media@%i.service').replace('After=network.target video-use-db.service','After=network.target video-use-db.service video-use-media@%i.service')
-    return header+f'''User=video-use
-Group=video-use
-EnvironmentFile={CONF}/api-%i.env
-ExecStart={RELEASE}/.venv/bin/python -m uvicorn webapp.app:app --host 127.0.0.1 --port ${{VIDEO_USE_API_PORT}} --root-path /video-use --proxy-headers --forwarded-allow-ips 127.0.0.1
-ReadWritePaths={ROOT}/api-%i
-NoNewPrivileges=true
-CapabilityBoundingSet=
-RestrictNamespaces=user mnt pid net ipc uts cgroup
-TasksMax=256
-MemoryMax=2G
-CPUQuota=200%
-TimeoutStopSec=30
-UMask=0077
-
-[Install]
-WantedBy=multi-user.target
-'''
-
-
-def worker_unit():
-    header=unit_header('Video Use distributed executor %i').replace('Requires=video-use-db.service','Requires=video-use-db.service video-use-watchdog@%i.service').replace('After=network.target video-use-db.service','After=network.target video-use-db.service video-use-watchdog@%i.service')
-    return header+f'''User=root
-Group=video-use
-EnvironmentFile={CONF}/node-%i.env
-ExecStart={RELEASE}/.venv/bin/python -m webapp.agent_host
-RuntimeDirectory=video-use-agent
-RuntimeDirectoryMode=0700
-RuntimeDirectoryPreserve=yes
-ReadWritePaths={ROOT}/node-%i {registry('%i')} /run/video-use-agent /sys/fs/cgroup /data/wujing03/.media-gpu-leases
-NoNewPrivileges=false
-ProtectControlGroups=false
-RestrictSUIDSGID=true
-RestrictNamespaces=mnt pid net ipc uts cgroup
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_KILL CAP_NET_ADMIN
-TasksMax=512
-MemoryMax=14G
-CPUQuota=300%
-TimeoutStopSec=90
-UMask=0007
-
-[Install]
-WantedBy=multi-user.target
-'''
-
-
-def reaper_unit():
-    return unit_header('Video Use node watchdog %i')+f'''User=root
-EnvironmentFile={CONF}/node-%i.env
-ExecStart={RELEASE}/.venv/bin/python -m webapp.execution_reaper
-RuntimeDirectory=video-use-agent
-RuntimeDirectoryMode=0700
-RuntimeDirectoryPreserve=yes
-ReadWritePaths={ROOT}/node-%i {registry('%i')} /run/video-use-agent /sys/fs/cgroup
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SYS_PTRACE CAP_KILL CAP_DAC_OVERRIDE CAP_FOWNER CAP_CHOWN CAP_SETUID CAP_SETGID CAP_SETPCAP
-TasksMax=256
-MemoryMax=768M
-CPUQuota=100%
-TimeoutStopSec=30
-UMask=0077
-
-[Install]
-WantedBy=multi-user.target
-'''
+def unit_header(description):return systemd_templates.unit_header(template_config(),description)
+def api_unit():return systemd_templates.api_unit(template_config())
+def worker_unit():return systemd_templates.worker_unit(template_config())
+def reaper_unit():return systemd_templates.reaper_unit(template_config())
 
 
 def postgres_unit():
@@ -205,84 +105,19 @@ WantedBy=multi-user.target
 
 
 def media_unit():
-    return f'''[Unit]
-Description=Video Use fixed media decoder %i
-After=local-fs.target
-
-[Service]
-User=root
-Group=video-use
-WorkingDirectory={RELEASE}
-EnvironmentFile={CONF}/api-%i.env
-Environment=VIDEO_USE_TELEMETRY_ENABLED=1
-Environment=VIDEO_USE_RELEASE={RELEASE.name}
-Environment=VIDEO_USE_INSTANCE=%n
-LogNamespace=video-use
-Environment=PYTHONDONTWRITEBYTECODE=1
-EnvironmentFile={CONF}/media-%i.env
-RuntimeDirectory=vu-media-%i
-RuntimeDirectoryMode=0750
-ExecStart={RELEASE}/.venv/bin/python -m webapp.media_service
-Restart=on-failure
-RestartSec=2
-KillMode=control-group
-TimeoutStopSec=50
-ProtectSystem=strict
-ProtectHome=true
-PrivateTmp=true
-ReadWritePaths=/run/vu-media-%i {ROOT}/media-%i
-ProtectKernelTunables=true
-ProtectKernelModules=true
-CapabilityBoundingSet=CAP_SYS_ADMIN CAP_SYS_CHROOT CAP_SETUID CAP_SETGID CAP_SETPCAP CAP_CHOWN CAP_FOWNER CAP_DAC_OVERRIDE CAP_NET_ADMIN
-MemoryMax=3G
-CPUQuota=200%
-TasksMax=256
-UMask=0077
-
-[Install]
-WantedBy=multi-user.target
-'''
+    return systemd_templates.media_unit(template_config())
 
 
 def nginx_config(maintenance=False):
-    if maintenance:return 'server { listen 127.0.0.1:18765; location / { default_type application/json; return 503 \'{"error":"Video Use is stopped for maintenance"}\'; } }\n'
-    return '''upstream video_use_cluster {
-    least_conn;
-    server 127.0.0.1:18766 max_fails=1 fail_timeout=5s;
-    server 127.0.0.1:18767 max_fails=1 fail_timeout=5s;
-    keepalive 16;
-}
-server {
-    listen 127.0.0.1:18765;
-    location / {
-        proxy_pass http://video_use_cluster;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Connection "";
-        proxy_next_upstream error timeout http_502 http_503 http_504;
-        proxy_connect_timeout 3s;
-        proxy_read_timeout 600s;
-        proxy_send_timeout 600s;
-        client_max_body_size 2048m;
-        proxy_request_buffering off;
-        proxy_buffering off;
-        add_header X-Video-Use-API $upstream_addr always;
-        add_header X-Accel-Buffering no always;
-    }
-}
-'''
+    return systemd_templates.nginx_config(namespace='video-use',proxy_port=18765,
+        api_ports=PORTS.values(),maintenance=maintenance)
 
 
-def active(name):return run(['systemctl','is-active','--quiet',name],check=False).returncode==0
+def active(name):return common.active(name,runner=run)
 
 
 def parallel_service(action,names):
-    with concurrent.futures.ThreadPoolExecutor(max_workers=len(names) or 1) as pool:
-        futures=[pool.submit(run,['systemctl',action,name],timeout=150) for name in names]
-        for future in futures:future.result()
+    return common.parallel_service(action,names,runner=run)
 
 
 def proxy(maintenance=False):
@@ -296,8 +131,7 @@ def proxy(maintenance=False):
 
 
 def digest(root):
-    result=run([sys.executable,'-c','from tests.run_workflow_suite import source_digest; print(source_digest())'],env={**os.environ,'PYTHONPATH':str(root)},timeout=30) if root==Path.cwd() else subprocess.run([sys.executable,'-c','from tests.run_workflow_suite import source_digest; print(source_digest())'],cwd=root,env={**os.environ,'PYTHONPATH':str(root)},capture_output=True,text=True,check=True)
-    return result.stdout.strip()
+    return common.digest(root,runner=run)
 
 
 def gate(source=None):
@@ -383,37 +217,7 @@ def backup():
 
 
 def observer_unit():
-    return f'''[Unit]
-Description=Video Use observations and diagnostics
-After=network.target systemd-journald@video-use.service
-
-[Service]
-WorkingDirectory={RELEASE}
-EnvironmentFile={REPO}/.env
-EnvironmentFile={REPO}/.agent.env
-EnvironmentFile={REPO}/.storage.env
-EnvironmentFile={REPO}/.distributed.env
-EnvironmentFile={CONF}/node-a.env
-EnvironmentFile={CONF}/observation.env
-Environment=VIDEO_USE_SERVICE=observer
-Environment=VIDEO_USE_RELEASE={RELEASE.name}
-ExecStart={RELEASE}/.venv/bin/python -m webapp.observation_collector --root {ROOT}/observability
-Restart=on-failure
-RestartSec=3
-ProtectSystem=strict
-ProtectHome=true
-PrivateTmp=true
-ReadWritePaths={ROOT}/observability
-NoNewPrivileges=true
-MemoryMax=512M
-CPUQuota=100%
-TasksMax=64
-UMask=0077
-LogNamespace=video-use
-
-[Install]
-WantedBy=multi-user.target
-'''
+    return systemd_templates.observer_unit(template_config())
 
 
 def configure():

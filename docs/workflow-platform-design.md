@@ -1,6 +1,6 @@
 # 统一工作流执行平台：技术设计与实施计划
 
-本文保留重构时的设计、计划和验收范围。下文中的测试数量、旧部署方式及当时任务授权均为历史记录，不是当前开发规则或部署授权；当前开发使用[工作流开发说明](development/change-workflow.md)，字段与并发约束参考[工作流契约](workflow-contracts.md)，部署使用[集群操作手册](cluster-operations.md)。
+本文保留重构时的设计、计划和验收范围。下文中的测试数量、旧部署方式及当时任务授权均为历史记录，不是当前开发规则或部署授权；当前开发使用[工作流开发说明](development/change-workflow.md)，字段与并发约束参考[工作流契约](workflow-contracts.md)，部署使用根目录 [README](../README.md#本机隔离部署) 和 `deploy/dynamic_cluster.py`。
 
 新增要求（2026-10-31）：当时记录 P0 [可观测性专项](observability-design.md)及 [24 项专项检查](observability-checklist.md)已单独完成，证据保存在原验证环境的 `observability-implementation-report.md`（不随源码发布）；下文保留原范围记录。
 

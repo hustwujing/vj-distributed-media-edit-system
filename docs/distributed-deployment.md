@@ -1,6 +1,6 @@
 # 分布式运行与验收配置
 
-> 本文保留分布式重构阶段的配置与验收记录。下文“未部署”等描述属于当时状态；当前安装、发布和维护请使用 [分布式执行配置](distributed-execution-configuration.md) 与 [集群操作手册](cluster-operations.md)。
+> 本文保留分布式重构阶段的配置与验收记录。下文“未部署”等描述属于当时状态；当前安装、发布和维护请使用根目录 [README](../README.md#本机隔离部署)、[分布式执行配置](distributed-execution-configuration.md) 与 `deploy/dynamic_cluster.py`。
 
 本次完成代码与测试，不安装或重启生产分布式服务。每台机器独立运行 API、执行器或 reaper；共享 PostgreSQL 和对象存储，本地目录仅作缓存/执行暂存。测试中的节点是同机独立目录与进程，不等于已经通过真实跨物理机网络分区验收。
 

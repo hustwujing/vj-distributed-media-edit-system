@@ -6,16 +6,37 @@ from webapp.deployment_identity import namespace,socket_root,cgroup_member
 class DeploymentIdentityTests(unittest.TestCase):
     def test_shared_database_restart_does_not_stop_private_services(self):
         from deploy import dynamic_cluster as cluster
-        for factory,owned in [(cluster.templates.api_unit,'dynamic-agent-media@%i.service'),
-                              (cluster.templates.worker_unit,'dynamic-agent-watchdog@%i.service'),
-                              (cluster.templates.reaper_unit,None)]:
+        from deploy import systemd_templates
+        config=cluster.template_config(cluster.REPO)
+        for factory,owned in [(systemd_templates.api_unit,'dynamic-agent-media@%i.service'),
+                              (systemd_templates.worker_unit,'dynamic-agent-watchdog@%i.service'),
+                              (systemd_templates.reaper_unit,None)]:
             with self.subTest(unit=factory.__name__):
-                text=cluster.unit_text(factory())
+                text=factory(config)
                 properties={line.split('=',1)[0]:line.split('=',1)[1].split() for line in text.splitlines() if '=' in line}
                 self.assertNotIn('video-use-db.service',properties.get('Requires',[]))
                 self.assertIn('video-use-db.service',properties['Wants'])
                 self.assertIn('video-use-db.service',properties['After'])
                 if owned:self.assertIn(owned,properties['Requires'])
+    def test_dynamic_units_use_explicit_private_deployment_values(self):
+        from deploy import dynamic_cluster as cluster
+        from deploy import systemd_templates
+        config=cluster.template_config(cluster.REPO)
+        units=[systemd_templates.api_unit(config),systemd_templates.worker_unit(config),
+               systemd_templates.reaper_unit(config),systemd_templates.media_unit(config),
+               systemd_templates.observer_unit(config)]
+        for unit in units:
+            self.assertIn('LogNamespace=dynamic-agent',unit)
+            self.assertNotIn('/etc/video-use-cluster',unit)
+            self.assertNotIn('/run/video-use-agent',unit)
+        self.assertIn('--root-path /distributed-agent-system',units[0])
+        self.assertIn('RuntimeDirectory=dynamic-agent-agent-%i',units[1])
+        self.assertIn('RuntimeDirectory=dynamic-agent-agent-%i',units[2])
+        self.assertIn('RuntimeDirectory=da-media-%i',units[3])
+        self.assertIn('--port 19768',units[4])
+        proxy=cluster.nginx_config()
+        self.assertIn('127.0.0.1:19766',proxy);self.assertIn('127.0.0.1:19767',proxy)
+        self.assertNotIn('http_503',proxy)
     def test_private_namespace_cannot_reap_main_cgroups(self):
         with patch.dict('os.environ',{'VIDEO_USE_DEPLOYMENT':'distributed-agent'}):
             self.assertEqual(str(socket_root()),'/run/distributed-agent-agent')
