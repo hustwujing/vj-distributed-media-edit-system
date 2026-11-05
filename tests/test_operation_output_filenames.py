@@ -14,6 +14,10 @@ class OperationOutputFilenameTests(unittest.TestCase):
             'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'ocr.json'}]},
             'quality':{'output_roles':{'report':'edit/ocr.json','preview':'edit/ocr-preview.png'}}}
         self.assertEqual(delivery_candidate_refs(requested_report),{'edit/ocr.json'})
+        audio_report={'accepted_result':['edit/final.wav','edit/audio-process-report.json'],
+            'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'audio-process-report.json'}]},
+            'quality':{'output_roles':{'audio':'edit/final.wav','report':'edit/audio-process-report.json'}}}
+        self.assertEqual(delivery_candidate_refs(audio_report),{'edit/final.wav','edit/audio-process-report.json'})
         requested={'accepted_result':['edit/ocr.json','edit/ocr-preview.png'],
                    'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'ocr.json'}]},
                    'quality':{'output_roles':{'report':'edit/ocr.json','preview':'edit/ocr-preview.png'}}}

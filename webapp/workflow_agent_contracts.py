@@ -16,7 +16,9 @@ def delivery_candidate_refs(task):
         requested={check.get('file') for check in task['spec'].get('acceptance',[])
                    if check.get('source')=='user' and check.get('stage')=='final' and check.get('file') not in (None,'*')}
         exact={path for path in roles.values() if path in accepted and (path in requested or path.rsplit('/',1)[-1] in requested)}
-        if exact:return exact
+        if exact:
+            auxiliary={'report','plan','manifest','evidence','preview'}
+            return exact|{path for role,path in roles.items() if role not in auxiliary and path in accepted}
     auxiliary={'report','plan','manifest','evidence'}
     primary={path for role,path in roles.items() if role not in auxiliary and path in accepted}
     return primary or {path for path in roles.values() if path in accepted}
