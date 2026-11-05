@@ -104,6 +104,8 @@ class ModelCommandTests(unittest.TestCase):
         result=compile_manager(command,f)['proposal']['add_tasks'][0]
         user=[check for check in result['acceptance'] if check['source']=='user'][0]
         self.assertEqual(user['file'],'foreground.png')
+        technical={check['file'] for check in result['acceptance'] if check['source']=='technical'}
+        self.assertEqual(technical,{'foreground.png','mask.png'})
 
     def test_host_derives_input_dependencies_and_waits_for_batch_leaves(self):
         f=frozen(False);schema=manager_schema(f)

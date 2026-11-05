@@ -73,6 +73,8 @@ REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_s
 
 def operation_acceptance(contract,parameters):
     roles=list(contract.get('outputs',[]));alternatives=contract.get('output_contract',{}).get('alternatives',[])
+    filenames=contract.get('output_contract',{}).get('filenames')
+    fixed=dict(zip(roles,filenames)) if filenames and len(filenames)==len(roles) else {}
     if alternatives:
         selected=('audio' if contract['id']=='media.edit' and parameters.get('edit_plan',{}).get('output',{}).get('audio_only')
                   else 'video' if contract['id']=='media.edit' else alternatives[0])
@@ -84,7 +86,7 @@ def operation_acceptance(contract,parameters):
         elif role in ('report','plan','transcript'):kind='json'
         elif role=='subtitle':kind='subtitle'
         else:kind='file'
-        check={'kind':kind,'source':'technical'}
+        check={'kind':kind,'source':'technical','file':fixed.get(role,'*')}
         if kind=='media':check['decode']=True;check['video']=role=='video'
         if check not in result:result.append(check)
     return result or [{'kind':'file','source':'technical'}]
@@ -293,6 +295,9 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
+                if raw.get('id') in replacement_ids:
+                    if not raw.get('basic_reason'):raw['basic_reason']='Server-owned registered operation integrity checks'
+                    added.append(raw);continue
                 business=[];inherited_technical=[]
                 for check in raw.get('acceptance',[]):
                     if check.get('source')=='technical':
@@ -308,8 +313,8 @@ def compile_manager(command,frozen):
                     target='*' if raw.get('id') in replacement_ids else next(
                         (role for role in preferred if role in roles),roles[0] if len(roles)==1 else '*')
                     filenames=(binding.get('output_contract') or {}).get('filenames')
-                    if target!='*' and filenames and len(filenames)==len(roles):
-                        target=dict(zip(roles,filenames)).get(target,target)
+                    if target!='*':
+                        target=dict(zip(roles,filenames)).get(target,'*') if filenames and len(filenames)==len(roles) else '*'
                     normalized={**check,'file':target,'source':'user'}
                     if normalized not in business:business.append(normalized)
                 from .quality_policy import Acceptance
