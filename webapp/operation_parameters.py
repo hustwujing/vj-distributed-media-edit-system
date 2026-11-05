@@ -258,7 +258,7 @@ class AudioProcess(Parameters):
 
 
 class EvidenceParameters(Parameters):
-    mode:Literal['auto','image','video_window','audio']='auto'
+    mode:Literal['auto','image','video_window','audio','audio_envelope','audio_compare']='auto'
     offset:float=Field(default=0,ge=0,le=86400)
     window_seconds:float=Field(default=8,gt=0,le=8)
     crop:list[int]|None=Field(default=None,min_length=4,max_length=4)

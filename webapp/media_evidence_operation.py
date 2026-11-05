@@ -59,10 +59,22 @@ def collect(source,kind,output,parameters,*,reference=None):
         report.update(coverage='contact_sheet',duration_seconds=duration,frame_timestamps=times,
                       source_frame_interval_seconds=1/fps if fps>0 else None)
         report['structure']=structure_metrics(source,offset,span,rate,count,crop,reference)
-    elif mode=='audio':
+    elif mode in ('audio','audio_envelope','audio_compare'):
         if kind not in ('audio','video'):raise ValueError('Audio evidence requires an audio stream')
         from .media_evidence import audio_evidence
         report['measurements']=audio_evidence(source)
+        if mode=='audio_envelope':
+            probe=json.loads(subprocess.run(['ffprobe','-v','error','-show_format','-of','json',str(source)],
+                capture_output=True,timeout=30,check=True).stdout)
+            duration=float(probe['format']['duration']);offset=params['offset']
+            if not 0<=offset<duration:raise ValueError('Audio envelope outside stream')
+            span=min(params['window_seconds'],duration-offset);segments=min(8,max(2,math.ceil(span/.25)));width=span/segments
+            report['envelope']=[audio_evidence(source,sample_seconds=width,offset_seconds=offset+index*width)
+                                for index in range(segments)]
+            report['envelope_interpretation']='time_local_signal_levels_not_a_semantic_fade_verdict'
+        if mode=='audio_compare':
+            if not reference:raise ValueError('Audio comparison requires a reference input')
+            report['comparison']=audio_comparison(source,reference,params['offset'],params['window_seconds'])
         subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-threads','1','-filter_threads','1','-ss',str(params['offset']),
             '-t',str(params['window_seconds']),'-i',str(source),'-filter_complex','showwavespic=s=1024x256:colors=white',
             '-frames:v','1','-threads','1',str(preview)],capture_output=True,timeout=30,check=True)
@@ -74,6 +86,25 @@ def collect(source,kind,output,parameters,*,reference=None):
     with preview.open('rb') as stream:report['preview_sha256']=hashlib.file_digest(stream,'sha256').hexdigest()
     (output/'evidence-report.json').write_text(json.dumps(report,ensure_ascii=False,sort_keys=True,allow_nan=False))
     return ['evidence-report.json','preview.jpg']
+
+
+def audio_comparison(source,reference,offset,window_seconds):
+    """Bounded signal similarity evidence; it is not a source-separation verdict."""
+    import numpy as np
+    def decode(path):
+        result=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-ss',str(offset),'-t',str(window_seconds),
+            '-i',str(path),'-map','0:a:0','-ac','1','-ar','8000','-f','f32le','pipe:1'],capture_output=True,timeout=30,check=True)
+        if not result.stdout or len(result.stdout)>8*8000*4:raise ValueError('Audio comparison sample limit')
+        return np.frombuffer(result.stdout,dtype='<f4').astype(np.float64)
+    left=decode(source);right=decode(reference);count=min(len(left),len(right));left=left[:count];right=right[:count]
+    if count<800:raise ValueError('Audio comparison window too short')
+    left-=left.mean();right-=right.mean();left_rms=float(np.sqrt(np.mean(left*left)));right_rms=float(np.sqrt(np.mean(right*right)))
+    denominator=float(np.linalg.norm(left)*np.linalg.norm(right))
+    return {'sample_rate':8000,'samples':count,'offset_seconds':offset,'window_seconds':count/8000,
+            'normalized_correlation':float(np.dot(left,right)/denominator) if denominator else None,
+            'source_rms':left_rms,'reference_rms':right_rms,
+            'rms_ratio_db':20*math.log10(left_rms/right_rms) if left_rms>0 and right_rms>0 else None,
+            'interpretation':'bounded_signal_similarity_not_source_separation_or_identity'}
 
 
 def structure_metrics(source,offset,span,rate,count,crop,reference):

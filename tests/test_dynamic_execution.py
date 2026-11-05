@@ -19,9 +19,11 @@ class DynamicExecutionTests(unittest.TestCase):
         from webapp.task_leases import TaskQuotaReached
         from webapp.workflow_executor import quota_error_code
         review={'control_kind':'REVIEW'}
+        planner={'control_kind':'PLAN'}
         contract=TaskQuotaReached('finalize exhausted',category='agent_finalize',scope='turn',used=2,limit=2)
         tokens=TaskQuotaReached('tokens exhausted',category='model_tokens',scope='workflow',used=100,limit=100)
         self.assertEqual(quota_error_code(review,contract),'review_contract_exhausted')
+        self.assertEqual(quota_error_code(planner,contract),'planning_contract_exhausted')
         self.assertEqual(quota_error_code(review,tokens),'model_token_budget_exhausted')
         self.assertEqual(quota_error_code({},contract),'budget_exhausted')
 

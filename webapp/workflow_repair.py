@@ -21,6 +21,8 @@ def resolve(error_code,phase='local',classification='') -> Resolution:
         return Resolution('user_decision','The frozen workflow model-token budget is exhausted')
     if error_code=='review_contract_exhausted':
         return Resolution('user_decision','The Reviewer exhausted its bounded contract-correction attempts')
+    if error_code=='planning_contract_exhausted':
+        return Resolution('user_decision','The Manager exhausted its bounded contract-correction attempts')
     if error_code=='budget_exhausted':
         return Resolution('user_decision','The frozen workflow operation budget is exhausted')
     if error_code in ('poll_failed','collect_failed'):

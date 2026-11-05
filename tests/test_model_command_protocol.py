@@ -21,6 +21,18 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_inconclusive_review_recommends_evidence_before_rerender(self):
+        task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render video',
+              'outputs':['final.mp4'],'output_roles':{'video':'final.mp4'},'acceptance':[{'kind':'media'}],
+              'basic_reason':'render','delivery_stage':True}
+        f=frozen(task);f['tasks'][0].update(status='succeeded',candidate_result=['final.mp4'],
+            quality={'technical_valid':True,'passed':True})
+        f['review_feedback']=[{'subject_task':'render','decision':{'verdict':'inconclusive',
+            'feedback':'Need RMS evidence for the final audio fade and music mix.'}}]
+        option=next(item for item in repair_options(f) if item['action']=='collect_evidence_then_review_again')
+        self.assertEqual(option['task_id'],'render')
+        self.assertEqual(option['suggested_modes'],['audio_envelope','audio_compare'])
+
     def test_changes_preserve_frozen_contract_and_bind_original_request(self):
         f=frozen();command={'kind':'COMPLETE','reason':'Repair script','plan':{'changes':[{'task_id':'render','set':{'argv':['python','-c','print(1)']}}]}}
         schema=manager_schema(f);wire=transform(command,schema,encode=True);result=compile_manager(transform(wire,schema),f)
