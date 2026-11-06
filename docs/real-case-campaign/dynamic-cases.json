@@ -1785,6 +1785,7 @@
         "external_cleanup"
       ],
       "dynamic_hook": null,
+      "manual_review": "video",
       "review_decision": "保留业务目标，修改入口和协议断言",
       "review_reason": "原始素材、尺寸/时长/内容验收不变；改用授权包络、动态图版本和封口交付；每个 case 增加内部状态审计。"
     },

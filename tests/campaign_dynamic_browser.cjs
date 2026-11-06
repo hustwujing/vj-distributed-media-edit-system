@@ -157,7 +157,8 @@ async function runCase(browser,spec){
   assert.ok(task.quality.technical_valid,'Technical failure cannot be approved');
   if(forApproval){assert.ok(task.spec.acceptance.some(rule=>rule.kind==='review'),'Only a declared user Review can be approved');
    assert.ok(!task.quality.requires_agent||task.quality.agent_review_passed,'Agent refusal cannot be approved');}
-  const file=task.candidate_result.find(value=>value.endsWith('.png'));assert.ok(file,'A declared PNG candidate is required');
+  const file=task.candidate_result.find(value=>spec.manual_review==='video'?/\.(mp4|mov|mkv|webm)$/i.test(value):value.endsWith('.png'));
+  assert.ok(file,`A declared ${spec.manual_review==='video'?'video':'PNG'} candidate is required`);
   const response=await context.request.get(BASE+`/api/projects/${state.project}/runs/${snapshot.id}/tasks/${task.id}/file?file=${encodeURIComponent(file)}`);
   assert.equal(response.status(),200);const data=await response.body();assert.ok(data.length<=20*1024*1024);
   const target=path.join(directory,name);fs.writeFileSync(target,data,{mode:0o600});const digest=sha(target);
@@ -189,7 +190,22 @@ async function runCase(browser,spec){
    if(terminal(run.state))return run;
    if(deciding(run)){
     const quality=run.decisions.find(d=>d.kind==='quality');
-    if(quality){if(await reviewRevisedCandidate(run,quality)){await page.waitForTimeout(1000);continue;}state.pending_quality=quality.id;persist();throw Object.assign(Error('Unplanned quality decision requires independent content review'),{model:true});}
+    if(quality){
+     if(await reviewRevisedCandidate(run,quality)){await page.waitForTimeout(1000);continue;}
+     if(spec.manual_review==='video'){
+      const candidate=await downloadCandidate(run,quality,'manual-review-candidate.mp4',true);
+      const sheet=path.join(directory,'manual-review-contact-sheet.jpg');
+      await execute('ffmpeg',['-y','-loglevel','error','-i',path.join(directory,candidate.file),'-vf','fps=1,scale=320:180,tile=5x1','-frames:v','1',sheet],{timeout:120000,maxBuffer:1024*1024});
+      state.pending_manual_review={decision_id:quality.id,candidate,contact_sheet:path.basename(sheet)};persist();
+      const verdictFile=path.join(directory,'manual-review-decision.json'),deadline=Date.now()+900000;
+      while(Date.now()<deadline&&!fs.existsSync(verdictFile))await page.waitForTimeout(1000);
+      assert.ok(fs.existsSync(verdictFile),'Declared user Review did not receive an independent decision');
+      const verdict=JSON.parse(fs.readFileSync(verdictFile));assert.ok(['approve','reject'].includes(verdict.action));
+      state.manual_review_decision=verdict;state.browser_assertions.push('Declared video Review used a downloaded hash-verified candidate and retained contact sheet before the decision');persist();
+      await approve(verdict.action,quality.id);await page.waitForTimeout(1000);continue;
+     }
+     state.pending_quality=quality.id;persist();throw Object.assign(Error('Unplanned quality decision requires independent content review'),{model:true});
+    }
     const decision=run.decisions[0];state.pending_decision={id:decision.id,kind:decision.kind,reason:decision.request.reason};persist();
     throw Object.assign(Error(['plan_change','successor_authorization','new_run'].includes(decision.kind)?
      'Unplanned authorization expansion was correctly paused':'Workflow requested user input or feedback after bounded processing: '+decision.kind),{model:true});

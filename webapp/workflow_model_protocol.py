@@ -15,6 +15,19 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
     if name!='submit_typed_plan' and not name.startswith(('replace_agent_tasks','replace_operation_tasks_')):
         return arguments,[]
     value=deepcopy(arguments);changes=[]
+    from .quality_policy import Acceptance
+    acceptance_fields=set(Acceptance.model_fields)
+    def normalize_acceptance_fields(node,path=''):
+        if isinstance(node,dict):
+            if node.get('kind') in ('file','image','media','text','json','subtitle','review','agent'):
+                for key in list(node):
+                    canonical=key[:-1] if key.endswith('_') else ''
+                    if canonical in acceptance_fields and canonical not in node:
+                        node[canonical]=node.pop(key);changes.append((path+'.' if path else '')+key+'->'+canonical)
+            for key,item in node.items():normalize_acceptance_fields(item,(path+'.' if path else '')+key)
+        elif isinstance(node,list):
+            for index,item in enumerate(node):normalize_acceptance_fields(item,(path+'.' if path else '')+str(index))
+    normalize_acceptance_fields(value)
     plan=value
     if not isinstance(plan,dict):return value,changes
     tasks=plan.get('tasks')
