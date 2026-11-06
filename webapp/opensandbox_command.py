@@ -28,7 +28,10 @@ class OpenSandboxCommandRuntime:
     def pulse(self,seconds):pass
     def begin_cleanup(self):pass
     def quiesce(self):pass
-    def checkpoint(self):return None
+    def checkpoint(self):
+        if self.env is None:return None
+        from .step_checkpoints import save
+        return save(self)
     def scope(self):return {'paths':[],'stopped':False}
     def close_scope(self,scope):pass
 
@@ -40,6 +43,10 @@ class OpenSandboxCommandRuntime:
         workspace=root/'workspace';sources=root/'sources'
         workspace.mkdir(parents=True,mode=0o700);sources.mkdir(mode=0o700)
         self.local_root=root
+        self.store=store;self.workspace=workspace;self.project=store.project_dir(project)
+        self.project.mkdir(parents=True,exist_ok=True,mode=0o700)
+        self.uid=self.service_uid=os.getuid();self.gid=self.service_gid=os.getgid()
+        self.limit=int(os.environ.get('VIDEO_USE_TASK_DISK_BYTES',str(2*1024**3)))
 
         def destination(base,relative):
             relative=PurePosixPath(relative)

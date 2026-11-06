@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from webapp.opensandbox_command import OpenSandboxCommandBackend,OpenSandboxCommandRuntime
 from webapp.sandbox_backends import BackendBinding,OPEN_SANDBOX
@@ -110,6 +111,13 @@ class OpenSandboxCommandTests(unittest.TestCase):
         report=runtime.validate_payload({'files':[],'acceptance':[]})
         self.assertTrue(report['technical_valid'])
         self.assertIn('webapp.quality_check',session.commands.calls[0][0][-1])
+
+    def test_checkpoint_uses_durable_step_checkpoint_protocol(self):
+        runtime=OpenSandboxCommandRuntime(Lifecycle(),Session(),'command-1','attempt',SimpleNamespace())
+        runtime.env={'workspace':Path('/workspace')}
+        with patch('webapp.step_checkpoints.save',return_value='saved') as save:
+            self.assertEqual(runtime.checkpoint(),'saved')
+        save.assert_called_once_with(runtime)
 
     def test_backend_requires_command_binding_and_deletes_on_close(self):
         lifecycle=Lifecycle();session=Session();sdk=SimpleNamespace(connect=lambda _:session)
