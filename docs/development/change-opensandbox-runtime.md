@@ -140,6 +140,18 @@ Sandbox ID，按 Attempt metadata 确认消失，最后才释放资源。`begin_
 容量模型需分别报告 command-only、混合和 Agent-only 场景，保留宿主 CPU/内存/磁盘余量并限制并发
 补池。模型结果只能用于设置真机测试上限，不能声称真实可常驻相同数量。
 
+独立部署的 OpenSandbox cleanup 真机恢复入口为：
+
+```bash
+./deploy/sandbox_opensandbox_recovery.sh
+```
+
+该驱动必须验证已知 Sandbox ID orphan、create 回执丢失后按 Attempt 查询、Lifecycle 服务暂时不可用后
+重试收敛三条路径。运行前要求 `sandbox-agent` 工作流集群空闲；报告写入
+`.sandbox-cluster/recovery/opensandbox-recovery.json`。通过标准包括 cleanup 状态 `complete/deleted`、
+实际 GET 返回 404、服务恢复 active、测试行删除且 sandbox 列表无残留。它只操作独立部署，不能指向
+来源数据库、来源 OpenSandbox 端口或共享生产命名空间。
+
 ## 6. 升级到真机阶段
 
 进入下一阶段前，必须明确获得并记录以下隔离资源和授权：
