@@ -42,6 +42,23 @@ class Command(graph.Contract):
 
 
 def public(store,run):
+    def execution_location(item):
+        bindings=item.get('bindings') or {}
+        backend=bindings.get('_backend') or bindings.get('backend')
+        if isinstance(backend,dict):backend=backend.get('backend') or backend.get('runtime_kind')
+        environment=bindings.get('_environment')
+        if not backend and isinstance(environment,dict):backend=environment.get('backend') or environment.get('runtime_kind')
+        if backend in ('opensandbox','agent_runtime','command_runtime'):return 'opensandbox'
+        if backend in ('local_bwrap','bwrap'):return 'bwrap_sandbox'
+        if item.get('control_kind') or item.get('type') in ('agent','script'):return 'bwrap_sandbox'
+        if item.get('type')=='operation':
+            try:
+                from .operations import get
+                operation=get(item['spec']['operation'],item['spec'].get('implementation'))
+                return 'executor_host' if operation.external_side_effects else 'bwrap_sandbox'
+            except (KeyError,ValueError):pass
+        return 'executor_host'
+
     value={k:run[k] for k in ('id','project_id','session_id','parent_run_id','scope_confirmed','goal','status','graph_version','sealed','authorization',
                              'authorization_version','replan_after','repair_context','created_at','updated_at','terminal_reason','delivery','delivered_at','input_sequence','input_barrier_sequence')}
     value['state']=value.pop('status')
@@ -50,10 +67,20 @@ def public(store,run):
     successors=store.query('SELECT id FROM runs WHERE parent_run_id=? ORDER BY created_at DESC LIMIT 1',(run['id'],))
     value['successor_run_id']=successors[0]['id'] if successors else None
     value['activity']=run['activity']
-    value['tasks']=[{k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','user_revision_count','attempts',
-        'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
-        for task in run['tasks']]
-    value['control_jobs']=[{key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','created_at','updated_at')} for job in run['control_jobs']]
+    revision_versions={(row['task_id'],row['revision']):row['created_graph_version'] for row in
+        store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}
+    value['tasks']=[]
+    for task in run['tasks']:
+        public_task={k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','user_revision_count','attempts',
+            'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
+        public_task['revision_graph_version']=revision_versions.get((task['id'],task['revision']),task['created_graph_version'])
+        public_task['execution_location']=execution_location(task)
+        value['tasks'].append(public_task)
+    value['control_jobs']=[]
+    for job in run['control_jobs']:
+        public_job={key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','created_graph_version','created_at','updated_at')}
+        public_job['execution_location']=execution_location(job)
+        value['control_jobs'].append(public_job)
     from .run_inputs import public as public_input
     value['inputs']=[public_input(row) for row in store.query('SELECT * FROM run_inputs WHERE run_id=? ORDER BY sequence',(run['id'],))]
     value['drain_set']=run['drain_set']
@@ -63,12 +90,22 @@ def public(store,run):
         if source['profile']:
             target['agent_policy']={key:source['profile'][key] for key in ('id','version','harness','model_policy','output_schema','artifact_policy')}
             target['agent_policy']['digest']=graph.digest(source['profile'])
-    value['planners']=store.query('SELECT id,base_graph_version,status,applied_graph_version,error_code,created_at,updated_at FROM planner_runs WHERE run_id=? ORDER BY created_at',(run['id'],))
+    value['planners']=store.query('SELECT id,task_id,base_graph_version,status,applied_graph_version,trigger_json,error_code,created_at,updated_at FROM planner_runs WHERE run_id=? ORDER BY created_at',(run['id'],))
+    for planner in value['planners']:
+        trigger=json.loads(planner.pop('trigger_json'))
+        task_ids=[]
+        if isinstance(trigger.get('completed'),list):task_ids.extend(item for item in trigger['completed'] if isinstance(item,str))
+        if isinstance(trigger.get('task_id'),str) and trigger['task_id']:task_ids.append(trigger['task_id'])
+        control_ids=[]
+        for key in ('rejected','review_incomplete','failure_diagnosed','review_rejected','task_review_rejected'):
+            if isinstance(trigger.get(key),str) and trigger[key]:control_ids.append(trigger[key])
+        planner['trigger_task_ids']=list(dict.fromkeys(task_ids))
+        planner['trigger_control_job_ids']=list(dict.fromkeys(control_ids))
     value['plan_drafts']=store.query('''SELECT planning_request_id,schema_version,status,revision,
         repeated_error_count,created_at,updated_at FROM workflow_plan_drafts WHERE run_id=? ORDER BY created_at''',(run['id'],))
     value['decisions']=store.query("SELECT id,kind,graph_version,authorization_version,snapshot_digest,request_json,status FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
     for item in value['decisions']:item['request']=json.loads(item.pop('request_json'))
-    value['reviews']=store.query('SELECT id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
+    value['reviews']=store.query('SELECT id,task_id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in
         store.query("SELECT subject_task,decision_json FROM workflow_reviews WHERE run_id=? AND purpose='diagnose' AND status='completed' ORDER BY created_at",(run['id'],))]

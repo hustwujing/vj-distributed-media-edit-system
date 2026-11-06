@@ -16,9 +16,12 @@ class ModelSelectionTests(unittest.TestCase):
         self.registry={
             'claude':{'harness':'claude_code','model':'claude-4.6-sonnet','protocol':'anthropic',
                 'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'claude_bpe_estimate_v1'},
+            'claude55':{'harness':'claude_code','model':'claude-sonnet-5-5','protocol':'anthropic',
+                'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'claude_bpe_estimate_v1'},
             'deepseek41':{'harness':'deepseek_harness','model':'deepseek-v4.1-flash','protocol':'anthropic',
                 'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'deepseek_bpe_estimate_v1'}}
-        active=patch.dict(os.environ,{'VIDEO_USE_AGENT_PROFILES_JSON':json.dumps(self.registry),'VIDEO_USE_AGENT_PROFILE':'claude','ANTHROPIC_API_KEY':'test-model-selection-secret'})
+        active=patch.dict(os.environ,{'VIDEO_USE_AGENT_PROFILES_JSON':json.dumps(self.registry),'VIDEO_USE_AGENT_PROFILE':'claude',
+            'VIDEO_USE_USER_AGENT_PROFILE':'claude55','ANTHROPIC_API_KEY':'test-model-selection-secret'})
         active.start();self.addCleanup(active.stop)
 
     def choice(self,name='claude',effort='high'):
@@ -28,11 +31,11 @@ class ModelSelectionTests(unittest.TestCase):
 
     def test_defaults_and_public_options_do_not_expose_routes_or_credentials(self):
         result=self.a.get(self.prefix+'/capabilities').json();options=result['model_choices']
-        self.assertEqual((options['default_profile'],options['default_effort']),('claude','high'))
+        self.assertEqual((options['default_profile'],options['default_effort']),('claude55','high'))
         raw=json.dumps(options);self.assertNotIn('models.example',raw);self.assertNotIn('test-model-selection-secret',raw);self.assertNotIn('credential_env',raw)
         self.assertEqual(self.b.get(self.prefix+'/capabilities').status_code,404)
-        run=self.a.post(self.prefix,json=self.body()).json()
-        self.assertEqual((run['model_configuration']['model'],run['model_configuration']['reasoning_effort']),('claude-4.6-sonnet','high'))
+        run=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('claude55')}).json()
+        self.assertEqual((run['model_configuration']['model'],run['model_configuration']['reasoning_effort']),('claude-sonnet-5-5','high'))
         self.assertIn('editing_implementer',run['model_configuration']['roles'])
 
     def test_sandbox_choice_and_system_expert_models_are_frozen_separately(self):

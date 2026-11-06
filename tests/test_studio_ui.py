@@ -58,6 +58,7 @@ class StudioTests(unittest.TestCase):
             self.assertEqual(self.b.get(f'/{route}/{self.pid}').status_code,404)
             if route=='chat':
                 self.assertIn('id="dynamic-preview"',response.text)
+                self.assertIn('id="dynamic-role-activity"',response.text)
                 self.assertIn('id="dag-fab"',response.text)
                 self.assertIn('id="dag-dialog"',response.text)
                 self.assertIn('id="dag-canvas"',response.text)
