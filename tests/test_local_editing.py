@@ -130,6 +130,15 @@ class LocalEditingTests(unittest.TestCase):
         self.assertGreater(middle[0],50);self.assertGreater(middle[2],50)
         self.assertAlmostEqual(probe(out)['duration'],1.6,delta=.1)
 
+    def test_crossfade_retains_exact_frozen_frame_rate(self):
+        raw=self.plan(clips=[{'source':'a','end':3},{'source':'b','end':3}],
+            output={'width':160,'height':120,'fps':25},transition={'type':'fade','duration':1})
+        out,p=self.render(raw,'crossfade-25.mp4')
+        self.assertEqual(probe(out)['fps'],'25/1')
+        frames=int(subprocess.check_output(['ffprobe','-v','error','-select_streams','v:0',
+            '-show_entries','stream=nb_frames','-of','default=nw=1:nk=1',out],text=True).strip())
+        self.assertEqual(frames,round(p['_duration']*25))
+
     def test_split_layout_uses_correct_cells_and_audio(self):
         for layout,n in [('horizontal',2),('vertical',2),('grid',4)]:
             raw=self.plan(layout=layout,split_audio=1,clips=[{'source':'a' if i%2==0 else 'b','end':1,'fit':'cover'} for i in range(n)])

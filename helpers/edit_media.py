@@ -168,7 +168,10 @@ def assemble(p,paths,work):
                 filters.append(f'[{lastv}][v{i}]xfade=transition={effect}:duration={d}:offset={total-d:.9f}[vx{i}]');lastv=f'vx{i}'
             filters.append(f'[{lasta}][a{i}]acrossfade=d={d}:c1=tri:c2=tri[ax{i}]');lasta=f'ax{i}'
             total+=p['clips'][i]['_duration']*p['clips'][i]['repeat']-d
-        if video:filters.append(f'[{lastv}]null[v]')
+        if video:
+            fps=p['output']['fps']
+            filters.append(f'[{lastv}]fps={fps},tpad=stop_mode=clone:stop_duration={1/fps:.9f},'
+                           f'trim=duration={duration:.9f},setpts=N/({fps}*TB)[v]')
         filters.append(f'[{lasta}]anull[a]')
     run_ffmpeg(args+['-filter_complex',';'.join(filters)]+(['-map','[v]'] if video else [])+
                ['-map','[a]',*encoding(p,video),'-t',duration,target],'transition' if p['layout']=='sequence' else 'split-screen',work,duration)

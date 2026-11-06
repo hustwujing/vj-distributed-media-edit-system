@@ -36,6 +36,13 @@ python -c 'import cv2,opensandbox,webapp.runtime_bootstrap,grade,render,timeline
 python -c 'import json; from webapp.runtime_bootstrap import verify_runtime_bundle; verify_runtime_bundle(json.load(open("/opt/video-use/bundle.json")))'
 python -m webapp.runtime_bootstrap --help >/dev/null
 ffmpeg -version >/dev/null 2>&1
+mkdir -p /workspace/sources /workspace/edit
+ffmpeg -v error -f lavfi -i color=red:s=64x64:r=25:d=2 -f lavfi -i sine=frequency=440:sample_rate=48000:duration=2 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest /workspace/sources/a.mp4
+ffmpeg -v error -f lavfi -i color=blue:s=64x64:r=25:d=2 -f lavfi -i sine=frequency=880:sample_rate=48000:duration=2 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest /workspace/sources/b.mp4
+printf '%s' '{"version":1,"sources":{"a":"sources/a.mp4","b":"sources/b.mp4"},"clips":[{"source":"a","end":2},{"source":"b","end":2}],"output":{"width":64,"height":64,"fps":25},"transition":{"type":"fade","duration":1}}' >/workspace/plan.json
+python /opt/video-use/helpers/edit_media.py render /workspace/plan.json --workspace /workspace -o edit/xfade.mp4 >/dev/null
+test "$(ffprobe -v error -select_streams v:0 -show_entries stream=avg_frame_rate -of default=nw=1:nk=1 /workspace/edit/xfade.mp4)" = 25/1
+test "$(ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of default=nw=1:nk=1 /workspace/edit/xfade.mp4)" = 75
 """,
         'agent-runtime-codex:build':"""
 test "$(id -u):$(id -g)" = 10001:10001

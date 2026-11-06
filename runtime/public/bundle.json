@@ -22,8 +22,8 @@
     },
     {
       "path": "helpers/edit_media.py",
-      "sha256": "fa772fc6339598158eac740e8d393fb32f570dfd1dae9e775b52bbc2e53ff277",
-      "size": 21575
+      "sha256": "c555b63a9ba7d19131908f25c2ae12fae509d7b5511565d495871e410563d3e1",
+      "size": 21755
     },
     {
       "path": "helpers/edit_plan.py",
@@ -147,6 +147,6 @@
     }
   ],
   "schema_version": 1,
-  "skill_digest": "sha256:dfee659561cd2a21887bef44b8ab3a5e20a960f45f7750879ca1db9153b4bae6",
+  "skill_digest": "sha256:2dd89c6a3cbe6624522fc29634ea49665964fbe97438c90aac4b17f4a36045ca",
   "tool_schema_digest": "sha256:f8de293751d181cb05491d32b3b81b55d372489a426935f20c3dbf8b8ffe023b"
 }
