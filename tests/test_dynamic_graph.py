@@ -26,10 +26,11 @@ def envelope(store,request_id,proposal=None,kind='APPLY_PLAN',**extra):
 
 
 class DynamicGraphTests(unittest.TestCase):
-    def test_model_token_budget_supports_doubled_campaign_limit(self):
+    def test_default_run_limits_are_generous_but_remain_bounded(self):
         authorization=graph.Authorization(goal='bounded',allowed_assets=[],allowed_operations=[],
-            delivery_targets=['result'],content_fingerprint='a'*64,model_token_budget=4000000)
-        self.assertEqual(authorization.model_token_budget,4000000)
+            delivery_targets=['result'],content_fingerprint='a'*64)
+        self.assertEqual((authorization.model_token_budget,authorization.wall_time_budget,
+            authorization.max_tasks,authorization.max_planning_rounds),(4000000,86400,256,64))
         with self.assertRaises(ValueError):
             graph.Authorization.model_validate({**authorization.model_dump(),'model_token_budget':4000001})
 

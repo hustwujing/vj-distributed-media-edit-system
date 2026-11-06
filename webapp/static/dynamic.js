@@ -139,14 +139,17 @@ for(const [id,event] of [['dynamic-input-content','input'],['dynamic-input-asset
 
 const activeNodeStatuses=new Set(['running','leased','reviewing']);
 function nodeState(status){
- if(['succeeded','completed','applied'].includes(status))return 'succeeded';
- if(activeNodeStatuses.has(status))return 'active';
- if(['failed','rejected','cancelled'].includes(status))return 'failed';
+ if(['succeeded','completed','applied','SUCCEEDED'].includes(status))return 'succeeded';
+ if(activeNodeStatuses.has(status)||['ACTIVE','PLANNING','EXECUTING','REVIEWING'].includes(status))return 'active';
+ if(['failed','rejected','cancelled','FAILED','CANCELLED'].includes(status))return 'failed';
  return 'waiting';
 }
 function detailValue(value){if(value==null||value===''||(Array.isArray(value)&&!value.length))return '—';return typeof value==='string'?value:JSON.stringify(value,null,2);}
 function renderDagDetail(node){
  const root=$('dag-detail'),item=node.item;
+ if(node.kind==='run'){
+  root.innerHTML=`<h3>本轮 Run</h3><div class="dag-detail-status">${esc(names[item.state]||item.state||'运行中')}</div><dl><dt>目标</dt><dd>${esc(detailValue(item.goal))}</dd><dt>图版本</dt><dd>${esc(detailValue(item.graph_version))}</dd><dt>状态</dt><dd>${esc(detailValue(item.state))}</dd></dl>`;return;
+ }
  if(node.kind==='control'){
   root.innerHTML=`<h3>${esc({PLAN:'规划',REVIEW:'审查',DIAGNOSE:'诊断'}[item.control_kind]||item.control_kind)}</h3><div class="dag-detail-status">${esc(names[item.status]||item.status)}</div><dl><dt>类型</dt><dd>Control Job</dd><dt>阶段</dt><dd>${esc(detailValue(item.phase))}</dd><dt>尝试次数</dt><dd>${esc(detailValue(item.attempts))}</dd><dt>错误</dt><dd class="dag-detail-error">${esc(detailValue(item.error_code))}</dd><dt>更新时间</dt><dd>${new Date(item.updated_at*1000).toLocaleString()}</dd></dl>`;return;
  }
@@ -154,10 +157,14 @@ function renderDagDetail(node){
  root.innerHTML=`<h3>${esc(safeName(item))}</h3><div class="dag-detail-status">${esc(names[item.status]||item.status)}</div><dl><dt>目标</dt><dd>${esc(detailValue(spec.objective))}</dd><dt>执行类型</dt><dd>${esc(item.type)} · ${esc(detailValue(spec.operation||item.agent_policy?.id))}</dd><dt>生命周期</dt><dd>${esc(detailValue(item.phase))} · revision ${item.revision} · 尝试 ${item.attempts}</dd><dt>等待原因</dt><dd>${esc(detailValue(item.wait_reason))}</dd><dt>输入</dt><dd><code>${esc(detailValue(spec.inputs))}</code></dd><dt>输出角色</dt><dd>${esc(detailValue(spec.output_roles||spec.outputs))}</dd><dt>语义约束</dt><dd><code>${esc(detailValue(semantics))}</code></dd><dt>候选 / 已验收</dt><dd>${item.candidate_result.length} / ${item.accepted_result.length}</dd><dt>错误</dt><dd class="dag-detail-error">${esc(detailValue(item.error_detail||item.error_code))}</dd></dl>`;
 }
 function renderDag(run){
- const graph=layoutDag(run.tasks,run.dependencies,run.control_jobs),byId=new Map(graph.nodes.map(node=>[node.id,node]));
- const edgeMarkup=graph.edges.map(edge=>{const a=byId.get(edge.upstream),b=byId.get(edge.downstream);if(!a||!b)return '';const x1=a.x+a.width,y1=a.y+a.height/2,x2=b.x,y2=b.y+b.height/2,middle=(x1+x2)/2;return `<path class="dag-edge" marker-end="url(#dag-arrow)" d="M ${x1} ${y1} C ${middle} ${y1}, ${middle} ${y2}, ${x2} ${y2}"></path>`;}).join('');
- const nodeMarkup=graph.nodes.map(node=>{const item=node.item,status=nodeState(item.status),label=node.kind==='control'?({PLAN:'规划',REVIEW:'审查',DIAGNOSE:'诊断'}[item.control_kind]||item.control_kind):safeName(item),meta=node.kind==='control'?'控制任务':`${item.type} · revision ${item.revision}`;return `<button type="button" class="dag-node ${status} ${node.kind}" data-dag-node="${esc(node.id)}" style="left:${node.x}px;top:${node.y}px"><strong>${esc(label)}</strong><span>${esc(names[item.status]||item.status)}</span><small>${esc(meta)}</small></button>`;}).join('');
- const canvas=$('dag-canvas');canvas.style.width=graph.width+'px';canvas.style.height=graph.height+'px';canvas.innerHTML=`${run.control_jobs.length?'<span class="dag-control-label">CONTROL JOBS</span>':''}<svg class="dag-edges" width="${graph.width}" height="${graph.height}" aria-hidden="true"><defs><marker id="dag-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9fac9a"></path></marker></defs>${edgeMarkup}</svg>${nodeMarkup}`;
+ const graph=layoutDag(run.tasks,run.dependencies,run.control_jobs,{run,planners:run.planners,reviews:run.reviews}),byId=new Map(graph.nodes.map(node=>[node.id,node]));
+ const edgeMarkup=graph.edges.map(edge=>{const a=byId.get(edge.upstream),b=byId.get(edge.downstream);if(!a||!b)return '';let x1,y1,x2,y2,path;
+  if(edge.kind==='control'&&a.kind==='task'&&b.kind==='control'){x1=a.x+a.width/2;y1=a.y;x2=b.x+b.width/2;y2=b.y+b.height;const middle=(y1+y2)/2;path=`M ${x1} ${y1} C ${x1} ${middle}, ${x2} ${middle}, ${x2} ${y2}`;}
+  else if(edge.kind==='control'&&a.kind==='control'&&b.kind==='task'){x1=a.x+a.width/2;y1=a.y+a.height;x2=b.x+b.width/2;y2=b.y;const middle=(y1+y2)/2;path=`M ${x1} ${y1} C ${x1} ${middle}, ${x2} ${middle}, ${x2} ${y2}`;}
+  else{x1=a.x+a.width;y1=a.y+a.height/2;x2=b.x;y2=b.y+b.height/2;const middle=(x1+x2)/2;path=`M ${x1} ${y1} C ${middle} ${y1}, ${middle} ${y2}, ${x2} ${y2}`;}
+  return `<path class="dag-edge ${edge.kind}" marker-end="url(#dag-${edge.kind}-arrow)" d="${path}"></path>`;}).join('');
+ const nodeMarkup=graph.nodes.map(node=>{const item=node.item,status=nodeState(node.kind==='run'?item.state:item.status),label=node.kind==='run'?'本轮 Run':node.kind==='control'?({PLAN:'规划',REVIEW:'审查',DIAGNOSE:'诊断'}[item.control_kind]||item.control_kind):safeName(item),meta=node.kind==='run'?`graph v${item.graph_version}`:node.kind==='control'?'控制任务':`${item.type} · revision ${item.revision}`,state=node.kind==='run'?item.state:item.status;return `<button type="button" class="dag-node ${status} ${node.kind}" data-dag-node="${esc(node.id)}" style="left:${node.x}px;top:${node.y}px"><strong>${esc(label)}</strong><span>${esc(names[state]||state||'运行中')}</span><small>${esc(meta)}</small></button>`;}).join('');
+ const canvas=$('dag-canvas');canvas.style.width=graph.width+'px';canvas.style.height=graph.height+'px';canvas.innerHTML=`${run.control_jobs.length?'<span class="dag-control-label">CONTROL FLOW</span>':''}<svg class="dag-edges" width="${graph.width}" height="${graph.height}" aria-hidden="true"><defs><marker id="dag-business-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#9fac9a"></path></marker><marker id="dag-control-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7890a8"></path></marker></defs>${edgeMarkup}</svg>${nodeMarkup}`;
  canvas.querySelectorAll('[data-dag-node]').forEach(button=>{const node=byId.get(button.dataset.dagNode);for(const event of ['pointerenter','focus','click'])button.addEventListener(event,()=>renderDagDetail(node));});
  const active=graph.nodes.filter(node=>activeNodeStatuses.has(node.item.status)).length;$('dag-fab-count').textContent=active||graph.nodes.length;$('dag-fab').classList.toggle('has-active',active>0);
  if($('dag-dialog').open&&graph.nodes.length)renderDagDetail(graph.nodes.find(node=>activeNodeStatuses.has(node.item.status))||graph.nodes[0]);
@@ -173,10 +180,37 @@ function renderMessages(run){
  if(nearBottom||messages.length<=2)queueMicrotask(()=>{conversation.scrollTop=conversation.scrollHeight;});
 }
 
+const roleActivityStatuses=new Set(['ready','running','leased','waiting','retry_wait','reviewing']);
+function activityRole(item){
+ if(item.control_kind)return {PLAN:'Manager',REVIEW:'Reviewer',DIAGNOSE:'Diagnostician'}[item.control_kind]||'Control Agent';
+ if(item.type==='agent')return item.agent_policy?.id==='editing_implementer'?'Implementer':'专业 Agent';
+ return 'Executor';
+}
+function activityLocation(item){
+ const labels={control_host:'控制面宿主',executor_host:'Executor 宿主',bwrap_sandbox:'bwrap 沙盒',opensandbox:'OpenSandbox 沙盒'};
+ return labels[item.execution_location]||labels[item.bindings?.backend]||(item.type==='agent'||item.type==='script'||item.control_kind?'bwrap 沙盒':'Executor 宿主');
+}
+function activityAction(item){
+ if(item.control_kind)return {PLAN:'正在规划',REVIEW:'正在验收',DIAGNOSE:'正在诊断'}[item.control_kind]||'正在处理控制任务';
+ if(item.status==='ready')return '等待调度';
+ if(item.status==='leased')return '正在启动执行环境';
+ if(item.status==='waiting')return '等待外部结果';
+ if(item.status==='retry_wait')return '等待安全重试';
+ if(item.status==='reviewing')return '正在衔接验收';
+ const phase={local:'正在执行',sync:'正在同步执行',submit:'正在提交外部任务',poll:'正在查询外部结果',collect:'正在收取结果',validate:'正在验证结果'}[item.phase];
+ return `${phase||'正在执行'} · ${item.spec?.name||item.spec?.operation||item.id}`;
+}
+function renderRoleActivity(run){
+ const active=[...run.control_jobs,...run.tasks.filter(item=>item.selected!==false)].filter(item=>roleActivityStatuses.has(item.status));
+ const items=active.length?active:[...(['ACTIVE','PLANNING','EXECUTING','REVIEWING'].includes(run.state)?[{id:'orchestrator-handoff',status:'running',role:'Orchestrator',location:'控制面宿主',action:'正在衔接下一步'}]:[])];
+ const root=$('dynamic-role-activity');root.hidden=!items.length;$('dynamic-role-count').textContent=items.length?`${items.length} 项活跃工作`:'';
+ $('dynamic-role-items').innerHTML=items.map(item=>{const role=item.role||activityRole(item),location=item.location||activityLocation(item),action=item.action||activityAction(item),state=['running','leased','reviewing'].includes(item.status)?'active':'waiting';return `<article class="dynamic-role-item ${state}"><i class="dynamic-role-pulse" aria-hidden="true"></i><div><strong>${esc(role)}</strong><span>${esc(action)}</span></div><small>${esc(location)}</small></article>`;}).join('');
+}
+
 function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.updated_at||run.graph_version<lastSnapshot.graph_version))return;lastSnapshot={id:run.id,updated_at:run.updated_at,graph_version:run.graph_version};current=run;const receipt=(run.commands||[]).find(c=>c.id===pendingCommand&&c.status!=='pending');if(receipt){pendingCommand=null;if(receipt.status==='applied'&&run.successor_run_id){currentId=run.successor_run_id;lastDecisions='';lastSnapshot=null;queueMicrotask(refresh);return;}if(receipt.status==='rejected')toast(({replan_required:'当前结果需要重新规划。',external_result_requires_resolution:'需要先核实外部请求及结果，不能重复调用。',invalid_or_stale_decision:'确认信息不完整或已过期，请按当前状态重新确认。',workflow_terminal:'本轮已经结束。',cancellation_in_progress:'取消正在处理中。'})[receipt.error_code]||'控制请求未通过，请核对当前状态。',true);else toast('控制请求已处理');}$('dynamic-current').dataset.runId=run.id;$('dynamic-current').dataset.status=run.state;$('dynamic-current').dataset.graphVersion=String(run.graph_version);$('dynamic-current').hidden=false;$('dynamic-empty').hidden=true;$('dynamic-run-tools').hidden=false;$('dag-fab').hidden=false;$('dynamic-title').textContent=run.goal;const cleanup=run.state==='CANCELLING'?` · 待回收 ${run.cleanup_pending} 项`:'';$('dynamic-status').textContent=`${names[run.state]||run.state} · ${names[run.activity]||run.activity}${cleanup} · 计划版本 ${run.graph_version} · ${run.sealed?'计划已封口':'根据结果继续规划'} · 模型预算剩余 ${run.token_usage.remaining}/${run.token_usage.limit} tokens${run.token_usage.reserved_or_unknown?`（${run.token_usage.reserved_or_unknown} 待核实）`:""}`;$('dynamic-updated').textContent=`最后更新 ${new Date(run.updated_at*1000).toLocaleString()}`;$('dynamic-diagnostics').href=href(path(`/runs/${run.id}/diagnostics?download=true`));
  if($('dynamic-input-form').dataset.run!==run.id)saveInputDraft();
  $('dynamic-model-current').textContent=configurationText(run.model_configuration);
- const active=!terminalRun(run.state);$('dynamic-start').hidden=active;$('dynamic-inspector-title').textContent=active?'编辑对话':'编辑要求';
+ const active=!terminalRun(run.state);$('dynamic-start').hidden=active;$('dynamic-workspace-title').textContent=active?'Agent 对话':'编辑要求';
  document.querySelector('[data-control=pause]').hidden=!active||['WAITING_USER','CANCELLING'].includes(run.state);
  document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER';document.querySelector('[data-control=cancel]').hidden=!active;
  $('dynamic-input-form').hidden=['FAILED','CANCELLED','CANCELLING'].includes(run.state);syncAssetOptions($('dynamic-input-assets'));
@@ -191,7 +225,7 @@ function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.
   for(const option of $('dynamic-input-assets').options)option.selected=(draft.assets||[]).includes(option.value);
   for(const option of choices.options)option.selected=!terminalRun(run.state)&&(draft.targets||[]).includes(option.value);
  }
- renderMessages(run);
+ renderMessages(run);renderRoleActivity(run);
  $('dynamic-control-jobs').innerHTML=run.control_jobs.map(job=>`<p>${{PLAN:'规划',REVIEW:'审查',DIAGNOSE:'诊断'}[job.control_kind]} · ${names[job.status]||esc(job.status)}${job.error_code?' · '+esc(job.error_code):''}</p>`).join('');
 
  const signature=JSON.stringify(run.tasks);if(signature!==lastRender){lastRender=signature;$('dynamic-tasks').innerHTML=run.tasks.map(t=>{const semantics=t.spec.semantics||{};const semanticText=[semantics.subject?.mode,semantics.consistency_mode,semantics.mask_repair?`蒙版 ${semantics.mask_repair.level}`:'',...(semantics.temporal||[]).map(x=>`${x.action} · ${x.transition}`)].filter(Boolean).join(' · ');return `<article class="dynamic-task" data-status="${esc(t.status)}"><header><strong>${esc(safeName(t))}</strong><span>${t.selected?(names[t.status]||esc(t.status)):'已由新步骤替代（保留历史）'}</span></header><p>${esc(t.spec.objective||'')}</p><small>${esc(t.type)} · 修订 ${t.revision} · 调度 ${t.attempts}${t.wait_reason?' · '+esc(t.wait_reason):''}</small>${semanticText?`<p class="muted">${esc(semanticText)}</p>`:''}${t.error_code?`<p role="status">${esc(t.error_detail||t.error_code)}</p>`:''}${[...new Set([...t.candidate_result,...t.accepted_result])].map(file=>`<p><a target="_blank" rel="noopener" href="${esc(href(path(`/runs/${run.id}/tasks/${t.id}/file?file=${encodeURIComponent(file)}`)))}">${t.accepted_result.includes(file)?'已验收':'待验收'} · ${esc(file.split('/').at(-1))}</a>${t.accepted_result.includes(file)?` <button type="button" class="button subtle" data-reuse="${esc(file)}" data-task="${esc(t.id)}" data-revision="${t.revision}">用于下一轮</button>`:''}</p>`).join('')}</article>`}).join('');$('dynamic-tasks').querySelectorAll('[data-reuse]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await api(path(`/runs/${run.id}/tasks/${button.dataset.task}/reuse`),{method:'POST',body:JSON.stringify({request_id:uuid(),file:button.dataset.reuse,revision:Number(button.dataset.revision),name:'已验收-'+button.dataset.reuse.split('/').at(-1)})});await loadProject();await loadCapabilities();toast('已加入下一轮素材');}catch(e){toast(e.message,true);}finally{button.disabled=false;}});}

@@ -15,7 +15,10 @@ def efforts(profile):
 def options(store,project):
     registry=profiles()
     preferred=store.query('SELECT name FROM agent_project_profiles WHERE project=?',(project,))
-    default=preferred[0]['name'] if preferred and preferred[0]['name'] in registry else selected().name
+    configured=os.environ.get('VIDEO_USE_USER_AGENT_PROFILE','claude55')
+    candidates=[preferred[0]['name'] if preferred else '',configured,selected().name,*registry]
+    available=lambda name:name in registry and bool(registry[name].base_url and os.environ.get(registry[name].credential_env))
+    default=next((name for name in candidates if available(name)),next(name for name in candidates if name in registry))
     default_effort=lambda p:p.reasoning_effort if p.reasoning_effort in efforts(p) else 'high'
     from .agent_profiles import role_defaults
     defaults=role_defaults()
