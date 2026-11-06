@@ -55,6 +55,9 @@ Python 入口发现全部 `tests/test_*.py`，不是仅运行名称包含 distri
 OpenSandbox 本地镜像构建、Bundle/Profile 冻结、离线契约和扫描命令见
 [OpenSandbox Runtime 开发与发布准备](development/change-opensandbox-runtime.md)。这些命令不等于真机
 验收；不得因本地 Docker 镜像、SBOM 或容量模型通过而修改现有 OpenSandbox、数据库、Nginx 或节点网络。
+该规范包含强制镜像重建矩阵。当前共享 base 安装完整 `webapp` wheel，因此任何 `webapp/**` 变化默认
+要求重建 `operation-runtime`、Codex、Claude、DeepSeek 四张镜像；只有能证明共享 base digest 不变的
+Harness 专属变化，才允许只重建对应单张镜像。
 
 `deploy/prepare-executor.sh` 用于受信任主机准备运行时及访问权限，会修改系统状态，不是普通依赖安装命令。完整要求见 [执行隔离与恢复](execution-isolation-and-recovery.md)。只有安装 Python 依赖或执行 `--help` 不能证明沙盒可运行。
 

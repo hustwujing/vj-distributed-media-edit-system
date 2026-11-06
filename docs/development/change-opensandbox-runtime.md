@@ -59,6 +59,45 @@ Operation 不得因为镜像可用而自动迁移。
 - Helper/Skill 声明的路径必须实际存在于镜像并由 UID 10001 可读；仅校验摘要而不执行代表性 helper
   不足以证明 Bundle 可用。
 
+### 3.1 变更路径与强制重建矩阵
+
+是否重建以“当前源码相对已部署镜像所记录的源码 commit”做 diff，不能只看最近一次 commit，也不能因为
+控制面测试通过就继续使用旧镜像。当前 `base.Dockerfile` 会安装完整 `webapp` wheel，因此现阶段
+`webapp/**` 的任何变化都会改变共享 Runtime base，即使文件看起来只服务于控制面。
+
+| 发生变化的路径或输入 | 必须重建 |
+| --- | --- |
+| `runtime/opensandbox/foundation.Dockerfile`、Python base digest、Debian 包源或系统包集合 | foundation，然后下列四张业务镜像全部重建 |
+| `runtime/opensandbox/base.Dockerfile`、`pyproject.toml`、`uv.lock`、`wheels/**`、`webapp/**` | `operation-runtime`、Codex、Claude、DeepSeek 四张全部重建 |
+| `.dockerignore` 中影响 Runtime context 的规则 | 按受影响输入处理；无法证明只影响单张时四张全部重建 |
+| `runtime/public/**`、`references/**`、release spec 中的 Bundle 成员、被复制的 `helpers/*.py` | 更新并冻结 Bundle，四张全部重建 |
+| `runtime/opensandbox/codex.Dockerfile`、`vendor/codex` | 只重建 Codex；共享 base digest 不得变化 |
+| `runtime/opensandbox/claude.Dockerfile` 或 Claude SDK/Harness 专属 wheel/version | 只重建 Claude；共享 base digest 不得变化 |
+| `runtime/opensandbox/deepseek.Dockerfile` 或 DeepSeek Harness 专属 wheel/version | 只重建 DeepSeek；共享 base digest 不得变化 |
+| `runtime/opensandbox/release-spec.json` 中仅发布名、路由或容量元数据变化，且 Bundle 文件集合和镜像输入未变 | 不重建镜像，但必须重生成 release manifest 并重新验证 Profile/Gateway 契约 |
+| `deploy/**`、`tests/**`、`docs/**` 且不影响 Dockerfile、构建上下文、Bundle 或镜像验证输入 | 不重建镜像；运行对应控制面或测试回归 |
+
+修改 `webapp/opensandbox_command.py`、`workflow_io.py`、`worker.py`、`media_handlers.py` 或任何沙箱内
+会 import 的模块，既要部署宿主 Executor 代码，也要重建四张共享-base 镜像。宿主与镜像混用不同源码
+版本属于发布错误，不能靠重试或回退本机执行掩盖。
+
+### 3.2 镜像发布顺序
+
+1. 停止使用旧源码继续跑真机 case；确认没有活动 sandbox 依赖待替换 tag。
+2. 更新 `release-spec.json` 的 Bundle 文件集合，运行 `runtime_release.py --freeze-bundle` 并提交
+   `runtime/public/bundle.json`。
+3. 按上表构建 foundation/base/Harness；共享 base 变化时四张必须来自同一个 base image ID。
+4. 运行 `test_runtime_images`、`test_runtime_bootstrap` 及受影响 Runtime 单测，再执行四张镜像的离线
+   `verify_runtime_images.py`。门禁必须实际 import 或执行新增 helper，不能只检查文件存在。
+5. 先提交源码，再用该 commit 标记镜像；推送到隔离 registry，记录四个 registry manifest digest。
+6. 配置只能写 `image@sha256:<manifest>` 和对应 Bundle digest，禁止 `latest`、裸 tag、本地 image ID，
+   也禁止新的 operation 镜像搭配旧 Agent base。
+7. 先用 `targeted_only` 部署跑一个受影响的真实 Command/Agent case，核对 gVisor、Attempt、日志、产物
+   与 DELETE 404；稳定后再做一次 full-gate 部署和完整 campaign。
+
+发布证据至少记录：源码 commit、dirty 状态、foundation/base image ID、四个 registry digest、Bundle digest、
+构建命令、离线契约结果和真机 case ID。缺少任一项时只能称为本地构建，不能称为已发布 Runtime。
+
 ## 4. 本地离线验证
 
 本地证据写入被忽略的 `runtime/build/`，临时目录和扫描缓存必须位于 `/data2`，不得隐式使用根分区
