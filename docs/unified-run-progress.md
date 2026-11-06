@@ -2,6 +2,14 @@
 
 本记录区分源码实现、开发验证、部署和真机验收；历史部署结果不代表当前版本通过。
 
+## 最终验收状态
+
+最终部署源码摘要为 `1db761cad5176417ce3565d066864d789ad9a552b13605fc7ee4fe064fe44112`。完整发布门禁为 980 项 Python 全通过、6 项显式 GPU/OCR skip，59 项 Node 全通过；隔离实例 10 个服务健康。
+
+119 条真机 case 已全部执行并完成最新结果归因：98 条业务/协议成功，21 条非程序失败且程序应对正确，0 条程序错误，0 条待归因。完整冻结轮、失败复测、未触发边界、外部调用对账和逐例证据见[最终报告](real-case-campaign/final-119-report.md)。
+
+最终补充的通用防线包括：模型验收不能冒充 technical authority；自动修复可使用受限 evidence Operation；失败候选取证必须使用冻结 `repair_candidate`，普通 step 引用不能形成不可达 evidence / `replan_after` 等待集合。C04、C14/C15/C17 及最终 C15 定向复测分别验证这些边界。
+
 ## PlanDraft v1 与模型预算分账（2026-11-04）
 
 Manager协议升级为`structured-profile-v4`：每个PLAN Control Job持久化唯一`workflow_plan_drafts`记录，绑定snapshot、graph、authorization和input cutoff。模型使用按Task类型及已查询Operation拆分的白名单命令追加、替换或移除草稿局部；`commit_plan`携带revision/digest在`planning.stage`事务内复核，随后仍复用原ManagerResult、Proposal、授权和DAG应用校验。相同错误连续两次有界停止，Schema执行字节、深度、对象及联合分支门禁。新Planner不暴露Script Task；注册Operation承担确定性能力，自定义实现委派`editing_implementer`。
