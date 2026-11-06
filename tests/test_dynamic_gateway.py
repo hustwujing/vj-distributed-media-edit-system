@@ -426,9 +426,13 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(len(sent),2);self.assertTrue(sent[0]['tools'][0]['strict']);self.assertIs(sent[1]['tools'][0]['strict'],False)
         saved=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(saved['kind'],'REQUEST_USER_INPUT');self.assertNotIn('undeclared',saved)
+        notes=[json.loads(row['payload'])['text'] for row in self.store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='note'",(self.run['id'],))]
+        self.assertIn('Missing detail',notes)
 
     def test_protocols_expose_only_completed_text_not_hidden_reasoning(self):
         from webapp.model_adapters import get
+        from webapp.workflow_agents import public_command_summary
+        self.assertEqual(public_command_summary(None,'submit_typed_plan',{'action':'draft_batch_commit','command':{'reason':'安排本地实现'}}),'安排本地实现')
         examples={
             'responses':{'status':'completed','output':[{'type':'reasoning','summary':'PRIVATE reasoning'},
                 {'type':'message','content':[{'type':'output_text','text':'{"action":"result"}'}]}]},

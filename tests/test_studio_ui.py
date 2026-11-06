@@ -218,6 +218,23 @@ class StudioTests(unittest.TestCase):
         self.assertNotIn('不可公开',response.text);self.assertIn('event: done',response.text)
         self.assertEqual(self.b.get(path).status_code,404)
 
+    def test_workflow_stream_uses_redis_for_text_deltas(self):
+        from unittest.mock import patch,AsyncMock
+        from types import SimpleNamespace
+        store=self.app.state.store
+        run=workflow_graph.create(store,self.pid,None,{'goal':'流式输出','allowed_assets':[],
+            'allowed_operations':['script'],'delivery_targets':['报告'],
+            'content_fingerprint':workflow_graph.content_fingerprint(store,self.pid)})
+        store.execute("UPDATE runs SET status='SUCCEEDED',terminal_reason='delivered' WHERE id=?",(run['id'],))
+        fake=SimpleNamespace(latest_id=AsyncMock(return_value='9-0'),read=AsyncMock(side_effect=[[
+            {'id':'10-0','kind':'text_delta','payload':{'delta':'沙盒增量','base_version':[1,0],
+             'text_version':[1,1],'text_phase':'streaming'}}],[]]),aclose=AsyncMock())
+        with patch('webapp.agent_stream.AsyncStreamReader',return_value=fake):
+            response=self.a.get(f'/api/projects/{self.pid}/runs/{run["id"]}/stream')
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertIn('event: text',response.text);self.assertIn('沙盒增量',response.text)
+        fake.latest_id.assert_awaited_once_with(run['id']);fake.aclose.assert_awaited_once()
+
 
     def test_redis_terminal_snapshot_flushes_body_and_recovers_database_fallback(self):
         from unittest.mock import patch,AsyncMock

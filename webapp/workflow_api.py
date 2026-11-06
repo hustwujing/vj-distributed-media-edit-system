@@ -292,40 +292,73 @@ def register(app,store,own_project):
 
     @app.get('/api/projects/{project_id}/runs/{run_id}/stream',response_class=StreamingResponse)
     async def stream(project_id:str,run_id:str,request:Request,after:int=0):
+        from .agent_stream import AsyncStreamReader,bus as stream_bus
+        from .public_messages import read as public_messages
         api_execution=app.state.api_execution
         permit=await api_execution.streams.acquire()
         try:await api_execution.run('auth',own_run,project_id,run_id,request)
         except BaseException:
             permit.release();raise
-        header=request.headers.get('last-event-id','').strip()
-        try:position=max(0,int(header or after))
-        except ValueError:position=max(0,after)
+        reader=AsyncStreamReader(stream_bus());header=request.headers.get('last-event-id','').strip()
+        try:db_position=max(0,int(header or after))
+        except ValueError:db_position=max(0,after)
         public_kinds=('progress','work','tool','workflow_graph','note')
 
-        def snapshot(cursor):
-            run=graph.get(store,run_id)
+        def snapshot(cursor,with_events=True,with_text=True):
+            rows=store.query('SELECT status,updated_at FROM runs WHERE id=?',(run_id,))
             marks=','.join('?' for _ in public_kinds)
-            rows=store.query(f'SELECT seq,kind,payload,created FROM agent_events WHERE run_id=? AND kind IN ({marks}) AND seq>? ORDER BY seq LIMIT 200',
-                             (run_id,*public_kinds,cursor))
-            return run,rows
+            events=store.query(f'SELECT seq,kind,payload,created FROM agent_events WHERE run_id=? AND kind IN ({marks}) AND seq>? ORDER BY seq LIMIT 200',
+                (run_id,*public_kinds,cursor)) if with_events else []
+            return (rows[0] if rows else None),events,public_messages(store,run_id) if with_text else []
+
+        def durable_text(messages):
+            if not messages:return None
+            latest=max(messages,key=lambda item:(item['generation'],item['sequence']))
+            return {'text':'\n\n'.join(item['text'] for item in messages if item['text']),
+                'text_version':[latest['generation'],latest['sequence']],
+                'text_phase':'streaming' if any(item['status']=='streaming' for item in messages) else 'idle'}
 
         async def generate():
-            nonlocal position
-            heartbeat=time.monotonic()
-            while not await request.is_disconnected():
-                try:run,records=await api_execution.run('stream_read',snapshot,position)
-                except APICapacityError:
-                    yield 'retry: 2000\nevent: retry\ndata: {"code":"API_STREAM_BUSY"}\n\n';return
-                if not run:yield 'event: gone\ndata: {}\n\n';return
-                for record in records:
-                    position=record['seq'];record['payload']=json.loads(record['payload'])
-                    event='agent_text' if record['kind']=='note' else 'activity'
-                    yield f'id: {position}\nevent: {event}\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
-                if run['status'] in ('SUCCEEDED','FAILED','CANCELLED') and len(records)<200:
-                    yield 'event: done\ndata: '+json.dumps({'status':run['status']})+'\n\n';return
-                if time.monotonic()-heartbeat>12:
-                    yield 'event: heartbeat\ndata: '+json.dumps({'time':time.time()})+'\n\n';heartbeat=time.monotonic()
-                await asyncio.sleep(.5)
+            nonlocal db_position
+            redis_position=header if '-' in header else await reader.latest_id(run_id)
+            redis_mode=redis_position is not None;redis_position=redis_position or '0-0'
+            replay_events=not header or '-' not in header;initial=True;heartbeat=time.monotonic();last_snapshot=0.;status=''
+            text_signature=None
+            try:
+                while not await request.is_disconnected():
+                    if initial or not redis_mode or time.monotonic()-last_snapshot>=2:
+                        try:run,records,messages=await api_execution.run('stream_read',snapshot,db_position,replay_events or not redis_mode,initial or not redis_mode)
+                        except APICapacityError:
+                            yield 'retry: 2000\nevent: retry\ndata: {"code":"API_STREAM_BUSY"}\n\n';return
+                        if not run:yield 'event: gone\ndata: {}\n\n';return
+                        status=run['status'];last_snapshot=time.monotonic();text=durable_text(messages)
+                        signature=json.dumps(text,sort_keys=True) if text else None
+                        if text and signature!=text_signature:
+                            text_signature=signature;yield 'event: text_snapshot\ndata: '+json.dumps(text,ensure_ascii=False)+'\n\n'
+                        for record in records:
+                            db_position=record['seq'];record['payload']=json.loads(record['payload'])
+                            event='agent_text' if record['kind']=='note' else 'activity'
+                            yield f'id: {db_position}\nevent: {event}\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
+                        initial=False;replay_events=False
+                    if redis_mode:
+                        live=await reader.read(run_id,redis_position,200,200)
+                        if live is None:redis_mode=False;continue
+                        for record in live:
+                            redis_position=record['id'];kind=record['kind']
+                            if kind=='text_snapshot':yield f'id: {redis_position}\nevent: text_snapshot\ndata: '+json.dumps(record['payload'],ensure_ascii=False)+'\n\n'
+                            elif kind=='text_delta':yield f'id: {redis_position}\nevent: text\ndata: '+json.dumps(record['payload'],ensure_ascii=False)+'\n\n'
+                            elif kind in public_kinds:
+                                event='agent_text' if kind=='note' else 'activity';value={'seq':redis_position,'kind':kind,'payload':record['payload'],'created':int(redis_position.split('-',1)[0])/1000}
+                                yield f'id: {redis_position}\nevent: {event}\ndata: '+json.dumps(value,ensure_ascii=False)+'\n\n'
+                        if status in ('SUCCEEDED','FAILED','CANCELLED') and not live:
+                            yield 'event: done\ndata: '+json.dumps({'status':status})+'\n\n';return
+                    else:
+                        if status in ('SUCCEEDED','FAILED','CANCELLED') and not records:
+                            yield 'event: done\ndata: '+json.dumps({'status':status})+'\n\n';return
+                        await asyncio.sleep(.5)
+                    if time.monotonic()-heartbeat>12:
+                        yield 'event: heartbeat\ndata: '+json.dumps({'time':time.time()})+'\n\n';heartbeat=time.monotonic()
+            finally:await reader.aclose()
 
         class ManagedStream(StreamingResponse):
             async def __call__(self,*args,**kwargs):

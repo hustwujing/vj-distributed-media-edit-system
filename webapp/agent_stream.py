@@ -145,6 +145,19 @@ class AsyncStreamReader:
             await self.aclose()
             return None
 
+    async def latest_id(self,run_id):
+        if not self.enabled:return None
+        try:
+            if self._client is None:
+                import redis.asyncio as redis_async
+                self._client=redis_async.Redis.from_url(self.url,decode_responses=True,
+                    socket_connect_timeout=1,socket_timeout=2,max_connections=1)
+            rows=await self._client.xrevrange(self.transport.key(run_id),count=1)
+            return str(rows[0][0]) if rows else '0-0'
+        except asyncio.CancelledError:raise
+        except Exception as exc:
+            self.transport.failed('async_latest',exc);await self.aclose();return None
+
     async def aclose(self):
         client,self._client=self._client,None
         if client is not None:
