@@ -127,7 +127,7 @@ class ModelCommandTests(unittest.TestCase):
              'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
              'acceptance':[{'kind':'image','file':'old.png','width':1024,'height':768,'source':'user','stage':'final'}],
              'basic_reason':'old'}
-        f=frozen(old);f['graph_version']=2;f['tasks'][0].update(id='old',status='succeeded')
+        f=frozen(old);f['graph_version']=2;f['trigger']={};f['tasks'][0].update(id='old',status='succeeded')
         new={'id':'fixed','type':'agent','profile':'editing_implementer','name':'Fixed','objective':'Fixed attempt',
              'files':[{'path':'fixed.png','roles':['image']}],
              'acceptance':[{'kind':'image','width':1024,'height':768,'stage':'final','source':'user'}]}
@@ -139,7 +139,7 @@ class ModelCommandTests(unittest.TestCase):
              'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
              'acceptance':[{'kind':'image','file':'old.png','width':1024,'height':768,'source':'user','stage':'final'}],
              'basic_reason':'old'}
-        f=frozen(old);f['graph_version']=2;f['tasks'][0]['id']='old';second=json.loads(json.dumps(f['tasks'][0]));second['id']='other';second['spec']['id']='other';f['tasks'].append(second)
+        f=frozen(old);f['graph_version']=2;f['trigger']={};f['tasks'][0]['id']='old';second=json.loads(json.dumps(f['tasks'][0]));second['id']='other';second['spec']['id']='other';f['tasks'].append(second)
         new={'id':'fixed','type':'agent','profile':'editing_implementer','name':'Fixed','objective':'Fixed attempt',
              'files':[{'path':'fixed.png','roles':['image']}],
              'acceptance':[{'kind':'image','width':1024,'height':768,'stage':'final','source':'user'}]}
@@ -157,6 +157,19 @@ class ModelCommandTests(unittest.TestCase):
         option=next(item for item in repair_options(f) if item['action']=='collect_evidence_then_review_again')
         self.assertEqual(option['task_id'],'render')
         self.assertEqual(option['suggested_modes'],['audio_envelope','audio_compare'])
+        from webapp.operations import catalog
+        operation=next(item for item in catalog()['operations'] if item['id']=='media.evidence')
+        f['operations']=[operation]
+        protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},
+            contracts={operation['id']:operation},draft={'status':'OPEN'})
+        task_schema=protocol.schemas['submit_typed_plan']['properties']['tasks']
+        self.assertEqual(task_schema['minItems'],1)
+        self.assertNotIn('AgentCommandTask',protocol.schemas['submit_typed_plan'].get('$defs',{}))
+        invalid={'kind':'APPLY_PLAN','reason':'Add another business Agent','plan':{'new_tasks':[{
+            'id':'copy','type':'agent','profile':'editing_implementer','name':'Copy','objective':'Copy media',
+            'files':[{'path':'copy.png','roles':['image']}],'acceptance':[{'kind':'image'}]}]}}
+        with self.assertRaises(CommandError) as raised:compile_manager(invalid,f)
+        self.assertEqual(raised.exception.code,'evidence_task_required')
 
     def test_changes_preserve_frozen_contract_and_bind_original_request(self):
         f=frozen();command={'kind':'COMPLETE','reason':'Repair script','plan':{'changes':[{'task_id':'render','set':{'argv':['python','-c','print(1)']}}]}}
