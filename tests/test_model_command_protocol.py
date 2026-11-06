@@ -171,6 +171,25 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(CommandError) as raised:compile_manager(invalid,f)
         self.assertEqual(raised.exception.code,'evidence_task_required')
 
+    def test_evidence_cannot_wait_on_unaccepted_output_from_paused_task(self):
+        task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render audio',
+              'outputs':['final.wav'],'output_roles':{'audio':'final.wav'},'acceptance':[{'kind':'media'}],
+              'basic_reason':'render','delivery_stage':True}
+        f=frozen(task);f['tasks'][0].update(status='paused',candidate_result=['final.wav'],
+            quality={'technical_valid':True,'passed':True})
+        f['review_feedback']=[{'subject_task':'render','decision':{'verdict':'inconclusive',
+            'feedback':'Need bounded audio evidence.'}}]
+        from webapp.operations import catalog
+        operation=next(item for item in catalog()['operations'] if item['id']=='media.evidence')
+        f['operations']=[operation]
+        evidence={'id':'measure','type':'operation','name':'Measure','objective':'Measure candidate',
+                  'operation':'media.evidence','purpose':'evidence','parameters':{'mode':'audio'},
+                  'inputs':{'source':{'step':'render','role':'audio'}}}
+        with self.assertRaises(CommandError) as raised:
+            compile_manager({'kind':'APPLY_PLAN','reason':'Collect evidence','plan':{'new_tasks':[evidence]}},f)
+        self.assertEqual(raised.exception.code,'evidence_candidate_required')
+        self.assertEqual(raised.exception.path,'plan.new_tasks.0.inputs.source')
+
     def test_changes_preserve_frozen_contract_and_bind_original_request(self):
         f=frozen();command={'kind':'COMPLETE','reason':'Repair script','plan':{'changes':[{'task_id':'render','set':{'argv':['python','-c','print(1)']}}]}}
         schema=manager_schema(f);wire=transform(command,schema,encode=True);result=compile_manager(transform(wire,schema),f)

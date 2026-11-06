@@ -532,6 +532,16 @@ def compile_manager(command,frozen):
                          if identifier not in existing_replaced and delivery_acceptance_signature(row['spec'])==signature]
                 if len(matches)==1:
                     replacements[matches[0]]=task['id'];existing_replaced.add(matches[0])
+        revised_ids={task['id'] for task in revisions}
+        for index,task in enumerate(added):
+            if task.get('purpose')!='evidence':continue
+            for role,ref in task.get('inputs',{}).items():
+                source=ref.get('step')
+                if (source in current and current[source]['status']!='succeeded'
+                        and source not in revised_ids and source not in replacements):
+                    raise CommandError('evidence_candidate_required',
+                        f'plan.new_tasks.{index}.inputs.{role}',
+                        'Evidence for a paused or failed Task must use its frozen repair_candidate; a normal step input waits for accepted output and can never run')
         if automatic is not None and user is None:
             replacement_ids=set(replacements.values())
             invalid=[task['id'] for task in added if task['id'] not in replacement_ids and
@@ -539,7 +549,7 @@ def compile_manager(command,frozen):
             if invalid:
                 raise CommandError('evidence_task_required' if evidence_collection_available(frozen) else 'new_task_not_available','plan.new_tasks',
                     'Automatic repair permits only explicit replacements or registered evidence Operations')
-        changed={task['id'] for task in added}|{task['id'] for task in revisions}
+        changed={task['id'] for task in added}|revised_ids
         changed|={identifier for identifier in plan.get('review_again',{}) if identifier in current}
         changed={replacements.get(identifier,identifier) for identifier in changed}
         waiting=sorted(identifier for identifier in changed if not any(edge['upstream']==identifier and edge['downstream'] in changed for edge in dependencies))
