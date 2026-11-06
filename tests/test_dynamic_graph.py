@@ -102,13 +102,9 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertIn('verdict',profile['result_schema']['properties'])
         task=script(type='agent',profile='visual_quality_reviewer',argv=[],outputs=['report.json'],
                     output_roles={'report':'report.json'},acceptance=[{'kind':'json','required_keys':['verdict']}],delivery_stage=False)
-        graph.Task.model_validate(task)
-        with self.assertRaisesRegex(ValueError,'cannot be delivery stages'):
-            graph.Task.model_validate({**task,'delivery_stage':True})
-        with self.assertRaisesRegex(ValueError,'fixed Agent result schema'):
-            graph.Task.model_validate({**task,'acceptance':[{'kind':'json','required_keys':['verified_lines']}]})
-        with self.assertRaisesRegex(ValueError,'JSON reports only'):
-            graph.Task.model_validate({**task,'outputs':['report.txt'],'output_roles':{'report':'report.txt'}})
+        for control_profile in ('visual_quality_reviewer','media_failure_diagnostician','media_planner','delivery_reviewer'):
+            with self.subTest(control_profile=control_profile),self.assertRaisesRegex(ValueError,'Control profiles'):
+                graph.Task.model_validate({**task,'profile':control_profile})
 
     def test_agent_acceptance_cannot_reference_an_undeclared_output(self):
         task=script(type='agent',profile='editing_implementer',argv=[],outputs=['final.png'],
