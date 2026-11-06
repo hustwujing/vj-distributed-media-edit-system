@@ -125,7 +125,15 @@ def _delivery_request_text(frozen):
         nearby=match.group(0)+after[:min(endings) if endings else len(after)]
         excluded=r'(?:非交付|不交付|不要交付|无需交付|不得交付|仅(?:作为|供)?(?:中间|内部|参考)|non[- ]?deliverable|do not deliver|not for delivery|internal only)'
         return ' ' if re.search(excluded,nearby,re.IGNORECASE) else match.group(0)
-    return filename.sub(omit_non_delivery,text),filename
+    text=filename.sub(omit_non_delivery,text)
+    format_token=re.compile(r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])')
+    def omit_intermediate_format(match):
+        after=text[match.end():]
+        endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
+        clause=after[:min(endings) if endings else len(after)]
+        intermediate=r'(?:中间|复用|输入|素材|备用|参考|intermediate|reuse|input|source|reference)'
+        return ' ' if re.search(intermediate,clause,re.IGNORECASE) else match.group(0)
+    return format_token.sub(omit_intermediate_format,text),filename
 
 
 def required_delivery_names(frozen):
