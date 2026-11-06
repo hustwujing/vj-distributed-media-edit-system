@@ -145,6 +145,20 @@ class OpenSandboxCommandTests(unittest.TestCase):
         result=adapter.isolated(env,{'mode':'local'},30,lambda:False)
         self.assertEqual(result,'receipt')
 
+    def test_workflow_adapter_delegates_validation_to_command_runtime(self):
+        from webapp.operation_result import ProducedFiles
+        from webapp.workflow_runtime import Adapter
+        report={'version':'quality-v1','technical_valid':True,'passed':True,'requires_review':False,
+            'requires_agent':False,'files':[{'name':'edit/final.wav','kind':'media','audio_track_present':True},
+                                           {'name':'edit/audio-process-report.json','kind':'json'}],'checks':[]}
+        runtime=SimpleNamespace(is_command=True,calls=[],validate_payload=lambda payload:runtime.calls.append(payload) or report)
+        adapter=Adapter.__new__(Adapter);adapter.environment=lambda workflow:{'runtime':runtime}
+        step={'quality':{},'semantics':{},'spec':{'kind':'operation','operation':'audio.process','acceptance':[]}}
+        files=ProducedFiles(['edit/final.wav','edit/audio-process-report.json'],
+            {'audio':'edit/final.wav','report':'edit/audio-process-report.json'})
+        result=adapter.validate({},step,files)
+        self.assertTrue(result['passed']);self.assertEqual(runtime.calls[0]['files'],files)
+
     def test_failed_command_retains_bounded_remote_diagnostic(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);workspace=root/'workspace';sources=root/'sources';workspace.mkdir();sources.mkdir()

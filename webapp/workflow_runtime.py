@@ -502,11 +502,6 @@ class Adapter:
         files=list(dict.fromkeys(spec.get('preflight',[])+spec.get('config_files',[])+[c['checker'] for c in spec.get('acceptance',[]) if c.get('checker')]+
             [a for a in spec.get('argv',[]) if a.startswith('edit/') and a.endswith(('.py','.json','.sh'))]))
         if not files:return {'passed':True,'files':{},'issues':[],'coverage':'No script inputs'}
-        runtime=env.get('runtime')
-        if runtime and getattr(runtime,'is_command',False):
-            report=runtime.validate_payload(payload)
-            from .operation_result import validate_contract
-            return validate_contract(for_step(s['spec']),report,role_map)
         path=temporary_socket(self.socket_dir)
         try:
             with socket.socket(socket.AF_UNIX) as sock:
@@ -778,6 +773,11 @@ class Adapter:
             outputs=roles(s['spec'],files,getattr(files,'roles',None))
             payload['mask_repair']={'reference':bound[mask['reference_role']]['path'],
                 'candidate':outputs[mask['output_role']],'max_changed_fraction':mask['max_changed_fraction']}
+        runtime=env.get('runtime')
+        if runtime and getattr(runtime,'is_command',False):
+            report=runtime.validate_payload(payload)
+            from .operation_result import validate_contract
+            return validate_contract(for_step(s['spec']),report,role_map)
         path=temporary_socket(self.socket_dir)
         try:
             with socket.socket(socket.AF_UNIX) as sock,tempfile.TemporaryFile() as output,tempfile.TemporaryFile() as errors:
