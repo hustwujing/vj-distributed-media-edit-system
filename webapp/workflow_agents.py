@@ -202,7 +202,7 @@ def input_token_reservation(adapter,body,client,base,key,lease,deadline,images=(
 
 def model(host,lease,run,profile,conversation,images=(),deadline=None,protocol=None,transport=None,text_stream=None):
     transport=transport if transport is not None else {'strict':True}
-    try:return _model_request(host,lease,run,profile,conversation,images,deadline,protocol,transport.get('strict',True),text_stream)
+    try:return _model_request(host,lease,run,profile,conversation,images,deadline,protocol,text_stream,transport.get('strict',True))
     except StrictModeUnsupported:
         if protocol is None or not transport.get('strict',True):raise
         # Explicit parameter rejection only; both requests keep their own usage receipts.
@@ -211,7 +211,7 @@ def model(host,lease,run,profile,conversation,images=(),deadline=None,protocol=N
         emit('workflow.structured_output_fallback',task_id=lease.run_id,step_id=lease.step_id,
              error_code='strict_not_supported',structured_output_mode='non_strict_tools')
         lease.check()
-        return _model_request(host,lease,run,profile,conversation,images,deadline,protocol,False,text_stream)
+        return _model_request(host,lease,run,profile,conversation,images,deadline,protocol,text_stream,False)
 
 
 def model_output_limit(profile,protocol):
@@ -224,7 +224,7 @@ def model_output_limit(profile,protocol):
     return min(profile.max_output_tokens,1024)
 
 
-def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,strict,text_stream):
+def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,text_stream,strict):
     from .agent_profiles import for_specialist
     from .model_adapters import get,PublicResponseStructureError
     from .egress_policy import provider_base,session,assert_no_credentials,secrets
