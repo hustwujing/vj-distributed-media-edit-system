@@ -6,10 +6,41 @@ from unittest.mock import patch
 from webapp.agent_profiles import AgentProfile, selected, for_task
 from webapp.harness_adapters import CodexAdapter, get
 from webapp.harness_sdk_events import SDKEvents
-from webapp.model_adapters import AnthropicAdapter, ChatCompletionsAdapter, AnthropicReceipt, ChatReceipt
+from webapp.model_adapters import AnthropicAdapter, ChatCompletionsAdapter, AnthropicReceipt, ChatReceipt,StructuredStream
 
 
 class HarnessProtocolTests(unittest.TestCase):
+    def test_structured_native_streams_release_public_text_and_rebuild_tools(self):
+        def wire(events):return b''.join(('data: '+json.dumps(event,ensure_ascii=False)+'\n\n').encode() for event in events)+b'data: [DONE]\n\n'
+        cases={
+            'responses':[
+                {'type':'response.output_text.delta','delta':'正在规划。'},
+                {'type':'response.completed','response':{'status':'completed','output':[{'type':'message','phase':'commentary','content':[{'type':'output_text','text':'正在规划。'}]},{'type':'function_call','name':'submit','arguments':'{"ok":true}'}]}},
+            ],
+            'anthropic':[
+                {'type':'message_start','message':{'id':'m','role':'assistant','usage':{}}},
+                {'type':'content_block_start','index':0,'content_block':{'type':'text','text':''}},
+                {'type':'content_block_delta','index':0,'delta':{'type':'text_delta','text':'正在检查。'}},
+                {'type':'content_block_start','index':1,'content_block':{'type':'tool_use','id':'t','name':'submit','input':{}}},
+                {'type':'content_block_delta','index':1,'delta':{'type':'input_json_delta','partial_json':'{"ok":'}},
+                {'type':'content_block_delta','index':1,'delta':{'type':'input_json_delta','partial_json':'true}'}},
+                {'type':'content_block_stop','index':1},{'type':'message_delta','delta':{'stop_reason':'tool_use'},'usage':{'output_tokens':8}},{'type':'message_stop'},
+            ],
+            'chat_completions':[
+                {'choices':[{'index':0,'delta':{'content':'正在执行。'}}]},
+                {'choices':[{'index':0,'delta':{'tool_calls':[{'index':0,'id':'t','type':'function','function':{'name':'sub','arguments':'{"ok":'}}]}}]},
+                {'choices':[{'index':0,'delta':{'tool_calls':[{'index':0,'function':{'name':'mit','arguments':'true}'}}]},'finish_reason':'tool_calls'}],'usage':{'prompt_tokens':1,'completion_tokens':2,'total_tokens':3}},
+            ],
+        }
+        for protocol,events in cases.items():
+            with self.subTest(protocol=protocol):
+                texts=[];stream=StructuredStream(protocol,texts.append);payload=wire(events)
+                for start in range(0,len(payload),7):stream.feed(payload[start:start+7])
+                result=stream.finish();self.assertTrue(stream.sse);self.assertTrue(''.join(texts).startswith('正在'))
+                if protocol=='responses':call=next(item for item in result['output'] if item['type']=='function_call');self.assertEqual(json.loads(call['arguments']),{'ok':True})
+                elif protocol=='anthropic':call=next(item for item in result['content'] if item['type']=='tool_use');self.assertEqual(call['input'],{'ok':True});self.assertEqual(result['stop_reason'],'tool_use')
+                else:call=result['choices'][0]['message']['tool_calls'][0];self.assertEqual(call['function']['name'],'submit');self.assertEqual(json.loads(call['function']['arguments']),{'ok':True})
+
     def test_unknown_harness_and_invalid_protocol_are_rejected(self):
         with self.assertRaises(ValueError):get('unregistered')
         with self.assertRaises(ValueError):AgentProfile(harness='claude_code',protocol='responses')

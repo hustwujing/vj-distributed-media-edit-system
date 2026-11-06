@@ -44,6 +44,7 @@ class Command(graph.Contract):
 
 
 def public(store,run):
+    from .role_display import item_name
     def execution_location(item):
         bindings=item.get('bindings') or {}
         backend=bindings.get('_backend') or bindings.get('backend')
@@ -52,7 +53,8 @@ def public(store,run):
         if not backend and isinstance(environment,dict):backend=environment.get('backend') or environment.get('runtime_kind')
         if backend in ('opensandbox','agent_runtime','command_runtime'):return 'opensandbox'
         if backend in ('local_bwrap','bwrap'):return 'bwrap_sandbox'
-        if item.get('control_kind') or item.get('type') in ('agent','script'):return 'bwrap_sandbox'
+        if item.get('control_kind') or item.get('type')=='agent':return 'agent_worker'
+        if item.get('type')=='script':return 'bwrap_sandbox'
         if item.get('type')=='operation':
             try:
                 from .operations import get
@@ -77,11 +79,15 @@ def public(store,run):
             'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
         public_task['revision_graph_version']=revision_versions.get((task['id'],task['revision']),task['created_graph_version'])
         public_task['execution_location']=execution_location(task)
+        public_task['display_name']=item_name(task)
+        if task.get('type')=='agent':public_task['tool_location']='bwrap_sandbox'
         value['tasks'].append(public_task)
     value['control_jobs']=[]
     for job in run['control_jobs']:
         public_job={key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','created_graph_version','created_at','updated_at')}
         public_job['execution_location']=execution_location(job)
+        public_job['display_name']=item_name(job)
+        public_job['tool_location']='bwrap_sandbox'
         value['control_jobs'].append(public_job)
     from .run_inputs import public as public_input
     value['inputs']=[public_input(row) for row in store.query('SELECT * FROM run_inputs WHERE run_id=? ORDER BY sequence',(run['id'],))]
@@ -316,7 +322,8 @@ def register(app,store,own_project):
             latest=max(messages,key=lambda item:(item['generation'],item['sequence']))
             return {'text':'\n\n'.join(item['text'] for item in messages if item['text']),
                 'text_version':[latest['generation'],latest['sequence']],
-                'text_phase':'streaming' if any(item['status']=='streaming' for item in messages) else 'idle'}
+                'text_phase':'streaming' if any(item['status']=='streaming' for item in messages) else 'idle',
+                'published_at':latest['updated']}
 
         async def generate():
             nonlocal db_position

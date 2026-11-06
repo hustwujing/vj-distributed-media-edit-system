@@ -394,6 +394,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertIsNone(rows[0]['total_tokens']);self.assertEqual(rows[1]['total_tokens'],120)
         notes=[json.loads(row['payload']) for row in self.store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='note'",(self.run['id'],))]
         self.assertEqual([row['text'] for row in notes],['正在整理可执行计划。'])
+        self.assertEqual(notes[0]['display_name'],'任务规划师')
 
     def test_accepted_strict_request_with_invalid_wire_downgrades_without_staging_bad_plan(self):
         import threading

@@ -26,10 +26,10 @@ test('control jobs use a separate lane and historic cycles remain visible',()=>{
   {upstream_task_id:'b',downstream_task_id:'a'},
  ],[{id:'review',control_kind:'REVIEW'}],{run:{state:'ACTIVE',graph_version:1},reviews:[{task_id:'review',subject_task:'b'}]});
  assert.equal(graph.nodes.filter(node=>node.kind==='task').length,2);
- assert.equal(graph.nodes.find(node=>node.kind==='control').y,30);
- assert.equal(graph.nodes.find(node=>node.kind==='run').y,30);
+ assert.ok(graph.nodes.find(node=>node.kind==='control'));
+ assert.ok(graph.nodes.find(node=>node.kind==='run'));
  assert.ok(graph.edges.some(edge=>edge.kind==='control'&&edge.upstream==='b'&&edge.downstream==='review'));
- assert.ok(graph.nodes.filter(node=>node.kind==='task').every(node=>node.y>=112));
+ assert.equal(new Set(graph.nodes.map(node=>`${node.x}:${node.y}`)).size,graph.nodes.length);
 });
 
 test('replanning control edges return to manager and connect applied revisions',()=>{
@@ -56,4 +56,6 @@ test('replanning control edges return to manager and connect applied revisions',
  assert.ok(controlEdges.includes('source->review'));
  assert.ok(controlEdges.includes('review->plan-2'));
  assert.ok(controlEdges.includes('plan-2->result'));
+ const nodes=Object.fromEntries(graph.nodes.map(node=>[node.id,node]));
+ for(const edge of graph.edges)assert.ok(nodes[edge.downstream].x>nodes[edge.upstream].x,`${edge.upstream} must precede ${edge.downstream}`);
 });

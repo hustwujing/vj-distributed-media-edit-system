@@ -125,7 +125,7 @@ class AgentHost:
             env = agent_sandbox.prepare(self.store, project_id, model, mode, run_id,
                 preview_id=uuid.uuid4().hex if review_request else None)
             if mode=='execute':env['output_baseline']=agent_sandbox.snapshot_outputs(env)
-            tracker = ActivityTracker(lambda kind,payload:self.notify(run_id,kind,{**payload,'actor':'sandbox_agent'}),env['assets'])
+            tracker = ActivityTracker(lambda kind,payload:self.notify(run_id,kind,{**payload,'actor':'sandbox_agent','display_name':'本机沙盒创作助手'}),env['assets'])
             lease = CURRENT.get()
             socket_path = self.socket_dir / ((lease.attempt if lease else run_id)+'.sock')
             def extract_audio(filename, track, destination):

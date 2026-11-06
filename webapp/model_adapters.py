@@ -15,6 +15,68 @@ class PublicResponseStructureError(ValueError):
         super().__init__(message)
 
 
+class StructuredStream:
+    """Rebuild one completed native tool response while releasing only public text."""
+    limit=8*1024**2
+    def __init__(self,protocol,on_text):
+        self.protocol,self.on_text=protocol,on_text;self.buffer=b'';self.size=0;self.payload=None;self.sse=False
+        self.message={};self.blocks={};self.chat={};self.usage=None
+    def feed(self,chunk):
+        self.size+=len(chunk)
+        if self.size>self.limit:raise ValueError('Model response exceeds limit')
+        self.buffer+=chunk
+        while b'\n\n' in self.buffer or b'\r\n\r\n' in self.buffer:
+            at,sep=min((self.buffer.find(value),value) for value in (b'\n\n',b'\r\n\r\n') if value in self.buffer)
+            frame,self.buffer=self.buffer[:at],self.buffer[at+len(sep):]
+            data=b'\n'.join(line[5:].lstrip(b' ') for line in frame.splitlines() if line.startswith(b'data:'))
+            if data:self.sse=True
+            if data and data!=b'[DONE]':self.accept(json.loads(data))
+    def accept(self,value):
+        if not isinstance(value,dict):return
+        if self.protocol=='responses':
+            if value.get('type')=='response.output_text.delta' and isinstance(value.get('delta'),str):self.on_text(value['delta'])
+            if value.get('type')=='response.completed' and isinstance(value.get('response'),dict):self.payload=value['response']
+            return
+        if self.protocol=='anthropic':
+            kind=value.get('type');index=value.get('index',0)
+            if kind=='message_start':self.message=dict(value.get('message') or {});self.message['content']=[]
+            elif kind=='content_block_start':
+                block=dict(value.get('content_block') or {});block['_json']='';self.blocks[index]=block
+                if block.get('type')=='text' and isinstance(block.get('text'),str) and block['text']:self.on_text(block['text'])
+            elif kind=='content_block_delta':
+                delta=value.get('delta') or {};block=self.blocks.setdefault(index,{'type':'text','text':'','_json':''})
+                if delta.get('type')=='text_delta' and isinstance(delta.get('text'),str):block['text']=block.get('text','')+delta['text'];self.on_text(delta['text'])
+                elif delta.get('type')=='input_json_delta' and isinstance(delta.get('partial_json'),str):block['_json']+=delta['partial_json']
+            elif kind=='content_block_stop':
+                block=self.blocks.get(index,{})
+                if block.get('type')=='tool_use':block['input']=json.loads(block.pop('_json','') or '{}')
+            elif kind=='message_delta':self.message.update(value.get('delta') or {});self.message['usage']={**(self.message.get('usage') or {}),**(value.get('usage') or {})}
+            elif kind=='message_stop':
+                self.message['content']=[{k:v for k,v in self.blocks[key].items() if k!='_json'} for key in sorted(self.blocks)];self.payload=self.message
+            return
+        if self.protocol=='chat_completions':
+            if isinstance(value.get('usage'),dict):self.usage=value['usage']
+            for choice in value.get('choices',[]):
+                index=choice.get('index',0);row=self.chat.setdefault(index,{'content':'','tool_calls':{},'finish_reason':None});delta=choice.get('delta') or {}
+                if isinstance(delta.get('content'),str):row['content']+=delta['content'];self.on_text(delta['content'])
+                for tool in delta.get('tool_calls') or []:
+                    tool_index=tool.get('index',0);target=row['tool_calls'].setdefault(tool_index,{'id':'','type':'function','function':{'name':'','arguments':''}});target['id']+=tool.get('id','');target['type']=tool.get('type',target['type']);function=tool.get('function') or {};target['function']['name']+=function.get('name','');target['function']['arguments']+=function.get('arguments','')
+                if choice.get('finish_reason') is not None:row['finish_reason']=choice['finish_reason']
+    def finish(self):
+        if self.buffer.strip():
+            prefix=self.buffer.lstrip()
+            if prefix.startswith(b'{'):self.payload=json.loads(self.buffer)
+            else:
+                data=b'\n'.join(line[5:].lstrip(b' ') for line in self.buffer.splitlines() if line.startswith(b'data:'))
+                if data and data!=b'[DONE]':self.accept(json.loads(data))
+        self.buffer=b''
+        if self.protocol=='chat_completions' and self.payload is None and self.chat:
+            self.payload={'choices':[{'index':index,'finish_reason':row['finish_reason'],'message':{'role':'assistant','content':row['content'] or None,'tool_calls':[row['tool_calls'][key] for key in sorted(row['tool_calls'])]}} for index,row in sorted(self.chat.items())]}
+            if self.usage is not None:self.payload['usage']=self.usage
+        if not isinstance(self.payload,dict):raise ValueError('Model stream ended without a complete response')
+        return self.payload
+
+
 class ModelAdapter:
     protocol = ''
     path = ''

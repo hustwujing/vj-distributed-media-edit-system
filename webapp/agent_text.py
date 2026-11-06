@@ -13,7 +13,8 @@ class TextPublisher:
         self.attempt=lease.attempt if lease else ''
         from .public_messages import read
         self.history=read(store,task);self.messages={}
-        self.sequence=0;self.published='';self.pending='';self.cursor='';self.started=False
+        self.sequence=max((item['sequence'] for item in self.history if item['generation']==self.generation),default=0)
+        self.published='\n\n'.join(item['text'] for item in self.history if item['text']);self.pending=self.published;self.cursor='';self.started=bool(self.published)
         self.last_publish=0.;self.last_save=0.;self.phase='idle';self.dirty=False
         self.snapshot_seconds=max(.25,min(5.,float(os.environ.get('VIDEO_USE_AGENT_TEXT_SNAPSHOT_SECONDS','1'))))
 
