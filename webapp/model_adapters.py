@@ -35,6 +35,9 @@ class ModelAdapter:
     def response_text(self,payload):
         raise NotImplementedError('Structured response parsing is not implemented for this protocol')
 
+    def public_commentary(self,payload):
+        return []
+
     def input_token_request(self,body):
         raise NotImplementedError('This protocol has no configured multimodal input token counter')
 
@@ -72,6 +75,11 @@ class ResponsesAdapter(ModelAdapter):
         if len(messages)!=1 or len(texts)!=1 or not isinstance(texts[0],str):
             raise PublicResponseStructureError('Structured Agent requires exactly one public text block')
         return texts[0]
+
+    def public_commentary(self,payload):
+        output=payload.get('output',[]) if isinstance(payload,dict) else []
+        return [content['text'] for item in output if isinstance(item,dict) and item.get('type')=='message' and item.get('phase')=='commentary'
+                for content in item.get('content',[]) if isinstance(content,dict) and content.get('type')=='output_text' and isinstance(content.get('text'),str)]
 
     def prepare(self, body, model, max_output_tokens, reasoning_effort=None):
         from .egress_policy import model_input
@@ -134,6 +142,11 @@ class ChatCompletionsAdapter(ModelAdapter):
         if not isinstance(value,str):raise ValueError('Response text is missing')
         return value
 
+    def public_commentary(self,payload):
+        try:value=payload['choices'][0]['message'].get('content')
+        except (KeyError,IndexError,TypeError):return []
+        return [value] if isinstance(value,str) and value.strip() else []
+
     def prepare(self, body, model, max_output_tokens, reasoning_effort=None):
         value = copy.deepcopy(body)
         validate_messages(value.get('messages'))
@@ -172,6 +185,9 @@ class AnthropicAdapter(ModelAdapter):
         texts=[c.get('text','') for c in payload.get('content',[]) if c.get('type')=='text']
         if len(texts)!=1 or not isinstance(texts[0],str):raise PublicResponseStructureError('Structured Agent requires exactly one public text block')
         return texts[0]
+
+    def public_commentary(self,payload):
+        return [item['text'] for item in payload.get('content',[]) if isinstance(item,dict) and item.get('type')=='text' and isinstance(item.get('text'),str) and item['text'].strip()]
 
     def headers(self, key):
         return {**super().headers(key), 'x-api-key': key, 'anthropic-version': '2023-06-01'}

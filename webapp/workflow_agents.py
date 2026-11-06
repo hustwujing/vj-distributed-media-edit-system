@@ -10,7 +10,7 @@ from pathlib import Path
 import time
 import uuid
 from contextlib import contextmanager
-from . import workflow_graph as graph,workflow_planning as planning
+from . import workflow_graph as graph,workflow_planning as planning,agent_store
 from .specialist_profiles import get as get_profile
 from .workflow_dispatch import stage_result
 from .task_leases import LeaseLost,TaskQuotaReached
@@ -315,6 +315,11 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
             raise error from None
         except PublicResponseStructureError as exc:raise AgentReplyError('',code=exc.code) from None
         except (ValueError,KeyError,TypeError,IndexError):raise AgentReplyError('',code='invalid_tool_response') from None
+        for text in adapter.public_commentary(payload):
+            text=text.strip()[:5000]
+            if text:
+                assert_no_credentials(text,(*secrets(),key))
+                agent_store.event(host.store,lease.run_id,'note',{'text':text,'actor':actor(profile),'step_id':lease.step_id})
         emit('workflow.model_response_structure',task_id=lease.run_id,step_id=lease.step_id,operation=name,
              structured_output_mode='strict_tools' if strict else 'non_strict_tools',
              text_characters=len(graph.encode(arguments)),text_sha256=graph.digest(arguments),
