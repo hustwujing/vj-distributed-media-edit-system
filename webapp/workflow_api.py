@@ -1,12 +1,14 @@
 """Owned workflow commands and snapshots; mutations are reconciled asynchronously."""
+import asyncio
 import json
+import time
 import uuid
 from typing import Literal
 from fastapi import HTTPException,Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse,StreamingResponse
 from pydantic import Field,model_validator
 from . import workflow_graph as graph,agent_store
-from .api_execution import lane
+from .api_execution import lane,APICapacityError
 
 
 class ModelChoice(graph.Contract):
@@ -287,6 +289,48 @@ def register(app,store,own_project):
                             (run['id'],max(0,after),max(1,min(200,limit))))
         for record in records:record['payload']=json.loads(record.pop('payload_json'))
         return {'events':records,'cursor':records[-1]['seq'] if records else after}
+
+    @app.get('/api/projects/{project_id}/runs/{run_id}/stream',response_class=StreamingResponse)
+    async def stream(project_id:str,run_id:str,request:Request,after:int=0):
+        api_execution=app.state.api_execution
+        permit=await api_execution.streams.acquire()
+        try:await api_execution.run('auth',own_run,project_id,run_id,request)
+        except BaseException:
+            permit.release();raise
+        header=request.headers.get('last-event-id','').strip()
+        try:position=max(0,int(header or after))
+        except ValueError:position=max(0,after)
+        public_kinds=('progress','work','tool','workflow_graph','note')
+
+        def snapshot(cursor):
+            run=graph.get(store,run_id)
+            marks=','.join('?' for _ in public_kinds)
+            rows=store.query(f'SELECT seq,kind,payload,created FROM agent_events WHERE run_id=? AND kind IN ({marks}) AND seq>? ORDER BY seq LIMIT 200',
+                             (run_id,*public_kinds,cursor))
+            return run,rows
+
+        async def generate():
+            nonlocal position
+            heartbeat=time.monotonic()
+            while not await request.is_disconnected():
+                try:run,records=await api_execution.run('stream_read',snapshot,position)
+                except APICapacityError:
+                    yield 'retry: 2000\nevent: retry\ndata: {"code":"API_STREAM_BUSY"}\n\n';return
+                if not run:yield 'event: gone\ndata: {}\n\n';return
+                for record in records:
+                    position=record['seq'];record['payload']=json.loads(record['payload'])
+                    yield f'id: {position}\nevent: activity\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
+                if run['status'] in ('SUCCEEDED','FAILED','CANCELLED') and len(records)<200:
+                    yield 'event: done\ndata: '+json.dumps({'status':run['status']})+'\n\n';return
+                if time.monotonic()-heartbeat>12:
+                    yield 'event: heartbeat\ndata: '+json.dumps({'time':time.time()})+'\n\n';heartbeat=time.monotonic()
+                await asyncio.sleep(.5)
+
+        class ManagedStream(StreamingResponse):
+            async def __call__(self,*args,**kwargs):
+                try:return await super().__call__(*args,**kwargs)
+                finally:permit.release()
+        return ManagedStream(generate(),media_type='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
 
     @app.post('/api/projects/{project_id}/runs/{run_id}/commands',status_code=202)
     @lane('critical')
