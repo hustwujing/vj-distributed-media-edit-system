@@ -62,8 +62,8 @@ Operation 不得因为镜像可用而自动迁移。
 ### 3.1 变更路径与强制重建矩阵
 
 是否重建以“当前源码相对已部署镜像所记录的源码 commit”做 diff，不能只看最近一次 commit，也不能因为
-控制面测试通过就继续使用旧镜像。当前 `base.Dockerfile` 会安装完整 `webapp` wheel，因此现阶段
-`webapp/**` 的任何变化都会改变共享 Runtime base，即使文件看起来只服务于控制面。
+控制面测试通过就继续使用旧镜像。下表是**完整发布**的强制矩阵。当前 `base.Dockerfile` 会安装完整
+`webapp` wheel，因此现阶段 `webapp/**` 的任何变化都会改变共享 Runtime base，即使文件看起来只服务于控制面。
 
 | 发生变化的路径或输入 | 必须重建 |
 | --- | --- |
@@ -81,12 +81,18 @@ Operation 不得因为镜像可用而自动迁移。
 会 import 的模块，既要部署宿主 Executor 代码，也要重建四张共享-base 镜像。宿主与镜像混用不同源码
 版本属于发布错误，不能靠重试或回退本机执行掩盖。
 
+定向开发复测允许只构建当前实际启用、被测且受影响的镜像。例如 Agent backend 仍为 `local_bwrap` 时，
+Command Runtime 修复可以只构建和推送 `operation-runtime`。这种部署必须标记 `targeted_only`，记录其余
+三张 Agent 镜像尚未基于新 base 重建，不得生成完整 release manifest、跑完整 campaign 或宣称四镜像
+发布完成。进入最终 full-gate 发布前，仍必须按上表补齐四张镜像并统一验证。
+
 ### 3.2 镜像发布顺序
 
 1. 停止使用旧源码继续跑真机 case；确认没有活动 sandbox 依赖待替换 tag。
 2. 更新 `release-spec.json` 的 Bundle 文件集合，运行 `runtime_release.py --freeze-bundle` 并提交
    `runtime/public/bundle.json`。
-3. 按上表构建 foundation/base/Harness；共享 base 变化时四张必须来自同一个 base image ID。
+3. 定向复测只构建当前被测镜像；最终发布按上表构建 foundation/base/Harness，共享 base 变化时四张
+   必须来自同一个 base image ID。
 4. 运行 `test_runtime_images`、`test_runtime_bootstrap` 及受影响 Runtime 单测，再执行四张镜像的离线
    `verify_runtime_images.py`。门禁必须实际 import 或执行新增 helper，不能只检查文件存在。
 5. 先提交源码，再用该 commit 标记镜像；推送到隔离 registry，记录四个 registry manifest digest。
