@@ -63,8 +63,17 @@ class OpenSandboxCommandRuntime:
             target.chmod(0o600)
 
         assets={asset['id']:asset for asset in store.assets(project)};selected=[]
+        self.repair_input_paths=set()
         for reference in step['spec'].get('inputs',{}).values():
-            if reference.get('asset'):
+            if reference.get('repair_candidate'):
+                if not w.get('dynamic') or step.get('purpose') not in ('repair','evidence'):
+                    raise ValueError('Repair candidate outside scoped task')
+                from .workflow_graph import get as graph_get
+                from .repair_inputs import lookup
+                candidate=lookup(store,graph_get(store,w['id']),reference['repair_candidate'])
+                restore(candidate['record'],destination(workspace,candidate['path']))
+                self.repair_input_paths.add(candidate['path'])
+            elif reference.get('asset'):
                 asset=assets.get(reference['asset'])
                 if not asset:raise ValueError('Command input asset is outside project')
                 logical='sources/'+asset['filename'];target=destination(sources,asset['filename'])

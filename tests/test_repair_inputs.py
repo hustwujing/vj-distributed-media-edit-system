@@ -54,6 +54,35 @@ class RepairInputTests(unittest.TestCase):
             graph.Task.model_validate(fixtures.script(inputs={'source':{'repair_candidate':self.ref}}))
         self.assertEqual(self.run['tasks'][0]['accepted_result'],[])
 
+    def test_opensandbox_command_materializes_registered_candidate(self):
+        from webapp.opensandbox_command import OpenSandboxCommandRuntime
+        from webapp.workflows import get
+        task={'id':'evidence','type':'operation','purpose':'evidence','name':'Inspect candidate',
+            'objective':'Collect facts about the existing candidate','operation':'media.evidence',
+            'inputs':{'source':{'repair_candidate':self.ref}},'parameters':{'mode':'image'},
+            'acceptance':[{'kind':'json','file':'evidence-report.json','required_keys':['source_sha256']},
+                          {'kind':'image','file':'preview.jpg'}]}
+        self.f.propose({'proposal_id':'collect-command','base_graph_version':1,'reason':'Only evidence is missing',
+            'add_tasks':[task],'replan_after':['evidence']})
+        self.f.tick()
+        from webapp.task_leases import Coordinator
+        lease=Coordinator(self.store,'command-evidence','test',ttl=120).claim(self.run['id'],'workflow',step_id='evidence')
+        self.assertIsNotNone(lease)
+        workflow=get(self.store,self.run['id'])
+        runtime=OpenSandboxCommandRuntime(None,None,'command-1','command-attempt',lease)
+        try:
+            environment=runtime.environment(self.store,workflow,'unused')
+            restored=environment['workspace']/self.logical
+            self.assertTrue(restored.is_file())
+            self.assertEqual(__import__('hashlib').sha256(restored.read_bytes()).hexdigest(),self.ref['sha256'])
+            self.assertEqual(runtime.repair_input_paths,{self.logical})
+            from webapp.workflow_inputs import staged_assets
+            evidence=next(item for item in workflow['steps'] if item['id']=='evidence')
+            with lease.bind():assets,roles=staged_assets(self.store,workflow,evidence,environment)
+            staged=next(item for item in assets if item['id']==roles['source'])
+            self.assertEqual(staged['metadata']['sha256'],self.ref['sha256'])
+        finally:lease.release()
+
     @unittest.skipUnless(os.geteuid()==0 and shutil.which('bwrap'),'Requires privileged sandbox')
     def test_registered_evidence_reads_candidate_without_rerunning_media(self):
         from webapp.task_leases import Coordinator
