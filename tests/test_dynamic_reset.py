@@ -26,7 +26,12 @@ class DedicatedResetTests(unittest.TestCase):
                 'VIDEO_USE_DEPLOYMENT':'dynamic-agent','VIDEO_USE_OBJECT_PREFIX':'distributed-agent-system',
                 'VIDEO_USE_AGENT_STREAM_PREFIX':'distributed-agent-system:events:'}
         for name,value in {'environment':lambda:values,'active':lambda _:False,'PG_SOCKET':'127.0.0.1','PG_PORT':self.pg.port,
-                           'PG_BIN':self.pg.bin,'ROOT':folder/'cluster','EXECUTORS':folder/'exec','CONF':folder/'config'}.items():
+                           'PG_BIN':self.pg.bin,'ROOT':folder/'cluster','EXECUTORS':folder/'exec','CONF':folder/'config',
+                           'NAMESPACE':'dynamic-agent','DATABASE':'distributed_agent_system','ROLE':'distributed_agent_system',
+                           'ORCHESTRATOR_ROLE':'distributed_agent_orchestrator','OBJECT_PREFIX':'distributed-agent-system',
+                           'STREAM_PREFIX':'distributed-agent-system:events:','MEDIA_RUNTIME_PREFIX':'da-media-',
+                           'PORTS':{'a':19766,'b':19767},'UIDS':{'a':710000,'b':710100},
+                           'OBS_PORT':19768,'PROXY_PORT':19765}.items():
             self.stack.enter_context(patch.object(cluster,name,value))
         self.sql('DROP SCHEMA public CASCADE; CREATE SCHEMA public; CREATE TABLE keep(id integer); INSERT INTO keep VALUES (1);')
 

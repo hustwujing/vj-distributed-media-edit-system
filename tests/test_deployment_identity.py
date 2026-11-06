@@ -23,8 +23,8 @@ class DeploymentIdentityTests(unittest.TestCase):
         from deploy import dynamic_cluster as cluster
         from deploy import systemd_templates
         config=cluster.template_config(cluster.REPO)
-        for factory,owned in [(systemd_templates.api_unit,'dynamic-agent-media@%i.service'),
-                              (systemd_templates.worker_unit,'dynamic-agent-watchdog@%i.service'),
+        for factory,owned in [(systemd_templates.api_unit,cluster.NAMESPACE+'-media@%i.service'),
+                              (systemd_templates.worker_unit,cluster.NAMESPACE+'-watchdog@%i.service'),
                               (systemd_templates.reaper_unit,None)]:
             with self.subTest(unit=factory.__name__):
                 text=factory(config)
@@ -41,19 +41,17 @@ class DeploymentIdentityTests(unittest.TestCase):
                systemd_templates.reaper_unit(config),systemd_templates.media_unit(config),
                systemd_templates.observer_unit(config)]
         for unit in units:
-            self.assertIn('LogNamespace=dynamic-agent',unit)
+            self.assertIn('LogNamespace='+cluster.NAMESPACE,unit)
             self.assertNotIn('/etc/video-use-cluster',unit)
             self.assertNotIn('/run/video-use-agent',unit)
-        self.assertIn('--root-path /distributed-agent-system',units[0])
-        self.assertIn('RuntimeDirectory=dynamic-agent-agent-%i',units[1])
-        self.assertIn('RuntimeDirectory=dynamic-agent-agent-%i',units[2])
-        self.assertIn('RuntimeDirectory=da-media-%i',units[3])
-        self.assertIn('--port 19768',units[4])
+        self.assertIn('--root-path '+cluster.ENTRY,units[0])
+        self.assertIn('RuntimeDirectory='+cluster.NAMESPACE+'-agent-%i',units[1])
+        self.assertIn('RuntimeDirectory='+cluster.NAMESPACE+'-agent-%i',units[2])
+        self.assertIn('RuntimeDirectory='+cluster.MEDIA_RUNTIME_PREFIX+'%i',units[3])
+        self.assertIn('--port '+str(cluster.OBS_PORT),units[4])
         proxy=cluster.nginx_config()
-        self.assertIn('127.0.0.1:19766',proxy);self.assertIn('127.0.0.1:19767',proxy)
+        self.assertIn('127.0.0.1:'+str(cluster.PORTS['a']),proxy);self.assertIn('127.0.0.1:'+str(cluster.PORTS['b']),proxy)
         self.assertNotIn('http_503',proxy)
-        self.assertEqual(cluster.NAMESPACE,'dynamic-agent')
-        self.assertEqual(cluster.MEDIA_RUNTIME_PREFIX,'da-media-')
     def test_private_namespace_cannot_reap_main_cgroups(self):
         with patch.dict('os.environ',{'VIDEO_USE_DEPLOYMENT':'distributed-agent'}):
             self.assertEqual(str(socket_root()),'/run/distributed-agent-agent')

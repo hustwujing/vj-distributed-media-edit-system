@@ -258,7 +258,7 @@ def freeze():
     original=source_digest();target=ROOT/'releases'/original[:12]
     if not target.exists():
         target.mkdir(parents=True,mode=0o755)
-        for name in ('webapp','helpers','references','runtime/public','tests','deploy','docs'):
+        for name in ('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs'):
             shutil.copytree(REPO/name,target/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         for name in ('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore','README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md'):
             shutil.copyfile(REPO/name,target/name)
@@ -275,7 +275,7 @@ def verify(source,selection=()):
     """A readable source-only copy keeps test service identities out of deployment data."""
     import tempfile
     directory=Path(tempfile.mkdtemp(prefix='das-verify-',dir=REPO.parent/'vu-tmp'));directory.chmod(0o755)
-    for name in ('webapp','helpers','references','runtime/public','tests','deploy','docs'):
+    for name in ('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs'):
         shutil.copytree(source/name,directory/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
     for name in ('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore','README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md'):
         shutil.copyfile(source/name,directory/name)
