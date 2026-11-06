@@ -59,14 +59,16 @@ def scopes(frozen):
     repair=frozen.get('repair_context') or {};trigger=frozen.get('trigger') or {}
     automatic=(repair.get('subject_task','') if repair.get('active') else trigger.get('task_id')
                if 'task_id' in trigger else '' if any(k in trigger for k in ('review_rejected','task_review_rejected')) else None)
-    records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
+    current=(frozen.get('input_batch') or {}).get('inputs') or []
+    records=current or (frozen.get('user_changes',[]) if automatic is None else [])
     user=set().union(*(set(item['context']['allowed_revision_tasks']) for item in records)) if records else None
     return automatic,user
 
 
 def targeted_user_inputs(frozen):
     records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
-    return bool(records) and all((item.get('context') or {}).get('targets') for item in records)
+    _,user=scopes(frozen)
+    return user is not None and bool(records) and all((item.get('context') or {}).get('targets') for item in records)
 
 
 def change_fields(task_type,user=False):
@@ -486,7 +488,12 @@ def compile_manager(command,frozen):
             if identifier not in allowed:raise CommandError('revision_not_available','plan.changes.task_id','Task is outside the frozen revision scope')
             invalid=set(patch)-set(allowed[identifier])
             if invalid:raise CommandError('frozen_field_change','plan.changes.set.'+sorted(invalid)[0],'This field is frozen; use an authorized replacement if its contract must change')
-            revisions.append({**deepcopy(current[identifier]['spec']),**patch})
+            revised={**deepcopy(current[identifier]['spec']),**patch}
+            if revised['type']=='agent':
+                outputs=list(revised.get('outputs',[]));roles=dict(revised.get('output_roles',{}))
+                bind_explicit_delivery_names(revised,outputs,roles,frozen)
+                revised.update(outputs=outputs,output_roles=roles)
+            revisions.append(revised)
         dependencies=list(plan.get('dependencies',[]));edge_keys={(item['upstream'],item['downstream']) for item in dependencies}
         for task in added:
             for ref in task.get('inputs',{}).values():

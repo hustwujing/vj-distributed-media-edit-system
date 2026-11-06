@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from jsonschema import ValidationError
 from webapp import workflow_graph as graph
 from webapp.workflow_model_protocol import (manager_schema,compile_manager,ToolProtocol,CommandError,
-    schema_complexity,repair_options,required_delivery_extensions,required_delivery_names)
+    schema_complexity,repair_options,required_delivery_extensions,required_delivery_names,scopes,targeted_user_inputs)
 from webapp.strict_schema import obj,schema_for,transform
 from webapp.model_tool_protocol import request,response,strict_unsupported
 from webapp.model_adapters import get,PublicResponseStructureError
@@ -36,13 +36,12 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_unique_requested_basename_is_host_compiled_for_agent_revision(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Export','objective':'Export video',
-              'outputs':['old.mp4'],'output_roles':{'video':'old.mp4'},'acceptance':[{'kind':'media','file':'old.mp4'}],
+              'outputs':['old.mp4','cover.png'],'output_roles':{'video':'old.mp4','cover':'cover.png'},
+              'acceptance':[{'kind':'media','file':'old.mp4'},{'kind':'image','file':'cover.png'}],
               'basic_reason':'export','delivery_stage':True}
         value=frozen(task,user=True)
         value['input_batch']['inputs'][0]['content']='Deliver final.mp4 and cover.png.'
         command={'kind':'COMPLETE','reason':'Apply requested names','plan':{'changes':[{'task_id':'render','set':{
-            'files':[{'path':'export.mp4','roles':['video']},{'path':'cover.png','roles':['cover']}],
-            'acceptance':[{'kind':'media','file':'export.mp4'},{'kind':'image','file':'cover.png'}],
             'objective':'Export video and cover'}}]}}
         revised=compile_manager(command,value)['proposal']['revise_tasks'][0]
         self.assertEqual(revised['outputs'],['final.mp4','cover.png'])
@@ -61,7 +60,7 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_applied_user_change_keeps_its_authorized_revision_scope(self):
         value=frozen(user=True);record=value['input_batch']['inputs'][0]
-        record['context']['targets']=['render'];value['input_batch']=None;value['user_changes']=[record]
+        record['context']['targets']=['render'];value['input_batch']=None;value['user_changes']=[record];value['trigger']={}
         schema=manager_schema(value)
         changes=schema['properties']['plan']['anyOf'][0]['properties']['changes']
         self.assertEqual(changes['maxItems'],16)
@@ -69,6 +68,13 @@ class ModelCommandTests(unittest.TestCase):
             'task_id':'render','set':{'objective':'Updated after the input drain'}}]}}
         revised=compile_manager(command,value)['proposal']['revise_tasks'][0]
         self.assertEqual(revised['objective'],'Updated after the input drain')
+
+    def test_automatic_repair_trigger_owns_revision_count_over_input_history(self):
+        value=frozen(user=True);record=value['input_batch']['inputs'][0]
+        record['context']['targets']=['render'];value['input_batch']=None;value['user_changes']=[record]
+        value['trigger']={'review_rejected':True}
+        self.assertEqual(scopes(value),('',None))
+        self.assertFalse(targeted_user_inputs(value))
 
     def test_explicit_output_extensions_promote_matching_files_to_delivery(self):
         f=frozen(False);f['goal']='Deliver the edited PNG with original JSON and TXT records'
