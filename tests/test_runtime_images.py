@@ -12,6 +12,7 @@ class RuntimeImageDefinitionTests(unittest.TestCase):
         foundation=(folder/'foundation.Dockerfile').read_text()
         self.assertIn('PYTHON_IMAGE must be immutable',foundation)
         self.assertIn('ffmpeg',foundation)
+        self.assertIn('fonts-wqy-zenhei',foundation)
         base=(folder/'base.Dockerfile').read_text()
         self.assertIn('BASE_IMAGE must be immutable',base)
         self.assertIn('pip install --no-index',base)

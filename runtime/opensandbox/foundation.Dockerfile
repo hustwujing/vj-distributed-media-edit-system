@@ -7,6 +7,6 @@ RUN case "$PYTHON_IMAGE" in *@sha256:???????????????????????????????????????????
     sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources && \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-      ca-certificates ffmpeg git jq ripgrep && \
+      ca-certificates ffmpeg fonts-wqy-zenhei git jq ripgrep && \
     rm -rf /var/lib/apt/lists/* && \
     test -x /usr/bin/ffmpeg && test -x /usr/bin/ffprobe
