@@ -29,6 +29,7 @@ uv sync --locked --extra web --extra web-test
 | `webapp/workflow_runtime.py`、`workflow_inputs.py` | 复用的媒体执行适配器与输入绑定 |
 | `webapp/operations.py`、`operation_parameters.py` | 能力目录、参数及受控操作 |
 | `webapp/execution_runtime.py`、`execution_reaper.py`、`runtime_image.py` | 沙盒资源、回收与运行时包 |
+| `webapp/opensandbox_backend.py`、`runtime_bootstrap.py`、`node_gateway.py`、`runtime/opensandbox/` | OpenSandbox传输、Runtime Daemon、Gateway grant及OCI镜像；开发边界见[专项规范](development/change-opensandbox-runtime.md) |
 | `webapp/artifact_store.py`、`checkpoints.py`、`demo_library.py` | 对象存储、版本恢复和共享示例 |
 | `webapp/task_usage.py`、`live_activity.py`、`telemetry.py` | 调用统计、活动与诊断事件 |
 
@@ -50,6 +51,10 @@ Python 入口发现全部 `tests/test_*.py`，不是仅运行名称包含 distri
 - PostgreSQL 的 `initdb` / `pg_ctl` 等工具；测试会创建自己的数据库。
 - FFmpeg / ffprobe、Bubblewrap、降权和运行时固定工具，及可用的 Linux 命名空间、cgroup 与独立 UID 范围。
 - 需要对应能力的用例所用模型、运行时与权限；缺失时可能跳过或失败，必须查看报告。
+
+OpenSandbox 本地镜像构建、Bundle/Profile 冻结、离线契约和扫描命令见
+[OpenSandbox Runtime 开发与发布准备](development/change-opensandbox-runtime.md)。这些命令不等于真机
+验收；不得因本地 Docker 镜像、SBOM 或容量模型通过而修改现有 OpenSandbox、数据库、Nginx 或节点网络。
 
 `deploy/prepare-executor.sh` 用于受信任主机准备运行时及访问权限，会修改系统状态，不是普通依赖安装命令。完整要求见 [执行隔离与恢复](execution-isolation-and-recovery.md)。只有安装 Python 依赖或执行 `--help` 不能证明沙盒可运行。
 

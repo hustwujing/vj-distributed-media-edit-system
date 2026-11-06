@@ -1,5 +1,9 @@
 # OpenSandbox Agent runtime images
 
+Repository development, safety boundaries and the transition from local-only
+evidence to live validation are defined in
+[`docs/development/change-opensandbox-runtime.md`](../../docs/development/change-opensandbox-runtime.md).
+
 These images are build inputs, not deployment manifests. Runtime layers are
 built offline and must receive immutable `image@sha256:...` bases plus a
 reviewed `wheels/` set. The foundation layer is the only networked build: it

@@ -42,7 +42,8 @@
 | [能力接入指南](operation-extension-guide.md)、[接入流程](operation-onboarding.md) | 新 operation 的参数、适配器、生命周期和验证 |
 | [统一生成接口](uniform-generation-design.md) | 图片/视频生成接口、输入输出与调用边界 |
 | [分布式执行实现](distributed-execution-implementation.md) | 租约、调度、对象发布和故障接管 |
-| [分布式执行与混合沙箱 TODO](distributed-execution-todo.md#13-opensandboxgvisor-混合执行后端设计已对齐尚未实现) | OpenSandbox/gVisor与bwrap路由、Runtime镜像、Node Gateway、恢复、账本、异常回收、Warm Pool和节点缓存优化 |
+| [OpenSandbox Runtime 开发规范](development/change-opensandbox-runtime.md) | 默认停止边界、OCI/Bundle/Profile、本地发布证据和真机升级门禁 |
+| [分布式执行与混合沙箱 TODO](distributed-execution-todo.md#13-opensandboxgvisor-混合执行后端设计已对齐实现中) | OpenSandbox/gVisor与bwrap路由、Runtime镜像、Node Gateway、恢复、账本、异常回收、Warm Pool和节点缓存优化 |
 | [对话执行设计](conversation-execution-design.md)、[通用分析兜底](conversation-fallback.md) | 轻量入口、沙盒交接、方案检查和确认 |
 | [用量统计设计](task-usage-design.md) | 调用账本、关联范围与统计口径；当前页面说明见 Web 使用指南 |
 | [可观测性设计](observability-design.md) | 关联标识、事件、阶段指标及诊断 |

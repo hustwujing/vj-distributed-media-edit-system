@@ -15,6 +15,7 @@
 | 修改工作流计划、步骤、依赖、状态、验收、用户决策或恢复行为 | [工作流开发说明](change-workflow.md) | 契约、状态转换、执行与恢复、验收、入口和回归 |
 | 修改轻量对话、Agent 上下文、方案确认、工具授权或对话事件 | [Agent 与对话开发说明](change-agent-conversation.md) | 路由交接、权限、确认、任务控制、历史恢复与展示 |
 | 修改调度、租约、资源隔离、回收、检查点或跨节点成果发布 | [分布式执行开发说明](change-distributed-execution.md) | 执行归属、资源准入、故障接管、存储提交与竞争验证 |
+| 修改 OpenSandbox/gVisor、Runtime OCI、Skill Bundle、Profile、Node Gateway grant 或本地发布证据 | [OpenSandbox Runtime 开发与发布准备](change-opensandbox-runtime.md) | 默认停止边界、镜像构建、离线契约、安全扫描、容量模型和真机升级门禁 |
 | 修改聊天/工具/图片页面、实时更新、产物展示、预览或画布交互 | [前端与产物展示开发说明](change-ui-artifacts.md) | 状态来源、事件合并、成果语义、文件权限、表单和画布版本 |
 | 接入或修改外部供应商、认证、调用协议、下载及取消核实 | [外部服务与供应商接入](change-external-providers.md) | 协议选型、调用意图、固定路由、恢复、额度和真实服务验收 |
 | 修改日志、指标、诊断、告警、活动或用量统计 | [可观测性与用量开发](change-observability-usage.md) | 关联与脱敏、事务审计、故障降级、回执去重及汇总口径 |

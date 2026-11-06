@@ -2,6 +2,10 @@
 
 适用于修改任务调度、执行租约、资源预留、沙盒启动、取消与回收、检查点、共享存储和跨节点成果发布。工作流业务状态和验收见[工作流开发说明](change-workflow.md)，对话路由和确认见[Agent 与对话开发说明](change-agent-conversation.md)，业务能力接入见[新增与扩展 operation](add-operation.md)。状态、权限和交付改动遵循[程序正确性审查原则](../program-correctness-audit.md)。
 
+修改 OpenSandbox/gVisor、Runtime OCI 镜像、Skill Bundle、Profile 或 Node Capability Gateway grant 时，
+同时遵守[OpenSandbox Runtime 开发与发布准备](change-opensandbox-runtime.md)。其中定义默认允许的本地
+离线动作、必须停止并重新获授权的环境变更，以及从 local-only 证据升级到真机验收的门禁。
+
 ## 1. 核实运行边界和实现入口
 
 修改 API 请求内的存储、媒体等待、上传发布或删除清理时，同时按 [API 并发与耗时隔离](change-api-concurrency.md)选择执行池和短事务边界。API 线程池容量不替代本篇的任务资源、租约和实际进程回收约束。
@@ -17,6 +21,7 @@
 | 跨进程事务 | [store.py](../../webapp/store.py)、[database.py](../../webapp/database.py) | 嵌套事务、租约检查、PostgreSQL 控制锁和只读观察 |
 | 隔离运行环境 | [execution_runtime.py](../../webapp/execution_runtime.py)、[execution_resources.py](../../webapp/execution_resources.py)、[execution_contracts.py](../../webapp/execution_contracts.py) | TaskRuntime、身份池、cgroup、挂载、权限 profile |
 | 固定工具和运行包 | [image_sandbox.py](../../webapp/image_sandbox.py)、[media_isolation.py](../../webapp/media_isolation.py)、[sandbox_limits.py](../../webapp/sandbox_limits.py)、[runtime_image.py](../../webapp/runtime_image.py) | GPU 租约、固定入口、seccomp、工具清单和运行时指纹 |
+| OpenSandbox 和 OCI Runtime | [sandbox_backends.py](../../webapp/sandbox_backends.py)、[opensandbox_backend.py](../../webapp/opensandbox_backend.py)、[runtime_bootstrap.py](../../webapp/runtime_bootstrap.py)、[runtime/opensandbox](../../runtime/opensandbox) | local-only 与 registry digest、Bundle/Profile 冻结、Gateway grant、离线证据和真机门禁 |
 | 调用中断与独立回收 | [cancellation.py](../../webapp/cancellation.py)、[process_handles.py](../../webapp/process_handles.py)、[execution_reaper.py](../../webapp/execution_reaper.py) | 观察线程、本地期限、晚装载句柄、进程和身份回收 |
 | 外部任务和清理 | [provider_calls.py](../../webapp/provider_calls.py)、[external_cleanup.py](../../webapp/external_cleanup.py) | 提交意图、供应商句柄、查询/取消、独立清理租约 |
 | 检查点与恢复 | [checkpoints.py](../../webapp/checkpoints.py)、[step_checkpoints.py](../../webapp/step_checkpoints.py)、[session_checkpoint.py](../../webapp/session_checkpoint.py) | 项目与步骤快照、修订、会话打包、版本保留 |
@@ -114,3 +119,7 @@
 发布按既有冻结源码、验证、备份、排空、更新及健康检查流程执行。重启只运行已部署版本；工作区代码发布需走部署入口。停止期间仍有未清理资源时保留所需 reaper 和数据库，不能将所有进程退出当成清理成功。数据库恢复需明确处理备份之后的数据，不能把代码回退等同于数据库回滚。
 
 当前隔离部署的真机验收使用 `tests/campaign_suite.py`，并按[真机测试与审查](run-live-campaign.md)安排停服、故障注入和证据保留。开发测试与生产故障演练分开安排。完成说明应包含定向及全量证据、故障后的实际资源状态、兼容与恢复限制，以及真实存储、供应商、多机环境和部署的未验证边界；文档修改不要求执行上述部署或故障演练。
+
+若 OpenSandbox 工作已达到本地发布准备完成条件，但没有测试 registry、独立数据库/对象前缀、专用
+gVisor 节点、网络变更范围和故障窗口，则应停在该边界。重复 mock、容量计算或离线扫描不能替代真机
+证据，也不能作为修改现有环境的隐含授权。
