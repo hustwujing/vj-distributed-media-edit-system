@@ -670,6 +670,24 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(frozen['review_feedback'][0]['decision']['feedback'],'Required ending is missing.')
         self.assertIsNone(graph.get(self.store,run['id'])['delivered_at'])
 
+    def test_successor_applies_consumed_inputs_and_keeps_late_inputs_pending(self):
+        from webapp.run_inputs import accept
+        first=accept(self.store,self.run['id'],'owner',{'request_id':'1'*32,'content':'New overall goal'})
+        second=accept(self.store,self.run['id'],'owner',{'request_id':'2'*32,'content':'Late planning detail'})
+        authorization={**self.authorization,'goal':'New overall goal'}
+        request={'new_goal':'New overall goal','authorization':authorization,'input_through_sequence':first['sequence']}
+        self.orchestrator.decision(graph.get(self.store,self.run['id']),'new_run',request)
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE kind='new_run'")[0]
+        self.orchestrator.answer(graph.get(self.store,self.run['id']),{'decision_id':decision['id'],
+            'snapshot_digest':decision['snapshot_digest'],'action':'approve','authorization':authorization})
+        successor=graph.get(self.store,self.store.query('SELECT id FROM runs WHERE parent_run_id=?',(self.run['id'],))[0]['id'])
+        carried=self.store.query('SELECT sequence,status,applied_graph_version,context_json FROM run_inputs WHERE run_id=? ORDER BY sequence',(successor['id'],))
+        self.assertEqual([(row['sequence'],row['status']) for row in carried],[(1,'APPLIED'),(2,'ACCEPTED')])
+        self.assertEqual(carried[0]['applied_graph_version'],0)
+        self.assertEqual(successor['input_barrier_sequence'],2)
+        original=self.store.query('SELECT status,successor_run_id FROM run_inputs WHERE run_id=? ORDER BY sequence',(self.run['id'],))
+        self.assertTrue(all(row['status']=='SUPERSEDED' and row['successor_run_id']==successor['id'] for row in original))
+
     def test_user_rejecting_quality_also_pauses_the_subject(self):
         run=self.review_fixture();self.orchestrator.decision(run,'quality',{'task_id':'first','revision':0})
         decision=self.store.query('SELECT * FROM workflow_decisions')[0]
