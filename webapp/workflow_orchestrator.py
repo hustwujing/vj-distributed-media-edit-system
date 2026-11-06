@@ -260,9 +260,8 @@ class Orchestrator:
                     graph.event(store,successor,'successor_input_applied',{
                         'input_id':carried['id'],'predecessor_input_id':item['id'],'input_sequence':carried['sequence']})
                 store.execute("UPDATE run_inputs SET status='SUPERSEDED',successor_run_id=?,applied_at=? WHERE id=?",(successor['id'],store.now(),item['id']))
-            pending=store.query("SELECT MIN(sequence) AS sequence FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(successor['id'],))[0]['sequence']
-            store.execute('UPDATE runs SET input_barrier_sequence=?,input_barrier_was_sealed=0 WHERE id=?',(pending,successor['id']))
-            if pending is None:store.execute('DELETE FROM run_input_drain WHERE run_id=?',(successor['id'],))
+            from .run_inputs import finish_batch
+            finish_batch(store,graph.get(store,successor['id']),cutoff)
             store.execute('UPDATE runs SET input_barrier_sequence=NULL WHERE id=?',(run['id'],))
             store.execute("UPDATE workflow_decisions SET status='superseded' WHERE run_id=? AND status='pending' AND id<>?",(run['id'],row['id']))
             store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode({**payload,'successor_run_id':successor['id']}),store.now(),row['id']))
