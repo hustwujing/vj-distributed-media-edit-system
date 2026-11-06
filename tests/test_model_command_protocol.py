@@ -171,6 +171,26 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(CommandError) as raised:compile_manager(invalid,f)
         self.assertEqual(raised.exception.code,'evidence_task_required')
 
+    def test_empty_apply_plan_seals_only_a_completed_delivery_graph(self):
+        completed=frozen();completed['tasks'][0]['status']='succeeded'
+        result=compile_manager({'kind':'APPLY_PLAN','reason':'All work is complete','plan':{}},completed)
+        self.assertEqual(result['kind'],'COMPLETE')
+        self.assertTrue(result['proposal']['sealed'])
+        self.assertEqual(result['proposal']['replan_after'],[])
+
+        for value in (frozen(),frozen({**completed['tasks'][0]['spec'],'delivery_stage':False})):
+            value['tasks'][0]['status']='paused' if value['tasks'][0]['spec'].get('delivery_stage') else 'succeeded'
+            with self.assertRaises(CommandError) as raised:
+                compile_manager({'kind':'APPLY_PLAN','reason':'No executable changes','plan':{}},value)
+            self.assertEqual(raised.exception.code,'missing_wait_work')
+
+    def test_empty_apply_plan_does_not_hide_dependency_changes(self):
+        completed=frozen();completed['tasks'][0]['status']='succeeded'
+        with self.assertRaises(CommandError) as raised:
+            compile_manager({'kind':'APPLY_PLAN','reason':'Remove an edge','plan':{
+                'remove_dependencies':[{'upstream':'render','downstream':'other'}]}},completed)
+        self.assertEqual(raised.exception.code,'missing_wait_work')
+
     def test_evidence_cannot_wait_on_unaccepted_output_from_paused_task(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render audio',
               'outputs':['final.wav'],'output_roles':{'audio':'final.wav'},'acceptance':[{'kind':'media'}],

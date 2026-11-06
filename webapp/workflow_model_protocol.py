@@ -554,7 +554,17 @@ def compile_manager(command,frozen):
         changed={replacements.get(identifier,identifier) for identifier in changed}
         waiting=sorted(identifier for identifier in changed if not any(edge['upstream']==identifier and edge['downstream'] in changed for edge in dependencies))
         if result['kind']=='APPLY_PLAN' and not waiting:
-            raise CommandError('missing_wait_work','plan','APPLY_PLAN requires a new, revised, replaced or review_again Task; use continue_run when no graph change is needed')
+            empty_plan=not (added or revisions or replacements or plan.get('review_again') or
+                            plan.get('dependencies') or plan.get('remove_dependencies'))
+            finished_delivery=(bool(current) and all(row['status']=='succeeded' for row in current.values()) and
+                               any(row['spec'].get('delivery_stage') for row in current.values()))
+            if empty_plan and finished_delivery:
+                # A completed graph still needs the independent final review. Treat
+                # an empty APPLY_PLAN as the unambiguous seal command instead of
+                # spending correction turns on a distinction with no business effect.
+                result['kind']='COMPLETE'
+            else:
+                raise CommandError('missing_wait_work','plan','APPLY_PLAN requires a new, revised, replaced or review_again Task; use COMPLETE only when every current Task succeeded and a delivery Task exists')
         result['proposal']={'proposal_id':frozen['planning_request_id'],'base_graph_version':frozen['graph_version'],
             'reason':command['reason'],'add_tasks':added,'revise_tasks':revisions,
             'add_dependencies':dependencies,'remove_dependencies':plan.get('remove_dependencies',[]),
