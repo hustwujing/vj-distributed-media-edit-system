@@ -1,9 +1,11 @@
 import json
+import io
 import shutil
 import subprocess
 import tempfile
 import time
 import unittest
+import zipfile
 from pathlib import Path
 from tests.isolation import temporary_root as isolated_tmp_root
 
@@ -59,6 +61,28 @@ class StudioTests(unittest.TestCase):
                 self.assertIn('id="dag-fab"',response.text)
                 self.assertIn('id="dag-dialog"',response.text)
                 self.assertIn('id="dag-canvas"',response.text)
+                self.assertIn('id="dynamic-input-history"',response.text)
+                self.assertIn('.pdf,.docx,.xlsx,.pptx',response.text)
+
+    def test_reference_documents_upload_with_structural_validation(self):
+        text='镜头要求：保留人物动作，并参考品牌色。'.encode()
+        uploaded=self.a.post(f'/api/projects/{self.pid}/assets',files={'file':('brief.md',text,'text/markdown')})
+        self.assertEqual(uploaded.status_code,201,uploaded.text);self.assertEqual(uploaded.json()['kind'],'document')
+        pdf=b'%PDF-1.4\n1 0 obj <<>> endobj\n%%EOF\n'
+        response=self.a.post(f'/api/projects/{self.pid}/assets',files={'file':('reference.pdf',pdf,'application/pdf')})
+        self.assertEqual(response.status_code,201,response.text);self.assertEqual(response.json()['mime'],'application/pdf')
+        office=io.BytesIO()
+        with zipfile.ZipFile(office,'w') as archive:
+            archive.writestr('[Content_Types].xml','<Types/>');archive.writestr('word/document.xml','<document/>')
+        response=self.a.post(f'/api/projects/{self.pid}/assets',files={'file':('notes.docx',office.getvalue(),'application/vnd.openxmlformats-officedocument.wordprocessingml.document')})
+        self.assertEqual(response.status_code,201,response.text);self.assertEqual(response.json()['kind'],'document')
+        detail=self.a.get(f'/api/projects/{self.pid}').json();documents=[item for item in detail['assets'] if item['kind']=='document']
+        self.assertEqual({item['name'] for item in documents},{'brief.md','reference.pdf','notes.docx'})
+        markdown=next(item for item in documents if item['name']=='brief.md')
+        self.assertEqual(self.a.get('/'+markdown['url']).content,text)
+        self.assertEqual(self.b.get('/'+markdown['url']).status_code,404)
+        self.assertEqual(self.a.post(f'/api/projects/{self.pid}/assets',files={'file':('bad.txt',b'a\0b','text/plain')}).status_code,422)
+        self.assertEqual(self.a.post(f'/api/projects/{self.pid}/assets',files={'file':('program.exe',b'MZ','application/octet-stream')}).status_code,415)
 
     def test_audio_upload_attachment_preview_and_ownership(self):
         upload=self.a.post(f'/api/projects/{self.pid}/assets',files={'file':('music.wav',self.audio.read_bytes(),'audio/wav')})

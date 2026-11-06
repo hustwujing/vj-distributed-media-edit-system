@@ -64,7 +64,7 @@ export function mediaCard(item,{compact=false}={}){
  return `<button class="media-card ${compact?'compact':''}" data-media-url="${esc(item.url)}" aria-label="预览 ${esc(item.name)}"><span class="media-cover">${poster?`<img src="${href(poster)}" loading="lazy" alt="${esc(item.name)}">`:`<span class="media-placeholder">${icon(video?'film':'image',30)}</span>`}<span class="media-play">${icon(video?'play':'expand',18)}</span><span class="media-kind">${video?'视频':'图片'}</span></span><span class="media-caption"><strong>${esc(item.name)}</strong><small>${item.subtitle?esc(item.subtitle):video?'点击播放':'点击放大'}</small></span></button>`;
 }
 export function bindMedia(container,items,callback=openMedia){const lookup=new Map(items.map(item=>[item.url,item]));container.querySelectorAll('[data-media-url]').forEach(button=>button.onclick=()=>{const item=lookup.get(button.dataset.mediaUrl);if(item)callback(item);});}
-export function sourceItems(project){return project.assets.map(a=>({...a,type:a.kind==='video'?'video/mp4':a.kind==='image'?(a.mime||'image/png'):a.kind==='audio'?(a.mime||'audio/wav'):'text/plain',subtitle:a.kind==='video'?`${duration(a.duration)} · ${a.width} × ${a.height}`:a.kind==='image'?`${a.width} × ${a.height} · 图片 · 点击放大`:a.kind==='audio'?`${duration(a.duration)} · 音频 · 点击试听`:'字幕文件'}));}
+export function sourceItems(project){return project.assets.map(a=>({...a,type:a.kind==='video'?'video/mp4':a.kind==='image'?(a.mime||'image/png'):a.kind==='audio'?(a.mime||'audio/wav'):a.kind==='document'?(a.mime||'application/octet-stream'):'text/plain',subtitle:a.kind==='video'?`${duration(a.duration)} · ${a.width} × ${a.height}`:a.kind==='image'?`${a.width} × ${a.height} · 图片 · 点击放大`:a.kind==='audio'?`${duration(a.duration)} · 音频 · 点击试听`:a.kind==='document'?`${Math.max(1,Math.ceil((a.size||0)/1024))} KB · 参考资料`:'字幕文件'}));}
 export const isProcessFile=processArtifact;
 export function resultItems(project,turns=[]){return collectResults(project,turns,labels,date);}
 export class Preview{
@@ -77,8 +77,9 @@ export class Preview{
   if(item.type?.startsWith('video/')){
    stage.innerHTML=`<video controls playsinline preload="metadata" ${item.poster_url?`poster="${href(item.poster_url)}"`:''} src="${href(item.url)}"></video>`;const video=stage.querySelector('video');video.onloadedmetadata=()=>{if(this.current?.url===item.url)this.container.querySelector('.preview-info').textContent=`${duration(video.duration)} · ${video.videoWidth} × ${video.videoHeight}`;};video.onerror=()=>toast('浏览器无法播放此编码，可下载原文件查看。',true);if(autoplay)video.play().catch(()=>{});
   }else if(isPreviewImage(item))stage.innerHTML=`<img class="preview-image" src="${href(item.url)}" alt="${esc(item.name)}">`;
+  else if(item.type==='application/pdf')stage.innerHTML=`<iframe class="preview-document" src="${href(item.url)}" title="预览 ${esc(item.name)}"></iframe>`;
   else if(item.type?.startsWith('audio/'))stage.innerHTML=`<audio controls src="${href(item.url)}"></audio>`;
-  else if(/\.(psd|ora|zip|tiff)$/i.test(item.name))stage.innerHTML='<div class="preview-empty"><h3>可编辑文件已就绪</h3><p>下载后在兼容的图片编辑器中打开。效果可通过同轮 PNG 结果预览。</p></div>';
+  else if(/\.(psd|ora|zip|tiff|docx|xlsx|pptx)$/i.test(item.name))stage.innerHTML='<div class="preview-empty"><h3>文件已就绪</h3><p>可下载后在兼容的应用中查看。</p></div>';
   else{stage.innerHTML='<div class="loading-state"><span class="spinner"></span>正在读取内容…</div>';try{const response=await fetch(href(item.url));if(!response.ok)throw new Error('无法读取文件');let text=await response.text();if(item.type==='application/json'){try{text=JSON.stringify(JSON.parse(text),null,2);}catch{}}if(token===this.token)stage.innerHTML=`<pre class="text-preview">${esc(text.slice(0,180000))}</pre>`;}catch(error){if(token===this.token)stage.innerHTML=`<p class="inline-error">${esc(error.message)}</p>`;}}
  }
 }
