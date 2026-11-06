@@ -822,7 +822,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     if proposal.sealed and unresolved:
         raise ValueError('Sealed repair plan must resolve paused tasks through revisions, replacements or review_again: '+','.join(sorted(unresolved)))
     if not proposal.sealed and not proposal.replan_after:raise ValueError('Open graph needs an explicit replan trigger')
-    if not proposal.sealed and not any(t in added or existing[t]['status'] not in TERMINAL for t in proposal.replan_after):
+    if not proposal.sealed and not any(t in added or t in revised or existing[t]['status'] not in TERMINAL for t in proposal.replan_after):
         raise ValueError('Replan trigger is already exhausted')
     if not specs:raise ValueError('A workflow must contain at least one business task')
     if proposal.sealed and not any(task.delivery_stage for task in specs.values()):
