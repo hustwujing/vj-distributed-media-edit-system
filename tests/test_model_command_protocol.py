@@ -259,6 +259,24 @@ class ModelCommandTests(unittest.TestCase):
                 technical={check['file'] for check in result['acceptance'] if check['source']=='technical'}
                 self.assertTrue(technical)
 
+    def test_model_cannot_claim_host_technical_acceptance_or_bypass_output_binding(self):
+        from webapp.operations import catalog
+        operation=next(item for item in catalog()['operations'] if item['id']=='image.remove_background')
+        f=frozen(False);f['operations']=[{**operation,'authorized':True}]
+        task={'id':'cutout','type':'operation','name':'Cutout','objective':'Remove only the outer background',
+              'operation':'image.remove_background','inputs':{'source':{'asset':'asset'}},'parameters':{},
+              'acceptance':[{'kind':'image','source':'technical','transparent_subject':True,
+                             'has_alpha':True,'min_transparent_fraction':.05}]}
+        command={'kind':'APPLY_PLAN','reason':'Prepare the foreground','plan':{'new_tasks':[task]}}
+        result=compile_manager(command,f)['proposal']['add_tasks'][0]
+        claimed=[check for check in result['acceptance'] if check.get('transparent_subject') is True]
+        self.assertEqual(len(claimed),1)
+        self.assertEqual((claimed[0]['source'],claimed[0]['file']),('user','foreground.png'))
+        technical={check['file'] for check in result['acceptance'] if check['source']=='technical'}
+        self.assertEqual(technical,{'foreground.png','mask.png'})
+        schema=manager_schema(f)
+        with self.assertRaises(ValidationError):transform(command,schema,encode=True)
+
     def test_host_derives_input_dependencies_and_waits_for_batch_leaves(self):
         f=frozen(False);schema=manager_schema(f)
         first={'id':'prepare','type':'agent','profile':'editing_implementer','name':'Prepare','objective':'Prepare image',
