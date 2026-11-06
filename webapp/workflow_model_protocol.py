@@ -289,6 +289,11 @@ def repair_options(frozen):
         if evidence:options.append({'action':'review_again','task_id':subject,'eligible_evidence_tasks':sorted(evidence)})
     for review in frozen.get('review_feedback',[]):
         decision=review.get('decision',{});subject=review.get('subject_task')
+        if decision.get('verdict')=='inconclusive' and review.get('purpose')=='final' and not subject:
+            delivery=[identifier for identifier,row in tasks.items() if row['status']=='succeeded' and
+                      row['spec'].get('delivery_stage') and row.get('candidate_result') and
+                      row.get('quality',{}).get('technical_valid') and row.get('quality',{}).get('passed')]
+            if len(delivery)==1:subject=delivery[0]
         if decision.get('verdict')!='inconclusive' or subject not in tasks:continue
         text=(decision.get('feedback') or '').lower();modes=[]
         if any(word in text for word in ('fade','淡出','淡入','rms','响度','音量包络')):modes.append('audio_envelope')

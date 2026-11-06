@@ -171,6 +171,27 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(CommandError) as raised:compile_manager(invalid,f)
         self.assertEqual(raised.exception.code,'evidence_task_required')
 
+    def test_inconclusive_final_review_targets_unique_delivery_candidate_for_evidence(self):
+        task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render video',
+              'outputs':['final.mp4'],'output_roles':{'video':'final.mp4'},'acceptance':[{'kind':'media'}],
+              'basic_reason':'render','delivery_stage':True}
+        f=frozen(task);f['tasks'][0].update(status='succeeded',candidate_result=['final.mp4'],
+            quality={'technical_valid':True,'passed':True})
+        f['review_feedback']=[{'purpose':'final','subject_task':'','decision':{'verdict':'inconclusive',
+            'feedback':'Need RMS evidence for the final audio fade and a pixel-level logo frame.'}}]
+        option=next(item for item in repair_options(f) if item['action']=='collect_evidence_then_review_again')
+        self.assertEqual(option['task_id'],'render')
+        self.assertEqual(option['suggested_modes'],['audio_envelope','video_window'])
+
+    def test_inconclusive_final_review_does_not_guess_between_delivery_candidates(self):
+        f=frozen();f['tasks'][0].update(status='succeeded',candidate_result=['report.txt'],
+            quality={'technical_valid':True,'passed':True})
+        second=copy.deepcopy(f['tasks'][0]);second['id']='alternate';second['spec']['id']='alternate'
+        f['tasks'].append(second)
+        f['review_feedback']=[{'purpose':'final','subject_task':'','decision':{'verdict':'inconclusive',
+            'feedback':'Need pixel-level frame evidence.'}}]
+        self.assertFalse(any(item['action']=='collect_evidence_then_review_again' for item in repair_options(f)))
+
     def test_empty_apply_plan_seals_only_a_completed_delivery_graph(self):
         completed=frozen();completed['tasks'][0]['status']='succeeded'
         result=compile_manager({'kind':'APPLY_PLAN','reason':'All work is complete','plan':{}},completed)
