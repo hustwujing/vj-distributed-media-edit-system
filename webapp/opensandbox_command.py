@@ -141,7 +141,9 @@ class OpenSandboxCommandRuntime:
         finally:pool.shutdown(wait=False,cancel_futures=True)
         if execution.exit_code not in (None,0):
             detail=self._diagnostic(execution).strip()
-            raise RuntimeError('OpenSandbox command operation failed'+(': '+detail if detail else ''))
+            error=RuntimeError('OpenSandbox command operation failed'+(': '+detail if detail else ''))
+            error.diagnostic={'code':'opensandbox_command_failed','exit_code':execution.exit_code,'log_tail':detail}
+            raise error
         output=payload.get('output')
         if output:self._download_output(env,output)
         if payload.get('mode')=='local':return json.loads(self._stdout(execution))

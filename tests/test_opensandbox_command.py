@@ -138,8 +138,10 @@ class OpenSandboxCommandTests(unittest.TestCase):
             root=Path(folder);workspace=root/'workspace';sources=root/'sources';workspace.mkdir();sources.mkdir()
             session=Session();session.commands=FailingCommands(session.files)
             lease=SimpleNamespace(check=lambda:None);runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'command-1','attempt',lease)
-            with self.assertRaisesRegex(RuntimeError,'bounded diagnostic'):
+            with self.assertRaisesRegex(RuntimeError,'bounded diagnostic') as failed:
                 runtime.execute_payload({'workspace':workspace,'sources':sources},{'mode':'local'},30,lambda:False)
+            self.assertEqual(failed.exception.diagnostic,
+                {'code':'opensandbox_command_failed','exit_code':7,'log_tail':'bounded diagnostic'})
 
 
 if __name__=='__main__':unittest.main()
