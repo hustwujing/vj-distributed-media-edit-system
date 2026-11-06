@@ -55,7 +55,6 @@ ProtectHome=true
 ProtectSystem=strict
 ProtectKernelTunables=true
 ProtectKernelModules=true
-PrivateTmp=true
 LimitNOFILE=4096
 '''
 
@@ -73,6 +72,7 @@ def api_unit(config):
     return header + f'''User={config.service_user}
 Group={config.service_user}
 EnvironmentFile={config.conf}/api-%i.env
+BindPaths={config.root}/api-%i/tmp:/tmp
 ExecStart={config.release}/.venv/bin/python -m uvicorn webapp.app:app --host 127.0.0.1 --port ${{VIDEO_USE_API_PORT}} --root-path {config.root_path} --proxy-headers --forwarded-allow-ips 127.0.0.1
 ReadWritePaths={config.root}/api-%i
 NoNewPrivileges=true
@@ -95,6 +95,7 @@ def worker_unit(config):
     return header + f'''User=root
 Group={config.service_user}
 EnvironmentFile={config.conf}/node-%i.env
+BindPaths={config.root}/node-%i/tmp:/tmp
 ExecStart={config.release}/.venv/bin/python -m webapp.agent_host
 RuntimeDirectory={config.agent_runtime}
 RuntimeDirectoryMode=0700
@@ -119,6 +120,7 @@ WantedBy=multi-user.target
 def reaper_unit(config):
     return unit_header(config, 'Distributed Agent node watchdog %i') + f'''User=root
 EnvironmentFile={config.conf}/node-%i.env
+BindPaths={config.root}/node-%i/tmp:/tmp
 ExecStart={config.release}/.venv/bin/python -m webapp.execution_reaper
 RuntimeDirectory={config.agent_runtime}
 RuntimeDirectoryMode=0700
@@ -161,7 +163,7 @@ KillMode=control-group
 TimeoutStopSec=50
 ProtectSystem=strict
 ProtectHome=true
-PrivateTmp=true
+BindPaths={config.root}/media-%i/tmp:/tmp
 ReadWritePaths=/run/{config.media_runtime_prefix}%i {config.root}/media-%i
 ProtectKernelTunables=true
 ProtectKernelModules=true
@@ -197,7 +199,7 @@ Restart=on-failure
 RestartSec=3
 ProtectSystem=strict
 ProtectHome=true
-PrivateTmp=true
+BindPaths={config.root}/observability/tmp:/tmp
 ReadWritePaths={config.root}/observability
 NoNewPrivileges=true
 MemoryMax=512M

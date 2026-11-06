@@ -3,8 +3,11 @@ from __future__ import annotations
 
 from datetime import timedelta
 import concurrent.futures
+import hashlib
 import json
+import os
 from pathlib import Path,PurePosixPath
+import shutil
 import threading
 import time
 
@@ -17,6 +20,8 @@ class OpenSandboxCommandRuntime:
     def __init__(self,lifecycle,session,sandbox_id,attempt,lease):
         self.lifecycle=lifecycle;self.session=session;self.sandbox_id=sandbox_id
         self.attempt=attempt;self.lease=lease;self.env=None;self.closed=False
+        self.session_closed=False;self.sandbox_deleted=False;self.cleanup_lock=threading.RLock()
+        self.local_root=None
 
     def revoked(self):return False
     def pulse(self,seconds):pass
@@ -28,11 +33,61 @@ class OpenSandboxCommandRuntime:
 
     def environment(self,store,w,model):
         if self.env is not None:return self.env
-        from . import agent_sandbox
-        current=self.lease.runtime;self.lease.runtime=None
-        try:self.env=agent_sandbox.prepare(store,w['project'],model,'execute',w['run_id'])
-        finally:self.lease.runtime=current
-        self.env['runtime']=self
+        project=w['project'];step=next(item for item in w['steps'] if item['id']==self.lease.step_id)
+        root=store.root/'command-attempts'/self.attempt
+        if root.exists():raise RuntimeError('Command attempt workspace already exists')
+        workspace=root/'workspace';sources=root/'sources'
+        workspace.mkdir(parents=True,mode=0o700);sources.mkdir(mode=0o700)
+        self.local_root=root
+
+        def destination(base,relative):
+            relative=PurePosixPath(relative)
+            if relative.is_absolute() or '..' in relative.parts:raise ValueError('Command input escaped workspace')
+            target=base/Path(*relative.parts);target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+            return target
+
+        def restore(record,target):
+            if store.shared_files:store.artifacts.materialize(project,record['artifact'],target)
+            else:shutil.copyfile(store.root/record['location'],target)
+            with target.open('rb') as stream:
+                if target.stat().st_size!=record['size'] or hashlib.file_digest(stream,'sha256').hexdigest()!=record['sha256']:
+                    raise ValueError('Command input integrity mismatch')
+            target.chmod(0o600)
+
+        assets={asset['id']:asset for asset in store.assets(project)};selected=[]
+        for reference in step['spec'].get('inputs',{}).values():
+            if reference.get('asset'):
+                asset=assets.get(reference['asset'])
+                if not asset:raise ValueError('Command input asset is outside project')
+                logical='sources/'+asset['filename'];target=destination(sources,asset['filename'])
+                if store.shared_files:
+                    record=store.artifacts.resolve(project,logical)
+                    store.artifacts.materialize(project,record['id'],target)
+                else:shutil.copyfile(store.project_dir(project)/logical,target)
+                target.chmod(0o600)
+                selected.append(asset)
+            elif reference.get('step'):
+                parent=next((item for item in w['steps'] if item['id']==reference['step']),None)
+                if not parent or parent['status']!='succeeded':raise ValueError('Command dependency is not accepted')
+                relative=(parent['quality'].get('output_roles') or {}).get(reference['role'])
+                rows=store.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=? AND project=?',
+                    (w['id'],parent['id'],parent['revision'],project))
+                record=json.loads(rows[0]['manifest']).get(relative) if rows and relative else None
+                if not record:raise ValueError('Command dependency has no durable artifact')
+                restore(record,destination(workspace,relative))
+
+        allowed=set(step['spec'].get('preflight',[])+step['spec'].get('config_files',[]))
+        allowed.update(value for value in step['spec'].get('argv',[]) if isinstance(value,str) and value.startswith('edit/'))
+        checkpoints=store.query('SELECT manifest,path FROM execution_checkpoints WHERE project=?',(project,))
+        if allowed:
+            manifest=json.loads(checkpoints[0]['manifest']).get('workspace',{}) if checkpoints else {}
+            for relative in allowed:
+                record=manifest.get(relative)
+                if not record:raise ValueError('Command script is absent from the frozen workspace')
+                restore(record,destination(workspace,relative))
+        self.env={'workspace':workspace,'sources':sources,'assets':selected,
+                  'uid':os.getuid(),'gid':os.getgid(),'project':root,'runtime':self,
+                  'mode':'plan','step_output':None}
         return self.env
 
     def _upload_tree(self,env):
@@ -94,9 +149,19 @@ class OpenSandboxCommandRuntime:
             target.write_bytes(self.session.files.read(str(remote)));target.chmod(0o600)
 
     def close(self):
-        if self.closed:return
-        self.closed=True;self.session.close()
-        self.lifecycle.delete_confirmed(self.sandbox_id,expected_attempt=self.attempt)
+        with self.cleanup_lock:
+            errors=[]
+            if not self.session_closed:
+                try:self.session.close()
+                except Exception as exc:errors.append(exc)
+                else:self.session_closed=True
+            if not self.sandbox_deleted:
+                try:self.lifecycle.delete_confirmed(self.sandbox_id,expected_attempt=self.attempt)
+                except Exception as exc:errors.append(exc)
+                else:self.sandbox_deleted=True
+            if self.local_root:shutil.rmtree(self.local_root,ignore_errors=True)
+            self.closed=self.session_closed and self.sandbox_deleted
+            if errors:raise errors[0]
 
 
 class OpenSandboxCommandBackend:

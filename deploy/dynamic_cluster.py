@@ -159,7 +159,8 @@ def configure(seed):
         private_env(CONF/f'media-{node}.env',{'TMPDIR':data('media',node)/'tmp','VIDEO_USE_DEPLOYMENT':NAMESPACE})
     (ROOT/'observability/tmp').mkdir(mode=0o700,parents=True,exist_ok=True)
     (ROOT/'orchestrator').mkdir(mode=0o700,exist_ok=True)
-    orchestrator=pwd.getpwnam(NAMESPACE+'-orch');os.chown(ROOT/'orchestrator',orchestrator.pw_uid,orchestrator.pw_gid)
+    (ROOT/'orchestrator/tmp').mkdir(mode=0o700,exist_ok=True)
+    orchestrator=pwd.getpwnam(NAMESPACE+'-orch');os.chown(ROOT/'orchestrator',orchestrator.pw_uid,orchestrator.pw_gid);os.chown(ROOT/'orchestrator/tmp',orchestrator.pw_uid,orchestrator.pw_gid)
     values=environment(source=REPO);validate_isolation(values)
     if not (CONF/'orchestrator-database.env').exists():
         private_env(CONF/'orchestrator-database.env',{'VIDEO_USE_DATABASE_URL':
@@ -167,7 +168,7 @@ def configure(seed):
     private_env(CONF/'orchestrator.env',{key:values[key] for key in (
         'VIDEO_USE_DEPLOYMENT','VIDEO_USE_DISTRIBUTED','VIDEO_USE_DATABASE_URL','VIDEO_USE_OBJECT_BUCKET',
         'VIDEO_USE_AGENT_STREAM_PREFIX','VIDEO_USE_TELEMETRY_ENABLED')}|{
-        'VIDEO_USE_DATA_DIR':ROOT/'orchestrator','VIDEO_USE_STORAGE_METADATA_ONLY':'1',
+        'VIDEO_USE_DATA_DIR':ROOT/'orchestrator','TMPDIR':ROOT/'orchestrator/tmp','VIDEO_USE_STORAGE_METADATA_ONLY':'1',
         'AWS_EC2_METADATA_DISABLED':'true','PYTHONDONTWRITEBYTECODE':'1'}|env_file(CONF/'orchestrator-database.env'))
     Path('/etc/systemd/journald@'+NAMESPACE+'.conf').write_text('[Journal]\nStorage=persistent\nSystemMaxUse=512M\nRuntimeMaxUse=64M\nSystemKeepFree=1G\nMaxRetentionSec=7day\n')
 
@@ -216,7 +217,7 @@ TimeoutStopSec=30
 LogNamespace={NAMESPACE}
 ProtectSystem=strict
 ProtectHome=true
-PrivateTmp=true
+BindPaths={ROOT}/orchestrator/tmp:/tmp
 NoNewPrivileges=true
 CapabilityBoundingSet=
 ReadWritePaths={ROOT}/orchestrator
@@ -290,12 +291,16 @@ def verify(source,selection=()):
     shutil.copyfile(source/'runtime/build/manifest.json',directory/'runtime/build/manifest.json')
     log=ROOT/'verification'/f'{source.name}.log';log.parent.mkdir(parents=True,exist_ok=True)
     with log.open('w') as stream:
-        socket_root=REPO.parent/'vu-tmp'/('s-'+source.name);socket_root.mkdir(parents=True,exist_ok=True)
+        test_tmp=ROOT/'tmp/verification';test_tmp.mkdir(parents=True,exist_ok=True,mode=0o711);test_tmp.chmod(0o711)
+        socket_root=test_tmp/('s-'+source.name);socket_root.mkdir(parents=True,exist_ok=True)
+        test_environment={**os.environ,'TMPDIR':str(test_tmp),'TMP':str(test_tmp),'TEMP':str(test_tmp),
+                          'VIDEO_USE_TEST_TMP_ROOT':str(test_tmp),'VIDEO_USE_SOCKET_ROOT':str(socket_root)}
         result=subprocess.run([directory/'.venv/bin/python','-m','tests.run_distributed_suite',*selection],cwd=directory,
-            env={**os.environ,'TMPDIR':str(REPO.parent/'vu-tmp'),'VIDEO_USE_SOCKET_ROOT':str(socket_root)},stdout=stream,stderr=subprocess.STDOUT,timeout=1800)
+            env=test_environment,stdout=stream,stderr=subprocess.STDOUT,timeout=1800)
         if result.returncode:raise RuntimeError('Python verification failed: '+str(log))
         if not selection:
-            result=subprocess.run(['node','--test',*map(str,sorted((directory/'tests').glob('*.test.mjs')))],cwd=directory,stdout=stream,stderr=subprocess.STDOUT,timeout=300)
+            result=subprocess.run(['node','--test',*map(str,sorted((directory/'tests').glob('*.test.mjs')))],cwd=directory,
+                env=test_environment,stdout=stream,stderr=subprocess.STDOUT,timeout=300)
             if result.returncode:raise RuntimeError('Frontend verification failed: '+str(log))
     report=directory/'docs/test-evidence/distributed-suite.json'
     if json.loads(report.read_text())['source_sha256']!=common.digest(source,runner=run):raise ValueError('Verification source mismatch')
