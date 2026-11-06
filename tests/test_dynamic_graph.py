@@ -227,6 +227,18 @@ class DynamicGraphTests(unittest.TestCase):
             with self.subTest(change=change),self.assertRaises(ValueError):
                 graph.validate_proposal(self.store,run,{'proposal_id':'illegal','base_graph_version':1,'reason':'Invalid','sealed':True,**change})
 
+    def test_successful_user_revision_is_a_new_replan_trigger(self):
+        self.tick();self.propose({'proposal_id':'initial-revision','base_graph_version':0,'reason':'Initial',
+                                'add_tasks':[script()],'replan_after':['first']})
+        run=self.tick();self.store.execute("UPDATE run_tasks SET status='succeeded',lease_id='' WHERE run_id=? AND id='first'",(run['id'],))
+        run=graph.get(self.store,run['id']);current=next(task for task in graph.work_items(run) if task['id']=='first')['spec']
+        revised={**current,'argv':['python','-c','print("revised")']}
+        proposal,_,revisions,_=graph.validate_proposal(self.store,run,{
+            'proposal_id':'user-revision','base_graph_version':run['graph_version'],'reason':'Apply user revision',
+            'revise_tasks':[revised],'replan_after':['first']},user_revision_scope={'first'})
+        self.assertFalse(proposal.sealed)
+        self.assertEqual(set(revisions),{'first'})
+
     def test_scheduler_cannot_replay_before_orchestrator_accepts_a_result(self):
         from webapp.task_leases import Coordinator
         from webapp.workflow_dispatch import stage_result
