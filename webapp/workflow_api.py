@@ -319,7 +319,8 @@ def register(app,store,own_project):
                 if not run:yield 'event: gone\ndata: {}\n\n';return
                 for record in records:
                     position=record['seq'];record['payload']=json.loads(record['payload'])
-                    yield f'id: {position}\nevent: activity\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
+                    event='agent_text' if record['kind']=='note' else 'activity'
+                    yield f'id: {position}\nevent: {event}\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
                 if run['status'] in ('SUCCEEDED','FAILED','CANCELLED') and len(records)<200:
                     yield 'event: done\ndata: '+json.dumps({'status':run['status']})+'\n\n';return
                 if time.monotonic()-heartbeat>12:

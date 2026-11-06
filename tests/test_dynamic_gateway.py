@@ -379,7 +379,8 @@ class DynamicGatewayTests(unittest.TestCase):
             sent.append(kwargs['json'])
             if len(sent)==1:return nullcontext(Response({'error':{'code':'unsupported_parameter','param':'tools.0.strict'}},400))
             return nullcontext(Response({'status':'completed','usage':{'input_tokens':100,'output_tokens':20,'total_tokens':120},
-                'output':[{'type':'function_call','name':'submit_plan','arguments':json.dumps(wire)}]}))
+                'output':[{'type':'message','phase':'commentary','content':[{'type':'output_text','text':'正在整理可执行计划。'}]},
+                          {'type':'function_call','name':'submit_plan','arguments':json.dumps(wire)}]}))
         client=Mock();client.post.side_effect=post;transport={'strict':True}
         with self.lease.bind(),patch('webapp.agent_profiles.for_specialist',return_value=configuration), \
              patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
@@ -391,6 +392,8 @@ class DynamicGatewayTests(unittest.TestCase):
         rows=self.store.query("SELECT status,receipt,total_tokens FROM usage_calls WHERE category='llm' ORDER BY seq")
         self.assertEqual([r['status'] for r in rows],['failed','succeeded'])
         self.assertIsNone(rows[0]['total_tokens']);self.assertEqual(rows[1]['total_tokens'],120)
+        notes=[json.loads(row['payload']) for row in self.store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='note'",(self.run['id'],))]
+        self.assertEqual([row['text'] for row in notes],['正在整理可执行计划。'])
 
     def test_accepted_strict_request_with_invalid_wire_downgrades_without_staging_bad_plan(self):
         import threading
@@ -455,6 +458,8 @@ class DynamicGatewayTests(unittest.TestCase):
         adapter=get('responses')
         payload={'status':'completed','output':[{'type':'reasoning','summary':'PRIVATE'},commentary,final]}
         self.assertEqual(json.loads(adapter.response_text(payload)),{'action':'inspect','ref':'approved'})
+        self.assertEqual(adapter.public_commentary(payload),['{"action":"script","code":"not an executable final action"}'])
+        self.assertNotIn('PRIVATE',''.join(adapter.public_commentary(payload)))
         for items in ([commentary],[final,final],[final,message(None,'{}')],[message('unknown','{}')],
                       [{**final,'content':final['content']*2}]):
             with self.subTest(items=items),self.assertRaises(PublicResponseStructureError):

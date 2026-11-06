@@ -206,6 +206,7 @@ class StudioTests(unittest.TestCase):
             'allowed_operations':['script'],'delivery_targets':['成片 MP4'],
             'content_fingerprint':workflow_graph.content_fingerprint(store,self.pid)})
         agent_store.event(store,run['id'],'progress',{'text':'正在检查素材'})
+        agent_store.event(store,run['id'],'note',{'text':'我正在分析镜头结构。'})
         agent_store.event(store,run['id'],'private_reasoning',{'text':'不可公开'})
         store.execute("UPDATE runs SET status='SUCCEEDED',terminal_reason='delivered' WHERE id=?",(run['id'],))
         path=f'/api/projects/{self.pid}/runs/{run["id"]}/stream'
@@ -213,6 +214,7 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(response.status_code,200,response.text)
         self.assertIn('text/event-stream',response.headers['content-type'])
         self.assertIn('event: activity',response.text);self.assertIn('正在检查素材',response.text)
+        self.assertIn('event: agent_text',response.text);self.assertIn('我正在分析镜头结构。',response.text)
         self.assertNotIn('不可公开',response.text);self.assertIn('event: done',response.text)
         self.assertEqual(self.b.get(path).status_code,404)
 
