@@ -16,6 +16,7 @@ import sys
 import threading
 import time
 import uuid
+import zipfile
 from PIL import Image, ImageOps, UnidentifiedImageError
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -40,6 +41,9 @@ COOKIE = namespace().replace('-', '_')+'_session'
 VIDEO_EXTS = {'.mp4', '.mov', '.mkv', '.avi', '.m4v', '.webm', '.ogv'}
 AUDIO_EXTS = {'.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg', '.opus'}
 IMAGE_EXTS = {'.png', '.jpg', '.jpeg', '.webp', '.bmp', '.tif', '.tiff'}
+TEXT_DOCUMENT_EXTS = {'.txt', '.md', '.json', '.csv'}
+OFFICE_DOCUMENT_EXTS = {'.docx', '.xlsx', '.pptx'}
+DOCUMENT_EXTS = TEXT_DOCUMENT_EXTS | OFFICE_DOCUMENT_EXTS | {'.pdf'}
 MAX_PROJECTS = max(1, int(os.environ.get('VIDEO_USE_MAX_PROJECTS', '100')))
 DEMO_TO_TOOL = {
     'transcribe':'transcribe','batch':'pack','cuts':'render','grade':'grade','subtitles':'render',
@@ -89,6 +93,33 @@ def inspect_media(path: Path, allow_audio=False) -> dict:
 def inspect_image(path: Path) -> dict:
     from .media_isolation import inspect_image as isolated_inspect
     return isolated_inspect(path)
+
+
+def inspect_document(path: Path, suffix: str) -> dict:
+    size=path.stat().st_size
+    if suffix in TEXT_DOCUMENT_EXTS:
+        if size>20*1024**2:raise ValueError('文本资料不能超过 20 MB。')
+        text=path.read_text(encoding='utf-8-sig')
+        if '\x00' in text:raise ValueError('文本资料包含二进制内容。')
+    elif suffix=='.pdf':
+        if size>100*1024**2:raise ValueError('PDF 资料不能超过 100 MB。')
+        with path.open('rb') as stream:
+            if stream.read(8)[:5]!=b'%PDF-':raise ValueError('PDF 文件头无效。')
+            stream.seek(max(0,size-2048));tail=stream.read()
+        if b'%%EOF' not in tail:raise ValueError('PDF 文件结构不完整。')
+    else:
+        if size>100*1024**2:raise ValueError('Office 资料不能超过 100 MB。')
+        try:
+            with zipfile.ZipFile(path) as archive:
+                members=archive.infolist()
+                if '[Content_Types].xml' not in archive.namelist():raise ValueError('Office 文件缺少内容类型声明。')
+                if len(members)>10000 or sum(item.file_size for item in members)>300*1024**2:raise ValueError('Office 文件展开后过大。')
+                for item in members:
+                    parts=Path(item.filename).parts
+                    if item.flag_bits&1 or item.filename.startswith(('/', '\\')) or '..' in parts:
+                        raise ValueError('Office 文件包含不安全的压缩成员。')
+        except zipfile.BadZipFile as exc:raise ValueError('Office 文件结构无效。') from exc
+    return {'kind':'document','size':size,'mime':mimetypes.guess_type(path.name)[0] or 'application/octet-stream'}
 
 
 def read_key() -> str:
@@ -480,8 +511,8 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         await api_execution.run('read',authorize_upload)
         original=(file.filename or 'video').replace('\\','/').split('/')[-1][:180]
         suffix=Path(original).suffix.lower()
-        if suffix not in VIDEO_EXTS|AUDIO_EXTS|IMAGE_EXTS|{'.srt'}:
-            raise HTTPException(415,'支持视频、音频、PNG/JPG/WebP 图片和 UTF-8 SRT。')
+        if suffix not in VIDEO_EXTS|AUDIO_EXTS|IMAGE_EXTS|DOCUMENT_EXTS|{'.srt'}:
+            raise HTTPException(415,'支持视频、音频、图片、SRT、PDF、TXT、Markdown、JSON、CSV 和 Office 文档。')
         limit=int(os.environ.get('VIDEO_USE_MAX_UPLOAD_MB','2048'))*1024**2
         asset_id=uuid.uuid4().hex;filename=asset_id+suffix;stage=Staging(store.root);path=stage.path/filename
         def copy_upload():
@@ -497,6 +528,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
                     return {'kind':'subtitle','size':size}
                 metadata=await api_execution.run('storage',subtitle)
             elif suffix in IMAGE_EXTS:metadata=await api_execution.run('media',inspect_image,path)
+            elif suffix in DOCUMENT_EXTS:metadata=await api_execution.run('storage',inspect_document,path,suffix)
             else:metadata=await api_execution.run('media',inspect_media,path,allow_audio=suffix in AUDIO_EXTS)
             uploaded=await api_execution.run('storage',store.artifacts.upload,project_id,path,check=stage.check) if store.shared_files else None
             def publish_upload():
