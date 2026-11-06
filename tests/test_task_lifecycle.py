@@ -6,7 +6,8 @@ from unittest.mock import patch
 from webapp import agent_store
 from webapp.store import Store
 from webapp.task_leases import Coordinator,LeaseLost
-from webapp.task_lifecycle import TaskLimitReached,snapshot
+from webapp.task_lifecycle import TaskLimitReached,snapshot,sweep
+from webapp.sandbox_backends import OpenSandboxCleanupRegistry
 
 
 class LifecycleTests(unittest.TestCase):
@@ -57,5 +58,15 @@ class LifecycleTests(unittest.TestCase):
         with lease.bind(),self.assertRaises(TaskLimitReached):agent_store.finish(self.store,self.turn,'succeeded','late')
         self.a.heartbeat()
         self.assertEqual(agent_store.turn(self.store,self.turn)['status'],'failed')
+
+    def test_expired_opensandbox_ownership_becomes_watchdog_cleanup(self):
+        lease=self.a.claim(self.turn,'agent');registry=OpenSandboxCleanupRegistry()
+        registry.reserve(lease);registry.attach(lease,'sandbox-1')
+        with self.store.connect() as db:db.execute('BEGIN IMMEDIATE');sweep(db)
+        self.assertEqual(self.store.query('SELECT state FROM execution_external_cleanup')[0]['state'],'dormant')
+        self.store.execute('UPDATE execution_leases SET expires=0 WHERE attempt=?',(lease.attempt,))
+        with self.store.connect() as db:db.execute('BEGIN IMMEDIATE');sweep(db)
+        self.assertEqual(self.store.query('SELECT state,external_id FROM execution_external_cleanup')[0],
+            {'state':'pending','external_id':'sandbox-1'})
 
 if __name__=='__main__':unittest.main()

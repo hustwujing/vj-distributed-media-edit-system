@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -35,6 +36,22 @@ class ExternalCleanupTests(unittest.TestCase):
         self.assertEqual(self.store.query('SELECT state FROM execution_external_cleanup')[0]['state'],'unconfirmed')
         self.store.execute("UPDATE execution_external_cleanup SET state='unknown',attempts=0,external_id=''")
         with patch('webapp.external_cleanup.session') as factory:external_cleanup.run(self.store,'one');factory.assert_not_called()
+
+    def test_opensandbox_attempt_is_deleted_without_provider_submission(self):
+        attempt='a'*32
+        self.store.execute('DELETE FROM execution_external_cleanup')
+        self.store.execute("INSERT INTO execution_external_cleanup(id,task_id,provider,external_id,state,phase) VALUES (?,?,?,?,'pending','delete')",
+            ('opensandbox:'+attempt,'task','opensandbox:'+attempt,'sandbox-1'))
+        transport=MagicMock();client=MagicMock()
+        with patch.dict(os.environ,{'VIDEO_USE_OPEN_SANDBOX_URL':'http://127.0.0.1:28090','VIDEO_USE_OPEN_SANDBOX_API_KEY':'key'}),\
+             patch('webapp.sandbox_backends.RequestsTransport',return_value=transport),\
+             patch('webapp.sandbox_backends.OpenSandboxClient',return_value=client),\
+             patch('webapp.external_cleanup.session') as provider:
+            external_cleanup.run(self.store,'opensandbox:'+attempt)
+        client.delete_confirmed.assert_called_once_with('sandbox-1',expected_attempt=attempt)
+        transport.close.assert_called_once();provider.assert_not_called()
+        self.assertEqual(self.store.query('SELECT state,phase FROM execution_external_cleanup')[0],
+            {'state':'complete','phase':'deleted'})
 
 if __name__=='__main__':unittest.main()
 

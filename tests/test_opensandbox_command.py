@@ -45,6 +45,19 @@ class FlakyLifecycle(Lifecycle):
         if self.failures:self.failures-=1;raise RuntimeError('temporary delete failure')
 
 
+class NoopCleanup:
+    def reserve(self,lease):pass
+    def attach(self,lease,sandbox_id):pass
+    def complete(self,store,attempt):pass
+
+
+class FlakyCleanup(NoopCleanup):
+    def __init__(self):self.calls=0
+    def complete(self,store,attempt):
+        self.calls+=1
+        if self.calls==1:raise RuntimeError('temporary registry failure')
+
+
 class OpenSandboxCommandTests(unittest.TestCase):
     def test_environment_materializes_only_frozen_asset_without_node_local_project(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -82,7 +95,7 @@ class OpenSandboxCommandTests(unittest.TestCase):
 
     def test_backend_requires_command_binding_and_deletes_on_close(self):
         lifecycle=Lifecycle();session=Session();sdk=SimpleNamespace(connect=lambda _:session)
-        backend=OpenSandboxCommandBackend(lifecycle,sdk);lease=SimpleNamespace(attempt='a',generation=1,start_compute=lambda:None)
+        backend=OpenSandboxCommandBackend(lifecycle,sdk,NoopCleanup());lease=SimpleNamespace(attempt='a',generation=1,store=None,start_compute=lambda:None)
         binding=BackendBinding(OPEN_SANDBOX,'p','image@sha256:'+'a'*64,'sha256:'+'b'*64,'command_runtime')
         runtime=backend.start(lease,binding,{'cpu':1,'memory_mb':512});runtime.close()
         self.assertTrue(session.closed);self.assertTrue(lifecycle.deleted)
@@ -98,6 +111,14 @@ class OpenSandboxCommandTests(unittest.TestCase):
             runtime.close()
             self.assertTrue(runtime.closed);self.assertTrue(runtime.sandbox_deleted)
             self.assertEqual(len(lifecycle.deleted),2)
+
+    def test_registry_completion_retries_without_redeleting_sandbox(self):
+        cleanup=FlakyCleanup();lifecycle=Lifecycle();session=Session();lease=SimpleNamespace(store=None,check=lambda:None)
+        runtime=OpenSandboxCommandRuntime(lifecycle,session,'command-1','attempt',lease,cleanup)
+        with self.assertRaisesRegex(RuntimeError,'temporary registry failure'):runtime.close()
+        self.assertTrue(runtime.sandbox_deleted);self.assertFalse(runtime.closed)
+        runtime.close()
+        self.assertTrue(runtime.closed);self.assertEqual(cleanup.calls,2);self.assertEqual(len(lifecycle.deleted),1)
 
     def test_workflow_adapter_delegates_isolated_protocol_to_command_runtime(self):
         from webapp.workflow_runtime import Adapter

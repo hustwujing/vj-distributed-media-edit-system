@@ -26,21 +26,39 @@ def run(store,identifier):
         db.execute("UPDATE execution_external_cleanup SET state='running',attempts=attempts+1,generation=generation+1,owner=?,deadline_at=?,lease_until=?,phase='poll' WHERE id=?",(owner,deadline,min(now+20,deadline),identifier))
     state,error,next_phase='pending','', 'poll';policy=''
     try:
-        if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',row['external_id']):raise ValueError('Invalid upstream ID')
-        base=provider_base(row['provider'])
-        method='POST' if row['phase']=='cancel' else 'GET'
-        url=base+'/api/jobs/'+row['external_id']+('/cancel' if method=='POST' else '')
-        calls=store.query('SELECT implementation FROM workflow_provider_calls WHERE request_key=?',(identifier,))
-        handle=json.loads(calls[0]['implementation']) if calls else {}
-        from . import generation_service
-        if calls:
-            from .provider_metadata import route
-            policy=route(handle['route_adapter']).cleanup_category
-            if policy!=handle['cleanup_category']:raise ValueError('Invalid saved cleanup policy')
+        if row['provider'].startswith('opensandbox:'):
+            policy='opensandbox';attempt=row['provider'].removeprefix('opensandbox:')
+            if not re.fullmatch(r'[a-f0-9]{32}',attempt):raise ValueError('Invalid OpenSandbox attempt')
+            from .sandbox_backends import OpenSandboxClient,RequestsTransport
+            base=os.environ.get('VIDEO_USE_OPEN_SANDBOX_URL','').rstrip('/')
+            key=os.environ.get('VIDEO_USE_OPEN_SANDBOX_API_KEY','')
+            if not base or not key:raise ValueError('OpenSandbox cleanup transport is unavailable')
+            transport=RequestsTransport(base,key,timeout=5);client=OpenSandboxClient(transport,
+                network_policy=os.environ.get('VIDEO_USE_OPEN_SANDBOX_NETWORK_ISOLATION','deny'))
+            try:
+                sandboxes=([{'id':row['external_id']}] if row['external_id'] else client.list_by_attempt(attempt))
+                for sandbox in sandboxes:
+                    sandbox_id=sandbox.get('id') or sandbox.get('sandboxId')
+                    if not sandbox_id:raise ValueError('OpenSandbox cleanup found an invalid sandbox')
+                    client.delete_confirmed(sandbox_id,expected_attempt=attempt)
+                state='complete';next_phase='deleted'
+            finally:transport.close()
         else:
-            direct=store.query('SELECT id FROM execution_provider_calls WHERE id=?',(identifier,))
-            if not direct:raise ValueError('Cleanup has no frozen provider call')
-            policy='job_api'
+            if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',row['external_id']):raise ValueError('Invalid upstream ID')
+            base=provider_base(row['provider'])
+            method='POST' if row['phase']=='cancel' else 'GET'
+            url=base+'/api/jobs/'+row['external_id']+('/cancel' if method=='POST' else '')
+            calls=store.query('SELECT implementation FROM workflow_provider_calls WHERE request_key=?',(identifier,))
+            handle=json.loads(calls[0]['implementation']) if calls else {}
+            from . import generation_service
+            if calls:
+                from .provider_metadata import route
+                policy=route(handle['route_adapter']).cleanup_category
+                if policy!=handle['cleanup_category']:raise ValueError('Invalid saved cleanup policy')
+            else:
+                direct=store.query('SELECT id FROM execution_provider_calls WHERE id=?',(identifier,))
+                if not direct:raise ValueError('Cleanup has no frozen provider call')
+                policy='job_api'
         if policy=='generation_protocol':
             with session() as client:
                 result=(generation_service.cancel(client,handle,row['external_id']) if method=='POST'

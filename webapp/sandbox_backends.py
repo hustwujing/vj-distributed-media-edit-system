@@ -18,6 +18,7 @@ import requests
 
 LOCAL_BWRAP = 'local_bwrap'
 OPEN_SANDBOX = 'opensandbox'
+OPEN_SANDBOX_CLEANUP_PREFIX = 'opensandbox:'
 BACKENDS = {LOCAL_BWRAP, OPEN_SANDBOX}
 
 
@@ -187,3 +188,28 @@ class OpenSandboxClient:
         if status not in (204,404):raise RuntimeError('OpenSandbox delete failed with HTTP '+str(status))
         status,_=self.transport.request('GET','/v1/sandboxes/'+quote(sandbox_id,safe=''))
         if status!=404:raise DeletionPending('OpenSandbox deletion has not converged for '+sandbox_id)
+
+
+class OpenSandboxCleanupRegistry:
+    """Persist sandbox ownership before create so a dead executor can be reaped."""
+    @staticmethod
+    def key(attempt):return OPEN_SANDBOX_CLEANUP_PREFIX+attempt
+
+    def reserve(self,lease):
+        key=self.key(lease.attempt)
+        with lease.store.connect() as db:
+            db.execute('BEGIN IMMEDIATE');lease.validate(db)
+            db.execute("""INSERT INTO execution_external_cleanup
+                (id,task_id,provider,external_id,state,phase,error)
+                VALUES (?,?,?,'','dormant','delete','') ON CONFLICT(id) DO NOTHING""",
+                (key,lease.run_id,key))
+        return key
+
+    def attach(self,lease,sandbox_id):
+        changed=lease.store.execute("UPDATE execution_external_cleanup SET external_id=? WHERE id=? AND state='dormant'",
+            (sandbox_id,self.key(lease.attempt)))
+        if changed!=1:raise RuntimeError('OpenSandbox cleanup ownership was lost')
+
+    def complete(self,store,attempt):
+        store.execute("UPDATE execution_external_cleanup SET state='complete',phase='deleted',lease_until=0,next_retry=0,error='' WHERE id=?",
+            (self.key(attempt),))

@@ -11,16 +11,17 @@ import shutil
 import threading
 import time
 
-from .sandbox_backends import OPEN_SANDBOX,BackendConfigurationError
+from .sandbox_backends import OPEN_SANDBOX,BackendConfigurationError,OpenSandboxCleanupRegistry
 
 
 class OpenSandboxCommandRuntime:
     is_command=True
     is_remote=False
-    def __init__(self,lifecycle,session,sandbox_id,attempt,lease):
+    def __init__(self,lifecycle,session,sandbox_id,attempt,lease,cleanup_registry=None):
         self.lifecycle=lifecycle;self.session=session;self.sandbox_id=sandbox_id
         self.attempt=attempt;self.lease=lease;self.env=None;self.closed=False
         self.session_closed=False;self.sandbox_deleted=False;self.cleanup_lock=threading.RLock()
+        self.cleanup_registry=cleanup_registry;self.registry_completed=cleanup_registry is None
         self.local_root=None
 
     def revoked(self):return False
@@ -159,24 +160,33 @@ class OpenSandboxCommandRuntime:
                 try:self.lifecycle.delete_confirmed(self.sandbox_id,expected_attempt=self.attempt)
                 except Exception as exc:errors.append(exc)
                 else:self.sandbox_deleted=True
+            if self.sandbox_deleted and not self.registry_completed:
+                try:self.cleanup_registry.complete(self.lease.store,self.attempt)
+                except Exception as exc:errors.append(exc)
+                else:self.registry_completed=True
             if self.local_root:shutil.rmtree(self.local_root,ignore_errors=True)
-            self.closed=self.session_closed and self.sandbox_deleted
+            self.closed=self.session_closed and self.sandbox_deleted and self.registry_completed
             if errors:raise errors[0]
 
 
 class OpenSandboxCommandBackend:
-    def __init__(self,lifecycle,sdk):self.lifecycle=lifecycle;self.sdk=sdk
+    def __init__(self,lifecycle,sdk,cleanup_registry=None):
+        self.lifecycle=lifecycle;self.sdk=sdk;self.cleanup_registry=cleanup_registry or OpenSandboxCleanupRegistry()
     def start(self,lease,binding,resources,*,timeout=3600):
         if binding.backend!=OPEN_SANDBOX or binding.runtime_kind!='command_runtime':
             raise BackendConfigurationError('Command backend requires command_runtime binding')
         lease.start_compute()
+        self.cleanup_registry.reserve(lease)
         payload=self.lifecycle.create(lease,binding,resources,timeout=timeout,entrypoint=['tail','-f','/dev/null'])
         sandbox_id=(payload or {}).get('id')
         if not sandbox_id:raise RuntimeError('OpenSandbox command create returned no id')
+        self.cleanup_registry.attach(lease,sandbox_id)
         try:session=self.sdk.connect(sandbox_id)
         except Exception:
-            self.lifecycle.delete_confirmed(sandbox_id,expected_attempt=lease.attempt);raise
-        return OpenSandboxCommandRuntime(self.lifecycle,session,sandbox_id,lease.attempt,lease)
+            self.lifecycle.delete_confirmed(sandbox_id,expected_attempt=lease.attempt)
+            self.cleanup_registry.complete(lease.store,lease.attempt)
+            raise
+        return OpenSandboxCommandRuntime(self.lifecycle,session,sandbox_id,lease.attempt,lease,self.cleanup_registry)
 
 
 class OpenSandboxCommandFactory:

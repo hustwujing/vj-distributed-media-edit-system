@@ -183,6 +183,10 @@ def request_cleanup(db,task_id,attempt_id=None,external=True):
 
 def sweep(db):
     now=clock(db)
+    db.execute("""UPDATE execution_external_cleanup AS cleanup SET state='pending',next_retry=0,error=''
+        WHERE cleanup.state='dormant' AND cleanup.provider LIKE 'opensandbox:%'
+        AND NOT EXISTS (SELECT 1 FROM execution_leases AS lease
+            WHERE lease.attempt=substr(cleanup.provider,13) AND lease.active=1 AND lease.expires>?)""",(now,))
     rows=db.execute("SELECT x.task_id FROM execution_limits x JOIN (SELECT id,status FROM execution_subjects) t ON t.id=x.task_id WHERE x.deadline_at<=? AND x.termination_reason='' AND t.status IN ('queued','running','waiting','paused')",(now,)).fetchall()
     for row in rows:terminate(db,row['task_id'],'deadline')
 
