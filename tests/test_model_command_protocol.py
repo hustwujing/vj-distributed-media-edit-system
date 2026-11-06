@@ -5,7 +5,8 @@ from types import SimpleNamespace
 from jsonschema import ValidationError
 from webapp import workflow_graph as graph
 from webapp.workflow_model_protocol import (manager_schema,compile_manager,ToolProtocol,CommandError,
-    schema_complexity,repair_options,required_delivery_extensions,required_delivery_names,scopes,targeted_user_inputs)
+    schema_complexity,repair_options,required_delivery_extensions,required_delivery_names,scopes,targeted_user_inputs,
+    normalize_planner_arguments)
 from webapp.strict_schema import obj,schema_for,transform
 from webapp.model_tool_protocol import request,response,strict_unsupported
 from webapp.model_adapters import get,PublicResponseStructureError
@@ -22,6 +23,12 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_unique_trailing_underscore_acceptance_field_is_normalized(self):
+        value={'tasks':[{'type':'agent','acceptance':[{'kind':'image','height_':64,'max_participation':.5}]}]}
+        normalized,changes=normalize_planner_arguments('submit_typed_plan',value)
+        self.assertEqual(normalized['tasks'][0]['acceptance'][0],{'kind':'image','height':64,'max_participation':.5})
+        self.assertEqual(changes,['tasks.0.acceptance.0.height_->height'])
+
     def test_applied_user_change_adds_exact_delivery_names_but_not_inputs(self):
         value={'goal':'Edit source.mp4','authorization':{'delivery_targets':['video and cover']},
                'input_asset_names':['source.mp4'],
