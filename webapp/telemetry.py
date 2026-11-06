@@ -22,6 +22,7 @@ from .api_capacity import FIELDS as API_CAPACITY_FIELDS
 FIELDS.update(API_CAPACITY_FIELDS)
 FIELDS.update({'harness','model','protocol','reasoning_effort','max_output_tokens','configuration_digest','switch_id'})
 FIELDS.update({'structured_output_mode','schema_digest','tool_call_count','response_status','response_finish_reason','json_error_kind','repeated_error_count'})
+FIELDS.update({'validation_path','validation_type','validation_error_count'})
 FIELDS.update({'schema_bytes','schema_max_depth','schema_object_count','schema_union_branches','schema_enum_values','output_tokens_unknown','partially_settled'})
 FIELDS.update({'transport_valid','schema_valid','compile_valid','semantic_valid','policy_valid','executable','retry_success','wrong_but_schema_valid'})
 FIELDS.update({'graph_version','authorization_version','sealed','proposal_id','planner_run_id','reconcile_generation','profile_id','snapshot_digest','task_count','scan_lag_seconds'})

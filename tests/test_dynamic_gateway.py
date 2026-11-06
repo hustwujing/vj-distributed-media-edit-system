@@ -681,6 +681,11 @@ class DynamicGatewayTests(unittest.TestCase):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
         self.assertEqual(step,2)
         self.assertEqual(self.store.query('SELECT status,revision FROM workflow_plan_drafts')[0],{'status':'COMMITTED','revision':1})
+        diagnostics=[json.loads(row['record']) for row in self.store.query('SELECT record FROM workflow_diagnostics')]
+        rejected=next(item for item in diagnostics if item['phase']=='plan_compile')
+        self.assertEqual(rejected['origin'],'model_reply')
+        self.assertTrue(rejected['validation_errors'][0]['path'])
+        self.assertEqual(rejected['repeated_error_count'],1)
 
     def test_draft_revision_change_rejects_stale_atomic_commit(self):
         from webapp.workflow_plan_draft import mutate,get as get_draft

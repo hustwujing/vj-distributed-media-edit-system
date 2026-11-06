@@ -713,6 +713,17 @@ def execute(host,lease,run,task):
                     tool_receipt['status']='failed';correction_rounds+=1
                     from .workflow_plan_draft import record_error
                     _,repeated=record_error(store,task['spec']['request_id'],details)
+                    first=details[0] if details else {}
+                    from .telemetry import emit
+                    emit('workflow.plan_compile_rejected','WARNING',task_id=lease.run_id,step_id=lease.step_id,
+                         error_code=first.get('type','compile_contract'),validation_path=first.get('path','plan'),
+                         validation_type=first.get('type','compile_contract'),validation_error_count=len(details),
+                         repeated_error_count=repeated)
+                    store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',(
+                        uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],
+                        graph.encode({'phase':'plan_compile','origin':'model_reply','classification':'parameters',
+                                      'attempt_id':lease.attempt,'code':first.get('type','compile_contract'),
+                                      'validation_errors':details,'repeated_error_count':repeated}),store.now()))
                     feedback='\nTyped plan was not persisted. Correct only these compile errors and resubmit the complete typed plan:'+graph.encode(details)
                     if repeated>=2:raise TaskQuotaReached('规划草稿连续产生相同的编译错误。',category='agent_contract',scope='turn',used=repeated,limit=2)
                     continue

@@ -69,6 +69,10 @@ class ObservationTests(unittest.TestCase):
         for value in ('secret-token-123','user-content','signed.example','raise ValueError'):self.assertNotIn(value,body)
         self.assertEqual(r['exception_type'],'ValueError');self.assertTrue(r['stack'])
         self.assertEqual(telemetry.record('newline\nattack')['event'],'invalid')
+        validation=telemetry.record('workflow.plan_compile_rejected',validation_path='proposal.add_tasks.0',
+                                    validation_type='missing',validation_error_count=1)
+        self.assertEqual(validation['validation_path'],'proposal.add_tasks.0')
+        self.assertEqual(validation['validation_type'],'missing')
 
     def test_http_request_ids_500_and_owner_authorization(self):
         app=create_app(self.root/'api',False)
