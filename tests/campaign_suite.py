@@ -8,6 +8,10 @@ RISK_ORDER={'complex':0,'intervention_real_browser':1,'intervention':1,'dynamic_
 def order_cases(cases,mode):
  if mode=='manifest':return list(cases)
  return sorted(cases,key=lambda case:RISK_ORDER.get(case.get('complexity'),99))
+def validate_deployment_roots(parser):
+ cluster_root=Path(os.environ.get('DAS_DEPLOY_ROOT',ROOT/'.cluster')).resolve()
+ if cluster_root!=DEPLOY_ROOT:
+  parser.error('DYNAMIC_CASE_DEPLOY_ROOT and DAS_DEPLOY_ROOT must identify the same isolated deployment')
 def main():
  p=argparse.ArgumentParser(description=__doc__)
  p.add_argument('action',choices=['list','run','report'])
@@ -17,6 +21,7 @@ def main():
  p.add_argument('--order',choices=['risk','manifest'],default='risk')
  p.add_argument('--base',default='http://127.0.0.1/distributed-agent-system')
  a=p.parse_args()
+ validate_deployment_roots(p)
  expected=os.environ.get('DYNAMIC_EXPECT_PATH','/distributed-agent-system')
  if urlsplit(a.base).path.rstrip('/')!=expected:p.error('Only the configured isolated deployment path is allowed')
  manifest=json.loads((ROOT/'docs/real-case-campaign/dynamic-cases.json').read_text())
