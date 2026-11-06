@@ -310,7 +310,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     from .quality_policy import Acceptance
     acceptance=defs['Acceptance']['properties'];variants=[]
     for kind in ('file','image','media','text','json','subtitle','agent','review'):
-        fields={key:deepcopy(acceptance[key]) for key in sorted(Acceptance.fields_for_kind(kind))}
+        fields={key:deepcopy(acceptance[key]) for key in sorted(Acceptance.fields_for_kind(kind)-{'source'})}
         fields['kind']={'type':'string','enum':[kind]};required=['kind']
         if kind in ('agent','review'):
             fields['severity']={'type':'string','enum':['required']};fields['criterion']['minLength']=1;required.append('criterion')
@@ -438,6 +438,8 @@ def compile_manager(command,frozen):
         added=[];replacement_ids=set(plan.get('replacements',{}).values())
         for task in plan.get('new_tasks',[]):
             raw=deepcopy(task);files=raw.pop('files',[]);bindings=raw.pop('input_bindings',None);outputs=[];roles={}
+            if raw.get('id') not in replacement_ids:
+                raw['acceptance']=[{**check,'source':'user'} for check in raw.get('acceptance',[])]
             contract_filenames=[];role_filenames={}
             if bindings is not None:
                 if len({item['role'] for item in bindings})!=len(bindings):raise CommandError('duplicate_input_role','plan.new_tasks.input_bindings','Declare each input role once')
@@ -452,11 +454,8 @@ def compile_manager(command,frozen):
                 if raw.get('id') in replacement_ids:
                     if not raw.get('basic_reason'):raw['basic_reason']='Server-owned registered operation integrity checks'
                     added.append(raw);continue
-                business=[];inherited_technical=[]
+                business=[]
                 for check in raw.get('acceptance',[]):
-                    if check.get('source')=='technical':
-                        if check not in inherited_technical:inherited_technical.append(check)
-                        continue
                     roles=list(binding.get('outputs',[]))
                     preferred=[]
                     if check.get('transparent_subject') is True:preferred=['foreground','primary_image','image']
@@ -472,8 +471,7 @@ def compile_manager(command,frozen):
                     if normalized not in business:business.append(normalized)
                 from .quality_policy import Acceptance
                 technical=[Acceptance.model_validate(check).model_dump() for check in operation_acceptance(binding,raw.get('parameters',{}))]
-                raw['acceptance']=[*business,*inherited_technical,
-                                   *[check for check in technical if check not in business and check not in inherited_technical]]
+                raw['acceptance']=[*business,*[check for check in technical if check not in business]]
                 if not raw.get('basic_reason'):
                     raw['basic_reason']='Server-owned registered operation integrity checks'
             for item in files:
