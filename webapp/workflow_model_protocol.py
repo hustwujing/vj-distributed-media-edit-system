@@ -64,6 +64,11 @@ def scopes(frozen):
     return automatic,user
 
 
+def targeted_user_inputs(frozen):
+    records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
+    return bool(records) and all((item.get('context') or {}).get('targets') for item in records)
+
+
 def change_fields(task_type,user=False):
     return graph.revision_mutable_fields(task_type,user)
 
@@ -369,8 +374,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     fields['plan']={'anyOf':[plan,{'type':'null'}]}
     if frozen.get('scope_confirmation_required'):
         fields['kind']['enum']=['REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED']
-    input_records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
-    if input_records and all((item.get('context') or {}).get('targets') for item in input_records):
+    if targeted_user_inputs(frozen):
         fields['kind']['enum']=[kind for kind in fields['kind']['enum'] if kind!='NEW_RUN_REQUIRED']
     result=obj(fields,['kind','reason']);result['$defs']=defs
     return result
@@ -379,9 +383,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
 def compile_manager(command,frozen):
     # Identity comes exclusively from this immutable request, never a fresh DB snapshot.
     result={key:value for key,value in command.items() if key!='plan'}
-    input_records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
-    if (result.get('kind')=='NEW_RUN_REQUIRED' and input_records
-            and all((item.get('context') or {}).get('targets') for item in input_records)):
+    if result.get('kind')=='NEW_RUN_REQUIRED' and targeted_user_inputs(frozen):
         raise CommandError('same_run_revision_required','kind',
             'The current user input targets existing Tasks. Revise only that authorized Task closure in this Run.')
     if result.get('kind')=='REQUEST_AUTHORIZATION' and result.get('authorization') is not None:
@@ -558,7 +560,8 @@ class ToolProtocol:
         can_correct=self.correction_mode
         config_fields={key:deepcopy(plan[key]) for key in ('changes','dependencies','remove_dependencies','repair_replacements','replacements','review_again') if key in plan}
         commit_fields={'kind':{'type':'string','enum':['APPLY_PLAN','COMPLETE']},'reason':command['properties']['reason']}
-        automatic,user=scopes(self.frozen);allow_new_tasks=automatic is None or user is not None
+        automatic,user=scopes(self.frozen);targeted=targeted_user_inputs(self.frozen)
+        allow_new_tasks=(automatic is None or user is not None) and not targeted
         task_variants=[]
         if 'AgentCommandTask' in defs:
             schema=referenced({'$ref':'#/$defs/AgentCommandTask'})
@@ -594,8 +597,9 @@ class ToolProtocol:
         authorization=expansion_ref(authorization)
         self.add('request_authorization','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
             'authorization':authorization}),defs))
-        self.add('new_run_required','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
-            'new_goal':command['properties']['new_goal'],'authorization':command['properties']['authorization']}),defs))
+        if not targeted:
+            self.add('new_run_required','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
+                'new_goal':command['properties']['new_goal'],'authorization':command['properties']['authorization']}),defs))
 
     def definitions(self):
         descriptions={'inspect':'Inspect authorized immutable inputs. Returns evidence IDs.',

@@ -51,6 +51,10 @@ class ModelCommandTests(unittest.TestCase):
     def test_targeted_task_input_cannot_request_a_successor_run(self):
         value=frozen(user=True);value['input_batch']['inputs'][0]['context']['targets']=['render']
         self.assertNotIn('NEW_RUN_REQUIRED',manager_schema(value)['properties']['kind']['enum'])
+        protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertNotIn('new_run_required',protocol.schemas)
+        self.assertNotIn('tasks',protocol.schemas['submit_typed_plan']['properties'])
+        self.assertEqual(protocol.schemas['submit_typed_plan']['properties']['changes']['maxItems'],16)
         command={'kind':'NEW_RUN_REQUIRED','reason':'Move the targeted change','new_goal':'Different run'}
         with self.assertRaises(CommandError) as raised:compile_manager(command,value)
         self.assertEqual((raised.exception.code,raised.exception.path),('same_run_revision_required','kind'))
