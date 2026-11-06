@@ -300,6 +300,10 @@ def repair_options(frozen):
     return options
 
 
+def evidence_collection_available(frozen):
+    return any(item['action']=='collect_evidence_then_review_again' for item in repair_options(frozen))
+
+
 def manager_schema(frozen,contracts=None,*,allow_script=True):
     contracts=contracts or {}
     domain=graph.ManagerResult.model_json_schema();defs=deepcopy(domain['$defs']);task=defs['Task'];props=task['properties']
@@ -379,7 +383,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     if automatic is not None and user is None:
         # A replacement changes implementation, never asks the model to rewrite
         # the exact requirement text/criteria that must remain immutable.
-        plan['properties']['new_tasks']['maxItems']=0
+        if not evidence_collection_available(frozen):plan['properties']['new_tasks']['maxItems']=0
         ids=[t['id'] for t in frozen.get('tasks',[]) if automatic in ('',t['id']) and t['status'] in ('paused','failed','succeeded')]
         replacement_variants=[]
         for variant in task_variants:
@@ -530,6 +534,13 @@ def compile_manager(command,frozen):
                          if identifier not in existing_replaced and delivery_acceptance_signature(row['spec'])==signature]
                 if len(matches)==1:
                     replacements[matches[0]]=task['id'];existing_replaced.add(matches[0])
+        if automatic is not None and user is None:
+            replacement_ids=set(replacements.values())
+            invalid=[task['id'] for task in added if task['id'] not in replacement_ids and
+                     not (task['type']=='operation' and task.get('purpose')=='evidence' and evidence_collection_available(frozen))]
+            if invalid:
+                raise CommandError('evidence_task_required' if evidence_collection_available(frozen) else 'new_task_not_available','plan.new_tasks',
+                    'Automatic repair permits only explicit replacements or registered evidence Operations')
         changed={task['id'] for task in added}|{task['id'] for task in revisions}
         changed|={identifier for identifier in plan.get('review_again',{}) if identifier in current}
         changed={replacements.get(identifier,identifier) for identifier in changed}
@@ -589,13 +600,15 @@ class ToolProtocol:
         config_fields={key:deepcopy(plan[key]) for key in ('changes','dependencies','remove_dependencies','repair_replacements','replacements','review_again') if key in plan}
         commit_fields={'kind':{'type':'string','enum':['APPLY_PLAN','COMPLETE']},'reason':command['properties']['reason']}
         automatic,user=scopes(self.frozen);targeted=targeted_user_inputs(self.frozen)
-        allow_new_tasks=(automatic is None or user is not None) and not targeted
+        evidence_repair=automatic is not None and user is None and evidence_collection_available(self.frozen)
+        allow_new_tasks=((automatic is None or user is not None) and not targeted) or evidence_repair
         task_variants=[]
-        if 'AgentCommandTask' in defs:
+        if 'AgentCommandTask' in defs and not evidence_repair:
             schema=referenced({'$ref':'#/$defs/AgentCommandTask'})
             task_variants.append({'$ref':'#/$defs/AgentCommandTask'})
             if can_correct and any(item.get('type')=='agent' for item in existing):self.add('replace_agent_tasks','draft_replace_tasks',schema)
         for index,identifier in enumerate(sorted(contracts)):
+            if evidence_repair and not contracts[identifier].get('evidence_only'):continue
             name='OperationCommandTask'+str(index)
             if name in defs:
                 schema=referenced({'$ref':'#/$defs/'+name})
