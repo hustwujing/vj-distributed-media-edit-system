@@ -2,7 +2,7 @@
 
 通过自然语言执行媒体处理任务的分布式 Agent 系统。用户先确认目标、素材和预算，Manager 根据实际结果逐轮编辑服务端 PlanDraft；注册 operation 和受限专业 Agent 生成候选结果，独立 Orchestrator 验证后提交正式状态与交付。
 
-当前开发分支为 `feature/unified-run`。设计见[动态工作流方案](video-use-dynamic-agent-workflow-design.md)，逐例验收见[真机测试报告](docs/real-case-campaign/dynamic-test-report.md)。报告中的未执行、未完成和历史版本结果不代表当前版本通过。
+当前开发分支为 `feature/unified-run`。设计见[动态工作流方案](video-use-dynamic-agent-workflow-design.md)，最终验收见[119 条真机 case 最终报告](docs/real-case-campaign/final-119-report.md)，逐尝试证据见[动态测试证据索引](docs/real-case-campaign/dynamic-test-report.md)。报告中的历史版本结果不代表当前版本通过。
 
 ## 工作方式
 
@@ -84,6 +84,8 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 `structured-profile-v4` 使用 PlanDraft 类型化命令和 strict 优先策略。Task 类型、Operation 参数、草稿修复和控制出口分别使用小型白名单 Schema；相同错误重复两次即有界停止。Manager只选择`APPLY_PLAN`或`COMPLETE`，宿主从草稿依赖图派生等待叶节点，并从`stage=final`业务验收派生交付资格；replacement ID、依赖、revision和技术验收同样由宿主生成。自动修复阶段只开放冻结范围内的revision/replacement，不能自由新增无关Task。网关明确拒绝strict，或返回违反传输Schema的参数时，按有界策略回退非strict并保留具体字段路径；超时、鉴权、限流或5xx不作为strict不支持的证据。本地Schema、业务契约、Provider约束、证据、权限、草稿revision和快照绑定始终执行。选用Claude模型不表示切换到Claude Code SDK harness。
 
+证据 Task 必须引用可达输入。已成功 Task 可用普通 step/role；质量暂停或失败候选必须用冻结的 `repair_candidate` 绑定逻辑 Task、revision、artifact、SHA 和 role。编译器与图校验器拒绝把等待未验收输出的 evidence Task 放入 `replan_after`，避免开放 Run 永久等待 blocked 节点。
+
 最终审查的证据使用内部inspection ID，交付选择使用本次检查生成的短candidate key；宿主将其绑定当前Run、attempt、快照和不可变文件。实际媒体Task拥有交付资格，视觉审查/诊断JSON只负责放行或拒绝，不能替代用户成果。
 
 Claude / DeepSeek 的指定模型可显式配置版本化本地输入预算预估，以适配缺少原生计数端点的路由。参考分词、校准余量与图片预算分别记录；预估用于准入，不冒充厂商实际用量。实际有输出但`output_tokens=0`时，系统单独结算有效input回执并只保留当前命令阶段的输出上限，记录`partially_settled_output_unknown`；原始冲突回执仍保留。说明见[计数改造记录](docs/model-token-counting-gap.md)，接入规则见[LLM 开发规范](docs/development/add-llm-provider.md)。
@@ -109,7 +111,7 @@ node --test tests/*.test.mjs
 
 源码、测试快照和已部署版本是不同对象；只认绑定源码摘要的验证证据。冻结部署验证会建立可供测试账号读取的独立源码副本，避免为了测试开放私有部署数据目录。
 
-后续 119 条真机驱动显式选择 Claude 4.6 Sonnet / high，核对 `structured-profile-v4`、`plan_draft_v1_strict_preferred` 和每个 Run 的冻结模型，并逐 Run 审计 PlanDraft 绑定与终态。修改驱动或通过模型协议实验不代表这 119 条已经重跑；暂停状态也不因文档更新自动解除。执行、归因和定期汇报按[真机测试与审查规范](docs/development/run-live-campaign.md)。
+最终 119 条真机轮显式选择 Claude 4.6 Sonnet / high 沙盒配置，专家角色使用 Claude Sonnet 5.5 / high，并核对 `structured-profile-v4`、`plan_draft_v1_strict_preferred` 和每个 Run 的冻结模型。按最新尝试统计为 98 条业务/协议成功、21 条非程序失败且程序处理正确、0 条程序错误；完整限制和逐例结果见[最终报告](docs/real-case-campaign/final-119-report.md)。执行、归因和定期汇报按[真机测试与审查规范](docs/development/run-live-campaign.md)。
 
 破坏性架构变更可用 `./deploy.sh deploy --reset-database` 重置专用数据库：完整冻结测试通过后停止本实例、备份数据库，再检查未完成的外部调用与清理记录。存在未收尾记录时拒绝重置；共享 PostgreSQL 服务和 main 数据库不受操作。旧 BOSS 对象及历史证据不会被该命令批量删除。
 

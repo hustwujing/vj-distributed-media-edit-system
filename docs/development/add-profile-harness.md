@@ -55,6 +55,10 @@ structured-profile-v4通过ModelAdapter发送原生工具参数。Manager传输D
 
 finalize有独立调用上限，提前耗尽纠正额度后也不能把所有剩余普通轮数当作额外finalize调用。可执行动作按阶段收敛；重复错误保留计数，反馈指向实际字段，不重复堆积所有旧错误正文。
 
+Harness 生成证据计划时必须区分已验收输出与失败候选。普通 step/role 只表示等待上游 accepted output；检查暂停或失败候选时必须从宿主提供的 `repair_candidates` 选择完整的 Task/revision/artifact/SHA/role 引用。不得把无法执行的 evidence Task 提交为 `replan_after` 叶节点。模型若选择错误引用，编译错误应只返回当前字段和可用候选，不把整个历史提示重新注入。
+
+真实模型可能在相同冻结输入上产生不同计划、脚本或 Reviewer 决定。Harness 的完成标准是有界、可审计和安全，而不是用无限轮次逼出成功。相同语义错误重复达到策略上限后进入 `REQUEST_USER_INPUT` 或失败结案；不要通过增加工具数、恢复完整 Proposal 入口或不断扩张 system prompt 掩盖模型波动。
+
 ## 模型协议对照评测
 
 入口为`tests/campaign_model_eval.py`、`campaign_model_fixture.py`和`campaign_model_eval_report.py`。应用源码、评测脚本、样本和模型配置分别冻结并记录摘要；不在同一组进行中更换模型、提示或协议实现。独立评测脚本可通过`MODEL_EVAL_CODE_ROOT`绑定已冻结应用，脚本本身另存内容摘要。
