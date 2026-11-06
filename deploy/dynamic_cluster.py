@@ -19,18 +19,25 @@ sys.path.insert(0,str(REPO))
 from deploy import common
 from deploy import systemd_templates
 
-NAMESPACE='dynamic-agent'
-ROOT=REPO/'.cluster'
-CONF=Path('/etc/distributed-agent-system')
-EXECUTORS=REPO.parent/'da-exec'
-PORTS={'a':19766,'b':19767}
-UIDS={'a':710000,'b':710100}
-ENTRY='/distributed-agent-system'
-DATABASE='distributed_agent_system'
-ROLE='distributed_agent_system'
-ORCHESTRATOR_ROLE='distributed_agent_orchestrator'
-OBS_PORT=19768
-PROXY_PORT=19765
+NAMESPACE=os.environ.get('DAS_DEPLOY_NAMESPACE','dynamic-agent')
+ROOT=Path(os.environ.get('DAS_DEPLOY_ROOT',str(REPO/'.cluster')))
+CONF=Path(os.environ.get('DAS_DEPLOY_CONF','/etc/distributed-agent-system'))
+EXECUTORS=Path(os.environ.get('DAS_DEPLOY_EXECUTORS',str(REPO.parent/'da-exec')))
+PORTS={'a':int(os.environ.get('DAS_DEPLOY_API_A_PORT','19766')),
+       'b':int(os.environ.get('DAS_DEPLOY_API_B_PORT','19767'))}
+UIDS={'a':int(os.environ.get('DAS_DEPLOY_UID_A','710000')),
+      'b':int(os.environ.get('DAS_DEPLOY_UID_B','710100'))}
+ENTRY=os.environ.get('DAS_DEPLOY_ENTRY','/distributed-agent-system')
+DATABASE=os.environ.get('DAS_DEPLOY_DATABASE','distributed_agent_system')
+ROLE=os.environ.get('DAS_DEPLOY_ROLE','distributed_agent_system')
+ORCHESTRATOR_ROLE=os.environ.get('DAS_DEPLOY_ORCHESTRATOR_ROLE','distributed_agent_orchestrator')
+OBJECT_PREFIX=os.environ.get('DAS_DEPLOY_OBJECT_PREFIX','distributed-agent-system')
+STREAM_PREFIX=os.environ.get('DAS_DEPLOY_STREAM_PREFIX','distributed-agent-system:events:')
+OBS_PORT=int(os.environ.get('DAS_DEPLOY_OBS_PORT','19768'))
+PROXY_PORT=int(os.environ.get('DAS_DEPLOY_PROXY_PORT','19765'))
+GPU_LEASE_ROOT=Path(os.environ.get('DAS_DEPLOY_GPU_LEASE_ROOT','/data/wujing03/.media-gpu-leases'))
+CONTROL_LOCK=Path(os.environ.get('DAS_DEPLOY_CONTROL_LOCK','/run/distributed-agent-system-control.lock'))
+MEDIA_RUNTIME_PREFIX=os.environ.get('DAS_DEPLOY_MEDIA_RUNTIME_PREFIX','da-media-')
 PG_SOCKET='/run/video-use-db'
 PG_PORT=15432
 PG_BIN=Path('/usr/lib/postgresql/16/bin')
@@ -70,12 +77,29 @@ def validate_isolation(values):
     parsed=urlsplit(values['VIDEO_USE_DATABASE_URL'])
     if parsed.path!='/'+DATABASE or parsed.username!=ROLE:raise ValueError('Dedicated database and role required')
     if values.get('VIDEO_USE_DEPLOYMENT')!=NAMESPACE:raise ValueError('Wrong deployment namespace')
-    if values.get('VIDEO_USE_OBJECT_PREFIX')!='distributed-agent-system':raise ValueError('Dedicated BOSS prefix required')
-    if not values.get('VIDEO_USE_AGENT_STREAM_PREFIX','').startswith('distributed-agent-system:'):
+    if values.get('VIDEO_USE_OBJECT_PREFIX')!=OBJECT_PREFIX:raise ValueError('Dedicated BOSS prefix required')
+    if not values.get('VIDEO_USE_AGENT_STREAM_PREFIX','').startswith(STREAM_PREFIX):
         raise ValueError('Dedicated Redis prefix required')
     for path in (ROOT,EXECUTORS,CONF):
-        if str(path) in ('/data2/wujing03/video-use/.cluster','/data2/wujing03/vu-exec','/etc/video-use-cluster'):
+        forbidden={'/data2/wujing03/video-use/.cluster','/data2/wujing03/vu-exec','/etc/video-use-cluster'}
+        if NAMESPACE!='dynamic-agent':forbidden.update({
+            '/data2/wujing03/distributed-agent-system/.cluster','/data2/wujing03/da-exec','/etc/distributed-agent-system'})
+        if str(path) in forbidden:
             raise ValueError('Main deployment paths are forbidden')
+    if len({*PORTS.values(),OBS_PORT,PROXY_PORT})!=4:raise ValueError('Dedicated ports must be unique')
+    if len(set(UIDS.values()))!=2 or abs(UIDS['a']-UIDS['b'])<64:raise ValueError('Dedicated UID ranges overlap')
+    if NAMESPACE!='dynamic-agent':
+        source_values={'namespace':'dynamic-agent','database':'distributed_agent_system',
+            'role':'distributed_agent_system','orchestrator_role':'distributed_agent_orchestrator',
+            'entry':'/distributed-agent-system','object_prefix':'distributed-agent-system',
+            'stream_prefix':'distributed-agent-system:events:','media_prefix':'da-media-'}
+        current={'namespace':NAMESPACE,'database':DATABASE,'role':ROLE,
+            'orchestrator_role':ORCHESTRATOR_ROLE,'entry':ENTRY,'object_prefix':OBJECT_PREFIX,
+            'stream_prefix':STREAM_PREFIX,'media_prefix':MEDIA_RUNTIME_PREFIX}
+        reused=[name for name,value in current.items() if value==source_values[name]]
+        if reused:raise ValueError('Independent deployment reuses source identifiers: '+','.join(reused))
+        if set(PORTS.values())&{19766,19767} or {OBS_PORT,PROXY_PORT}&{19765,19768}:
+            raise ValueError('Independent deployment reuses source ports')
 
 
 def configure(seed):
@@ -89,18 +113,18 @@ def configure(seed):
         target=REPO/name
         if target.exists():continue
         values=env_file(seed/name)
-        if name=='.storage.env':values.update(VIDEO_USE_OBJECT_PREFIX='distributed-agent-system',
+        if name=='.storage.env':values.update(VIDEO_USE_OBJECT_PREFIX=OBJECT_PREFIX,
             VIDEO_USE_OBJECT_REQUIRE_ENCRYPTION='1',VIDEO_USE_OBJECT_ENCRYPTION_KEY=base64.b64encode(secrets.token_bytes(32)).decode())
         private_env(target,values)
     if not (REPO/'.distributed.env').exists():
         private_env(REPO/'.distributed.env',{
             'VIDEO_USE_DEPLOYMENT':NAMESPACE,'VIDEO_USE_DISTRIBUTED':'1',
             'VIDEO_USE_DATABASE_URL':f'postgresql://{ROLE}:{secrets.token_hex(24)}@127.0.0.1:{PG_PORT}/{DATABASE}',
-            'VIDEO_USE_SESSION_SECRET':secrets.token_hex(32),'VIDEO_USE_AGENT_STREAM_PREFIX':'distributed-agent-system:events:',
+            'VIDEO_USE_SESSION_SECRET':secrets.token_hex(32),'VIDEO_USE_AGENT_STREAM_PREFIX':STREAM_PREFIX,
             'VIDEO_USE_CANCEL_POLL_SECONDS':'.5','VIDEO_USE_DRAIN_SECONDS':'30',**CAPACITY_ENV,
             'VIDEO_USE_TASK_MEMORY_BYTES':str(12*1024**3),
             'VIDEO_USE_TASK_DISK_BYTES':str(2*1024**3),'VIDEO_USE_WORKSPACE_STORAGE':'disk',
-            'VIDEO_USE_GPU_LEASE_ROOT':'/data/wujing03/.media-gpu-leases',
+            'VIDEO_USE_GPU_LEASE_ROOT':str(GPU_LEASE_ROOT),
             'VIDEO_USE_EXPECT_ORCHESTRATOR':'1','VIDEO_USE_OBSERVATION_API_PORTS':','.join(map(str,PORTS.values()))})
     private_env(REPO/'.distributed.env',{**env_file(REPO/'.distributed.env'),
         **CAPACITY_ENV,
@@ -111,6 +135,13 @@ def configure(seed):
             'VIDEO_USE_OBSERVATION_URL':f'http://127.0.0.1:{OBS_PORT}','VIDEO_USE_TELEMETRY_ENABLED':'1',
             'TMPDIR':ROOT/'observability/tmp'})
     service=pwd.getpwnam(NAMESPACE)
+    sandbox_values=env_file(CONF/'opensandbox-runtime.env') if (CONF/'opensandbox-runtime.env').exists() else {}
+    allowed_sandbox={'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND','VIDEO_USE_CPU_COMMAND_SANDBOX_BACKEND',
+        'VIDEO_USE_OPEN_SANDBOX_URL','VIDEO_USE_OPEN_SANDBOX_API_KEY',
+        'VIDEO_USE_OPEN_SANDBOX_NETWORK_ISOLATION','VIDEO_USE_OPEN_SANDBOX_INTERNAL_BRIDGE_CONFIRMED',
+        'VIDEO_USE_OPEN_SANDBOX_COMMAND_RUNTIME_PROFILE','VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST',
+        'VIDEO_USE_OPEN_SANDBOX_COMMAND_BUNDLE_DIGEST'}
+    if set(sandbox_values)-allowed_sandbox:raise ValueError('Unknown OpenSandbox runtime deployment setting')
     for node,port in PORTS.items():
         for role in ('api','node','media'):
             path=data(role,node);path.mkdir(mode=0o700,exist_ok=True)
@@ -119,11 +150,11 @@ def configure(seed):
                 os.chown(path,service.pw_uid,service.pw_gid);os.chown(path/'tmp',service.pw_uid,service.pw_gid)
         registry(node).mkdir(mode=0o700,parents=True,exist_ok=True)
         private_env(CONF/f'api-{node}.env',{'VIDEO_USE_DATA_DIR':data('api',node),'TMPDIR':data('api',node)/'tmp',
-            'VIDEO_USE_API_PORT':port,'VIDEO_USE_MEDIA_SOCKET':f'/run/da-media-{node}/decoder.sock'})
+            'VIDEO_USE_API_PORT':port,'VIDEO_USE_MEDIA_SOCKET':f'/run/{MEDIA_RUNTIME_PREFIX}{node}/decoder.sock'})
         private_env(CONF/f'node-{node}.env',{'VIDEO_USE_DATA_DIR':data('node',node),'TMPDIR':data('node',node)/'tmp',
             'VIDEO_USE_NODE_INSTANCE':node,
             'VIDEO_USE_EXECUTOR_ROOT':registry(node),'VIDEO_USE_UID_START':UIDS[node],'VIDEO_USE_UID_COUNT':64,
-            'VIDEO_USE_GPU_DEVICES':'1' if node=='a' else '2','VIDEO_USE_NODE_OPERATIONS':'*'})
+            'VIDEO_USE_GPU_DEVICES':'1' if node=='a' else '2','VIDEO_USE_NODE_OPERATIONS':'*',**sandbox_values})
         private_env(CONF/f'media-{node}.env',{'TMPDIR':data('media',node)/'tmp','VIDEO_USE_DEPLOYMENT':NAMESPACE})
     (ROOT/'observability/tmp').mkdir(mode=0o700,parents=True,exist_ok=True)
     (ROOT/'orchestrator').mkdir(mode=0o700,exist_ok=True)
@@ -154,7 +185,8 @@ def template_config(source):
     return systemd_templates.ServiceConfig(
         repo=REPO,root=ROOT,release=source,conf=CONF,executors=EXECUTORS,
         namespace=NAMESPACE,service_user=NAMESPACE,database_service='video-use-db.service',
-        root_path=ENTRY,agent_runtime=NAMESPACE+'-agent-%i',media_runtime_prefix='da-media-',
+        root_path=ENTRY,agent_runtime=NAMESPACE+'-agent-%i',media_runtime_prefix=MEDIA_RUNTIME_PREFIX,
+        gpu_lease_root=GPU_LEASE_ROOT,
         require_database=False,worker_memory_max='28G',worker_cpu_quota='600%',
         worker_tasks_max=1024,observer_port=OBS_PORT)
 
@@ -200,7 +232,9 @@ WantedBy=multi-user.target
         other='b' if node=='a' else 'a'
         for role in ('api','executor','watchdog'):
             folder=Path('/etc/systemd/system')/f'{NAMESPACE}-{role}@{node}.service.d';folder.mkdir(exist_ok=True)
-            hidden=[Path('/data2/wujing03/video-use'),Path('/data2/wujing03/vu-exec'),data('node',other),registry(other)]
+            hidden=[Path('/data2/wujing03/video-use'),Path('/data2/wujing03/vu-exec'),
+                    data('node',other),registry(other)]
+            if NAMESPACE!='dynamic-agent':hidden += [Path('/data2/wujing03/distributed-agent-system'),Path('/data2/wujing03/da-exec')]
             if role=='api':hidden += [data('node',node),registry(node),data('api',other)]
             (folder/'isolation.conf').write_text('[Service]\nInaccessiblePaths='+' '.join(map(str,hidden))+'\n')
     run(['systemctl','daemon-reload'])
@@ -307,9 +341,10 @@ def nginx_config(maintenance=False):
 
 
 def proxy(maintenance=False):
-    target=Path('/etc/nginx/conf.d/00-distributed-agent-system.conf')
+    base='distributed-agent-system' if NAMESPACE=='dynamic-agent' else NAMESPACE
+    target=Path('/etc/nginx/conf.d')/('00-'+base+'.conf')
     text=nginx_config(maintenance)
-    snippet=Path('/etc/nginx/snippets/distributed-agent-system.conf')
+    snippet=Path('/etc/nginx/snippets')/(base+'.conf')
     fragment=f'''location = {ENTRY} {{ return 301 {ENTRY}/; }}
 location ^~ {ENTRY}/ {{
     proxy_pass http://127.0.0.1:{PROXY_PORT}/;
@@ -342,7 +377,8 @@ location ^~ {ENTRY}/ {{
 
 def stop():
     if (ROOT/'observability').exists():(ROOT/'observability/maintenance').touch(mode=0o600)
-    if Path('/etc/nginx/conf.d/00-distributed-agent-system.conf').exists():proxy(True)
+    base='distributed-agent-system' if NAMESPACE=='dynamic-agent' else NAMESPACE
+    if (Path('/etc/nginx/conf.d')/('00-'+base+'.conf')).exists():proxy(True)
     output=run(['systemctl','list-units','--all','--plain','--no-legend',NAMESPACE+'-qa-orchestrator-*.service'],check=False).stdout
     import re
     extra=[line.split()[0] for line in output.splitlines() if line.split() and re.fullmatch(NAMESPACE+r'-qa-orchestrator-[a-f0-9]{12}\.service',line.split()[0])]
@@ -374,14 +410,14 @@ def start():
 
 def status():
     print(json.dumps({'services':{s:active(s) for s in SERVICES},'entrypoint':ENTRY+'/',
-        'database':DATABASE,'object_prefix':'distributed-agent-system','ports':PORTS,
+        'database':DATABASE,'object_prefix':OBJECT_PREFIX,'stream_prefix':STREAM_PREFIX,'ports':PORTS,
         'release':json.loads((ROOT/'release.json').read_text()) if (ROOT/'release.json').exists() else None},indent=2))
 
 
 def reset_database():
     """Explicit fresh-schema deployment; never migrate or touch the shared server."""
-    if DATABASE!='distributed_agent_system' or ROLE!='distributed_agent_system':
-        raise ValueError('Database reset is restricted to this deployment')
+    if not DATABASE or not ROLE or DATABASE in ('main','postgres','video_use'):
+        raise ValueError('Database reset is restricted to a dedicated deployment')
     validate_isolation(environment())
     if any(active(service) for service in SERVICES):raise ValueError('Stop all dedicated services before database reset')
     if any(list((registry(node)/'records').glob('*.json')) for node in PORTS):
@@ -447,7 +483,7 @@ def main():
     args=parser.parse_args();os.chdir(REPO)
     if (args.reset_database or args.targeted_unverified) and args.action!='deploy':parser.error('--reset-database and --targeted-unverified require deploy')
     if os.geteuid()!=0:raise SystemExit('Deployment requires root')
-    with open('/run/distributed-agent-system-control.lock','a') as lock:
+    with CONTROL_LOCK.open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if args.action=='deploy':deploy(args.seed_from,reset=args.reset_database,targeted_unverified=args.targeted_unverified)
         elif args.action=='configure':configure(args.seed_from);prepare_database()

@@ -63,13 +63,16 @@ def select_backend(resources, *, environ=None, local_profile=''):
     environ = os.environ if environ is None else environ
     if resources.get('gpu') or resources.get('host_devices'):
         return BackendBinding(LOCAL_BWRAP, local_profile or 'local')
-    backend = environ.get('VIDEO_USE_CPU_SANDBOX_BACKEND', LOCAL_BWRAP)
+    kind=resources.get('sandbox_kind','agent_runtime')
+    selector=('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND' if kind=='agent_runtime' else
+              'VIDEO_USE_CPU_COMMAND_SANDBOX_BACKEND' if kind=='command_runtime' else
+              'VIDEO_USE_CPU_SANDBOX_BACKEND')
+    backend = environ.get(selector,environ.get('VIDEO_USE_CPU_SANDBOX_BACKEND',LOCAL_BWRAP))
     if backend not in BACKENDS:
         raise BackendConfigurationError(
             'VIDEO_USE_CPU_SANDBOX_BACKEND must be local_bwrap or opensandbox')
     if backend == LOCAL_BWRAP:
         return BackendBinding(LOCAL_BWRAP, local_profile or 'local')
-    kind=resources.get('sandbox_kind','agent_runtime')
     if kind not in ('agent_runtime','command_runtime'):
         raise BackendConfigurationError('CPU task is not eligible for OpenSandbox')
     prefix='VIDEO_USE_OPEN_SANDBOX_AGENT_' if kind=='agent_runtime' else 'VIDEO_USE_OPEN_SANDBOX_COMMAND_'
@@ -126,8 +129,11 @@ class RequestsTransport:
 
 class OpenSandboxClient:
     """Small lifecycle client with deterministic attempt reconciliation."""
-    def __init__(self, transport):
+    def __init__(self, transport,*,network_policy='deny'):
         self.transport=transport
+        if network_policy not in ('deny','internal_bridge'):
+            raise BackendConfigurationError('Unknown OpenSandbox network isolation mode')
+        self.network_policy=network_policy
 
     @staticmethod
     def metadata(lease, binding):
@@ -155,8 +161,8 @@ class OpenSandboxClient:
             'resourceLimits':{'cpu':str(max(1,int(resources['cpu']))),
                               'memory':str(max(512,int(resources['memory_mb'])))+'Mi'},
             'metadata':self.metadata(lease,binding),
-            'entrypoint':entrypoint or ['tail','-f','/dev/null'],
-            'networkPolicy':{'defaultAction':'deny','egress':[]}}
+            'entrypoint':entrypoint or ['tail','-f','/dev/null']}
+        if self.network_policy=='deny':body['networkPolicy']={'defaultAction':'deny','egress':[]}
         try:
             status,payload=self.transport.request('POST','/v1/sandboxes',body=body,
                 headers={'X-Request-ID':lease.attempt})

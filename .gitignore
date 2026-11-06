@@ -68,6 +68,7 @@ project.md
 .cluster/
 /workspace/
 /runtime/build/
+/.sandbox-cluster/
 /wheels/
 /vendor/
 

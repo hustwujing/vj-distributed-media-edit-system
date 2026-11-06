@@ -52,6 +52,8 @@ class DeploymentIdentityTests(unittest.TestCase):
         proxy=cluster.nginx_config()
         self.assertIn('127.0.0.1:19766',proxy);self.assertIn('127.0.0.1:19767',proxy)
         self.assertNotIn('http_503',proxy)
+        self.assertEqual(cluster.NAMESPACE,'dynamic-agent')
+        self.assertEqual(cluster.MEDIA_RUNTIME_PREFIX,'da-media-')
     def test_private_namespace_cannot_reap_main_cgroups(self):
         with patch.dict('os.environ',{'VIDEO_USE_DEPLOYMENT':'distributed-agent'}):
             self.assertEqual(str(socket_root()),'/run/distributed-agent-agent')

@@ -52,6 +52,16 @@ class BackendSelectionTests(unittest.TestCase):
         })
         self.assertEqual(binding,BackendBinding(OPEN_SANDBOX,'agent-v3',IMAGE,'skills-sha256-123','agent_runtime'))
 
+    def test_agent_and_command_backend_selectors_are_independent(self):
+        environment={'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':LOCAL_BWRAP,
+            'VIDEO_USE_CPU_COMMAND_SANDBOX_BACKEND':OPEN_SANDBOX,
+            'VIDEO_USE_OPEN_SANDBOX_COMMAND_RUNTIME_PROFILE':'command-v1',
+            'VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST':IMAGE,
+            'VIDEO_USE_OPEN_SANDBOX_COMMAND_BUNDLE_DIGEST':'sha256:'+'b'*64}
+        agent=select_backend({'sandbox_kind':'agent_runtime'},environ=environment)
+        command=select_backend({'sandbox_kind':'command_runtime'},environ=environment)
+        self.assertEqual(agent.backend,LOCAL_BWRAP);self.assertEqual(command.backend,OPEN_SANDBOX)
+
     def test_opensandbox_does_not_accept_missing_or_mutable_image(self):
         base={'VIDEO_USE_CPU_SANDBOX_BACKEND':OPEN_SANDBOX,
               'VIDEO_USE_OPEN_SANDBOX_AGENT_RUNTIME_PROFILE':'agent-v3',
@@ -163,6 +173,13 @@ class OpenSandboxClientTests(unittest.TestCase):
         self.assertEqual(body['metadata']['video-use.io/attempt'],self.lease.attempt)
         for value in body['metadata'].values():self.assertLessEqual(len(value),63)
         self.assertEqual(kwargs['headers']['X-Request-ID'],self.lease.attempt)
+
+    def test_internal_bridge_omits_incompatible_egress_sidecar_policy(self):
+        transport=FakeTransport((202,{'id':'sbx-1'}))
+        result=OpenSandboxClient(transport,network_policy='internal_bridge').create(
+            self.lease,self.binding,self.resources)
+        self.assertEqual(result['id'],'sbx-1')
+        self.assertNotIn('networkPolicy',transport.calls[0][2]['body'])
 
     def test_ambiguous_create_reconciles_by_attempt(self):
         transport=FakeTransport(AmbiguousProvisioning('timeout'),

@@ -76,6 +76,9 @@ class AgentHost:
         from .harness_adapters import get as harness_adapter
         self.available_profiles=[p for p in profiles().values() if p.base_url and os.environ.get(p.credential_env) and harness_adapter(p.harness).available()]
         self.identities = IdentityPool()
+        if opensandbox_command_factory is None:
+            from .opensandbox_runtime import command_factory_from_environment
+            opensandbox_command_factory=command_factory_from_environment()
         self.runtime_backends = RuntimeBackends(
             lambda lease:TaskRuntime(lease,self.identities),opensandbox_factory,
             opensandbox_command_factory)
