@@ -41,6 +41,11 @@ class ModelCommandTests(unittest.TestCase):
                'user_changes':[{'content':'Keep evidence.json internal only; deliver final.mp4.'}]}
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
 
+    def test_intermediate_reused_format_is_not_a_delivery_requirement(self):
+        value={'goal':'另建 clip 节点处理成 MP4，保留该节点供后续复用。最终交付 final.png。',
+               'authorization':{'delivery_targets':['128x64 PNG image']}}
+        self.assertEqual(required_delivery_extensions(value),{'png'})
+
     def test_unique_requested_basename_is_host_compiled_for_agent_revision(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Export','objective':'Export video',
               'outputs':['old.mp4','cover.png'],'output_roles':{'video':'old.mp4','cover':'cover.png'},
