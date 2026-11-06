@@ -182,7 +182,8 @@ class Task(Contract):
         if self.type=='agent':
             from .specialist_profiles import get
             profile=get(self.profile)
-            if profile.id in ('media_planner','delivery_reviewer'):raise ValueError('Control profiles cannot be delegated as business tasks')
+            if profile.role in ('PLANNER','REVIEWER','DIAGNOSTICIAN'):
+                raise ValueError('Control profiles cannot be delegated as business tasks')
             if self.operation or self.implementation or self.argv or self.parameters or self.preflight or self.config_files:
                 raise ValueError('Agent profiles do not accept executable policy overrides')
             if not self.output_roles:raise ValueError('Agent task must declare output roles')

@@ -45,9 +45,9 @@ class ContractTests(unittest.TestCase):
         with patch.dict('os.environ',environment,clear=False):validate_operation_input_constraints(task,{'generate':task},assets)
     def test_reviewer_report_cannot_be_a_delivery_dependency(self):
         from webapp.workflow_graph import Task,validate_delivery_dependencies
-        review=Task.model_validate({'id':'review','type':'agent','profile':'visual_quality_reviewer','name':'Review',
-            'objective':'Review output','outputs':['review.json'],'output_roles':{'review_report':'review.json'},
-            'acceptance':[{'kind':'json','file':'review.json'}]})
+        # Historical rows are still defended even though new business Tasks can
+        # no longer use a control-only Reviewer profile.
+        review=Task.model_construct(id='review',type='agent',profile='visual_quality_reviewer')
         delivery=Task.model_validate({'id':'deliver','type':'agent','profile':'editing_implementer','name':'Deliver',
             'objective':'Deliver the accepted image','inputs':{'review_report':{'step':'review','role':'review_report'}},
             'outputs':['final.png'],'output_roles':{'primary_image':'final.png'},
