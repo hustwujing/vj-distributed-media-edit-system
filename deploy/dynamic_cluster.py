@@ -105,6 +105,7 @@ def validate_isolation(values):
 def configure(seed):
     ROOT.mkdir(mode=0o711,exist_ok=True);ROOT.chmod(0o711)
     CONF.mkdir(mode=0o700,exist_ok=True)
+    GPU_LEASE_ROOT.mkdir(mode=0o700,parents=True,exist_ok=True)
     for user in (NAMESPACE,NAMESPACE+'-orch'):
         try:pwd.getpwnam(user)
         except KeyError:run(['useradd','--system','--user-group','--no-create-home','--shell','/usr/sbin/nologin',user])

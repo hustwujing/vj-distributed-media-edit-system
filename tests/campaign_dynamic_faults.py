@@ -174,7 +174,8 @@ def act(directory,action,unit=None):
         accepted=json.loads(rows[0]['accepted_result_json'])
         path,record=next((name,record) for name,record in records.items() if name in accepted and name.endswith(('.png','.txt','.json')))
         artifact=store.artifacts.record(state['project'],record['artifact']);key=artifact['object_key']
-        if not key.startswith('distributed-agent-system/projects/'+state['project']+'/'):raise ValueError('Object outside QA scope')
+        prefix=os.environ.get('DYNAMIC_EXPECT_OBJECT_PREFIX','distributed-agent-system')
+        if not key.startswith(prefix+'/projects/'+state['project']+'/'):raise ValueError('Object outside QA scope')
         backend=store.artifacts.backend;response=backend.client.get_object(Bucket=backend.bucket,Key=key)
         try:raw=response['Body'].read(16*1024**2+1)
         finally:response['Body'].close()
@@ -192,7 +193,8 @@ def act(directory,action,unit=None):
         result={'action':action,'artifact_id':artifact['id'],'logical_path':path,'task_id':rows[0]['id'],'corruption':'one bit in the final GCM authentication tag; header/length unchanged','original_cipher_sha256':hashlib.sha256(raw).hexdigest(),'corrupt_cipher_sha256':hashlib.sha256(raw[:-1]+bytes([raw[-1]^1])).hexdigest()}
     elif action=='restore_object':
         info=json.loads((directory/'private-object-backup.json').read_text());raw=(directory/'private-object-backup.bin').read_bytes()
-        if hashlib.sha256(raw).hexdigest()!=info['sha256'] or not info['object_key'].startswith('distributed-agent-system/projects/'+state['project']+'/'):raise ValueError('Invalid QA backup')
+        prefix=os.environ.get('DYNAMIC_EXPECT_OBJECT_PREFIX','distributed-agent-system')
+        if hashlib.sha256(raw).hexdigest()!=info['sha256'] or not info['object_key'].startswith(prefix+'/projects/'+state['project']+'/'):raise ValueError('Invalid QA backup')
         backend=store.artifacts.backend;backend.client.put_object(Bucket=backend.bucket,Key=info['object_key'],Body=raw)
         (directory/'private-object-backup.json').unlink();(directory/'private-object-backup.bin').unlink()
         result={'action':action,'artifact_id':info['artifact_id']}

@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
 import time
 from datetime import datetime,timezone,timedelta
@@ -13,7 +14,8 @@ except ImportError:
     from campaign_dynamic_status import failure_classification,matches_definition
 
 REPO=Path(__file__).resolve().parents[1]
-ROOT=REPO/'.cluster/campaigns/dynamic-plan'
+DEPLOY_ROOT=Path(os.environ.get('DYNAMIC_CASE_DEPLOY_ROOT',REPO/'.cluster')).resolve()
+ROOT=DEPLOY_ROOT/'campaigns/dynamic-plan'
 DIMENSIONS=('browser','logs','observability','database','cache','boss','candidate_archive','local_cleanup','external_cleanup')
 LABELS={'not_run':'未执行','running':'执行中','passed':'通过','program_failed':'程序缺陷','artifact_failed':'成果验收失败','user_stopped':'用户主动中止，未完成验收',
         'handled_failure':'模型/依赖失败已正确处理','blocked':'阻塞或证据不完整','review_required':'待逐例审查','obsolete':'需在当前版本复测'}
@@ -67,7 +69,7 @@ def attempt(directory,current,spec):
             'evidence':evidence}
 
 def report():
-    manifest=read(REPO/'docs/real-case-campaign/dynamic-cases.json');current=read(REPO/'.cluster/release.json')
+    manifest=read(REPO/'docs/real-case-campaign/dynamic-cases.json');current=read(DEPLOY_ROOT/'release.json')
     validation=read(Path(current['source'])/'docs/test-evidence/distributed-suite.json') if current.get('source') else {}
     rows=[]
     for spec in manifest['cases']:
@@ -91,7 +93,7 @@ def report():
         f"本报告包含清单中的全部 {manifest['total_count']} 条 case 的执行状态和所有历史尝试。未执行、未触发目标边界、缺少审查证据以及旧版本结果均不计为当前版本通过。",'',
         f"当前部署：`{current.get('sha256','未部署')}`。整体验收：**{'完成' if result['complete'] else '未完成'}**。",'',
         f"冻结 Python 门禁：{validation.get('tests','未知')} 项，失败 {validation.get('failures','未知')}，错误 {validation.get('errors','未知')}，跳过 {validation.get('skipped','未知')}。绑定摘要：`{validation.get('source_sha256','无')}`。",
-        'JavaScript 门禁与发布日志：`'+str(REPO/'.cluster/verification'/(Path(current.get('source','unknown')).name+'.log'))+'`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。','',
+        'JavaScript 门禁与发布日志：`'+str(DEPLOY_ROOT/'verification'/(Path(current.get('source','unknown')).name+'.log'))+'`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。','',
         '统计：'+'；'.join(f'{LABELS[k]} {v}' for k,v in counts.items())+'。','',
         '当前版本失败分类：程序错误 '+str(failure_counts.get('program_error',0))+'；非程序错误（程序处理正确） '+str(failure_counts.get('non_program_error',0))+'；待归因 '+str(failure_counts.get('pending_classification',0))+'。非程序错误仍是业务或用例失败，不并入业务成功。','',
         '必须完成的额外回归：'+('；'.join(item['id']+'：'+item['reason'] for item in open_regressions) if open_regressions else '无未完成项')+'。','',

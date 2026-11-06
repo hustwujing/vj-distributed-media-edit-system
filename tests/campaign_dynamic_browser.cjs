@@ -7,14 +7,15 @@ const execute=promisify(execFile),assert=require('node:assert/strict');
 const unified=require('./campaign_unified_hooks.cjs');
 const {selectOptional}=require('./campaign_browser_inputs.cjs');
 const REPO=path.resolve(__dirname,'..'),PY=path.join(REPO,'.venv/bin/python');
-const ROOT=path.join(REPO,'.cluster/campaigns/dynamic-plan');
+const DEPLOY_ROOT=path.resolve(process.env.DYNAMIC_CASE_DEPLOY_ROOT||path.join(REPO,'.cluster'));
+const ROOT=path.join(DEPLOY_ROOT,'campaigns/dynamic-plan');
 const BASE=(process.env.DYNAMIC_CASE_BASE||'http://127.0.0.1/distributed-agent-system').replace(/\/$/,'');
 const MODEL_PROFILE=process.env.DYNAMIC_MODEL_PROFILE||'claude';
 const EXPECT_MODEL=process.env.DYNAMIC_EXPECT_MODEL||'claude-4.6-sonnet';
 const MODEL_EFFORT=process.env.DYNAMIC_MODEL_EFFORT||'high';
 const TOKEN_BUDGET_MULTIPLIER=Math.max(1,Math.min(4,Number(process.env.DYNAMIC_TOKEN_BUDGET_MULTIPLIER||1)));
 const baseURL=new URL(BASE);
-assert.equal(baseURL.pathname,'/distributed-agent-system','Refusing a main/unknown application path');
+assert.equal(baseURL.pathname,process.env.DYNAMIC_EXPECT_PATH||'/distributed-agent-system','Refusing a main/unknown application path');
 const manifest=JSON.parse(fs.readFileSync(path.join(REPO,'docs/real-case-campaign/dynamic-cases.json')));
 const requested=process.argv[2]&&process.argv[2]!=='all'?new Set(process.argv[2].split(',')):null;
 const cases=requested?[...requested].map(id=>manifest.cases.find(c=>c.id===id)).filter(Boolean):manifest.cases;
@@ -25,7 +26,7 @@ const UNIFIED_SOURCE=fs.readFileSync(path.join(__dirname,'campaign_unified_hooks
 const INPUT_SOURCE=fs.readFileSync(path.join(__dirname,'campaign_browser_inputs.cjs'));
 const DRIVER_SOURCE=fs.readFileSync(__filename),DRIVER_SHA=crypto.createHash('sha256').update(DRIVER_SOURCE).digest('hex');
 const uid=()=>crypto.randomUUID().replaceAll('-','');
-const currentRelease=()=>JSON.parse(fs.readFileSync(path.join(REPO,'.cluster/release.json')));
+const currentRelease=()=>JSON.parse(fs.readFileSync(path.join(DEPLOY_ROOT,'release.json')));
 const terminal=s=>['SUCCEEDED','FAILED','CANCELLED'].includes(s);
 const paused=run=>run.state==='WAITING_USER'&&!run.decisions.length;
 const deciding=run=>run.state==='WAITING_USER'&&run.decisions.length>0;
@@ -52,7 +53,7 @@ async function runCase(browser,spec){
  const state={case:spec.id,title:spec.title,run_id:null,campaign_attempt_id:new Date().toISOString().replace(/[-:.]/g,'')+'-'+uid().slice(0,8),
   status:'running',started_at:Date.now()/1000,base_url:BASE,release:currentRelease(),driver_sha256:DRIVER_SHA,
   requests:[],events:[],page_errors:[],console_errors:[],browser_assertions:[],artifacts:[],task_ids:[],run_ids:[],faults:[]};
- assert.equal(state.release.namespace,'dynamic-agent');
+ assert.equal(state.release.namespace,process.env.DYNAMIC_EXPECT_NAMESPACE||'dynamic-agent');
  save(path.join(directory,'case-definition.json'),spec);fs.writeFileSync(path.join(directory,'driver-snapshot.cjs'),DRIVER_SOURCE);
  const harness=path.join(directory,'harness');fs.mkdirSync(harness,{mode:0o700});state.helper_sha256={};
  for(const name of ['campaign_dynamic_probe.py','campaign_dynamic_faults.py','campaign_probe.py','campaign_archive.py','campaign_complex_checks.py','campaign_dynamic_intervention_checks.py','campaign_unified_hooks.cjs','campaign_browser_inputs.cjs','campaign_unified_checks.py','campaign_feedback_preview.py']){if(name==='campaign_unified_hooks.cjs')fs.writeFileSync(path.join(harness,name),UNIFIED_SOURCE);else if(name==='campaign_browser_inputs.cjs')fs.writeFileSync(path.join(harness,name),INPUT_SOURCE);else fs.copyFileSync(path.join(REPO,'tests',name),path.join(harness,name));state.helper_sha256[name]=sha(path.join(harness,name));}

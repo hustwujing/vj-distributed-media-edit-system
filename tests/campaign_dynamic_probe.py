@@ -14,7 +14,8 @@ import time
 REPO=Path(os.environ.get('DYNAMIC_CAMPAIGN_REPO',Path(__file__).resolve().parents[1])).resolve()
 sys.path.insert(0,str(REPO))
 from deploy import dynamic_cluster as cluster
-ROOT=REPO/'.cluster/campaigns/dynamic-plan'
+DEPLOY_ROOT=Path(os.environ.get('DYNAMIC_CASE_DEPLOY_ROOT',REPO/'.cluster')).resolve()
+ROOT=DEPLOY_ROOT/'campaigns/dynamic-plan'
 
 
 def candidate_archive_disposition(state,record):
@@ -65,7 +66,7 @@ def logs(store,state):
 
 
 def object_check(store,row):
-    key=row['object_key'];expected='distributed-agent-system/projects/'+row['project']+'/'
+    key=row['object_key'];expected=os.environ.get('DYNAMIC_EXPECT_OBJECT_PREFIX','distributed-agent-system')+'/projects/'+row['project']+'/'
     result={'artifact_id':row['id'],'state':row['state'],'sha256':row['sha256'],'plaintext_bytes':row['size'],
             'prefix_isolated':key.startswith(expected),'object_key_digest':hashlib.sha256(key.encode()).hexdigest()}
     if not result['prefix_isolated']:return result
@@ -354,7 +355,7 @@ def inspect(directory,final=False,*,supplement=False):
             cache['available']=True
             for task in task_ids:
                 key=bus.key(task);ttl=client.ttl(key)
-                cache['streams'].append({'task_id':task,'ttl':ttl,'length':client.xlen(key) if ttl!=-2 else 0,'prefix_isolated':key.startswith('distributed-agent-system:')})
+                cache['streams'].append({'task_id':task,'ttl':ttl,'length':client.xlen(key) if ttl!=-2 else 0,'prefix_isolated':key.startswith(os.environ.get('DYNAMIC_EXPECT_STREAM_PREFIX','distributed-agent-system:'))})
                 if ttl==-1:report['program_issues'].append('Redis stream has no expiration')
     for role in ('api','node'):
         for node in cluster.PORTS:
@@ -396,7 +397,8 @@ def cleanup(directory):
     if any(not re.fullmatch('[a-f0-9]{32}',t) for t in task_ids):raise ValueError('Invalid retained task identity')
     if any(store.query('SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>\'complete\'',(task,)) for task in task_ids):raise ValueError('Runtime cleanup still pending')
     objects=store.query('SELECT id,object_key FROM artifact_objects WHERE project=?',(project,))
-    if any(not row['object_key'].startswith('distributed-agent-system/projects/'+project+'/') for row in objects):raise ValueError('BOSS object escaped case scope')
+    object_prefix=os.environ.get('DYNAMIC_EXPECT_OBJECT_PREFIX','distributed-agent-system')
+    if any(not row['object_key'].startswith(object_prefix+'/projects/'+project+'/') for row in objects):raise ValueError('BOSS object escaped case scope')
     store.execute("UPDATE artifact_objects SET expires=? WHERE project=? AND state IN ('uploading','staged','deleting')",(store.now()-1,project))
     deleted=0
     while True:
@@ -407,7 +409,7 @@ def cleanup(directory):
     if bus.url:
         client=bus._get()
         if client is None:raise RuntimeError('Cannot verify Redis cleanup')
-        if not bus.prefix.startswith('distributed-agent-system:'):raise ValueError('Unexpected cache prefix')
+        if not bus.prefix.startswith(os.environ.get('DYNAMIC_EXPECT_STREAM_PREFIX','distributed-agent-system:')):raise ValueError('Unexpected cache prefix')
         if task_ids:redis['deleted']=client.delete(*(bus.key(t) for t in task_ids))
     removed=[]
     for role in ('api','node'):

@@ -15,7 +15,8 @@ import zipfile
 
 REPO=Path(os.environ.get('DYNAMIC_CAMPAIGN_REPO',Path(__file__).resolve().parents[1])).resolve();sys.path.insert(0,str(REPO))
 from deploy import dynamic_cluster as cluster
-ROOT=REPO/'.cluster/campaigns/dynamic-plan'
+DEPLOY_ROOT=Path(os.environ.get('DYNAMIC_CASE_DEPLOY_ROOT',REPO/'.cluster')).resolve()
+ROOT=DEPLOY_ROOT/'campaigns/dynamic-plan'
 release=json.loads((cluster.ROOT/'release.json').read_text());sys.path.insert(0,release['source'])
 os.environ.update(cluster.environment());os.environ.update(cluster.env_file(cluster.CONF/'observation.env'))
 from webapp.store import Store

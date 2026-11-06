@@ -5,9 +5,11 @@ from functools import lru_cache
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+import os
 
 REPO=Path(__file__).resolve().parents[1]
-ROOT=REPO/'.cluster/campaigns/dynamic-plan'
+DEPLOY_ROOT=Path(os.environ.get('DYNAMIC_CASE_DEPLOY_ROOT',REPO/'.cluster')).resolve()
+ROOT=DEPLOY_ROOT/'campaigns/dynamic-plan'
 def read(path):
     try:return json.loads(path.read_text())
     except (FileNotFoundError,json.JSONDecodeError):return {}
@@ -36,7 +38,7 @@ def failure_classification(state,internal,review,cleanup=None):
         return 'non_program_error'
     return 'pending_classification'
 def status():
-    release=read(REPO/'.cluster/release.json');round_state=read(ROOT/'active-round.json');round_started=(round_state.get('started_at',0)
+    release=read(DEPLOY_ROOT/'release.json');round_state=read(ROOT/'active-round.json');round_started=(round_state.get('started_at',0)
         if round_state.get('release',{}).get('sha256')==release.get('sha256') else 0);groups=defaultdict(list)
     for case in read(REPO/'docs/real-case-campaign/dynamic-cases.json')['cases']:
         attempts=[path for path in sorted((ROOT/'runs'/case['id']).glob('attempt-*/state.json'))
