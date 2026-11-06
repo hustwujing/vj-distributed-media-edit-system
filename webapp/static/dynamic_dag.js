@@ -5,37 +5,18 @@ const TASK_HEIGHT=62;
 export function layoutDag(tasks=[],dependencies=[],controlJobs=[],relations={}){
  const selected=tasks.filter(task=>task.selected!==false);
  const ids=new Set(selected.map(task=>task.id));
- const parents=new Map(selected.map(task=>[task.id,[]]));
  const children=new Map(selected.map(task=>[task.id,[]]));
  const edges=[],edgeKeys=new Set();
  const addEdge=(upstream,downstream,kind='business')=>{const key=`${kind}:${upstream}:${downstream}`;if(upstream!==downstream&&!edgeKeys.has(key)){edgeKeys.add(key);edges.push({upstream,downstream,kind});}};
  for(const edge of dependencies){
   const upstream=edge.upstream_task_id,downstream=edge.downstream_task_id;
   if(!ids.has(upstream)||!ids.has(downstream)||upstream===downstream)continue;
-  parents.get(downstream).push(upstream);children.get(upstream).push(downstream);
+  children.get(upstream).push(downstream);
   addEdge(upstream,downstream);
  }
- const levels=new Map(selected.map(task=>[task.id,0]));
- const indegree=new Map(selected.map(task=>[task.id,parents.get(task.id).length]));
- const queue=selected.filter(task=>indegree.get(task.id)===0).map(task=>task.id);
- for(let index=0;index<queue.length;index++){
-  const id=queue[index];
-  for(const child of children.get(id)){
-   levels.set(child,Math.max(levels.get(child),levels.get(id)+1));
-   indegree.set(child,indegree.get(child)-1);if(indegree.get(child)===0)queue.push(child);
-  }
- }
- // A malformed historic cycle must remain inspectable even though new plans reject it.
- const unresolved=selected.filter(task=>indegree.get(task.id)>0);
- const fallback=Math.max(0,...levels.values())+1;
- unresolved.forEach((task,index)=>levels.set(task.id,fallback+index));
- const rows=new Map();
- const taskNodes=selected.map(task=>{
-  const level=levels.get(task.id),row=rows.get(level)||0;rows.set(level,row+1);
-  return {kind:'task',id:task.id,item:task,x:36+level*220,y:112+row*92,width:TASK_WIDTH,height:TASK_HEIGHT};
- });
- const runNode=controlJobs.length?{kind:'run',id:'__run__',item:relations.run||{},x:24,y:30,width:TASK_WIDTH,height:CONTROL_HEIGHT}:null;
- const controlNodes=controlJobs.map((job,index)=>({kind:'control',id:job.id,item:job,x:230+index*196,y:30,width:TASK_WIDTH,height:CONTROL_HEIGHT}));
+ const runNode=controlJobs.length?{kind:'run',id:'__run__',item:relations.run||{},width:TASK_WIDTH,height:CONTROL_HEIGHT}:null;
+ const controlNodes=controlJobs.map(job=>({kind:'control',id:job.id,item:job,width:TASK_WIDTH,height:CONTROL_HEIGHT}));
+ const taskNodes=selected.map(task=>({kind:'task',id:task.id,item:task,width:TASK_WIDTH,height:TASK_HEIGHT}));
  const controlIds=new Set(controlJobs.map(job=>job.id));
  const planners=new Map((relations.planners||[]).map(planner=>[planner.task_id,planner]));
  const reviews=new Map((relations.reviews||[]).map(review=>[review.task_id,review]));
@@ -56,7 +37,17 @@ export function layoutDag(tasks=[],dependencies=[],controlJobs=[],relations={}){
    else if(runNode)addEdge(runNode.id,job.id,'control');
   }
  }
- const maxLevel=Math.max(0,...levels.values());
- const maxRows=Math.max(1,...rows.values());
- return {nodes:[...(runNode?[runNode]:[]),...controlNodes,...taskNodes],edges,width:Math.max(720,80+(maxLevel+1)*220,250+controlJobs.length*196),height:Math.max(520,138+maxRows*92)};
+ const nodes=[...(runNode?[runNode]:[]),...controlNodes,...taskNodes],nodeIds=new Set(nodes.map(node=>node.id));
+ const incoming=new Map(nodes.map(node=>[node.id,0])),outgoing=new Map(nodes.map(node=>[node.id,[]]));
+ for(const edge of edges)if(nodeIds.has(edge.upstream)&&nodeIds.has(edge.downstream)){incoming.set(edge.downstream,incoming.get(edge.downstream)+1);outgoing.get(edge.upstream).push(edge.downstream);}
+ const levels=new Map(nodes.map(node=>[node.id,0]));
+ const queue=nodes.filter(node=>incoming.get(node.id)===0).sort((a,b)=>(a.kind==='run'?-2:a.kind==='control'?-1:0)-(b.kind==='run'?-2:b.kind==='control'?-1:0)).map(node=>node.id);
+ for(let index=0;index<queue.length;index++){
+  const id=queue[index];for(const child of outgoing.get(id)){levels.set(child,Math.max(levels.get(child),levels.get(id)+1));incoming.set(child,incoming.get(child)-1);if(incoming.get(child)===0)queue.push(child);}
+ }
+ // Historic malformed cycles stay inspectable at the end of the graph.
+ let fallback=Math.max(0,...levels.values())+1;for(const node of nodes)if(incoming.get(node.id)>0)levels.set(node.id,fallback++);
+ const groups=new Map();for(const node of nodes){const level=levels.get(node.id);if(!groups.has(level))groups.set(level,[]);groups.get(level).push(node);}
+ let maxRows=1;for(const [level,group] of groups){group.sort((a,b)=>(a.kind==='control'?-1:a.kind==='run'?-2:0)-(b.kind==='control'?-1:b.kind==='run'?-2:0));maxRows=Math.max(maxRows,group.length);group.forEach((node,row)=>Object.assign(node,{x:36+level*220,y:62+row*104}));}
+ const maxLevel=Math.max(0,...levels.values());return {nodes,edges,width:Math.max(760,90+(maxLevel+1)*220),height:Math.max(520,130+maxRows*104)};
 }
