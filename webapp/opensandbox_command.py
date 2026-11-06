@@ -111,17 +111,14 @@ class OpenSandboxCommandRuntime:
             streams.extend(getattr(execution.logs,name,[]) or [])
         return ''.join(getattr(item,'text','') for item in streams)[-4000:]
 
-    def execute_payload(self,env,payload,timeout,cancelled):
+    def _run(self,command,timeout,cancelled):
         if cancelled():raise RuntimeError('Command operation cancelled')
-        self._upload_tree(env);request='/run/video-use/operation-request.json'
-        self.session.files.write(request,json.dumps(payload,ensure_ascii=False).encode(),0o600)
-        module='webapp.operation_io' if payload.get('mode') in ('prepare_image','composite_image','fit_image') else 'webapp.workflow_io'
-        command=['/bin/sh','-c',f'exec /opt/venv/bin/python -m {module} < {request}']
         try:
             from opensandbox.models.execd import RunCommandOpts
             from opensandbox.models.execd_sync import ExecutionHandlersSync
             opts=RunCommandOpts(working_directory='/workspace',timeout=timedelta(seconds=timeout),
-                uid=10001,gid=10001,envs={'PATH':'/opt/venv/bin:/usr/bin:/bin','PYTHONPATH':'/opt/video-use/helpers',
+                uid=10001,gid=10001,envs={'PATH':'/opt/venv/bin:/usr/bin:/bin',
+                    'PYTHONPATH':'/opt/venv/lib/python3.13/site-packages/webapp:/opt/video-use/helpers',
                     'HOME':'/state','LANG':'C.UTF-8'})
             execution_id=[None]
             handlers=ExecutionHandlersSync(on_init=lambda event:execution_id.__setitem__(0,event.id))
@@ -145,9 +142,22 @@ class OpenSandboxCommandRuntime:
             error=RuntimeError('OpenSandbox command operation failed'+(': '+detail if detail else ''))
             error.diagnostic={'code':'opensandbox_command_failed','exit_code':execution.exit_code,'log_tail':detail}
             raise error
+        return execution
+
+    def execute_payload(self,env,payload,timeout,cancelled):
+        self._upload_tree(env);request='/run/video-use/operation-request.json'
+        self.session.files.write(request,json.dumps(payload,ensure_ascii=False).encode(),0o600)
+        module='webapp.operation_io' if payload.get('mode') in ('prepare_image','composite_image','fit_image') else 'webapp.workflow_io'
+        execution=self._run(['/bin/sh','-c',f'exec /opt/venv/bin/python -m {module} < {request}'],timeout,cancelled)
         output=payload.get('output')
         if output:self._download_output(env,output)
         if payload.get('mode')=='local':return json.loads(self._stdout(execution))
+
+    def validate_payload(self,payload,timeout=90):
+        request='/run/video-use/quality-request.json'
+        self.session.files.write(request,json.dumps(payload,ensure_ascii=False).encode(),0o600)
+        execution=self._run(['/bin/sh','-c',f'exec /opt/venv/bin/python -m webapp.quality_check < {request}'],timeout,lambda:False)
+        return json.loads(self._stdout(execution))
 
     def _download_output(self,env,relative):
         path=PurePosixPath(relative)

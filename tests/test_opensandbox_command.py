@@ -20,7 +20,12 @@ class Files:
 class Commands:
     def __init__(self,files):self.files=files;self.calls=[]
     def run(self,command,opts=None,handlers=None):
-        self.calls.append((command,opts));self.files.data['/workspace/edit/out/result.txt']=b'result'
+        self.calls.append((command,opts))
+        if 'webapp.quality_check' in command[-1]:
+            message=SimpleNamespace(text=json.dumps({'version':'quality-v1','technical_valid':True,'passed':True,
+                'requires_review':False,'requires_agent':False,'files':[],'checks':[]}))
+            return SimpleNamespace(exit_code=0,logs=SimpleNamespace(stdout=[message]))
+        self.files.data['/workspace/edit/out/result.txt']=b'result'
         self.files.entries=[{'path':'/workspace/edit/out/result.txt','type':'file'}]
         message=SimpleNamespace(text=json.dumps({'version':1,'returncode':0}))
         return SimpleNamespace(exit_code=0,logs=SimpleNamespace(stdout=[message]))
@@ -98,6 +103,13 @@ class OpenSandboxCommandTests(unittest.TestCase):
             self.assertEqual(receipt,{'version':1,'returncode':0})
             self.assertEqual((workspace/'edit/out/result.txt').read_bytes(),b'result')
             self.assertIn('webapp.workflow_io',session.commands.calls[0][0][-1])
+
+    def test_quality_validation_runs_in_same_command_sandbox(self):
+        session=Session();lease=SimpleNamespace(check=lambda:None)
+        runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'command-1','attempt',lease)
+        report=runtime.validate_payload({'files':[],'acceptance':[]})
+        self.assertTrue(report['technical_valid'])
+        self.assertIn('webapp.quality_check',session.commands.calls[0][0][-1])
 
     def test_backend_requires_command_binding_and_deletes_on_close(self):
         lifecycle=Lifecycle();session=Session();sdk=SimpleNamespace(connect=lambda _:session)
