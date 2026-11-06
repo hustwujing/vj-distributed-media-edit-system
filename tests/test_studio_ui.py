@@ -54,6 +54,11 @@ class StudioTests(unittest.TestCase):
             self.assertNotIn('{{PROJECT}}',response.text)
             self.assertIn(self.pid,response.text)
             self.assertEqual(self.b.get(f'/{route}/{self.pid}').status_code,404)
+            if route=='chat':
+                self.assertIn('id="dynamic-preview"',response.text)
+                self.assertIn('id="dag-fab"',response.text)
+                self.assertIn('id="dag-dialog"',response.text)
+                self.assertIn('id="dag-canvas"',response.text)
 
     def test_audio_upload_attachment_preview_and_ownership(self):
         upload=self.a.post(f'/api/projects/{self.pid}/assets',files={'file':('music.wav',self.audio.read_bytes(),'audio/wav')})
