@@ -32,7 +32,7 @@ def verify(docker,manifest):
 test "$(id -u):$(id -g)" = 10001:10001
 touch /workspace/probe /state/probe /run/video-use/probe
 if touch /opt/rootfs-must-be-read-only 2>/dev/null; then exit 41; fi
-python -c 'import cv2,opensandbox,webapp.runtime_bootstrap'
+python -c 'import cv2,opensandbox,webapp.runtime_bootstrap,grade,render,timeline_view,pack_transcripts,transcribe'
 python -c 'import json; from webapp.runtime_bootstrap import verify_runtime_bundle; verify_runtime_bundle(json.load(open("/opt/video-use/bundle.json")))'
 python -m webapp.runtime_bootstrap --help >/dev/null
 ffmpeg -version >/dev/null 2>&1

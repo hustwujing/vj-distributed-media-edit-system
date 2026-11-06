@@ -24,6 +24,7 @@ case "${1:-}" in
     require_digest BASE_IMAGE "${BASE_IMAGE:-}"
     "$docker_bin" build --network=none -f runtime/opensandbox/base.Dockerfile \
       --build-arg "BASE_IMAGE=$BASE_IMAGE" -t agent-runtime-base:build .
+    "$docker_bin" tag agent-runtime-base:build operation-runtime:build
     ;;
   codex|claude|deepseek)
     harness="$1"

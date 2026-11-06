@@ -121,7 +121,8 @@ class OpenSandboxCommandRuntime:
             from opensandbox.models.execd import RunCommandOpts
             from opensandbox.models.execd_sync import ExecutionHandlersSync
             opts=RunCommandOpts(working_directory='/workspace',timeout=timedelta(seconds=timeout),
-                uid=10001,gid=10001,envs={'PATH':'/opt/venv/bin:/usr/bin:/bin','HOME':'/state','LANG':'C.UTF-8'})
+                uid=10001,gid=10001,envs={'PATH':'/opt/venv/bin:/usr/bin:/bin','PYTHONPATH':'/opt/video-use/helpers',
+                    'HOME':'/state','LANG':'C.UTF-8'})
             execution_id=[None]
             handlers=ExecutionHandlersSync(on_init=lambda event:execution_id.__setitem__(0,event.id))
         except ImportError:

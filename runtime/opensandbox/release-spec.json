@@ -23,6 +23,7 @@
     {"source": "helpers/grade.py", "target": "helpers/grade.py"},
     {"source": "helpers/timeline_view.py", "target": "helpers/timeline_view.py"},
     {"source": "helpers/pack_transcripts.py", "target": "helpers/pack_transcripts.py"},
+    {"source": "helpers/transcribe.py", "target": "helpers/transcribe.py"},
     {"source": "helpers/canvas_render.py", "target": "helpers/canvas_render.py"},
     {"source": "references/canvas-editing.md", "target": "references/canvas-editing.md"},
     {"source": "references/durable-workflows.md", "target": "references/durable-workflows.md"},

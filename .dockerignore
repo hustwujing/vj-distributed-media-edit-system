@@ -22,6 +22,7 @@ helpers/*
 !helpers/grade.py
 !helpers/timeline_view.py
 !helpers/pack_transcripts.py
+!helpers/transcribe.py
 !helpers/canvas_render.py
 !wheels/
 !wheels/**
