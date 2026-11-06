@@ -104,6 +104,13 @@ class OpenSandboxCommandRuntime:
     @staticmethod
     def _stdout(execution):return ''.join(item.text for item in execution.logs.stdout)
 
+    @staticmethod
+    def _diagnostic(execution):
+        streams=[]
+        for name in ('stderr','stdout'):
+            streams.extend(getattr(execution.logs,name,[]) or [])
+        return ''.join(getattr(item,'text','') for item in streams)[-4000:]
+
     def execute_payload(self,env,payload,timeout,cancelled):
         if cancelled():raise RuntimeError('Command operation cancelled')
         self._upload_tree(env);request='/run/video-use/operation-request.json'
@@ -132,7 +139,9 @@ class OpenSandboxCommandRuntime:
                 threading.Event().wait(.1)
             execution=future.result()
         finally:pool.shutdown(wait=False,cancel_futures=True)
-        if execution.exit_code not in (None,0):raise RuntimeError('OpenSandbox command operation failed')
+        if execution.exit_code not in (None,0):
+            detail=self._diagnostic(execution).strip()
+            raise RuntimeError('OpenSandbox command operation failed'+(': '+detail if detail else ''))
         output=payload.get('output')
         if output:self._download_output(env,output)
         if payload.get('mode')=='local':return json.loads(self._stdout(execution))

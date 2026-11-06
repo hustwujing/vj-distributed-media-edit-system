@@ -27,6 +27,12 @@ class Commands:
     def interrupt(self,identity):self.interrupted=identity
 
 
+class FailingCommands(Commands):
+    def run(self,command,opts=None,handlers=None):
+        message=SimpleNamespace(text='bounded diagnostic')
+        return SimpleNamespace(exit_code=7,logs=SimpleNamespace(stdout=[],stderr=[message]))
+
+
 class Session:
     def __init__(self):self.files=Files();self.commands=Commands(self.files);self.closed=False
     def close(self):self.closed=True
@@ -126,6 +132,14 @@ class OpenSandboxCommandTests(unittest.TestCase):
         adapter=Adapter.__new__(Adapter);env={'runtime':runtime}
         result=adapter.isolated(env,{'mode':'local'},30,lambda:False)
         self.assertEqual(result,'receipt')
+
+    def test_failed_command_retains_bounded_remote_diagnostic(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);workspace=root/'workspace';sources=root/'sources';workspace.mkdir();sources.mkdir()
+            session=Session();session.commands=FailingCommands(session.files)
+            lease=SimpleNamespace(check=lambda:None);runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'command-1','attempt',lease)
+            with self.assertRaisesRegex(RuntimeError,'bounded diagnostic'):
+                runtime.execute_payload({'workspace':workspace,'sources':sources},{'mode':'local'},30,lambda:False)
 
 
 if __name__=='__main__':unittest.main()
