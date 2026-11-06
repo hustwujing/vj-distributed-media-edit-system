@@ -88,7 +88,9 @@ async function runCase(browser,spec){
  const commandApplied=async id=>{const end=Date.now()+90000;while(Date.now()<end){const value=await read(),receipt=value.commands.find(c=>c.id===id);if(receipt&&receipt.status!=='pending'){assert.equal(receipt.status,'applied','Control command rejected: '+receipt.error_code);state.events.push({action:'command_applied',command_id:id,at:Date.now()/1000});persist();return value;}await page.waitForTimeout(500);}throw Error('Control command was not processed before the deadline');};
  const control=async(action)=>{await page.locator(`[data-control="${action}"]`).waitFor({state:'visible'});let confirmation=null;if(action==='cancel')page.once('dialog',async dialog=>{confirmation={type:dialog.type(),message:dialog.message()};await dialog.accept();});const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await page.locator(`[data-control="${action}"]`).click();const result=await response;assert.equal(result.status(),202,await result.text());if(action==='cancel'){assert.equal(confirmation?.type,'confirm');state.browser_assertions.push('Cancel required an explicit browser confirmation');}state.events.push({action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);const updated=await read();if(updated.successor_run_id){state.run_id=updated.successor_run_id;state.execute_id=state.run_id;state.run_ids.push(state.run_id);state.task_ids.push(state.run_id);persist();}};
  const start=async(prompt=spec.prompt,targets=targetText(spec),budget=(spec.complexity==='simple'?500000:2000000)*TOKEN_BUDGET_MULTIPLIER)=>{
-  await page.locator('#dynamic-start').waitFor({state:'visible'});await page.locator('#dynamic-goal').fill(prompt);await page.locator('#dynamic-targets').fill(targets);
+  await page.locator('#dynamic-input-form').waitFor({state:'visible'});await page.locator('#dynamic-input-content').fill(prompt);
+  const origin=await page.locator('#dynamic-input-form').getAttribute('data-run'),creating=origin==='new';
+  if(creating){await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;node.dispatchEvent(new Event('change',{bubbles:true}));}));await page.locator('#dynamic-targets-other').fill(targets);}
   await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
   await page.locator('#dynamic-reasoning-effort').selectOption(MODEL_EFFORT);
   const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
@@ -97,11 +99,11 @@ async function runCase(browser,spec){
   await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
   for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
   await capture('authorization-'+state.run_ids.length);
-  const response=page.waitForResponse(r=>r.url().endsWith(`/api/projects/${state.project}/runs`)&&r.request().method()==='POST',{timeout:60000});
-  await page.locator('#dynamic-submit').click();
+  const response=page.waitForResponse(r=>r.request().method()==='POST'&&(creating?r.url().endsWith(`/api/projects/${state.project}/runs`):r.url().endsWith(`/runs/${origin}/inputs`)),{timeout:60000});
+  await page.locator('#dynamic-input-submit').click();
   let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
-  if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-submit').click();result=await response;}
-  assert.equal(result.status(),202,await result.text());run=await result.json();
+  if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-input-submit').click();result=await response;}
+  assert.equal(result.status(),202,await result.text());const submitted=await result.json();run=creating?submitted:await api('GET',`/api/projects/${state.project}/runs/${submitted.run_id}`);
   assert.equal(run.model_configuration.model,EXPECT_MODEL);
   assert.equal(run.model_configuration.reasoning_effort,MODEL_EFFORT);
   assert.equal(run.model_configuration.roles.editing_implementer.model,EXPECT_MODEL);
@@ -227,33 +229,34 @@ async function runCase(browser,spec){
   state.project=await page.locator('body').getAttribute('data-project');assert.match(state.project,/^[a-f0-9]{32}$/);persist();
   state.browser_context=await page.evaluate(()=>({secure:isSecureContext,randomUUID:typeof crypto.randomUUID,getRandomValues:typeof crypto.getRandomValues}));
   await page.waitForFunction(()=>document.querySelector('#dynamic-connection').textContent.includes('同步'));
-  if(spec.assets.length){await page.locator('#dynamic-upload').setInputFiles(spec.assets.map(n=>path.join(ROOT,'fixtures',n)));await page.waitForFunction(n=>document.querySelectorAll('#dynamic-assets input').length===n&&document.body.dataset.uploading!=='true',spec.assets.length);}
+  if(spec.assets.length){await page.locator('#dynamic-upload').setInputFiles(spec.assets.map(n=>path.join(ROOT,'fixtures',n)));await page.waitForFunction(n=>document.querySelectorAll('#dynamic-input-assets option').length===n&&document.body.dataset.uploading!=='true',spec.assets.length);}
   await page.waitForFunction(()=>document.querySelector('#dynamic-connection').textContent.includes('同步'));
   if(spec.dynamic_hook==='token_budget'){
+   await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});
    await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});
-   const firstAsset=page.locator('#dynamic-assets input').first(),firstId=await firstAsset.inputValue();await firstAsset.uncheck();
+   const firstAsset=page.locator('#dynamic-input-assets option').first(),firstId=await firstAsset.getAttribute('value');await firstAsset.evaluate(node=>{node.selected=false;node.parentElement.dispatchEvent(new Event('change',{bubbles:true}));});
    const limit=page.locator('[data-operation]:not([disabled])').first(),operation=await limit.getAttribute('data-operation');
    let releaseResponse,markHeld;const held=new Promise(resolve=>{markHeld=resolve;}),released=new Promise(resolve=>{releaseResponse=resolve;});
    const pattern=`**/api/projects/${state.project}/runs/capabilities`;
    await page.route(pattern,async route=>{const response=await route.fetch();markHeld();await released;await route.fulfill({response});},{times:1});
    try{
     await page.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await held;
-    assert.equal(await page.locator('#dynamic-submit').isDisabled(),true,'Submit was enabled before upload refresh completed');
-    await limit.fill('1');assert.equal(await page.locator(`#dynamic-assets input[value="${firstId}"]`).isChecked(),false);
+    assert.equal(await page.locator('#dynamic-input-submit').isDisabled(),true,'Submit was enabled before upload refresh completed');
+    await limit.fill('1');assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).isChecked(),false);
     await capture('upload-response-held');releaseResponse();
     await page.waitForFunction(()=>document.body.dataset.uploading==='false');
     assert.equal(await page.locator(`[data-operation="${operation}"]`).inputValue(),'1','Late capabilities response overwrote consent');
-    assert.equal(await page.locator(`#dynamic-assets input[value="${firstId}"]`).isChecked(),false,'Asset refresh overwrote selection');
-    await page.locator(`#dynamic-assets input[value="${firstId}"]`).check();
+    assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).isChecked(),false,'Asset refresh overwrote selection');
+    await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).evaluate(node=>{node.selected=true;node.parentElement.dispatchEvent(new Event('change',{bubbles:true}));});
     state.upload_race={operation,limit:1,real_response_delayed:true,submit_disabled:true,selection_preserved:true};
     state.browser_assertions.push('Delayed real capabilities response preserved the edited provider limit and asset selection; upload blocked submit');persist();
    }finally{releaseResponse();await page.unroute(pattern);}
   }
   await capture('initial');
   if(spec.dynamic_hook==='stale_authorization'){
-   await page.locator('#dynamic-goal').fill(spec.prompt);await page.locator('#dynamic-targets').fill(targetText(spec));
-   const second=await context.newPage();await second.goto(BASE+'/chat/'+state.project);await second.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await second.waitForFunction(()=>document.querySelectorAll('#dynamic-assets input').length===2);await second.close();
-   await page.locator('#dynamic-submit').click();await page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor();
+   await page.locator('#dynamic-input-content').fill(spec.prompt);await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;node.dispatchEvent(new Event('change',{bubbles:true}));}));await page.locator('#dynamic-targets-other').fill(targetText(spec));
+   const second=await context.newPage();await second.goto(BASE+'/chat/'+state.project);await second.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await second.waitForFunction(()=>document.querySelectorAll('#dynamic-input-assets option').length===2);await second.close();
+   await page.locator('#dynamic-input-submit').click();await page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor();
    assert.equal((await api('GET',`/api/projects/${state.project}/runs`)).runs.length,0);state.outcome='protocol_passed';state.browser_checked=true;state.browser_assertions.push('Stale content did not create a workflow');await capture('stale-authorization');
   }else{
    const intervention=spec.id.startsWith('R');
@@ -393,8 +396,8 @@ async function runCase(browser,spec){
     if(gated){await approve('reject');await wait(w=>paused(w));}
     if(spec.id==='R13'){await control('pause');await wait(w=>paused(w));}
     if(!terminal((await read()).state)){await control('cancel');await wait(w=>terminal(w.state));}
-    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));await page.locator('#dynamic-start').waitFor({state:'visible'});
-    for(const input of await page.locator('#dynamic-assets input').all())await input.setChecked(selected.includes(await input.getAttribute('value')));
+    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));await page.locator('#dynamic-input-form').waitFor({state:'visible'});
+    await selectOptional(page.locator('#dynamic-input-assets'),selected);
     let revised=`复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到${spec.expect.width/2}×${spec.expect.height}后并排合成${spec.expect.width}×${spec.expect.height}，交付 final.png。`;
     if(spec.id==='R01')revised+='最终文件改名为 renamed.png。';
     if(spec.id==='R02')revised+='最终改为64×32的 final.webp，采用无损WebP。';
@@ -402,18 +405,18 @@ async function runCase(browser,spec){
     if(spec.id==='R04')revised+='同时交付 final.png 和 final.jpg 两种格式。';
     if(spec.id==='R10')revised+='另外将最终图用 Lanczos 缩小为32×16 thumbnail.png 并交付。';
     if(['R05','R06'].includes(spec.id)){
-     const original=await api('GET',`/api/projects/${state.project}`);const name=spec.id==='R05'?'portrait.png':'rocket.png';const asset=original.assets.find(a=>a.name===name);await page.locator(`#dynamic-assets input[value="${asset.id}"]`).check();
+     const original=await api('GET',`/api/projects/${state.project}`);const name=spec.id==='R05'?'portrait.png':'rocket.png';const asset=original.assets.find(a=>a.name===name),chosen=await page.locator('#dynamic-input-assets').evaluate(node=>[...node.selectedOptions].map(option=>option.value));await selectOptional(page.locator('#dynamic-input-assets'),[...new Set([...chosen,asset.id])]);
      revised=`仅复用已验收 prepare_b 作为右半边；左半边改为用 image.local_adjust 对 ${name} 做 brightness=${spec.id==='R05'?'1.35':'1.1'} 处理，分别用 Pillow ImageOps.fit 默认方法适配为64×64，再合成128×64 final.png。`;
     }
     if(spec.expect.kind==='video')revised=`复用已验收 clip 视频，取前${spec.expect.duration}秒并按 cover 居中裁切为${spec.expect.width}×${spec.expect.height} MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 ${spec.id==='R07'?'prepare_b':'prepare_a'} 图片，以 Pillow ImageOps.fit 默认方法处理。${spec.id==='R08'?'左上角(2,2)放置黄色 QA 字幕，字号20。':''}不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。`;
     if(spec.id==='R11')revised+='最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。';
     if(spec.id==='R16')revised+='本轮仅输出 final.jpg；下一轮会再要求其他格式。';
     if(spec.id==='R17')revised='复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。';
-    if(['R01','R02','R03'].includes(spec.id)){await page.locator('#dynamic-goal').fill('复用已验收图片，交付128×64 final.png，prepare_a 在左。');await capture('draft-before-change');state.events.push({action:'scope_edited_before_confirmation',at:Date.now()/1000});}
+    if(['R01','R02','R03'].includes(spec.id)){await page.locator('#dynamic-input-content').fill('复用已验收图片，交付128×64 final.png，prepare_a 在左。');await capture('draft-before-change');state.events.push({action:'scope_edited_before_confirmation',at:Date.now()/1000});}
     await start(revised);
     if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
     if(spec.id==='R16'){
-     run=await observeTerminal();assert.equal(run.state,'SUCCEEDED');await page.waitForFunction(()=>!document.querySelector('#dynamic-start').hidden);
+     run=await observeTerminal();assert.equal(run.state,'SUCCEEDED');await page.locator('#dynamic-input-form').waitFor({state:'visible'});
      await start('复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。');
     }
    }

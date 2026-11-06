@@ -2,14 +2,18 @@
 const {chromium}=require('/data/wujing03/node_modules/playwright');
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const repo=path.resolve(__dirname,'..');
-const out=path.join(repo,'.cluster/deployment-validation/token-estimation');
-const base='http://127.0.0.1/distributed-agent-system';
+const deployRoot=path.resolve(process.env.DYNAMIC_CASE_DEPLOY_ROOT||path.join(repo,'.cluster'));
+const out=path.join(deployRoot,'deployment-validation/token-estimation');
+const base=(process.env.DYNAMIC_CASE_BASE||'http://127.0.0.1/distributed-agent-system').replace(/\/$/,'');
+const defaultProfile=process.env.DYNAMIC_DEFAULT_MODEL_PROFILE||'claude55';
+const selectedAgentProfile=process.env.DYNAMIC_SELECTED_AGENT_PROFILE||'claude';
+assert.equal(new URL(base).pathname,process.env.DYNAMIC_EXPECT_PATH||'/distributed-agent-system','Refusing a main/unknown application path');
 const save=value=>fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(value,null,2)+'\n',{mode:0o600});
 (async()=>{
  fs.mkdirSync(out,{recursive:true,mode:0o700});
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();
- const result={started_at:Date.now()/1000,base,release:JSON.parse(fs.readFileSync(path.join(repo,'.cluster/release.json'))),page_errors:[],business_runs_created:0};
+ const result={started_at:Date.now()/1000,base,release:JSON.parse(fs.readFileSync(path.join(deployRoot,'release.json'))),page_errors:[],business_runs_created:0};
  page.on('pageerror',e=>result.page_errors.push(e.message));let project,runId;
  try{
   const response=await page.goto(base+'/',{waitUntil:'domcontentloaded'});assert.equal(response.status(),200);
@@ -18,12 +22,13 @@ const save=value=>fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(
   await page.locator('#new-project-form button[type="submit"]').click();await page.waitForURL(/\/chat\/[a-f0-9]{32}/);
   project=await page.locator('body').getAttribute('data-project');assert.match(project,/^[a-f0-9]{32}$/);result.project=project;
   await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));
-  assert.equal(await page.locator('#dynamic-model-profile').inputValue(),'claude');
+  await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});
+  assert.equal(await page.locator('#dynamic-model-profile').inputValue(),defaultProfile);
   assert.equal(await page.locator('#dynamic-reasoning-effort').inputValue(),'high');
   await page.screenshot({path:path.join(out,'default-model.png'),fullPage:true});
   const profiles=await context.request.get(`${base}/api/projects/${project}/agent/profiles`);assert.equal(profiles.status(),200);
   const configuration=await profiles.json();result.model_profiles=configuration.profiles;
-  result.selected_profile=configuration.selected;assert.equal(result.selected_profile,'claude');
+  result.selected_profile=configuration.selected;assert.equal(result.selected_profile,selectedAgentProfile);
   for(const [name,model,policy] of [['claude','claude-4.6-sonnet','claude_bpe_estimate_v1'],['claude55','claude-sonnet-5-5','claude_bpe_estimate_v1'],['claude5','claude-opus-5','claude_bpe_estimate_v1'],['deepseek','deepseek-v4-flash','deepseek_bpe_estimate_v1'],['deepseek41','deepseek-v4.1-flash','deepseek_bpe_estimate_v1']]){
    const p=result.model_profiles.find(p=>p.name===name);assert.ok(p?.available);assert.equal(p.model,model);assert.equal(p.input_token_policy,policy);
    if(name==='claude')assert.equal(p.reasoning_effort,'high');
@@ -37,6 +42,7 @@ const save=value=>fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(
   await page.locator('#dynamic-model-profile').selectOption('deepseek41');
   await page.locator('#dynamic-reasoning-effort').selectOption('low');
   await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));
+  await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});
   assert.equal(await page.locator('#dynamic-model-profile').inputValue(),'deepseek41');
   assert.equal(await page.locator('#dynamic-reasoning-effort').inputValue(),'low');
   await page.setViewportSize({width:390,height:844});
@@ -44,12 +50,14 @@ const save=value=>fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2));
   await page.screenshot({path:path.join(out,'model-selection-mobile.png'),fullPage:true});
   await page.setViewportSize({width:1440,height:1000});
-  await page.locator('#dynamic-goal').fill('部署验证：检查模型选择和预算拦截，不执行任何媒体操作。');
-  await page.locator('#dynamic-targets').fill('验证记录');
+  await page.locator('#dynamic-input-content').fill('部署验证：检查模型选择和预算拦截，不执行任何媒体操作。');
+  await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});
+  await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;node.dispatchEvent(new Event('change',{bubbles:true}));}));
+  await page.locator('#dynamic-targets-other').fill('验证记录');
   await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});
   await page.locator('#dynamic-token-budget').fill('1024');
   const submitted=page.waitForResponse(r=>r.url().endsWith(`/api/projects/${project}/runs`)&&r.request().method()==='POST');
-  await page.locator('#dynamic-submit').click();const responseRun=await submitted;assert.equal(responseRun.status(),202,await responseRun.text());
+  await page.locator('#dynamic-input-submit').click();const responseRun=await submitted;assert.equal(responseRun.status(),202,await responseRun.text());
   const run=await responseRun.json();runId=run.id;result.business_runs_created=1;result.run_id=runId;
   result.submitted_choice=responseRun.request().postDataJSON().model_choice;result.frozen_model=run.model_configuration;
   assert.equal(result.frozen_model.model,'deepseek-v4.1-flash');assert.equal(result.frozen_model.reasoning_effort,'low');
