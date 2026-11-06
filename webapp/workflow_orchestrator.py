@@ -249,10 +249,20 @@ class Orchestrator:
             self.set_status(run,'CANCELLED','successor_confirmed')
             store.execute("UPDATE run_tasks SET status='cancelled' WHERE run_id=? AND selected=1 AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
             successor=graph.create(store,run['project_id'],None,authorization.model_dump(),parent_run_id=run['id'])
+            cutoff=int(request.get('input_through_sequence',0))
             for item in store.query("SELECT * FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING') ORDER BY sequence",(run['id'],)):
-                accept(store,successor['id'],actor,{'request_id':item['id'],'content':item['content'],
+                carried=accept(store,successor['id'],actor,{'request_id':item['id'],'content':item['content'],
                     'attachments':[a['id'] for a in json.loads(item['attachments_json'])]},context={'predecessor_input_id':item['id']})
+                if item['sequence']<=cutoff:
+                    now=store.now()
+                    store.execute("UPDATE run_inputs SET status='APPLIED',applied_at=?,applied_graph_version=? WHERE id=?",
+                                  (now,successor['graph_version'],carried['id']))
+                    graph.event(store,successor,'successor_input_applied',{
+                        'input_id':carried['id'],'predecessor_input_id':item['id'],'input_sequence':carried['sequence']})
                 store.execute("UPDATE run_inputs SET status='SUPERSEDED',successor_run_id=?,applied_at=? WHERE id=?",(successor['id'],store.now(),item['id']))
+            pending=store.query("SELECT MIN(sequence) AS sequence FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(successor['id'],))[0]['sequence']
+            store.execute('UPDATE runs SET input_barrier_sequence=?,input_barrier_was_sealed=0 WHERE id=?',(pending,successor['id']))
+            if pending is None:store.execute('DELETE FROM run_input_drain WHERE run_id=?',(successor['id'],))
             store.execute('UPDATE runs SET input_barrier_sequence=NULL WHERE id=?',(run['id'],))
             store.execute("UPDATE workflow_decisions SET status='superseded' WHERE run_id=? AND status='pending' AND id<>?",(run['id'],row['id']))
             store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode({**payload,'successor_run_id':successor['id']}),store.now(),row['id']))
