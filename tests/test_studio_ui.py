@@ -11,7 +11,7 @@ from tests.isolation import temporary_root as isolated_tmp_root
 
 from fastapi.testclient import TestClient
 
-from webapp import agent_store
+from webapp import agent_store,workflow_graph
 from webapp.agent_activity import ActivityTracker
 from webapp.app import create_app
 
@@ -59,10 +59,16 @@ class StudioTests(unittest.TestCase):
             if route=='chat':
                 self.assertIn('id="dynamic-preview"',response.text)
                 self.assertIn('id="dynamic-role-activity"',response.text)
+                self.assertIn('设为 0 表示禁止调用',response.text)
                 self.assertIn('id="dag-fab"',response.text)
                 self.assertIn('id="dag-dialog"',response.text)
                 self.assertIn('id="dag-canvas"',response.text)
                 self.assertIn('id="dynamic-input-history"',response.text)
+                self.assertEqual(response.text.count('id="dynamic-input-form"'),1)
+                self.assertNotIn('id="dynamic-start"',response.text)
+                self.assertIn('id="dynamic-ledger"',response.text)
+                self.assertIn('id="dynamic-execution-settings"',response.text)
+                self.assertEqual(response.text.count('name="delivery-target"'),6)
                 self.assertIn('.pdf,.docx,.xlsx,.pptx',response.text)
 
     def test_reference_documents_upload_with_structural_validation(self):
@@ -192,6 +198,22 @@ class StudioTests(unittest.TestCase):
         resumed=self.a.get(path,headers={'Last-Event-ID':str(first)})
         self.assertNotIn(f'id: {first}\n',resumed.text)
         self.assertEqual(resumed.text.count('event: activity'),1)
+        self.assertEqual(self.b.get(path).status_code,404)
+
+    def test_workflow_stream_exposes_public_progress_only_to_owner(self):
+        store=self.app.state.store
+        run=workflow_graph.create(store,self.pid,None,{'goal':'整理素材','allowed_assets':[self.asset],
+            'allowed_operations':['script'],'delivery_targets':['成片 MP4'],
+            'content_fingerprint':workflow_graph.content_fingerprint(store,self.pid)})
+        agent_store.event(store,run['id'],'progress',{'text':'正在检查素材'})
+        agent_store.event(store,run['id'],'private_reasoning',{'text':'不可公开'})
+        store.execute("UPDATE runs SET status='SUCCEEDED',terminal_reason='delivered' WHERE id=?",(run['id'],))
+        path=f'/api/projects/{self.pid}/runs/{run["id"]}/stream'
+        response=self.a.get(path)
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertIn('text/event-stream',response.headers['content-type'])
+        self.assertIn('event: activity',response.text);self.assertIn('正在检查素材',response.text)
+        self.assertNotIn('不可公开',response.text);self.assertIn('event: done',response.text)
         self.assertEqual(self.b.get(path).status_code,404)
 
 
