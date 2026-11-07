@@ -457,10 +457,10 @@ async function runCase(browser,spec){
     }
     if(spec.expect.kind==='video')revised=`复用已验收 clip 视频，取前${spec.expect.duration}秒并按 cover 居中裁切为${spec.expect.width}×${spec.expect.height} MP4，保留原音频，交付 final.mp4 和128×64 cover.png。封面用已验收 ${spec.id==='R07'?'prepare_b':'prepare_a'} 图片，以 Pillow ImageOps.fit 默认方法处理。${spec.id==='R08'?'左上角(2,2)放置黄色 QA 字幕，字号20。':''}不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。`;
     if(spec.id==='R11')revised+='最后用 Pillow ImageDraw.rectangle 在边缘画4像素纯红色边框，边框包括四个角。';
-    if(spec.id==='R16')revised+='本轮仅输出 final.jpg；下一轮会再要求其他格式。';
+    if(spec.id==='R16')revised='复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配为64×64后并排合成128×64，本轮仅交付 final.jpg；下一轮会再要求其他格式。';
     if(spec.id==='R17')revised='复用已验收的亮度1.1图片，用 Pillow ImageOps.fit 默认方法生成32×24 PNG，程序检查尺寸后交付，不再要求人工验收。';
     if(['R01','R02','R03'].includes(spec.id)){await page.locator('#dynamic-input-content').fill('复用已验收图片，交付128×64 final.png，prepare_a 在左。');await capture('draft-before-change');state.events.push({action:'scope_edited_before_confirmation',at:Date.now()/1000});}
-    await start(revised);
+    await start(revised,spec.id==='R16'?'128×64 JPEG 双图拼图，仅 final.jpg':targetText(spec));
     if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
     if(spec.id==='R16'){
      run=await observeTerminal();assert.equal(run.state,'SUCCEEDED');await page.locator('#dynamic-input-form').waitFor({state:'visible'});
