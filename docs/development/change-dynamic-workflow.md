@@ -40,6 +40,7 @@
 - 新 Planner 协议不暴露 Script Task。确定性处理使用注册 Operation；需要动态代码时创建获授权的 `editing_implementer` Agent Task，由其在受限沙箱内执行。Manager、外部 harness 和 `/workflow/proposal` 均不得提交原始 shell、SQL、URL 或代码。
 - `delivery_stage`表示Task的实际输出文件可直接交付，不表示它是DAG最后一步。Reviewer、Diagnostician、证据和内部检查报告不得成为交付阶段；sealed图必须包含实际业务交付物。内容Reviewer可以阻断上游，但其JSON报告不取得上游媒体的交付所有权。
 - 只有 Orchestrator 提交正式 Task/Workflow 状态、批准产物和最终交付。
+- 取消或控制任务失败若拒绝尚未应用的规划请求，关联草稿即使已由worker提交为COMMITTED也须收尾为REJECTED；不能只处理OPEN。按被拒绝的planning_request_id限定更新，已应用的历史草稿继续保留COMMITTED。
 - 领取必须同时满足 `ready` 和空 `lease_id`。执行器提交结果后，调度器不得在控制面处理之前
   重领；没有结果的中断也必须先经过确定性恢复判断。
 - execution lease 同时绑定 attempt、generation、step 和 task revision；检查、写入和发布均复核。

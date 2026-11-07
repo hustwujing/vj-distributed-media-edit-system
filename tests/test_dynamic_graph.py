@@ -282,6 +282,37 @@ class DynamicGraphTests(unittest.TestCase):
         row=self.store.query("SELECT status,error_code FROM workflow_commands WHERE action='pause'")[0]
         self.assertEqual(row['status'],'rejected');self.assertEqual(row['error_code'],'cancellation_in_progress')
 
+    def test_cancel_rejects_committed_pending_draft_but_preserves_applied_history(self):
+        self.tick()
+        applied=self.propose({'proposal_id':'first-plan','base_graph_version':0,'reason':'First batch',
+            'add_tasks':[script()],'replan_after':['first']})
+        self.tick()
+        self.store.execute("UPDATE run_tasks SET status='succeeded' WHERE run_id=? AND id='first'",(self.run['id'],))
+        self.tick()
+        pending=self.propose({'proposal_id':'second-plan','base_graph_version':1,'reason':'Second batch',
+            'add_tasks':[script('second')],'replan_after':['second']})
+        self.store.execute("UPDATE workflow_plan_drafts SET status='COMMITTED' WHERE planning_request_id=?",(pending,))
+        graph.command(self.store,self.run['id'],'owner','cancel')
+        run=self.tick()
+        self.assertEqual(run['status'],'CANCELLED')
+        self.assertEqual(run['graph_version'],1)
+        self.assertFalse(any(task['id']=='second' for task in run['tasks']))
+        self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE id=?',(pending,))[0]['status'],'rejected')
+        self.assertEqual(self.store.query('SELECT status FROM workflow_plan_drafts WHERE planning_request_id=?',(pending,))[0]['status'],'REJECTED')
+        self.assertEqual(self.store.query('SELECT status FROM workflow_plan_drafts WHERE planning_request_id=?',(applied,))[0]['status'],'COMMITTED')
+
+    def test_failed_planner_rejects_its_already_committed_unapplied_draft(self):
+        self.tick()
+        request=self.propose({'proposal_id':'failed-after-stage','base_graph_version':0,'reason':'Staged work',
+            'add_tasks':[script()],'replan_after':['first']})
+        self.store.execute("UPDATE workflow_plan_drafts SET status='COMMITTED' WHERE planning_request_id=?",(request,))
+        run=graph.get(self.store,self.run['id']);task=next(t for t in run['control_jobs'] if t['id']==request)
+        self.orchestrator.task_failure(run,task,{'error_code':'planning_contract_exhausted','phase':'local'})
+        self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE id=?',(request,))[0]['status'],'rejected')
+        self.assertEqual(self.store.query('SELECT status FROM workflow_plan_drafts WHERE planning_request_id=?',(request,))[0]['status'],'REJECTED')
+        self.assertEqual(graph.get(self.store,self.run['id'])['graph_version'],0)
+        self.assertFalse(graph.get(self.store,self.run['id'])['tasks'])
+
     def test_existing_tasks_cannot_gain_dependencies_or_change_contracts(self):
         self.tick();self.propose({'proposal_id':'initial','base_graph_version':0,'reason':'Initial',
                                 'add_tasks':[script()],'replan_after':['first']})

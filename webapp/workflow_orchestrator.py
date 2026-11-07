@@ -471,7 +471,10 @@ class Orchestrator:
                               (store.now(),run['id'],task['id']))
         elif task.get('control_kind'):
             store.execute("UPDATE planner_runs SET status='rejected',error_code=?,updated_at=? WHERE run_id=? AND task_id=? AND status IN ('pending','running','staged')",(code,store.now(),run['id'],task['id']))
-            store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE run_id=? AND planning_request_id=? AND status='OPEN'",(store.now(),run['id'],task['id']))
+            store.execute("""UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=?
+                WHERE run_id=? AND planning_request_id=? AND status IN ('OPEN','COMMITTED')
+                AND planning_request_id IN (SELECT id FROM planner_runs WHERE run_id=? AND status='rejected')""",
+                (store.now(),run['id'],task['id'],run['id']))
             store.execute("UPDATE workflow_reviews SET status='rejected',updated_at=? WHERE run_id=? AND task_id=?",(store.now(),run['id'],task['id']))
         if not retry and task.get('control_kind')=='REVIEW' and code=='review_incomplete':
             review=store.query('SELECT id,subject_task FROM workflow_reviews WHERE run_id=? AND task_id=?',(run['id'],task['id']))[0]
@@ -1008,7 +1011,10 @@ class Orchestrator:
         store.execute("UPDATE run_tasks SET status='cancelled' WHERE run_id=? AND selected=1 AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
         store.execute("UPDATE control_jobs SET status='cancelled' WHERE run_id=? AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
         store.execute("UPDATE planner_runs SET status='rejected',error_code='cancelled' WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
-        store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE run_id=? AND status='OPEN'",(store.now(),run['id']))
+        store.execute("""UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=?
+            WHERE run_id=? AND status IN ('OPEN','COMMITTED')
+            AND planning_request_id IN (SELECT id FROM planner_runs WHERE run_id=? AND status='rejected')""",
+            (store.now(),run['id'],run['id']))
         store.execute("UPDATE workflow_reviews SET status='cancelled' WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
         store.execute("UPDATE workflow_decisions SET status='cancelled' WHERE run_id=? AND status='pending'",(run['id'],))
         busy=store.query("SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?",(run['id'],store.now()))
