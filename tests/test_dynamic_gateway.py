@@ -245,23 +245,30 @@ class DynamicGatewayTests(unittest.TestCase):
 
     def test_zero_output_receipt_settles_input_and_retains_only_output_envelope(self):
         from webapp.workflow_agents import model_budget
-        from webapp.model_adapters import AnthropicReceipt
-        self.run['authorization']['model_token_budget']=50000
+        from webapp.model_adapters import get
+        from webapp.task_usage import model_call
+        from tests.test_receipt_output import payload
+        self.run['authorization']['model_token_budget']=100000
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
-        receipt=AnthropicReceipt();receipt.accept(json.dumps({'stop_reason':'tool_use',
-            'content':[{'type':'tool_use','name':'submit_plan','input':{'ok':True}}],
-            'usage':{'input_tokens':1200,'output_tokens':0}}))
-        with self.lease.bind(),model_budget(self.lease,self.run,18000,receipt,
-                input_reserved_tokens=6000,output_reserved_tokens=12000,method='claude_bpe_estimate_v1'):
-            pass
-        row=self.store.query('''SELECT state,reserved_tokens,used_tokens,input_reserved_tokens,
-            output_reserved_tokens,input_settled_tokens,output_settled_tokens FROM workflow_model_reservations''')[0]
-        self.assertEqual(row['state'],'partially_settled_output_unknown')
-        self.assertEqual(row['reserved_tokens'],18000)
-        self.assertEqual(row['used_tokens'],13200)
-        self.assertEqual((row['input_reserved_tokens'],row['output_reserved_tokens']),(6000,12000))
-        self.assertEqual(row['input_settled_tokens'],1200)
-        self.assertIsNone(row['output_settled_tokens'])
+        for protocol in ('anthropic','chat_completions','responses'):
+            with self.subTest(protocol=protocol):
+                receipt=get(protocol).receipt()
+                with self.lease.bind(),model_budget(self.lease,self.run,18000,receipt,
+                        input_reserved_tokens=6000,output_reserved_tokens=12000,method='test_estimate') as reservation, \
+                        model_call(self.lease,protocol,observer=receipt):
+                    receipt.feed(json.dumps(payload(protocol)).encode())
+                row=self.store.query('SELECT * FROM workflow_model_reservations WHERE id=?',(reservation,))[0]
+                self.assertEqual(row['state'],'partially_settled_output_unknown')
+                self.assertEqual(row['reserved_tokens'],18000)
+                self.assertEqual(row['used_tokens'],13200)
+                self.assertEqual((row['input_reserved_tokens'],row['output_reserved_tokens']),(6000,12000))
+                self.assertEqual(row['input_settled_tokens'],1200)
+                self.assertIsNone(row['output_settled_tokens'])
+        calls=self.store.query("SELECT input_tokens,output_tokens,receipt,error_code FROM usage_calls WHERE category='llm'")
+        self.assertEqual(len(calls),3)
+        for call in calls:
+            self.assertEqual((call['input_tokens'],call['output_tokens']),(1200,0))
+            self.assertEqual((call['receipt'],call['error_code']),('conflict','model_usage_zero_output'))
 
     def test_multimodal_generation_uses_count_then_settles_real_usage(self):
         import base64,io,threading

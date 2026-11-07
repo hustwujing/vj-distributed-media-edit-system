@@ -298,6 +298,8 @@ class ChatReceipt(Receipt):
             }
         for choice in value.get('choices', []):
             content = choice.get('delta', choice.get('message', {})) or {}
+            if any(content.get(key) for key in ('content','tool_calls','reasoning_content','refusal','function_call')):
+                self.observed_output=True
             callback = getattr(self, 'on_activity', None)
             if callback:
                 if content.get('content'):
@@ -319,8 +321,6 @@ class AnthropicReceipt(Receipt):
         self.native_usage = {}
         self.has_output_receipt = False
         self.reasoning_tokens = None
-        self.observed_output=False
-        self.usage_anomaly=''
 
     def accept(self, data):
         try:
@@ -352,7 +352,6 @@ class AnthropicReceipt(Receipt):
             created = native.get('cache_creation_input_tokens', 0)
             total_input = fresh + cached + created if fresh is not None else None
             output = native.get('output_tokens') if self.has_output_receipt else None
-            self.usage_anomaly='model_usage_zero_output' if self.observed_output and output==0 else ''
             self.usage = {'input_tokens': total_input, 'output_tokens': output,
                           # Let the common ledger label totals derived from
                           # input/output; do not fabricate a provider receipt.

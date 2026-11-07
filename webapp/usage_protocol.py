@@ -23,6 +23,11 @@ class Receipt:
     limit=32*1024**2
     def __init__(self):
         self.buffer=b'';self.sse=None;self.usage=None;self.status=None;self.response_id='';self.truncated=False
+        self.observed_output=False
+
+    @property
+    def usage_anomaly(self):
+        return 'model_usage_zero_output' if self.observed_output and (self.usage or {}).get('output_tokens')==0 else ''
 
     def accept(self, data):
         try:value=json.loads(data)
@@ -39,6 +44,13 @@ class Receipt:
                 callback(self._tool_phase)
             elif kind in ('response.function_call_arguments.delta','response.custom_tool_call_input.delta'):callback(getattr(self,'_tool_phase','prepare_tool'))
         response=value.get('response') if isinstance(value.get('response'),dict) else value
+        output=response.get('output',[])
+        item=value.get('item')
+        if (isinstance(output,list) and any(isinstance(part,dict) and part.get('type') in
+                ('message','function_call','custom_tool_call','reasoning') for part in output)
+                or isinstance(item,dict) and item.get('type') in ('function_call','custom_tool_call')
+                or kind.startswith('response.') and kind.endswith('.delta') and value.get('delta')):
+            self.observed_output=True
         status=response.get('status')
         if kind in ('response.completed','response.failed','response.incomplete','response.cancelled') or status in ('completed','failed','incomplete','cancelled'):
             self.status={'completed':'succeeded','failed':'failed','incomplete':'incomplete','cancelled':'cancelled'}.get(status or kind.split('.')[-1],'unknown')

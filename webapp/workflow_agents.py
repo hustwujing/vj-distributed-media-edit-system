@@ -96,7 +96,7 @@ def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_re
         input_settled=usage.get('input_tokens') if type(usage.get('input_tokens')) is int else None
         output_settled=usage.get('output_tokens') if type(usage.get('output_tokens')) is int else None
         if anomaly=='model_usage_zero_output' and input_settled is not None and output_reserved_tokens is not None:
-            # Some Anthropic-compatible routes return a valid non-empty response
+            # Some model routes return a valid non-empty response
             # with output_tokens=0. Settle the independently reported input and
             # retain only the bounded output envelope as unknown usage.
             output_settled=None;used=input_settled+output_reserved_tokens;state='partially_settled_output_unknown'

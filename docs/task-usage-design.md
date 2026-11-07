@@ -7,7 +7,8 @@
 - `usage_tasks`：task → project/run/parent。新请求建立 run；确认执行继承 plan；继续讨论由客户端明确传 parent_task_id，服务端校验同项目。旧记录仅按明确 plan_id 关联，禁止按文本合并。
 - `usage_calls`：每次主模型 HTTP 请求、Agent 工具调用、真正启动的工作流步骤一条记录。call_id 唯一，绑定 attempt/step/revision；重复回执不得累计，终态不得被迟到的开始事件覆盖。
 - 上游生成提交及轮询继续以已有 workflow_provider_calls 为权威数据，不维护第二份累计值。提供者回执仅导出数字用量和明确币种的费用，不暴露参数、凭据、签名 URL。
-- Responses JSON/SSE 在服务端网关旁路解析；不保存模型内容。input/output/total、cached/reasoning 分别记录，后两项为子集；缺少字段保留 null。已收到的失败/取消回执也保留用量。
+- Responses、Chat Completions 与 Anthropic 的 JSON/SSE 在服务端网关旁路解析；不保存模型内容。input/output/total、cached/reasoning 分别记录，后两项为子集；缺少字段保留 null。已收到的失败/取消回执也保留用量。
+- 三种协议统一识别“已观察到输出但 output_tokens=0”的冲突：账本保留原始零值并标记 conflict；预算只结算可信输入，输出阶段上限保留为 unknown。输出证据跨 SSE 分片保留，缺失回执和实际空输出不伪造冲突。此规则已有隔离回归覆盖，当前修订尚未部署或完成真机回执核验。
 - 主模型发请求前落盘；进程消失可通过 attempt 终态识别未完成调用。迟到回执只能更新已有账本记录，不能发布结果或恢复任务。
 - workflow 重试＝同一步骤、同 revision 的额外启动；repair_count 单列，轮询、恢复调度和控制任务不计为重试。模型内部自动重试若无明确关联，不猜测其次数。
 - 历史 quota、事件、provider 记录可作为原有证据展示；历史主模型 Token 无法补造。汇总覆盖全量记录，详情分页。
