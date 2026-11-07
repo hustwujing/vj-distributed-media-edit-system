@@ -19,6 +19,7 @@
 - 复用现有契约、调度、隔离、取消、恢复和成果发布机制；业务特例留在对应能力实现中。
 - 输入归属、方案确认、版本绑定和租约校验不能因功能扩展被绕过。状态与交付相关改动参考 [程序正确性审查原则](docs/program-correctness-audit.md)。
 - 测试使用独立数据与隔离入口；先验证直接影响的行为，发布检查按现有部署流程执行。文档改动检查链接、示例和代码一致性即可。
+- 本机 Python 定向测试也必须使用 `VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp TMPDIR=/data2/wujing03/t VIDEO_USE_TEST_SUITE_LOCK=/data2/wujing03/video-use-test-suite-0.lock XDG_CACHE_HOME=/data2/wujing03/vu-tmp/cache PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m tests.run_distributed_suite <测试模块>`，不得直接使用 `python -m unittest` 绕过隔离初始化。临时文件、测试缓存、锁文件和日志放在 `/data2/wujing03`；不要回退到根分区 `/tmp`。
 - 交付时说明改动、验证结果及未验证边界；历史验收不代表当前代码通过，工作区修改不代表已部署。
 - 本机独立部署通过 `deploy/dynamic_cluster.py` / `deploy.sh` 管理；共享部署原语与 unit 模板分别位于 `deploy/common.py` 和 `deploy/systemd_templates.py`。不得以其他真机驱动操作 main；服务名、端口、数据目录、UID/cgroup、数据库、Redis 前缀和 BOSS 前缀必须独立。
 - 动态 Task 的正式状态只由 Orchestrator 提交；执行器仅保存候选和回执。不得绕过 sealed、
