@@ -56,6 +56,32 @@ class RunInputTests(unittest.TestCase):
         next_lease=self.coordinator.claim(run['id'],'workflow',step_id='right')
         self.assertIsNotNone(next_lease);next_lease.release()
 
+    def test_paused_sibling_does_not_strand_recovered_drain_task(self):
+        from webapp import workflow_dispatch
+        lease=self.coordinator.claim(self.run['id'],'workflow',step_id='left')
+        self.assertIsNotNone(lease)
+        self.send()
+        lease.release()
+        # Model recovery has requeued the previously-started drain task;
+        # an independent task reached a paused content-review boundary.
+        self.store.execute("UPDATE run_tasks SET status='ready',lease_id='' WHERE run_id=? AND id='left'",(self.run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='paused',lease_id='' WHERE run_id=? AND id='right'",(self.run['id'],))
+        for state,reason in [('ACTIVE','input_draining'),('WAITING_USER','input_waiting_user_decision')]:
+            self.store.execute('UPDATE runs SET status=?,terminal_reason=? WHERE id=?',(state,reason,self.run['id']))
+            run=graph.get(self.store,self.run['id'])
+            self.assertIn('left',workflow_dispatch.available(self.store,run,self.store.now()))
+            self.assertIn('left',[row['step_id'] for row in workflow_dispatch.candidates(self.store)])
+        self.store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='' WHERE id=?",(self.run['id'],))
+        recovered=self.coordinator.claim(self.run['id'],'workflow',step_id='left')
+        self.assertIsNotNone(recovered)
+        self.assertIsNone(self.coordinator.claim(self.run['id'],'workflow',step_id='right'))
+        recovered.release()
+        self.store.execute("UPDATE run_tasks SET status='succeeded',lease_id='' WHERE run_id=? AND id='left'",(self.run['id'],))
+        self.assertEqual(run_inputs.safe_point_reason(self.store,graph.get(self.store,self.run['id'])),'')
+        self.f.tick()
+        self.assertTrue(self.store.query("SELECT id FROM planner_runs WHERE status='pending'"))
+        self.assertEqual(self.store.query('SELECT status FROM run_inputs')[0]['status'],'PLANNING')
+
     def test_input_during_planning_stays_in_the_next_batch(self):
         first=self.send();self.f.tick();second=self.send('Also keep the original dimensions')
         self.reply();run=self.f.tick()

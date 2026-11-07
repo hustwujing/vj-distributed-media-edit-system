@@ -87,8 +87,13 @@ class Reaper:
                 duration=max(1,float(os.environ.get('VIDEO_USE_CLEANUP_SECONDS','60')))
                 db.execute("UPDATE execution_cleanup SET started=COALESCE(started,?),deadline_at=COALESCE(deadline_at,?) WHERE attempt=? AND state<>'complete'",
                            (timestamp,timestamp+duration,record['attempt']))
-                db.execute("UPDATE execution_cleanup SET state=?,error=?,updated=?,retries=retries+1,next_retry=? WHERE attempt=? AND state<>'complete'",
-                    (state,error,self.store.now(),self.store.now()+min(300,5*2**min(record.get('retries',0),6)),record['attempt']))
+                # A late failed child cannot undo quarantine. Keep retry
+                # accounting/backoff, but only confirmed cleanup can complete it.
+                db.execute("""UPDATE execution_cleanup SET
+                    state=CASE WHEN state='quarantined' AND ? NOT IN ('quarantined','complete') THEN state ELSE ? END,
+                    error=CASE WHEN state='quarantined' AND ? NOT IN ('quarantined','complete') THEN error ELSE ? END,
+                    updated=?,retries=retries+1,next_retry=? WHERE attempt=? AND state<>'complete'""",
+                    (state,state,state,error,self.store.now(),self.store.now()+min(300,5*2**min(record.get('retries',0),6)),record['attempt']))
                 if state=='quarantined':db.execute('UPDATE execution_workers SET draining=1 WHERE node=?',(self.pool.node,))
         except Exception as exc:
             from .telemetry import emit

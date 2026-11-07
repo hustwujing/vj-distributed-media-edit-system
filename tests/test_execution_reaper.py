@@ -110,6 +110,37 @@ print('mounted' if os.path.ismount(target) else 'clean',flush=True)
         self.assertTrue((self.pool.root/'node-quarantined').exists())
         self.assertEqual(self.store.query('SELECT state FROM execution_cleanup')[0]['state'],'quarantined')
 
+    def test_timeout_quarantine_survives_late_child_exit_and_allows_confirmed_cleanup(self):
+        project=self.store.add_project('owner','quarantine')['id']
+        turn=agent_store.add_turn(self.store,project,'plan','test')
+        lease=Coordinator(self.store,self.pool.node,'test').claim(turn,'agent');lease.release()
+        self.store.execute('UPDATE execution_attempts SET uid=480000 WHERE id=?',(lease.attempt,))
+        record={'attempt':lease.attempt,'uid':480000,'task_id':turn,
+                'boot_id':Path('/proc/sys/kernel/random/boot_id').read_text().strip(),'permit_until':time.monotonic()+120}
+        registry=self.pool.root/'records/480000.json';registry.write_text(json.dumps(record))
+        runtime=self.pool.root/'runs'/lease.attempt;runtime.mkdir()
+        self.store.execute("INSERT INTO execution_cleanup(attempt,task_id,node,state,updated,deadline_at) VALUES (?,?,?,'cleaning',?,?)",
+                           (lease.attempt,turn,self.pool.node,self.store.now(),self.store.now()+600))
+        reaper=Reaper(self.store,self.pool)
+        child=subprocess.Popen(['sleep','60'],start_new_session=True)
+        try:
+            reaper.children[lease.attempt]=(child,time.monotonic()-20,record)
+            reaper.tick();child.wait(timeout=5)
+            first=self.store.query('SELECT state,error,retries FROM execution_cleanup')[0]
+            self.assertEqual(first['state'],'quarantined')
+            reaper.tick()
+            later=self.store.query('SELECT state,error,retries FROM execution_cleanup')[0]
+            self.assertEqual((later['state'],later['error']),(first['state'],first['error']))
+            self.assertGreater(later['retries'],first['retries'])
+            self.assertTrue((self.pool.root/'node-quarantined').exists())
+            self.assertEqual(self.store.query('SELECT draining FROM execution_workers WHERE node=?',(self.pool.node,))[0]['draining'],1)
+            shutil.rmtree(runtime);registry.unlink()
+            reaper.mark(record,'complete')
+            self.assertEqual(self.store.query('SELECT state FROM execution_cleanup')[0]['state'],'complete')
+        finally:
+            if child.poll() is None:child.kill()
+            child.wait(timeout=5)
+
     def test_startup_does_not_require_available_database(self):
         with patch.object(self.store,'connect',side_effect=OSError('DB offline')):
             reaper=Reaper(self.store,self.pool)
