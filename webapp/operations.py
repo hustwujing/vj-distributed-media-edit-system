@@ -231,7 +231,7 @@ class OperationContract:
             raise ValueError('Operation is missing required inputs')
         if self.allowed_inputs is not None and set(inputs)-self.allowed_inputs:
             raise ValueError('Operation received undeclared input roles')
-        for value in inputs.values():InputRef.model_validate(value)
+        for reference in inputs.values():InputRef.model_validate(reference)
         return value
 
 

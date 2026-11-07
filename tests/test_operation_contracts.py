@@ -6,6 +6,22 @@ from webapp.quality_policy import Acceptance
 from webapp.execution_contracts import profile,dispatch_kind,classify_error
 
 class ContractTests(unittest.TestCase):
+    def test_input_validation_preserves_normalized_parameters_for_all_input_counts(self):
+        from pydantic import BaseModel,ConfigDict
+        from webapp.operations import OperationContract
+        class Parameters(BaseModel):
+            model_config=ConfigDict(extra='forbid')
+            sample_rate:int=16000
+        contract=OperationContract(Parameters)
+        for inputs in ({},{'source':{'asset':'a'}},
+                       {'source':InputRef(asset='a'),'reference':{'step':'prior','role':'audio'}}):
+            with self.subTest(inputs=inputs):
+                self.assertEqual(contract.validate({},inputs),{'sample_rate':16000})
+                self.assertEqual(contract.validate({'sample_rate':'22050'},inputs),{'sample_rate':22050})
+        for invalid in ({'asset':'a','step':'prior','role':'audio'},{'step':'prior'},{}):
+            with self.subTest(invalid=invalid),self.assertRaises(ValueError):
+                contract.validate({}, {'source':{'asset':'a'},'reference':invalid})
+
     def test_audio_compare_requires_declared_reference_before_execution(self):
         from webapp.operations import validate_parameters
         source={'source':{'asset':'candidate'}}
