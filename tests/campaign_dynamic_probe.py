@@ -246,6 +246,7 @@ def inspect(directory,final=False,*,supplement=False):
         if run['status']=='SUCCEEDED':check('no_unapplied_inputs_at_delivery:'+wid,run['input_barrier_sequence'] is None and not any(item['status'] in ('ACCEPTED','PLANNING') for item in inputs))
         check('control_jobs_are_separate:'+wid,not ({item['id'] for item in run['tasks']}&{item['id'] for item in run['control_jobs']}))
         run['audit']={'leases':leases,'cleanup':cleanup,'provider_calls':provider,'results':results,'events':events,'inputs':inputs,'drain_set':run['drain_set'],
+                      'workflow_diagnostics':store.query('SELECT step,revision,attempt,record,created FROM workflow_diagnostics WHERE workflow=? ORDER BY created',(wid,)),
                       'authorizations':grants,'planner_snapshots':planner_snapshots,'plan_drafts':plan_drafts,'barrier_intervals':intervals,
                       'task_revisions':store.query('SELECT * FROM workflow_task_revisions WHERE run_id=? ORDER BY task_id,revision',(wid,)),
                       'plan_selections':store.query('SELECT * FROM workflow_plan_tasks WHERE run_id=? ORDER BY graph_version,task_id',(wid,)),
