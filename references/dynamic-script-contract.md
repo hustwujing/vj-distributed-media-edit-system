@@ -35,6 +35,12 @@ measurements with `int`/`float` or `.item()`, and arrays with `.tolist()` before
 serialization; do not pass NumPy coordinates or scalars directly to json.dumps.
 Verify crop/index bounds before applying them, then write the self-check report.
 
+For a transparent logo, requested logo size and margins refer to the visible
+mark unless the user explicitly specifies canvas dimensions. Crop transparent
+padding before scaling, preserve opaque interior details, and measure the
+visible bounds again in the final composition; bitmap dimensions alone do not
+establish the visible size or distance to the frame edge.
+
 For model-authored scripts, choose `on_failure: "diagnose"` when
 `media_failure_diagnostician` is already authorized. A syntax, type, missing-file
 or command error should produce a bounded Diagnosis and Manager revision within
