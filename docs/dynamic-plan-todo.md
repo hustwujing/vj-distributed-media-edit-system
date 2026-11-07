@@ -4,7 +4,7 @@
 
 ## 条目状态口径
 
-本文条目的复选框表示**最终验收**，不表示源码状态：`[x]` 只在完成冻结发布门禁且对应真机证据齐全后勾选。源码已实现但尚未完成 119 条真机验收的条目保留未勾选，并以 `（已实现，待真机验收）` 标注，后附实现入口与开发回归入口。
+本文条目的复选框表示**最终验收**，不表示源码状态：`[x]` 只在完成冻结发布门禁且对应真机证据齐全后勾选。源码已实现但尚未完成当前 126 条真机验收的条目保留未勾选，并以 `（已实现，待真机验收）` 标注，后附实现入口与开发回归入口。
 
 统一 Run、Provider 拆分、用户反馈修订和运行中输入屏障四节的协议已全部落到源码，并有定向回归覆盖；它们的开放项是部署后的逐例真机验收，不是实现缺口。修改这些机制前仍按本文核对约束，特别是文末五个边界。阅读实现时以代码为准，不要据复选框推断功能缺失。
 
@@ -145,7 +145,7 @@ Provider 调用和控制任务，区分 `input_waiting_external_unknown` 与 `in
 
 ### 排空期间的正常处理
 
-- [ ] 屏障不修改已运行 Task 的 spec、revision、lease 或状态。`structured-profile-v2` 完成当前模型/工具循环，script 和本地 Operation 正常退出，Provider Task 继续 submit/poll/collect/validate；Executor 仍保存 checkpoint、诊断、Provider receipt 和 staged result。
+- [ ] 屏障不修改已运行 Task 的 spec、revision、lease 或状态。`structured-profile-v4` 完成当前模型/工具循环，script 和本地 Operation 正常退出，Provider Task 继续 submit/poll/collect/validate；Executor 仍保存 checkpoint、诊断、Provider receipt 和 staged result。
 - [ ] Orchestrator 继续按原规则处理 drain set：结果可以正式变为 `succeeded / paused / retry_wait / reviewing / failed`，程序验收、Agent Review、用户已在处理的 Decision、失败诊断和安全重试均照常完成；不得仅因新输入把正常结果预先标记为 superseded。
 - [ ] 失败 Task 的诊断可以继续创建和完成，但诊断后的自动 Manager revision 暂缓到统一安全点，与用户新输入合并为同一轮规划，避免并发产生两套 Proposal。
 - [ ] Scheduler/Coordinator 在 claim 事务中检查 input barrier：允许 drain set 中已经开始的 Task 继续 poll、collect、validate、安全重试及完成其必要 Review/Diagnosis；拒绝领取屏障建立后新解锁或此前尚未开始的业务 Task。已经是 `ready` 的 Task 可保持 ready，但在屏障解除前不可 claim。
@@ -184,10 +184,140 @@ Provider 调用和控制任务，区分 `input_waiting_external_unknown` 与 `in
 - [ ] 覆盖 Wan submit/poll/collect、submission unknown、安全重试、staged result 提交、cleanup、输入在旧图即将发布时到达、规划期间再次输入和 delivered 后 successor Run；证明不重复收费、不丢 checkpoint、不发布旧图、不丢输入。
 - [ ] 浏览器真机验证用户可连续追加多条要求，所有存量 Task 均按正常规则结束，新下游在 barrier 后零领取；证据绑定 input sequence、drain set、Run/Task/revision、attempt/generation、安全点时间、applied graph version、Provider 回执和最终交付。
 
+## 资源等待与审查修复可达性（2026-11-06 现场新增）
+
+现场发现通用状态机缺口：内容审查返回 `inconclusive` 后，Orchestrator 将候选 Task 暂停并打开
+`repair_context`；若首次创建修复 PLAN 时执行器能力目录短暂不可用，Run 会留下
+`terminal_reason=workers_unavailable`。后续普通推进又可能等待 `replan_after` 中同一个已暂停 Task
+成功，形成没有活动租约或 Control Job、但 Run 持续为 `ACTIVE` 的 reconcile 热循环。以下条目不得按
+单个媒体 case 特判。
+
+- [ ] 区分审查结论：明确内容缺陷使用 `quality_failed`；没有确认缺陷、仅缺少充分证据的
+  `inconclusive` 使用 `review_incomplete`。后者冻结原候选并进入 evidence repair，不默认重做媒体。
+- [ ] `open_repair` 持久保存待规划意图、修复模式、subject revision、审查证据和错误类别。存在活动
+  `repair_context` 且没有 pending/running/staged PLAN 时，Orchestrator 优先补建 repair PLAN，不受普通
+  `replan_after` 就绪条件阻塞；执行器或 Orchestrator 重启后仍能恢复该意图。
+- [ ] Proposal 校验拒绝把本轮未 revision、replace 或 `review_again` 的 `paused/failed` Task 作为
+  `replan_after`。`replan_after` 只能引用能够独立推进到成功的新增或修订工作；失败候选取证继续使用
+  冻结 `repair_candidate`，不得等待其 accepted output。
+- [ ] Reconcile 检测存量不可达状态：活动 repair context、无活动 Planner、且 `replan_after` 包含暂停或
+  失败节点时，原子清除不可达等待并补建 repair PLAN；无法恢复或预算耗尽时进入明确失败或真实用户
+  决策，禁止保持伪 `ACTIVE` 每秒空转。
+- [ ] `workers_unavailable` 由 Orchestrator 作为可恢复资源等待写入和清除。规划快照恢复且 PLAN/control
+  job 创建成功时在同一事务条件清空该原因并记录恢复事件；采用有界退避，Observer 只告警、不修改
+  Run。页面不得把历史残留原因当作当前执行器状态。
+- [ ] 配额和公开状态区分正在执行、资源等待、系统恢复、真实用户决策与终态失败。没有 pending
+  decision 的 `WAITING_USER`、资源等待和恢复检查不得伪装成用户可操作任务，也不得永久占用活跃执行
+  名额。
+- [ ] 增加回归：Reviewer `inconclusive` 后补证据并 `review_again`；Reviewer 明确 reject 后修订候选；
+  首次 repair PLAN 创建期间全部 worker 下线再恢复；滚动部署能力目录短暂消失；不可达
+  `replan_after` 存量自愈；恢复后清除 `workers_unavailable`；全程无重复 Provider 调用、无重复审查、
+  无 reconcile 热循环。
+- [ ] 部署中断按工作类型恢复，不能统一转成无决策入口的 `WAITING_USER`：PLAN/REVIEW/DIAGNOSE 等无外部
+  副作用的 Control Job 在 lease generation 和冻结 snapshot 仍有效时由新 worker 有界重试；本地确定性
+  operation 在清理完成且没有外部调用意图时按 implementation protocol 安全重跑；只有外部提交未知才
+  进入专门的核实状态并沿用原 request/external ID，禁止重复提交。
+- [ ] 进程退出、lease interrupted 和部署接管本身不是 `agent_failed` 或 `result_unavailable` 的充分条件。
+  `agent_failed` 只表示新尝试实际耗尽格式/语义纠错仍无合法结果；`result_unavailable` 只用于无法通过
+  checkpoint、Provider 查询、不可变对象或确定性重跑恢复的结果。恢复耗尽且不需要用户提供业务事实时
+  进入 `FAILED`，不得写入没有 pending decision 的 `WAITING_USER`。
+- [ ] 增加滚动发布回归：分别在 Reviewer 模型调用中、本地 operation 执行中、Provider submit 前、提交
+  未知后和 poll/collect 中停止 worker/Orchestrator。核对新 release 接管原 Run、旧 generation 结果拒绝、
+  Control Job 与本地 operation 有界恢复、外部请求不重提、清理完成，且公开状态和用户配额不出现僵尸
+  `WAITING_USER`。
+
+### 硬杀与跨 Release 恢复审查补充
+
+以下条目以任意服务可在任意指令边界被 `SIGKILL` 为前提；不得依赖 signal handler、context manager、
+`finally`、正常 lease release 或优雅 drain。Drain 只能降低中断概率，不能成为正确性的必要条件。
+
+- [ ] 将基础设施中断与业务尝试分账。`claim` 可以增加 dispatch generation，但 worker/orchestrator 退出、
+  lease 过期、节点失联和部署切换不能增加模型纠错、内容修订或业务失败次数；分别保存
+  `dispatch_count / infrastructure_interruptions / execution_failures / model_corrections`。恢复上限使用对应
+  计数，连续部署不得耗尽业务 `retry_policy`。
+- [ ] 为 `workflow_model_reservations` 增加硬杀恢复者。Reservation 绑定 attempt、请求开始事实和可取得的
+  原始回执；attempt 终结后仍为 `reserved` 时，按状态转换为明确的 unknown usage，保留有界 output 包络，
+  能独立确认的 input 单独结算。不得永久占用整笔预留、伪造零用量或删除真实未知成本；预算展示、追加
+  授权和终态报告必须使用收敛后的账本。
+- [ ] 增加孤儿 Token 预留扫描与告警：检测 `reserved` reservation 对应 attempt 已
+  `interrupted/expired/finished` 且超过恢复窗口；记录数量、Token 和最老年龄。修复前保留现场四条、合计
+  262574 tokens 的证据，不能直接清零冒充供应商未计费。
+- [ ] 处理跨 release runtime/profile 不兼容。新 worker 发现 Task 的 `_environment`、Harness/Profile digest、
+  implementation 或 operation contract 与当前 release 不一致时，必须写入类型化
+  `runtime_profile_changed / policy_changed / implementation_unavailable` 状态并触发受控 revision、重新授权
+  或明确失败；禁止在 scheduler/claim 中静默 `continue/return None` 使 ready Task 永久无人领取。
+- [ ] 不要求保留旧字段兼容，但必须选择明确的跨 release 策略：能够由冻结旧 release 安全恢复的工作交给
+  对应 recovery worker；无法执行旧契约时由 Orchestrator 生成新 revision 并重新验收；不能用新代码静默
+  执行旧冻结契约，也不能依赖人工发现无领取节点。
+- [ ] 统一 Run 必须调用 `operation_lifecycle.Implementation.recover()` 或同一份类型化 recovery protocol，
+  删除 Orchestrator 内与 LOCAL/SYNC/ASYNC 重复且已漂移的手写判断。每种 phase 明确 durable fact、允许的
+  action、重试预算、下一状态和恢复者。
+- [ ] Provider 恢复先按持久 `state` 分流，再检查 external ID/result：`succeeded+result` 进入 validate，
+  `succeeded` 无结果进入 bounded collect/result recovery，`failed/rejected` 进入已知失败，`cancelled` 进入
+  取消收敛，只有 `submitting/submission_unknown` 才按是否有 ID 查询或保持未知。终态调用不得重新 poll，
+  已知失败不得误报提交未知。
+- [ ] 利用 durable checkpoint 恢复本地结果。硬杀发生在输出上传/检查点完成与 `phase=validate` 落库之间时，
+  Orchestrator 应按 attempt、Task revision、manifest 和哈希恢复 candidate 并进入 validate；不能因状态仍为
+  local 就丢弃已持久结果或重做不可重试工作。
+- [ ] 为确定性 reconcile 错误增加按 Run、graph version、exception/error signature 的熔断与退避。重复相同
+  错误达到上限后进入明确的程序恢复状态并停止每秒写循环，同时保留诊断和运维恢复入口；版本或相关
+  状态变化后才能解除熔断。`workflow_reconcile_failures` 不能只记录而不参与控制。
+- [ ] 修正部署编排：不并行停掉全部 API、worker 和 Orchestrator 后再依赖进程自行收尾。发布可先启动可用
+  控制面/恢复者并分批替换 worker，等待新 capability catalog 可见后再移除旧实例；但测试仍必须直接
+  `SIGKILL` 全部相关进程，证明即使完全没有优雅窗口也能恢复。
+- [ ] 对 API、Orchestrator、worker、watchdog/reaper、media helper 分别列出硬杀窗口：事务前后、claim 后、
+  模型预留后、Provider intent 后/HTTP 前/HTTP 后、external ID 回写前后、checkpoint 前后、result staged
+  前后、cleanup 中、Proposal staged/apply 中、输入 freeze/apply 中及发布事务中。每个窗口明确数据库事实、
+  不可重复副作用、接管者和可观察终态。
+- [ ] 保持已核实的正确边界并增加防回归：Orchestrator 事务硬杀回滚；Task result 继续绑定
+  attempt/generation/revision；staged Proposal 等待旧 lease 与 cleanup；Provider intent 先于副作用；本地
+  watchdog 使用单调许可；输入屏障与发布继续原子竞争。修复不得通过放松 fencing 或提前标清理完成来
+  获得表面恢复。
+- [ ] 改写当前把中断后 `WAITING_USER/result_unavailable` 当成功预期的测试。新增真实 PostgreSQL、多进程
+  `SIGKILL -9` 矩阵，至少覆盖 Control PLAN/REVIEW/DIAGNOSE、editing Implementer、Script、固定本地
+  Operation、SYNC Provider、ASYNC submit/poll/collect、模型回执、checkpoint、输入屏障、授权决策、取消、
+  cleanup 和最终发布；断言内部状态、浏览器、预算、对象、Redis、Provider 与配额全部收敛。
+
+## 重新授权的当前策略重绑定（2026-11-06 现场新增）
+
+现场发现 `plan_change` 因 Agent policy digest 变化要求重新授权时，页面从旧 Run authorization 复制
+`agent_profile_digests`，仅清空 `allowed_asset_digests` 后再次提交。服务端 `bind_scope` 正确识别旧摘要并
+拒绝，但 Orchestrator 将具体错误折叠为 `invalid_or_stale_decision`，形成用户反复点击也无法通过的授权
+循环。修复必须遵守以下通用边界：
+
+- [ ] 重新授权请求只接受用户可决定字段：目标、交付范围、素材 ID、允许的 operation/Profile、Provider
+  次数和时间/Token/Task/规划预算。页面不得回传 `agent_profile_digests`、
+  `operation_implementations`、`operation_policy_digests`、`allowed_asset_digests` 等服务端派生绑定。
+- [ ] Orchestrator 在批准事务内使用当前健康执行器 capability catalog、当前 Specialist policy 和当前素材
+  内容重新派生实现、Provider policy、Agent policy 及 asset digest；绑定结果写入新的
+  `authorization_version`。重新绑定不能扩大用户未确认的逻辑范围。
+- [ ] 决策仍绑定 decision snapshot、graph version 和旧 authorization version。策略或能力在用户查看后
+  再次变化时，废弃旧 decision 并生成包含当前差异的新 decision；素材 content fingerprint 变化时要求
+  用户核对当前素材，但不得复用旧摘要制造无法批准的循环。
+- [ ] 保留明确错误分类，例如 `decision_snapshot_stale`、`content_changed`、
+  `agent_policy_changed_again`、`operation_policy_changed_again` 和 `scope_invalid`；API 与页面显示可行动原因，
+  不把所有校验失败压成 `invalid_or_stale_decision`。
+- [ ] 增加 API、浏览器和部署回归：创建 Run 后升级 Specialist policy、滚动更新 operation catalog、素材在
+  确认前变化、重复批准和并发策略再次变化；证明一次有效确认能生成新授权并继续同一 Run，过期确认
+  安全拒绝且能取得新的可批准快照。
+- [ ] `plan_change` / `successor_authorization` 的 `reject` 不得复用质量候选拒绝的
+  `WAITING_USER/user_rejected` 语义。拒绝重新授权只废弃对应 Planner 提案和该决策消费的输入批次：将
+  输入标为 `SUPERSEDED` 或明确的 `REJECTED`，清除或推进 input barrier，并恢复到提案前可解释的 Run
+  状态；不得留下开放图、已接受输入和无可操作决策同时存在。
+- [ ] “拒绝本次范围变更”与“停止整个 Run”使用不同动作和文案。前者保留已完成节点和原授权范围，后者
+  必须走 `CANCELLING -> CANCELLED`、关闭待决决策、终结或转移未应用输入并完成租约/Provider/清理核实；
+  页面不得让“停止当前方向”看起来等同于取消处理。
+- [ ] 拒绝或取消后的 DAG 继续保留不可变历史：已成功业务节点为 succeeded、被拒绝的授权 PLAN 为历史
+  failed/rejected，且没有 running 呼吸节点。Run 摘要、输入状态、按钮和活跃配额必须与权威终态或恢复态
+  一致；没有可操作决策的 `WAITING_USER` 不能继续占用用户活跃任务上限。
+- [ ] 增加定向回归：拒绝 policy renewal、拒绝带输入批次的 plan change、拒绝后继续原图、拒绝后再提交
+  新输入，以及从同一决策分别执行 reject 和 cancel；核对 decision、run_inputs、barrier、Run state、DAG
+  节点、租约、清理、Provider 调用和用户配额没有残留或重复执行。
+
 ## 实施时必须落实的五个边界
 
 以下是已确认统一方案的工程约束。五个边界的协议和定向竞争测试均已落到源码（实现与回归入口见下表末列），
-但**都尚未完成部署后的 119 条真机验收**；不得仅凭本段记录、其他 TODO 勾选或开发回归通过宣称完成。
+但**都尚未完成部署后的当前 126 条真机验收**；不得仅凭本段记录、其他 TODO 勾选或开发回归通过宣称完成。
 修改相关机制时按本表核对约束，不要据复选框推断实现缺口。
 
 | 边界 | 实现要求 | 必须验证的结果 | 实现与开发回归 |

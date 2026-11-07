@@ -20,13 +20,23 @@ def validate_references(store,run,proposal):
 
 def available_operations(store):
     from .operations import catalog
-    advertised={}
-    for row in store.query('''SELECT c.catalogue FROM execution_operation_catalog c JOIN execution_workers w ON w.id=c.worker
-        WHERE w.draining=0 AND w.heartbeat>?''',(store.now()-30,)):
-        for op in json.loads(row['catalogue']).get('operations',[]):
-            if op['id'] not in advertised or op.get('available'):advertised[op['id']]=op
-    if not advertised and os.environ.get('VIDEO_USE_STORAGE_METADATA_ONLY')=='1':return None
-    return list(advertised.values()) or catalog()['operations']
+    rows=store.query('''SELECT c.catalogue FROM execution_operation_catalog c JOIN execution_workers w ON w.id=c.worker
+        WHERE w.draining=0 AND w.heartbeat>?''',(store.now()-30,))
+    if not rows:
+        if os.environ.get('VIDEO_USE_STORAGE_METADATA_ONLY')=='1':return None
+        return catalog()['operations']
+    catalogues=[]
+    for row in rows:
+        try:
+            items=json.loads(row['catalogue']).get('operations',[])
+            indexed={item['id']:item for item in items if isinstance(item,dict) and isinstance(item.get('id'),str)}
+            if len(indexed)!=len(items):indexed={}
+        except (TypeError,ValueError):indexed={}
+        catalogues.append(indexed)
+    common=set(catalogues[0])
+    for indexed in catalogues[1:]:common&=set(indexed)
+    return [catalogues[0][identifier] for identifier in sorted(common)
+            if len({digest(indexed[identifier]) for indexed in catalogues})==1]
 
 
 def bind_scope(store,raw):
@@ -48,6 +58,15 @@ def bind_scope(store,raw):
     if any(assets.get(key)!=value for key,value in requested.allowed_asset_digests.items()):raise ValueError('Requested asset version is stale')
     requested.allowed_asset_digests=assets
     return bind_authorization(requested.model_dump(),implementations=bindings,policies=policies)
+
+
+def rebind_scope(store,raw):
+    """Bind user-confirmed logical scope to current server-owned identities."""
+    if not isinstance(raw,dict):raise ValueError('Authorization is required')
+    logical=dict(raw)
+    for key in ('allowed_asset_digests','operation_implementations','operation_policy_digests','agent_profile_digests'):
+        logical[key]={}
+    return bind_scope(store,logical)
 
 
 def snapshot(store,run):
@@ -129,7 +148,9 @@ def queue(store,run,trigger):
     identifier=uuid.uuid4().hex;task_id=identifier;now=store.now()
     frozen=snapshot(store,run)
     if frozen is None:
-        store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='workers_unavailable' WHERE id=?",(run['id'],))
+        store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='workers_unavailable',next_reconcile_at=? WHERE id=?",
+                      (store.now()+5,run['id']))
+        event(store,run,'planning_deferred',{'reason':'workers_unavailable'})
         return None
     frozen['trigger']=trigger
     frozen['input_batch']=trigger.get('input_batch')
@@ -144,7 +165,8 @@ def queue(store,run,trigger):
     from .specialist_profiles import get as profile
     store.execute('''INSERT INTO control_jobs(run_id,id,type,authorization_version,control_kind,snapshot_json,snapshot_digest,spec_json,profile_json,status,created_graph_version,created_at,updated_at)
         VALUES (?,?,'agent',?,'PLAN',?,?,?,?,'ready',?,?,?)''',(run['id'],task_id,run['authorization_version'],encode(frozen),digest(frozen),encode(spec),encode(profile('media_planner').snapshot()),run['graph_version'],now,now))
-    store.execute("UPDATE runs SET status='ACTIVE',updated_at=? WHERE id=?",(now,run['id']))
+    store.execute("UPDATE runs SET status='ACTIVE',terminal_reason=CASE WHEN terminal_reason='workers_unavailable' THEN '' ELSE terminal_reason END,updated_at=? WHERE id=?",(now,run['id']))
+    if run.get('terminal_reason')=='workers_unavailable':event(store,run,'workers_recovered')
     event(store,run,'planning_requested',{'request_id':identifier,'round':count+1})
     return identifier
 
@@ -217,9 +239,13 @@ def apply(store,run,request):
             VALUES (?,?,0,?,?,?)''',(run['id'],task.id,encode(task.model_dump()),version,now))
     previous_edges={(edge['upstream_task_id'],edge['downstream_task_id']) for edge in run['dependencies']}
     for upstream,downstream in previous_edges-set(edges):
-        store.execute('UPDATE workflow_dependencies SET retired_graph_version=? WHERE run_id=? AND upstream_task_id=? AND downstream_task_id=?',(version,run['id'],upstream,downstream))
+        store.execute('''UPDATE workflow_dependencies SET retired_graph_version=?
+            WHERE run_id=? AND upstream_task_id=? AND downstream_task_id=? AND retired_graph_version IS NULL''',
+            (version,run['id'],upstream,downstream))
     for upstream,downstream in edges:
-        store.execute('INSERT OR IGNORE INTO workflow_dependencies(run_id,upstream_task_id,downstream_task_id,created_graph_version) VALUES (?,?,?,?)',(run['id'],upstream,downstream,version))
+        if (upstream,downstream) not in previous_edges:
+            store.execute('INSERT INTO workflow_dependencies(run_id,upstream_task_id,downstream_task_id,created_graph_version) VALUES (?,?,?,?)',
+                          (run['id'],upstream,downstream,version))
     for old,new in proposal.replacements.items():
         previous=next(task for task in run['tasks'] if task['id']==old)
         store.execute('UPDATE run_tasks SET selected=0 WHERE run_id=? AND id=?',(run['id'],old))
@@ -246,7 +272,7 @@ def apply(store,run,request):
                 repair_root,supersedes_revision,reason,created_at) VALUES (?,?,?,?,?,?,?,?,?)''',
                 (run['id'],identifier,new_revision,encode(spec.model_dump()),version,int(repair_root),row['revision'],proposal.reason,now))
             store.execute('''UPDATE run_tasks SET spec_json=?,purpose=?,authorization_version=?,revision=?,repair_count=repair_count+?,user_revision_count=user_revision_count+?,repair_context_json=?,status='blocked',phase=?,
-                attempts=0,recovery_count=0,review_again_count=0,next_run_at=0,wait_reason='',candidate_result_json='[]',accepted_result_json='[]',quality_json='{}',
+                attempts=0,recovery_count=0,infrastructure_interruptions=0,review_again_count=0,next_run_at=0,wait_reason='',candidate_result_json='[]',accepted_result_json='[]',quality_json='{}',
                 bindings_json='{}',external_id='',error_code='',error_detail='',lease_id='',lease_generation=0,updated_at=?
                 WHERE run_id=? AND id=?''',(encode(spec.model_dump()),spec.purpose,run['authorization_version'],new_revision,int(repair_root and user_scope is None),int(repair_root and user_scope is not None),encode({'automatic':context,'inputs':input_records}),initial_phase(spec),now,run['id'],identifier))
     repair_context='{}' if revisions or proposal.replacements or proposal.review_again else encode(run.get('repair_context',{}))

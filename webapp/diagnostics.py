@@ -43,15 +43,16 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
       LEFT JOIN execution_workers w ON w.id=a.worker WHERE a.run_id=? ORDER BY a.started DESC LIMIT ?''',(task_id,limit))
     report['workflow']=query('workflow','SELECT id,status,updated FROM agent_workflows WHERE run_id=?',(task_id,))
     report['dynamic_workflow']=query('dynamic_workflow','''SELECT id,status,graph_version,sealed,authorization_version,
-        next_reconcile_at,reconcile_until,reconcile_generation,created_at,updated_at,terminal_reason,delivered_at,input_sequence,input_barrier_sequence
+        next_reconcile_at,reconcile_until,reconcile_generation,reconcile_error_count,created_at,updated_at,terminal_reason,delivered_at,input_sequence,input_barrier_sequence
         FROM runs WHERE id=?''',(task_id,))
     report['steps']=query('steps','''SELECT s.id,s.status,s.revision,s.attempts,s.next_poll,s.wait_reason,s.error_code,s.updated FROM agent_steps s
       JOIN agent_workflows w ON s.workflow=w.id WHERE w.run_id=? ORDER BY s.id LIMIT ?''',(task_id,limit))
     if report['dynamic_workflow']:
         wid=report['dynamic_workflow'][0]['id']
         report['workflow']=report['dynamic_workflow']
-        report['steps']=query('dynamic_steps','''SELECT id,status,phase,revision,attempts,next_run_at AS next_poll,
-            wait_reason,error_code,updated_at AS updated,lease_id,lease_generation,control_kind FROM run_work_items
+        report['steps']=query('dynamic_steps','''SELECT id,status,phase,revision,attempts,recovery_count,infrastructure_interruptions,
+            repair_count,user_revision_count,next_run_at AS next_poll,wait_reason,error_code,updated_at AS updated,
+            lease_id,lease_generation,control_kind FROM run_work_items
             WHERE run_id=? ORDER BY created_at,id LIMIT ?''',(wid,limit))
         report['specialist_attempts']=query('specialist_attempts','SELECT attempt_id,work_id,profile_id,harness_id,policy_digest,model,protocol,model_config_digest,created_at FROM specialist_attempt_profiles WHERE run_id=? ORDER BY created_at LIMIT ?',(wid,limit))
         report['inputs']=query('run_inputs','SELECT id,sequence,status,source,base_graph_version,base_authorization_version,accepted_at,applied_at,applied_graph_version,error_code FROM run_inputs WHERE run_id=? ORDER BY sequence LIMIT ?',(wid,limit))
@@ -60,8 +61,13 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
         report['planning']=query('planning','''SELECT id,base_graph_version,authorization_version,snapshot_digest,status,
             proposal_id,applied_graph_version,attempts,error_code,created_at,updated_at FROM planner_runs
             WHERE run_id=? ORDER BY created_at LIMIT ?''',(wid,limit))
+        report['plan_drafts']=query('plan_drafts','''SELECT planning_request_id,status,revision,last_error_signature,
+            last_error_json,repeated_error_count,created_at,updated_at FROM workflow_plan_drafts
+            WHERE run_id=? ORDER BY created_at LIMIT ?''',(wid,limit))
+        for item in report['plan_drafts']:item['last_error']=json.loads(item.pop('last_error_json'))
         report['task_results']=query('task_results','''SELECT id,task_id,task_revision,lease_id,lease_generation,outcome,status,
-            created_at,committed_at FROM task_results WHERE run_id=? ORDER BY created_at LIMIT ?''',(wid,limit))
+            error_json,created_at,committed_at FROM task_results WHERE run_id=? ORDER BY created_at LIMIT ?''',(wid,limit))
+        for item in report['task_results']:item['error']=json.loads(item.pop('error_json'))
         report['graph_events']=query('graph_events','SELECT seq,kind,graph_version,created_at FROM workflow_graph_events WHERE run_id=? ORDER BY seq DESC LIMIT ?',(wid,limit))
         report['decisions']=query('decisions','SELECT id,kind,graph_version,snapshot_digest,status,created_at,updated_at FROM workflow_decisions WHERE run_id=? ORDER BY created_at LIMIT ?',(wid,limit))
         report['reviews']=query('reviews','SELECT id,purpose,subject_task,graph_version,snapshot_digest,status,created_at,updated_at FROM workflow_reviews WHERE run_id=? ORDER BY created_at LIMIT ?',(wid,limit))
@@ -76,6 +82,9 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
             FROM workflow_plan_tasks WHERE run_id=? ORDER BY graph_version,task_id LIMIT ?''',(wid,limit))
         report['reconcile_failures']=query('reconcile_failures','''SELECT reconcile_generation,exception_type,error_code,created_at
             FROM workflow_reconcile_failures WHERE run_id=? ORDER BY created_at DESC LIMIT ?''',(wid,limit))
+        report['model_reservations']=query('model_reservations','''SELECT attempt_id,reserved_tokens,used_tokens,state,
+            input_reserved_tokens,output_reserved_tokens,input_settled_tokens,output_settled_tokens,created_at
+            FROM workflow_model_reservations WHERE run_id=? ORDER BY created_at DESC LIMIT ?''',(wid,limit))
     report['step_versions']=query('step_versions','SELECT v.step,v.revision,v.created FROM workflow_step_versions v JOIN agent_workflows w ON w.id=v.workflow WHERE w.run_id=? ORDER BY v.created DESC LIMIT ?',(task_id,limit))
     report['quality']=query('quality','SELECT q.step,q.revision,q.actor,q.action,q.created FROM workflow_quality_events q JOIN agent_workflows w ON w.id=q.workflow WHERE w.run_id=? ORDER BY q.created DESC LIMIT ?',(task_id,limit))
     report['step_checkpoints']=query('step_checkpoints','SELECT c.step,c.revision,c.attempt,c.updated FROM execution_step_checkpoints c JOIN agent_workflows w ON w.id=c.workflow WHERE w.run_id=? ORDER BY c.updated DESC LIMIT ?',(task_id,limit))
@@ -90,7 +99,7 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
             call['failure']={};report['complete']=False
             report['gaps'].append({'source':'provider_failure','error_code':'InvalidMetadata'})
     report['local_cleanup']=query('cleanup','SELECT attempt,node,state,retries,next_retry,updated FROM execution_cleanup WHERE task_id=? ORDER BY updated DESC LIMIT ?',(task_id,limit))
-    report['external_cleanup']=query('external_cleanup','SELECT id,provider,external_id,state,phase,attempts,next_retry FROM execution_external_cleanup WHERE task_id=? LIMIT ?',(task_id,limit))
+    report['external_cleanup']=query('external_cleanup','SELECT id,provider,external_id,state,phase,attempts,reconciliations,next_retry,error FROM execution_external_cleanup WHERE task_id=? LIMIT ?',(task_id,limit))
     report['cancellation']=query('cancellation','SELECT request_id,scope,reason,created FROM execution_cancel_requests WHERE task_id=?',(task_id,))
     report['metrics']=query('phases','SELECT phase,SUM(seconds) AS cumulative_seconds,SUM(calls) AS calls,SUM(failures) AS failures FROM execution_phase_metrics WHERE task_id=? GROUP BY phase',(task_id,))
     report['waits']=query('waits','SELECT reason,next_retry,updated FROM execution_waits WHERE task_id=?',(task_id,))
@@ -120,7 +129,7 @@ def diagnose(store,task_id,after=0,limit=100,include_logs=True):
         report['facts'].update(status=task['status'],wall_seconds=round(max(0,(now if task['status'] not in ('succeeded','failed','cancelled') else task['updated'])-task['created']),3),
                                latest_recorded_progress_at=latest,current_attempts=active)
         reasons=[w['reason'] for w in report['waits']]+[s['wait_reason'] for s in report['steps'] if s['wait_reason']]
-        if any(p['state'] in ('submitting','unknown') for p in report['provider_calls']):
+        if any(p['state'] in ('submitting','unknown','submission_unknown') for p in report['provider_calls']):
             report['suggestions'].append({'code':'verify_upstream','text':'上游提交结果未确认；先核实已保存句柄，不要重新生成。'})
         if task['status']=='cancelled':
             report['suggestions'].append({'code':'check_cleanup','text':'业务已停止；分别检查本地清理和上游取消，不能据此认定上游已停止。'})

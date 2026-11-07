@@ -13,6 +13,15 @@ from tests.distributed_support import PostgresServer,S3Server
 from tests.test_dynamic_graph import script
 
 
+class ErrorClassificationTests(unittest.TestCase):
+    def test_stream_protocol_resets_are_transient_model_errors(self):
+        from urllib3.exceptions import ProtocolError,ReadTimeoutError
+        from webapp.workflow_executor import transient_model_error
+        self.assertTrue(transient_model_error(ProtocolError('stream reset')))
+        self.assertTrue(transient_model_error(ReadTimeoutError(None,'/messages','timed out')))
+        self.assertFalse(transient_model_error(ValueError('invalid model payload')))
+
+
 @unittest.skipUnless(os.geteuid()==0 and shutil.which('bwrap'),'Requires privileged sandbox')
 class DynamicExecutionTests(unittest.TestCase):
     def test_review_contract_and_model_token_exhaustion_are_distinct(self):

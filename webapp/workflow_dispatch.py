@@ -54,7 +54,8 @@ def bind_claim(store,db,run,step_id,attempt,generation):
     task=next(t for t in graph.work_items(run) if t['id']==step_id)
     from .run_inputs import can_dispatch
     if not can_dispatch(graph.get(store,run['id']),task):raise ValueError('Input barrier prevents this claim')
-    if not db.execute(f'''UPDATE {graph.work_table(task)} SET lease_id=?,lease_generation=?,attempts=attempts+1,updated_at=?
+    if not db.execute(f'''UPDATE {graph.work_table(task)} SET lease_id=?,lease_generation=?,attempts=attempts+1,
+        wait_reason='',error_code='',error_detail='',updated_at=?
         WHERE run_id=? AND id=? AND status='ready' AND revision=?''',
         (attempt,generation,store.now(),run['id'],step_id,task['revision'])).rowcount:
         raise ValueError('Task no longer ready')
@@ -65,6 +66,10 @@ def bind_claim(store,db,run,step_id,attempt,generation):
 
 
 def stage_result(store,lease,outcome,data,manifest=None):
+    if outcome not in ('succeeded','failed','waiting','resource_wait'):raise ValueError('Unknown task result outcome')
+    if not isinstance(data,dict):raise ValueError('Task result data must be an object')
+    if manifest is not None and (not isinstance(manifest,dict) or any(not isinstance(name,str) or not isinstance(record,dict) for name,record in manifest.items())):
+        raise ValueError('Task result manifest must map paths to object records')
     with lease.bind(),store.connect() as db:
         lease.validate(db)
         run=graph.get(store,lease.run_id)

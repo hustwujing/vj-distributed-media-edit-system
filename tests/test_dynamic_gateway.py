@@ -330,6 +330,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(len(self.actual_model_posts),1)
         row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
         self.assertEqual((row['used_tokens'],row['state']),(112,'settled_derived'))
+        self.assertEqual(self.store.query("SELECT used FROM execution_budgets WHERE run_id=? AND category='model'",(self.run['id'],))[0]['used'],1)
 
     def test_estimated_input_cannot_bypass_the_authorized_token_limit(self):
         self.run['authorization']['model_token_budget']=1
@@ -337,6 +338,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.assertRaises(TaskQuotaReached):self.estimated_generation()
         self.assertEqual(self.actual_model_posts,[])
         self.assertFalse(self.store.query('SELECT id FROM workflow_model_reservations'))
+        self.assertFalse(self.store.query("SELECT used FROM execution_budgets WHERE run_id=? AND category='model'",(self.run['id'],)))
 
     def test_suspect_zero_output_receipt_partially_settles_and_preserves_raw_conflict(self):
         self.assertEqual(self.estimated_generation(output_tokens=0)['proposal']['kind'],'REQUEST_USER_INPUT')
@@ -604,7 +606,42 @@ class DynamicGatewayTests(unittest.TestCase):
         draft=json.loads(row['draft_json']);self.assertEqual(draft['new_tasks'][0]['id'],'draft_report')
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['proposal']['add_tasks'][0]['id'],'draft_report')
-        self.assertEqual(calls,[['inspect','contract','submit_typed_plan','continue_run','request_user_input','request_authorization','new_run_required']])
+        self.assertEqual(calls,[['inspect','contract','submit_typed_plan','request_user_input','request_authorization','new_run_required']])
+
+    def test_manager_control_result_closes_its_bound_plan_draft(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        from webapp.strict_schema import transform
+        def respond(*args,**kwargs):
+            protocol=kwargs['protocol']
+            wire=transform({'reason':'A required choice is missing','question':'Which layout should be used?','options':['compact','spacious']},
+                           protocol.schemas['request_user_input'],encode=True)
+            return protocol.decode('request_user_input',wire)
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(self.store.query('SELECT status,revision FROM workflow_plan_drafts')[0],
+                         {'status':'COMMITTED','revision':0})
+        staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
+        self.assertEqual(staged['kind'],'REQUEST_USER_INPUT')
+
+    def test_expired_manager_lease_cannot_increment_draft_error_count(self):
+        from webapp.workflow_plan_draft import record_error
+        from webapp.task_leases import LeaseLost
+        self.store.execute('UPDATE execution_leases SET expires=0 WHERE attempt=?',(self.lease.attempt,))
+        with self.assertRaises(LeaseLost):
+            record_error(self.store,self.lease,self.task['spec']['request_id'],[{'path':'plan','type':'invalid'}])
+        self.assertEqual(self.store.query('SELECT repeated_error_count FROM workflow_plan_drafts')[0]['repeated_error_count'],0)
+
+    def test_plan_draft_persists_bounded_structured_compile_errors(self):
+        from webapp.workflow_plan_draft import record_error
+        errors=[{'path':'plan.changes.0.set_fields','type':'frozen_field','message':'delivery_stage is host-owned'}]
+        with self.lease.bind():
+            signature,repeated=record_error(self.store,self.lease,self.task['spec']['request_id'],errors)
+        row=self.store.query('SELECT last_error_signature,last_error_json,repeated_error_count FROM workflow_plan_drafts')[0]
+        self.assertEqual((row['last_error_signature'],row['repeated_error_count']),(signature,repeated))
+        self.assertEqual(json.loads(row['last_error_json']),errors)
 
     def test_typed_batch_builds_and_stages_common_plan_in_one_model_call(self):
         from types import SimpleNamespace

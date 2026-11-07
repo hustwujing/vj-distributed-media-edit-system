@@ -26,16 +26,19 @@ const INPUT_SOURCE=fs.readFileSync(path.join(__dirname,'campaign_browser_inputs.
 const DRIVER_SOURCE=fs.readFileSync(__filename),DRIVER_SHA=crypto.createHash('sha256').update(DRIVER_SOURCE).digest('hex');
 const uid=()=>crypto.randomUUID().replaceAll('-','');
 const currentRelease=()=>JSON.parse(fs.readFileSync(path.join(REPO,'.cluster/release.json')));
+const startupRelease=currentRelease();assert.equal(startupRelease.state,'ready','Campaign requires a ready deployment');assert.match(startupRelease.config_sha256,/^[a-f0-9]{64}$/,'Campaign requires a frozen configuration digest');
 const terminal=s=>['SUCCEEDED','FAILED','CANCELLED'].includes(s);
 const paused=run=>run.state==='WAITING_USER'&&!run.decisions.length;
 const deciding=run=>run.state==='WAITING_USER'&&run.decisions.length>0;
 const controlActive=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&['ready','running','leased'].includes(job.status));
-const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation','legal_replacement']);
+const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation','legal_replacement',
+ 'manager_hard_kill','reviewer_hard_kill','agent_hard_kill','repeated_agent_hard_kill','provider_poll_hard_kill']);
 // Capacity-sensitive parallel-drain coverage also needs an otherwise idle cluster.
 for(const hook of ['unknown_input','frozen_route','drain_local'])globalHooks.add(hook);
 const pauseNewCases=()=>fs.existsSync(path.join(ROOT,'pause-new-cases'));
 
 function targetText(spec){
+ if(spec.delivery_target_text)return spec.delivery_target_text;
  const e=spec.expect;
  if(e.kind==='image')return `符合需求的 ${e.width}×${e.height} 图片${e.min_images>1?'及全部要求的图片版本':''}${e.extra_extension?'，包含 '+e.extra_extension+' 分层文件':''}`;
  if(e.kind==='video')return `符合需求的完整 ${e.duration} 秒 ${e.width}×${e.height} 视频及要求的附加文件`;
@@ -75,19 +78,21 @@ async function runCase(browser,spec){
   catch(error){if(!['inspect','final'].includes(action)||attempt===3||!String(error.stderr||error.message).includes('psycopg.OperationalError'))throw error;
    save(path.join(directory,`audit-retry-${action}-${attempt}.json`),{at:Date.now()/1000,error:String(error.stderr||error.message).slice(-12000)});
    state.events.push({action:'database_audit_retry',audit_action:action,attempt,at:Date.now()/1000});persist();await page.waitForTimeout(1500);}}};
- const fault=async(action,unit)=>{persist();const args=[path.join(harness,'campaign_dynamic_faults.py'),action,directory];if(unit)args.push('--unit',unit);
+ const fault=async(action,unit,attempt)=>{persist();const args=[path.join(harness,'campaign_dynamic_faults.py'),action,directory];if(unit)args.push('--unit',unit);if(attempt)args.push('--attempt',attempt);
   const {stdout}=await execute(PY,args,{cwd:REPO,env:helperEnvironment,timeout:180000,maxBuffer:4*1024*1024});const value=JSON.parse(stdout.trim().split('\n').at(-1));
   if(action!=='progress'){state.faults.push(value);persist();}return value;};
  const wait=async(predicate,seconds=300)=>{const until=Date.now()+seconds*1000;let value,pausedAt=0;while(Date.now()<until){value=await read();if(await predicate(value))return value;
   const diagnosing=controlActive(value,'DIAGNOSE');
-  if(paused(value)&&!diagnosing){pausedAt||=Date.now();}else pausedAt=0;
+  if(paused(value)&&!diagnosing&&!unified.hasActiveWork(value)){pausedAt||=Date.now();}else pausedAt=0;
   if(terminal(value.state)||(pausedAt&&Date.now()-pausedAt>5000)){save(path.join(directory,'boundary-not-reached.json'),value);throw Object.assign(Error('Workflow stopped before the required test boundary: '+value.state),{boundary:true});}
   await page.waitForTimeout(750);}save(path.join(directory,'wait-timeout.json'),value);throw Object.assign(Error('Timed out waiting for the required workflow boundary'),{boundary:true});};
  const capture=async(label)=>{await page.screenshot({path:path.join(directory,label+'.png'),fullPage:true});};
  const commandApplied=async id=>{const end=Date.now()+90000;while(Date.now()<end){const value=await read(),receipt=value.commands.find(c=>c.id===id);if(receipt&&receipt.status!=='pending'){assert.equal(receipt.status,'applied','Control command rejected: '+receipt.error_code);state.events.push({action:'command_applied',command_id:id,at:Date.now()/1000});persist();return value;}await page.waitForTimeout(500);}throw Error('Control command was not processed before the deadline');};
  const control=async(action)=>{await page.locator(`[data-control="${action}"]`).waitFor({state:'visible'});let confirmation=null;if(action==='cancel')page.once('dialog',async dialog=>{confirmation={type:dialog.type(),message:dialog.message()};await dialog.accept();});const response=page.waitForResponse(r=>r.url().endsWith('/commands')&&r.request().method()==='POST');await page.locator(`[data-control="${action}"]`).click();const result=await response;assert.equal(result.status(),202,await result.text());if(action==='cancel'){assert.equal(confirmation?.type,'confirm');state.browser_assertions.push('Cancel required an explicit browser confirmation');}state.events.push({action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);const updated=await read();if(updated.successor_run_id){state.run_id=updated.successor_run_id;state.execute_id=state.run_id;state.run_ids.push(state.run_id);state.task_ids.push(state.run_id);persist();}};
  const start=async(prompt=spec.prompt,targets=targetText(spec),budget=(spec.complexity==='simple'?500000:2000000)*TOKEN_BUDGET_MULTIPLIER)=>{
-  await page.locator('#dynamic-start').waitFor({state:'visible'});await page.locator('#dynamic-goal').fill(prompt);await page.locator('#dynamic-targets').fill(targets);
+  await page.locator('#dynamic-input-form').waitFor({state:'visible'});await page.locator('#dynamic-input-content').fill(prompt);
+  await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});
+  await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;}));await page.locator('#dynamic-targets-other').fill(targets);
   await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
   await page.locator('#dynamic-reasoning-effort').selectOption(MODEL_EFFORT);
   const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
@@ -97,9 +102,9 @@ async function runCase(browser,spec){
   for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
   await capture('authorization-'+state.run_ids.length);
   const response=page.waitForResponse(r=>r.url().endsWith(`/api/projects/${state.project}/runs`)&&r.request().method()==='POST',{timeout:60000});
-  await page.locator('#dynamic-submit').click();
+  await page.locator('#dynamic-input-submit').click();
   let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
-  if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-submit').click();result=await response;}
+  if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-input-submit').click();result=await response;}
   assert.equal(result.status(),202,await result.text());run=await result.json();
   assert.equal(run.model_configuration.model,EXPECT_MODEL);
   assert.equal(run.model_configuration.reasoning_effort,MODEL_EFFORT);
@@ -226,7 +231,7 @@ async function runCase(browser,spec){
   state.project=await page.locator('body').getAttribute('data-project');assert.match(state.project,/^[a-f0-9]{32}$/);persist();
   state.browser_context=await page.evaluate(()=>({secure:isSecureContext,randomUUID:typeof crypto.randomUUID,getRandomValues:typeof crypto.getRandomValues}));
   await page.waitForFunction(()=>document.querySelector('#dynamic-connection').textContent.includes('同步'));
-  if(spec.assets.length){await page.locator('#dynamic-upload').setInputFiles(spec.assets.map(n=>path.join(ROOT,'fixtures',n)));await page.waitForFunction(n=>document.querySelectorAll('#dynamic-assets input').length===n&&document.body.dataset.uploading!=='true',spec.assets.length);}
+  if(spec.assets.length){await page.locator('#dynamic-upload').setInputFiles(spec.assets.map(n=>path.join(ROOT,'fixtures',n)));await page.waitForFunction(n=>document.querySelectorAll('#dynamic-input-assets option').length===n&&document.body.dataset.uploading!=='true',spec.assets.length);}
   await page.waitForFunction(()=>document.querySelector('#dynamic-connection').textContent.includes('同步'));
   if(spec.dynamic_hook==='token_budget'){
    await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});
@@ -251,7 +256,7 @@ async function runCase(browser,spec){
   await capture('initial');
   if(spec.dynamic_hook==='stale_authorization'){
    await page.locator('#dynamic-goal').fill(spec.prompt);await page.locator('#dynamic-targets').fill(targetText(spec));
-   const second=await context.newPage();await second.goto(BASE+'/chat/'+state.project);await second.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await second.waitForFunction(()=>document.querySelectorAll('#dynamic-assets input').length===2);await second.close();
+   const second=await context.newPage();await second.goto(BASE+'/chat/'+state.project);await second.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await second.waitForFunction(()=>document.querySelectorAll('#dynamic-input-assets option').length===2);await second.close();
    await page.locator('#dynamic-submit').click();await page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor();
    assert.equal((await api('GET',`/api/projects/${state.project}/runs`)).runs.length,0);state.outcome='protocol_passed';state.browser_checked=true;state.browser_assertions.push('Stale content did not create a workflow');await capture('stale-authorization');
   }else{
@@ -285,6 +290,24 @@ async function runCase(browser,spec){
     await capture('controller-down');await fault('start_orchestrator');orchestratorStopped=false;
    }
    else if(hook==='orchestrator_competition'){await fault('start_second_orchestrator');secondStarted=true;await page.waitForTimeout(2000);assert.ok((await fault('progress')).orchestrators.length>=2);}
+   else if(['manager_hard_kill','reviewer_hard_kill','agent_hard_kill','repeated_agent_hard_kill','provider_poll_hard_kill'].includes(hook)){
+    const interruptions=hook==='repeated_agent_hard_kill'?2:1,killed=[];
+    for(let round=0;round<interruptions;round++){
+     const until=Date.now()+600000;let selected;
+     while(Date.now()<until){const observed=await fault('progress');assert.ok(Object.values(observed.worker_services).every(Boolean),'All dedicated workers must be healthy before hard-kill injection');const calls=new Map(observed.provider_calls.map(call=>[call.step,call]));selected=observed.attempts.find(item=>item.status==='running'&&item.unit&&(
+      hook==='manager_hard_kill'?item.control_kind==='PLAN':hook==='reviewer_hard_kill'?item.control_kind==='REVIEW':
+      hook==='provider_poll_hard_kill'?!item.control_kind&&calls.get(item.step_id)?.external_id:
+      !item.control_kind&&item.type==='agent')&&(hook==='provider_poll_hard_kill'||Date.now()/1000-item.started>1));if(selected)break;await page.waitForTimeout(250);}
+     assert.ok(selected,`No ${hook} attempt reached the hard-kill boundary`);stoppedWorker=selected.unit;
+     try{await fault('kill_attempt_worker',selected.unit,selected.id);}catch(error){stoppedWorker=null;if(hook==='provider_poll_hard_kill'&&String(error.message).includes('No replay-safe QA task')){round--;continue;}throw error;}
+     killed.push(selected);await capture(`${hook}-killed-${round+1}`);
+     const takeoverUntil=Date.now()+300000;let takeover;
+     while(Date.now()<takeoverUntil){const observed=await fault('progress');takeover=observed.attempts.find(item=>item.step_id===selected.step_id&&item.generation>selected.generation&&(round===interruptions-1||item.status==='running'));if(takeover)break;await page.waitForTimeout(750);}
+     assert.ok(takeover,`No takeover followed ${hook}`);await fault('start_worker',selected.unit);stoppedWorker=null;
+    }
+    const settleUntil=Date.now()+120000;let reservations=[];while(Date.now()<settleUntil){const observed=await fault('progress');reservations=observed.model_reservations.filter(item=>killed.some(attempt=>attempt.id===item.attempt_id)&&item.state==='reserved');if(!reservations.length)break;await page.waitForTimeout(750);}
+    assert.equal(reservations.length,0,'Interrupted model reservations did not converge');state.hard_kill_attempts=killed;state.browser_assertions.push(`${interruptions} hard-killed attempt(s) were fenced and recovered`);persist();
+   }
    else if(hook==='observer_restart'){await fault('stop_observer');observerStopped=true;}
    else if(hook==='api_restart'){apiStopped=true;await fault('stop_api');const boundary=Date.now()/1000;await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});
     await page.waitForTimeout(2000);assert.ok(state.requests.some(r=>r.at>=boundary&&r.status===200&&r.serving_api?.includes('19767')),'The second API did not actually serve the reloaded workflow');
@@ -392,7 +415,7 @@ async function runCase(browser,spec){
     if(gated){await approve('reject');await wait(w=>paused(w));}
     if(spec.id==='R13'){await control('pause');await wait(w=>paused(w));}
     if(!terminal((await read()).state)){await control('cancel');await wait(w=>terminal(w.state));}
-    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));await page.locator('#dynamic-start').waitFor({state:'visible'});
+    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));await page.locator('#dynamic-input-form').waitFor({state:'visible'});
     for(const input of await page.locator('#dynamic-assets input').all())await input.setChecked(selected.includes(await input.getAttribute('value')));
     let revised=`复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到${spec.expect.width/2}×${spec.expect.height}后并排合成${spec.expect.width}×${spec.expect.height}，交付 final.png。`;
     if(spec.id==='R01')revised+='最终文件改名为 renamed.png。';
@@ -412,7 +435,7 @@ async function runCase(browser,spec){
     await start(revised);
     if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
     if(spec.id==='R16'){
-     run=await observeTerminal();assert.equal(run.state,'SUCCEEDED');await page.waitForFunction(()=>!document.querySelector('#dynamic-start').hidden);
+     run=await observeTerminal();assert.equal(run.state,'SUCCEEDED');await page.locator('#dynamic-input-form').waitFor({state:'visible'});
      await start('复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。');
     }
    }

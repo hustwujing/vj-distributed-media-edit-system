@@ -72,3 +72,51 @@ class DeploymentIdentityTests(unittest.TestCase):
         source=inspect.getsource(dynamic_cluster.initialize)
         self.assertLess(source.index('s.artifacts'),source.index('GRANT SELECT,INSERT,UPDATE,DELETE'))
         self.assertLess(source.index('image_api.initialize(s)'),source.index('GRANT SELECT,INSERT,UPDATE,DELETE'))
+
+    def test_dynamic_release_freezes_model_configuration_and_units_use_the_snapshot(self):
+        from deploy import dynamic_cluster as cluster
+        from deploy import systemd_templates
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);repo=root/'repo';conf=root/'conf';repo.mkdir();conf.mkdir()
+            for name,value in {'.env':'BASE=one\n','.agent.env':'VIDEO_USE_AGENT_PROFILE=claude\n',
+                               '.storage.env':'VIDEO_USE_OBJECT_BUCKET=bucket\n','.distributed.env':'VIDEO_USE_DEPLOYMENT=dynamic-agent\n'}.items():
+                (repo/name).write_text(value)
+            with patch.object(cluster,'REPO',repo),patch.object(cluster,'CONF',conf):
+                snapshot,digest=cluster.snapshot_configuration()
+                (repo/'.agent.env').write_text('VIDEO_USE_AGENT_PROFILE=changed\n')
+                self.assertEqual(cluster.env_file(snapshot/'.agent.env')['VIDEO_USE_AGENT_PROFILE'],'claude')
+                self.assertNotEqual(digest,cluster.snapshot_configuration()[1])
+                unit=systemd_templates.worker_unit(cluster.template_config(root/'release',snapshot))
+                self.assertIn('EnvironmentFile='+str(snapshot/'.agent.env'),unit)
+
+    def test_release_record_is_atomic_and_partial_release_cannot_restart(self):
+        from deploy import dynamic_cluster as cluster
+        with tempfile.TemporaryDirectory() as directory,patch.object(cluster,'ROOT',Path(directory)):
+            cluster.write_release({'source':'/release','state':'deploying'})
+            self.assertEqual(cluster.release_record()['state'],'deploying')
+            self.assertFalse((Path(directory)/'release.new').exists())
+            with self.assertRaisesRegex(ValueError,'incomplete'):
+                cluster.restart_release()
+
+    def test_deploy_journal_precedes_schema_reset_and_unit_switch(self):
+        import inspect
+        from deploy import dynamic_cluster
+        source=inspect.getsource(dynamic_cluster.deploy)
+        self.assertLess(source.index('write_release(record)'),source.index('reset_database()'))
+        self.assertLess(source.index('write_release(record)'),source.index('install_units(source,config_root)'))
+        self.assertLess(source.index("'state':'deploying'"),source.index("'state':'ready'"))
+
+    def test_full_gate_evidence_promotes_over_targeted_report_for_identical_source(self):
+        import json
+        from deploy import dynamic_cluster as cluster
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);source=root/'release';repo=root/'repo'
+            (source/'docs/test-evidence').mkdir(parents=True);(repo/'docs/test-evidence').mkdir(parents=True)
+            targeted={'passed':True,'selection':['tests.test_dynamic_graph'],'source_sha256':'same'}
+            complete={'passed':True,'selection':['all Python tests'],'source_sha256':'same'}
+            (source/'docs/test-evidence/distributed-suite.json').write_text(json.dumps(targeted))
+            (repo/'docs/test-evidence/distributed-suite.json').write_text(json.dumps(complete))
+            with patch.object(cluster,'REPO',repo),patch.object(cluster.common,'digest',return_value='same'), \
+                    patch.object(cluster,'validate_isolation'),patch.object(cluster,'environment',return_value={}):
+                cluster.gate(source)
+            self.assertEqual(json.loads((source/'docs/test-evidence/distributed-suite.json').read_text()),complete)

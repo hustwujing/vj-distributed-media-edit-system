@@ -189,6 +189,19 @@ def sample(store,archive):
     data['gauges']['workflow_scan_lag_seconds']=max([max(0,now-r['due']) for r in workflows if r['status'] not in ('SUCCEEDED','FAILED','CANCELLED')]+[0])
     data['gauges']['workflow_reconcile_failures']=sum(r['failures'] for r in orchestrators)
     data['gauges']['workflow_reconcile_last_seconds']=max([r['last_duration'] for r in orchestrators]+[0])
+    stuck=query('workflow_stuck_states','''SELECT
+        SUM(CASE WHEN status='WAITING_USER' AND NOT EXISTS(SELECT 1 FROM workflow_decisions d WHERE d.run_id=runs.id AND d.status='pending') THEN 1 ELSE 0 END) AS waiting_without_decision,
+        SUM(CASE WHEN status='ACTIVE' AND NOT EXISTS(SELECT 1 FROM run_work_items w WHERE w.run_id=runs.id AND w.status IN ('ready','running','leased','waiting','retry_wait','reviewing')) THEN 1 ELSE 0 END) AS active_without_work,
+        COALESCE(SUM(reconcile_error_count),0) AS repeated_reconcile_errors FROM runs WHERE status IN ('ACTIVE','WAITING_USER')''')
+    if stuck:
+        data['gauges']['workflow_waiting_without_decision']=stuck[0]['waiting_without_decision'] or 0
+        data['gauges']['workflow_active_without_work']=stuck[0]['active_without_work'] or 0
+        data['gauges']['workflow_reconcile_repeated_errors']=stuck[0]['repeated_reconcile_errors'] or 0
+    reservations=query('model_reservation_recovery','''SELECT COUNT(*) AS n,COALESCE(SUM(r.reserved_tokens),0) AS tokens
+        FROM workflow_model_reservations r JOIN execution_attempts a ON a.id=r.attempt_id
+        WHERE r.state='reserved' AND a.status IN ('interrupted','expired','finished')''')
+    data['gauges']['model_orphan_reservations']=(reservations[0]['n'] or 0) if reservations else 0
+    data['gauges']['model_orphan_reserved_tokens']=(reservations[0]['tokens'] or 0) if reservations else 0
     data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM run_tasks WHERE selected=1 GROUP BY type,status')
     data['views']['control_jobs']=query('control_jobs','SELECT control_kind,status,COUNT(*) AS n FROM control_jobs GROUP BY control_kind,status')
     data['views']['planning']=query('planning','SELECT status,COUNT(*) AS n FROM planner_runs GROUP BY status')
@@ -207,7 +220,7 @@ def sample(store,archive):
     data['views']['affected_tasks']=query('affected_tasks',"SELECT id,status,updated FROM execution_subjects WHERE status IN ('failed','paused','queued') ORDER BY updated DESC LIMIT 5")
     providers=query('providers','SELECT provider,operation,state,COUNT(*) AS n,SUM(network_seconds) AS seconds,SUM(poll_count) AS polls,MIN(created) AS oldest FROM workflow_provider_calls GROUP BY provider,operation,state')
     data['views']['providers']=providers
-    data['gauges']['provider_unknown']=sum(r['n'] for r in providers if r['state']=='unknown' or (r['state']=='submitting' and now-r['oldest']>600))
+    data['gauges']['provider_unknown']=sum(r['n'] for r in providers if r['state'] in ('unknown','submission_unknown') or (r['state']=='submitting' and now-r['oldest']>600))
     attempts=query('attempt_totals',"SELECT status,COUNT(*) AS n FROM execution_attempts GROUP BY status")
     data['gauges']['attempts_total']=sum(r['n'] for r in attempts)
     data['gauges']['expired_attempts_total']=sum(r['n'] for r in attempts if r['status']=='expired')
@@ -292,6 +305,9 @@ def monitor(archive,store,stop):
                 'cleanup_overdue':{'count':gauges['cleanup_overdue']} if gauges['cleanup_overdue'] else None,
                 'external_cleanup_unconfirmed':{'count':gauges['external_cleanup_unconfirmed']} if gauges['external_cleanup_unconfirmed'] else None,
                 'provider_unknown':{'count':gauges['provider_unknown']} if gauges['provider_unknown'] else None,
+                'workflow_waiting_without_decision':{'count':gauges.get('workflow_waiting_without_decision',0)} if gauges.get('workflow_waiting_without_decision',0) else None,
+                'workflow_active_without_work':{'count':gauges.get('workflow_active_without_work',0)} if gauges.get('workflow_active_without_work',0) else None,
+                'model_orphan_reservations':{'count':gauges.get('model_orphan_reservations',0),'tokens':gauges.get('model_orphan_reserved_tokens',0)} if gauges.get('model_orphan_reservations',0) else None,
                 'http_errors':{'count':gauges['http_5xx_5m']+gauges['http_stream_failures_5m']} if gauges['http_5xx_5m']+gauges['http_stream_failures_5m']>=3 else None,
                 'object_storage_unavailable':{'scope':'object_storage'} if dependencies.get('object_storage')=='unavailable' else None,
                 'storage_errors':{'count':gauges['storage_errors_5m']} if gauges['storage_errors_5m'] else None,

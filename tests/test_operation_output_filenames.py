@@ -89,6 +89,23 @@ class OperationOutputFilenameTests(unittest.TestCase):
                       {'criterion_index':0,'observation':'MP3 checked','inspection_id':mp3_id},
                       {'criterion_index':0,'observation':'Report checked','inspection_id':report_id}]}
         validate_resolved_review(resolve_review(complete,snapshot,inspections,keys),snapshot,inspections)
+
+    def test_final_review_must_select_each_delivery_leaf_even_when_target_text_omits_its_format(self):
+        from webapp.workflow_agent_contracts import validate_resolved_review
+        video='edit/final.mp4';subtitle='edit/subtitles.srt';video_id='a'*32;subtitle_id='b'*32
+        def task(identifier,reference,role):
+            return {'id':identifier,'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'*'}]},
+                    'accepted_result':[reference],'quality':{'output_roles':{role:reference}}}
+        snapshot=self.review_snapshot([task('burn_subs',video,'video'),task('export_srt',subtitle,'subtitle')])
+        snapshot.update(goal='Deliver the final video',delivery_targets=['成片 MP4'],authorization={'delivery_targets':['成片 MP4']},dependencies=[])
+        inspections={video_id:video,subtitle_id:subtitle}
+        video_only={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':video,'deliverables':[video],
+                    'evidence':[{'criterion':'成片 MP4','observation':'Video checked','inspection_id':video_id,'ref':video}]}
+        with self.assertRaisesRegex(ValueError,'export_srt'):
+            validate_resolved_review(video_only,snapshot,inspections)
+        complete={**video_only,'deliverables':[video,subtitle],
+                  'evidence':[video_only['evidence'][0],{'criterion':'成片 MP4','observation':'Subtitle checked','inspection_id':subtitle_id,'ref':subtitle}]}
+        validate_resolved_review(complete,snapshot,inspections)
     def test_registered_output_role_is_bound_to_the_attempt_file_before_quality_check(self):
         from webapp.workflow_runtime import resolve_acceptance_output_roles
         rules=[{'kind':'image','file':'primary_image','width':512},{'kind':'file','file':'literal.png'}]

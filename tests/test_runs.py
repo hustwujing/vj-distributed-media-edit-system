@@ -73,3 +73,11 @@ class RunIdentityTests(unittest.TestCase):
         self.assertEqual(successor['parent_run_id'],self.run['id'])
         self.assertNotEqual(successor['id'],self.run['id'])
         self.assertEqual(self.store.query('SELECT run_id FROM usage_tasks WHERE task_id=?',(successor['id'],))[0]['run_id'],successor['id'])
+
+    def test_existing_run_identity_cannot_change_on_internal_replay(self):
+        with self.assertRaisesRegex(ValueError,'Session is immutable'):
+            graph.create(self.store,self.project,self.run['id'],self.run['authorization'],session_id='different-session')
+        with self.assertRaisesRegex(ValueError,'parent is immutable'):
+            graph.create(self.store,self.project,self.run['id'],self.run['authorization'],parent_run_id='0'*32)
+        with self.assertRaisesRegex(ValueError,'scope confirmation is immutable'):
+            graph.create(self.store,self.project,self.run['id'],self.run['authorization'],scope_confirmed=False)

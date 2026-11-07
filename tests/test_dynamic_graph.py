@@ -236,6 +236,32 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertFalse(proposal.sealed)
         self.assertEqual(set(revisions),{'first'})
 
+    def test_dependency_can_be_removed_and_readded_as_a_new_graph_generation(self):
+        from webapp.run_inputs import accept
+        self.tick();self.propose({'proposal_id':'initial-edge','base_graph_version':0,'reason':'Initial dependency',
+            'add_tasks':[script('first'),script('child',inputs={'source':{'step':'first','role':'report'}})],
+            'add_dependencies':[{'upstream':'first','downstream':'child'}],'sealed':True})
+        run=self.tick()
+        accept(self.store,run['id'],'owner',{'request_id':'1'*32,'content':'Make child independent','targets':['child']})
+        run=self.tick();child=next(task['spec'] for task in run['tasks'] if task['id']=='child')
+        self.propose({'proposal_id':'remove-edge','base_graph_version':1,'reason':'Remove dependency',
+            'revise_tasks':[{**child,'inputs':{}}],
+            'remove_dependencies':[{'upstream':'first','downstream':'child'}],'sealed':True})
+        run=self.tick();self.assertEqual(run['graph_version'],2);self.assertEqual(run['dependencies'],[])
+        accept(self.store,run['id'],'owner',{'request_id':'2'*32,'content':'Restore the source dependency','targets':['child']})
+        run=self.tick();child=next(task['spec'] for task in run['tasks'] if task['id']=='child')
+        self.propose({'proposal_id':'restore-edge','base_graph_version':2,'reason':'Restore dependency',
+            'revise_tasks':[{**child,'inputs':{'source':{'step':'first','role':'report'}}}],
+            'add_dependencies':[{'upstream':'first','downstream':'child'}],'sealed':True})
+        run=self.tick();self.assertEqual(run['graph_version'],3)
+        self.assertEqual(run['dependencies'],[{'upstream_task_id':'first','downstream_task_id':'child'}])
+        rows=self.store.query('''SELECT created_graph_version,retired_graph_version FROM workflow_dependencies
+            WHERE run_id=? AND upstream_task_id='first' AND downstream_task_id='child' ORDER BY created_graph_version''',(run['id'],))
+        self.assertEqual(rows,[{'created_graph_version':1,'retired_graph_version':2},
+                               {'created_graph_version':3,'retired_graph_version':None}])
+        view=graph.execution_view(run);child_view=next(step for step in view['steps'] if step['id']=='child')
+        self.assertEqual(child_view['spec']['depends_on'],['first'])
+
     def test_scheduler_cannot_replay_before_orchestrator_accepts_a_result(self):
         from webapp.task_leases import Coordinator
         from webapp.workflow_dispatch import stage_result
@@ -248,6 +274,21 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertIsNone(coordinator.claim(self.f.turn,'workflow',step_id='first'))
         self.assertFalse([r for r in coordinator.candidates() if r.get('step_id')=='first'])
         self.assertEqual(self.store.query("SELECT COUNT(*) AS n FROM execution_attempts WHERE step_id='first'")[0]['n'],1)
+
+    def test_result_staging_rejects_malformed_envelopes_without_a_partial_record(self):
+        from webapp.task_leases import Coordinator
+        from webapp.workflow_dispatch import stage_result
+        self.tick();self.propose({'proposal_id':'result-envelope','base_graph_version':0,'reason':'Run once',
+                                  'add_tasks':[script()],'sealed':True})
+        self.tick();lease=Coordinator(self.store,'result-envelope','test').claim(self.run['id'],'workflow',step_id='first')
+        self.assertIsNotNone(lease)
+        try:
+            with self.assertRaisesRegex(ValueError,'outcome'):stage_result(self.store,lease,'unknown',{})
+            with self.assertRaisesRegex(ValueError,'data'):stage_result(self.store,lease,'succeeded',[])
+            with self.assertRaisesRegex(ValueError,'manifest'):stage_result(self.store,lease,'succeeded',{},[])
+            with self.assertRaisesRegex(ValueError,'manifest'):stage_result(self.store,lease,'succeeded',{}, {'output.txt':[]})
+            self.assertFalse(self.store.query('SELECT id FROM task_results WHERE run_id=?',(self.run['id'],)))
+        finally:lease.release()
 
     def test_revised_repair_can_run_while_another_business_task_is_paused(self):
         from webapp.workflow_dispatch import candidates,available
@@ -294,6 +335,13 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(retried['status'],'retry_wait')
         self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE task_id=?',(manager['id'],))[0]['status'],'pending')
         self.assertNotEqual(current['status'],'WAITING_USER')
+        from webapp.task_leases import Coordinator
+        self.store.execute("UPDATE control_jobs SET status='ready',next_run_at=0 WHERE run_id=? AND id=?",(run['id'],manager['id']))
+        lease=Coordinator(self.store,'retry-control','test').claim(run['id'],'workflow',step_id=manager['id'])
+        self.assertIsNotNone(lease)
+        claimed=next(task for task in graph.work_items(graph.get(self.store,run['id'])) if task['id']==manager['id'])
+        self.assertEqual((claimed['error_code'],claimed['error_detail'],claimed['wait_reason']),('','',''))
+        lease.release()
 
     def test_sealed_failure_keeps_ready_diagnosis_dispatchable(self):
         self.tick();task=script(retry_policy='never');task['on_failure']='diagnose'
@@ -318,8 +366,28 @@ class DynamicGraphTests(unittest.TestCase):
         lease.release(interrupted=True)
         self.assertIsNone(coordinator.claim(self.f.turn,'workflow',step_id='first'))
         run=self.tick()
-        self.assertEqual(run['status'],'WAITING_USER')
+        self.assertEqual((run['status'],run['terminal_reason']),('FAILED','result_unavailable'))
         self.assertEqual(next(t for t in graph.work_items(run) if t['id']=='first')['error_code'],'result_unavailable')
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)))
+
+    def test_fatal_failure_cancels_siblings_and_waits_for_cleanup_before_failed_terminal(self):
+        from webapp.task_leases import Coordinator
+        self.tick();self.propose({'proposal_id':'fatal-cleanup','base_graph_version':0,'reason':'Parallel work',
+            'add_tasks':[script('first'),script('sibling')],'sealed':True})
+        run=self.tick();coordinator=Coordinator(self.store,'fatal-cleanup','test')
+        lease=coordinator.claim(run['id'],'workflow',step_id='sibling');self.assertIsNotNone(lease)
+        self.store.execute("INSERT INTO execution_cleanup(attempt,task_id,node,state,updated) VALUES (?,?,?,'pending',?)",
+                           (lease.attempt,run['id'],'fatal-cleanup',self.store.now()))
+        first=next(task for task in graph.get(self.store,run['id'])['tasks'] if task['id']=='first')
+        self.orchestrator.task_failure(graph.get(self.store,run['id']),first,{'error_code':'result_unavailable'})
+        current=graph.get(self.store,run['id']);self.assertEqual((current['status'],current['terminal_reason']),('CANCELLING','result_unavailable'))
+        self.orchestrator.cancel(current)
+        current=graph.get(self.store,run['id']);self.assertEqual(current['status'],'CANCELLING')
+        self.assertEqual(next(task for task in current['tasks'] if task['id']=='sibling')['status'],'cancelled')
+        lease.release(interrupted=True)
+        self.store.execute("UPDATE execution_cleanup SET state='complete' WHERE attempt=?",(lease.attempt,))
+        self.orchestrator.cancel(graph.get(self.store,run['id']))
+        current=graph.get(self.store,run['id']);self.assertEqual((current['status'],current['terminal_reason']),('FAILED','result_unavailable'))
 
     def test_pause_does_not_apply_a_finished_manager_proposal(self):
         self.tick();self.propose({'proposal_id':'paused-plan','base_graph_version':0,'reason':'initial',
@@ -351,7 +419,10 @@ class DynamicGraphTests(unittest.TestCase):
             with lease.bind():stage_result(self.store,lease,'succeeded',{'files':['edit/other-project/report.txt'],'quality':{'technical_valid':True,'passed':True,'files':[]}})
         finally:lease.release()
         run=self.tick();self.assertEqual(run['status'],'WAITING_USER');self.assertIsNone(run['delivered_at'])
-        self.assertEqual(self.store.query('SELECT status FROM task_results')[0]['status'],'rejected')
+        row=self.store.query('SELECT status,error_json FROM task_results')[0]
+        self.assertEqual(row['status'],'rejected')
+        error=json.loads(row['error_json']);self.assertEqual(error['error_code'],'invalid_result_manifest')
+        self.assertIn('escaped task output scope',error['message'])
         run=self.tick();self.assertEqual(run['status'],'WAITING_USER')
 
     def test_metadata_controller_cannot_read_or_upload_object_bytes(self):
@@ -393,7 +464,13 @@ class DynamicGraphTests(unittest.TestCase):
             reviewed=selected if selected_indices is None else [selected[index] for index in selected_indices]
             decision={'deliverables':reviewed}
             if primary_index is not None:decision['primary']=selected[primary_index]
-            self.orchestrator.publish(run,{'decision_json':graph.encode(decision)})
+            import uuid
+            review_id=uuid.uuid4().hex;now=self.store.now()
+            self.store.execute('''INSERT INTO workflow_reviews(id,run_id,task_id,purpose,subject_task,graph_version,review_identity,
+                snapshot_json,snapshot_digest,status,decision_json,created_at,updated_at)
+                VALUES (?,?,'final-review','final','',?,'fixture','{}',?,'passed',?,?,?)''',
+                (review_id,run['id'],run['graph_version'],'f'*64,graph.encode(decision),now,now))
+            self.orchestrator.publish(run,{'id':review_id,'decision_json':'{}'})
             if not expect_success:
                 result=graph.get(self.store,run['id'])
                 self.assertEqual(result['status'],'WAITING_USER');self.assertIsNone(result['delivered_at']);return result['delivery'],hashes
@@ -403,11 +480,20 @@ class DynamicGraphTests(unittest.TestCase):
                 self.assertEqual(result['delivery'],[])
                 self.assertFalse(self.store.query("SELECT seq FROM workflow_graph_events WHERE kind='delivered'"))
                 return result['delivery'],hashes
-            self.orchestrator.publish(graph.get(self.store,run['id']),{'decision_json':graph.encode({'deliverables':list(reversed(selected))})})
+            self.orchestrator.publish(graph.get(self.store,run['id']),{'id':review_id,'decision_json':'{}'})
         result=graph.get(self.store,run['id'])
         self.assertEqual(result['status'],'SUCCEEDED')
         self.assertEqual(len(self.store.query("SELECT seq FROM workflow_graph_events WHERE kind='delivered'")),1)
         return result['delivery'],hashes
+
+    def test_forged_review_payload_cannot_publish_without_a_passed_final_review(self):
+        run=self.review_fixture()
+        self.store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json WHERE run_id=?",(run['id'],))
+        run=graph.get(self.store,run['id'])
+        self.orchestrator.publish(run,{'decision_json':graph.encode({'deliverables':['edit/report.txt'],'primary':'edit/report.txt'})})
+        current=graph.get(self.store,run['id'])
+        self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','invalid_delivery_manifest'))
+        self.assertIsNone(current['delivered_at'])
 
     def test_video_remains_primary_when_review_lists_cover_first(self):
         delivered,hashes=self.publish_metadata_fixture(['cover.png','final.mp4','review.json'],primary_index=1)
@@ -568,6 +654,26 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(final['review_scope'],'final');self.assertEqual(final['goal'],run['goal'])
         self.assertEqual(final['delivery_targets'],run['authorization']['delivery_targets'])
 
+    def test_agent_review_cannot_half_commit_before_program_acceptance_check(self):
+        run=self.review_fixture()
+        self.store.execute('UPDATE run_tasks SET quality_json=? WHERE run_id=? AND id=?',
+            (graph.encode({'technical_valid':False,'passed':False}),run['id'],'first'))
+        run=graph.get(self.store,run['id']);self.orchestrator.queue_review(run,'first')
+        row=self.store.query("SELECT * FROM workflow_reviews WHERE purpose='task'")[0]
+        task=next(t for t in graph.work_items(graph.get(self.store,run['id'])) if t['id']==row['task_id'])
+        inspection='d'*32
+        self.store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',
+            (inspection,run['id'],task['id'],task['lease_id'],'edit/report.txt',row['snapshot_digest'],'{}',self.store.now()))
+        decision={'snapshot_digest':row['snapshot_digest'],'verdict':'pass','evidence':[
+            {'criterion':'满足当前步骤目标及输出契约','observation':'Content appears acceptable','ref':'edit/report.txt','inspection_id':inspection}],
+            'deliverables':[],'primary':'','feedback':''}
+        with self.assertRaisesRegex(ValueError,'program acceptance'):
+            self.orchestrator.accept_review(graph.get(self.store,run['id']),task,{'decision':decision})
+        self.assertEqual(self.store.query('SELECT status FROM workflow_reviews WHERE id=?',(row['id'],))[0]['status'],'pending')
+        self.assertEqual(self.store.query('SELECT status FROM control_jobs WHERE id=?',(task['id'],))[0]['status'],'ready')
+        subject=next(t for t in graph.get(self.store,run['id'])['tasks'] if t['id']=='first')
+        self.assertEqual(subject['status'],'reviewing');self.assertNotIn('agent_review_passed',subject['quality'])
+
     def test_rejected_step_review_routes_to_manager_and_cannot_be_resumed_as_retry(self):
         run=self.review_fixture();self.orchestrator.queue_review(run,'first')
         current=graph.get(self.store,run['id']);review=next(t for t in graph.work_items(current) if t.get('control_kind') and t['spec'].get('profile')=='visual_quality_reviewer')
@@ -580,6 +686,19 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(self.tick()['status'],'ACTIVE')
         self.assertEqual(self.store.query("SELECT status FROM workflow_commands WHERE action='resume'")[0]['status'],'rejected')
         self.assertEqual(len(self.store.query("SELECT id FROM planner_runs WHERE status='pending'")),1)
+
+    def test_inconclusive_step_review_preserves_candidate_and_requests_evidence(self):
+        run=self.review_fixture();self.orchestrator.queue_review(run,'first')
+        current=graph.get(self.store,run['id']);review=next(t for t in graph.work_items(current) if t.get('control_kind') and t['spec'].get('profile')=='visual_quality_reviewer')
+        self.orchestrator.accept_review(current,review,{'decision':{
+            'snapshot_digest':review['spec']['snapshot_digest'],'verdict':'inconclusive',
+            'feedback':'The candidate has no confirmed defect, but deterministic evidence is incomplete.'}})
+        current=graph.get(self.store,run['id']);subject=next(t for t in current['tasks'] if t['id']=='first')
+        self.assertEqual((subject['status'],subject['error_code']),('paused','review_incomplete'))
+        self.assertEqual(subject['candidate_result'],['edit/report.txt'])
+        self.assertEqual(current['repair_context']['source'],'review_evidence')
+        planner=self.store.query("SELECT trigger_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))[0]
+        self.assertIn('review_incomplete',json.loads(planner['trigger_json']))
 
     def test_repair_revision_invalidates_descendants_and_preserves_unrelated_branch(self):
         self.tick();self.propose({'proposal_id':'initial-repair','base_graph_version':0,'reason':'initial',
@@ -654,6 +773,17 @@ class DynamicGraphTests(unittest.TestCase):
             graph.validate_proposal(self.store,graph.get(self.store,run['id']),{'proposal_id':'abandon-paused','base_graph_version':1,
                 'reason':'add a replacement without repairing the required task','add_tasks':[script('replacement')],'sealed':True},repair_scope='first')
 
+    def test_open_repair_cannot_wait_on_the_unchanged_paused_subject(self):
+        self.tick();self.propose({'proposal_id':'initial-paused-trigger','base_graph_version':0,'reason':'initial',
+            'add_tasks':[script('first')],'sealed':True});run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='review_incomplete' WHERE run_id=? AND id='first'",(run['id'],))
+        self.store.execute("UPDATE runs SET sealed=0 WHERE id=?",(run['id'],))
+        run=graph.get(self.store,run['id']);self.orchestrator.open_repair(run,'first','review_evidence','review-id','review_incomplete')
+        with self.assertRaisesRegex(ValueError,'cannot wait on an unresolved'):
+            graph.validate_proposal(self.store,graph.get(self.store,run['id']),{
+                'proposal_id':'wait-paused','base_graph_version':1,'reason':'invalid wait',
+                'replan_after':['first'],'sealed':False},repair_scope='first')
+
     def test_rejected_final_review_is_visible_in_the_next_frozen_planning_input(self):
         run=self.review_fixture()
         self.store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json WHERE run_id=? AND id='first'",(run['id'],))
@@ -666,6 +796,23 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(frozen['trigger']['decision']['feedback'],'Required ending is missing.')
         self.assertEqual(frozen['review_feedback'][0]['decision']['feedback'],'Required ending is missing.')
         self.assertIsNone(graph.get(self.store,run['id'])['delivered_at'])
+
+    def test_inconclusive_final_review_requests_evidence_without_rerendering_delivery(self):
+        run=self.review_fixture()
+        self.store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json WHERE run_id=? AND id='first'",(run['id'],))
+        run=graph.get(self.store,run['id']);self.orchestrator.queue_review(run)
+        current=graph.get(self.store,run['id']);review=next(t for t in graph.work_items(current) if t.get('control_kind') and t['spec'].get('profile')=='delivery_reviewer')
+        self.orchestrator.accept_review(current,review,{'decision':{'snapshot_digest':review['spec']['snapshot_digest'],
+            'verdict':'inconclusive','evidence':[],'deliverables':[],'primary':'','feedback':'Need denser pixel frame evidence.'}})
+        updated=graph.get(self.store,run['id'])
+        self.assertEqual((updated['status'],updated['terminal_reason']),('ACTIVE','evidence_planning'))
+        self.assertEqual(updated['repair_context']['error_code'],'review_incomplete')
+        request=self.store.query("SELECT snapshot_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))[0]
+        from webapp.workflow_model_protocol import repair_options
+        options=repair_options(json.loads(request['snapshot_json']))
+        self.assertIn('first',{item['task_id'] for item in options if item['action']=='collect_evidence_then_review_again'})
+        subject=next(task for task in updated['tasks'] if task['id']=='first')
+        self.assertEqual((subject['revision'],subject['status']),(0,'succeeded'))
 
     def test_successor_applies_consumed_inputs_and_keeps_late_inputs_pending(self):
         from webapp.run_inputs import accept
@@ -707,6 +854,13 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(self.store.query("SELECT status FROM workflow_commands WHERE action='resume'")[0]['status'],'applied')
         from webapp.workflow_dispatch import candidates
         self.assertFalse(candidates(self.store))
+
+    def test_resume_cannot_loop_a_state_that_requires_replanning_or_a_new_run(self):
+        self.store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='model_token_budget_exhausted' WHERE id=?",(self.run['id'],))
+        graph.command(self.store,self.run['id'],'owner','resume',request_id='e'*32)
+        current=self.tick();receipt=self.store.query("SELECT status,error_code FROM workflow_commands WHERE id=?",('e'*32,))[0]
+        self.assertEqual(receipt,{'status':'rejected','error_code':'replan_required'})
+        self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','model_token_budget_exhausted'))
 
     def test_parallel_manual_reviews_are_presented_after_each_prior_confirmation(self):
         self.tick();self.propose({'proposal_id':'manual-two','base_graph_version':0,'reason':'Two independent candidates',

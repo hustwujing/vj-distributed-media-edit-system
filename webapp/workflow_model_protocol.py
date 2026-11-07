@@ -273,6 +273,7 @@ def available_changes(frozen):
 
 def repair_options(frozen):
     changes=available_changes(frozen);tasks={item['id']:item for item in frozen.get('tasks',[])};options=[]
+    candidate_subjects={item['logical_task_id'] for item in frozen.get('repair_candidates',[])}
     for identifier,fields in changes.items():
         task=tasks[identifier]
         if task['spec']['type']=='agent' and not fields:
@@ -280,7 +281,8 @@ def repair_options(frozen):
                             'meaning':'Create a new immutable revision with the same Agent contract and current repair context.'})
         else:options.append({'action':'revise_task','task_id':identifier,'allowed_set_fields':fields})
     for subject,row in tasks.items():
-        if not row.get('quality',{}).get('technical_valid') or not row.get('quality',{}).get('passed') or not row.get('candidate_result'):continue
+        if (not row.get('quality',{}).get('technical_valid') or not row.get('quality',{}).get('passed')
+                or not (row.get('accepted_result') or subject in candidate_subjects)):continue
         evidence=[]
         for identifier,item in tasks.items():
             source=item['spec'].get('inputs',{}).get('source',{}).get('repair_candidate')
@@ -289,14 +291,17 @@ def repair_options(frozen):
         if evidence:options.append({'action':'review_again','task_id':subject,'eligible_evidence_tasks':sorted(evidence)})
     for review in frozen.get('review_feedback',[]):
         decision=review.get('decision',{});subject=review.get('subject_task')
-        if decision.get('verdict')!='inconclusive' or subject not in tasks:continue
+        if decision.get('verdict')!='inconclusive':continue
         text=(decision.get('feedback') or '').lower();modes=[]
         if any(word in text for word in ('fade','淡出','淡入','rms','响度','音量包络')):modes.append('audio_envelope')
         if any(word in text for word in ('mix','混音','原声','music','声源')):modes.append('audio_compare')
         if any(word in text for word in ('pixel','像素','边距','位置','frame','帧')):modes.append('video_window')
-        options.append({'action':'collect_evidence_then_review_again','task_id':subject,
-                        'operation':'media.evidence','suggested_modes':list(dict.fromkeys(modes or ['auto'])),
-                        'meaning':'Keep the accepted candidate immutable. Add evidence Tasks for the missing facts, then use review_again; do not rerender unchanged media.'})
+        subjects=[subject] if subject in tasks else [identifier for identifier,item in tasks.items()
+            if item['spec'].get('delivery_stage') and (item.get('accepted_result') or identifier in candidate_subjects)]
+        for identifier in subjects:
+            options.append({'action':'collect_evidence_then_review_again','task_id':identifier,
+                            'operation':'media.evidence','suggested_modes':list(dict.fromkeys(modes or ['auto'])),
+                            'meaning':'Keep the accepted candidate immutable. Add evidence Tasks for the missing facts, then use review_again; do not rerender unchanged media.'})
     return options
 
 
@@ -376,6 +381,11 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
               'remove_dependencies':deepcopy(proposal['remove_dependencies']),
               'replacements':deepcopy(proposal['replacements']),
               'review_again':deepcopy(proposal['review_again'])},[])
+    eligible_reviews={item['task_id']:item['eligible_evidence_tasks'] for item in repair_options(frozen)
+                      if item['action']=='review_again'}
+    plan['properties']['review_again']=obj({identifier:{'type':'array','minItems':1,'maxItems':16,
+        'uniqueItems':True,'items':{'type':'string','enum':evidence_ids}}
+        for identifier,evidence_ids in sorted(eligible_reviews.items())},[])
     automatic,user=scopes(frozen)
     if automatic is None and user is None:
         plan['properties']['replacements']=obj({})
@@ -435,9 +445,13 @@ def compile_manager(command,frozen):
             implementation.update({key:deepcopy(old[key]) for key in REPLACEMENT_REQUIREMENT_FIELDS})
             if identifier in plan.setdefault('replacements',{}):raise CommandError('duplicate_replacement','plan.repair_replacements','Replace each logical Task at most once')
             plan['replacements'][identifier]=implementation['id'];plan.setdefault('new_tasks',[]).append(implementation)
-        added=[];replacement_ids=set(plan.get('replacements',{}).values())
+        replacement_sources={new:old for old,new in plan.get('replacements',{}).items()}
+        added=[];replacement_ids=set(replacement_sources)
         for task in plan.get('new_tasks',[]):
             raw=deepcopy(task);files=raw.pop('files',[]);bindings=raw.pop('input_bindings',None);outputs=[];roles={}
+            source=replacement_sources.get(raw.get('id'))
+            if source in current:
+                raw.update({key:deepcopy(current[source]['spec'][key]) for key in REPLACEMENT_REQUIREMENT_FIELDS})
             if raw.get('id') not in replacement_ids:
                 raw['acceptance']=[{**check,'source':'user'} for check in raw.get('acceptance',[])]
             contract_filenames=[];role_filenames={}
@@ -472,6 +486,9 @@ def compile_manager(command,frozen):
                 from .quality_policy import Acceptance
                 technical=[Acceptance.model_validate(check).model_dump() for check in operation_acceptance(binding,raw.get('parameters',{}))]
                 raw['acceptance']=[*business,*[check for check in technical if check not in business]]
+                if binding.get('evidence_only'):
+                    raw['purpose']='evidence';raw['delivery_stage']=False
+                    raw['acceptance']=[{**check,'stage':'current'} for check in raw['acceptance']]
                 if not raw.get('basic_reason'):
                     raw['basic_reason']='Server-owned registered operation integrity checks'
             for item in files:
@@ -532,6 +549,14 @@ def compile_manager(command,frozen):
                          if identifier not in existing_replaced and delivery_acceptance_signature(row['spec'])==signature]
                 if len(matches)==1:
                     replacements[matches[0]]=task['id'];existing_replaced.add(matches[0])
+        if replacements:
+            for task in added:
+                for ref in task.get('inputs',{}).values():
+                    if ref.get('step') in replacements:ref['step']=replacements[ref['step']]
+            dependencies=[{'upstream':replacements.get(edge['upstream'],edge['upstream']),
+                           'downstream':replacements.get(edge['downstream'],edge['downstream'])}
+                          for edge in dependencies]
+            dependencies=list({(edge['upstream'],edge['downstream']):edge for edge in dependencies}.values())
         revised_ids={task['id'] for task in revisions}
         for index,task in enumerate(added):
             if task.get('purpose')!='evidence':continue
@@ -554,7 +579,14 @@ def compile_manager(command,frozen):
         changed={replacements.get(identifier,identifier) for identifier in changed}
         waiting=sorted(identifier for identifier in changed if not any(edge['upstream']==identifier and edge['downstream'] in changed for edge in dependencies))
         if result['kind']=='APPLY_PLAN' and not waiting:
-            raise CommandError('missing_wait_work','plan','APPLY_PLAN requires a new, revised, replaced or review_again Task; use continue_run when no graph change is needed')
+            eligible=[item for item in repair_options(frozen) if item['action'] in ('review_again','collect_evidence_then_review_again')]
+            if eligible:
+                advice='Use plan.review_again with the completed eligible evidence Task IDs; do not submit an empty APPLY_PLAN.'
+            elif (frozen.get('input_batch') or {}).get('through_sequence',0):
+                advice='Use continue_run when the frozen input batch requires no graph change.'
+            else:
+                advice='Add a new, revised, replaced, or review_again Task, or use an available explicit control outcome.'
+            raise CommandError('missing_wait_work','plan','APPLY_PLAN requires work that can execute or review. '+advice)
         result['proposal']={'proposal_id':frozen['planning_request_id'],'base_graph_version':frozen['graph_version'],
             'reason':command['reason'],'add_tasks':added,'revise_tasks':revisions,
             'add_dependencies':dependencies,'remove_dependencies':plan.get('remove_dependencies',[]),
@@ -623,7 +655,10 @@ class ToolProtocol:
                 task_variants.append({'$ref':'#/$defs/'+name})
                 if can_correct and any(item.get('type')=='operation' and item.get('operation')==identifier for item in existing):
                     self.add('replace_operation_tasks_'+str(index),'draft_replace_tasks',schema)
-        if not finalize and (not existing or not can_correct):
+        # An empty Draft has nothing that local replace/remove tools can repair.
+        # Keep the bounded typed-plan entry available even in finalize mode so a
+        # rejected first submission can be corrected instead of forcing input.
+        if not existing or not finalize and not can_correct:
             submit={**config_fields,**commit_fields}
             if task_variants and allow_new_tasks:submit['tasks']={'type':'array','minItems':1,'maxItems':16,'items':{'anyOf':task_variants}}
             self.add('submit_typed_plan','draft_batch_commit',referenced_schema(obj(submit,['kind','reason']),defs))
@@ -633,7 +668,8 @@ class ToolProtocol:
         identifiers=[item['id'] for item in existing]
         if can_correct and identifiers:self.add('remove_draft_tasks','draft_remove_tasks',obj({'task_ids':{'type':'array','minItems':1,'maxItems':16,'uniqueItems':True,'items':{'type':'string','enum':identifiers}}}))
         if existing or finalize or can_correct:self.add('commit_plan','draft_commit',obj(commit_fields))
-        self.add('continue_run','draft_control',obj({'reason':command['properties']['reason']}))
+        if (self.frozen.get('input_batch') or {}).get('through_sequence',0):
+            self.add('continue_run','draft_control',obj({'reason':command['properties']['reason']}))
         self.add('request_user_input','draft_control',obj({'reason':command['properties']['reason'],
             'question':command['properties']['question'],'options':command['properties']['options']},['reason','question']))
         defs['AuthorizationExpansion']=deepcopy(defs['Authorization']);auth=defs['AuthorizationExpansion']
@@ -698,8 +734,10 @@ class ToolProtocol:
         if action=='draft_control':
             kinds={'continue_run':'CONTINUE','request_user_input':'REQUEST_USER_INPUT',
                    'request_authorization':'REQUEST_AUTHORIZATION','new_run_required':'NEW_RUN_REQUIRED'}
+            value=self._draft.get('draft',self._draft)
             return {'action':'proposal','proposal':compile_manager({'kind':kinds[name],**payload},self.frozen),
-                    '_model_command':payload,'_draft_commit':True}
+                    '_model_command':payload,'_draft_commit':True,
+                    '_draft_revision':self._draft.get('revision',0),'_draft_digest':graph.digest(value)}
         if action=='result':
             if self.task.get('control_kind')=='REVIEW':return {'action':'result','decision':{**payload,'snapshot_digest':self.frozen['snapshot_digest']}}
             if self.task.get('control_kind')=='DIAGNOSE':return {'action':'result','diagnosis':payload,'snapshot_digest':self.frozen['snapshot_digest']}

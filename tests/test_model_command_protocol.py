@@ -171,6 +171,29 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(CommandError) as raised:compile_manager(invalid,f)
         self.assertEqual(raised.exception.code,'evidence_task_required')
 
+        evidence={'id':'measure','type':'operation','name':'Measure audio','objective':'Measure the accepted audio',
+            'operation':'media.evidence','purpose':'business','parameters':{'mode':'audio_envelope'},
+            'inputs':{'source':{'repair_candidate':{'logical_task_id':'render','revision':2,
+                'artifact_id':'b'*32,'sha256':'c'*64,'role':'video'}}},
+            'acceptance':[{'kind':'json','stage':'final'}]}
+        f['repair_candidates']=[{'logical_task_id':'render','revision':2,'artifact_id':'b'*32,'sha256':'c'*64,'role':'video'}]
+        compiled=compile_manager({'kind':'APPLY_PLAN','reason':'Collect bounded evidence','plan':{'new_tasks':[evidence]}},f)
+        task=compiled['proposal']['add_tasks'][0]
+        self.assertEqual(task['purpose'],'evidence');self.assertFalse(task['delivery_stage'])
+        self.assertTrue(task['acceptance']);self.assertTrue(all(item['stage']=='current' for item in task['acceptance']))
+
+        f['tasks'].append({**f['tasks'][0],'id':'measure','status':'succeeded','spec':task,
+            'accepted_result':['evidence-report.json'],'quality':{'technical_valid':True,'passed':True,'verified_evidence':{'mode':'audio_envelope'}}})
+        retry=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        payload={'kind':'APPLY_PLAN','reason':'Review with completed evidence','review_again':{'render':['measure']}}
+        wire=transform(payload,retry.schemas['submit_typed_plan'],encode=True)
+        decoded=retry.decode('submit_typed_plan',wire)
+        self.assertEqual(decoded['command']['review_again'],{'render':['measure']})
+        with self.assertRaises(CommandError) as empty:
+            compile_manager({'kind':'APPLY_PLAN','reason':'No-op','plan':{}},f)
+        self.assertEqual(empty.exception.code,'missing_wait_work')
+        self.assertIn('review_again',str(empty.exception));self.assertNotIn('continue_run',str(empty.exception))
+
     def test_evidence_cannot_wait_on_unaccepted_output_from_paused_task(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render audio',
               'outputs':['final.wav'],'output_roles':{'audio':'final.wav'},'acceptance':[{'kind':'media'}],
@@ -431,7 +454,7 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_plan_draft_uses_typed_commands_with_bounded_schema_complexity(self):
         f=frozen(False);p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
-        self.assertEqual(list(p.schemas),['submit_typed_plan','continue_run','request_user_input','request_authorization','new_run_required'])
+        self.assertEqual(list(p.schemas),['submit_typed_plan','request_user_input','request_authorization','new_run_required'])
         self.assertNotIn('commit_plan',p.schemas)
         self.assertEqual(p.context()['model_command_contract']['version'],'plan-draft-v1')
         self.assertNotIn('submit_plan',p.schemas)
@@ -442,7 +465,33 @@ class ModelCommandTests(unittest.TestCase):
         from webapp.workflow_agents import model_output_limit
         self.assertEqual(model_output_limit(profile('media_planner'),p),6144)
         final=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'},finalize=True)
-        self.assertEqual(model_output_limit(profile('media_planner'),final),1024)
+        self.assertEqual(model_output_limit(profile('media_planner'),final),6144)
+
+    def test_plan_draft_control_result_binds_the_current_draft(self):
+        f=frozen(user=True);draft={'status':'OPEN','revision':3,'draft':{
+            'new_tasks':[],'changes':[],'dependencies':[],'remove_dependencies':[],
+            'repair_replacements':[],'replacements':{},'review_again':{},'_commands':['a','b','c']}}
+        protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft=draft)
+        wire=transform({'reason':'No graph change is needed'},protocol.schemas['continue_run'],encode=True)
+        result=protocol.decode('continue_run',wire)
+        self.assertEqual(result['_draft_revision'],3)
+        self.assertEqual(result['_draft_digest'],graph.digest(draft['draft']))
+
+    def test_finalize_keeps_typed_submission_when_the_rejected_draft_is_empty(self):
+        f=frozen(False);draft={'status':'OPEN','revision':0,'last_error_signature':'compile-error','draft':{
+            'new_tasks':[],'changes':[],'dependencies':[],'remove_dependencies':[],
+            'repair_replacements':[],'replacements':{},'review_again':{},'_commands':[]}}
+        protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft=draft,finalize=True)
+        self.assertIn('submit_typed_plan',protocol.schemas)
+        self.assertIn('commit_plan',protocol.schemas)
+
+    def test_continue_is_unavailable_without_a_frozen_input_batch(self):
+        f=frozen(False);protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertNotIn('continue_run',protocol.schemas)
+        raw={'kind':'CONTINUE','reason':'Invalid no-op','snapshot_digest':f['snapshot_digest'],
+             'base_graph_version':f['graph_version'],'authorization_version':f['authorization_version'],
+             'input_through_sequence':0}
+        with self.assertRaisesRegex(ValueError,'frozen input batch'):graph.ManagerResult.model_validate(raw)
 
     def test_authorization_request_binds_the_existing_goal_in_the_host(self):
         f=frozen(False);f['goal']='Original immutable goal';f['scope_confirmation_required']=True
@@ -466,6 +515,33 @@ class ModelCommandTests(unittest.TestCase):
         protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
         self.assertEqual(protocol.context()['model_command_contract']['repair_options'],options)
         self.assertNotIn('tasks',protocol.schemas['submit_typed_plan']['properties'])
+
+    def test_user_replacement_inherits_requirements_instead_of_model_retyping(self):
+        value=frozen(user=True);old=value['tasks'][0]['spec']
+        replacement={'id':'replacement','type':'agent','profile':'editing_implementer','name':'Replacement renderer',
+            'objective':'Weakened model objective','input_bindings':[],
+            'files':[{'path':'report.txt','roles':['report']}],
+            'acceptance':[{'kind':'file'}],'semantics':{'consistency_mode':'creative'},'basic_reason':'Change implementation'}
+        command={'kind':'COMPLETE','reason':'Replace implementation','plan':{
+            'new_tasks':[replacement],'replacements':{'render':'replacement'}}}
+        compiled=compile_manager(command,value)['proposal']['add_tasks'][0]
+        for field in ('objective','acceptance','semantics','delivery_stage'):
+            self.assertEqual(compiled[field],old[field],field)
+
+    def test_replacement_compiles_new_downstream_references_to_the_new_task(self):
+        value=frozen(user=True)
+        replacement={'id':'replacement','type':'agent','profile':'editing_implementer','name':'Replacement renderer',
+            'objective':'Render','input_bindings':[],'files':[{'path':'report.txt','roles':['report']}],
+            'acceptance':[{'kind':'file'}],'basic_reason':'Change implementation'}
+        downstream={'id':'summary','type':'agent','profile':'editing_implementer','name':'Summarize',
+            'objective':'Summarize the report','input_bindings':[{'role':'source','ref':{'step':'render','role':'report'}}],
+            'files':[{'path':'summary.txt','roles':['summary']}],'acceptance':[{'kind':'file','stage':'final'}],
+            'basic_reason':'Produce final summary'}
+        proposal=compile_manager({'kind':'COMPLETE','reason':'Replace and continue','plan':{
+            'new_tasks':[replacement,downstream],'replacements':{'render':'replacement'}}},value)['proposal']
+        summary=next(task for task in proposal['add_tasks'] if task['id']=='summary')
+        self.assertEqual(summary['inputs']['source']['step'],'replacement')
+        self.assertIn({'upstream':'replacement','downstream':'summary'},proposal['add_dependencies'])
 
     def test_loaded_operation_contract_exposes_required_roles_and_parameters(self):
         from webapp.operations import catalog

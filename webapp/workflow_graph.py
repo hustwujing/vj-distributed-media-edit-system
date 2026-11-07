@@ -287,6 +287,7 @@ class ManagerResult(Contract):
     def shape(self):
         requires_proposal=self.kind in ('APPLY_PLAN','COMPLETE')
         if requires_proposal != (self.proposal is not None):raise ValueError('Only APPLY_PLAN and COMPLETE carry a Proposal')
+        if self.kind=='CONTINUE' and self.input_through_sequence<=0:raise ValueError('CONTINUE requires a frozen input batch')
         if self.proposal and self.proposal.base_graph_version!=self.base_graph_version:raise ValueError('Proposal version differs from result envelope')
         if self.kind=='COMPLETE' and not self.proposal.sealed:raise ValueError('COMPLETE requires a sealed Proposal and independent final review')
         if self.kind=='REQUEST_AUTHORIZATION' and self.authorization is None:raise ValueError('Authorization request requires the complete proposed scope')
@@ -311,6 +312,7 @@ def initialize(store):
           repair_context_json TEXT NOT NULL DEFAULT '{}',
           next_reconcile_at REAL NOT NULL,reconcile_owner TEXT NOT NULL DEFAULT '',
           reconcile_until REAL NOT NULL DEFAULT 0,reconcile_generation INTEGER NOT NULL DEFAULT 0,
+          reconcile_error_signature TEXT NOT NULL DEFAULT '',reconcile_error_count INTEGER NOT NULL DEFAULT 0,
           created_at REAL NOT NULL,updated_at REAL NOT NULL,terminal_reason TEXT NOT NULL DEFAULT '',
           delivery_json TEXT NOT NULL DEFAULT '[]',delivered_at REAL);
         CREATE TABLE IF NOT EXISTS run_authorizations(run_id TEXT NOT NULL,version INTEGER NOT NULL,authorization_json TEXT NOT NULL,created_at REAL NOT NULL,PRIMARY KEY(run_id,version));
@@ -324,7 +326,7 @@ def initialize(store):
           profile_json TEXT NOT NULL DEFAULT '{}',
           status TEXT NOT NULL,selected INTEGER NOT NULL DEFAULT 1,phase TEXT NOT NULL DEFAULT 'local',
           created_graph_version INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
-          recovery_count INTEGER NOT NULL DEFAULT 0,review_again_count INTEGER NOT NULL DEFAULT 0,repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
+          recovery_count INTEGER NOT NULL DEFAULT 0,infrastructure_interruptions INTEGER NOT NULL DEFAULT 0,review_again_count INTEGER NOT NULL DEFAULT 0,repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
           repair_context_json TEXT NOT NULL DEFAULT '{}',
           attempts INTEGER NOT NULL DEFAULT 0,next_run_at REAL NOT NULL DEFAULT 0,
           wait_reason TEXT NOT NULL DEFAULT '',candidate_result_json TEXT NOT NULL DEFAULT '[]',
@@ -338,7 +340,7 @@ def initialize(store):
           profile_json TEXT NOT NULL DEFAULT '{}',
           status TEXT NOT NULL,selected INTEGER NOT NULL DEFAULT 1,phase TEXT NOT NULL DEFAULT 'local',
           created_graph_version INTEGER NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
-          recovery_count INTEGER NOT NULL DEFAULT 0,review_again_count INTEGER NOT NULL DEFAULT 0,repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
+          recovery_count INTEGER NOT NULL DEFAULT 0,infrastructure_interruptions INTEGER NOT NULL DEFAULT 0,review_again_count INTEGER NOT NULL DEFAULT 0,repair_count INTEGER NOT NULL DEFAULT 0,user_revision_count INTEGER NOT NULL DEFAULT 0,
           repair_context_json TEXT NOT NULL DEFAULT '{}',
           attempts INTEGER NOT NULL DEFAULT 0,next_run_at REAL NOT NULL DEFAULT 0,
           wait_reason TEXT NOT NULL DEFAULT '',candidate_result_json TEXT NOT NULL DEFAULT '[]',
@@ -358,7 +360,8 @@ def initialize(store):
         CREATE INDEX IF NOT EXISTS workflow_ready ON run_tasks(status,next_run_at);
         CREATE TABLE IF NOT EXISTS workflow_dependencies(
           run_id TEXT NOT NULL,upstream_task_id TEXT NOT NULL,downstream_task_id TEXT NOT NULL,
-          created_graph_version INTEGER NOT NULL,retired_graph_version INTEGER,PRIMARY KEY(run_id,upstream_task_id,downstream_task_id));
+          created_graph_version INTEGER NOT NULL,retired_graph_version INTEGER,
+          PRIMARY KEY(run_id,upstream_task_id,downstream_task_id,created_graph_version));
         CREATE TABLE IF NOT EXISTS run_task_replacements(run_id TEXT NOT NULL,old_task_id TEXT NOT NULL,new_task_id TEXT NOT NULL,graph_version INTEGER NOT NULL,source TEXT NOT NULL,created_at REAL NOT NULL,PRIMARY KEY(run_id,old_task_id));
         CREATE TABLE IF NOT EXISTS planner_runs(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,base_graph_version INTEGER NOT NULL,
@@ -379,7 +382,7 @@ def initialize(store):
         CREATE TABLE IF NOT EXISTS task_results(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,task_revision INTEGER NOT NULL,
           lease_id TEXT NOT NULL,lease_generation INTEGER NOT NULL,outcome TEXT NOT NULL,result_json TEXT NOT NULL,
-          artifact_manifest TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'staged',created_at REAL NOT NULL,committed_at REAL,
+          artifact_manifest TEXT NOT NULL,status TEXT NOT NULL DEFAULT 'staged',error_json TEXT NOT NULL DEFAULT '{}',created_at REAL NOT NULL,committed_at REAL,
           UNIQUE(run_id,task_id,task_revision,lease_generation));
         CREATE TABLE IF NOT EXISTS workflow_decisions(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,kind TEXT NOT NULL,graph_version INTEGER NOT NULL,
@@ -407,7 +410,7 @@ def initialize(store):
           base_graph_version INTEGER NOT NULL,authorization_version INTEGER NOT NULL,
           input_through_sequence INTEGER NOT NULL,schema_version TEXT NOT NULL,
           status TEXT NOT NULL,draft_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 0,
-          last_error_signature TEXT NOT NULL DEFAULT '',repeated_error_count INTEGER NOT NULL DEFAULT 0,
+          last_error_signature TEXT NOT NULL DEFAULT '',last_error_json TEXT NOT NULL DEFAULT '[]',repeated_error_count INTEGER NOT NULL DEFAULT 0,
           created_at REAL NOT NULL,updated_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS workflow_orchestrators(
           id TEXT PRIMARY KEY,release TEXT NOT NULL,heartbeat REAL NOT NULL,draining INTEGER NOT NULL DEFAULT 0,
@@ -492,14 +495,19 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,sco
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         if not db.execute('SELECT id FROM projects WHERE id=?',(project,)).fetchone():raise ValueError('Unknown project')
-        existing=db.execute('SELECT id,authorization_json FROM runs WHERE id=?',(identifier,)).fetchone()
+        existing=db.execute('''SELECT id,project_id,session_id,parent_run_id,scope_confirmed,authorization_json
+            FROM runs WHERE id=?''',(identifier,)).fetchone()
         if existing:
+            if existing['project_id']!=project:raise ValueError('Run project is immutable')
+            if existing['parent_run_id']!=parent_run_id:raise ValueError('Run parent is immutable')
+            if session_id is not None and existing['session_id']!=session_id:raise ValueError('Run Session is immutable')
+            if bool(existing['scope_confirmed'])!=bool(scope_confirmed):raise ValueError('Run scope confirmation is immutable')
             if existing['authorization_json']!=encode(authorization.model_dump()):raise ValueError('Run authorization is immutable')
             if model_configuration is not None:
                 from .agent_profiles import for_task
                 if for_task(store,identifier).digest!=model_configuration.digest:raise ValueError('Run model configuration is immutable')
             return get(store,existing['id'])
-        store.admit_tasks(project,1)
+        store.admit_tasks(project,1,include_open_runs=True)
         parent=get(store,parent_run_id) if parent_run_id else None
         if parent_run_id and (not parent or parent['project_id']!=project):raise ValueError('Foreign parent Run')
         session_id=session_id or (parent['session_id'] if parent else uuid.uuid4().hex)
@@ -663,10 +671,10 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         current=Task.model_validate(existing[old]['spec']);replacement=added[new]
         row=existing[old]
         if user_revision_scope is not None and old not in user_revision_scope:raise ValueError('Replacement outside user revision scope')
+        if any(getattr(current,key)!=getattr(replacement,key) for key in ('objective','acceptance','semantics','delivery_stage')):
+            raise ValueError('Replacement cannot remove or weaken the original requirement')
         if user_revision_scope is None:
             if repair_scope not in ('',old):raise ValueError('Automatic replacement outside failed Task')
-            if any(getattr(current,key)!=getattr(replacement,key) for key in ('objective','acceptance','semantics','delivery_stage')):
-                raise ValueError('Replacement cannot remove or weaken the original requirement')
             from .repair_inputs import source_assets
             original_specs={identifier:Task.model_validate(row['spec']) for identifier,row in existing.items()}
             proposed_specs={**original_specs,**added,**revised}
@@ -687,6 +695,8 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         edges.remove((edge.upstream,edge.downstream))
     edges={(replacements.get(parent,parent),replacements.get(child,child)) for parent,child in edges}
     for edge in proposal.add_dependencies:
+        if edge.upstream in replacements or edge.downstream in replacements:
+            raise ValueError('New dependencies must reference the replacement Task, not a retired Task')
         if edge.downstream not in added and not (user_revision_scope is not None and edge.downstream in revised):raise ValueError('Dependencies of existing tasks are immutable')
         if edge.upstream not in existing and edge.upstream not in added:raise ValueError('Unknown dependency')
         if (edge.upstream,edge.downstream) in edges:raise ValueError('Duplicate dependency')
@@ -809,6 +819,8 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                 if (task.id in added or task.id in revised or existing[task.id]['status']!='succeeded') and task_scope.allowed_asset_digests.get(ref.asset)!=asset_digest(current_asset):
                     raise AuthorizationRequired('Approved input content changed; renew its authorization')
             else:
+                if ref.step in replacements:
+                    raise ValueError('Input must reference the replacement Task, not a retired Task')
                 if (ref.step,task.id) not in edges:raise ValueError('Input must declare its upstream dependency')
                 if (task.purpose=='evidence' and ref.step in existing and ref.step not in revised
                         and existing[ref.step]['status']!='succeeded'):
@@ -826,6 +838,9 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     if proposal.sealed and unresolved:
         raise ValueError('Sealed repair plan must resolve paused tasks through revisions, replacements or review_again: '+','.join(sorted(unresolved)))
     if not proposal.sealed and not proposal.replan_after:raise ValueError('Open graph needs an explicit replan trigger')
+    unreachable={t for t in proposal.replan_after if t in existing and existing[t]['status'] in ('paused','failed')
+                 and t not in revised and t not in replacements and t not in proposal.review_again}
+    if unreachable:raise ValueError('Replan trigger cannot wait on an unresolved paused or failed Task: '+','.join(sorted(unreachable)))
     if not proposal.sealed and not any(t in added or t in revised or existing[t]['status'] not in TERMINAL for t in proposal.replan_after):
         raise ValueError('Replan trigger is already exhausted')
     if not specs:raise ValueError('A workflow must contain at least one business task')

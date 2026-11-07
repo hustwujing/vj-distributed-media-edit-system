@@ -7,6 +7,23 @@ from .task_leases import LeaseLost,TaskQuotaReached
 from .task_lifecycle import TaskLimitReached
 
 
+def transient_model_error(exc):
+    try:
+        import requests
+        if isinstance(exc,(requests.ConnectionError,requests.Timeout,TimeoutError)):return True
+    except ImportError:
+        if isinstance(exc,TimeoutError):return True
+    try:
+        from urllib3.exceptions import ProtocolError,ReadTimeoutError
+        if isinstance(exc,(ProtocolError,ReadTimeoutError)):return True
+    except ImportError:pass
+    from .workflow_agents import ModelServiceError
+    if isinstance(exc,ModelServiceError):
+        status=exc.diagnostic.get('http_status')
+        return status==429 or isinstance(status,int) and status>=500
+    return False
+
+
 def quota_error_code(task,exc):
     category=exc.diagnostic.get('category')
     if category=='model_tokens':return 'model_token_budget_exhausted'
@@ -149,14 +166,7 @@ def _execute(host,lease):
             except (LeaseLost,TaskLimitReached):raise
             except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.run_id,step_id=lease.step_id)
         calls=store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(run['id']+':'+task['id']+':'+str(task['revision']),))
-        from .workflow_agents import ModelServiceError
-        try:
-            import requests
-            transient_model=isinstance(exc,(requests.ConnectionError,requests.Timeout,TimeoutError))
-        except ImportError:transient_model=isinstance(exc,TimeoutError)
-        if isinstance(exc,ModelServiceError):
-            status=exc.diagnostic.get('http_status');transient_model=status==429 or isinstance(status,int) and status>=500
-        transient_model=bool(task.get('control_kind') and task['type']=='agent' and transient_model)
+        transient_model=bool(task.get('control_kind') and task['type']=='agent' and transient_model_error(exc))
         if isinstance(exc,TaskQuotaReached):
             code=quota_error_code(task,exc)
         else:code=failure_error_code(task,phase,calls,classification)

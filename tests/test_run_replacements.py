@@ -67,6 +67,23 @@ class ReplacementTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'budget'):
             graph.validate_proposal(self.store,graph.get(self.store,run['id']),raw,repair_scope='first')
 
+    def test_user_replacement_cannot_weaken_the_original_requirement(self):
+        run=graph.get(self.store,self.run['id'])
+        raw={'proposal_id':'bad-user-replacement','base_graph_version':1,'reason':'Change implementation',
+             'add_tasks':[fixtures.script('replacement',objective='A weaker unrelated goal')],
+             'replacements':{'first':'replacement'},'sealed':True}
+        with self.assertRaisesRegex(ValueError,'requirement'):
+            graph.validate_proposal(self.store,run,raw,user_revision_scope={'first','child'})
+
+    def test_raw_proposal_cannot_bind_new_work_to_a_retired_replacement_source(self):
+        run=graph.get(self.store,self.run['id'])
+        raw={'proposal_id':'stale-replacement-reference','base_graph_version':1,'reason':'Replace and continue',
+             'add_tasks':[fixtures.script('replacement'),fixtures.script('new-child',inputs={'source':{'step':'first','role':'report'}})],
+             'add_dependencies':[{'upstream':'first','downstream':'new-child'}],
+             'replacements':{'first':'replacement'},'sealed':True}
+        with self.assertRaisesRegex(ValueError,'replacement Task|retired Task'):
+            graph.validate_proposal(self.store,run,raw,user_revision_scope={'first','child'})
+
 
 class ReviewIdentityTests(unittest.TestCase):
     def setUp(self):

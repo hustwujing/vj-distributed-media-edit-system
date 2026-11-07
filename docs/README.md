@@ -63,7 +63,7 @@
 | 文档 | 范围 |
 | --- | --- |
 | [已确认方案与实施边界](dynamic-plan-todo.md)、[统一 Run 实施记录](unified-run-progress.md) | 已确认设计、源码实现与待部署/真机验收边界 |
-| [当前真机审查矩阵](real-case-campaign/dynamic-case-review.md)、[真机清单](real-case-campaign/dynamic-cases.json) | 当前 119 条及后续模型配置，不能以历史通过替代当前轮次 |
+| [当前真机审查矩阵](real-case-campaign/dynamic-case-review.md)、[真机清单](real-case-campaign/dynamic-cases.json) | 当前 126 条及冻结模型配置，不能以历史通过替代当前轮次 |
 | [模型计数缺口与改造记录](model-token-counting-gap.md) | 网关探测、本地预算估算、回执异常与验证限制 |
 | [v3 模型设置部署验证](model-v3-deployment-validation.md) | 配置错配处置、冻结门禁、浏览器验证和旧轮证据边界 |
 | [Agent 执行体验清单](agent-execution-experience-todo.md) | 正文与活动、规划预算、用量说明和方案检查 |

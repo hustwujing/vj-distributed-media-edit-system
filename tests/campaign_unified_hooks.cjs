@@ -4,6 +4,7 @@ const crypto=require('node:crypto');
 const key=()=>crypto.randomUUID().replaceAll('-','');
 const activeJob=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&job.status==='running');
 const terminal=run=>['SUCCEEDED','FAILED','CANCELLED'].includes(run.state);
+function hasActiveWork(run){return [...(run.tasks||[]),...(run.control_jobs||[])].some(item=>['running','leased'].includes(item.status));}
 function verifyDrainedAttempts(boundary,run,facts){
  const originals=[];
  for(const old of boundary.started||[]){
@@ -34,7 +35,7 @@ function selectedTask(run,identifier){
 }
 const hooks=new Set(['identity','drain_local','drain_agent','planning_inputs','drain_wan','unknown_input',
  'feedback_idempotency','no_waiver','mask_boundary','temporal_boundary','publish_input','successor_inputs','drain_sync','frozen_route',
- 'feedback_cutout','feedback_layout','reference_before_wan','legal_replacement']);
+ 'feedback_cutout','feedback_layout','reference_before_wan','legal_replacement','attachment_change_reject']);
 
 async function before(c){
  const {spec,state,page,read,wait,appendInput,feedback,approve,api,fault,capture,persist,observeTerminal,control}=c;
@@ -80,6 +81,15 @@ async function before(c){
   if(hook==='frozen_route'){
    await fault('switch_provider_route');state.unified_boundary.route_switched=true;persist();
   }
+ }else if(hook==='attachment_change_reject'){
+  const initial=await wait(r=>r.tasks.some(t=>t.type==='agent'&&t.status==='running'),600);
+  const asset=initial.authorization.allowed_assets[0];assert.ok(asset,'Attachment-change case requires one authorized asset');
+  const accepted=await appendInput('补充要求使用当前关联图片；如果该附件在安全点前失效，则停止这条补充要求并继续原任务。',[asset]);
+  const removed=await fault('delete_input_asset');assert.equal(removed.asset_id,asset);
+  const blocked=await wait(r=>r.decisions.some(d=>d.kind==='input_question'&&(d.request.invalid_input_ids||[]).includes(accepted.id)),300);
+  assert.equal(blocked.input_barrier_sequence,accepted.sequence);await approve('reject');
+  const resumed=await wait(r=>r.inputs.some(i=>i.id===accepted.id&&i.status==='SUPERSEDED')&&r.input_barrier_sequence===null,120);
+  assert.equal(resumed.inputs.find(i=>i.id===accepted.id).error_code,'user_rejected_input');mark({input_id:accepted.id,asset_id:asset,decision_kind:'input_question'});
  }else if(hook==='unknown_input'){
   let attempt;
   await wait(async()=>{const facts=await fault('progress');const submitted=new Set(facts.submitting.map(call=>call.attempt_id));
@@ -195,6 +205,10 @@ async function after(c){
   assert.equal(edge.old_task_id,old.id);
   boundary.observed=true;boundary.replacement={old:old.id,current:replacement.id,child_revision:child.revision};
  }
+ if(hook==='attachment_change_reject'){
+  const item=run.inputs.find(input=>input.id===boundary.input_id);assert.ok(item);assert.equal(item.status,'SUPERSEDED');
+  assert.equal(run.input_barrier_sequence,null);boundary.observed=true;
+ }
  if(!boundary.observed)throw Object.assign(Error('Required unified Run boundary was not observed'),{boundary:true});
  persist();
 }
@@ -212,4 +226,4 @@ function verifyFeedbackRevision(before,run,identifier){
  return current;
 }
 
-module.exports={before,after,hooks,verifyDrainedAttempts,verifyFeedbackRevision};
+module.exports={before,after,hooks,verifyDrainedAttempts,verifyFeedbackRevision,hasActiveWork};

@@ -44,6 +44,24 @@ class ProviderMetadataTests(unittest.TestCase):
             self.assertNotEqual(asynchronous.concurrency_group,synchronous.concurrency_group)
             self.assertEqual(synchronous.cleanup_category,'unqueryable_sync')
 
+    def test_healthy_worker_catalogues_expose_only_identical_contracts(self):
+        from pathlib import Path
+        import tempfile
+        from webapp import agent_store
+        from webapp.store import Store
+        from webapp.workflow_planning import available_operations
+        with tempfile.TemporaryDirectory() as directory:
+            store=Store(Path(directory));agent_store.initialize(store);now=store.now()
+            catalogue=operations.catalog();changed=json.loads(json.dumps(catalogue))
+            target=next(item for item in changed['operations'] if item['id']=='image.edit')
+            target['provider_identity']='conflicting-provider'
+            for worker,value in [('one',catalogue),('two',changed)]:
+                store.execute('INSERT INTO execution_workers VALUES (?,?,?,?,?,0)',(worker,worker,'release','',now))
+                store.execute('INSERT INTO execution_operation_catalog VALUES (?,?,?)',(worker,json.dumps(value),now))
+            visible={item['id'] for item in available_operations(store)}
+            self.assertNotIn('image.edit',visible)
+            self.assertIn('media.concat_sequence',visible)
+
 
 class FrozenCleanupMetadataTests(unittest.TestCase):
     setUp=fixtures.ExternalCleanupTests.setUp

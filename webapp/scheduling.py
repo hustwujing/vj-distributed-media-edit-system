@@ -255,6 +255,14 @@ def snapshot(store,run_id):
 def defer_resource(lease,seconds=5):
     lease.waiting_for_resource=True
     if lease.step_id:
+        from .workflow_graph import get as graph_get,work_item,write_work
+        run=graph_get(lease.store,lease.run_id)
+        if run:
+            task=work_item(run,lease.step_id)
+            if not task or task['lease_id']!=lease.attempt:raise ValueError('Dynamic resource wait lost its task lease')
+            write_work(lease.store,task,"UPDATE run_tasks SET wait_reason='resource',next_run_at=? WHERE run_id=? AND id=?",
+                       (lease.store.now()+seconds,lease.run_id,lease.step_id))
+            return
         lease.store.execute("UPDATE agent_steps SET wait_reason='resource',next_poll=? WHERE id=? AND workflow IN (SELECT id FROM agent_workflows WHERE run_id=?)",
                             (lease.store.now()+seconds,lease.step_id,lease.run_id))
         return

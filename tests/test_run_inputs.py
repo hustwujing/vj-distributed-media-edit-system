@@ -101,6 +101,55 @@ class RunInputTests(unittest.TestCase):
         self.assertEqual(self.store.query('SELECT status FROM run_inputs')[0]['status'],'ACCEPTED')
         self.assertEqual(self.store.query("SELECT kind FROM workflow_decisions WHERE status='pending'")[0]['kind'],'input_question')
 
+    def test_rejecting_manager_question_supersedes_batch_and_restores_old_graph(self):
+        accepted=self.send('Use a different background')
+        self.f.tick();self.reply('REQUEST_USER_INPUT',question='Which background?',options=['white','black'])
+        run=self.f.tick();decision=self.store.query("SELECT * FROM workflow_decisions WHERE status='pending'")[0]
+        self.f.orchestrator.answer(run,{'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':'reject'})
+        current=graph.get(self.store,self.run['id'])
+        self.assertEqual(self.store.query('SELECT status,error_code FROM run_inputs WHERE id=?',(accepted['id'],))[0],
+                         {'status':'SUPERSEDED','error_code':'user_rejected_input'})
+        self.assertIsNone(current['input_barrier_sequence'])
+        self.assertTrue(current['sealed'])
+        self.assertEqual((current['status'],current['terminal_reason']),('ACTIVE','input_draining'))
+
+    def test_changed_attachment_can_be_rejected_without_a_barrier_loop(self):
+        asset_id='old-reference'
+        self.store.add_asset(self.run['project_id'],asset_id,'old.png','old.png',{'kind':'image','width':8,'height':8})
+        accepted=run_inputs.accept(self.store,self.run['id'],'owner',{
+            'request_id':uuid.uuid4().hex,'content':'Use this reference','attachments':[asset_id]})
+        self.store.execute('DELETE FROM assets WHERE id=?',(asset_id,))
+        run=self.f.tick();decision=self.store.query("SELECT * FROM workflow_decisions WHERE status='pending'")[0]
+        self.assertEqual(decision['kind'],'input_question')
+        self.f.orchestrator.answer(run,{'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':'reject'})
+        current=graph.get(self.store,self.run['id'])
+        self.assertEqual(self.store.query('SELECT status,error_code FROM run_inputs WHERE id=?',(accepted['id'],))[0],
+                         {'status':'SUPERSEDED','error_code':'user_rejected_input'})
+        self.assertIsNone(current['input_barrier_sequence'])
+        self.assertTrue(current['sealed'])
+
+    def test_changed_attachment_replacement_advances_barrier_to_new_input(self):
+        old_id='old-reference'
+        self.store.add_asset(self.run['project_id'],old_id,'old.png','old.png',{'kind':'image','width':8,'height':8})
+        original=run_inputs.accept(self.store,self.run['id'],'owner',{
+            'request_id':uuid.uuid4().hex,'content':'Use this reference','attachments':[old_id]})
+        self.store.execute('DELETE FROM assets WHERE id=?',(old_id,))
+        run=self.f.tick();decision=self.store.query("SELECT * FROM workflow_decisions WHERE status='pending'")[0]
+        replacement_id='new-reference'
+        self.store.add_asset(self.run['project_id'],replacement_id,'new.png','new.png',{'kind':'image','width':8,'height':8})
+        request_id=uuid.uuid4().hex
+        self.f.orchestrator.answer(run,{'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],
+            'action':'revise','feedback':'Use the replacement reference','attachments':[replacement_id]},request_id=request_id)
+        rows=self.store.query('SELECT id,sequence,status,error_code FROM run_inputs ORDER BY sequence')
+        self.assertEqual(rows[0],{'id':original['id'],'sequence':1,'status':'SUPERSEDED','error_code':'attachment_replaced_by_user'})
+        self.assertEqual((rows[1]['sequence'],rows[1]['status']),(2,'ACCEPTED'))
+        self.assertEqual(graph.get(self.store,self.run['id'])['input_barrier_sequence'],2)
+
+    def test_succeeded_run_without_a_published_delivery_rejects_input(self):
+        self.store.execute("UPDATE runs SET status='SUCCEEDED',delivered_at=NULL WHERE id=?",(self.run['id'],))
+        with self.assertRaisesRegex(ValueError,'cannot accept'):
+            self.send('This input cannot have a recovery path')
+
     def test_targeted_input_freezes_descendant_scope_and_cannot_revise_sibling(self):
         self.store.execute('INSERT INTO workflow_dependencies(run_id,upstream_task_id,downstream_task_id,created_graph_version) VALUES (?,?,?,1)',
                            (self.run['id'],'left','right'))
@@ -154,3 +203,38 @@ class RunInputTests(unittest.TestCase):
         self.assertEqual(run['authorization_version'],2)
         self.assertEqual(self.store.query('SELECT COUNT(*) AS n FROM run_authorizations WHERE run_id=?',(run['id'],))[0]['n'],2)
         self.assertEqual(graph.get(self.store,original['id'])['status'],'SUCCEEDED')
+
+    def test_rejecting_plan_change_supersedes_its_input_and_clears_barrier(self):
+        accepted=self.send('Request a scope change')
+        run=graph.get(self.store,self.run['id'])
+        self.f.orchestrator.decision(run,'plan_change',{
+            'reason':'The input needs renewed scope','input_through_sequence':accepted['sequence']})
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))[0]
+        self.f.orchestrator.answer(graph.get(self.store,run['id']),{
+            'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':'reject'})
+        current=graph.get(self.store,run['id'])
+        item=self.store.query('SELECT status,error_code FROM run_inputs WHERE id=?',(accepted['id'],))[0]
+        self.assertEqual(item,{'status':'SUPERSEDED','error_code':'authorization_rejected'})
+        self.assertIsNone(current['input_barrier_sequence'])
+        self.assertEqual((current['status'],current['terminal_reason']),('ACTIVE','authorization_rejected'))
+
+    def test_reject_batch_repairs_a_stale_barrier_when_input_was_already_resolved(self):
+        accepted=self.send('Already resolved elsewhere')
+        self.store.execute("UPDATE run_inputs SET status='APPLIED',applied_at=? WHERE id=?",(self.store.now(),accepted['id']))
+        run=graph.get(self.store,self.run['id']);self.assertEqual(run['input_barrier_sequence'],accepted['sequence'])
+        run_inputs.reject_batch(self.store,run,accepted['sequence'],'stale_decision_recovery')
+        current=graph.get(self.store,self.run['id'])
+        self.assertIsNone(current['input_barrier_sequence']);self.assertEqual(current['drain_set'],[])
+        self.assertTrue(current['sealed'])
+
+    def test_scope_approval_rebinds_server_owned_policy_digests(self):
+        run=graph.get(self.store,self.run['id'])
+        self.f.orchestrator.decision(run,'plan_change',{'reason':'Policy changed'})
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))[0]
+        stale={**run['authorization'],'agent_profile_digests':{name:'0'*64 for name in run['authorization']['allowed_agent_profiles']},
+               'operation_policy_digests':{name:'0'*64 for name in run['authorization']['allowed_operations'] if name!='script'}}
+        self.f.orchestrator.answer(run,{'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],
+            'action':'approve','authorization':stale})
+        current=graph.get(self.store,run['id'])
+        self.assertEqual(current['authorization_version'],2)
+        self.assertNotIn('0'*64,current['authorization']['agent_profile_digests'].values())

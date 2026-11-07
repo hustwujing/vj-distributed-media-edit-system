@@ -452,7 +452,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
             store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM agent_turns WHERE project=?)',(project_id,))
         store.execute('DELETE FROM execution_checkpoints WHERE project=?',(project_id,))
         store.execute('DELETE FROM execution_step_checkpoints WHERE project=?',(project_id,))
-        if store.shared_files:store.artifacts.release_prefix(project_id)
+        store.artifacts.release_prefix(project_id)
         store.execute('DELETE FROM agent_turns WHERE project=?', (project_id,))
         store.execute('DELETE FROM agent_sessions WHERE project=?', (project_id,))
         store.execute('DELETE FROM projects WHERE id=?', (project_id,))

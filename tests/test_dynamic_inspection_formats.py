@@ -1,11 +1,13 @@
 """Real ZIP bytes are inspected as bounded metadata, never media or extracted content."""
 import hashlib
+import io
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 import zipfile
+from PIL import Image
 from webapp.workflow_agents import inspect,InspectionInputError
 
 
@@ -51,3 +53,20 @@ class InspectionFormatTests(unittest.TestCase):
                 path=self.root/name;path.write_bytes(b'not media')
                 with self.assertRaises(InspectionInputError) as error:self.inspect_file(path)
                 self.assertEqual(error.exception.code,code)
+
+    def test_openraster_evidence_binds_mimetype_structure_and_member_dimensions(self):
+        path=self.root/'editable.ora'
+        def png(width,height):
+            output=io.BytesIO();Image.new('RGBA',(width,height),(255,255,255,255)).save(output,format='PNG');return output.getvalue()
+        stack=b'<?xml version="1.0"?><image w="512" h="512"><stack><layer name="one" src="data/one.png"/><layer name="two" src="data/two.png"/></stack></image>'
+        with zipfile.ZipFile(path,'w') as archive:
+            archive.writestr('mimetype',b'image/openraster',compress_type=zipfile.ZIP_STORED)
+            archive.writestr('stack.xml',stack)
+            archive.writestr('data/one.png',png(512,512));archive.writestr('data/two.png',png(512,512))
+            archive.writestr('mergedimage.png',png(512,512));archive.writestr('Thumbnails/thumbnail.png',png(128,128))
+        result=self.inspect_file(path)
+        self.assertEqual(result['coverage'],'layer_structure');self.assertTrue(result['mimetype_valid'])
+        self.assertTrue(result['mergedimage_present']);self.assertTrue(result['thumbnail_present'])
+        self.assertTrue(result['all_layer_dimensions_match_canvas']);self.assertFalse(result['contents_verified'])
+        self.assertEqual(result['archive_members'][0]['compression'],'stored')
+        self.assertEqual({item['name']:(item['width'],item['height']) for item in result['member_images']}['data/one.png'],(512,512))

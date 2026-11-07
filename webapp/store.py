@@ -222,14 +222,21 @@ class Store:
             row['metadata'] = json.loads(row['metadata'])
         return rows
 
-    def admit_tasks(self, project, count=1):
+    def admit_tasks(self, project, count=1,*,include_open_runs=False):
         """Call inside the submission transaction; limits span all queue types."""
-        rows=self.query("SELECT p.owner FROM projects p JOIN execution_subjects t ON t.project=p.id WHERE t.status IN ('queued','running','waiting')")
         owner=self.query('SELECT owner FROM projects WHERE id=?',(project,))[0]['owner']
+        rows=self.query("""SELECT p.owner FROM projects p JOIN execution_subjects t ON t.project=p.id
+            WHERE t.status IN ('queued','running','waiting')
+              AND NOT EXISTS(SELECT 1 FROM runs r WHERE r.id=t.id AND r.status='WAITING_USER')""")
         if len(rows)+count>int(os.environ.get('VIDEO_USE_QUEUE_LIMIT','100')):
             raise ValueError('任务队列已满，请稍后重试。')
         if sum(r['owner']==owner for r in rows)+count>int(os.environ.get('VIDEO_USE_USER_QUEUE_LIMIT','4')):
             raise ValueError('你的待处理任务已达上限，请等待已有任务完成。')
+        if include_open_runs:
+            open_runs=self.query("""SELECT p.owner FROM projects p JOIN runs r ON r.project_id=p.id
+                WHERE r.status NOT IN ('SUCCEEDED','FAILED','CANCELLED')""")
+            if sum(r['owner']==owner for r in open_runs)+count>int(os.environ.get('VIDEO_USE_USER_OPEN_RUN_LIMIT','50')):
+                raise ValueError('你的待确认任务过多，请先处理或取消已有任务。')
 
     def check_storage(self,project,extra=0,replace_checkpoint=False,replace_turn=None,replace_step=None):
         """Application retention quota; caller commits metadata in this transaction."""

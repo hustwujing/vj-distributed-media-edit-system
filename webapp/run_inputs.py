@@ -65,7 +65,8 @@ def accept(store,identifier,actor,raw,*,context=None):
             return public(previous)
         run=graph.get(store,identifier)
         if not run:raise ValueError('Unknown Run')
-        if run['status'] in ('CANCELLING','FAILED','CANCELLED'):raise ValueError('Run cannot accept business input')
+        if run['status'] in ('CANCELLING','FAILED','CANCELLED') or run['status']=='SUCCEEDED' and run['delivered_at'] is None:
+            raise ValueError('Run cannot accept business input')
         predecessor_targets=[]
         if request.targets:
             active={task['id'] for task in graph.active_tasks(run)}
@@ -160,6 +161,30 @@ def finish_batch(store,run,cutoff,*,status='APPLIED'):
 
 def defer_batch(store,run,cutoff):
     store.execute("UPDATE run_inputs SET status='ACCEPTED' WHERE run_id=? AND sequence<=? AND status='PLANNING'",(run['id'],cutoff))
+
+
+def reject_batch(store,run,cutoff,error_code='authorization_rejected'):
+    rows=store.query("SELECT id FROM run_inputs WHERE run_id=? AND sequence<=? AND status IN ('ACCEPTED','PLANNING')",
+                     (run['id'],cutoff))
+    supersede_inputs(store,run,[row['id'] for row in rows],error_code,through_sequence=cutoff)
+
+
+def supersede_inputs(store,run,input_ids,error_code,*,through_sequence=None):
+    """Retire selected pending inputs and restore or advance the Run barrier."""
+    now=store.now()
+    if input_ids:
+        placeholders=','.join('?' for _ in input_ids)
+        store.execute(f"""UPDATE run_inputs SET status='SUPERSEDED',applied_at=?,error_code=?
+            WHERE run_id=? AND id IN ({placeholders}) AND status IN ('ACCEPTED','PLANNING')""",
+            (now,error_code,run['id'],*input_ids))
+    remaining=store.query("SELECT MIN(sequence) AS first FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],))[0]['first']
+    sealed=run['input_barrier_was_sealed'] if remaining is None else run['sealed']
+    store.execute('UPDATE runs SET input_barrier_sequence=?,sealed=?,next_reconcile_at=? WHERE id=?',
+                  (remaining,int(sealed),now,run['id']))
+    if remaining is None:store.execute('DELETE FROM run_input_drain WHERE run_id=?',(run['id'],))
+    payload={'input_ids':input_ids,'next_barrier_sequence':remaining,'error_code':error_code}
+    if through_sequence is not None:payload['through_sequence']=through_sequence
+    graph.event(store,run,'input_batch_rejected',payload)
 
 
 def candidate_digest(store,run,task):

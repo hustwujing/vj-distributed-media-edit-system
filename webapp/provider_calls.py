@@ -1,5 +1,6 @@
 """Auditable provider intent, identity and usage; unknown prices stay unknown."""
 import json
+import re
 import time
 from contextlib import contextmanager
 from .egress_policy import scrub,secrets
@@ -99,25 +100,38 @@ def implementation(store,w,s):
 
 def update(store,w,s,state,external_id='',record=None,cookies=None):
     record=record or {}
-    from .telemetry import emit
-    emit('provider.state_observed',request_key=w['id']+':'+s['id']+':'+str(s['revision']),step_id=s['id'],revision=s['revision'],external_id=external_id,new_state=state)
     key=w['id']+':'+s['id']+':'+str(s['revision'])
+    allowed=('waiting','running','succeeded','failed','cancelled','rejected','submission_unknown')
+    if state not in allowed:raise ValueError('Unsupported provider receipt state')
+    if external_id and not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',external_id):raise ValueError('Invalid provider receipt ID')
     from .task_leases import LeaseLost
     from .task_lifecycle import TaskLimitReached
     try:
-        with store.connect():
+        with store.connect() as db:
+            # Receipt monotonicity is a read/decide/write invariant. Keep it in
+            # the same control transaction even when no execution lease is bound.
+            db.execute('BEGIN IMMEDIATE')
+            row=db.execute('SELECT state,external_id FROM workflow_provider_calls WHERE request_key=?',(key,)).fetchone()
+            if not row:raise ValueError('Receipt has no prior submission intent')
+            if row['external_id'] and external_id and row['external_id']!=external_id:raise ValueError('Conflicting provider receipt ID')
+            identifier=external_id or row['external_id']
+            if state in ('waiting','running') and not identifier:raise ValueError('Provider receipt state requires an external ID')
+            terminal=('succeeded','failed','cancelled','rejected')
+            effective=row['state'] if row['state'] in terminal else state
             store.execute('UPDATE workflow_provider_calls SET state=?,external_id=CASE WHEN ?<>\'\' THEN ? ELSE external_id END,usage=CASE WHEN ?<>\'null\' THEN ? ELSE usage END,cost=CASE WHEN ?<>\'null\' THEN ? ELSE cost END,updated=? WHERE request_key=?',
-                (state,external_id,external_id,json.dumps(record.get('usage')),json.dumps(record.get('usage')),json.dumps(record.get('cost')),json.dumps(record.get('cost')),store.now(),key))
+                (effective,identifier,identifier,json.dumps(record.get('usage')),json.dumps(record.get('usage')),json.dumps(record.get('cost')),json.dumps(record.get('cost')),store.now(),key))
             if cookies is not None:store.execute('UPDATE workflow_provider_calls SET cookies=? WHERE request_key=?',(json.dumps(cookies),key))
-            if state in ('failed','cancelled') and (record.get('error') or record.get('error_code') or record.get('message')):
+            if effective in ('failed','cancelled') and (record.get('error') or record.get('error_code') or record.get('message')):
                 from .generation_errors import failure_info
                 store.execute('UPDATE workflow_provider_calls SET failure=? WHERE request_key=?',
-                    (json.dumps(failure_info({**record,'status':state}),ensure_ascii=False),key))
+                    (json.dumps(failure_info({**record,'status':effective}),ensure_ascii=False),key))
     except (LeaseLost,TaskLimitReached):
         # Receipt-only authority after revocation: record the external side effect
         # and arrange cleanup. This path never changes steps or publishes results.
         late_receipt(store,w['run_id'],key,state,external_id,record,cookies=cookies)
         raise
+    from .telemetry import emit
+    emit('provider.state_observed',request_key=key,step_id=s['id'],revision=s['revision'],external_id=external_id,new_state=effective)
 
 
 def late_receipt(store,task_id,key,state,external_id,record,cookies=None):
