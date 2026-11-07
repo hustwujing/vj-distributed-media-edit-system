@@ -471,6 +471,17 @@ async function runCase(browser,spec){
     if(spec.id==='R16'){
      run=await observeTerminal();assert.equal(run.state,'SUCCEEDED');await page.locator('#dynamic-input-form').waitFor({state:'visible'});
      await start('复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。');
+     run=await wait(w=>w.decisions.some(d=>d.kind==='successor_authorization'),900);
+     assert.equal(run.scope_confirmed,0);assert.equal(run.tasks.length,0,'Successor executed before scope confirmation');
+     const decision=run.decisions.find(d=>d.kind==='successor_authorization'),proposed=decision.request.authorization;
+     assert.equal(proposed.goal,run.goal);
+     for(const name of ['final.png','thumbnail.png'])assert.ok(proposed.delivery_targets.some(target=>target.includes(name)),'Successor omitted requested delivery '+name);
+     for(const field of ['allowed_assets','allowed_operations','allowed_agent_profiles'])
+      assert.ok(proposed[field].every(value=>run.authorization[field].includes(value)),'Unexpected scope expansion: '+field);
+     for(const [group,limit] of Object.entries(proposed.provider_call_budget))assert.ok(limit<=(run.authorization.provider_call_budget[group]||0));
+     for(const field of ['model_token_budget','wall_time_budget','max_tasks','max_planning_rounds'])assert.ok(proposed[field]<=run.authorization[field]);
+     await approve('approve',decision.id);
+     state.browser_assertions.push('Third-version successor required explicit matching scope approval before any business Task');persist();
     }
    }
    if(!state.outcome)run=await observeTerminal();
