@@ -105,14 +105,16 @@ async function runCase(browser,spec){
   (spec.complexity==='simple'?500000:4000000)*TOKEN_BUDGET_MULTIPLIER))=>{
   await page.locator('#dynamic-input-form').waitFor({state:'visible'});await page.locator('#dynamic-input-content').fill(prompt);
   const origin=await page.locator('#dynamic-input-form').getAttribute('data-run'),creating=origin==='new';
-  if(creating){await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;node.dispatchEvent(new Event('change',{bubbles:true}));}));await page.locator('#dynamic-targets-other').fill(targets);}
-  await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
-  await page.locator('#dynamic-reasoning-effort').selectOption(MODEL_EFFORT);
-  const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
-  assert.equal(modelCapabilities.model_protocol_policy,'plan_draft_v1_strict_preferred');
-  state.model_protocol_policy=modelCapabilities.model_protocol_policy;
-  await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
-  for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
+  if(creating){
+   await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;node.dispatchEvent(new Event('change',{bubbles:true}));}));await page.locator('#dynamic-targets-other').fill(targets);
+   await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
+   await page.locator('#dynamic-reasoning-effort').selectOption(MODEL_EFFORT);
+   const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
+   assert.equal(modelCapabilities.model_protocol_policy,'plan_draft_v1_strict_preferred');
+   state.model_protocol_policy=modelCapabilities.model_protocol_policy;
+   await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
+   for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
+  }
   await capture('authorization-'+state.run_ids.length);
   const response=page.waitForResponse(r=>r.request().method()==='POST'&&(creating?r.url().endsWith(`/api/projects/${state.project}/runs`):r.url().endsWith(`/runs/${origin}/inputs`)),{timeout:60000});
   await page.locator('#dynamic-input-submit').click();
