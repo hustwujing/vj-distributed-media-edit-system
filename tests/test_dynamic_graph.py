@@ -789,6 +789,10 @@ class DynamicGraphTests(unittest.TestCase):
         self.propose({'proposal_id':'diagnose-before-repair','base_graph_version':1,'reason':'collect bounded evidence',
             'add_tasks':[script('diagnosis')],'replan_after':['diagnosis']})
         intermediate=self.tick();self.assertTrue(intermediate['repair_context']['active'])
+        diagnosis=next(task for task in intermediate['tasks'] if task['id']=='diagnosis')
+        self.assertEqual(diagnosis['spec']['purpose'],'repair')
+        from webapp.workflow_dispatch import candidates
+        self.assertIn('diagnosis',{row['step_id'] for row in candidates(self.store)})
         self.store.execute("UPDATE run_tasks SET status='succeeded' WHERE run_id=? AND id='diagnosis'",(run['id'],))
         self.tick()
         replacement=script('first',argv=['python','-c','print("repaired after diagnosis")'])

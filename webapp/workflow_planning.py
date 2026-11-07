@@ -228,6 +228,10 @@ def apply(store,run,request):
     repair_scope,user_scope=scopes(frozen)
     batch=frozen.get('input_batch') or {};input_records=batch.get('inputs',[])
     proposal,tasks,revisions,edges=validate_proposal(store,run,result.proposal.model_dump(),repair_scope=repair_scope,user_revision_scope=user_scope)
+    if context.get('active') and not proposal.sealed:
+        triggers=set(proposal.replan_after)
+        tasks=[task.model_copy(update={'purpose':'repair'})
+               if task.id in triggers and task.purpose=='business' else task for task in tasks]
 
     version=run['graph_version']+1;now=store.now()
     for task in tasks:
