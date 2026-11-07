@@ -1,5 +1,14 @@
 """Registered runners for frozen specialist policies, separate from model transports."""
 from typing import Protocol
+from functools import lru_cache
+import hashlib
+from pathlib import Path
+
+
+@lru_cache(maxsize=2048)
+def _source_digest(path,signature):
+    """Deployed sources are immutable; stat identity also detects local edits."""
+    return hashlib.sha256(path.read_bytes()).digest()
 
 
 class ProfileHarness(Protocol):
@@ -10,13 +19,15 @@ class ProfileHarness(Protocol):
 class StructuredProfileHarness:
     id='structured-profile-v4'
     def fingerprint(self):
-        from pathlib import Path
-        import hashlib
         root=Path(__file__).parent;value=hashlib.sha256()
-        for name in ('profile_harnesses.py','workflow_agents.py','workflow_agent_contracts.py','specialist_profiles.py',
-                     'workflow_model_protocol.py','workflow_plan_draft.py','strict_schema.py','model_tool_protocol.py','model_adapters.py','model_token_estimate.py',
-                     'workflow_graph.py','workflow_planning.py','quality_policy.py'):
-            value.update(name.encode());value.update((root/name).read_bytes())
+        # Bind the entire trusted Python package, including lazy imports. A
+        # conservative package boundary cannot drift as execution dependencies
+        # move; UI assets and skill text have their own independent identities.
+        for path in sorted(root.rglob('*.py')):
+            stat=path.stat()
+            signature=(stat.st_dev,stat.st_ino,stat.st_size,stat.st_mtime_ns,stat.st_ctime_ns)
+            value.update(path.relative_to(root).as_posix().encode()+b'\0')
+            value.update(_source_digest(path,signature))
         return value.hexdigest()
     def run(self,host,lease,workflow,task):
         from .workflow_agents import execute
