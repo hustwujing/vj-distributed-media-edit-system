@@ -346,13 +346,15 @@ def route_class(executors):
             endpoint.__signature__=inspect.signature(original,eval_str=True)
             super().__init__(path,endpoint=endpoint,**kwargs)
         def get_route_handler(self):
+            from fastapi.params import File
             handle=super().get_route_handler()
             name=getattr(self.endpoint,'api_admission',None)
+            file_upload=bool(self.body_field and isinstance(self.body_field.field_info,File))
             async def bounded_handle(request):
                 # Only the registered multipart upload route needs the large
                 # streaming limit. Count bytes before JSON parsing, including
                 # chunked requests and bodies with a false Content-Length.
-                if name!='upload':
+                if not file_upload:
                     from fastapi import HTTPException
                     limit=1024*1024
                     length=request.headers.get('content-length')

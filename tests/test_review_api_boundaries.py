@@ -49,6 +49,20 @@ class RequestBoundaryTests(unittest.IsolatedAsyncioTestCase):
         response=await self.client.post('/api/projects',json={'name':'different origin'},headers={'Origin':'http://test:8081'})
         self.assertEqual(response.status_code,403)
 
+    async def test_caption_json_has_body_limit_despite_sharing_upload_admission(self):
+        project=(await self.client.post('/api/projects',json={'name':'captions'})).json()['id']
+        url=f'/api/projects/{project}/editorial/captions'
+        async def chunks():
+            yield b'{"name":"captions","cues":[{"start":0,"end":1,"text":"'
+            for _ in range(17):yield b'a'*65536
+            yield b'"}]}'
+        for content_type in ('application/json','multipart/form-data; boundary=pretend'):
+            response=await self.client.post(url,content=chunks(),headers={'Content-Type':content_type})
+            self.assertEqual(response.status_code,413,response.text)
+        self.assertEqual(self.app.state.store.assets(project),[])
+        response=await self.client.post(url,json={'name':'captions','cues':[{'start':0,'end':1,'text':'hello'}]})
+        self.assertEqual(response.status_code,201,response.text)
+
     async def test_checkpoint_restore_refuses_dynamic_run_without_a_lease(self):
         import json
         from webapp import workflow_graph as graph
