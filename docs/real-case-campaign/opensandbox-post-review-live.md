@@ -39,3 +39,25 @@ C04独立内容测量：实际蓝色Logo为64×64，距上/右边均16；透明P
 用户要求将原Claude5.5角色改为DS4.1 Flash。候选配置已通过当前代码加载：Manager、Diagnostician、Task Reviewer、Final Reviewer均为deepseek41预设，模型deepseek-v4.1-flash/high，Anthropic协议，deepseek_bpe_estimate_v1。Editing Implementer保持claude-4.6-sonnet/high。
 
 新配置在新部署/新Run冻结，旧Claude结果不改写。代码修复与模型切换同时发生，前后结果不能全部归功于模型；报告分别列实际模型、角色耗时、成功率与错误原因。
+
+## DS 后续复测及恢复 Claude 5.5
+
+DS 规划角色上限独立提升到16000后，C05/C06/C07/C09/C10/C11/C12/C13批次结束。
+C06虽被系统标记成功，独立验收发现最终审查漏选已生成的第二张WebP，不能计业务通过。
+最新逐例口径合计11条已启动：C01/C02/C08通过；C05/C13为程序缺陷；其余6条为已核实的模型或预算调优失败。
+上述11条结束平均592.52秒，包含失败；此前各次失败与配置继续保留。
+
+- C05/C13：替换任务时宿主从输入生成依赖，与权威图已重映射的既有依赖重复，修复计划被拒。
+  `a5fa8e8`修复编译器，保持原始Proposal重复边校验；75项相关测试通过，真机复测进行中。
+- C06：第2张WebP在最终快照和已验收检查点内；模型未检查却声称交付键不可用，漏选后仍给pass。
+- C07：OCR返回逐词框，三个TXT修订均是相同的逐词坐标行，未满足冻结的连续短语验收；修复次数耗尽后正确停止。
+- C09：模型把ORA图层文件重编号误判为角色错位。独立读取实际alpha及按stack.xml重合成证明前景/背景正确，合成与mergedimage逐通道最大差0。
+- C10/C11：DS审查回复均在角色上限8000输出token处截断，系统拒绝不完整结果；C11先前的NumPy数组转int脚本错误已进入修复。
+- C12：末次审查先用错验收索引，再三次在时序采样不足时提交通过，被程序拒绝；错误保存在observer的execution_diagnostics中。
+  `a77e791`额外把全量workflow_diagnostics直接放入审计区，不再仅依赖有界observer诊断。
+
+用户后续要求下一批四个专家角色及Editing Implementer全部切为Claude5.5/high。
+2026-11-07 23:23起8并发复测上述8条；冻结角色配置已核对为claude-sonnet-5-5，控制角色buffered、Implementer stream。
+部署源码摘要`4c2cde75485ed6dd04986b155cdf9b4984b8476cfb9889ed084ba9d9b3289787`，operation镜像digest
+`58d536f120589463f253ef22caf40b0d708a6a54b439926369125345ce4dc12f`。
+本次仅定向operation镜像部署，仍为targeted_only；全量126条前须补齐四镜像和完整发布门禁。
