@@ -91,10 +91,18 @@ def collect(source,kind,output,parameters,*,reference=None):
 def audio_comparison(source,reference,offset,window_seconds):
     """Bounded signal similarity evidence; it is not a source-separation verdict."""
     import numpy as np
+    if not math.isfinite(offset) or not 0<=offset<=86400 or not math.isfinite(window_seconds) or not 0<window_seconds<=8:
+        raise ValueError('Audio comparison window exceeds limits')
+    sample_limit=int(window_seconds*8000)
     def decode(path):
         result=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-ss',str(offset),'-t',str(window_seconds),
-            '-i',str(path),'-map','0:a:0','-ac','1','-ar','8000','-f','f32le','pipe:1'],capture_output=True,timeout=30,check=True)
-        if not result.stdout or len(result.stdout)>8*8000*4:raise ValueError('Audio comparison sample limit')
+            '-i',str(path),'-map','0:a:0','-ac','1',
+            '-af',f'aresample=8000,atrim=end_sample={sample_limit}',
+            '-ar','8000','-f','f32le','pipe:1'],capture_output=True,timeout=30,check=True)
+        # Packet timestamps and AAC padding can make -t decode more samples
+        # than requested. Bound PCM after resampling, before it reaches stdout.
+        if not result.stdout or len(result.stdout)%4 or len(result.stdout)>sample_limit*4:
+            raise ValueError('Audio comparison sample limit')
         return np.frombuffer(result.stdout,dtype='<f4').astype(np.float64)
     left=decode(source);right=decode(reference);count=min(len(left),len(right));left=left[:count];right=right[:count]
     if count<800:raise ValueError('Audio comparison window too short')

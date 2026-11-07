@@ -186,6 +186,30 @@ class AudioEvidenceTests(unittest.TestCase):
             self.assertGreater(comparison['normalized_correlation'],.95)
             self.assertEqual(comparison['interpretation'],'bounded_signal_similarity_not_source_separation_or_identity')
 
+    def test_audio_comparison_bounds_decoded_samples_despite_packet_timestamps(self):
+        import subprocess
+        from webapp.media_evidence_operation import audio_comparison
+        with tempfile.TemporaryDirectory() as root:
+            source=Path(root)/'timestamped.mka'
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i',
+                'sine=frequency=440:sample_rate=48000:duration=9',
+                '-af','asetpts=PTS*0.99','-c:a','aac',str(source)],check=True)
+            for offset,window in ((0,8),(1,.5)):
+                with self.subTest(offset=offset,window=window):
+                    measured=audio_comparison(source,source,offset,window)
+                    self.assertEqual(measured['samples'],int(window*8000))
+                    self.assertEqual(measured['window_seconds'],window)
+                    self.assertAlmostEqual(measured['normalized_correlation'],1)
+
+    def test_audio_comparison_rejects_out_of_bounds_windows_before_decoding(self):
+        from unittest.mock import patch
+        from webapp.media_evidence_operation import audio_comparison
+        with patch('webapp.media_evidence_operation.subprocess.run') as run:
+            for offset,window in ((0,9),(0,0),(-1,1),(float('nan'),1),(0,float('inf'))):
+                with self.subTest(offset=offset,window=window),self.assertRaisesRegex(ValueError,'window exceeds'):
+                    audio_comparison('unused','unused',offset,window)
+            run.assert_not_called()
+
 
 class MaskChangeTests(unittest.TestCase):
     def test_change_limit_uses_subject_area_not_empty_canvas(self):
