@@ -436,6 +436,25 @@ class ModelCommandTests(unittest.TestCase):
         schema=manager_schema(f,{'image.perspective':op});result=compile_manager(transform(transform(cmd,schema,encode=True),schema),f)['proposal']
         self.assertEqual(result['add_tasks'][0]['acceptance'],f['tasks'][0]['spec']['acceptance'])
 
+    def test_agent_replacement_preserves_intermediate_acceptance_and_filename(self):
+        from webapp.operations import catalog
+        op=next(item for item in catalog()['operations'] if item['id']=='image.perspective')
+        spec={'id':'render','type':'operation','name':'Intermediate','objective':'Preserve the intermediate image',
+              'operation':'image.perspective','implementation':op['implementation'],
+              'inputs':{'source':{'asset':'asset'}},'parameters':{'points':[[0,0],[1,0],[1,1],[0,1]]},
+              'acceptance':[{'kind':'agent','criterion':'Keep the source geometry','stage':'current'},
+                            {'kind':'image','source':'technical','stage':'current'}],
+              'delivery_stage':False}
+        f=frozen(spec);f['goal']='Deliver final.png and JPEG';f['operations']=[op]
+        implementation={'type':'agent','profile':'editing_implementer','name':'Repair intermediate',
+            'inputs':{'source':{'asset':'asset'}},'files':[{'path':'intermediate.png','roles':['primary_image']}],
+            'basic_reason':'Local image integrity'}
+        result=compile_manager({'kind':'APPLY_PLAN','reason':'Repair without changing requirements','plan':{
+            'repair_replacements':[{'task_id':'render','implementation':implementation}]}},f)['proposal']['add_tasks'][0]
+        self.assertFalse(result['delivery_stage'])
+        self.assertEqual(result['acceptance'],f['tasks'][0]['spec']['acceptance'])
+        self.assertEqual(result['outputs'],['intermediate.png'])
+
     def test_output_declaration_and_completion_are_host_derived(self):
         f=frozen(False);schema=manager_schema(f)
         task={'id':'render','type':'script','name':'render','objective':'Write','argv':['python','-c','pass'],

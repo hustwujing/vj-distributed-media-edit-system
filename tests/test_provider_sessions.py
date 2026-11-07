@@ -56,6 +56,7 @@ class ProviderSessionTests(unittest.TestCase):
         f=fixtures.WorkflowTests();f.setUp();server=None
         try:
             image=io.BytesIO();Image.new('RGB',(8,8),'red').save(image,format='PNG');data=image.getvalue();calls=[]
+            states=iter(('queued','running','unexpected','succeeded'))
             class Handler(BaseHTTPRequestHandler):
                 def log_message(self,*args):pass
                 def do_POST(self):
@@ -64,7 +65,8 @@ class ProviderSessionTests(unittest.TestCase):
                 def do_GET(self):
                     if self.headers.get('Cookie')!='owner=example-owned-session':self.send_response(403);self.end_headers();return
                     self.send_response(200);self.end_headers()
-                    self.wfile.write(data if '/artifacts/' in self.path else b'{"status":"succeeded","artifacts":[{"id":"image1","name":"image.png"}]}')
+                    self.wfile.write(data if '/artifacts/' in self.path else json.dumps({
+                        'status':next(states),'artifacts':[{'id':'image1','name':'image.png'}]}).encode())
             server=ThreadingHTTPServer(('127.0.0.1',0),Handler);threading.Thread(target=server.serve_forever,daemon=True).start()
             env=agent_sandbox.prepare(f.store,f.project,'test','execute',f.turn)
             Image.new('RGB',(256,256),'blue').save(env['sources']/'source.png')
@@ -75,6 +77,11 @@ class ProviderSessionTests(unittest.TestCase):
                 w=f.get();s=w['steps'][0];identifier=adapter.submit(w,s)
                 workflows.change(f.store,w['id'],s['id'],external_id=identifier,status='waiting')
                 adapter=Adapter(f.store,'test',sockets);w=f.get();s=w['steps'][0]
+                self.assertEqual(adapter.poll(w,s)['status'],'queued')
+                self.assertEqual(f.store.query('SELECT state FROM workflow_provider_calls')[0]['state'],'waiting')
+                self.assertEqual(adapter.poll(w,s)['status'],'running')
+                with self.assertRaisesRegex(ValueError,'Unsupported provider receipt state'):adapter.poll(w,s)
+                self.assertEqual(f.store.query('SELECT state FROM workflow_provider_calls')[0]['state'],'running')
                 record=adapter.poll(w,s);files=adapter.collect(w,s,record,lambda:False)
                 self.assertEqual(len(files),1);self.assertEqual(calls,['submit'])
                 public=json.dumps(workflows.public(f.get()))

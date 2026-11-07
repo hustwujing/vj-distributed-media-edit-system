@@ -49,6 +49,12 @@ at least 85% coverage and no interruption longer than 0.5 seconds. A gradual
 transition occupies at least 50% of duration without an abrupt jump unless the
 user explicitly permits one. Preserve explicit user thresholds over defaults.
 
+Carry the frozen onset and continuity requirements into the video-generation
+prompt itself; acceptance fields alone do not instruct the generator. If the user
+requires a particular starting pose in the reference image, preserve that image
+requirement and describe the transition to the action within the onset deadline
+in the video prompt.
+
 Use timestamped observations covering onset, middle and ending. A single still
 frame cannot establish motion, continuity, or a gradual transition. Distinguish
 observed contradictions from insufficient evidence; report the latter explicitly.

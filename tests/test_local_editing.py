@@ -226,6 +226,19 @@ class LocalEditingTests(unittest.TestCase):
         before=samples(self.root/'sources/hum.wav',.5,1);after=samples(out,.5,1)
         self.assertLess(abs(np.fft.rfft(after))[30],abs(np.fft.rfft(before))[30]*.2)
 
+    def test_audio_source_window_and_timeline_placement_are_independent(self):
+        ffmpeg('-f','lavfi','-i',r'aevalsrc=if(lt(t\,0.4)\,sin(2*PI*400*t)\,sin(2*PI*1200*t)):s=48000:d=1',
+               self.root/'sources/offset-tones.wav')
+        raw=self.plan(sources={'a':'sources/red.mp4','music':'sources/offset-tones.wav'},
+            output={'audio_only':True,'format':'wav'},
+            audio={'source':'music','mode':'replace','start':.5,'end':.8,'offset':1})
+        out,_=self.render(raw,'source-window-placement.wav')
+        self.assertLess(float(np.max(np.abs(samples(out,.1,.7)))),.001)
+        active=samples(out,1.05,.2)
+        frequency=np.fft.rfftfreq(len(active),1/48000)[np.argmax(np.abs(np.fft.rfft(active)))]
+        self.assertAlmostEqual(frequency,1200,delta=5)
+        self.assertLess(float(np.max(np.abs(samples(out,1.5,.3)))),.001)
+
     def test_music_ducking_reduces_music_during_voice(self):
         raw=self.plan(sources={'a':'sources/voice.wav','music':'sources/music.wav'},clips=[{'source':'a','end':3}],
                       output={'audio_only':True},audio={'source':'music','volume':1,'loop':True,'duck':True})

@@ -384,7 +384,10 @@ class Adapter:
             response.raise_for_status()
             record=response.json()
             from .provider_calls import update
-            update(self.store,w,s,record.get('status','waiting'),record=record)
+            # The jobs API calls its accepted queue state "queued"; the
+            # provider ledger calls it "waiting". Preserve the raw response.
+            state=record.get('status','waiting')
+            update(self.store,w,s,'waiting' if state=='queued' else state,record=record)
             return record
 
     def cancel(self, w, s):

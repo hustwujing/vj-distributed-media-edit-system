@@ -138,9 +138,9 @@ class EditAudio(Parameters):
     asset:str|None=Field(default=None,min_length=1,max_length=100)
     mode:Literal['mix','replace']='mix'
     audio_track:int=Field(default=0,ge=0,le=15)
-    start:float|None=Field(default=None,ge=0)
-    end:float|None=Field(default=None,gt=0)
-    offset:float=Field(default=0,ge=0)
+    start:float|None=Field(default=None,ge=0,description='Start of the selected region in the input audio file, in seconds. This is not its placement on the output timeline.')
+    end:float|None=Field(default=None,gt=0,description='End of the selected region in the input audio file, in seconds. Omit to use its actual duration.')
+    offset:float=Field(default=0,ge=0,description='Placement time of the selected audio region on the output timeline, in seconds. For music entering late, set this field to the requested entry time.')
     volume:float=Field(default=1,ge=0,le=4)
     duck:bool=False
     loop:bool=False

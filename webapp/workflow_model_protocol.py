@@ -518,10 +518,14 @@ def compile_manager(command,frozen):
                     elif len(reports)>1:
                         raise CommandError('ambiguous_report_role','plan.new_tasks.files.roles',
                             'Assign the canonical report role to the requested report; multiple report roles are ambiguous.')
-                bind_explicit_delivery_names(raw,outputs,roles,frozen)
+                if raw.get('id') not in replacement_ids:
+                    bind_explicit_delivery_names(raw,outputs,roles,frozen)
                 raw.update(outputs=outputs,output_roles=roles)
-            bind_explicit_delivery_formats(raw,contract_filenames if task['type']=='operation' else outputs,frozen,
-                                           role_filenames if task['type']=='operation' else roles)
+            # A replacement inherits exact requirements, including current vs
+            # final acceptance. Global delivery hints must not promote it.
+            if raw.get('id') not in replacement_ids:
+                bind_explicit_delivery_formats(raw,contract_filenames if task['type']=='operation' else outputs,frozen,
+                                               role_filenames if task['type']=='operation' else roles)
             if 'delivery_stage' not in raw:
                 raw['delivery_stage']=any(check.get('source','user')=='user' and check.get('stage')=='final' for check in raw.get('acceptance',[]))
             added.append(raw)
