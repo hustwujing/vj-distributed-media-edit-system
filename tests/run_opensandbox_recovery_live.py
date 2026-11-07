@@ -9,7 +9,8 @@ import time
 import uuid
 from urllib.parse import urlsplit
 
-from webapp.sandbox_backends import BackendBinding,OPEN_SANDBOX,OpenSandboxClient,RequestsTransport
+from webapp.sandbox_backends import (BackendBinding,OPEN_SANDBOX,OpenSandboxClient,RequestsTransport,
+                                    AmbiguousProvisioning,DuplicateProvisioning)
 from webapp.store import Store
 
 
@@ -51,10 +52,21 @@ def wait_row(store,key,predicate,seconds=60):
     raise TimeoutError('Cleanup row did not reach the expected state: '+repr(row))
 
 
-def create(client,binding,attempt):
+def create(client,binding,attempt,owned):
+    owned[attempt]=''
     lease=type('Lease',(),{'attempt':attempt,'generation':1,'run_id':uuid.uuid4().hex})()
-    value=client.create(lease,binding,{'cpu':1,'memory_mb':512},timeout=120,entrypoint=['tail','-f','/dev/null'])
+    try:value=client.create(lease,binding,{'cpu':1,'memory_mb':512},timeout=120,entrypoint=['tail','-f','/dev/null'])
+    except AmbiguousProvisioning:
+        # Discover a late receipt; never submit a second create for this attempt.
+        deadline=time.monotonic()+30
+        while time.monotonic()<deadline:
+            matches=client.list_by_attempt(attempt)
+            if len(matches)>1:raise DuplicateProvisioning('Recovery setup found multiple sandboxes for one attempt')
+            if matches:value=matches[0];break
+            time.sleep(.5)
+        else:raise
     if not value.get('id'):raise RuntimeError('OpenSandbox create returned no id')
+    owned[attempt]=value['id']
     return value['id']
 
 
@@ -64,7 +76,7 @@ def main():
     active=store.query("SELECT id FROM runs WHERE status NOT IN ('SUCCEEDED','FAILED','CANCELLED') LIMIT 1")
     if active:raise RuntimeError('Recovery faults require the dedicated workflow cluster to be quiescent')
     base=os.environ['VIDEO_USE_OPEN_SANDBOX_URL'].rstrip('/');key=os.environ['VIDEO_USE_OPEN_SANDBOX_API_KEY']
-    transport=RequestsTransport(base,key,timeout=5)
+    transport=RequestsTransport(base,key,timeout=30)
     client=OpenSandboxClient(transport,network_policy=os.environ.get('VIDEO_USE_OPEN_SANDBOX_NETWORK_ISOLATION','deny'))
     binding=BackendBinding(OPEN_SANDBOX,os.environ['VIDEO_USE_OPEN_SANDBOX_COMMAND_RUNTIME_PROFILE'],
         os.environ['VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST'],
@@ -74,7 +86,7 @@ def main():
     try:
         wait_health(transport)
         for name,known_id in (('known_id_orphan',True),('unknown_create_receipt',False)):
-            attempt=uuid.uuid4().hex;cleanup='opensandbox:'+attempt;sandbox=create(client,binding,attempt);owned[attempt]=sandbox
+            attempt=uuid.uuid4().hex;cleanup='opensandbox:'+attempt;sandbox=create(client,binding,attempt,owned)
             store.execute("""INSERT INTO execution_external_cleanup
                 (id,task_id,provider,external_id,state,phase,error) VALUES (?,?,?,?,?,'delete','')""",
                 (cleanup,uuid.uuid4().hex,cleanup,sandbox if known_id else '','dormant'))
@@ -85,11 +97,12 @@ def main():
             owned.pop(attempt,None);report['cases'].append({'name':name,'passed':True,'attempt':attempt,
                 'sandbox_id':sandbox,'cleanup':final,'confirmed_http_status':status})
 
-        attempt=uuid.uuid4().hex;cleanup='opensandbox:'+attempt;sandbox=create(client,binding,attempt);owned[attempt]=sandbox
+        attempt=uuid.uuid4().hex;cleanup='opensandbox:'+attempt;sandbox=create(client,binding,attempt,owned)
+        service('stop')
         store.execute("""INSERT INTO execution_external_cleanup
             (id,task_id,provider,external_id,state,phase,error) VALUES (?,?,?,?,?,'delete','')""",
             (cleanup,uuid.uuid4().hex,cleanup,sandbox,'pending'))
-        rows.append(cleanup);service('stop')
+        rows.append(cleanup)
         failed=wait_row(store,cleanup,lambda row:row['attempts']>=1 and row['state'] in ('pending','running'))
         service('start');wait_health(transport);store.execute('UPDATE execution_external_cleanup SET next_retry=0,lease_until=0 WHERE id=?',(cleanup,))
         final=wait_row(store,cleanup,lambda row:row['state']=='complete')
@@ -102,10 +115,16 @@ def main():
         try:service('start');wait_health(transport)
         except Exception as exc:report['service_restore_error']=type(exc).__name__
         for attempt,sandbox in list(owned.items()):
-            try:client.delete_confirmed(sandbox,expected_attempt=attempt)
+            try:
+                matches=[{'id':sandbox}] if sandbox else client.list_by_attempt(attempt)
+                if not matches:report.setdefault('unresolved_setup_attempts',[]).append(attempt)
+                for item in matches:client.delete_confirmed(item['id'],expected_attempt=attempt)
             except Exception as exc:(report.setdefault('residual_cleanup_errors',[])).append(type(exc).__name__)
-        if rows:store.execute('DELETE FROM execution_external_cleanup WHERE id IN ('+','.join('?' for _ in rows)+')',tuple(rows))
+        if rows:store.execute("DELETE FROM execution_external_cleanup WHERE state='complete' AND id IN ("+','.join('?' for _ in rows)+')',tuple(rows))
         transport.close()
+        report['passed']=bool(report.get('passed')) and not any(report.get(key) for key in
+            ('service_restore_error','residual_cleanup_errors','unresolved_setup_attempts'))
+        report['finished_at']=time.time()
         target=ROOT/'recovery/opensandbox-recovery.json';target.write_text(json.dumps(report,indent=2,sort_keys=True)+'\n');target.chmod(0o600)
     print(json.dumps({'passed':report.get('passed',False),'cases':len(report['cases']),'report':str(target)}))
     return 0 if report.get('passed') else 1
