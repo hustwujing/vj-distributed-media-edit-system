@@ -660,6 +660,12 @@ class ModelCommandTests(unittest.TestCase):
         # The repeated extension outside the exact input filename remains an explicit output request.
         self.assertEqual(required_delivery_extensions(frozen_review),{'mp4','wav'})
 
+    def test_final_filename_rename_replaces_the_previous_name(self):
+        frozen={'goal':'交付 final.png。最终文件改名为 renamed.png。','authorization':{'delivery_targets':['128x64 PNG']}}
+        self.assertEqual(required_delivery_names(frozen),{'renamed.png'})
+        frozen['goal']='将 final.png 重命名为 renamed.png 后交付。'
+        self.assertEqual(required_delivery_names(frozen),{'renamed.png'})
+
     def test_explicit_non_delivery_filename_does_not_create_a_format_requirement(self):
         from webapp.workflow_model_protocol import required_delivery_extensions
         frozen={'goal':'保存 reference.png，声明为非交付；最终交付 5 秒 MP4',

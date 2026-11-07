@@ -138,8 +138,18 @@ def _delivery_request_text(frozen):
 
 def required_delivery_names(frozen):
     """Return explicit output basenames from the confirmed scope and applied input."""
+    import re
     text,filename=_delivery_request_text(frozen)
-    return {match.group(0) for match in filename.finditer(text)}
+    matches=list(filename.finditer(text));names={match.group(0) for match in matches}
+    name=r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
+    for renamed in re.finditer(rf'(?i)(?P<old>{name})\s*(?:改名为|重命名为|rename(?:d)?\s+to)\s*(?P<new>{name})',text):
+        names.discard(renamed.group('old'))
+    for renamed in re.finditer(rf'(?i)(?:最终文件|最终产物|交付文件|final\s+(?:file|output))\s*(?:改名为|重命名为|rename(?:d)?\s+to)\s*(?P<new>{name})',text):
+        target=renamed.group('new');extension=target.rsplit('.',1)[-1].lower()
+        for match in matches:
+            if match.start()<renamed.start() and match.group(0).rsplit('.',1)[-1].lower()==extension:names.discard(match.group(0))
+        names.add(target)
+    return names
 
 
 def required_delivery_extensions(frozen):
