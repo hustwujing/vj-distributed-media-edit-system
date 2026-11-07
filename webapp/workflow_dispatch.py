@@ -5,19 +5,28 @@ from . import workflow_graph as graph
 
 def candidates(store):
     now=store.now()
-    return [dict(row,dynamic=True) for row in store.query('''
-        SELECT w.id AS id,t.status AS status,w.status AS workflow_status,w.id AS workflow,s.id AS step_id
+    rows=store.query('''
+        SELECT w.id AS id,t.status AS status,w.status AS workflow_status,w.id AS workflow,s.id AS step_id,
+          s.control_kind,s.purpose,s.repair_count,s.user_revision_count,w.replan_after_json,w.repair_context_json,
+          EXISTS(SELECT 1 FROM run_tasks held WHERE held.run_id=w.id AND held.selected=1 AND held.status='paused') AS paused_business
         FROM runs w JOIN run_work_items s ON s.run_id=w.id JOIN execution_subjects t ON t.id=w.id
         WHERE (w.status='ACTIVE' OR (w.status='WAITING_USER' AND w.input_barrier_sequence IS NOT NULL AND w.terminal_reason NOT IN ('user_paused','user_rejected')))
           AND (w.scope_confirmed=1 OR s.control_kind<>'')
           AND s.selected=1 AND s.status='ready' AND s.lease_id='' AND s.next_run_at<=?
-          AND (w.input_barrier_sequence IS NOT NULL OR s.control_kind<>'' OR s.purpose IN ('repair','evidence')
-              OR s.repair_count>0 OR s.user_revision_count>0 OR NOT EXISTS(
-              SELECT 1 FROM run_tasks held WHERE held.run_id=w.id AND held.selected=1 AND held.status='paused'))
           AND (w.input_barrier_sequence IS NULL OR s.control_kind<>'' OR EXISTS(SELECT 1 FROM run_input_drain d WHERE d.run_id=w.id AND d.task_id=s.id AND d.revision=s.revision))
           AND t.status NOT IN ('succeeded','failed','cancelled','cancelling')
           AND NOT EXISTS(SELECT 1 FROM execution_leases l WHERE l.slot=w.id||'|'||s.id AND l.active=1 AND l.expires>?)
-        ORDER BY w.created_at,s.next_run_at,s.created_at LIMIT 100''',(now,now))]
+        ORDER BY w.created_at,s.next_run_at,s.created_at LIMIT 100''',(now,now))
+    result=[]
+    for row in rows:
+        item=dict(row);paused=bool(item.pop('paused_business'))
+        context=json.loads(item.pop('repair_context_json'));triggers=json.loads(item.pop('replan_after_json'))
+        repair_trigger=bool(context.get('active') and item['step_id'] in triggers)
+        if paused and not (item['control_kind'] or item['purpose'] in ('repair','evidence')
+                           or item['repair_count'] or item['user_revision_count'] or repair_trigger):continue
+        for key in ('control_kind','purpose','repair_count','user_revision_count'):item.pop(key)
+        result.append(dict(item,dynamic=True))
+    return result
 
 
 def available(store,run,now):
@@ -26,10 +35,12 @@ def available(store,run,now):
     if run['id'] in leased:return []
     done={task['id'] for task in graph.work_items(run) if task['status']=='succeeded'}
     control_only=run['input_barrier_sequence'] is None and any(t['status']=='paused' and not t.get('control_kind') for t in graph.work_items(run))
+    repair_context=run.get('repair_context',{})
     from .run_inputs import can_dispatch
     return [task['id'] for task in graph.work_items(run) if (run['scope_confirmed'] or task.get('control_kind')) and can_dispatch(run,task) and task['status']=='ready' and not task['lease_id'] and task['next_run_at']<=now
             and (not control_only or task.get('control_kind') or task['purpose'] in ('repair','evidence')
-                 or task.get('repair_count',0)>0 or task.get('user_revision_count',0)>0)
+                 or task.get('repair_count',0)>0 or task.get('user_revision_count',0)>0
+                 or repair_context.get('active') and task['id'] in run['replan_after'])
             and run['id']+'|'+task['id'] not in leased
             and all(edge['upstream_task_id'] in done for edge in run['dependencies'] if edge['downstream_task_id']==task['id'])]
 
