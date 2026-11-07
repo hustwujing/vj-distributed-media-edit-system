@@ -199,7 +199,8 @@ def sample(store,archive):
         data['gauges']['workflow_reconcile_repeated_errors']=stuck[0]['repeated_reconcile_errors'] or 0
     reservations=query('model_reservation_recovery','''SELECT COUNT(*) AS n,COALESCE(SUM(r.reserved_tokens),0) AS tokens
         FROM workflow_model_reservations r JOIN execution_attempts a ON a.id=r.attempt_id
-        WHERE r.state='reserved' AND a.status IN ('interrupted','expired','finished')''')
+        WHERE r.state='reserved' AND NOT EXISTS(
+            SELECT 1 FROM execution_leases l WHERE l.attempt=r.attempt_id AND l.active=1 AND l.expires>?)''',(now,))
     data['gauges']['model_orphan_reservations']=(reservations[0]['n'] or 0) if reservations else 0
     data['gauges']['model_orphan_reserved_tokens']=(reservations[0]['tokens'] or 0) if reservations else 0
     data['views']['dynamic_tasks']=query('dynamic_tasks','SELECT type,status,COUNT(*) AS n FROM run_tasks WHERE selected=1 GROUP BY type,status')

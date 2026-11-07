@@ -630,11 +630,14 @@ class Orchestrator:
 
     def reconcile_model_reservations(self,run):
         store=self.store
+        from .task_lifecycle import expire_leases
+        with store.connect() as db:
+            db.execute('BEGIN IMMEDIATE');expire_leases(db,run['id'])
         rows=store.query('''SELECT r.id,r.attempt_id,r.reserved_tokens,r.input_reserved_tokens,r.output_reserved_tokens
             FROM workflow_model_reservations r JOIN execution_attempts a ON a.id=r.attempt_id
-            LEFT JOIN execution_leases l ON l.attempt=r.attempt_id
-            WHERE r.run_id=? AND r.state='reserved' AND a.status IN ('interrupted','expired','finished')
-              AND (l.attempt IS NULL OR l.active=0)''',(run['id'],))
+            WHERE r.run_id=? AND r.state='reserved' AND NOT EXISTS(
+                SELECT 1 FROM execution_leases l WHERE l.attempt=r.attempt_id AND l.active=1 AND l.expires>?)''',
+            (run['id'],store.now()))
         for row in rows:
             used=row['reserved_tokens']
             store.execute('''UPDATE workflow_model_reservations SET used_tokens=?,state='interrupted_usage_unknown',

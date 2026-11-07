@@ -181,8 +181,23 @@ def request_cleanup(db,task_id,attempt_id=None,external=True):
                         'pending' if row['external_id'] else 'unknown','' if row['external_id'] else '提交结果未知，无法确认上游是否仍在运行。'))
 
 
+def expire_leases(db,task_id=None):
+    """Converge crashed ownership even while its Run is waiting for input."""
+    now=clock(db)
+    rows=db.execute('SELECT attempt,run_id FROM execution_leases WHERE active=1 AND expires<=?'+
+                    (' AND run_id=?' if task_id else ''),(now,task_id) if task_id else (now,)).fetchall()
+    for row in rows:
+        if not db.execute('UPDATE execution_leases SET active=0 WHERE attempt=? AND active=1 AND expires<=?',
+                          (row['attempt'],now)).rowcount:continue
+        settle(db,row['attempt'],True)
+        db.execute("UPDATE execution_attempts SET status='expired',finished=COALESCE(finished,?) WHERE id=? AND status='running'",
+                   (now,row['attempt']))
+        request_cleanup(db,row['run_id'],attempt_id=row['attempt'],external=False)
+
+
 def sweep(db):
     now=clock(db)
+    expire_leases(db)
     db.execute("""UPDATE execution_external_cleanup AS cleanup SET state='pending',next_retry=0,error=''
         WHERE cleanup.state='dormant' AND cleanup.provider LIKE 'opensandbox:%'
         AND NOT EXISTS (SELECT 1 FROM execution_leases AS lease

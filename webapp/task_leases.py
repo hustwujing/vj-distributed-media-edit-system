@@ -296,10 +296,8 @@ class Coordinator:
             db.execute('INSERT OR IGNORE INTO execution_operation_catalog VALUES (?,?,?)',(self.worker,self.operation_catalog,now(db)))
             from .scheduling import limits
             db.execute('INSERT INTO execution_scheduler_configs VALUES (?,?,?) ON CONFLICT(worker) DO UPDATE SET settings=excluded.settings,updated=excluded.updated',(self.worker,json.dumps(limits()),now(db)))
-            expired=db.execute('SELECT l.attempt,l.run_id FROM execution_leases l JOIN (SELECT id,status FROM execution_subjects) t ON t.id=l.run_id WHERE l.active=1 AND l.expires<=? AND t.status IN (\'cancelled\',\'failed\',\'succeeded\')',(now(db),)).fetchall()
-            for row in expired:
-                db.execute('UPDATE execution_leases SET active=0 WHERE attempt=?',(row['attempt'],))
-                db.execute("UPDATE execution_attempts SET status='expired',finished=? WHERE id=?",(now(db),row['attempt']))
+            from .task_lifecycle import expire_leases
+            expire_leases(db)
 
     def claim(self, run_id, kind, per_user=2, step_id=None):
         with self.store.connect() as db:

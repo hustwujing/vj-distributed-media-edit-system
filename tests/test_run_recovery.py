@@ -66,6 +66,56 @@ class RunRecoveryTests(unittest.TestCase):
         self.assertEqual((row['state'],row['used_tokens'],row['input_settled_tokens'],row['output_settled_tokens']),
                          ('interrupted_usage_unknown',9000,None,None))
 
+    def test_expired_running_attempt_is_visible_then_reconciled_while_user_waits(self):
+        import os,uuid
+        from unittest.mock import patch
+        from webapp.observation_collector import Archive,sample
+        from webapp.task_leases import LeaseLost
+        coordinator=Coordinator(self.store,'killed-worker','test')
+        lease=coordinator.claim(self.run['id'],'workflow',step_id='render');self.assertIsNotNone(lease)
+        lease.start_compute()
+        reserved_seconds=self.store.query('SELECT reserved FROM execution_time_slices WHERE attempt=?',(lease.attempt,))[0]['reserved']
+        used_before=self.store.query('SELECT used_seconds FROM execution_limits WHERE task_id=?',(self.run['id'],))[0]['used_seconds']
+        self.store.execute("INSERT INTO workflow_model_reservations(id,run_id,attempt_id,reserved_tokens,state,created_at,input_reserved_tokens,output_reserved_tokens) VALUES (?,?,?,?,?,?,?,?)",
+            (uuid.uuid4().hex,self.run['id'],lease.attempt,6144,'reserved',self.store.now(),2048,4096))
+        archive=Archive(self.store.root/'orphan-observation')
+        def gauges():
+            with patch.dict(os.environ,{'VIDEO_USE_OBSERVATION_API_PORTS':''}), \
+                 patch('webapp.observation_collector.storage_health',return_value='available'), \
+                 patch('webapp.observation_collector.gpu_health',return_value={}):
+                return sample(self.store,archive)['gauges']
+        self.f.orchestrator.reconcile_model_reservations(graph.get(self.store,self.run['id']))
+        self.assertEqual(self.store.query('SELECT state FROM workflow_model_reservations')[0]['state'],'reserved')
+        self.assertEqual(gauges()['model_orphan_reservations'],0)
+        # No release(): reproduce the durable state left by SIGKILL.
+        self.store.execute('UPDATE execution_leases SET expires=0 WHERE attempt=?',(lease.attempt,))
+        self.store.execute("UPDATE run_tasks SET status='paused' WHERE run_id=? AND id='render'",(self.run['id'],))
+        self.store.execute("UPDATE runs SET status='WAITING_USER' WHERE id=?",(self.run['id'],))
+        before=gauges();self.assertEqual((before['model_orphan_reservations'],before['model_orphan_reserved_tokens']),(1,6144))
+        for _ in range(3):self.f.orchestrator.reconcile_model_reservations(graph.get(self.store,self.run['id']))
+        row=self.store.query('SELECT state,used_tokens FROM workflow_model_reservations')[0]
+        self.assertEqual(row,{'state':'interrupted_usage_unknown','used_tokens':6144})
+        self.assertEqual(self.store.query('SELECT active FROM execution_leases WHERE attempt=?',(lease.attempt,))[0]['active'],0)
+        self.assertEqual(self.store.query('SELECT status FROM execution_attempts WHERE id=?',(lease.attempt,))[0]['status'],'expired')
+        self.assertEqual(self.store.query('SELECT computing,reserved FROM execution_time_slices WHERE attempt=?',(lease.attempt,))[0],{'computing':0,'reserved':0.0})
+        used_after=self.store.query('SELECT used_seconds FROM execution_limits WHERE task_id=?',(self.run['id'],))[0]['used_seconds']
+        self.assertAlmostEqual(used_after-used_before,reserved_seconds)
+        self.assertEqual(gauges()['model_orphan_reservations'],0)
+        with self.assertRaises(LeaseLost):lease.renew()
+
+    def test_heartbeat_expiry_allows_recovery_and_new_generation_claim(self):
+        coordinator=Coordinator(self.store,'heartbeat-recovery','test')
+        old=coordinator.claim(self.run['id'],'workflow',step_id='render');self.assertIsNotNone(old)
+        old.start_compute()
+        self.store.execute('UPDATE execution_leases SET expires=0 WHERE attempt=?',(old.attempt,))
+        coordinator.heartbeat()
+        self.assertEqual(self.store.query('SELECT status FROM execution_attempts WHERE id=?',(old.attempt,))[0]['status'],'expired')
+        self.f.orchestrator.recover(graph.get(self.store,self.run['id']))
+        replacement=coordinator.claim(self.run['id'],'workflow',step_id='render')
+        self.assertIsNotNone(replacement)
+        try:self.assertGreater(replacement.generation,old.generation)
+        finally:replacement.release()
+
     def test_runtime_change_opens_repair_instead_of_silent_ready_loop(self):
         self.store.execute("UPDATE run_tasks SET status='ready',bindings_json=? WHERE run_id=? AND id='render'",
                            (graph.encode({'_environment':'obsolete-runtime'}),self.run['id']))
