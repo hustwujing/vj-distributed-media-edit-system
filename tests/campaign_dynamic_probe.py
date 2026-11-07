@@ -36,6 +36,10 @@ def configure(directory):
     state=json.loads((directory/'state.json').read_text())
     deployed=json.loads((cluster.ROOT/'release.json').read_text())
     if deployed.get('namespace')!=cluster.NAMESPACE:raise ValueError('Wrong deployment target')
+    if deployed.get('state')!='ready' or not deployed.get('config_sha256'):raise ValueError('Deployment or frozen configuration is incomplete')
+    frozen=state.get('release',{})
+    if frozen and (frozen.get('sha256')!=deployed.get('sha256') or frozen.get('config_sha256')!=deployed.get('config_sha256')):
+        raise ValueError('Deployment source or configuration changed during this case')
     if not re.fullmatch('[a-f0-9]{32}',state.get('project','')):raise ValueError('Invalid QA project')
     sys.path.insert(0,deployed['source']);os.environ.update(cluster.environment())
     cluster.validate_isolation(os.environ)
@@ -169,7 +173,8 @@ def inspect(directory,final=False,*,supplement=False):
             binding=json.loads(row['implementation']);group=binding['budget_group'];usage[group]=usage.get(group,0)+1
             check('frozen_provider_metadata:'+row['request_key'],all(key in binding for key in ('external_side_effects','budget_group','concurrency_group','route_adapter','provider_identity','cleanup_category')))
         check('provider_budget:'+wid,all(count<=run['authorization']['provider_call_budget'].get(op,0) for op,count in usage.items()),usage)
-        results=store.query('SELECT task_id,task_revision,lease_id,lease_generation,status,outcome,created_at,committed_at FROM task_results WHERE run_id=?',(wid,))
+        results=store.query('SELECT task_id,task_revision,lease_id,lease_generation,status,outcome,error_json,created_at,committed_at FROM task_results WHERE run_id=?',(wid,))
+        for result in results:result['error']=json.loads(result.pop('error_json'))
         for result in results:
             if result['status']!='committed':continue
             newer=store.query('SELECT id FROM execution_attempts WHERE run_id=? AND step_id=? AND generation>? AND started<?',
@@ -205,8 +210,9 @@ def inspect(directory,final=False,*,supplement=False):
         check('every_work_item_has_a_frozen_grant:'+wid,all(item['authorization_version'] in {grant['version'] for grant in grants} for item in graph.work_items(run)))
         planner_snapshots=store.query('SELECT id,snapshot_json,snapshot_digest,proposal_json,status FROM planner_runs WHERE run_id=? ORDER BY created_at',(wid,))
         plan_drafts=store.query('''SELECT planning_request_id,snapshot_digest,base_graph_version,authorization_version,
-            input_through_sequence,schema_version,status,revision,repeated_error_count FROM workflow_plan_drafts
+            input_through_sequence,schema_version,status,revision,last_error_signature,last_error_json,repeated_error_count FROM workflow_plan_drafts
             WHERE run_id=? ORDER BY created_at''',(wid,))
+        for draft in plan_drafts:draft['last_error']=json.loads(draft.pop('last_error_json'))
         draft_by_id={item['planning_request_id']:item for item in plan_drafts}
         check('every_planner_has_bound_draft:'+wid,len(draft_by_id)==len(planner_snapshots) and all(
             planner['id'] in draft_by_id and draft_by_id[planner['id']]['schema_version']=='plan-draft-v1'

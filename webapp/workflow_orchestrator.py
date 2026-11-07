@@ -11,6 +11,9 @@ from .workflow_graph import encode,digest,TERMINAL,RUN_TERMINAL,AuthorizationReq
 
 class ReconcileLost(RuntimeError):pass
 class InvalidProviderHandle(ValueError):pass
+class DecisionError(ValueError):
+    def __init__(self,code,message=''):
+        super().__init__(message or code);self.code=code
 
 
 def delivery_requirements(store,run):
@@ -86,9 +89,10 @@ class Orchestrator:
                 if run['status'] not in ('WAITING_USER',*RUN_TERMINAL):
                     self.advance(run)
             self.check(db,identifier,generation)
-            db.execute('''UPDATE runs SET next_reconcile_at=?,reconcile_until=0,reconcile_owner='',updated_at=?
+            retry_at=store.now()+1
+            db.execute('''UPDATE runs SET next_reconcile_at=CASE WHEN next_reconcile_at>? THEN next_reconcile_at ELSE ? END,reconcile_until=0,reconcile_owner='',updated_at=?
                 WHERE id=? AND reconcile_owner=? AND reconcile_generation=?''',
-                (store.now()+1,store.now(),identifier,self.owner,generation))
+                (retry_at,retry_at,store.now(),identifier,self.owner,generation))
 
     def process_inputs(self,run):
         from .run_inputs import safe_point_reason,freeze_batch,InputAttachmentChanged
@@ -135,6 +139,11 @@ class Orchestrator:
                            (status,reason,self.store.now(),run['id']))
         if run['status']!=status:graph.event(self.store,run,'state_changed',{'status':status,'reason':reason})
 
+    def begin_failure(self,run,reason):
+        self.set_status(run,'CANCELLING',reason)
+        from .task_lifecycle import request_cleanup
+        with self.store.connect() as db:request_cleanup(db,run['id'])
+
     def decision(self,run,kind,request):
         store=self.store
         if kind in ('quality','quality_feedback'):
@@ -171,9 +180,13 @@ class Orchestrator:
             elif command['action']=='pause':self.set_status(run,'WAITING_USER','user_paused')
             elif command['action']=='resume':
                 unresolved=store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
+                requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted',
+                    'invalid_delivery_manifest','delivery_targets_incomplete','diagnostic_policy_not_authorized',
+                    'user_decision','new_run_rejected'}
                 if run['status']!='WAITING_USER':error='resume_requires_safe_paused_state'
                 elif unresolved and run['terminal_reason']=='user_paused':self.set_status(run,'WAITING_USER','user_decision_pending')
                 elif unresolved:error='decision_requires_answer'
+                elif run['terminal_reason'] in requires_replan:error='replan_required'
                 elif any(t.get('control_kind') and t['spec'].get('profile')=='media_failure_diagnostician' and t['status']=='ready' for t in graph.work_items(run)):
                     self.set_status(run,'ACTIVE')
                 elif any(t['error_code'] in ('submission_unknown','result_unavailable') for t in graph.work_items(run)):error='external_result_requires_resolution'
@@ -187,6 +200,7 @@ class Orchestrator:
                     self.set_status(run,'ACTIVE')
             elif command['action']=='answer':
                 try:self.answer(run,payload,request_id=command['id'],actor=command['actor'])
+                except DecisionError as exc:error=exc.code
                 except (ValueError,KeyError,TypeError):error='invalid_or_stale_decision'
             store.execute('UPDATE workflow_commands SET status=?,error_code=?,applied_at=? WHERE id=?',
                           ('rejected' if error else 'applied',error,store.now(),command['id']))
@@ -200,10 +214,10 @@ class Orchestrator:
         store=self.store
         payload=graph.DecisionAnswer.model_validate(payload).model_dump(exclude_none=True)
         rows=store.query("SELECT * FROM workflow_decisions WHERE id=? AND run_id=? AND status='pending'",(payload.get('decision_id'),run['id']))
-        if not rows or run['status']!='WAITING_USER':raise ValueError('Decision not pending')
+        if not rows or run['status']!='WAITING_USER':raise DecisionError('decision_not_pending')
         row=rows[0]
         if row['graph_version']!=run['graph_version'] or row['authorization_version']!=run['authorization_version'] or payload.get('snapshot_digest')!=row['snapshot_digest']:
-            raise ValueError('Decision changed')
+            raise DecisionError('decision_snapshot_stale')
         request=json.loads(row['request_json'])
         if row['kind'] in ('quality','quality_feedback'):
             from .run_inputs import candidate_digest
@@ -228,19 +242,36 @@ class Orchestrator:
                 context['superseded_inputs']=[{'id':item['id'],'content':item['content'],'context':json.loads(item['context_json'])} for item in store.query("SELECT id,content,context_json FROM run_inputs WHERE run_id=? AND status='ACCEPTED'",(run['id'],)) if item['id'] in invalid_inputs]
             accept(store,run['id'],actor,{'request_id':request_id,'content':payload['feedback'],
                 'attachments':payload['attachments'],'source':'user' if row['kind']=='input_question' else 'quality_feedback'},context=context)
-            for input_id in invalid_inputs:
-                store.execute("UPDATE run_inputs SET status='SUPERSEDED',applied_at=?,error_code='attachment_replaced_by_user' WHERE run_id=? AND id=? AND status='ACCEPTED'",(store.now(),run['id'],input_id))
+            if invalid_inputs:
+                from .run_inputs import supersede_inputs
+                supersede_inputs(store,run,invalid_inputs,'attachment_replaced_by_user')
             self.set_status(run,'ACTIVE','input_draining')
         elif payload.get('action')=='reject':
+            if row['kind'] in ('plan_change','successor_authorization'):
+                cutoff=int(request.get('input_through_sequence') or 0)
+                if cutoff:
+                    from .run_inputs import reject_batch
+                    reject_batch(store,run,cutoff)
+                    self.set_status(run,'ACTIVE','authorization_rejected')
+                else:self.set_status(run,'FAILED','authorization_rejected')
+            elif row['kind']=='input_question':
+                from .run_inputs import reject_batch,supersede_inputs
+                cutoff=int(request.get('input_through_sequence') or 0)
+                invalid_inputs=request.get('invalid_input_ids',[])
+                if cutoff:reject_batch(store,run,cutoff,'user_rejected_input')
+                elif invalid_inputs:supersede_inputs(store,run,invalid_inputs,'user_rejected_input')
+                self.set_status(run,'ACTIVE' if cutoff or invalid_inputs else 'WAITING_USER',
+                                'input_draining' if cutoff or invalid_inputs else 'user_rejected')
+            elif row['kind']=='new_run':self.set_status(run,'WAITING_USER','new_run_rejected')
             if row['kind'] in ('quality','quality_feedback'):
                 subject=json.loads(row['request_json'])['task_id']
                 store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed',error_detail=? WHERE run_id=? AND id=?",
                     ('用户未通过内容验收，请调整要求后重新规划。',run['id'],subject))
-            self.set_status(run,'WAITING_USER','user_rejected')
+                self.set_status(run,'WAITING_USER','user_rejected')
         elif row['kind']=='new_run' and payload.get('action')=='approve':
             from .run_inputs import accept
             if not payload.get('authorization'):raise ValueError('Successor requires explicit scope approval')
-            authorization=planning.bind_scope(store,payload['authorization'])
+            authorization=planning.rebind_scope(store,payload['authorization'])
             if authorization.goal!=request['new_goal']:raise ValueError('Successor goal changed after the decision')
             if store.query('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(run['id'],store.now())) or store.query("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],)):
                 raise ValueError('Successor must wait for the original Run to drain')
@@ -270,12 +301,13 @@ class Orchestrator:
         elif row['kind'] in ('plan_change','successor_authorization') and payload.get('action')=='approve':
             # This service has no vendor credentials or private backend settings.
             # Freeze the implementation advertised by the actual executors.
-            authorization=planning.bind_scope(store,payload.get('authorization'))
+            try:authorization=planning.rebind_scope(store,payload.get('authorization'))
+            except ValueError as exc:raise DecisionError('scope_invalid',str(exc)) from exc
             if authorization.goal!=run['goal'] or run['scope_confirmed'] and authorization.delivery_targets!=run['authorization']['delivery_targets']:
                 raise ValueError('Changing the top-level goal or delivery contract requires a new Run')
             owned={asset['id'] for asset in store.assets(run['project_id'])}
             if not set(authorization.allowed_assets)<=owned:raise ValueError('Foreign asset')
-            if authorization.content_fingerprint!=graph.content_fingerprint(store,run['project_id']):raise ValueError('Changed input')
+            if authorization.content_fingerprint!=graph.content_fingerprint(store,run['project_id']):raise DecisionError('content_changed')
             from .run_authorization import approve
             approve(store,run,authorization)
             store.execute("UPDATE workflow_decisions SET status='superseded',updated_at=? WHERE run_id=? AND id<>? AND status='pending'",
@@ -334,12 +366,16 @@ class Orchestrator:
                 elif outcome=='succeeded':
                     self.accept_artifacts(run,task,data,json.loads(result['artifact_manifest']))
                 else:self.task_failure(run,task,data)
-            except (ValueError,KeyError,TypeError) as exc:
+            except (ValueError,KeyError,TypeError,AttributeError) as exc:
                 result_status='rejected'
                 code='submission_unknown' if isinstance(exc,InvalidProviderHandle) else 'invalid_result_manifest'
+                from .egress_policy import scrub,secrets
+                rejection={'stage':'accept_result','error_code':code,'exception_type':type(exc).__name__,
+                           'message':scrub(str(exc)[:2000],secrets())}
                 self.task_failure(run,task,{'error_code':code})
-                graph.event(store,run,'task_result_rejected',{'task_id':task['id'],'error_code':code})
-            store.execute('UPDATE task_results SET status=?,committed_at=? WHERE id=?',(result_status,store.now(),result['id']))
+                graph.event(store,run,'task_result_rejected',{'task_id':task['id'],**rejection})
+            store.execute('UPDATE task_results SET status=?,error_json=?,committed_at=? WHERE id=?',
+                          (result_status,encode(rejection) if result_status=='rejected' else '{}',store.now(),result['id']))
             if result_status=='committed':graph.event(store,run,'task_result_committed',{'task_id':task['id'],'revision':task['revision'],'outcome':outcome})
 
     def accept_artifacts(self,run,task,data,manifest):
@@ -396,12 +432,14 @@ class Orchestrator:
         if phase not in ('local','sync','submit','poll','collect','validate'):phase=task['phase']
         if code not in {'submission_unknown','result_unavailable','technical_validation_failed','quality_failed','execution_failed',
                         'provider_failed','poll_failed','collect_failed','agent_failed','review_incomplete','review_contract_exhausted',
-                        'planning_contract_exhausted','model_token_budget_exhausted','budget_exhausted','missing_proposal','invalid_result_manifest','model_result','pre_submit'}:code='execution_failed'
+                        'planning_contract_exhausted','model_token_budget_exhausted','budget_exhausted','missing_proposal','invalid_result_manifest','model_result','pre_submit',
+                        'provider_cancelled','runtime_profile_changed','policy_changed'}:code='execution_failed'
+        business_attempts=max(0,task['attempts']-task.get('infrastructure_interruptions',0))
         retry=(not task.get('control_kind') and graph.Task.model_validate(task['spec']).retry_policy=='safe_once'
-               and task['attempts']<2 and phase=='local' and code=='execution_failed'
+               and business_attempts<2 and phase=='local' and code=='execution_failed'
                and data.get('classification') not in ('code','environment','parameters','model_result'))
         retry=retry or bool(not task.get('control_kind') and task['external_id'] and phase in ('poll','collect') and code in ('poll_failed','collect_failed') and task['recovery_count']<3)
-        retry=retry or bool(task.get('control_kind') and code=='agent_failed' and data.get('transient') and task['attempts']<3)
+        retry=retry or bool(task.get('control_kind') and code=='agent_failed' and data.get('transient') and business_attempts<3)
         message={
             'model_result':'模型未找到符合条件的结果，请调整输入或要求后重新规划。',
             'budget_exhausted':'本轮操作次数或模型预算已达上限。请调整执行范围或预算后重新发起。',
@@ -417,6 +455,9 @@ class Orchestrator:
             'technical_validation_failed':'候选文件未通过技术检查，已暂停，尚未正式交付。',
             'poll_failed':'查询外部任务状态失败，可以重试查询已有任务。',
             'collect_failed':'获取已有任务结果失败，可以重试收取结果。',
+            'provider_cancelled':'外部任务已终止，未产生可验收结果。',
+            'runtime_profile_changed':'执行环境版本已变化，旧环境绑定不能由当前执行器继续运行。',
+            'policy_changed':'专业 Agent 策略已变化，旧控制任务不能由当前策略继续执行。',
         }.get(code,'任务未完成，已保留执行证据。')
         graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',
             ('retry_wait' if retry else 'paused',phase,code,message,int(retry and phase in ('poll','collect')),store.now()+min(30,2**(task['recovery_count']+1)),run['id'],task['id']))
@@ -449,7 +490,13 @@ class Orchestrator:
                 self.open_repair(run,task['id'],'execution_failure',error_code=code)
                 self.queue_review(graph.get(store,run['id']),task['id'],purpose='diagnose')
                 self.set_status(graph.get(store,run['id']),'ACTIVE','failure_diagnosis')
-            else:self.set_status(run,'WAITING_USER',code)
+            else:
+                fatal=(code=='result_unavailable' or task.get('control_kind') and code in {
+                    'agent_failed','review_contract_exhausted','planning_contract_exhausted','missing_proposal','policy_changed'})
+                if fatal:
+                    graph.write_work(store,task,"UPDATE run_tasks SET status='failed' WHERE run_id=? AND id=?",(run['id'],task['id']))
+                    self.begin_failure(run,code)
+                else:self.set_status(run,'WAITING_USER',code)
 
     def apply_planner(self,run):
         store=self.store
@@ -486,7 +533,8 @@ class Orchestrator:
                 store.execute("UPDATE planner_runs SET status='rejected',error_code=?,updated_at=? WHERE id=?",(code,store.now(),request['id']))
                 store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE planning_request_id=? AND status IN ('OPEN','COMMITTED')",(store.now(),request['id']))
                 store.execute("UPDATE control_jobs SET status='failed',error_code=? WHERE run_id=? AND id=?",(code,run['id'],request['task_id']))
-                if isinstance(exc,AuthorizationRequired):self.decision(run,'plan_change',{'planner_run':request['id'],'proposal':json.loads(request['proposal_json']).get('proposal'),'reason':str(exc)})
+                if isinstance(exc,AuthorizationRequired):self.decision(run,'plan_change',{'planner_run':request['id'],'proposal':json.loads(request['proposal_json']).get('proposal'),'reason':str(exc),
+                    'input_through_sequence':(batch or {}).get('through_sequence',0)})
                 else:
                     graph.event(store,run,'proposal_rejected',{'request_id':request['id'],'error_code':code})
                     try:self.queue_plan(run,{'rejected':request['id'],'reason':str(exc)[:1000]})
@@ -494,6 +542,7 @@ class Orchestrator:
 
     def recover(self,run):
         store=self.store;now=store.now()
+        self.reconcile_model_reservations(run)
         limit=store.query('SELECT deadline_at,termination_reason FROM execution_limits WHERE task_id=?',(run['id'],))
         if limit and (limit[0]['deadline_at']<=now or limit[0]['termination_reason']):
             self.set_status(run,'CANCELLING','deadline_or_budget')
@@ -509,31 +558,88 @@ class Orchestrator:
             if result:continue
             cleanup=store.query("SELECT attempt FROM execution_cleanup WHERE attempt=? AND state<>'complete'",(task['lease_id'],))
             if cleanup:continue
+            attempts=store.query('SELECT status FROM execution_attempts WHERE id=?',(task['lease_id'],))
+            if attempts and attempts[0]['status']=='resource_wait':
+                bindings=dict(task.get('bindings',{}))
+                if task.get('control_kind'):bindings.pop('_environment',None)
+                graph.write_work(store,task,"UPDATE run_tasks SET status='ready',lease_id='',bindings_json=? WHERE run_id=? AND id=?",
+                                 (encode(bindings),run['id'],task['id']))
+                continue
+            checkpoint=store.query('SELECT manifest FROM execution_step_checkpoints WHERE workflow=? AND step=? AND revision=?',
+                                   (run['id'],task['id'],task['revision']))
+            if checkpoint and task['phase'] in ('local','sync'):
+                manifest=json.loads(checkpoint[0]['manifest'])
+                if manifest:
+                    graph.write_work(store,task,"UPDATE run_tasks SET candidate_result_json=?,phase='validate',status='ready',lease_id='',infrastructure_interruptions=infrastructure_interruptions+1 WHERE run_id=? AND id=?",
+                                     (encode(list(manifest)),run['id'],task['id']))
+                    continue
             if task.get('control_kind'):
                 staged=store.query("SELECT id FROM planner_runs WHERE run_id=? AND task_id=? AND status='staged'",(run['id'],task['id']))
                 if staged:continue
-                safe=task['attempts']<3
+                from .specialist_profiles import get as current_profile
+                try:compatible=digest(task['profile'])==digest(current_profile(task['spec']['profile']).snapshot())
+                except (KeyError,ValueError):compatible=False
+                if not compatible:
+                    self.task_failure(run,task,{'error_code':'policy_changed','phase':task['phase']})
+                    continue
+                safe=task['infrastructure_interruptions']<3
             else:
-                from .operation_lifecycle import for_step,RecoveryAction
                 spec=graph.Task.model_validate(task['spec']).execution_spec()
-                if spec['kind']=='agent':safe=task['spec']['retry_policy']=='safe_once' and task['attempts']<2
+                if spec['kind']=='agent':safe=task['infrastructure_interruptions']<3
                 else:
+                    from .operation_lifecycle import for_step,recover_dynamic
                     implementation=for_step(spec)
                     calls=store.query('SELECT state,result,external_id FROM workflow_provider_calls WHERE request_key=?',
                                       (run['id']+':'+task['id']+':'+str(task['revision']),))
-                    if calls and calls[0]['external_id']:
-                        if task['recovery_count']>=3:
-                            self.task_failure(run,task,{'error_code':'poll_failed','phase':'poll'});continue
-                        graph.write_work(store,task,"UPDATE run_tasks SET external_id=?,phase='poll',status='ready',lease_id='',recovery_count=recovery_count+1 WHERE run_id=? AND id=?",(calls[0]['external_id'],run['id'],task['id']));continue
-                    if calls and calls[0]['state']=='succeeded' and json.loads(calls[0]['result']):
-                        graph.write_work(store,task,"UPDATE run_tasks SET candidate_result_json=?,phase='validate',status='ready',lease_id='' WHERE run_id=? AND id=?",(calls[0]['result'],run['id'],task['id']));continue
-                    if calls and calls[0]['state']=='succeeded':
-                        self.task_failure(run,task,{'error_code':'result_unavailable'});continue
-                    if calls:
-                        self.task_failure(run,task,{'error_code':'submission_unknown'});continue
-                    safe=(task['phase'] in ('poll','collect','validate') and task['recovery_count']<3) or ((implementation.records_calls or spec['retry_safe']) and task['attempts']<2)
-            if safe:graph.write_work(store,task,"UPDATE run_tasks SET status='ready',lease_id='',recovery_count=recovery_count+1,next_run_at=? WHERE run_id=? AND id=?",(now,run['id'],task['id']))
+                    recovery=recover_dynamic(implementation,{**task,'spec':spec},calls[0] if calls else None)
+                    if recovery['action']=='poll':
+                        graph.write_work(store,task,"UPDATE run_tasks SET external_id=?,phase='poll',status='ready',lease_id='',infrastructure_interruptions=infrastructure_interruptions+1 WHERE run_id=? AND id=?",(recovery['external_id'],run['id'],task['id']));continue
+                    if recovery['action']=='validate':
+                        graph.write_work(store,task,"UPDATE run_tasks SET candidate_result_json=?,phase='validate',status='ready',lease_id='',infrastructure_interruptions=infrastructure_interruptions+1 WHERE run_id=? AND id=?",(encode(recovery['candidate']),run['id'],task['id']));continue
+                    if recovery['action']=='failed':
+                        self.task_failure(run,task,{'error_code':recovery['error_code'],'phase':task['phase']});continue
+                    if recovery['action']=='unknown':
+                        self.task_failure(run,task,{'error_code':'submission_unknown','phase':task['phase']});continue
+                    safe=recovery['action']=='ready' and task['infrastructure_interruptions']<3
+            if safe:
+                bindings=dict(task.get('bindings',{}))
+                if task.get('control_kind'):bindings.pop('_environment',None)
+                graph.write_work(store,task,"UPDATE run_tasks SET status='ready',lease_id='',bindings_json=?,infrastructure_interruptions=infrastructure_interruptions+1,next_run_at=? WHERE run_id=? AND id=?",
+                                 (encode(bindings),now,run['id'],task['id']))
             else:self.task_failure(run,task,{'error_code':'result_unavailable'})
+
+        current=graph.get(store,run['id'])
+        profiles=set()
+        for worker in store.query('''SELECT c.settings FROM execution_scheduler_configs c JOIN execution_workers w ON w.id=c.worker
+            WHERE w.draining=0 AND w.heartbeat>?''',(store.now()-30,)):
+            try:profile=json.loads(worker['settings']).get('runtime_profile')
+            except (TypeError,ValueError):profile=None
+            if profile:profiles.add(profile)
+        for task in graph.work_items(current):
+            if task.get('control_kind') or task['status']!='ready' or task['lease_id']:continue
+            bound=task.get('bindings',{}).get('_environment')
+            if not bound or not profiles or bound in profiles:continue
+            graph.write_work(store,task,"UPDATE run_tasks SET status='paused',error_code='runtime_profile_changed',error_detail=? WHERE run_id=? AND id=?",
+                             ('执行环境版本已变化，需要创建新 revision 后继续。',run['id'],task['id']))
+            self.open_repair(current,task['id'],'runtime_profile_changed',error_code='runtime_profile_changed')
+            store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],))
+            self.set_status(current,'ACTIVE','repair_planning')
+            self.queue_plan(graph.get(store,run['id']),{'runtime_profile_changed':task['id'],'task_id':task['id']})
+            break
+
+    def reconcile_model_reservations(self,run):
+        store=self.store
+        rows=store.query('''SELECT r.id,r.attempt_id,r.reserved_tokens,r.input_reserved_tokens,r.output_reserved_tokens
+            FROM workflow_model_reservations r JOIN execution_attempts a ON a.id=r.attempt_id
+            LEFT JOIN execution_leases l ON l.attempt=r.attempt_id
+            WHERE r.run_id=? AND r.state='reserved' AND a.status IN ('interrupted','expired','finished')
+              AND (l.attempt IS NULL OR l.active=0)''',(run['id'],))
+        for row in rows:
+            used=row['reserved_tokens']
+            store.execute('''UPDATE workflow_model_reservations SET used_tokens=?,state='interrupted_usage_unknown',
+                input_settled_tokens=NULL,output_settled_tokens=NULL WHERE id=? AND state='reserved' ''',
+                (used,row['id']))
+            graph.event(store,run,'model_reservation_reconciled',{'attempt_id':row['attempt_id'],'outcome':'interrupted_usage_unknown'})
 
     def advance(self,run):
         store=self.store;now=store.now()
@@ -569,6 +675,14 @@ class Orchestrator:
         store=self.store;now=store.now()
         active_planners=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
         business=[t for t in graph.work_items(run) if not t.get('control_kind')]
+        context=run.get('repair_context',{})
+        if not run['sealed'] and context.get('active') and not active_planners:
+            triggers=[next((t for t in business if t['id']==identifier),None) for identifier in run['replan_after']]
+            waiting=any(t and t['status'] in ('blocked','ready','leased','running','waiting','retry_wait','reviewing') for t in triggers)
+            if not waiting:
+                try:self.queue_plan(run,{'repair_resume':context.get('source','repair'),'task_id':context.get('subject_task','')})
+                except planning.PlanningBudgetExceeded:self.set_status(run,'FAILED','planning_budget_exhausted')
+                return
         if run['sealed'] and any(t['status']=='paused' for t in business):
             diagnosing=any(t.get('control_kind')=='DIAGNOSE' and t['status'] in ('ready','running','retry_wait') for t in graph.work_items(run))
             self.set_status(run,'ACTIVE' if diagnosing else 'WAITING_USER','failure_diagnosis' if diagnosing else 'sealed_graph_unresolved');return
@@ -609,6 +723,7 @@ class Orchestrator:
         frozen['review_scope']=purpose
         if purpose=='final':
             complete_tasks=frozen['tasks']
+            frozen['dependencies']=run['dependencies']
             frozen['supporting_tasks']=[{'id':task['id'],'revision':task['revision'],'status':task['status'],
                 'objective':task['spec']['objective'],'output_roles':task.get('quality',{}).get('output_roles',{})}
                 for task in complete_tasks if not task['spec'].get('delivery_stage') and task['spec'].get('purpose')!='evidence']
@@ -733,11 +848,14 @@ class Orchestrator:
             (run['id'],task['id'],task['lease_id'],row['snapshot_digest']))
         validate_temporal_evidence(decision,json.loads(row['snapshot_json']),records)
         passed=decision['verdict']=='pass'
+        subject=None
+        if passed and row['subject_task']:
+            subject=next(t for t in graph.work_items(graph.get(store,run['id'])) if t['id']==row['subject_task'])
+            if not subject['quality'].get('technical_valid') or not subject['quality'].get('passed'):
+                raise ValueError('Review cannot override program acceptance failure')
         store.execute('UPDATE workflow_reviews SET status=?,decision_json=?,updated_at=? WHERE id=?',('passed' if passed else 'rejected',encode(decision),store.now(),row['id']))
         store.execute("UPDATE control_jobs SET status='succeeded',error_code='',error_detail='',wait_reason='' WHERE run_id=? AND id=?",(run['id'],task['id']))
         if passed and row['subject_task']:
-            subject=next(t for t in graph.work_items(graph.get(store,run['id'])) if t['id']==row['subject_task'])
-            if not subject['quality'].get('technical_valid'):raise ValueError('Review cannot override technical failure')
             quality={**subject['quality'],'agent_review_passed':True}
             store.execute('UPDATE run_tasks SET quality_json=? WHERE run_id=? AND id=?',(encode(quality),run['id'],subject['id']))
             if quality.get('requires_review'):
@@ -745,18 +863,28 @@ class Orchestrator:
             else:store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json,error_code='',error_detail='',wait_reason='' WHERE run_id=? AND id=?",(run['id'],subject['id']))
         elif not passed:
             if row['purpose']=='final':
-                self.open_repair(run,'','final_review',row['id'],'quality_failed')
+                inconclusive=decision['verdict']=='inconclusive'
+                code='review_incomplete' if inconclusive else 'quality_failed'
+                self.open_repair(run,'','review_evidence' if inconclusive else 'final_review',row['id'],code)
                 store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],))
-                self.set_status(run,'ACTIVE','final_review_rejected')
-                self.queue_plan(graph.get(store,run['id']),{'review_rejected':row['id'],'decision':decision})
+                self.set_status(run,'ACTIVE','evidence_planning' if inconclusive else 'final_review_rejected')
+                self.queue_plan(graph.get(store,run['id']),{
+                    ('review_incomplete' if inconclusive else 'review_rejected'):row['id'],
+                    'task_id':'','decision':decision,
+                    'repair_policy':'evidence' if inconclusive else 'manager_revision'})
             else:
-                store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed',error_detail=? WHERE run_id=? AND id=?",
-                    ('内容验收未通过：'+(decision.get('feedback') or '请检查候选并重新规划。')[:1600],run['id'],row['subject_task']))
-                self.open_repair(run,row['subject_task'],'task_review',row['id'],'quality_failed')
+                inconclusive=decision['verdict']=='inconclusive'
+                code='review_incomplete' if inconclusive else 'quality_failed'
+                prefix='内容证据不足：' if inconclusive else '内容验收未通过：'
+                store.execute("UPDATE run_tasks SET status='paused',error_code=?,error_detail=? WHERE run_id=? AND id=?",
+                    (code,prefix+(decision.get('feedback') or '请检查候选并重新规划。')[:1600],run['id'],row['subject_task']))
+                self.open_repair(run,row['subject_task'],'review_evidence' if inconclusive else 'task_review',row['id'],code)
                 store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],))
-                self.set_status(run,'ACTIVE','task_review_rejected')
-                self.queue_plan(graph.get(store,run['id']),{'task_review_rejected':row['id'],
-                    'task_id':row['subject_task'],'decision':decision,'repair_policy':'manager_revision'})
+                self.set_status(run,'ACTIVE','evidence_planning' if inconclusive else 'task_review_rejected')
+                self.queue_plan(graph.get(store,run['id']),{
+                    ('review_incomplete' if inconclusive else 'task_review_rejected'):row['id'],
+                    'task_id':row['subject_task'],'decision':decision,
+                    'repair_policy':'evidence' if inconclusive else 'manager_revision'})
 
     def publish(self,run,review):
         with self.store.connect() as db:
@@ -772,6 +900,12 @@ class Orchestrator:
         if store.query("SELECT id FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],)):return
         if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
             self.set_status(run,'WAITING_USER','user_decision_pending');return
+        authoritative=store.query("""SELECT * FROM workflow_reviews WHERE id=? AND run_id=? AND purpose='final'
+            AND subject_task='' AND graph_version=? AND status='passed'""",(review.get('id'),run['id'],run['graph_version']))
+        if not authoritative:
+            graph.event(store,run,'delivery_blocked',{'reason':'invalid_final_review'})
+            self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
+        review=authoritative[0]
         decision=json.loads(review['decision_json']);selected=decision.get('deliverables',[])
         accepted={name:t for t in graph.active_tasks(run) if t['spec']['delivery_stage'] for name in t['accepted_result']}
         if not selected or not isinstance(selected,list) or any(name not in accepted for name in selected):
@@ -868,7 +1002,7 @@ class Orchestrator:
         busy=store.query("SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?",(run['id'],store.now()))
         cleanup=store.query("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],))
         if not busy and not cleanup:
-            terminal='FAILED' if run['terminal_reason']=='deadline_or_budget' else 'CANCELLED'
+            terminal='CANCELLED' if run['terminal_reason']=='user_cancelled' else 'FAILED'
             self.set_status(run,terminal,run['terminal_reason'])
 
     def run(self):
@@ -887,12 +1021,28 @@ class Orchestrator:
                         with bind(task_id=run['id'],run_id=identifier,reconcile_generation=generation):
                             self.reconcile(identifier,generation)
                             emit('workflow.reconciled',duration_seconds=time.monotonic()-started,graph_version=run['graph_version'])
+                        self.store.execute("UPDATE runs SET reconcile_error_signature='',reconcile_error_count=0 WHERE id=?",(identifier,))
                     except ReconcileLost:pass
                     except Exception as exc:
                         failed=True;code=getattr(exc,'sqlstate','') or getattr(exc,'code','') or ''
+                        signature=digest({'type':type(exc).__name__,'code':str(code)[:120],'message':str(exc)[:500]})
                         try:self.store.execute('INSERT INTO workflow_reconcile_failures VALUES (?,?,?,?,?,?)',
                             (uuid.uuid4().hex,identifier,generation,type(exc).__name__,str(code)[:120],self.store.now()))
                         except Exception as record_error:emit('workflow.reconcile_failure_record_failed','ERROR',exc=record_error,run_id=identifier)
+                        try:
+                            current=graph.get(self.store,identifier)
+                            repeated=current['reconcile_error_count']+1 if current['reconcile_error_signature']==signature else 1
+                            terminal=repeated>=8
+                            with self.store.connect() as db:
+                                db.execute('''UPDATE runs SET reconcile_error_signature=?,reconcile_error_count=?,
+                                    next_reconcile_at=?,status=CASE WHEN ? AND status<>'CANCELLING' THEN 'CANCELLING' ELSE status END,
+                                    terminal_reason=CASE WHEN ? AND status<>'CANCELLING' THEN 'reconcile_failed' ELSE terminal_reason END
+                                    WHERE id=?''',(signature,repeated,self.store.now()+min(60,2**min(repeated,6)),terminal,terminal,identifier))
+                                if terminal:
+                                    from .task_lifecycle import request_cleanup
+                                    request_cleanup(db,identifier)
+                            if terminal:graph.event(self.store,current,'reconcile_exhausted',{'error_code':str(code)[:120] or type(exc).__name__})
+                        except Exception as state_error:emit('workflow.reconcile_failure_state_failed','ERROR',exc=state_error,run_id=identifier)
                         emit('workflow.reconcile_failed','ERROR',exc=exc,run_id=identifier,task_id=run['id'] if run else None)
                     self.store.execute('UPDATE workflow_orchestrators SET reconciles=reconciles+1,failures=failures+?,last_duration=? WHERE id=?',(int(failed),time.monotonic()-started,self.owner))
             except Exception as exc:emit('workflow.scan_failed','ERROR',exc=exc)

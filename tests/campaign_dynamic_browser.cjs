@@ -27,16 +27,19 @@ const INPUT_SOURCE=fs.readFileSync(path.join(__dirname,'campaign_browser_inputs.
 const DRIVER_SOURCE=fs.readFileSync(__filename),DRIVER_SHA=crypto.createHash('sha256').update(DRIVER_SOURCE).digest('hex');
 const uid=()=>crypto.randomUUID().replaceAll('-','');
 const currentRelease=()=>JSON.parse(fs.readFileSync(path.join(DEPLOY_ROOT,'release.json')));
+const startupRelease=currentRelease();assert.equal(startupRelease.state,'ready','Campaign requires a ready deployment');assert.match(startupRelease.config_sha256,/^[a-f0-9]{64}$/,'Campaign requires a frozen configuration digest');
 const terminal=s=>['SUCCEEDED','FAILED','CANCELLED'].includes(s);
 const paused=run=>run.state==='WAITING_USER'&&!run.decisions.length;
 const deciding=run=>run.state==='WAITING_USER'&&run.decisions.length>0;
 const controlActive=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&['ready','running','leased'].includes(job.status));
-const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation','legal_replacement']);
+const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','executor_restart','worker_restart','unsealed_hold','artifact_integrity','submission_unknown','observer_restart','api_restart','deployment_isolation','legal_replacement',
+ 'manager_hard_kill','reviewer_hard_kill','agent_hard_kill','repeated_agent_hard_kill','provider_poll_hard_kill']);
 // Capacity-sensitive parallel-drain coverage also needs an otherwise idle cluster.
 for(const hook of ['unknown_input','frozen_route','drain_local'])globalHooks.add(hook);
 const pauseNewCases=()=>fs.existsSync(path.join(ROOT,'pause-new-cases'));
 
 function targetText(spec){
+ if(spec.delivery_target_text)return spec.delivery_target_text;
  const e=spec.expect;
  if(e.kind==='image')return `符合需求的 ${e.width}×${e.height} 图片${e.min_images>1?'及全部要求的图片版本':''}${e.extra_extension?'，包含 '+e.extra_extension+' 分层文件':''}`;
  if(e.kind==='video')return `符合需求的完整 ${e.duration} 秒 ${e.width}×${e.height} 视频及要求的附加文件`;
@@ -76,12 +79,12 @@ async function runCase(browser,spec){
   catch(error){if(!['inspect','final'].includes(action)||attempt===3||!String(error.stderr||error.message).includes('psycopg.OperationalError'))throw error;
    save(path.join(directory,`audit-retry-${action}-${attempt}.json`),{at:Date.now()/1000,error:String(error.stderr||error.message).slice(-12000)});
    state.events.push({action:'database_audit_retry',audit_action:action,attempt,at:Date.now()/1000});persist();await page.waitForTimeout(1500);}}};
- const fault=async(action,unit)=>{persist();const args=[path.join(harness,'campaign_dynamic_faults.py'),action,directory];if(unit)args.push('--unit',unit);
+ const fault=async(action,unit,attempt)=>{persist();const args=[path.join(harness,'campaign_dynamic_faults.py'),action,directory];if(unit)args.push('--unit',unit);if(attempt)args.push('--attempt',attempt);
   const {stdout}=await execute(PY,args,{cwd:REPO,env:helperEnvironment,timeout:180000,maxBuffer:4*1024*1024});const value=JSON.parse(stdout.trim().split('\n').at(-1));
   if(action!=='progress'){state.faults.push(value);persist();}return value;};
  const wait=async(predicate,seconds=300)=>{const until=Date.now()+seconds*1000;let value,pausedAt=0;while(Date.now()<until){value=await read();if(await predicate(value))return value;
   const diagnosing=controlActive(value,'DIAGNOSE');
-  if(paused(value)&&!diagnosing){pausedAt||=Date.now();}else pausedAt=0;
+  if(paused(value)&&!diagnosing&&!unified.hasActiveWork(value)){pausedAt||=Date.now();}else pausedAt=0;
   if(terminal(value.state)||(pausedAt&&Date.now()-pausedAt>5000)){save(path.join(directory,'boundary-not-reached.json'),value);throw Object.assign(Error('Workflow stopped before the required test boundary: '+value.state),{boundary:true});}
   await page.waitForTimeout(750);}save(path.join(directory,'wait-timeout.json'),value);throw Object.assign(Error('Timed out waiting for the required workflow boundary'),{boundary:true});};
  const capture=async(label)=>{await page.screenshot({path:path.join(directory,label+'.png'),fullPage:true});};
@@ -290,6 +293,24 @@ async function runCase(browser,spec){
     await capture('controller-down');await fault('start_orchestrator');orchestratorStopped=false;
    }
    else if(hook==='orchestrator_competition'){await fault('start_second_orchestrator');secondStarted=true;await page.waitForTimeout(2000);assert.ok((await fault('progress')).orchestrators.length>=2);}
+   else if(['manager_hard_kill','reviewer_hard_kill','agent_hard_kill','repeated_agent_hard_kill','provider_poll_hard_kill'].includes(hook)){
+    const interruptions=hook==='repeated_agent_hard_kill'?2:1,killed=[];
+    for(let round=0;round<interruptions;round++){
+     const until=Date.now()+600000;let selected;
+     while(Date.now()<until){const observed=await fault('progress');assert.ok(Object.values(observed.worker_services).every(Boolean),'All dedicated workers must be healthy before hard-kill injection');const calls=new Map(observed.provider_calls.map(call=>[call.step,call]));selected=observed.attempts.find(item=>item.status==='running'&&item.unit&&(
+      hook==='manager_hard_kill'?item.control_kind==='PLAN':hook==='reviewer_hard_kill'?item.control_kind==='REVIEW':
+      hook==='provider_poll_hard_kill'?!item.control_kind&&calls.get(item.step_id)?.external_id:
+      !item.control_kind&&item.type==='agent')&&(hook==='provider_poll_hard_kill'||Date.now()/1000-item.started>1));if(selected)break;await page.waitForTimeout(250);}
+     assert.ok(selected,`No ${hook} attempt reached the hard-kill boundary`);stoppedWorker=selected.unit;
+     try{await fault('kill_attempt_worker',selected.unit,selected.id);}catch(error){stoppedWorker=null;if(hook==='provider_poll_hard_kill'&&String(error.message).includes('No replay-safe QA task')){round--;continue;}throw error;}
+     killed.push(selected);await capture(`${hook}-killed-${round+1}`);
+     const takeoverUntil=Date.now()+300000;let takeover;
+     while(Date.now()<takeoverUntil){const observed=await fault('progress');takeover=observed.attempts.find(item=>item.step_id===selected.step_id&&item.generation>selected.generation&&(round===interruptions-1||item.status==='running'));if(takeover)break;await page.waitForTimeout(750);}
+     assert.ok(takeover,`No takeover followed ${hook}`);await fault('start_worker',selected.unit);stoppedWorker=null;
+    }
+    const settleUntil=Date.now()+120000;let reservations=[];while(Date.now()<settleUntil){const observed=await fault('progress');reservations=observed.model_reservations.filter(item=>killed.some(attempt=>attempt.id===item.attempt_id)&&item.state==='reserved');if(!reservations.length)break;await page.waitForTimeout(750);}
+    assert.equal(reservations.length,0,'Interrupted model reservations did not converge');state.hard_kill_attempts=killed;state.browser_assertions.push(`${interruptions} hard-killed attempt(s) were fenced and recovered`);persist();
+   }
    else if(hook==='observer_restart'){await fault('stop_observer');observerStopped=true;}
    else if(hook==='api_restart'){apiStopped=true;await fault('stop_api');const boundary=Date.now()/1000;await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});
     await page.waitForTimeout(2000);assert.ok(state.requests.some(r=>r.at>=boundary&&r.status===200&&r.serving_api?.includes('19767')),'The second API did not actually serve the reloaded workflow');

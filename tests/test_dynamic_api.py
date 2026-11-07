@@ -1,6 +1,8 @@
 import tempfile
+import os
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 from webapp.app import create_app
 from webapp.workflow_orchestrator import Orchestrator
@@ -48,6 +50,30 @@ class DynamicAPITests(unittest.TestCase):
         response=self.a.post(self.prefix,json=body)
         self.assertEqual(response.status_code,409)
         self.assertFalse(self.app.state.store.query('SELECT id FROM agent_turns'))
+
+    def test_project_allows_independent_runs_but_enforces_owner_execution_quota(self):
+        with patch.dict(os.environ,{'VIDEO_USE_USER_QUEUE_LIMIT':'2'}):
+            first=self.a.post(self.prefix,json=self.body())
+            second=self.a.post(self.prefix,json=self.body())
+            third=self.a.post(self.prefix,json=self.body())
+        self.assertEqual(first.status_code,202,first.text)
+        self.assertEqual(second.status_code,202,second.text)
+        self.assertNotEqual(first.json()['session_id'],second.json()['session_id'])
+        self.assertEqual(third.status_code,409,third.text)
+        self.assertIn('待处理任务已达上限',third.json()['detail'])
+
+    def test_waiting_user_runs_use_open_run_limit_instead_of_execution_quota(self):
+        first=self.a.post(self.prefix,json=self.body()).json()
+        second=self.a.post(self.prefix,json=self.body()).json()
+        self.app.state.store.execute("UPDATE runs SET status='WAITING_USER' WHERE id IN (?,?)",(first['id'],second['id']))
+        with patch.dict(os.environ,{'VIDEO_USE_USER_QUEUE_LIMIT':'1','VIDEO_USE_USER_OPEN_RUN_LIMIT':'2'}):
+            response=self.a.post(self.prefix,json=self.body())
+        self.assertEqual(response.status_code,409,response.text)
+        self.assertIn('待确认任务过多',response.json()['detail'])
+        # The Run-retention ceiling does not block unrelated manual/image/legacy
+        # queue classes that use the shared execution admission function.
+        with patch.dict(os.environ,{'VIDEO_USE_USER_QUEUE_LIMIT':'1','VIDEO_USE_USER_OPEN_RUN_LIMIT':'2'}):
+            self.app.state.store.admit_tasks(self.project)
     def test_cancel_command_then_project_delete_removes_dynamic_records(self):
         import uuid
         run=self.a.post(self.prefix,json=self.body()).json()
@@ -62,6 +88,19 @@ class DynamicAPITests(unittest.TestCase):
         self.assertEqual(result.status_code,200,result.text)
         for table in ('runs','run_tasks','planner_runs','workflow_commands','workflow_graph_events','workflow_start_requests'):
             self.assertFalse(self.app.state.store.query('SELECT * FROM '+table),table)
+
+    def test_project_delete_releases_local_artifact_references_for_gc(self):
+        source=Path(self.temp.name)/'published.bin';source.write_bytes(b'published bytes')
+        artifact=self.app.state.store.artifacts.upload(self.project,source)
+        self.app.state.store.artifacts.publish(self.project,'edit/published.bin',artifact['id'])
+        self.assertTrue(self.app.state.store.query('SELECT artifact FROM artifact_files WHERE project=?',(self.project,)))
+        result=self.a.delete('/api/projects/'+self.project)
+        self.assertEqual(result.status_code,200,result.text)
+        self.assertFalse(self.app.state.store.query('SELECT artifact FROM artifact_files WHERE project=?',(self.project,)))
+        row=self.app.state.store.query('SELECT state FROM artifact_objects WHERE id=?',(artifact['id'],))[0]
+        self.assertEqual(row['state'],'staged')
+        with self.assertRaisesRegex(ValueError,'deleted'):
+            self.app.state.store.artifacts.publish(self.project,'edit/late.bin',artifact['id'])
     def test_chat_page_has_project_and_deployment_prefix(self):
         with TestClient(self.app,root_path='/distributed-agent-system') as client:
             project=client.post('/distributed-agent-system/api/projects',json={'name':'prefix'}).json()['id']

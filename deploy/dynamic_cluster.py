@@ -64,9 +64,33 @@ def registry(node):return EXECUTORS/node
 def release():return Path(json.loads((ROOT/'release.json').read_text())['source'])
 
 
-def environment(node='a',source=None):
+def release_record():return json.loads((ROOT/'release.json').read_text())
+
+
+def write_release(record):
+    target=ROOT/'release.json';temporary=target.with_suffix('.new')
+    temporary.write_text(json.dumps(record,indent=2)+'\n');temporary.chmod(0o600);temporary.replace(target)
+
+
+def snapshot_configuration():
+    names=('.env','.agent.env','.storage.env','.distributed.env')
+    digest=hashlib.sha256()
+    for name in names:digest.update(name.encode()+b'\0'+(REPO/name).read_bytes()+b'\0')
+    identity=digest.hexdigest();target=CONF/'releases'/identity[:16]
+    if not target.exists():
+        target.mkdir(mode=0o700,parents=True)
+        for name in names:
+            shutil.copyfile(REPO/name,target/name);(target/name).chmod(0o600)
+    return target,identity
+
+
+def environment(node='a',source=None,config_root=None):
     values=dict(os.environ)
-    for name in ('.env','.agent.env','.storage.env','.distributed.env'):values.update(env_file(REPO/name))
+    if config_root is None and (ROOT/'release.json').exists():
+        record=release_record()
+        if source is None or Path(record.get('source',''))==Path(source):config_root=record.get('config_root')
+    config_root=Path(config_root) if config_root else REPO
+    for name in ('.env','.agent.env','.storage.env','.distributed.env'):values.update(env_file(config_root/name))
     values.update(env_file(CONF/f'node-{node}.env'));values.update(env_file(CONF/'observation.env'))
     values['VIDEO_USE_RUNTIME_BUILD']=str((source or release())/'runtime/build')
     return values
@@ -100,6 +124,12 @@ def validate_isolation(values):
         if reused:raise ValueError('Independent deployment reuses source identifiers: '+','.join(reused))
         if set(PORTS.values())&{19766,19767} or {OBS_PORT,PROXY_PORT}&{19765,19768}:
             raise ValueError('Independent deployment reuses source ports')
+
+
+def validate_model_configuration(source,config_root):
+    code='from webapp.agent_profiles import profiles,role_defaults; profiles(); role_defaults()'
+    run([source/'.venv/bin/python','-c',code],cwd=source,
+        env=environment(source=source,config_root=config_root),timeout=30)
 
 
 def configure(seed):
@@ -183,9 +213,9 @@ def prepare_database():
     run(prefix,input=f"SELECT 'CREATE ROLE {ORCHESTRATOR_ROLE} LOGIN PASSWORD ''{orchestrator_password}''' WHERE NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='{ORCHESTRATOR_ROLE}')\n\\gexec\n")
 
 
-def template_config(source):
+def template_config(source,config_root=None):
     return systemd_templates.ServiceConfig(
-        repo=REPO,root=ROOT,release=source,conf=CONF,executors=EXECUTORS,
+        repo=Path(config_root) if config_root else REPO,root=ROOT,release=source,conf=CONF,executors=EXECUTORS,
         namespace=NAMESPACE,service_user=NAMESPACE,database_service='video-use-db.service',
         root_path=ENTRY,agent_runtime=NAMESPACE+'-agent-%i',media_runtime_prefix=MEDIA_RUNTIME_PREFIX,
         gpu_lease_root=GPU_LEASE_ROOT,
@@ -193,8 +223,8 @@ def template_config(source):
         worker_tasks_max=1024,observer_port=OBS_PORT)
 
 
-def install_units(source):
-    config=template_config(source)
+def install_units(source,config_root=None):
+    config=template_config(source,config_root)
     units={NAMESPACE+'-api@.service':systemd_templates.api_unit(config),
            NAMESPACE+'-executor@.service':systemd_templates.worker_unit(config),
            NAMESPACE+'-watchdog@.service':systemd_templates.reaper_unit(config),
@@ -310,18 +340,29 @@ def verify(source,selection=()):
 
 
 def gate(source):
-    report=json.loads((source/'docs/test-evidence/distributed-suite.json').read_text())
-    if not report['passed'] or report['selection']!=['all Python tests'] or report['source_sha256']!=common.digest(source,runner=run):
-        raise ValueError('Full verification for this exact release is required')
+    frozen_digest=common.digest(source,runner=run)
+    report_path=source/'docs/test-evidence/distributed-suite.json'
+    report=json.loads(report_path.read_text())
+    valid=lambda value: value['passed'] and value['selection']==['all Python tests'] and value['source_sha256']==frozen_digest
+    if not valid(report):
+        candidate=json.loads((REPO/'docs/test-evidence/distributed-suite.json').read_text())
+        if common.digest(REPO,runner=run)!=frozen_digest or not valid(candidate):
+            raise ValueError('Full verification for this exact release is required')
+        # Verification evidence is excluded from the source digest. A targeted
+        # freeze may therefore be promoted after the same exact source passes
+        # the full gate, without mutating executable release bytes.
+        report_path.parent.mkdir(parents=True,exist_ok=True)
+        shutil.copyfile(REPO/'docs/test-evidence/distributed-suite.json',report_path)
+        report=candidate
     validate_isolation(environment(source=source))
 
 
-def initialize(source):
+def initialize(source,config_root=None):
     # Initialize lazy object-metadata tables with the business role before the
     # metadata-only orchestrator receives its table grants. Fresh databases do
     # not have historical API traffic to create these tables implicitly.
     code='from pathlib import Path; from webapp.store import Store; from webapp import agent_store,image_api; from webapp.paths import data_root; s=Store(data_root()); s.artifacts; agent_store.initialize(s); image_api.initialize(s)'
-    run([source/'.venv/bin/python','-c',code],cwd=source,env=environment(source=source),timeout=120)
+    run([source/'.venv/bin/python','-c',code],cwd=source,env=environment(source=source,config_root=config_root),timeout=120)
     # The control plane may read receipts but never provider cookies or
     # authorization material. No model/BOSS credentials enter its environment.
     sql=f'''BEGIN;
@@ -388,7 +429,12 @@ def stop():
     output=run(['systemctl','list-units','--all','--plain','--no-legend',NAMESPACE+'-qa-orchestrator-*.service'],check=False).stdout
     import re
     extra=[line.split()[0] for line in output.splitlines() if line.split() and re.fullmatch(NAMESPACE+r'-qa-orchestrator-[a-f0-9]{12}\.service',line.split()[0])]
-    parallel_service('stop',[s for s in APIS+WORKERS+[ORCHESTRATOR]+extra if active(s)])
+    # Stop admission and deterministic control first, then fence workers one at
+    # a time. Recovery correctness still assumes any process can be SIGKILLed;
+    # this ordering only avoids manufacturing a simultaneous two-node outage.
+    parallel_service('stop',[s for s in APIS+[ORCHESTRATOR]+extra if active(s)])
+    for worker in WORKERS:
+        if active(worker):parallel_service('stop',[worker])
     for _ in range(60):
         if not any(list((registry(n)/'records').glob('*.json')) for n in PORTS):break
         time.sleep(1)
@@ -461,6 +507,9 @@ def deploy(seed,*,reset=False,targeted_unverified=False):
     else:
         try:gate(source)
         except (FileNotFoundError,ValueError):verify(source);gate(source)
+    config_root,config_sha=snapshot_configuration()
+    validate_isolation(environment(source=source,config_root=config_root))
+    validate_model_configuration(source,config_root)
     if any(active(s) for s in APIS+WORKERS+[ORCHESTRATOR]):stop()
     if active(OBSERVER):run(['systemctl','stop',OBSERVER])
     backup=ROOT/'backups'/time.strftime('%Y%m%dT%H%M%S');backup.mkdir(parents=True,mode=0o700)
@@ -469,15 +518,25 @@ def deploy(seed,*,reset=False,targeted_unverified=False):
         (backup/'database.dump').chmod(0o600)
         result=subprocess.run(['runuser','-u','postgres','--',PG_BIN/'pg_dump','-h',PG_SOCKET,'-p',str(PG_PORT),'-Fc',DATABASE],stdout=output,stderr=subprocess.PIPE,timeout=120)
         if result.returncode:raise RuntimeError('Dedicated database backup failed')
+    record={'source':str(source),'sha256':sha,'config_root':str(config_root),'config_sha256':config_sha,
+            'deployed_at':time.time(),'namespace':NAMESPACE,
+            'verification':'targeted_only' if targeted_unverified else 'full_gate','state':'deploying'}
+    write_release(record)
     if reset:reset_database()
-    initialize(source);install_units(source)
+    initialize(source,config_root);install_units(source,config_root)
     run(['systemctl','enable',*SERVICES])
     if active(OBSERVER):run(['systemctl','restart',OBSERVER])
     start()
     private_env(ROOT/'runtime.env',{'VIDEO_USE_DEPLOYMENT':NAMESPACE})
-    (ROOT/'release.json').write_text(json.dumps({'source':str(source),'sha256':sha,'deployed_at':time.time(),'namespace':NAMESPACE,
-        'verification':'targeted_only' if targeted_unverified else 'full_gate'},indent=2)+'\n')
+    write_release({**record,'state':'ready','deployed_at':time.time()})
     print('Independent dynamic workflow deployment ready: '+ENTRY+'/')
+
+
+def restart_release():
+    record=release_record()
+    if record.get('state','ready')!='ready':raise ValueError('Deployment is incomplete; rerun deploy instead of restarting a partial release')
+    source=Path(record['source']);config_root=Path(record.get('config_root') or REPO)
+    stop();install_units(source,config_root);start()
 
 
 def main():
@@ -493,7 +552,7 @@ def main():
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         if args.action=='deploy':deploy(args.seed_from,reset=args.reset_database,targeted_unverified=args.targeted_unverified)
         elif args.action=='configure':configure(args.seed_from);prepare_database()
-        elif args.action=='restart':stop();start()
+        elif args.action=='restart':restart_release()
         elif args.action=='check':gate(release());health()
         else:globals()[args.action]()
 

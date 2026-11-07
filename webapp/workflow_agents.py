@@ -65,13 +65,14 @@ def proposal_feedback(raw):
     return []
 
 
-def reserve_tokens(store,lease,run,amount,*,input_tokens=None,output_tokens=None):
+def reserve_tokens(store,lease,run,amount,*,input_tokens=None,output_tokens=None,model_call_limit=None):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         lease.validate(db)
         used=db.execute('SELECT COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS n FROM workflow_model_reservations WHERE run_id=?',(run['id'],)).fetchone()['n']
         if used+amount>run['authorization']['model_token_budget']:
             raise TaskQuotaReached('工作流模型 Token 预算不足，未发起新的请求。',category='model_tokens',scope='workflow',used=used,limit=run['authorization']['model_token_budget'])
+        if model_call_limit is not None:lease.consume('model',model_call_limit)
         identifier=uuid.uuid4().hex
         db.execute("""INSERT INTO workflow_model_reservations(
             id,run_id,attempt_id,reserved_tokens,state,created_at,input_reserved_tokens,output_reserved_tokens)
@@ -81,8 +82,9 @@ def reserve_tokens(store,lease,run,amount,*,input_tokens=None,output_tokens=None
 
 
 @contextmanager
-def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_reserved_tokens=None,method='unspecified'):
-    reservation=reserve_tokens(lease.store,lease,run,amount,input_tokens=input_reserved_tokens,output_tokens=output_reserved_tokens)
+def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_reserved_tokens=None,method='unspecified',model_call_limit=None):
+    reservation=reserve_tokens(lease.store,lease,run,amount,input_tokens=input_reserved_tokens,
+                               output_tokens=output_reserved_tokens,model_call_limit=model_call_limit)
     from .telemetry import emit,bind
     emit('workflow.model_budget_reserved',reservation_id=reservation,reserved_tokens=amount,
          input_reserved_tokens=input_reserved_tokens,output_reserved_tokens=output_reserved_tokens,method=method)
@@ -257,9 +259,9 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
         input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images,configuration.vision_tokenizer,configuration.input_token_policy)
     emit('workflow.model_token_reservation',task_id=lease.run_id,step_id=lease.step_id,
          input_tokens=input_tokens,output_tokens=output_limit,image_count=len(images),method=method)
-    lease.consume('model',configuration.budget['task_models'])
     with model_budget(lease,run,input_tokens+output_limit,receipt,input_reserved_tokens=input_tokens,
-                      output_reserved_tokens=output_limit,method=method),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
+                      output_reserved_tokens=output_limit,method=method,
+                      model_call_limit=configuration.budget['task_models']),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
         with client.post(provider_base(base)+adapter.path,json=body,headers=adapter.headers(key),stream=True,
                          timeout=(10,max(1,min(240,deadline-time.monotonic()))),allow_redirects=False) as response:
             if response.status_code!=200:
@@ -498,13 +500,14 @@ def archive_index(path):
             if len(entries)>1000 or sum(item.file_size for item in entries)>256*1024**2:
                 raise InspectionInputError('ZIP directory exceeds member/expanded-size limits; inspect its text manifest.', 'inspection_archive_limit')
             members=[]
-            for item in entries:
+            for index,item in enumerate(entries):
                 name=item.filename;parts=PurePosixPath(name)
                 if (not name or len(name)>500 or parts.is_absolute() or '..' in parts.parts or '\\' in name
                         or stat.S_ISLNK(item.external_attr>>16) or item.flag_bits&1):
                     raise InspectionInputError('ZIP contains unsafe, encrypted or unsupported member metadata.', 'inspection_archive_member')
-                members.append({'name':name,'size':item.file_size,'compressed_size':item.compress_size,
-                                'crc32':item.CRC,'is_directory':item.is_dir()})
+                compression={zipfile.ZIP_STORED:'stored',zipfile.ZIP_DEFLATED:'deflated'}.get(item.compress_type,str(item.compress_type))
+                members.append({'index':index,'name':name,'size':item.file_size,'compressed_size':item.compress_size,
+                                'compression':compression,'crc32':item.CRC,'is_directory':item.is_dir()})
     except zipfile.BadZipFile:
         raise InspectionInputError('Invalid ZIP directory; no archive evidence was recorded.', 'inspection_archive_invalid') from None
     if len(graph.encode(members).encode())>16384:
@@ -532,15 +535,39 @@ def inspect(store,run,allowed,reference,offset=0):
     if suffix=='.ora':
         import zipfile
         from xml.etree import ElementTree
+        from PIL import Image,UnidentifiedImageError
+        directory=archive_index(path)
         with zipfile.ZipFile(path) as archive:
             members=archive.infolist()
-            if len(members)>1000 or sum(item.file_size for item in members)>256*1024**2:raise ValueError('Layered image exceeds inspection limit')
             with archive.open('stack.xml') as stream:raw=stream.read(1024**2+1)
-            if len(raw)>1024**2 or b'<!DOCTYPE' in raw or b'<!ENTITY' in raw:raise ValueError('Unsafe layer metadata')
+            if len(raw)>1024**2 or b'<!DOCTYPE' in raw or b'<!ENTITY' in raw:raise InspectionInputError('Unsafe layer metadata','inspection_archive_member')
             document=ElementTree.fromstring(raw)
             names=set(archive.namelist());layers=[dict(layer.attrib) for layer in document.iter('layer')]
-            if not layers or any(layer.get('src') not in names for layer in layers):raise ValueError('Missing layer data')
-            return {'ref':reference,'metadata':metadata,'coverage':'layer_structure','layers':layers,'dimensions':dict(document.attrib)}
+            if not layers or any(layer.get('src') not in names for layer in layers):raise InspectionInputError('Missing layer data','inspection_archive_member')
+            first=members[0] if members else None
+            mimetype_valid=bool(first and first.filename=='mimetype' and first.compress_type==zipfile.ZIP_STORED
+                                and archive.read('mimetype')==b'image/openraster')
+            image_names=list(dict.fromkeys([layer['src'] for layer in layers]
+                +[name for name in ('mergedimage.png','Thumbnails/thumbnail.png') if name in names]))
+            if len(image_names)>128:raise InspectionInputError('Layered image exceeds the image-header inspection limit','inspection_archive_limit')
+            images=[]
+            for name in image_names:
+                try:
+                    with archive.open(name) as stream,Image.open(stream) as image:
+                        images.append({'name':name,'width':image.width,'height':image.height,'format':image.format})
+                except (KeyError,OSError,UnidentifiedImageError):
+                    raise InspectionInputError('Invalid OpenRaster image member: '+name,'inspection_archive_member') from None
+            dimensions={key:int(document.attrib[key]) for key in ('w','h') if str(document.attrib.get(key,'')).isdigit()}
+            layer_dimensions={item['name']:(item['width'],item['height']) for item in images if item['name'] in {layer['src'] for layer in layers}}
+            expected=(dimensions.get('w'),dimensions.get('h'))
+            return {'ref':reference,'metadata':metadata,'coverage':'layer_structure','layers':layers,'dimensions':dimensions,
+                    'archive_members':directory['members'],'archive_member_count':directory['member_count'],
+                    'mimetype_valid':mimetype_valid,'mergedimage_present':'mergedimage.png' in names,
+                    'thumbnail_present':'Thumbnails/thumbnail.png' in names,'member_images':images,
+                    'all_layer_dimensions_match_canvas':bool(expected[0] and expected[1] and layer_dimensions
+                        and all(size==expected for size in layer_dimensions.values())),
+                    'contents_verified':False,
+                    'limitation':'Archive structure and bounded image headers were verified; full member pixels were not decoded or compared.'}
     if suffix=='.zip':
         if offset!=0:raise InspectionInputError('ZIP directory inspection requires offset 0')
         return {'ref':reference,'metadata':metadata,**archive_index(path)}
@@ -665,7 +692,7 @@ def execute(host,lease,run,task):
             else:
                 if draft is not None:
                     from .workflow_plan_draft import record_error
-                    _,repeated=record_error(store,task['spec']['request_id'],getattr(exc,'details',[]))
+                    _,repeated=record_error(store,lease,task['spec']['request_id'],getattr(exc,'details',[]))
                     if repeated>=2:
                         raise TaskQuotaReached('规划草稿连续收到相同的非法命令。',category='agent_contract',scope='turn',used=repeated,limit=2)
                 rejections[exc.code]=rejections.get(exc.code,0)+1
@@ -712,7 +739,7 @@ def execute(host,lease,run,task):
                     else:details=[{'path':getattr(exc,'path','plan'),'type':getattr(exc,'code','compile_contract'),'message':str(exc)[:1000]}]
                     tool_receipt['status']='failed';correction_rounds+=1
                     from .workflow_plan_draft import record_error
-                    _,repeated=record_error(store,task['spec']['request_id'],details)
+                    _,repeated=record_error(store,lease,task['spec']['request_id'],details)
                     first=details[0] if details else {}
                     from .telemetry import emit
                     emit('workflow.plan_compile_rejected','WARNING',task_id=lease.run_id,step_id=lease.step_id,
@@ -783,7 +810,7 @@ def execute(host,lease,run,task):
                     signature=graph.digest(errors);rejections[signature]=rejections.get(signature,0)+1
                     if draft is not None:
                         from .workflow_plan_draft import record_error
-                        _,repeated=record_error(store,task['spec']['request_id'],errors)
+                        _,repeated=record_error(store,lease,task['spec']['request_id'],errors)
                         if repeated>=2:
                             raise TaskQuotaReached('规划草稿连续产生相同的语义错误。',category='agent_contract',scope='turn',used=repeated,limit=2)
                     current_draft=get_draft(store,task['spec']['request_id']) if draft is not None else None
@@ -812,7 +839,7 @@ def execute(host,lease,run,task):
                              'message':str(exc)[:1000]}]
                     if draft is not None:
                         from .workflow_plan_draft import record_error
-                        _,repeated=record_error(store,task['spec']['request_id'],detail)
+                        _,repeated=record_error(store,lease,task['spec']['request_id'],detail)
                         if repeated>=3:
                             raise TaskQuotaReached('规划草稿连续产生相同的引用错误。',category='agent_contract',scope='turn',used=repeated,limit=3)
                     current_draft=get_draft(store,task['spec']['request_id']) if draft is not None else None

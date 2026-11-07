@@ -211,3 +211,34 @@ def for_step(spec):
     from .operations import for_step as operation_for_step
     operation=operation_for_step(spec)
     return for_operation(operation) if operation is not None else SCRIPT
+
+
+def recover_dynamic(implementation,task,call=None):
+    """Return a deterministic recovery action for a unified Run work item.
+
+    This function only interprets durable facts. It never invokes a provider or
+    mutates task state, so the Orchestrator can apply it under its reconcile fence.
+    """
+    phase=task['phase'];action=implementation.recovery(phase)
+    if action==RecoveryAction.VERIFY:
+        return {'action':'ready','phase':'validate'} if task.get('candidate_result') else {'action':'unavailable'}
+    if action==RecoveryAction.RETRY_LOCAL:
+        return {'action':'ready','phase':'local'} if task['spec'].get('retry_safe') else {'action':'unavailable'}
+    state=(call or {}).get('state','');external_id=(call or {}).get('external_id','')
+    try:result=json.loads((call or {}).get('result') or '[]')
+    except (TypeError,ValueError):result=[]
+    if state=='succeeded':
+        return {'action':'validate','candidate':result} if result else {'action':'unavailable'}
+    if state in ('failed','rejected'):
+        return {'action':'failed','error_code':'provider_failed'}
+    if state=='cancelled':
+        return {'action':'failed','error_code':'provider_cancelled'}
+    if action in (RecoveryAction.QUERY,RecoveryAction.COLLECT) and external_id:
+        return {'action':'poll','external_id':external_id}
+    if action==RecoveryAction.RECONCILE:
+        if external_id:return {'action':'poll','external_id':external_id}
+        if call:return {'action':'unknown'}
+        if implementation.records_calls or task['spec'].get('retry_safe'):
+            return {'action':'ready','phase':phase}
+        return {'action':'unavailable'}
+    return {'action':'unknown'}

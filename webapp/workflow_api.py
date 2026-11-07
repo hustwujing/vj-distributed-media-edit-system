@@ -121,8 +121,8 @@ def public(store,run):
     value['token_usage']=store.query('''SELECT
         COALESCE(SUM(input_settled_tokens),0) AS settled_input,
         COALESCE(SUM(output_settled_tokens),0) AS settled_output,
-        COALESCE(SUM(CASE WHEN state='partially_settled_output_unknown' THEN output_reserved_tokens ELSE 0 END),0) AS unknown_output_reserved,
-        COALESCE(SUM(CASE WHEN used_tokens IS NULL THEN reserved_tokens ELSE 0 END),0) AS fully_unknown_reserved,
+        COALESCE(SUM(CASE WHEN state IN ('partially_settled_output_unknown','interrupted_output_unknown') THEN output_reserved_tokens ELSE 0 END),0) AS unknown_output_reserved,
+        COALESCE(SUM(CASE WHEN used_tokens IS NULL OR state='interrupted_usage_unknown' THEN reserved_tokens ELSE 0 END),0) AS fully_unknown_reserved,
         COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS committed
         FROM workflow_model_reservations WHERE run_id=?''',(run['id'],))[0]
     value['token_usage']['known']=value['token_usage']['settled_input']+value['token_usage']['settled_output']
@@ -149,14 +149,12 @@ def register(app,store,own_project):
     @app.get('/api/projects/{project_id}/runs/capabilities')
     def capabilities(project_id:str,request:Request):
         own_project(project_id,request)
-        from .operations import catalog
         from .specialist_profiles import catalogue
-        workers=store.query('''SELECT c.catalogue FROM execution_operation_catalog c JOIN execution_workers w ON w.id=c.worker
-            WHERE w.draining=0 AND w.heartbeat>? ORDER BY w.heartbeat DESC LIMIT 1''',(store.now()-30,))
-        if workers:operations=json.loads(workers[0]['catalogue'])['operations']
-        else:
-            try:operations=catalog()['operations']
-            except PermissionError:operations=[]
+        workers=store.query('''SELECT c.worker FROM execution_operation_catalog c JOIN execution_workers w ON w.id=c.worker
+            WHERE w.draining=0 AND w.heartbeat>?''',(store.now()-30,))
+        from .workflow_planning import available_operations
+        try:operations=available_operations(store) or []
+        except PermissionError:operations=[]
         from .model_selection import options
         return {'operations':operations,'profiles':catalogue(),'workers_ready':bool(workers),
                 'model_choices':options(store,project_id),
@@ -182,8 +180,6 @@ def register(app,store,own_project):
                 if previous:
                     if (previous['owner'],previous['project_id'],previous['digest'])!=(owner,project_id,identity):raise ValueError('请求标识已用于其他内容')
                     return public(store,graph.get(store,previous['run_id']))
-                if db.execute("SELECT id FROM execution_subjects WHERE project=? AND status IN ('queued','running','waiting','paused','cancelling')",(project_id,)).fetchone():
-                    raise ValueError('项目中已有活动任务，请先完成或取消')
                 parent=own_run(project_id,body.parent_run_id,request) if body.parent_run_id else None
                 from .model_selection import resolve,resolve_roles
                 configuration=resolve(body.model_choice) if body.model_choice else None
@@ -315,14 +311,17 @@ def register(app,store,own_project):
             marks=','.join('?' for _ in public_kinds)
             events=store.query(f'SELECT seq,kind,payload,created FROM agent_events WHERE run_id=? AND kind IN ({marks}) AND seq>? ORDER BY seq LIMIT 200',
                 (run_id,*public_kinds,cursor)) if with_events else []
-            return (rows[0] if rows else None),events,public_messages(store,run_id) if with_text else []
+            active={row['attempt'] for row in store.query(
+                'SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(run_id,store.now()))}
+            return (rows[0] if rows else None),events,public_messages(store,run_id) if with_text else [],active
 
-        def durable_text(messages):
+        def durable_text(messages,active_attempts):
             if not messages:return None
             latest=max(messages,key=lambda item:(item['generation'],item['sequence']))
             return {'text':'\n\n'.join(item['text'] for item in messages if item['text']),
                 'text_version':[latest['generation'],latest['sequence']],
-                'text_phase':'streaming' if any(item['status']=='streaming' for item in messages) else 'idle',
+                'text_phase':'streaming' if any(item['status']=='streaming' and item['attempt'] in active_attempts
+                    for item in messages if item['generation']==latest['generation']) else 'idle',
                 'published_at':latest['updated']}
 
         async def generate():
@@ -334,11 +333,11 @@ def register(app,store,own_project):
             try:
                 while not await request.is_disconnected():
                     if initial or not redis_mode or time.monotonic()-last_snapshot>=2:
-                        try:run,records,messages=await api_execution.run('stream_read',snapshot,db_position,replay_events or not redis_mode,initial or not redis_mode)
+                        try:run,records,messages,active_attempts=await api_execution.run('stream_read',snapshot,db_position,replay_events or not redis_mode,initial or not redis_mode)
                         except APICapacityError:
                             yield 'retry: 2000\nevent: retry\ndata: {"code":"API_STREAM_BUSY"}\n\n';return
                         if not run:yield 'event: gone\ndata: {}\n\n';return
-                        status=run['status'];last_snapshot=time.monotonic();text=durable_text(messages)
+                        status=run['status'];last_snapshot=time.monotonic();text=durable_text(messages,active_attempts)
                         signature=json.dumps(text,sort_keys=True) if text else None
                         if text and signature!=text_signature:
                             text_signature=signature;yield 'event: text_snapshot\ndata: '+json.dumps(text,ensure_ascii=False)+'\n\n'

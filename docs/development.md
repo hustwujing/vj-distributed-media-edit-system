@@ -89,7 +89,7 @@ VIDEO_USE_TEST_REAL_MODELS=1 .venv/bin/python -m tests.run_distributed_suite
 | `tests/run_live_generation_case.py` | 真实生成链路 |
 | `tests/run_live_transcribe_smoke.py` | 真实转写 |
 | `tests/run_live_boss_storage.py` | 真实对象存储加密、跨节点恢复与测试对象清理 |
-| `tests/campaign_suite.py` → `campaign_dynamic_browser.cjs` | 当前分支的 119 条隔离真机 case；逐例内部状态、浏览器和清理审计 |
+| `tests/campaign_suite.py` → `campaign_dynamic_browser.cjs` | 当前分支的 126 条隔离真机 case；逐例内部状态、浏览器和清理审计 |
 | `tests/campaign_model_deployment_smoke.cjs` | 隔离部署上的模型选择、草稿恢复、Run 配置冻结及低预算拦截；不是媒体 case 或模型质量验收 |
 | `deploy/sandbox_opensandbox_recovery.sh` | 独立 OpenSandbox 的 orphan、回执丢失和服务中断 cleanup 真机恢复；要求工作流集群空闲 |
 | `tests/campaign_model_eval.py`、`campaign_model_eval_report.py` | 冻结模型回复与协议对照实验；不代替部署后业务测试 |

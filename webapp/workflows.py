@@ -836,7 +836,11 @@ class Runner:
                 elif calls[0]['state']=='succeeded':phase='provider_failed'
             if phase in ('submit','sync'):
                 from .provider_calls import update
-                update(self.store,w,s,'submission_unknown')
+                key=wid+':'+sid+':'+str(s['revision'])
+                # Some legacy adapters cannot persist provider receipts. Keep
+                # their workflow fail-closed without inventing a ledger row.
+                if self.store.query('SELECT request_key FROM workflow_provider_calls WHERE request_key=?',(key,)):
+                    update(self.store,w,s,'submission_unknown')
             from .egress_policy import scrub,secrets
             detail=getattr(exc,'diagnostic',{'message':str(exc)[-4000:]})
             attempt_rows=self.store.query('SELECT attempts FROM agent_steps WHERE workflow=? AND id=?',(wid,sid))

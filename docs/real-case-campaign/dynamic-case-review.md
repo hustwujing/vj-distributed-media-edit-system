@@ -204,6 +204,32 @@ PlanDraft权限协议审查：D08、D14、D23、D28–D33、D36–D39、D41保�
 
 反馈后置审查同时接受原逻辑Task的新revision及权威replacement链指向的新Task。替代路径必须保留原Task/revision历史、递增user_revision_count且新节点已选中成功；无关已完成上游的revision、attempt和文件哈希仍不变。不能仅按新名称推定合法替代，像素、技术、Agent及原人工Review仍按原标准检查。D36 attempt-005保留原测试断言失败，修改后必须重新真机验证。
 
+## 硬杀恢复增量审查（2026-11-06）
+
+新增 D42–D46，将清单扩为 124 条。故障动作直接向当前 case 权威 Attempt 所在 worker 发送
+`SIGKILL`，不等待 drain、signal handler、`finally` 或正常 lease release；驱动按 project、run、attempt、
+unit 和当前 running 状态复核归属，不在业务代码中识别 case ID。
+
+| case | 硬杀边界 | 必须实际验证 |
+| --- | --- | --- |
+| D42 | Manager Control Job 模型调用中硬杀 worker | 同一冻结 snapshot 由更高 generation 接管；PlanDraft/Proposal 不重复应用；孤儿 Token 预留收敛 |
+| D43 | Task/Final Reviewer 检查中硬杀 worker | 旧 attempt inspection 不跨代复用；不可变候选不重做；新 Reviewer 独立提交合法结论 |
+| D44 | 默认 `retry_policy=never` 的 editing Implementer 中硬杀 | 基础设施 interruption 不算业务失败；同 revision 有界重跑；不落入无决策 `WAITING_USER` |
+| D45 | 同一业务 Agent revision 连续两次硬杀 | 第三 generation 接管；业务失败、模型纠错和修订次数不增加；两笔中断用量明确收敛 |
+| D46 | ASYNC Provider 已取得 external ID 后 poll/collect Attempt 硬杀 | 沿用原 request key、external ID、route/provider identity；零重复 submit；终态先于句柄分流 |
+
+这些用例与既有 D04/D06/D16/D18/D27/D32/D34/D35 共同覆盖 Orchestrator、retry-safe 本地任务、
+submit unknown、API、输入/发布竞争、同步 Provider 和冻结路由。每例必须保存被杀 attempt、旧/新 worker、
+generation、lease、cleanup、model reservation、Provider call、DAG、浏览器和最终产物证据。只重启服务但未在
+目标 Attempt running 窗口命中，不得计为 required boundary passed。
+
+新增 D47，将清单扩为 125 条：页面结构化交付目标固定为“成片 MP4”，用户目标同时明确要求 SRT；
+Manager 必须创建视频与字幕两个真实 delivery-stage 叶节点，Final Reviewer 的 pass 必须检查并选择每个
+叶节点至少一个候选。该 case 验证程序不会因结构化目标遗漏扩展名而漏交已完成的业务成果，也不会把
+Reviewer JSON 或空转复制节点作为字幕交付。
+
+新增 D48，将清单扩为 126 条：业务 Agent 已开始后提交一条携带授权附件的 Run input，再由受控故障动作删除该附件。安全点必须创建 `input_question` 并绑定失效 input ID；用户拒绝这条补充输入后，该输入转为 `SUPERSEDED/user_rejected_input`，barrier 和 drain set 收敛，已开始 Task 不被取消并按原图完成交付。重复提问、陈旧 barrier、Task 重启或原交付丢失均为程序错误。
+
 ## 后续轮次模型配置（2026-11-04确认）
 
-119条清单保持暂停，历史结果不重标为新配置通过。后续正式执行统一显式选择服务端claude预设、Claude 4.6 Sonnet、high；执行引擎为structured-profile-v4 PlanDraft命令协议，strict优先、明确不支持时可回退。浏览器驱动在提交前选择模型及强度，提交后从Run的冻结model_configuration核对实际型号、强度和`plan_draft_v1_strict_preferred`策略；逐个PLAN审计草稿绑定和终态，并将配置摘要纳入每次尝试证据。仅修改环境默认值不能替代逐Run验证。模型预算边界case仍保留原有低额度，不能为了通过而放宽边界。
+126条清单保持暂停，历史结果不重标为新配置通过。后续正式执行统一显式选择服务端claude预设、Claude 4.6 Sonnet、high；专业 Manager/Reviewer/Diagnosis 由系统配置为 Claude Sonnet 5.5。执行引擎为structured-profile-v4 PlanDraft命令协议，strict优先、明确不支持时可回退。浏览器驱动在提交前选择模型及强度，提交后从Run的冻结model_configuration核对实际型号、强度和`plan_draft_v1_strict_preferred`策略；逐个PLAN审计草稿绑定和终态，并将源码与配置摘要纳入每次尝试证据。仅修改环境默认值不能替代逐Run验证。模型预算边界case仍保留原有低额度，不能为了通过而放宽边界。

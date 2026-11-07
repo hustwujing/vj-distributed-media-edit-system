@@ -161,6 +161,18 @@ class ObservationTests(unittest.TestCase):
         self.assertEqual(before,self.store.query('SELECT * FROM agent_turns'))
         self.assertFalse(any(isinstance(v,dict) and 'error_code' in v for v in value['views'].values()))
 
+    def test_submission_unknown_is_visible_in_cluster_gauge_and_task_diagnosis(self):
+        from webapp.observation_collector import sample
+        archive=Archive(self.root/'unknown-provider')
+        self.store.execute('''INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,inputs,created,updated)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)''',('unknown-call',self.task,'render',0,1,'provider','video.generate_from_text',
+            'submission_unknown','{}',self.store.now(),self.store.now()))
+        with patch('webapp.observation_collector.storage_health',return_value='available'),patch('webapp.observation_collector.gpu_health',return_value={}):
+            value=sample(self.store,archive)
+        self.assertEqual(value['gauges']['provider_unknown'],1)
+        with patch('webapp.diagnostics.observation',return_value={'events':[]}):report=diagnose(self.store,self.task)
+        self.assertIn('verify_upstream',{item['code'] for item in report['suggestions']})
+
     def test_capacity_snapshot_expires_instead_of_reporting_stale_capacity_as_healthy(self):
         from webapp.observation_collector import sample
         from tests.test_api_capacity import snapshot

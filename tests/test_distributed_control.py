@@ -87,6 +87,43 @@ class DistributedControlTests(unittest.TestCase):
         row=self.a.query('SELECT state,usage,cost FROM workflow_provider_calls WHERE request_key=?',(self.key,))[0]
         self.assertEqual(row['state'],'succeeded');self.assertEqual(json.loads(row['usage']),{'seconds':15});self.assertEqual(json.loads(row['cost']),2)
 
+    def test_normal_receipt_rejects_invalid_state_and_conflicting_provider_identity(self):
+        provider_calls.update(self.a,self.w,self.s,'waiting','upstream-one')
+        with self.assertRaisesRegex(ValueError,'state'):
+            provider_calls.update(self.a,self.w,self.s,'invented','upstream-one')
+        with self.assertRaisesRegex(ValueError,'Conflicting'):
+            provider_calls.update(self.a,self.w,self.s,'running','upstream-two')
+        provider_calls.update(self.a,self.w,self.s,'succeeded','upstream-one',{'usage':{'seconds':5}})
+        provider_calls.update(self.a,self.w,self.s,'running','upstream-one')
+        row=self.a.query('SELECT state,external_id,usage FROM workflow_provider_calls WHERE request_key=?',(self.key,))[0]
+        self.assertEqual((row['state'],row['external_id']),('succeeded','upstream-one'))
+        self.assertEqual(json.loads(row['usage']),{'seconds':5})
+
+    def test_normal_receipt_requires_a_prior_intent_and_id_for_running_state(self):
+        with self.assertRaisesRegex(ValueError,'external ID'):
+            provider_calls.update(self.a,self.w,self.s,'running')
+        other={'id':'missing','run_id':'missing'};step={'id':'step','revision':0}
+        with self.assertRaisesRegex(ValueError,'prior submission intent'):
+            provider_calls.update(self.a,other,step,'failed')
+
+    def test_concurrent_terminal_receipts_cannot_overwrite_the_first_terminal_state(self):
+        provider_calls.update(self.a,self.w,self.s,'waiting','upstream-one')
+        barrier=threading.Barrier(2);errors=[]
+        def finish(store,state):
+            try:
+                barrier.wait(timeout=5)
+                provider_calls.update(store,self.w,self.s,state,'upstream-one')
+            except Exception as exc:errors.append(exc)
+        threads=[threading.Thread(target=finish,args=(self.a,'succeeded')),
+                 threading.Thread(target=finish,args=(self.b,'failed'))]
+        for thread in threads:thread.start()
+        for thread in threads:thread.join(timeout=10)
+        self.assertFalse(errors)
+        terminal=self.a.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(self.key,))[0]['state']
+        self.assertIn(terminal,('succeeded','failed'))
+        provider_calls.update(self.b,self.w,self.s,'running','upstream-one')
+        self.assertEqual(self.a.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(self.key,))[0]['state'],terminal)
+
     def test_cleanup_poll_preserves_actual_success_usage_without_delivery(self):
         self.pending();self.a.execute("UPDATE execution_external_cleanup SET phase='poll' WHERE id=?",(self.key,))
         with patch.dict('webapp.generation_service.PROVIDERS',{'test-control-v1':MagicMock()}),patch('webapp.generation_service.poll',return_value={'status':'succeeded','usage':{'seconds':15},'cost':1.5}):

@@ -55,7 +55,7 @@ def progress(directory):
         for node in cluster.PORTS:
             path=cluster.registry(node)/'node-id'
             if path.exists() and path.read_text().strip()==row['node']:row['unit']=f'{cluster.NAMESPACE}-executor@{node}.service'
-    result={'attempts':rows,'at':time.time()}
+    result={'attempts':rows,'at':time.time(),'worker_services':{unit:cluster.active(unit) for unit in cluster.WORKERS}}
     result['business_results']=store.query('''SELECT x.run_id,x.task_id,x.task_revision,x.lease_id,x.outcome,x.status,x.committed_at
         FROM task_results x JOIN runs r ON r.id=x.run_id JOIN run_tasks t ON t.run_id=x.run_id AND t.id=x.task_id
         WHERE r.project_id=? ORDER BY x.created_at LIMIT 400''',(state['project'],))
@@ -65,7 +65,7 @@ def progress(directory):
         subject=next((task for task in json.loads(row['snapshot_json']).get('tasks',[]) if task['id']==row['subject_task']),None)
         if subject:result['rejected_task_reviews'].append({'run_id':row['run_id'],'task_id':subject['id'],'revision':subject['revision']})
     result['provider_calls']=[]
-    for row in store.query('SELECT p.request_key,p.operation,p.state,p.external_id,p.implementation FROM workflow_provider_calls p JOIN runs r ON r.id=p.workflow WHERE r.project_id=?',(state['project'],)):
+    for row in store.query('SELECT p.request_key,p.step,p.attempt_id,p.generation,p.operation,p.state,p.external_id,p.implementation FROM workflow_provider_calls p JOIN runs r ON r.id=p.workflow WHERE r.project_id=?',(state['project'],)):
         binding=json.loads(row.pop('implementation'))
         result['provider_calls'].append({**row,**{name:binding.get(name) for name in ('provider_identity','route_adapter','budget_group','concurrency_group')},
             'implementation_digest':hashlib.sha256(json.dumps(binding,sort_keys=True).encode()).hexdigest()})
@@ -74,6 +74,8 @@ def progress(directory):
     result['staged_business_success']=store.query("SELECT COUNT(*) AS n FROM task_results r JOIN run_tasks t ON t.run_id=r.run_id AND t.id=r.task_id JOIN runs w ON w.id=r.run_id WHERE w.project_id=? AND r.status='staged' AND r.outcome='succeeded' AND t.selected=1",(state['project'],))[0]['n']
     result['quiescent']=not store.query("SELECT l.attempt FROM execution_leases l JOIN runs w ON w.id=l.run_id WHERE w.project_id=? AND l.active=1 AND l.expires>?",(state['project'],store.now())) and not store.query("SELECT c.attempt FROM execution_cleanup c JOIN runs w ON w.id=c.task_id WHERE w.project_id=? AND c.state<>'complete'",(state['project'],))
     result['diagnostics']=[json.loads(row['record']) for row in store.query('SELECT d.record FROM workflow_diagnostics d JOIN runs w ON w.id=d.workflow WHERE w.project_id=? ORDER BY d.created DESC LIMIT 20',(state['project'],))]
+    result['model_reservations']=store.query('''SELECT m.attempt_id,m.reserved_tokens,m.used_tokens,m.state
+        FROM workflow_model_reservations m JOIN runs r ON r.id=m.run_id WHERE r.project_id=? ORDER BY m.created_at''',(state['project'],))
     result['orchestrators']=store.query('SELECT id,heartbeat,draining FROM workflow_orchestrators WHERE heartbeat>?',(store.now()-20,))
     if state['case']=='D14':
         from webapp.diagnostics import diagnose
@@ -93,13 +95,14 @@ def progress(directory):
     return result
 
 
-def act(directory,action,unit=None):
+def act(directory,action,unit=None,attempt=None):
     directory,state,release,store=configure(directory)
     restoring=action.startswith('start_') or action in ('stop_second_orchestrator','restore_object','release_workers','restore_provider_route')
     if not restoring:
         other=store.query("SELECT id FROM runs WHERE project_id<>? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(state['project'],))
         if other:raise ValueError('Fault injection requires other workflows to be quiescent')
-        if release['sha256']!=state['release']['sha256']:raise ValueError('Deployment changed during this case')
+        if (release['sha256'],release.get('config_sha256'))!=(state['release']['sha256'],state['release'].get('config_sha256')):
+            raise ValueError('Deployment source or configuration changed during this case')
     before={name:cluster.active(name) for name in cluster.SERVICES}
     identifier=hashlib.sha256(state['run_id'].encode()).hexdigest()[:12]
     second=cluster.NAMESPACE+'-qa-orchestrator-'+identifier+'.service'
@@ -125,17 +128,26 @@ def act(directory,action,unit=None):
             '--setenv=VIDEO_USE_RELEASE='+source.name,'--setenv=VIDEO_USE_INSTANCE='+second,
             source/'.venv/bin/python','-m','webapp.workflow_orchestrator'])
         result={'action':action,'unit':second}
-    elif action in ('stop_worker','start_worker'):
+    elif action in ('stop_worker','kill_attempt_worker','start_worker'):
         if unit not in cluster.WORKERS:raise ValueError('Worker outside dedicated deployment')
-        if action=='stop_worker':
+        if action in ('stop_worker','kill_attempt_worker'):
             observed=progress(directory);submitting={p['attempt_id'] for p in observed['submitting']}
-            assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['control_kind']
-                      and (row['retry_safe'] or state['case'] in ('D16','D27') and row['id'] in submitting
-                           or state['case']=='D39' and row['step_id']=='render')]
+            if action=='kill_attempt_worker':
+                assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and row['id']==attempt]
+            else:
+                assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['control_kind']
+                          and (row['retry_safe'] or row['id'] in submitting)]
             if not assigned:raise ValueError('No replay-safe QA task is running on this worker')
             cluster.run(['systemctl','kill','--kill-who=main','--signal=SIGKILL',unit])
             cluster.run(['systemctl','stop',unit],timeout=150)
-        else:cluster.run(['systemctl','start',unit])
+        else:
+            cluster.run(['systemctl','start',unit])
+            for _ in range(20):
+                if cluster.active(unit):
+                    time.sleep(1)
+                    if cluster.active(unit):break
+                time.sleep(.25)
+            if not cluster.active(unit):raise RuntimeError('Worker did not remain active after restart: '+unit)
         result={'action':action,'unit':unit}
     elif action in ('switch_provider_route','restore_provider_route'):
         if state['case']!='D35':raise ValueError('Route fault is reserved for the isolated frozen-route case')
@@ -164,6 +176,17 @@ def act(directory,action,unit=None):
             env.unlink(missing_ok=True)
             cluster.run(['systemctl','daemon-reload']);cluster.run(['systemctl','restart',*cluster.WORKERS],timeout=150)
         result={'action':action,'units':cluster.WORKERS,'override':'unreachable_loopback','original_provider_receipt_retained':True}
+    elif action=='delete_input_asset':
+        if state['case']!='D48':raise ValueError('Attachment deletion is reserved for D48')
+        rows=store.query("""SELECT i.id,i.attachments_json FROM run_inputs i JOIN runs r ON r.id=i.run_id
+            WHERE r.project_id=? AND i.status='ACCEPTED' ORDER BY i.sequence DESC LIMIT 1""",(state['project'],))
+        if not rows:raise ValueError('No accepted input attachment to delete')
+        attachments=json.loads(rows[0]['attachments_json'])
+        if len(attachments)!=1:raise ValueError('D48 requires exactly one accepted attachment')
+        asset=attachments[0]['id']
+        if not store.execute('DELETE FROM assets WHERE id=? AND project=?',(asset,state['project'])):
+            raise ValueError('Attachment is no longer owned by this QA project')
+        result={'action':action,'input_id':rows[0]['id'],'asset_id':asset}
     elif action=='corrupt_object':
         rows=store.query("""SELECT c.manifest,t.id,t.accepted_result_json FROM execution_step_checkpoints c JOIN run_tasks t
             ON t.run_id=c.workflow AND t.id=c.step AND t.revision=c.revision
@@ -231,9 +254,9 @@ def act(directory,action,unit=None):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action');parser.add_argument('directory',type=Path);parser.add_argument('--unit')
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('action');parser.add_argument('directory',type=Path);parser.add_argument('--unit');parser.add_argument('--attempt')
     args=parser.parse_args()
-    print(json.dumps(progress(args.directory) if args.action=='progress' else act(args.directory,args.action,args.unit),ensure_ascii=False))
+    print(json.dumps(progress(args.directory) if args.action=='progress' else act(args.directory,args.action,args.unit,args.attempt),ensure_ascii=False))
 
 
 if __name__=='__main__':main()

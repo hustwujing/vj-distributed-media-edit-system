@@ -64,6 +64,7 @@ class StudioTests(unittest.TestCase):
                 self.assertIn('id="dag-dialog"',response.text)
                 self.assertIn('id="dag-canvas"',response.text)
                 self.assertIn('id="dynamic-input-history"',response.text)
+                self.assertIn('id="dynamic-new-run"',response.text)
                 self.assertEqual(response.text.count('id="dynamic-input-form"'),1)
                 self.assertNotIn('id="dynamic-start"',response.text)
                 self.assertIn('id="dynamic-ledger"',response.text)
@@ -234,6 +235,21 @@ class StudioTests(unittest.TestCase):
         self.assertEqual(response.status_code,200,response.text)
         self.assertIn('event: text',response.text);self.assertIn('沙盒增量',response.text)
         fake.latest_id.assert_awaited_once_with(run['id']);fake.aclose.assert_awaited_once()
+
+    def test_lost_streaming_attempt_is_idle_in_database_fallback(self):
+        store=self.app.state.store
+        run=workflow_graph.create(store,self.pid,None,{'goal':'中断后的公开输出','allowed_assets':[],
+            'allowed_operations':['script'],'delivery_targets':['报告'],
+            'content_fingerprint':workflow_graph.content_fingerprint(store,self.pid)})
+        now=store.now()
+        store.execute('INSERT INTO agent_messages VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            (run['id'],1,'message','lost-attempt',0,'commentary','已保存的最后一段公开输出','streaming',1,now,now))
+        store.execute("UPDATE runs SET status='FAILED',terminal_reason='result_unavailable' WHERE id=?",(run['id'],))
+        response=self.a.get(f'/api/projects/{self.pid}/runs/{run["id"]}/stream')
+        self.assertEqual(response.status_code,200,response.text)
+        self.assertIn('已保存的最后一段公开输出',response.text)
+        self.assertIn('"text_phase": "idle"',response.text)
+        self.assertIn('event: done',response.text)
 
 
     def test_redis_terminal_snapshot_flushes_body_and_recovers_database_fallback(self):

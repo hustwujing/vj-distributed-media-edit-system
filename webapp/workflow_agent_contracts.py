@@ -36,6 +36,28 @@ def approved_delivery_refs(snapshot):
     return approved
 
 
+def delivery_leaf_refs(snapshot):
+    """Return approved candidates grouped by required delivery-stage DAG leaf."""
+    indexed=[(task.get('id') or '__delivery_'+str(index),task) for index,task in enumerate(snapshot.get('tasks',[]))]
+    tasks={identifier:task for identifier,task in indexed if task.get('spec',{}).get('delivery_stage')}
+    graph_downstream={identifier:set() for identifier,_ in indexed}
+    for edge in snapshot.get('dependencies',[]):
+        upstream=edge.get('upstream_task_id') or edge.get('upstream')
+        downstream=edge.get('downstream_task_id') or edge.get('downstream')
+        if upstream in graph_downstream:graph_downstream[upstream].add(downstream)
+    nonleaves=set()
+    for identifier in tasks:
+        pending=list(graph_downstream.get(identifier,()));seen=set()
+        while pending:
+            child=pending.pop()
+            if child in seen:continue
+            seen.add(child);pending.extend(graph_downstream.get(child,()))
+        if seen & set(tasks):nonleaves.add(identifier)
+    return {identifier:approved_delivery_refs({'tasks':[task],'goal':snapshot.get('goal',''),
+        'authorization':snapshot.get('authorization',{}),'assets':snapshot.get('assets',[])})
+        for identifier,task in tasks.items() if identifier not in nonleaves}
+
+
 def validate_review_scope(decision,snapshot):
     """A step verdict cannot introduce requirements from later delivery stages."""
     if snapshot.get('review_scope')!='task':return
@@ -182,6 +204,10 @@ def validate_resolved_review(decision, snapshot, inspections):
         approved=approved_delivery_refs(snapshot)
         if not selected or not selected<=approved or not selected<=set(inspections.values()):
             raise ValueError('Final selection must contain inspected approved candidates')
+        missing_tasks=sorted(identifier for identifier,refs in delivery_leaf_refs(snapshot).items()
+                             if not selected.intersection(refs))
+        if missing_tasks:
+            raise ValueError('Final selection is missing required delivery Tasks: '+', '.join(missing_tasks))
         if len(selected)>1 and not decision['primary']:
             raise ValueError('Multiple final deliverables require an explicit primary')
         from pathlib import PurePosixPath

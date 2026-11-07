@@ -78,7 +78,13 @@ class RunInputRaceTests(unittest.TestCase):
         self.a.execute('INSERT INTO execution_step_checkpoints VALUES (?,?,?,?,?,?,?)',
             (self.run['id'],'report',0,self.project,'finished',graph.encode({filename:{'artifact':record['id'],'sha256':record['sha256'],'size':record['size']}}),self.a.now()))
         self.a.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=? WHERE run_id=?",(graph.encode([filename]),self.run['id']))
-        review={'decision_json':graph.encode({'deliverables':[filename],'primary':filename})}
+        review_id=uuid.uuid4().hex;now=self.a.now()
+        self.a.execute('''INSERT INTO workflow_reviews(id,run_id,task_id,purpose,subject_task,graph_version,review_identity,
+            snapshot_json,snapshot_digest,status,decision_json,created_at,updated_at)
+            VALUES (?,?,'final-review','final','',?,'fixture','{}',?,'passed',?,?,?)''',
+            (review_id,self.run['id'],self.run['graph_version'],'f'*64,
+             graph.encode({'deliverables':[filename],'primary':filename}),now,now))
+        review={'id':review_id,'decision_json':'{}'}
         run=graph.get(self.a,self.run['id']);request=self.message()
         with patch.dict('os.environ',{'VIDEO_USE_OBJECT_BUCKET':'metadata-race-fixture'}):
             _,accepted=self.race(lambda:Orchestrator(self.a).publish(run,review),

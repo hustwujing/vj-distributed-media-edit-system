@@ -196,6 +196,8 @@ class ArtifactStore:
         logical_path(path)
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
+            if not db.execute('SELECT id FROM projects WHERE id=?',(project,)).fetchone():
+                raise ValueError('Artifact project was deleted')
             record=self.record(project,identifier)
             old=db.execute('SELECT revision,artifact FROM artifact_files WHERE project=? AND path=?',(project,path)).fetchone()
             revision=old['revision'] if old else 0

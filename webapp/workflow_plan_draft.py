@@ -116,7 +116,7 @@ def mutate(store,lease,request_id,action,payload):
         value=apply_value(value,action,payload,command_digest)
         revision=row['revision']+1
         db.execute('''UPDATE workflow_plan_drafts SET draft_json=?,revision=?,last_error_signature='',
-            repeated_error_count=0,updated_at=? WHERE planning_request_id=? AND revision=?''',
+            last_error_json='[]',repeated_error_count=0,updated_at=? WHERE planning_request_id=? AND revision=?''',
             (encode(value),revision,store.now(),request_id,row['revision']))
         return value,revision
 
@@ -143,7 +143,7 @@ def commit_candidate(store,lease,request_id,base_revision,base_digest,candidate,
             raise CommandError('draft_revision_changed','draft','Planning draft changed before candidate commit')
         revision=base_revision+1
         db.execute('''UPDATE workflow_plan_drafts SET draft_json=?,revision=?,last_error_signature='',
-            repeated_error_count=0,updated_at=? WHERE planning_request_id=? AND status='OPEN' AND revision=?''',
+            last_error_json='[]',repeated_error_count=0,updated_at=? WHERE planning_request_id=? AND status='OPEN' AND revision=?''',
             (encode(candidate),revision,store.now(),request_id,base_revision))
         return revision,candidate_digest
 
@@ -164,12 +164,23 @@ def compile_value(value,frozen,command):
     return compile_manager({'kind':command['kind'],'reason':command['reason'],'plan':draft},frozen)
 
 
-def record_error(store,request_id,errors):
+def record_error(store,lease,request_id,errors):
     signature=digest(errors)
-    row=get(store,request_id);repeated=row['repeated_error_count']+1 if row['last_error_signature']==signature else 1
-    store.execute('''UPDATE workflow_plan_drafts SET last_error_signature=?,repeated_error_count=?,updated_at=?
-        WHERE planning_request_id=? AND status='OPEN' ''',(signature,repeated,store.now(),request_id))
-    return signature,repeated
+    with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE');lease.validate(db)
+        request=db.execute('SELECT run_id,task_id,status FROM planner_runs WHERE id=?',(request_id,)).fetchone()
+        row=db.execute('SELECT last_error_signature,repeated_error_count,status FROM workflow_plan_drafts WHERE planning_request_id=?',(request_id,)).fetchone()
+        if (not request or not row or request['run_id']!=lease.run_id or request['task_id']!=lease.step_id
+                or request['status'] not in ('pending','running') or row['status']!='OPEN'):
+            raise CommandError('draft_scope_changed','draft','Planning draft is outside the active lease')
+        repeated=row['repeated_error_count']+1 if row['last_error_signature']==signature else 1
+        bounded=[]
+        for item in errors[:12]:
+            if not isinstance(item,dict):continue
+            bounded.append({key:str(item.get(key,''))[:1000] for key in ('path','type','message')})
+        db.execute('''UPDATE workflow_plan_drafts SET last_error_signature=?,last_error_json=?,repeated_error_count=?,updated_at=?
+            WHERE planning_request_id=? AND status='OPEN' ''',(signature,encode(bounded),repeated,store.now(),request_id))
+        return signature,repeated
 
 
 def committed(store,request_id):
