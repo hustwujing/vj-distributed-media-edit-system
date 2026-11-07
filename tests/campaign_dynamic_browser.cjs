@@ -436,7 +436,7 @@ async function runCase(browser,spec){
     if(gated){await approve('reject');await wait(w=>paused(w));}
     if(spec.id==='R13'){await control('pause');await wait(w=>paused(w));}
     if(!terminal((await read()).state)){await control('cancel');await wait(w=>terminal(w.state));}
-    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(()=>document.querySelector('#dynamic-connection')?.textContent.includes('同步'));await page.locator('#dynamic-input-form').waitFor({state:'visible'});
+    await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(runId=>document.querySelector('#dynamic-current')?.dataset.runId===runId&&!document.querySelector('#dynamic-run-tools')?.hidden,state.run_id);await page.locator('#dynamic-input-form').waitFor({state:'visible'});
     await selectOptional(page.locator('#dynamic-input-assets'),selected);
     let revised=`复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到${spec.expect.width/2}×${spec.expect.height}后并排合成${spec.expect.width}×${spec.expect.height}，交付 final.png。`;
     if(spec.id==='R01')revised+='最终文件改名为 renamed.png。';
