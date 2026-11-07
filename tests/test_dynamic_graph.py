@@ -43,6 +43,7 @@ class DynamicGraphTests(unittest.TestCase):
             db.execute('INSERT INTO workflow_dependencies VALUES (?,?,?,?,NULL)',
                        (self.run['id'],'legacy_parent','legacy_child',1))
             db.execute('DROP TABLE workflow_dependencies_current')
+            db.execute('CREATE VIEW run_work_items AS SELECT run_id,id FROM run_tasks')
 
         graph.initialize(self.store)
         expected={

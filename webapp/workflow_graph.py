@@ -473,6 +473,10 @@ def initialize(store):
         _upgrade_schema(store,db)
         from .run_inputs import initialize as initialize_inputs
         initialize_inputs(db)
+        # PostgreSQL cannot CREATE OR REPLACE a SELECT-* view when a migrated
+        # base table inserts columns before control_kind. Views carry no data,
+        # so recreate this projection after the transactional table upgrade.
+        db.execute('DROP VIEW IF EXISTS run_work_items')
         view_ddl='CREATE OR REPLACE VIEW ' if store.dsn else 'CREATE VIEW IF NOT EXISTS '
         fields=','.join(row['name'] for row in db.execute('PRAGMA table_info(run_tasks)'))
         db.execute(view_ddl+"run_work_items AS SELECT "+fields+",'' AS control_kind FROM run_tasks UNION ALL SELECT "+fields+",control_kind FROM control_jobs")
