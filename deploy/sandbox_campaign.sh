@@ -30,5 +30,6 @@ export DYNAMIC_EXPECT_NAMESPACE=sandbox-agent
 export DYNAMIC_SESSION_COOKIE=sandbox_agent_session
 export DYNAMIC_EXPECT_OBJECT_PREFIX=distributed-agent-sandbox
 export DYNAMIC_EXPECT_STREAM_PREFIX=distributed-agent-sandbox:
+export DYNAMIC_PROTECTED_ROOT=/data2/wujing03/distributed-agent-system
 
 exec "$repo/.venv/bin/python" "$repo/tests/campaign_suite.py" "$@" --base "$DYNAMIC_CASE_BASE"

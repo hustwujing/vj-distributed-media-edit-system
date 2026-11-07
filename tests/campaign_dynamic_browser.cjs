@@ -344,9 +344,10 @@ async function runCase(browser,spec){
    }
    else if(hook==='observer_restart'){await fault('stop_observer');observerStopped=true;}
    else if(hook==='api_restart'){apiStopped=true;await fault('stop_api');const boundary=Date.now()/1000;await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});
-    await page.waitForTimeout(2000);assert.ok(state.requests.some(r=>r.at>=boundary&&r.status===200&&r.serving_api?.includes('19767')),'The second API did not actually serve the reloaded workflow');
+    const secondaryAPI='127.0.0.1:'+(process.env.DAS_DEPLOY_API_B_PORT||'19767');
+    await page.waitForTimeout(2000);assert.ok(state.requests.some(r=>r.at>=boundary&&r.status===200&&r.serving_api?.split(',').at(-1).trim()===secondaryAPI),'The second API did not actually serve the reloaded workflow');
     state.browser_assertions.push('API a was stopped; the reloaded browser was served by API b');}
-   else if(hook==='deployment_isolation'){const result=await fault('isolation');assert.ok(result.main_database_read_denied&&result.main_config_unchanged&&result.separate_encryption_key&&result.separate_object_prefix&&result.main_processes_unchanged_during_check);assert.ok(result.shared_db_dependency_independent&&result.dependency_lifecycle_probe.consumer_survived_dependency_stop&&result.dependency_lifecycle_probe.consumer_pid_unchanged&&result.dependency_lifecycle_probe.provider_recovered);}
+   else if(hook==='deployment_isolation'){const result=await fault('isolation');assert.ok(result.protected_database_read_denied&&result.protected_config_unchanged&&result.separate_encryption_key&&result.separate_object_prefix&&result.protected_processes_unchanged_during_check);assert.ok(result.shared_db_dependency_independent&&result.dependency_lifecycle_probe.consumer_survived_dependency_stop&&result.dependency_lifecycle_probe.consumer_pid_unchanged&&result.dependency_lifecycle_probe.provider_recovered);}
    else if(hook==='foreign_project'){
     const outsider=await browser.newContext();for(const endpoint of [`/api/projects/${state.project}/runs/${run.id}`,`/api/projects/${state.project}/runs/${run.id}/events`])assert.equal((await outsider.request.get(BASE+endpoint)).status(),404);
     assert.equal((await outsider.request.post(BASE+`/api/projects/${state.project}/runs/${run.id}/commands`,{data:{request_id:uid(),action:'cancel'}})).status(),404);await outsider.close();state.browser_assertions.push('Foreign browser could not read or cancel the workflow');

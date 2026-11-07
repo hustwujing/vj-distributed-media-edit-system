@@ -10,6 +10,29 @@ from deploy import dynamic_cluster as cluster
 from deploy import systemd_templates
 
 
+def protected_snapshot(root,runtime=cluster):
+    """Read a before/after baseline of the explicitly protected deployment."""
+    import re
+    from urllib.parse import urlsplit
+    root=Path(root).resolve(strict=True)
+    if root==runtime.REPO.resolve() or root==runtime.ROOT.resolve():raise ValueError('Protected deployment must be distinct')
+    record=json.loads((root/'.cluster/release.json').read_text())
+    namespace=record['namespace']
+    if not re.fullmatch(r'[a-z][a-z0-9-]*',namespace) or namespace==runtime.NAMESPACE:raise ValueError('Invalid protected namespace')
+    config=Path(record['config_root']).resolve(strict=True);source=Path(record['source']).resolve(strict=True)
+    if config==runtime.CONF.resolve() or not source.is_relative_to(root):raise ValueError('Protected paths are not isolated')
+    names=('.env','.agent.env','.storage.env','.distributed.env')
+    database=urlsplit(runtime.env_file(config/'.distributed.env')['VIDEO_USE_DATABASE_URL']).path.lstrip('/')
+    if not database or database==runtime.DATABASE:raise ValueError('Protected database must be distinct')
+    units=[f'{namespace}-{role}@{node}.service' for role in ('api','executor','watchdog','media') for node in ('a','b')]
+    units.extend(f'{namespace}-{role}.service' for role in ('orchestrator','observer'))
+    return {'root':str(root),'namespace':namespace,'source':str(source),'config_root':str(config),
+        'release_sha256':record['sha256'],'database':database,
+        'config_hashes':{name:hashlib.sha256((config/name).read_bytes()).hexdigest() for name in names},
+        'workspace_config_hashes':{name:hashlib.sha256((root/name).read_bytes()).hexdigest() for name in names},
+        'units':{name:runtime.run(['systemctl','show',name,'-p','MainPID','-p','ExecMainStartTimestamp','-p','ActiveState']).stdout.strip() for name in units}}
+
+
 def dependency_probe():
     """Exercise the generated dependency relation using two disposable units."""
     import uuid
@@ -222,24 +245,26 @@ def act(directory,action,unit=None,attempt=None):
         (directory/'private-object-backup.json').unlink();(directory/'private-object-backup.bin').unlink()
         result={'action':action,'artifact_id':info['artifact_id']}
     elif action=='isolation':
-        from urllib.parse import urlsplit,urlunsplit
         import psycopg
-        baseline=json.loads((cluster.ROOT/'main-baseline.json').read_text())
-        main_before={name:cluster.run(['systemctl','show',name,'-p','MainPID','-p','ExecMainStartTimestamp','-p','ActiveState']).stdout.strip() for name in baseline['units']}
-        original=urlsplit(store.dsn);other=urlunsplit(original._replace(path='/video_use'))
+        protected=os.environ.get('DYNAMIC_PROTECTED_ROOT')
+        if not protected:raise ValueError('DYNAMIC_PROTECTED_ROOT must identify the protected source deployment')
+        baseline=protected_snapshot(protected)
+        baseline_file=directory/'protected-baseline.json'
+        if baseline_file.exists():raise ValueError('Do not replace an existing isolation-check baseline')
+        save(baseline_file,{'scope':'current_check_only','captured_at':time.time(),**baseline})
+        config=Path(baseline['config_root'])
+        other=psycopg.conninfo.conninfo_to_dict(cluster.env_file(config/'.distributed.env')['VIDEO_USE_DATABASE_URL'])
+        own=psycopg.conninfo.conninfo_to_dict(store.dsn)
+        other.update(user=own['user'],password=own['password'],connect_timeout=5,
+                     options='-c default_transaction_read_only=on -c statement_timeout=5000')
         denied=False
         try:
-            with psycopg.connect(other,connect_timeout=5) as connection:connection.execute('SELECT count(*) FROM projects')
+            with psycopg.connect(**other) as connection:connection.execute('SELECT count(*) FROM projects')
         except psycopg.Error as exc:denied=exc.sqlstate in ('42501','28000','28P01')
-        main=Path('/data2/wujing03/video-use')
-        current={name:hashlib.sha256((main/name).read_bytes()).hexdigest() for name in ('.env','.agent.env','.storage.env','.distributed.env')}
-        own_storage=cluster.env_file(cluster.REPO/'.storage.env');main_storage=cluster.env_file(main/'.storage.env')
-        result={'action':action,'main_database_read_denied':denied,'main_config_unchanged':current==baseline['config_hashes'],
-                'separate_encryption_key':own_storage['VIDEO_USE_OBJECT_ENCRYPTION_KEY']!=main_storage['VIDEO_USE_OBJECT_ENCRYPTION_KEY'],
-                'separate_object_prefix':own_storage['VIDEO_USE_OBJECT_PREFIX']!=main_storage.get('VIDEO_USE_OBJECT_PREFIX'),
-                'main_services':{name:cluster.active(name) for name in baseline['units']}}
-        result['main_processes_unchanged']=all(cluster.run(['systemctl','show',name,'-p','MainPID','-p','ExecMainStartTimestamp','-p','ActiveState']).stdout.strip()==value for name,value in baseline['units'].items())
-        result['main_processes_unchanged_during_check']=all(cluster.run(['systemctl','show',name,'-p','MainPID','-p','ExecMainStartTimestamp','-p','ActiveState']).stdout.strip()==value for name,value in main_before.items())
+        own_storage=cluster.env_file(Path(release['config_root'])/'.storage.env');protected_storage=cluster.env_file(config/'.storage.env')
+        result={'action':action,'protected_root':baseline['root'],'baseline_scope':'current_check_only','protected_database_read_denied':denied,
+                'separate_encryption_key':own_storage['VIDEO_USE_OBJECT_ENCRYPTION_KEY']!=protected_storage['VIDEO_USE_OBJECT_ENCRYPTION_KEY'],
+                'separate_object_prefix':own_storage['VIDEO_USE_OBJECT_PREFIX']!=protected_storage.get('VIDEO_USE_OBJECT_PREFIX')}
         result['shared_db_dependencies']={}
         for name in cluster.APIS+cluster.WORKERS+cluster.REAPERS:
             props=cluster.run(['systemctl','show',name,'-p','Requires','-p','Wants']).stdout
@@ -247,6 +272,9 @@ def act(directory,action,unit=None,attempt=None):
             result['shared_db_dependencies'][name]={'requires':values.get('Requires','').split(),'wants':values.get('Wants','').split()}
         result['shared_db_dependency_independent']=all('video-use-db.service' not in p['requires'] and 'video-use-db.service' in p['wants'] for p in result['shared_db_dependencies'].values())
         result['dependency_lifecycle_probe']=dependency_probe()
+        after=protected_snapshot(protected)
+        result['protected_config_unchanged']=all(after[key]==baseline[key] for key in ('source','config_root','release_sha256','config_hashes','workspace_config_hashes','database'))
+        result['protected_processes_unchanged_during_check']=after['units']==baseline['units']
     else:raise ValueError('Unknown fault action')
     result.update(before=before,after={name:cluster.active(name) for name in cluster.SERVICES},at=time.time())
     target=directory/('fault-'+str(time.time_ns())+'.json');save(target,result)
