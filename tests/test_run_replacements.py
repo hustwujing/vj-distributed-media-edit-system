@@ -49,6 +49,27 @@ class ReplacementTests(unittest.TestCase):
         self.assertEqual(history['retired_tasks'][0]['id'],'first')
         self.assertFalse(history['truncated'])
 
+    def test_compiled_replacement_with_inherited_parent_passes_authoritative_validation(self):
+        from webapp.workflow_model_protocol import compile_manager
+        self.store.execute("UPDATE run_tasks SET status='succeeded' WHERE run_id=? AND id='first'",(self.run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='paused' WHERE run_id=? AND id='child'",(self.run['id'],))
+        run=graph.get(self.store,self.run['id'])
+        frozen={'graph_version':run['graph_version'],'authorization_version':run['authorization_version'],
+            'snapshot_digest':'a'*64,'planning_request_id':'replacement-input','tasks':run['tasks'],
+            'dependencies':run['dependencies'],'trigger':{'task_id':'child'}}
+        implementation={'name':'Fixed child','type':'script','argv':['python','-c','print("fixed")'],
+            'inputs':{'source':{'step':'first','role':'report'}},
+            'files':[{'path':'report.txt','roles':['report']}],'basic_reason':'Report integrity'}
+        result=compile_manager({'kind':'APPLY_PLAN','reason':'Repair child with accepted parent','plan':{
+            'repair_replacements':[{'task_id':'child','implementation':implementation}]}},frozen)['proposal']
+        graph.validate_proposal(self.store,run,result,repair_scope='child')
+        replacement=result['replacements']['child']
+        self.assertEqual(result['add_dependencies'],[])
+        self.assertEqual(result['replan_after'],[replacement])
+        with self.assertRaisesRegex(ValueError,'Duplicate dependency'):
+            graph.validate_proposal(self.store,run,{**result,'add_dependencies':[
+                {'upstream':'first','downstream':replacement}]},repair_scope='child')
+
     def test_similar_new_node_does_not_erase_the_failed_requirement(self):
         self.f.propose({'proposal_id':'not-a-replacement','base_graph_version':1,'reason':'Merely append a node',
             'add_tasks':[fixtures.script('lookalike')],'sealed':True})

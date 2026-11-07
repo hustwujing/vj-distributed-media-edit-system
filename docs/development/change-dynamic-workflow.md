@@ -34,6 +34,7 @@
 - Manager 提交绑定 snapshot、授权版本、graph 版本与输入 cutoff 的 ManagerResult。结果仅限 CONTINUE、APPLY_PLAN、REQUEST_AUTHORIZATION、REQUEST_USER_INPUT、COMPLETE、NEW_RUN_REQUIRED；只有 APPLY_PLAN/COMPLETE 携带 Proposal；专业 Agent 的 JSON 或进程退出码不构成业务成功。
 - Manager 不直接生成完整 Proposal。每个 PLAN Control Job 创建唯一 `plan-draft-v1` 草稿；按 Task 类型和已查询 Operation 契约使用白名单命令追加或局部替换内容，`commit_plan` 在同一事务复核草稿 revision/digest、租约和冻结快照后暂存权威 ManagerResult。草稿命令不创建业务 Task、不执行工具，也不授予权限。
 - Manager 只用 `APPLY_PLAN` 表示本批增加了可执行工作，或用 `COMPLETE` 封口。等待叶节点由宿主从本批变更和依赖图推导；无变更时使用 `continue_run`。模型不填写 continuation。
+- replacement 的既有依赖由权威图重映射；编译器从输入绑定派生新增依赖时，须排除重映射后已存在的边。不能要求模型修改输入来绕过宿主生成的重复依赖，也不能放宽原始 Proposal 的重复边校验。
 - `delivery_stage` 由宿主根据业务验收的 `stage=final` 派生。Reviewer、Diagnostician和证据报告不能作为交付Task的输入；纯转交已验收成果时直接让真实生产Task拥有final验收，不增加空转复制Agent。
 - Operation能力快照包含当前Provider约束；参考图尺寸、时长和其他可确定条件在Proposal应用前校验。校验失败不得进入Provider提交阶段。
 - 新 Planner 协议不暴露 Script Task。确定性处理使用注册 Operation；需要动态代码时创建获授权的 `editing_implementer` Agent Task，由其在受限沙箱内执行。Manager、外部 harness 和 `/workflow/proposal` 均不得提交原始 shell、SQL、URL 或代码。

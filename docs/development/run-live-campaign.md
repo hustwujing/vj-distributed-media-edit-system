@@ -17,6 +17,12 @@
 
 还需核对每个角色冻结的`response_transport`：控制角色为`buffered`，Editing Implementer为`stream`。日志中的请求模型、上游实际模型和传输方式必须一致解释；配置Claude而上游回显其他路由时单列。性能报告至少包含各角色模型调用数、平均/最大总耗时和Publisher耗时，不能把整个case耗时笼统归给媒体处理。
 
+2026-11-07 后续用户再次调整：从下一批起，四个控制角色与 Editing Implementer 均使用
+`claude55` / `claude-sonnet-5-5` / high。正在运行的 DS 批次保留原配置并单独归档，不追溯改名。
+驱动显式设置 `DYNAMIC_MODEL_PROFILE=claude55`、`DYNAMIC_EXPECT_MODEL=claude-sonnet-5-5`、
+`DYNAMIC_MODEL_EFFORT=high`；服务端四个专家角色映射也须切换到 `claude55`。
+模型切换不改变执行 harness 或传输方式，控制角色仍 buffered，Implementer 仍 stream。
+
 改变模型默认值不能追溯修改已有 Run 或重标历史结果。预算边界用例保留设计中的低额度，不能为了让模型执行而放宽；模型选择部署 smoke 不替代正式媒体 case。
 
 ## 每个 case 的审查

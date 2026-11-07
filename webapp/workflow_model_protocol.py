@@ -588,6 +588,11 @@ def compile_manager(command,frozen):
         effective={(replacements.get(edge['upstream_task_id'],edge['upstream_task_id']),
                     replacements.get(edge['downstream_task_id'],edge['downstream_task_id']))
                    for edge in frozen.get('dependencies',[])}-removed
+        if replacements:
+            # The authoritative graph already transfers existing edges to the
+            # replacement. Input binding inference must add only new edges.
+            dependencies=[edge for edge in dependencies
+                          if (edge['upstream'],edge['downstream']) not in effective]
         effective|={(edge['upstream'],edge['downstream']) for edge in dependencies}
         affected=set(changed)
         while True:

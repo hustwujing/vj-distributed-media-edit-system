@@ -373,6 +373,26 @@ class ModelCommandTests(unittest.TestCase):
             'repair_replacements':[{'task_id':'render','implementation':implementation}]}},f)['proposal']
         self.assertEqual(result['replan_after'],['deliver'])
 
+    def test_replacement_does_not_readd_inherited_input_dependencies(self):
+        for user in (False,True):
+            with self.subTest(user=user):
+                f=frozen(user=user)
+                f['tasks'][0]['spec']['inputs']={'source':{'step':'prepare','role':'report'}}
+                parent=copy.deepcopy(f['tasks'][0]);parent.update(id='prepare',status='succeeded')
+                parent['spec'].update(id='prepare',inputs={})
+                f['tasks'].append(parent)
+                f['dependencies']=[{'upstream_task_id':'prepare','downstream_task_id':'render'}]
+                implementation={'name':'Fixed implementation','type':'agent','profile':'editing_implementer',
+                    'basic_reason':'Local report integrity',
+                    'inputs':{'source':{'step':'prepare','role':'report'}},
+                    'files':[{'path':'report.txt','roles':['report']}]}
+                plan=({'new_tasks':[dict(implementation,id='fixed')],'replacements':{'render':'fixed'}} if user else
+                      {'repair_replacements':[{'task_id':'render','implementation':implementation}]})
+                result=compile_manager({'kind':'APPLY_PLAN','reason':'Repair using the same accepted input','plan':plan},f)['proposal']
+                self.assertEqual(result['add_dependencies'],[])
+                self.assertEqual(result['replan_after'],[result['replacements']['render']])
+                self.assertEqual(result['add_tasks'][0]['inputs']['source']['step'],'prepare')
+
     def test_operation_replacement_does_not_reclassify_inherited_technical_acceptance(self):
         from webapp.operations import catalog
         op=next(item for item in catalog()['operations'] if item['id']=='image.perspective')
