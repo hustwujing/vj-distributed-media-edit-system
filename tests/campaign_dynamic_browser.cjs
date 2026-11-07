@@ -378,7 +378,7 @@ async function runCase(browser,spec){
     run=await wait(w=>!w.sealed&&w.tasks.some(t=>t.status==='succeeded'),60);
     await fault('stop_orchestrator');orchestratorStopped=true;await fault('corrupt_object');objectCorrupted=true;await capture('accepted-object-corrupted');
     await fault('release_workers');workersHeld=false;await fault('start_orchestrator');orchestratorStopped=false;
-    run=await wait(w=>paused(w),300);assert.equal(run.delivery.length,0);
+    run=await wait(w=>w.state==='FAILED'&&w.terminal_reason==='result_unavailable',300);assert.equal(run.delivery.length,0);
     const observed=await fault('progress'),work=[...run.tasks,...run.control_jobs];
     assert.ok(observed.integrity_errors?.some(e=>e.exception_type==='ArtifactUnavailable'&&e.error_code==='result_unavailable')&&work.some(t=>t.error_code==='result_unavailable'),'The corrupted encrypted bytes were not actually rejected');
     state.integrity_evidence=observed.integrity_errors;await fault('restore_object');objectCorrupted=false;state.outcome='protocol_passed';
