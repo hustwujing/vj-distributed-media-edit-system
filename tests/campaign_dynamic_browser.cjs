@@ -145,7 +145,7 @@ async function runCase(browser,spec){
   const origin=state.run_id;await page.locator('#dynamic-input-content').fill(content);
   const settings=page.locator('#dynamic-context-settings'),assets=page.locator('#dynamic-input-assets');await settings.waitFor({state:'visible'});if(!await settings.evaluate(node=>node.open))await settings.locator('summary').click();
   if(!await assets.isVisible())await settings.evaluate(node=>{node.open=true;});await assets.scrollIntoViewIfNeeded();await assets.waitFor({state:'visible'});
-  await assets.selectOption(attachments,{force:true});
+  await assets.evaluate((node,values)=>{const selected=new Set(values);for(const option of node.options)option.selected=selected.has(option.value);node.dispatchEvent(new Event('change',{bubbles:true}));},attachments);
   await selectOptional(page.locator('#dynamic-input-targets'),targets);
   const response=page.waitForResponse(r=>r.url().endsWith(`/runs/${origin}/inputs`)&&r.request().method()==='POST');
   await capture('input-before-'+state.events.length);await page.locator('#dynamic-input-submit').click();
