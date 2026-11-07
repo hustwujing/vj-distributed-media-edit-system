@@ -151,7 +151,13 @@ contrast, saturation, temperature, gamma, black_point, white_point, sharpen,
 blur, auto_white_balance and auto_levels. Its PNG output may be opaque RGBA.
 
 SAM3 text must be short English (at most 120 characters). Text, points and box
-are mutually exclusive. Translate intent before submitting. ZIM takes the actual
+are mutually exclusive. Use a concise object category, adding only modifiers
+needed to distinguish visible candidates; do not turn the label into a detailed
+caption or a list of inclusion/exclusion requirements. A syntactically valid
+label can still match poorly. After `no_selection`, prefer a verified box or
+points from the inspected image; do not repeat the same label or lower global
+confidence thresholds. Check the resulting mask against the subject requirement.
+Translate intent before submitting. ZIM takes the actual
 source image and an existing mask. Use the output_contract names/roles; do not
 invent filenames. OCR returns ocr.json and ocr-preview.png, not a finished text
 transcript. A separate script can extract lines into TXT.
