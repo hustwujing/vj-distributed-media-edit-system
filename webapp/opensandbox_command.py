@@ -3,13 +3,17 @@ from __future__ import annotations
 
 from datetime import timedelta
 import concurrent.futures
+from contextlib import closing
+import fcntl
 import hashlib
 import json
 import os
 from pathlib import Path,PurePosixPath
 import shutil
+import stat
 import threading
 import time
+import uuid
 
 from .sandbox_backends import OPEN_SANDBOX,BackendConfigurationError,OpenSandboxCleanupRegistry
 
@@ -23,6 +27,9 @@ class OpenSandboxCommandRuntime:
         self.session_closed=False;self.sandbox_deleted=False;self.cleanup_lock=threading.RLock()
         self.cleanup_registry=cleanup_registry;self.registry_completed=cleanup_registry is None
         self.local_root=None
+        self.local_lock=None
+        self.limit=int(os.environ.get('VIDEO_USE_TASK_DISK_BYTES',str(2*1024**3)))
+        self.max_output_files=50000
 
     def revoked(self):return False
     def pulse(self,seconds):pass
@@ -41,12 +48,14 @@ class OpenSandboxCommandRuntime:
         root=store.root/'command-attempts'/self.attempt
         if root.exists():raise RuntimeError('Command attempt workspace already exists')
         workspace=root/'workspace';sources=root/'sources'
-        workspace.mkdir(parents=True,mode=0o700);sources.mkdir(mode=0o700)
+        root.mkdir(parents=True,mode=0o700)
         self.local_root=root
+        self.local_lock=os.open(root/'.owner',os.O_CREAT|os.O_EXCL|os.O_RDWR|os.O_NOFOLLOW,0o600)
+        fcntl.flock(self.local_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        workspace.mkdir(mode=0o700);sources.mkdir(mode=0o700)
         self.store=store;self.workspace=workspace;self.project=store.project_dir(project)
         self.project.mkdir(parents=True,exist_ok=True,mode=0o700)
         self.uid=self.service_uid=os.getuid();self.gid=self.service_gid=os.getgid()
-        self.limit=int(os.environ.get('VIDEO_USE_TASK_DISK_BYTES',str(2*1024**3)))
 
         def destination(base,relative):
             relative=PurePosixPath(relative)
@@ -177,15 +186,50 @@ class OpenSandboxCommandRuntime:
 
     def _download_output(self,env,relative):
         path=PurePosixPath(relative)
-        if path.is_absolute() or '..' in path.parts:raise ValueError('Invalid command output path')
-        for entry in self.session.files.list('/workspace/'+path.as_posix(),depth=100):
+        if path.is_absolute() or '..' in path.parts or not path.parts:raise ValueError('Invalid command output path')
+        output=PurePosixPath('/workspace')/path
+        total=count=0;seen=set()
+        for entry in self.session.files.list(str(output),depth=100):
+            self.lease.check();count+=1
+            if count>self.max_output_files:raise ValueError('Command output exceeds file limit')
             remote=PurePosixPath(entry['path'] if isinstance(entry,dict) else entry.path)
             kind=entry.get('type') if isinstance(entry,dict) else entry.entry_type
-            if kind not in ('file','regular'):continue
-            try:name=remote.relative_to('/workspace')
+            if '..' in remote.parts:raise ValueError('Command output escaped workspace')
+            try:
+                remote.relative_to(output)
+                name=remote.relative_to('/workspace')
             except ValueError:raise ValueError('Command output escaped workspace') from None
-            target=env['workspace']/name;target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
-            target.write_bytes(self.session.files.read(str(remote)));target.chmod(0o600)
+            if kind in ('directory','dir'):continue
+            if kind not in ('file','regular') or not name.parts:raise ValueError('Command output is not a regular file')
+            if name in seen:raise ValueError('Duplicate command output path')
+            seen.add(name)
+            # Directory FDs and O_NOFOLLOW protect every local path component.
+            # Replacing a private temporary file never truncates an existing
+            # symlink/hardlink target, even if an entry changes during download.
+            parent=os.open(env['workspace'],os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+            temporary=None
+            try:
+                for part in name.parts[:-1]:
+                    try:os.mkdir(part,0o700,dir_fd=parent)
+                    except FileExistsError:pass
+                    child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=parent)
+                    os.close(parent);parent=child
+                try:info=os.stat(name.name,dir_fd=parent,follow_symlinks=False)
+                except FileNotFoundError:info=None
+                if info and (not stat.S_ISREG(info.st_mode) or info.st_nlink!=1):
+                    raise ValueError('Unsafe local command output target')
+                temporary='.'+uuid.uuid4().hex+'.pending'
+                fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=parent)
+                with os.fdopen(fd,'wb') as stream,closing(self.session.files.read_chunks(str(remote))) as chunks:
+                    for chunk in chunks:
+                        self.lease.check()
+                        if not isinstance(chunk,bytes):raise ValueError('Invalid command output bytes')
+                        if total+len(chunk)>self.limit:raise ValueError('Command output exceeds byte limit')
+                        stream.write(chunk);total+=len(chunk)
+                os.replace(temporary,name.name,src_dir_fd=parent,dst_dir_fd=parent);temporary=None
+            finally:
+                if temporary is not None:os.unlink(temporary,dir_fd=parent)
+                os.close(parent)
 
     def close(self):
         with self.cleanup_lock:
@@ -203,6 +247,8 @@ class OpenSandboxCommandRuntime:
                 except Exception as exc:errors.append(exc)
                 else:self.registry_completed=True
             if self.local_root:shutil.rmtree(self.local_root,ignore_errors=True)
+            if self.local_lock is not None:
+                os.close(self.local_lock);self.local_lock=None
             self.closed=self.session_closed and self.sandbox_deleted and self.registry_completed
             if errors:raise errors[0]
 

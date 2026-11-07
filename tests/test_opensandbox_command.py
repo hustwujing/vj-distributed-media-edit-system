@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 import shutil
 import tempfile
@@ -15,6 +16,7 @@ class Files:
     def mkdir(self,path,mode):pass
     def write(self,path,data,mode):self.data[path]=data.read() if hasattr(data,'read') else data
     def read(self,path):return self.data[path]
+    def read_chunks(self,path):yield self.data[path]
     def list(self,path,depth=100):return self.entries
 
 
@@ -71,6 +73,57 @@ class FlakyCleanup(NoopCleanup):
 
 
 class OpenSandboxCommandTests(unittest.TestCase):
+    def test_output_rejects_remote_traversal_and_sibling_paths_before_read(self):
+        with tempfile.TemporaryDirectory() as folder:
+            workspace=Path(folder)/'workspace';workspace.mkdir()
+            session=Session();runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'s','a',SimpleNamespace(check=lambda:None))
+            for remote in ('/workspace/../escape','/workspace/out/../../escape',
+                           '/workspace/other/input','/workspace/outside/file','out/file'):
+                with self.subTest(remote=remote):
+                    session.files.entries=[{'path':remote,'type':'file'}]
+                    with patch.object(session.files,'read_chunks',side_effect=AssertionError('Must validate before download')):
+                        with self.assertRaisesRegex(ValueError,'escaped'):runtime._download_output({'workspace':workspace},'out')
+            self.assertEqual(list(workspace.iterdir()),[])
+
+    def test_output_never_follows_local_directory_or_file_links(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);workspace=root/'workspace';workspace.mkdir()
+            outside=root/'outside';outside.mkdir();protected=outside/'value';protected.write_bytes(b'original')
+            session=Session();runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'s','a',SimpleNamespace(check=lambda:None))
+            session.files.data['/workspace/out/value']=b'bad'
+            session.files.entries=[{'path':'/workspace/out/value','type':'file'}]
+            for kind in ('directory','symlink','hardlink'):
+                with self.subTest(kind=kind):
+                    out=workspace/'out'
+                    if kind=='directory':out.symlink_to(outside,target_is_directory=True)
+                    else:
+                        out.mkdir()
+                        if kind=='symlink':(out/'value').symlink_to(protected)
+                        else:os.link(protected,out/'value')
+                    with self.assertRaises((ValueError,OSError)):runtime._download_output({'workspace':workspace},'out')
+                    self.assertEqual(protected.read_bytes(),b'original')
+                    if out.is_symlink():out.unlink()
+                    else:shutil.rmtree(out)
+
+    def test_output_limits_stream_bytes_entries_and_removes_partial_files(self):
+        with tempfile.TemporaryDirectory() as folder:
+            workspace=Path(folder);session=Session()
+            runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'s','a',SimpleNamespace(check=lambda:None))
+            runtime.limit=4;closed=[]
+            def chunks(path):
+                try:yield b'123';yield b'45'
+                finally:closed.append(True)
+            session.files.entries=[{'path':'/workspace/out/file','type':'file','size':1}]
+            with patch.object(session.files,'read_chunks',chunks):
+                with self.assertRaisesRegex(ValueError,'byte limit'):runtime._download_output({'workspace':workspace},'out')
+            self.assertTrue(closed);self.assertEqual(list((workspace/'out').iterdir()),[])
+            session.files.entries=[{'path':'/workspace/out/a','type':'file'},{'path':'/workspace/out/b','type':'file'}]
+            session.files.data={'/workspace/out/a':b'abc','/workspace/out/b':b'def'}
+            with self.assertRaisesRegex(ValueError,'byte limit'):runtime._download_output({'workspace':workspace},'out')
+            self.assertEqual((workspace/'out/a').read_bytes(),b'abc');self.assertFalse((workspace/'out/b').exists())
+            runtime.limit=100;runtime.max_output_files=1
+            with self.assertRaisesRegex(ValueError,'file limit'):runtime._download_output({'workspace':workspace},'out')
+
     def test_environment_materializes_only_frozen_asset_without_node_local_project(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);source=root/'object';source.write_bytes(b'input-bytes')

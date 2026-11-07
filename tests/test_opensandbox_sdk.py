@@ -14,6 +14,9 @@ class FileService:
     def write_files(self,entries):
         entry=entries[0];self.calls.append(('write',entry.__dict__));self.data[entry.path]=entry.data
     def read_bytes(self,path):return self.data[path]
+    def read_bytes_stream(self,path,chunk_size):
+        self.calls.append(('read_chunks',chunk_size))
+        yield self.data[path]
     def delete_files(self,paths):self.calls.append(('delete',paths));self.data.pop(paths[0],None)
     def move_files(self,entries):
         entry=entries[0];self.calls.append(('move',entry.__dict__));self.data[entry.destination]=self.data.pop(entry.source)
@@ -50,6 +53,12 @@ class OpenSandboxSDKTests(unittest.TestCase):
         self.assertEqual(url,'wss://sandbox.example/v1/sandboxes/sbx/proxy/18770/control')
         self.assertEqual(headers,{'OPEN-SANDBOX-API-KEY':'key','X-Route':'one'})
         self.assertEqual(sandbox.port,18770)
+
+    def test_file_download_uses_bounded_stream_chunks(self):
+        service=FileService();service.data['/out']=b'payload'
+        files=OpenSandboxFiles(service,write_entry=Entry,move_entry=Entry)
+        self.assertEqual(list(files.read_chunks('/out')),[b'payload'])
+        self.assertEqual(service.calls,[('read_chunks',65536)])
 
     def test_connector_forces_server_proxy_and_skips_daemon_health(self):
         calls={}

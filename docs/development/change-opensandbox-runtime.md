@@ -137,6 +137,14 @@ cleanup 或 Workspace 时按分布式规范追加对应模块，并完成全量�
 Sandbox ID，按 Attempt metadata 确认消失，最后才释放资源。`begin_cleanup` 和 `cleanup` 必须幂等；
 撤销、删除或确认失败保留重试/隔离状态，不能因为业务终态或 Lease 过期假定物理资源已回收。
 
+Command Runtime 下载不信任远端目录响应：路径必须在声明的输出子目录内，禁止 `..` 和链接/特殊文件；
+宿主逐级使用目录 FD 与 `O_NOFOLLOW`，以私有临时文件完成后原子替换。按实际流字节累计执行
+`VIDEO_USE_TASK_DISK_BYTES` 下载上限，每次清单最多 50000 条，失败不留下半写文件。
+宿主 `command-attempts/<attempt>` 由 Runtime 持有 `.owner` 排他文件锁；节点 watchdog 每轮清理完成后
+间隔 60 秒启动单独子进程，分批扫描超过 300 秒的遗留目录，单次子进程超过 30 秒即终止。
+只有本地锁可取、无有效租约、无未完成本地 cleanup 且远端 sandbox cleanup 完成时才删除；项目删除后
+已无 attempt/cleanup 行的孤儿也可回收。数据库未知时保留，不能由 API 节点扫描代替执行节点回收。
+
 容量模型需分别报告 command-only、混合和 Agent-only 场景，保留宿主 CPU/内存/磁盘余量并限制并发
 补池。模型结果只能用于设置真机测试上限，不能声称真实可常驻相同数量。
 

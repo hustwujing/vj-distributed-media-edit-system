@@ -30,6 +30,9 @@ class OpenSandboxFiles:
     def read(self,path):
         return self.service.read_bytes(path)
 
+    def read_chunks(self,path):
+        return self.service.read_bytes_stream(path,chunk_size=64*1024)
+
     def delete(self,path,missing_ok=False):
         try:self.service.delete_files([path])
         except Exception as exc:

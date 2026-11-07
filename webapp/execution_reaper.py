@@ -62,6 +62,8 @@ class Reaper:
         self.store.timeout=.1
         self.children={}
         self.external_children={}
+        self.command_cleanup_child=None;self.command_cleanup_started=0
+        self.command_cleanup_next=0;self.command_cleanup_cursor=''
         self.boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
         try:initialize(store)
         except Exception as exc:
@@ -227,6 +229,30 @@ class Reaper:
                         except (OSError,ValueError):continue
                         if registered['attempt']==row['attempt']:continue
                 db.execute("UPDATE execution_cleanup SET state='complete',error='',updated=? WHERE attempt=?",(self.store.now(),row['attempt']))
+        self.clean_command_workspaces()
+
+    def clean_command_workspaces(self):
+        # Potentially large recursive deletion must never stall the node's
+        # monotonic permit watchdog. One bounded child scans this node only.
+        now=time.monotonic();child=self.command_cleanup_child
+        if child is not None:
+            code=child.poll()
+            if code is None:
+                if now-self.command_cleanup_started>30:child.kill()
+                return
+            output,_=child.communicate()
+            self.command_cleanup_child=None
+            if code==0:
+                value=json.loads(output);self.command_cleanup_cursor=value['cursor']
+            else:
+                from .telemetry import emit
+                emit('cleanup.command_workspace_failed','WARNING',reason='cleanup_child_failed')
+            self.command_cleanup_next=now+60
+        if now<self.command_cleanup_next or not (self.store.root/'command-attempts').is_dir():return
+        self.command_cleanup_child=subprocess.Popen([sys.executable,'-m','webapp.command_workspace_cleanup',
+            str(self.store.root),self.command_cleanup_cursor],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,
+            text=True,env={**os.environ,'PYTHONDONTWRITEBYTECODE':'1'})
+        self.command_cleanup_started=now
 
 
 def main():
