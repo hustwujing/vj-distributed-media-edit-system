@@ -5,6 +5,19 @@ const key=()=>crypto.randomUUID().replaceAll('-','');
 const activeJob=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&job.status==='running');
 const terminal=run=>['SUCCEEDED','FAILED','CANCELLED'].includes(run.state);
 function hasActiveWork(run){return [...(run.tasks||[]),...(run.control_jobs||[])].some(item=>['running','leased'].includes(item.status));}
+function unusedAuthorizedAttachment(run){
+ const used=new Set(run.tasks.flatMap(task=>Object.values(task.spec.inputs||{}).map(ref=>ref.asset).filter(Boolean)));
+ const asset=run.authorization.allowed_assets.find(id=>!used.has(id));
+ assert.ok(asset,'Attachment fault requires an authorized asset unused by original tasks');return asset;
+}
+function killedAttemptTakeover(selected,observed,requireRunning=false){
+ const old=observed.attempts.find(item=>item.id===selected.id);
+ assert.ok(old,'Killed attempt history is missing');
+ assert.notEqual(old.status,'finished','A normally completed attempt does not prove hard-kill recovery');
+ if(old.status!=='expired')return null;
+ return observed.attempts.find(item=>item.run_id===selected.run_id&&item.step_id===selected.step_id&&
+  item.task_revision===selected.task_revision&&item.generation>selected.generation&&(!requireRunning||item.status==='running'));
+}
 function videoInterventionReady(run){
  const selected=(id)=>run.tasks.find(t=>t.id===id&&t.selected);
  return selected('export')?.status==='running'&&['prepare_a','prepare_b','clip'].every(id=>selected(id)?.status==='succeeded');
@@ -87,13 +100,13 @@ async function before(c){
   }
  }else if(hook==='attachment_change_reject'){
   const initial=await wait(r=>r.tasks.some(t=>t.type==='agent'&&t.status==='running'),600);
-  const asset=initial.authorization.allowed_assets[0];assert.ok(asset,'Attachment-change case requires one authorized asset');
+  const asset=unusedAuthorizedAttachment(initial);
   const accepted=await appendInput('补充要求使用当前关联图片；如果该附件在安全点前失效，则停止这条补充要求并继续原任务。',[asset]);
   const removed=await fault('delete_input_asset');assert.equal(removed.asset_id,asset);
   const blocked=await wait(r=>r.decisions.some(d=>d.kind==='input_question'&&(d.request.invalid_input_ids||[]).includes(accepted.id)),300);
   assert.equal(blocked.input_barrier_sequence,accepted.sequence);await approve('reject');
   const resumed=await wait(r=>r.inputs.some(i=>i.id===accepted.id&&i.status==='SUPERSEDED')&&r.input_barrier_sequence===null,120);
-  assert.equal(resumed.inputs.find(i=>i.id===accepted.id).error_code,'user_rejected_input');mark({input_id:accepted.id,asset_id:asset,decision_kind:'input_question'});
+  assert.equal(resumed.inputs.find(i=>i.id===accepted.id).error_code,'user_rejected_input');mark({input_id:accepted.id,asset_id:asset,decision_kind:'input_question',original_tasks:initial.tasks.map(t=>({id:t.id,revision:t.revision,attempts:t.attempts}))});
  }else if(hook==='unknown_input'){
   let attempt;
   await wait(async()=>{const facts=await fault('progress');const submitted=new Set(facts.submitting.map(call=>call.attempt_id));
@@ -212,6 +225,8 @@ async function after(c){
  if(hook==='attachment_change_reject'){
   const item=run.inputs.find(input=>input.id===boundary.input_id);assert.ok(item);assert.equal(item.status,'SUPERSEDED');
   assert.equal(run.input_barrier_sequence,null);boundary.observed=true;
+  for(const original of boundary.original_tasks){const current=run.tasks.find(t=>t.id===original.id);
+   assert.ok(current&&current.selected&&current.status==='succeeded');assert.equal(current.revision,original.revision);assert.equal(current.attempts,original.attempts);}
  }
  if(!boundary.observed)throw Object.assign(Error('Required unified Run boundary was not observed'),{boundary:true});
  persist();
@@ -231,4 +246,4 @@ function verifyFeedbackRevision(before,run,identifier){
  return current;
 }
 
-module.exports={before,after,hooks,verifyDrainedAttempts,verifyFeedbackRevision,hasActiveWork,videoInterventionReady};
+module.exports={before,after,hooks,verifyDrainedAttempts,verifyFeedbackRevision,hasActiveWork,videoInterventionReady,unusedAuthorizedAttachment,killedAttemptTakeover};

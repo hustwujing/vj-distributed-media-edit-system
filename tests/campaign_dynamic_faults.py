@@ -118,6 +118,21 @@ def progress(directory):
     return result
 
 
+def kill_frozen_attempt(unit,attempt,observe,runtime=cluster):
+    """Freeze the worker before rechecking: a completed poll is not a kill."""
+    if unit not in runtime.WORKERS:raise ValueError('Worker outside dedicated deployment')
+    runtime.run(['systemctl','kill','--kill-who=main','--signal=SIGSTOP',unit])
+    try:
+        assigned=next((row for row in observe()['attempts'] if row['unit']==unit
+            and row['id']==attempt and row['status']=='running'),None)
+        if not assigned:raise ValueError('No replay-safe QA task is running on this worker')
+        runtime.run(['systemctl','kill','--kill-who=main','--signal=SIGKILL',unit])
+        runtime.run(['systemctl','stop',unit],timeout=150)
+        return assigned
+    finally:
+        runtime.run(['systemctl','kill','--kill-who=main','--signal=SIGCONT',unit],check=False)
+
+
 def act(directory,action,unit=None,attempt=None):
     directory,state,release,store=configure(directory)
     restoring=action.startswith('start_') or action in ('stop_second_orchestrator','restore_object','release_workers','restore_provider_route')
@@ -153,13 +168,12 @@ def act(directory,action,unit=None,attempt=None):
         result={'action':action,'unit':second}
     elif action in ('stop_worker','kill_attempt_worker','start_worker'):
         if unit not in cluster.WORKERS:raise ValueError('Worker outside dedicated deployment')
-        if action in ('stop_worker','kill_attempt_worker'):
+        if action=='kill_attempt_worker':
+            kill_frozen_attempt(unit,attempt,lambda:progress(directory))
+        elif action=='stop_worker':
             observed=progress(directory);submitting={p['attempt_id'] for p in observed['submitting']}
-            if action=='kill_attempt_worker':
-                assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and row['id']==attempt]
-            else:
-                assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['control_kind']
-                          and (row['retry_safe'] or row['id'] in submitting)]
+            assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['control_kind']
+                      and (row['retry_safe'] or row['id'] in submitting)]
             if not assigned:raise ValueError('No replay-safe QA task is running on this worker')
             cluster.run(['systemctl','kill','--kill-who=main','--signal=SIGKILL',unit])
             cluster.run(['systemctl','stop',unit],timeout=150)

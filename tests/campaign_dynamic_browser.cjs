@@ -336,7 +336,7 @@ async function runCase(browser,spec){
      try{await fault('kill_attempt_worker',selected.unit,selected.id);}catch(error){stoppedWorker=null;if(hook==='provider_poll_hard_kill'&&String(error.message).includes('No replay-safe QA task')){round--;continue;}throw error;}
      killed.push(selected);await capture(`${hook}-killed-${round+1}`);
      const takeoverUntil=Date.now()+300000;let takeover;
-     while(Date.now()<takeoverUntil){const observed=await fault('progress');takeover=observed.attempts.find(item=>item.step_id===selected.step_id&&item.generation>selected.generation&&(round===interruptions-1||item.status==='running'));if(takeover)break;await page.waitForTimeout(750);}
+     while(Date.now()<takeoverUntil){const observed=await fault('progress');takeover=unified.killedAttemptTakeover(selected,observed,round!==interruptions-1);if(takeover)break;await page.waitForTimeout(750);}
      assert.ok(takeover,`No takeover followed ${hook}`);await fault('start_worker',selected.unit);stoppedWorker=null;
     }
     const settleUntil=Date.now()+120000;let reservations=[];while(Date.now()<settleUntil){const observed=await fault('progress');reservations=observed.model_reservations.filter(item=>killed.some(attempt=>attempt.id===item.attempt_id)&&item.state==='reserved');if(!reservations.length)break;await page.waitForTimeout(750);}

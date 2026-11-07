@@ -6271,7 +6271,7 @@
       "source_case_id": null,
       "complexity": "dynamic_protocol",
       "title": "安全点前附件失效并拒绝补充输入",
-      "assets": ["portrait.png"],
+      "assets": ["portrait.png", "rocket.png"],
       "prompt": "创建type=agent、profile=editing_implementer业务Task；执行开始后先等待20秒，再将portrait.png等比适配为64×64 final.png。保持原图内容，完成程序验收和最终Review后交付PNG。",
       "expect": {"kind": "image", "width": 64, "height": 64},
       "content_checks": ["执行中补充输入携带已授权附件", "附件在安全点前删除后产生input_question", "用户拒绝后原输入SUPERSEDED且barrier清除", "已开始Task不取消且原图正常交付"],

@@ -238,6 +238,8 @@ Reviewer JSON 或空转复制节点作为字幕交付。
 
 新增 D48，将清单扩为 126 条：业务 Agent 已开始后提交一条携带授权附件的 Run input，再由受控故障动作删除该附件。安全点必须创建 `input_question` 并绑定失效 input ID；用户拒绝这条补充输入后，该输入转为 `SUPERSEDED/user_rejected_input`，barrier 和 drain set 收敛，已开始 Task 不被取消并按原图完成交付。重复提问、陈旧 barrier、Task 重启或原交付丢失均为程序错误。
 
+故障注入证据补充：D42–D46 在暂停目标 worker 主进程后重新核对同一个活动 Attempt，再发 SIGKILL；若已结束则恢复进程并重新观察，不将正常下一次 poll 当接管。通过必须同时证明旧 Attempt expired 和同 revision 的更高 generation 接管。D48 使用额外授权且未被任何现有 Task 引用的附件；不得删除原业务素材，否则混入了原输入丢失故障。拒绝补充输入后核对原 Task revision、执行次数及交付均保留。
+
 ## 后续轮次模型配置（2026-11-04确认）
 
 126条清单保持暂停，历史结果不重标为新配置通过。后续正式执行统一显式选择服务端claude预设、Claude 4.6 Sonnet、high；专业 Manager/Reviewer/Diagnosis 由系统配置为 Claude Sonnet 5.5。执行引擎为structured-profile-v4 PlanDraft命令协议，strict优先、明确不支持时可回退。浏览器驱动在提交前选择模型及强度，提交后从Run的冻结model_configuration核对实际型号、强度和`plan_draft_v1_strict_preferred`策略；逐个PLAN审计草稿绑定和终态，并将源码与配置摘要纳入每次尝试证据。仅修改环境默认值不能替代逐Run验证。模型预算边界case仍保留原有低额度，不能为了通过而放宽边界。
