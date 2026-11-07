@@ -5,7 +5,7 @@ const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');
 const execute=promisify(execFile),assert=require('node:assert/strict');
 const unified=require('./campaign_unified_hooks.cjs');
-const {selectOptional}=require('./campaign_browser_inputs.cjs');
+const {selectOptional,setProviderLimits}=require('./campaign_browser_inputs.cjs');
 const REPO=path.resolve(__dirname,'..'),PY=path.join(REPO,'.venv/bin/python');
 const DEPLOY_ROOT=path.resolve(process.env.DYNAMIC_CASE_DEPLOY_ROOT||path.join(REPO,'.cluster'));
 const ROOT=path.join(DEPLOY_ROOT,'campaigns/dynamic-plan');
@@ -106,6 +106,7 @@ async function runCase(browser,spec){
   (spec.complexity==='simple'?500000:4000000)*TOKEN_BUDGET_MULTIPLIER))=>{
   await page.locator('#dynamic-input-form').waitFor({state:'visible'});await page.locator('#dynamic-input-content').fill(prompt);
   const origin=await page.locator('#dynamic-input-form').getAttribute('data-run'),creating=origin==='new';
+  let expectedProviderBudget;
   if(creating){
    await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;node.dispatchEvent(new Event('change',{bubbles:true}));}));await page.locator('#dynamic-targets-other').fill(targets);
    await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
@@ -114,7 +115,9 @@ async function runCase(browser,spec){
    assert.equal(modelCapabilities.model_protocol_policy,'plan_draft_v1_strict_preferred');
    state.model_protocol_policy=modelCapabilities.model_protocol_policy;
    await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
-   for(const operation of spec.allowed_external_operations||[]){const input=page.locator(`[data-operation="${operation}"]`);if(await input.isDisabled())throw Object.assign(Error('Required provider is not configured: '+operation),{dependency:true});await input.fill('1');}
+   const requestedLimits=Object.fromEntries((spec.allowed_external_operations||[]).map(operation=>[operation,1]));
+   if(state.upload_race)requestedLimits[state.upload_race.operation]=state.upload_race.limit;
+   expectedProviderBudget=await setProviderLimits(page,requestedLimits);
   }
   await capture('authorization-'+state.run_ids.length);
   const response=page.waitForResponse(r=>r.request().method()==='POST'&&(creating?r.url().endsWith(`/api/projects/${state.project}/runs`):r.url().endsWith(`/runs/${origin}/inputs`)),{timeout:60000});
@@ -131,6 +134,7 @@ async function runCase(browser,spec){
   (state.authorizations??=[]).push({run_id:run.id,goal:run.goal,delivery_targets:run.authorization.delivery_targets,
    allowed_assets:run.authorization.allowed_assets,provider_call_budget:run.authorization.provider_call_budget,
    model_token_budget:run.authorization.model_token_budget});persist();
+  if(creating)assert.deepEqual(run.authorization.provider_call_budget,expectedProviderBudget,'Frozen provider budget differs from explicit fixture consent');
   for(const operation of spec.allowed_external_operations||[])assert.equal(run.authorization.provider_call_budget[operation],1,'The confirmed provider limit was lost: '+operation);
   if(state.upload_race)assert.equal(run.authorization.provider_call_budget[state.upload_race.operation],1,'Delayed refresh consent was not persisted');
   await context.storageState({path:path.join(directory,'browser-state.json')});fs.chmodSync(path.join(directory,'browser-state.json'),0o600);
