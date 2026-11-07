@@ -68,6 +68,12 @@ Responses的非strict回退必须显式发送工具字段`strict: false`；省�
 
 端上模型选择复用服务端预设，不允许前端提交任意model/base_url/key。新增模型同步model_selection.efforts，按实际原生档位展示；DeepSeek的medium别名映射为high，不能作为独立“中”档展示。见[官方推理档位](https://api-docs.deepseek.com/guides/thinking_mode/)。
 
+## 按模型冻结输出预算策略
+
+AgentProfile.output_token_policy 支持 phase 和 profile，策略随模型配置摘要进入Run。phase沿用命令阶段上限；profile使用角色的max_output_tokens，避免把推理Token也计入输出的模型截断在较小阶段额度。两者都必须再取模型配置budget.max_output_tokens的较小值，并按实际请求上限预留Run总预算；切换模型不得重置总预算、重试次数或调用额度。
+
+2026-11-07独立DS4.1 Flash/high批次8例都在6144输出Token处max_tokens截断。基于同一C08冻结事实的受控重建请求（不是原始wire重放），6144仍截断，12000返回合法工具调用、实际6573输出Token。故deepseek41候选配置显式选择profile策略；其他模型保持其已校准策略，不能因一个模型失败整体抬高额度。不同角色仍分别受角色上限约束，后续按实际回执验证。
+
 ## 提示与失败收敛
 
 提示负责目标语义、证据标准和工具选择，不承担权限或协议正确性。禁止字段、技术验收、ID、依赖、revision、交付资格和 Provider 路由由 Schema 与宿主编译保证；不要依靠反复追加“必须/严禁”文本代替校验。新增提示规则前需证明它是跨 case 的稳定缺口，并用冻结失败样本验证 schema valid、semantic valid、executable 和 retry success；单次随机失败不构成新增规则的依据。

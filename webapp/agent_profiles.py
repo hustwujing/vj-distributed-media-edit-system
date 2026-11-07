@@ -49,6 +49,7 @@ class AgentProfile:
     reasoning_effort: str = 'medium'
     vision_tokenizer: str = 'unconfigured'
     input_token_policy: str = 'native'
+    output_token_policy: str = 'phase'
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     response_transport: str = 'stream'
@@ -63,6 +64,8 @@ class AgentProfile:
             raise ValueError('Unsupported Agent adapter or tool policy version')
         if self.response_transport not in ('buffered','stream'):
             raise ValueError('Unsupported Agent response transport')
+        if self.output_token_policy not in ('phase','profile'):
+            raise ValueError('Unsupported Agent output token policy')
         if not self.model or len(self.model) > 200 or any(ord(c) < 32 for c in self.model):
             raise ValueError('Invalid model identifier')
         if not re.fullmatch(r'(?:VIDEO_USE_|ANTHROPIC_|DEEPSEEK_|OPENAI_)[A-Z0-9_]*(?:KEY|TOKEN)', self.credential_env):

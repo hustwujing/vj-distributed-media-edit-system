@@ -216,14 +216,17 @@ def model(host,lease,run,profile,conversation,images=(),deadline=None,protocol=N
         return _model_request(host,lease,run,profile,conversation,images,deadline,protocol,text_stream,False)
 
 
-def model_output_limit(profile,protocol):
-    if protocol is None:return profile.max_output_tokens
-    if 'submit_typed_plan' in protocol.schemas:return min(profile.max_output_tokens,6144)
-    if 'commit_plan' not in protocol.schemas:return profile.max_output_tokens
-    if getattr(protocol,'correction_mode',False):return min(profile.max_output_tokens,4096)
-    names=set(protocol.schemas)
-    if 'configure_plan' in names:return min(profile.max_output_tokens,4096)
-    return min(profile.max_output_tokens,1024)
+def model_output_limit(profile,protocol,*,policy='phase',maximum=None):
+    if policy not in ('phase','profile'):raise ValueError('Unsupported output token policy')
+    limit=profile.max_output_tokens
+    if policy=='phase' and protocol is not None:
+        if 'submit_typed_plan' in protocol.schemas:limit=min(limit,6144)
+        elif 'commit_plan' in protocol.schemas:
+            limit=min(limit,4096 if getattr(protocol,'correction_mode',False) or 'configure_plan' in protocol.schemas else 1024)
+    if maximum is not None:
+        if type(maximum) is not int or maximum<1:raise ValueError('Invalid model output maximum')
+        limit=min(limit,maximum)
+    return limit
 
 
 def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,text_stream,strict):
@@ -241,7 +244,8 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
         from .model_tool_protocol import request as tool_request
         definitions=protocol.definitions();body=tool_request(adapter,body,definitions,strict=strict)
         body['stream']=configuration.response_transport=='stream'
-    output_limit=model_output_limit(profile,protocol)
+    output_limit=model_output_limit(profile,protocol,policy=configuration.output_token_policy,
+                                    maximum=configuration.budget['max_output_tokens'])
     body=adapter.prepare(body,configuration.model,output_limit,configuration.reasoning_effort)
     raw=graph.encode(body);assert_no_credentials(raw,(*secrets(),key))
     receipt=adapter.receipt()
