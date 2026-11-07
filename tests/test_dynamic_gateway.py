@@ -677,6 +677,52 @@ class DynamicGatewayTests(unittest.TestCase):
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['proposal']['add_tasks'][0]['id'],'draft_report')
 
+    def test_finalize_accepts_the_typed_plan_tool_after_inspection_budget_is_used(self):
+        import threading
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        from webapp.strict_schema import transform
+        task={'id':'final_report','type':'agent','profile':'editing_implementer','name':'Report','objective':'Write report',
+              'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file','stage':'final'}],
+              'basic_reason':'The fixture verifies submission of a deterministic report file'}
+        calls=[]
+        def respond(*args,**kwargs):
+            protocol=kwargs['protocol'];calls.append(args[4])
+            if len(calls)<=9:return {'action':'inspect','ref':'asset','offset':len(calls)-1}
+            self.assertIn('Finalize now',args[4]);self.assertIn('submit_typed_plan',protocol.schemas)
+            self.assertNotIn('inspect',protocol.schemas)
+            payload={'tasks':[task],'kind':'COMPLETE','reason':'Use the inspected evidence'}
+            return protocol.decode('submit_typed_plan',transform(payload,protocol.schemas['submit_typed_plan'],encode=True))
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond), \
+             patch('webapp.workflow_agents.inspect',side_effect=lambda store,run,allowed,ref,offset=0:{'ref':ref,'text':'evidence '+str(offset)}):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(len(calls),10)
+        self.assertEqual(self.store.query('SELECT status FROM workflow_plan_drafts')[0]['status'],'COMMITTED')
+        self.assertEqual(self.store.query('SELECT status FROM planner_runs')[0]['status'],'staged')
+
+    def test_rejection_feedback_is_consumed_once_before_new_inspections(self):
+        import threading,copy
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        proposal={'proposal_id':'correct-reference','base_graph_version':0,'reason':'Use actual source',
+                  'add_tasks':[fixtures.script(inputs={'source':{'asset':'asset'}})],'sealed':True}
+        bad=copy.deepcopy(proposal);bad['add_tasks'][0]['inputs']['source']['asset']='invented-asset'
+        replies=[{'action':'proposal','proposal':bad},{'action':'inspect','ref':'asset','offset':0},
+                 {'action':'inspect','ref':'asset','offset':7},{'action':'proposal','proposal':proposal}]
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=[self.bind_reply(item) for item in replies]) as model, \
+             patch('webapp.workflow_agents.inspect',side_effect=lambda store,run,allowed,ref,offset=0:{'ref':ref,'text':'evidence '+str(offset)}):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        prompts=[call.args[4] for call in model.call_args_list]
+        self.assertIn('Latest rejected plan command',prompts[1])
+        self.assertIn('then call submit_typed_plan',prompts[1])
+        for prompt in prompts[2:]:
+            self.assertNotIn('Latest rejected plan command',prompt)
+            self.assertNotIn('invented-asset',prompt)
+            self.assertIn('Inspection result (data)',prompt)
+        self.assertEqual(self.store.query('SELECT status FROM planner_runs')[0]['status'],'staged')
+
     def test_invalid_atomic_draft_is_not_persisted_and_can_be_resubmitted(self):
         from types import SimpleNamespace
         import threading

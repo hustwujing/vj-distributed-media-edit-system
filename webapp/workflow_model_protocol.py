@@ -641,6 +641,10 @@ class ToolProtocol:
 
     def add(self,name,action,source):self.schemas[name]=source;self.names[name]=action
 
+    def execution_actions(self):
+        """Actions emitted by decode(), including host-compiled draft commits."""
+        return {'proposal' if action in ('draft_commit','draft_control') else action for action in self.names.values()}
+
     def add_draft_tools(self,draft,contracts,finalize):
         command=manager_schema(self.frozen,contracts,allow_script=False);defs=command['$defs'];plan=command['properties']['plan']['anyOf'][0]['properties']
         def referenced(item):return referenced_schema(obj({'tasks':{'type':'array','minItems':1,'maxItems':16,'items':item}}),defs)

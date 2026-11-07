@@ -675,14 +675,15 @@ def execute(host,lease,run,task):
                 'required_review_criteria':frozen.get('review_criteria',[])}
         if turn:
             conversation+='\nCurrent server-owned phase budget:'+graph.encode(budget)
-            if finalize_started:conversation+='\nFinalize now. Submit proposal/result from existing evidence. inspect is disabled in finalize phase.'
+            if finalize_started:conversation+='\nFinalize now. Use an available submission or draft-correction tool with existing evidence. inspect is disabled in finalize phase.'
         from .telemetry import emit
         emit('workflow.agent_phase_budget',task_id=lease.run_id,step_id=lease.step_id,operation=phase,
              remaining_calls=remaining_calls,remaining_inspections=budget['inspection_rounds_remaining'],remaining_corrections=budget['correction_rounds_remaining'])
         if profile.id=='media_planner':draft=get_draft(store,task['spec']['request_id'])
         protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,
                               candidate_keys=candidate_keys,contracts=contracts,draft=draft,store=store)
-        try:reply=model(host,lease,run,profile,conversation+feedback,images,deadline=deadline,protocol=protocol,transport=transport,text_stream=text_stream)
+        current_prompt=conversation+feedback;feedback=''
+        try:reply=model(host,lease,run,profile,current_prompt,images,deadline=deadline,protocol=protocol,transport=transport,text_stream=text_stream)
         except AgentReplyError as exc:
             from .telemetry import emit
             if getattr(exc,'strict_not_enforced',False):
@@ -721,9 +722,8 @@ def execute(host,lease,run,task):
         if reply.get('_normalizations'):
             emit('workflow.model_command_normalized','WARNING',task_id=lease.run_id,step_id=lease.step_id,
                  normalizations=reply['_normalizations'])
-        corrective_draft_actions=('draft_replace_tasks','draft_remove_tasks','draft_replace_configuration')
-        if finalize_started and action not in ('result','proposal',*corrective_draft_actions):
-            conversation+='\nFinalize phase: only result/proposal is accepted. No script, inspect or contract action was executed. Submit the completed declared outputs or an explicit bounded result.'
+        if finalize_started and action not in protocol.execution_actions():
+            conversation+='\nFinalize phase: use the available submission or draft-correction tools. No script, inspect or contract action was executed. Submit the completed declared outputs or an explicit bounded result.'
             correction_rounds+=1
             continue
         draft_actions=('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration')
@@ -834,8 +834,11 @@ def execute(host,lease,run,task):
                     correction_protocol=ToolProtocol(profile,frozen,task,finalize=finalize_started,inspections=inspections,
                         candidate_keys=candidate_keys,contracts=contracts,draft=current_draft,store=store) if current_draft else protocol
                     corrections=[name for name in correction_protocol.schemas if name.startswith(('replace_','remove_draft'))]
+                    resubmit=not corrections and 'submit_typed_plan' in correction_protocol.schemas
+                    if resubmit:corrections=['submit_typed_plan']
                     bounded=[{**item,'allowed_actions':corrections} for item in errors]
-                    feedback+='\nCorrect only these fields in the server-owned draft, then call commit_plan:'+graph.encode(bounded)
+                    feedback+=('\nCorrect only these fields in the server-owned draft submission, then call submit_typed_plan:' if resubmit
+                               else '\nCorrect only these fields in the server-owned draft, then call commit_plan:')+graph.encode(bounded)
                     emit('workflow.agent_correction',task_id=lease.run_id,step_id=lease.step_id,error_code=errors[0]['type'],repeated_error_count=rejections[signature])
                     correction_rounds+=1
                     continue
