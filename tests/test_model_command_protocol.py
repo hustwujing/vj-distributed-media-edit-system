@@ -174,6 +174,15 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
         self.assertEqual(required_delivery_extensions(value),{'mp4'})
 
+    def test_explicit_final_delivery_does_not_require_intermediate_objective_filenames(self):
+        value={'goal':'render的objective设为“将portrait.png缩放为64×64 final.png。”。package复制上游结果为delivered.png并交付delivered.png。',
+               'input_asset_names':['portrait.png']}
+        self.assertEqual(required_delivery_names(value),{'delivered.png'})
+        value['goal']='先生成 intermediate.wav。最终交付 final.mp4、subtitles.srt 和 cover.png。'
+        self.assertEqual(required_delivery_names(value),{'final.mp4','subtitles.srt','cover.png'})
+        self.assertEqual(required_delivery_names({'goal':'Create intermediate.png; deliver final.png.'}),{'final.png'})
+        self.assertEqual(required_delivery_names({'goal':'缩放为64×64 final.png。'}),{'final.png'})
+
     def test_internal_evidence_is_not_promoted_by_global_report_or_format_requests(self):
         from webapp.workflow_model_protocol import required_delivery_roles,bind_explicit_delivery_formats
         value={'goal':'交付处理后的WAV；证据报告留在工作流中供系统最终Review检查，不交付。'}

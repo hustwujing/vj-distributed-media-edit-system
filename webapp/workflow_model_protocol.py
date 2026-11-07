@@ -143,6 +143,9 @@ def required_delivery_names(frozen):
     import re
     text,filename=_delivery_request_text(frozen)
     matches=list(filename.finditer(text));names={match.group(0) for match in matches}
+    explicit={match.group(0) for clause in re.finditer(r'(?i)(?:交付|\bdeliver\s+)[^;；。\n]*',text)
+              for match in filename.finditer(clause.group(0))}
+    if explicit:names=explicit
     name=r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
     for renamed in re.finditer(rf'(?i)(?P<old>{name})\s*(?:改名为|重命名为|rename(?:d)?\s+to)\s*(?P<new>{name})',text):
         names.discard(renamed.group('old'))
