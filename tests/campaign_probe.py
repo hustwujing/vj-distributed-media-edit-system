@@ -289,7 +289,7 @@ def verify(run_dir):
         from campaign_dynamic_intervention_checks import check as intervention_check
         extra_checks,extra_errors=intervention_check(state,spec,images,videos,store(),fixture,frame,run_dir)
         checks.update(extra_checks);errors.extend(extra_errors)
-    if state['case'] in ('D28','D30','D31','D36','D37','D38'):
+    if state['case'].startswith('D'):
         from campaign_unified_checks import check as unified_check
         extra_checks,extra_errors=unified_check(state,images,videos,store(),frame)
         checks.update(extra_checks);errors.extend(extra_errors)
