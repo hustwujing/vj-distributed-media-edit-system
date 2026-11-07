@@ -146,6 +146,20 @@ class ModelCommandTests(unittest.TestCase):
                'user_changes':[{'content':'Keep evidence.json internal only; deliver final.mp4.'}]}
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
 
+    def test_negated_processing_of_original_source_is_not_an_output_request(self):
+        for clause in ('不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。',
+                       '无需重新处理原始 recording.wav。',
+                       'Do not reprocess the original recording.wav.'):
+            with self.subTest(clause=clause):
+                value={'goal':'交付 final.mp4 和 cover.png。'+clause}
+                self.assertEqual(required_delivery_names(value),{'final.mp4','cover.png'})
+                self.assertEqual(required_delivery_extensions(value),{'mp4','png'})
+                value['goal']+='同时交付原始 recording.wav。'
+                self.assertEqual(required_delivery_names(value),{'final.mp4','cover.png','recording.wav'})
+                self.assertEqual(required_delivery_extensions(value),{'mp4','png','wav'})
+        self.assertEqual(required_delivery_names({'goal':'不要重新生成 final.png，直接交付。'}),{'final.png'})
+        self.assertEqual(required_delivery_names({'goal':'不要重复剪辑原始 clip_a.mp4，直接交付 clip_a.mp4。'}),{'clip_a.mp4'})
+
     def test_intermediate_reused_format_is_not_a_delivery_requirement(self):
         value={'goal':'另建 clip 节点处理成 MP4，保留该节点供后续复用。最终交付 final.png。',
                'authorization':{'delivery_targets':['128x64 PNG image']}}

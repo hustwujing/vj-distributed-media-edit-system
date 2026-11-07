@@ -121,6 +121,8 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 
 替换 Task 继承的验收与交付阶段保持原值；全 Run 的交付文件名/格式提示不得再次重写中间 Task 的冻结要求。Operation 替换为 Agent 也遵守同一规则。
 
+显式交付文件名提取须区分输出要求与“不要重新处理原始输入”的否定约束，尤其是只授权复用成果的新 Run，原素材名可能不在其输入资产列表。否定语境中的原素材引用不增加交付文件或格式；其他位置明确要求交付同名文件时仍须校验，不得因出现过否定处理语句而全局忽略该文件。
+
 异构片段使用独立 media.normalize_clip Task，统一明确规格并保存验收检查点，media.concat_sequence 只负责兼容流顺序汇合。禁止在单一脚本中隐藏大量解码器或让一次失败重做所有片段。
 
 用户批准原本声明的Review后，最终Reviewer快照提供server-owned user_reviews，只包含当前选中Task、当前revision且candidate_digest仍匹配的已应用approve决定。该事实不豁免技术或Agent失败。Manager回显错误的快照绑定字段仍拒绝暂存，但在同一有效租约/请求内给予有界纠正；失效租约、过期请求及图版本竞争不改为可忽略错误。

@@ -104,6 +104,11 @@ def _delivery_request_text(frozen):
     extension=r'(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
     filename=re.compile(r'(?i)(?<![A-Za-z0-9_.-])[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+extension+r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])')
     def omit_non_delivery(match):
+        before=re.split(r'[;；。\n,，.!?！？]',text[:match.start()])[-1]
+        # A prohibition on reprocessing an original input is not an output
+        # declaration. A separate positive delivery mention remains intact.
+        original_input=r'(?:(?:不要|无需|不得|不再)(?:重新|重复)?(?:剪辑|处理|生成|制作|编码|转码)\s*(?:原始|原(?:视频|音频|图片)|源(?:文件|素材))\s*|(?:do not|don\x27t|without)\s+(?:reprocess|re-?edit|regenerate|re-?encode)\s+(?:the\s+)?(?:original|source|input)\s+)$'
+        if re.search(original_input,before,re.IGNORECASE):return ' '
         after=text[match.end():]
         endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
         nearby=match.group(0)+after[:min(endings) if endings else len(after)]
