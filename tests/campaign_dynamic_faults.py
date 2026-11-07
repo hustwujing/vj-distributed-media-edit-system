@@ -118,6 +118,14 @@ def progress(directory):
     return result
 
 
+def frozen_attempt_status(store,project,unit,attempt):
+    # No Store.now(), initialization or global progress probe while a worker
+    # may be suspended holding the write-transaction advisory lock.
+    rows=store.query('''SELECT a.id,a.status FROM execution_attempts a
+        JOIN runs r ON r.id=a.run_id WHERE a.id=? AND r.project_id=?''',(attempt,project))
+    return {'attempts':[{**row,'unit':unit} for row in rows]}
+
+
 def kill_frozen_attempt(unit,attempt,observe,runtime=cluster):
     """Freeze the worker before rechecking: a completed poll is not a kill."""
     if unit not in runtime.WORKERS:raise ValueError('Worker outside dedicated deployment')
@@ -169,7 +177,10 @@ def act(directory,action,unit=None,attempt=None):
     elif action in ('stop_worker','kill_attempt_worker','start_worker'):
         if unit not in cluster.WORKERS:raise ValueError('Worker outside dedicated deployment')
         if action=='kill_attempt_worker':
-            kill_frozen_attempt(unit,attempt,lambda:progress(directory))
+            observed=progress(directory)
+            if not any(row['unit']==unit and row['id']==attempt and row['status']=='running' for row in observed['attempts']):
+                raise ValueError('No replay-safe QA task is running on this worker')
+            kill_frozen_attempt(unit,attempt,lambda:frozen_attempt_status(store,state['project'],unit,attempt))
         elif action=='stop_worker':
             observed=progress(directory);submitting={p['attempt_id'] for p in observed['submitting']}
             assigned=[row for row in observed['attempts'] if row['unit']==unit and row['status']=='running' and not row['control_kind']

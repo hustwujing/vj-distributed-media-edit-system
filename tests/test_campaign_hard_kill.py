@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 from tests import campaign_dynamic_probe
 with patch.dict(sys.modules,{'campaign_dynamic_probe':campaign_dynamic_probe}):
-    from tests.campaign_dynamic_faults import kill_frozen_attempt
+    from tests.campaign_dynamic_faults import kill_frozen_attempt,frozen_attempt_status
 
 
 class FrozenKillTests(unittest.TestCase):
@@ -36,3 +36,11 @@ class FrozenKillTests(unittest.TestCase):
     def test_foreign_unit_rejected_before_signals(self):
         with self.assertRaises(ValueError):kill_frozen_attempt('source-executor@a.service','attempt',self.observe,self.runtime)
         self.assertEqual(self.calls,[])
+
+    def test_frozen_probe_only_uses_project_scoped_read_query(self):
+        def query(sql,args):
+            self.assertEqual(args,('attempt','project'))
+            self.assertIn('r.project_id=?',sql)
+            return [{'id':'attempt','status':'running'}]
+        store=SimpleNamespace(query=query)
+        self.assertEqual(frozen_attempt_status(store,'project',self.unit,'attempt'),{'attempts':[self.row]})
