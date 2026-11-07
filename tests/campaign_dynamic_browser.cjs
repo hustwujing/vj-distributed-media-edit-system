@@ -312,8 +312,10 @@ async function runCase(browser,spec){
    else if(hook==='token_budget'){run=await wait(w=>paused(w),120);assert.equal(run.terminal_reason,'model_token_budget_exhausted');state.outcome='protocol_passed';state.browser_assertions.push('Token budget stopped before another model request');}
    else if(hook==='authorize_provider'||hook==='reject_provider'){
     run=await wait(w=>deciding(w),240);assert.ok(run.decisions.some(d=>d.kind==='plan_change'));
+    const before=await fault('progress');assert.equal(before.provider_calls.length,0,'Provider was called before scope approval');
+    state.provider_authorization_boundary={calls_before_answer:0,answer:hook==='authorize_provider'?'approve':'reject'};persist();
     await approve(hook==='authorize_provider'?'approve':'reject');
-    if(hook==='reject_provider'){run=await wait(w=>paused(w));state.outcome='protocol_passed';}
+    if(hook==='reject_provider'){run=await wait(w=>paused(w));assert.equal((await fault('progress')).provider_calls.length,0,'Provider was called after scope rejection');state.provider_authorization_boundary.calls_after_reject=0;state.outcome='protocol_passed';}
    }
    else if(hook==='orchestrator_restart'){
     await wait(w=>w.control_jobs.some(t=>t.control_kind==='PLAN'&&t.status==='running'),90);await fault('stop_orchestrator');orchestratorStopped=true;
