@@ -187,7 +187,7 @@ def expire_leases(db,task_id=None):
     rows=db.execute('SELECT attempt,run_id FROM execution_leases WHERE active=1 AND expires<=?'+
                     (' AND run_id=?' if task_id else ''),(now,task_id) if task_id else (now,)).fetchall()
     for row in rows:
-        if not db.execute('UPDATE execution_leases SET active=0 WHERE attempt=? AND active=1 AND expires<=?',
+        if not db.execute('UPDATE execution_leases SET active=0,interrupted=1 WHERE attempt=? AND active=1 AND expires<=?',
                           (row['attempt'],now)).rowcount:continue
         settle(db,row['attempt'],True)
         db.execute("UPDATE execution_attempts SET status='expired',finished=COALESCE(finished,?) WHERE id=? AND status='running'",

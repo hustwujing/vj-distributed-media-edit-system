@@ -68,5 +68,9 @@ class LifecycleTests(unittest.TestCase):
         with self.store.connect() as db:db.execute('BEGIN IMMEDIATE');sweep(db)
         self.assertEqual(self.store.query('SELECT state,external_id FROM execution_external_cleanup')[0],
             {'state':'pending','external_id':'sandbox-1'})
+        successor=self.b.claim(self.turn,'agent')
+        self.assertIsNotNone(successor);self.assertTrue(successor.recovered)
+        self.assertNotEqual(successor.attempt,lease.attempt)
+        successor.release()
 
 if __name__=='__main__':unittest.main()
