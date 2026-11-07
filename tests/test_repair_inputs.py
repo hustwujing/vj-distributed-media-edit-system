@@ -57,6 +57,8 @@ class RepairInputTests(unittest.TestCase):
     def test_exhausted_candidate_review_blocks_new_automatic_evidence(self):
         self.store.execute("UPDATE run_tasks SET review_again_count=2 WHERE run_id=? AND id='first'",(self.run['id'],))
         run=graph.get(self.store,self.run['id'])
+        frozen=planning.snapshot(self.store,run)
+        self.assertEqual(next(t['review_again_count'] for t in frozen['tasks'] if t['id']=='first'),2)
         task={'id':'unusable-evidence','type':'operation','purpose':'evidence','name':'Inspect candidate',
             'objective':'Collect facts about the existing candidate','operation':'media.evidence',
             'inputs':{'source':{'repair_candidate':self.ref}},'parameters':{'mode':'image'},
