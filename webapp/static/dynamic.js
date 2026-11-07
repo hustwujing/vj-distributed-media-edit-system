@@ -9,6 +9,7 @@ const names={ACTIVE:'进行中',WAITING_USER:'等待处理',CANCELLING:'正在�
 const labels={input_accepted:'补充要求已接收',input_safe_point:'当前任务已排空，开始重新规划',input_batch_applied:'补充要求已处理',manager_result_applied:'规划结果已应用',review_reused_or_blocked:'候选与证据未变，保留已有审查结论',successor_created:'已创建下一轮执行',proposal_applied:'新一轮计划已确定',planning_requested:'开始下一轮规划',proposal_rejected:'提案未通过校验，正在处理',review_requested:'开始验收',task_result_committed:'步骤结果已记录',state_changed:'工作流状态更新',command_processed:'控制请求已处理',delivered:'正式成果已交付',created:'工作流已创建'};
 let project,capabilities,preview,currentId=null,current=null,newRunMode=false,timer=null,cursorTimer=null,busy=false,lastRender='',lastDecisions='',stopped=false,pendingCommand=null,uploading=0,projectLoad=0,capabilityLoad=0,refreshEpoch=0,lastSnapshot=null,lastRunSignature='',lastDagSignature='',modelChoice=null,eventStream=null,streamRun=null,liveEvents=[],agentTextEvents=[],agentStreamTurn={status:'running',text:'',text_version:[0,0],text_phase:'idle'},graphEvents=[],lockedDagNode=null,dagGraph=null,dagLayoutId='',lastAgentOutputAt=0,followConversation=true;
 const completedStreams=new Set();
+let inputDraftRun=null;
 // getRandomValues also works on the HTTP intranet entry, unlike randomUUID.
 const uuid=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
 const draftKey=(run,kind)=>`dynamic-draft:${projectId}:${run}:${kind}`;
@@ -16,6 +17,18 @@ function readDraft(run,kind){try{return JSON.parse(sessionStorage.getItem(draftK
 function writeDraft(run,kind,value){try{if(value)sessionStorage.setItem(draftKey(run,kind),JSON.stringify(value));else sessionStorage.removeItem(draftKey(run,kind));}catch{/* Storage may be disabled; editing remains available. */}}
 function saveInputDraft(){const form=$('dynamic-input-form');if(!form.dataset.run)return;
  writeDraft(form.dataset.run,'input',{text:$('dynamic-input-content').value,assets:[...$('dynamic-input-assets').selectedOptions].map(x=>x.value),targets:[...$('dynamic-input-targets').selectedOptions].map(x=>x.value),requestId:form.dataset.requestId});}
+function restoreInputDraft(run,allowTargets=true){
+ const form=$('dynamic-input-form'),switched=form.dataset.run!==run;
+ if(!switched&&inputDraftRun===run)return;
+ const saved=readDraft(run,'input');form.dataset.run=run;inputDraftRun=run;
+ if(saved||switched){
+  const draft=saved||{};$('dynamic-input-content').value=draft.text||'';
+  delete form.dataset.requestId;if(draft.requestId)form.dataset.requestId=draft.requestId;
+  for(const option of $('dynamic-input-assets').options)option.selected=(draft.assets||[]).includes(option.value);
+  for(const option of $('dynamic-input-targets').options)option.selected=allowTargets&&(draft.targets||[]).includes(option.value);
+  renderAttachmentChips();
+ }
+}
 function error(message){$('dynamic-error').textContent=message;$('dynamic-error').hidden=!message;}
 function safeName(task){return task.spec.name;}
 function modelControls(){
@@ -291,11 +304,7 @@ function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.
  const known=new Map([...choices.options].map(option=>[option.value,option]));
  for(const task of run.tasks.filter(item=>item.selected)){if(!known.has(task.id)){const option=document.createElement('option');option.value=task.id;option.textContent=task.spec.name;choices.append(option);}known.delete(task.id);}
  for(const option of known.values())option.remove();
- const form=$('dynamic-input-form');if(form.dataset.run!==run.id){form.dataset.run=run.id;const draft=readDraft(run.id,'input')||{};
-  $('dynamic-input-content').value=draft.text||'';delete form.dataset.requestId;if(draft.requestId)form.dataset.requestId=draft.requestId;
-  for(const option of $('dynamic-input-assets').options)option.selected=(draft.assets||[]).includes(option.value);
-  for(const option of choices.options)option.selected=!terminalRun(run.state)&&(draft.targets||[]).includes(option.value);
- }
+ restoreInputDraft(run.id,!terminalRun(run.state));
  startRunStream(run.id);renderMessages(run);renderRoleActivity(run);renderLedger(run);renderChatActivity(run);
  $('dynamic-control-jobs').innerHTML=run.control_jobs.map(job=>`<p>${{PLAN:'规划',REVIEW:'审查',DIAGNOSE:'诊断'}[job.control_kind]} · ${names[job.status]||esc(job.status)}${job.error_code?' · '+esc(job.error_code):''}</p>`).join('');
 
@@ -313,7 +322,7 @@ async function refresh(){
    const selected=currentId;const [run,events]=await Promise.all([api(path(`/runs/${selected}`)),api(path(`/runs/${selected}/events?limit=100`))]);
    if(epoch!==refreshEpoch||selected!==currentId||stopped)return;graphEvents=events.events;render(run);
    $('dynamic-events').innerHTML=events.events.map(e=>`<div>${esc(new Date(e.created_at*1000).toLocaleTimeString())} · ${esc(labels[e.kind]||e.kind)} · v${e.graph_version}</div>`).join('');
-  }else{current=null;if(eventStream)eventStream.close();eventStream=null;streamRun=null;liveEvents=[];agentTextEvents=[];agentStreamTurn={status:'running',text:'',text_version:[0,0],text_phase:'idle'};lastAgentOutputAt=0;clearTimeout(cursorTimer);followConversation=true;$('dynamic-scroll-latest').hidden=true;graphEvents=[];lastRunSignature='';lastDagSignature='';$('dynamic-current').hidden=true;$('dynamic-empty').hidden=false;$('dynamic-run-tools').hidden=false;$('dag-fab').hidden=true;$('dynamic-execution-settings').hidden=false;$('dynamic-context-settings').hidden=false;$('dynamic-input-target-field').hidden=true;const form=$('dynamic-input-form');if(form.dataset.run!=='new'){form.dataset.run='new';const draft=readDraft('new','input')||{};$('dynamic-input-content').value=draft.text||'';delete form.dataset.requestId;if(draft.requestId)form.dataset.requestId=draft.requestId;for(const option of $('dynamic-input-assets').options)option.selected=(draft.assets||[]).includes(option.value);for(const option of $('dynamic-input-targets').options)option.selected=false;renderAttachmentChips();}$('dynamic-input-content').placeholder='描述你要完成的任务…';$('dynamic-input-submit').setAttribute('aria-label','开始执行');$('dynamic-input-status').textContent='';$('dynamic-user-messages').innerHTML='';$('dynamic-input-history').dataset.signature='';$('dynamic-agent-text').textContent='';$('dynamic-agent-text-status').textContent='';$('dynamic-agent-response').hidden=true;$('dynamic-conversation-empty').hidden=false;$('dynamic-ledger').innerHTML='<div class="dynamic-ledger-empty"><strong>还没有执行记录</strong><span>任务启动后会持续追加。</span></div>';$('dynamic-ledger-status').textContent='等待任务';}
+  }else{current=null;if(eventStream)eventStream.close();eventStream=null;streamRun=null;liveEvents=[];agentTextEvents=[];agentStreamTurn={status:'running',text:'',text_version:[0,0],text_phase:'idle'};lastAgentOutputAt=0;clearTimeout(cursorTimer);followConversation=true;$('dynamic-scroll-latest').hidden=true;graphEvents=[];lastRunSignature='';lastDagSignature='';$('dynamic-current').hidden=true;$('dynamic-empty').hidden=false;$('dynamic-run-tools').hidden=false;$('dag-fab').hidden=true;$('dynamic-execution-settings').hidden=false;$('dynamic-context-settings').hidden=false;$('dynamic-input-target-field').hidden=true;restoreInputDraft('new',false);$('dynamic-input-content').placeholder='描述你要完成的任务…';$('dynamic-input-submit').setAttribute('aria-label','开始执行');$('dynamic-input-status').textContent='';$('dynamic-user-messages').innerHTML='';$('dynamic-input-history').dataset.signature='';$('dynamic-agent-text').textContent='';$('dynamic-agent-text-status').textContent='';$('dynamic-agent-response').hidden=true;$('dynamic-conversation-empty').hidden=false;$('dynamic-ledger').innerHTML='<div class="dynamic-ledger-empty"><strong>还没有执行记录</strong><span>任务启动后会持续追加。</span></div>';$('dynamic-ledger-status').textContent='等待任务';}
   if(!eventStream)$('dynamic-connection').textContent=current&&terminalRun(current.state)?`执行已结束 · ${new Date(current.updated_at*1000).toLocaleTimeString()}`:`状态已同步 · ${new Date().toLocaleTimeString()}`;
  }catch(e){if(epoch!==refreshEpoch)return;$('dynamic-connection').textContent='连接中断，正在重试';error(e.message);}
  finally{if(epoch===refreshEpoch){clearTimeout(timer);if(!stopped&&!(current&&terminalRun(current.state)))timer=setTimeout(refresh,2000);}}
