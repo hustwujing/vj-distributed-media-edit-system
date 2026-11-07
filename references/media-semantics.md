@@ -55,6 +55,11 @@ requires a particular starting pose in the reference image, preserve that image
 requirement and describe the transition to the action within the onset deadline
 in the video prompt.
 
+Make qualitative camera motion concrete in the generation prompt. A slight
+push-in can use a small total scale change (for example 5–10% when no amount is
+specified), while keeping required reference features in frame. Explicit user
+amounts take precedence; smooth motion alone does not establish a small amplitude.
+
 Use timestamped observations covering onset, middle and ending. A single still
 frame cannot establish motion, continuity, or a gradual transition. Distinguish
 observed contradictions from insufficient evidence; report the latter explicitly.

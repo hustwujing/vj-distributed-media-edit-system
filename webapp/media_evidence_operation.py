@@ -120,7 +120,7 @@ def audio_comparison(source,reference,offset,window_seconds,*,reference_offset=N
             'source_tone_hz':source_tone,'reference_tone_hz':reference_tone,
             'tone_difference_hz':abs(source_tone-reference_tone) if source_tone is not None and reference_tone is not None else None,
             'tone_interpretation':'stable_narrowband_peak_not_general_speech_pitch',
-            'normalized_correlation':float(np.dot(left,right)/denominator) if denominator else None,
+            'normalized_correlation':float(np.clip(np.dot(left,right)/denominator,-1,1)) if denominator else None,
             'source_rms':left_rms,'reference_rms':right_rms,
             'rms_ratio_db':20*math.log10(left_rms/right_rms) if left_rms>0 and right_rms>0 else None,
             'interpretation':'bounded_signal_similarity_not_source_separation_or_identity'}

@@ -232,6 +232,7 @@ class AudioEvidenceTests(unittest.TestCase):
             self.assertEqual(report['parameters'],params)
             self.assertEqual(correct['reference_offset_seconds'],2)
             self.assertGreater(correct['normalized_correlation'],.99999)
+            self.assertLessEqual(correct['normalized_correlation'],1)
             self.assertAlmostEqual(correct['source_tone_hz'],660,delta=2)
             self.assertAlmostEqual(correct['reference_tone_hz'],660,delta=2)
             self.assertAlmostEqual(correct['tone_difference_hz'],0,delta=.1)
