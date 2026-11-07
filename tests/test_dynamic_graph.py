@@ -940,7 +940,7 @@ class DynamicGraphTests(unittest.TestCase):
         request=self.store.query("SELECT snapshot_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))[0]
         from webapp.workflow_model_protocol import repair_options
         options=repair_options(json.loads(request['snapshot_json']))
-        self.assertIn('first',{item['task_id'] for item in options if item['action']=='collect_evidence_then_review_again'})
+        self.assertIn('first',{item['task_id'] for item in options if item['action']=='collect_delivery_evidence'})
         subject=next(task for task in updated['tasks'] if task['id']=='first')
         self.assertEqual((subject['revision'],subject['status']),(0,'succeeded'))
 

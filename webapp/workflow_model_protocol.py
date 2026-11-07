@@ -284,6 +284,8 @@ def repair_options(frozen):
     for review in frozen.get('review_feedback',[]):
         decision=review.get('decision',{});subject=review.get('subject_task')
         if decision.get('verdict')!='inconclusive':continue
+        final_review=review.get('purpose')=='final' or not subject
+        if not final_review and subject not in tasks:continue
         if subject in tasks and tasks[subject].get('review_again_count',0)>=graph.CANDIDATE_REVIEW_LIMIT:continue
         text=(decision.get('feedback') or '').lower();modes=[]
         if any(word in text for word in ('fade','淡出','淡入','rms','响度','音量包络')):modes.append('audio_envelope')
@@ -292,14 +294,15 @@ def repair_options(frozen):
         subjects=[subject] if subject in tasks else [identifier for identifier,item in tasks.items()
             if item['spec'].get('delivery_stage') and (item.get('accepted_result') or identifier in candidate_subjects)]
         for identifier in subjects:
-            options.append({'action':'collect_evidence_then_review_again','task_id':identifier,
+            options.append({'action':'collect_delivery_evidence' if final_review else 'collect_evidence_then_review_again','task_id':identifier,
                             'operation':'media.evidence','suggested_modes':list(dict.fromkeys(modes or ['auto'])),
-                            'meaning':'Keep the accepted candidate immutable. Add evidence Tasks for the missing facts, then use review_again; do not rerender unchanged media.'})
+                            'meaning':('Keep approved deliverables immutable. Add evidence Tasks for missing final-review facts, then call complete_run after they succeed.'
+                                if final_review else 'Keep the accepted candidate immutable. Add evidence Tasks for the missing facts, then use review_again; do not rerender unchanged media.')})
     return options
 
 
 def evidence_collection_available(frozen):
-    return any(item['action']=='collect_evidence_then_review_again' for item in repair_options(frozen))
+    return any(item['action'] in ('collect_evidence_then_review_again','collect_delivery_evidence') for item in repair_options(frozen))
 
 
 def completion_candidate(frozen):
@@ -606,8 +609,12 @@ def compile_manager(command,frozen):
                        if not any(source==identifier and target in affected for source,target in effective))
         if result['kind']=='APPLY_PLAN' and not waiting:
             eligible=[item for item in repair_options(frozen) if item['action'] in ('review_again','collect_evidence_then_review_again')]
-            if eligible:
+            if completion_candidate(frozen):
+                advice='Use complete_run to seal the completed graph and request final delivery review with the new evidence.'
+            elif eligible:
                 advice='Use plan.review_again with the completed eligible evidence Task IDs; do not submit an empty APPLY_PLAN.'
+            elif any(item['action']=='collect_delivery_evidence' for item in repair_options(frozen)):
+                advice='Add registered evidence Tasks for the missing final-review facts, then call complete_run after they succeed.'
             elif (frozen.get('input_batch') or {}).get('through_sequence',0):
                 advice='Use continue_run when the frozen input batch requires no graph change.'
             else:

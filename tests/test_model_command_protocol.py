@@ -104,8 +104,11 @@ class ModelCommandTests(unittest.TestCase):
 
     def test_new_final_review_evidence_allows_explicit_resubmission_without_empty_work(self):
         value=frozen();value['tasks'][0]['status']='succeeded';value['input_batch']=None
+        value['tasks'][0]['accepted_result']=['report.txt']
         value['trigger']={'repair_resume':'review_evidence','task_id':''}
         value['repair_context']={'active':True,'source':'review_evidence','subject_task':'','opened_graph_version':2}
+        value['review_feedback']=[{'purpose':'final','subject_task':'','decision':{
+            'verdict':'inconclusive','feedback':'Need independent final delivery evidence'}}]
         evidence=copy.deepcopy(value['tasks'][0]);evidence['id']='evidence';evidence['created_graph_version']=3
         evidence['spec'].update(id='evidence',purpose='evidence',delivery_stage=False)
         value['tasks'].append(evidence)
@@ -113,6 +116,12 @@ class ModelCommandTests(unittest.TestCase):
         self.assertIn('complete_run',protocol.schemas)
         result=protocol.decode('complete_run',{'reason':'New evidence is accepted; request independent final review'})['proposal']
         self.assertEqual(result['kind'],'COMPLETE');self.assertTrue(result['proposal']['sealed'])
+        with self.assertRaises(CommandError) as error:
+            compile_manager({'kind':'APPLY_PLAN','reason':'Evidence is complete','plan':{}},value)
+        self.assertIn('complete_run',str(error.exception))
+        self.assertNotIn('plan.review_again',str(error.exception))
+        delivery=next(o for o in repair_options(value) if o['action']=='collect_delivery_evidence')
+        self.assertIn('complete_run',delivery['meaning'])
         for mutate in (lambda v:v['tasks'][-1].update(created_graph_version=2),
                        lambda v:v['tasks'][-1].update(status='running'),
                        lambda v:v['repair_context'].update(subject_task='render')):
@@ -315,7 +324,7 @@ class ModelCommandTests(unittest.TestCase):
         self.assertTrue(forbidden <= {o['action'] for o in repair_options(f)})
         # Final delivery evidence is a separate review, not another Task review.
         f['tasks'][0]['review_again_count']=2;f['review_feedback'][0]['subject_task']=None
-        self.assertIn('collect_evidence_then_review_again',{o['action'] for o in repair_options(f)})
+        self.assertIn('collect_delivery_evidence',{o['action'] for o in repair_options(f)})
 
     def test_evidence_cannot_wait_on_unaccepted_output_from_paused_task(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render audio',
