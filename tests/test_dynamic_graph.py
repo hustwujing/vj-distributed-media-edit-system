@@ -562,6 +562,21 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','invalid_delivery_manifest'))
         self.assertIsNone(current['delivered_at'])
 
+    def test_publisher_rejects_preview_only_selection_even_with_a_passed_review(self):
+        run=self.review_fixture()
+        self.store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=?,quality_json=? WHERE run_id=? AND id='first'",
+            (graph.encode(['edit/movie.mp4','edit/thumb.png']),graph.encode({'output_roles':{
+                'video':'edit/movie.mp4','preview':'edit/thumb.png'}}),run['id']))
+        run=graph.get(self.store,run['id']);now=self.store.now()
+        self.store.execute('''INSERT INTO workflow_reviews(id,run_id,task_id,purpose,subject_task,graph_version,review_identity,
+            snapshot_json,snapshot_digest,status,decision_json,created_at,updated_at)
+            VALUES ('preview-review',?,'final-review','final','',?,'preview-only','{}',?,'passed',?,?,?)''',
+            (run['id'],run['graph_version'],'f'*64,graph.encode({'deliverables':['edit/thumb.png'],'primary':'edit/thumb.png'}),now,now))
+        self.orchestrator.publish(run,{'id':'preview-review'})
+        current=graph.get(self.store,run['id'])
+        self.assertEqual(current['terminal_reason'],'invalid_delivery_manifest')
+        self.assertEqual(current['delivery'],[]);self.assertIsNone(current['delivered_at'])
+
     def test_video_remains_primary_when_review_lists_cover_first(self):
         delivered,hashes=self.publish_metadata_fixture(['cover.png','final.mp4','review.json'],primary_index=1)
         self.assertEqual([a['name'] for a in delivered if a['is_primary']],['final.mp4'])

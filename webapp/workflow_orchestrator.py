@@ -917,7 +917,9 @@ class Orchestrator:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
         review=authoritative[0]
         decision=json.loads(review['decision_json']);selected=decision.get('deliverables',[])
-        accepted={name:t for t in graph.active_tasks(run) if t['spec']['delivery_stage'] for name in t['accepted_result']}
+        from .workflow_agent_contracts import approved_delivery_refs
+        eligible=approved_delivery_refs(run)
+        accepted={name:t for t in graph.active_tasks(run) if t['spec']['delivery_stage'] for name in t['accepted_result'] if name in eligible}
         if not selected or not isinstance(selected,list) or any(name not in accepted for name in selected):
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
         primary=decision.get('primary') or (selected[0] if len(set(selected))==1 else '')

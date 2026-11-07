@@ -3,6 +3,8 @@ from typing import Literal
 from pydantic import Field,model_validator
 from .workflow_graph import Contract
 
+AUXILIARY_DELIVERY_ROLES=frozenset({'report','plan','manifest','evidence','preview'})
+
 
 def review_criteria(snapshot):
     return snapshot.get('review_criteria') or snapshot.get('delivery_targets') or []
@@ -17,10 +19,8 @@ def delivery_candidate_refs(task):
                    if check.get('source')=='user' and check.get('stage')=='final' and check.get('file') not in (None,'*')}
         exact={path for path in roles.values() if path in accepted and (path in requested or path.rsplit('/',1)[-1] in requested)}
         if exact:
-            auxiliary={'report','plan','manifest','evidence','preview'}
-            return exact|{path for role,path in roles.items() if role not in auxiliary and path in accepted}
-    auxiliary={'report','plan','manifest','evidence'}
-    primary={path for role,path in roles.items() if role not in auxiliary and path in accepted}
+            return exact|{path for role,path in roles.items() if role not in AUXILIARY_DELIVERY_ROLES and path in accepted}
+    primary={path for role,path in roles.items() if role not in AUXILIARY_DELIVERY_ROLES and path in accepted}
     return primary or {path for path in roles.values() if path in accepted}
 
 
