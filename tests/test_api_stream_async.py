@@ -84,3 +84,24 @@ class AsyncSSETests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code,200);self.assertIn('durable event',response.text)
         self.assertIn('"stream_transport": "database"',response.text);self.assertIn('event: done',response.text)
         self.assertFalse(self.transport.enabled)
+
+    async def test_dynamic_disconnect_shields_reader_close_and_releases_permit(self):
+        from webapp import workflow_graph as graph
+        from webapp.agent_stream import AsyncStreamReader
+        run=graph.create(self.store,self.project,None,{'goal':'report','allowed_assets':[],
+            'allowed_operations':['script'],'delivery_targets':['report'],
+            'content_fingerprint':graph.content_fingerprint(self.store,self.project)})
+        url=f'/api/projects/{self.project}/runs/{run["id"]}/stream'
+        baseline=await self.clients();closed=[];original=AsyncStreamReader.aclose
+        async def close(reader):
+            await anyio.sleep(0)
+            await original(reader);closed.append(True)
+        with patch.object(AsyncStreamReader,'aclose',close):
+            self.requests=[asyncio.create_task(self.client.get(url))]
+            async def connected():return await self.clients()>baseline
+            await self.wait_for(connected)
+            self.requests[0].cancel()
+            await asyncio.gather(*self.requests,return_exceptions=True)
+            self.assertTrue(closed,'Redis reader cleanup was cancelled')
+        self.assertEqual(await self.clients(),baseline)
+        self.assertEqual(self.app.state.api_execution.streams.snapshot()['active'],0)

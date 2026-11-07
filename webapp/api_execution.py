@@ -348,14 +348,33 @@ def route_class(executors):
         def get_route_handler(self):
             handle=super().get_route_handler()
             name=getattr(self.endpoint,'api_admission',None)
+            async def bounded_handle(request):
+                # Only the registered multipart upload route needs the large
+                # streaming limit. Count bytes before JSON parsing, including
+                # chunked requests and bodies with a false Content-Length.
+                if name!='upload':
+                    from fastapi import HTTPException
+                    limit=1024*1024
+                    length=request.headers.get('content-length')
+                    if length is not None:
+                        try:size=int(length)
+                        except ValueError:raise HTTPException(400,'请求体长度无效。') from None
+                        if size<0:raise HTTPException(400,'请求体长度无效。')
+                        if size>limit:raise HTTPException(413,'请求体超过 1 MiB 限制。')
+                    body=bytearray()
+                    async for chunk in request.stream():
+                        if len(body)+len(chunk)>limit:raise HTTPException(413,'请求体超过 1 MiB 限制。')
+                        body.extend(chunk)
+                    request._body=bytes(body)
+                return await handle(request)
             async def admitted(request):
                 token=REQUEST_WORK.set({'submitted':0});permit=None
                 try:
-                    if name is None:return await handle(request)
+                    if name is None:return await bounded_handle(request)
                     permit=await executors.admissions[name].acquire()
                     timer=None
                     try:
-                        async with asyncio.timeout(executors.request_seconds[name]) as timer:return await handle(request)
+                        async with asyncio.timeout(executors.request_seconds[name]) as timer:return await bounded_handle(request)
                     except TimeoutError:
                         if timer is None or not timer.expired():raise
                         progress=REQUEST_WORK.get()

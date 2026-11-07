@@ -330,46 +330,48 @@ def register(app,store,own_project):
             redis_mode=redis_position is not None;redis_position=redis_position or '0-0'
             replay_events=not header or '-' not in header;initial=True;heartbeat=time.monotonic();last_snapshot=0.;status=''
             text_signature=None
-            try:
-                while not await request.is_disconnected():
-                    if initial or not redis_mode or time.monotonic()-last_snapshot>=2:
-                        try:run,records,messages,active_attempts=await api_execution.run('stream_read',snapshot,db_position,replay_events or not redis_mode,initial or not redis_mode)
-                        except APICapacityError:
-                            yield 'retry: 2000\nevent: retry\ndata: {"code":"API_STREAM_BUSY"}\n\n';return
-                        if not run:yield 'event: gone\ndata: {}\n\n';return
-                        status=run['status'];last_snapshot=time.monotonic();text=durable_text(messages,active_attempts)
-                        signature=json.dumps(text,sort_keys=True) if text else None
-                        if text and signature!=text_signature:
-                            text_signature=signature;yield 'event: text_snapshot\ndata: '+json.dumps(text,ensure_ascii=False)+'\n\n'
-                        for record in records:
-                            db_position=record['seq'];record['payload']=json.loads(record['payload'])
-                            event='agent_text' if record['kind']=='note' else 'activity'
-                            yield f'id: {db_position}\nevent: {event}\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
-                        initial=False;replay_events=False
-                    if redis_mode:
-                        live=await reader.read(run_id,redis_position,200,200)
-                        if live is None:redis_mode=False;continue
-                        for record in live:
-                            redis_position=record['id'];kind=record['kind']
-                            if kind=='text_snapshot':yield f'id: {redis_position}\nevent: text_snapshot\ndata: '+json.dumps(record['payload'],ensure_ascii=False)+'\n\n'
-                            elif kind=='text_delta':yield f'id: {redis_position}\nevent: text\ndata: '+json.dumps(record['payload'],ensure_ascii=False)+'\n\n'
-                            elif kind in public_kinds:
-                                event='agent_text' if kind=='note' else 'activity';value={'seq':redis_position,'kind':kind,'payload':record['payload'],'created':int(redis_position.split('-',1)[0])/1000}
-                                yield f'id: {redis_position}\nevent: {event}\ndata: '+json.dumps(value,ensure_ascii=False)+'\n\n'
-                        if status in ('SUCCEEDED','FAILED','CANCELLED') and not live:
-                            yield 'event: done\ndata: '+json.dumps({'status':status})+'\n\n';return
-                    else:
-                        if status in ('SUCCEEDED','FAILED','CANCELLED') and not records:
-                            yield 'event: done\ndata: '+json.dumps({'status':status})+'\n\n';return
-                        await asyncio.sleep(.5)
-                    if time.monotonic()-heartbeat>12:
-                        yield 'event: heartbeat\ndata: '+json.dumps({'time':time.time()})+'\n\n';heartbeat=time.monotonic()
-            finally:await reader.aclose()
+            while not await request.is_disconnected():
+                if initial or not redis_mode or time.monotonic()-last_snapshot>=2:
+                    try:run,records,messages,active_attempts=await api_execution.run('stream_read',snapshot,db_position,replay_events or not redis_mode,initial or not redis_mode)
+                    except APICapacityError:
+                        yield 'retry: 2000\nevent: retry\ndata: {"code":"API_STREAM_BUSY"}\n\n';return
+                    if not run:yield 'event: gone\ndata: {}\n\n';return
+                    status=run['status'];last_snapshot=time.monotonic();text=durable_text(messages,active_attempts)
+                    signature=json.dumps(text,sort_keys=True) if text else None
+                    if text and signature!=text_signature:
+                        text_signature=signature;yield 'event: text_snapshot\ndata: '+json.dumps(text,ensure_ascii=False)+'\n\n'
+                    for record in records:
+                        db_position=record['seq'];record['payload']=json.loads(record['payload'])
+                        event='agent_text' if record['kind']=='note' else 'activity'
+                        yield f'id: {db_position}\nevent: {event}\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
+                    initial=False;replay_events=False
+                if redis_mode:
+                    live=await reader.read(run_id,redis_position,200,200)
+                    if live is None:redis_mode=False;continue
+                    for record in live:
+                        redis_position=record['id'];kind=record['kind']
+                        if kind=='text_snapshot':yield f'id: {redis_position}\nevent: text_snapshot\ndata: '+json.dumps(record['payload'],ensure_ascii=False)+'\n\n'
+                        elif kind=='text_delta':yield f'id: {redis_position}\nevent: text\ndata: '+json.dumps(record['payload'],ensure_ascii=False)+'\n\n'
+                        elif kind in public_kinds:
+                            event='agent_text' if kind=='note' else 'activity';value={'seq':redis_position,'kind':kind,'payload':record['payload'],'created':int(redis_position.split('-',1)[0])/1000}
+                            yield f'id: {redis_position}\nevent: {event}\ndata: '+json.dumps(value,ensure_ascii=False)+'\n\n'
+                    if status in ('SUCCEEDED','FAILED','CANCELLED') and not live:
+                        yield 'event: done\ndata: '+json.dumps({'status':status})+'\n\n';return
+                else:
+                    if status in ('SUCCEEDED','FAILED','CANCELLED') and not records:
+                        yield 'event: done\ndata: '+json.dumps({'status':status})+'\n\n';return
+                    await asyncio.sleep(.5)
+                if time.monotonic()-heartbeat>12:
+                    yield 'event: heartbeat\ndata: '+json.dumps({'time':time.time()})+'\n\n';heartbeat=time.monotonic()
 
         class ManagedStream(StreamingResponse):
             async def __call__(self,*args,**kwargs):
                 try:return await super().__call__(*args,**kwargs)
-                finally:permit.release()
+                finally:
+                    import anyio
+                    try:
+                        with anyio.CancelScope(shield=True):await reader.aclose()
+                    finally:permit.release()
         return ManagedStream(generate(),media_type='text/event-stream',headers={'Cache-Control':'no-cache','X-Accel-Buffering':'no'})
 
     @app.post('/api/projects/{project_id}/runs/{run_id}/commands',status_code=202)

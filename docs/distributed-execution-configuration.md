@@ -26,6 +26,8 @@ API 将同步依赖调用隔离到不同的有界执行器。异步 Redis SSE �
 
 上传、图片导入、示例加载、删除分别有请求准入（活动/排队）：2/4、2/4、1/2、2/4，解析 multipart 前取得名额。整请求期限使用 `VIDEO_USE_API_UPLOAD_SECONDS`、`VIDEO_USE_API_IMAGE_IMPORT_SECONDS`、`VIDEO_USE_API_DEMO_SECONDS`、`VIDEO_USE_API_DELETE_SECONDS`，前三者默认 600 秒，删除默认 30 秒，范围 0.01–3600。
 
+普通 API 请求体上限为 1 MiB，在 JSON 解析前按实际接收字节计数；超限返回 413，含 chunked 或不实 Content-Length 的请求也受限制。仅注册的素材上传路由使用独立 multipart 准入和上传大小限制，不能通过修改 Content-Type 绕过普通请求限制。两层 Nginx 均保留原始 Host 及端口，使非默认端口的同源访问通过 Origin 校验；不同端口仍属于不同源。
+
 排队满或超时返回稳定 `API_*` 错误码、`Retry-After: 1` 和查询编号。响应中的 `not_started` 仅表示未开始任何依赖工作；已开始或先前阶段可能提交时使用 `unknown`，需刷新确认，不能据此盲目重试非幂等写入。调用方停止等待不会提前释放仍在运行的同步 SDK 线程。媒体 Socket 可本地中断，但不宣称远端解码已停止。
 
 临时上传与已删除项目的本地缓存由 API 独立维护循环清理；数据库不可用时不删除归属未知的项目缓存。未提交远端对象沿用原有延迟 GC，仍需运维按既有对象清理流程执行，不能将本地维护循环当作远端 GC。

@@ -52,6 +52,10 @@ class DeploymentIdentityTests(unittest.TestCase):
         proxy=cluster.nginx_config()
         self.assertIn('127.0.0.1:'+str(cluster.PORTS['a']),proxy);self.assertIn('127.0.0.1:'+str(cluster.PORTS['b']),proxy)
         self.assertNotIn('http_503',proxy)
+        self.assertIn('proxy_set_header Host $http_host;',proxy)
+        self.assertNotIn('proxy_set_header Host $host;',proxy)
+        import inspect
+        self.assertIn('proxy_set_header Host $http_host;',inspect.getsource(cluster.proxy))
     def test_private_namespace_cannot_reap_main_cgroups(self):
         with patch.dict('os.environ',{'VIDEO_USE_DEPLOYMENT':'distributed-agent'}):
             self.assertEqual(str(socket_root()),'/run/distributed-agent-agent')

@@ -340,7 +340,8 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     def new_project(body: ProjectInput, request: Request):
         if not body.name.strip():
             raise HTTPException(422, '请输入项目名称。')
-        with mutation_lock:
+        with mutation_lock,store.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
             count = store.query('SELECT count(*) AS n FROM projects WHERE owner=?', (request.state.owner,))[0]['n']
             if count >= MAX_PROJECTS:
                 raise HTTPException(409, f'当前浏览器已保存 {count} 个项目，达到 {MAX_PROJECTS} 个上限。请在不再需要的项目中点击“删除项目”后重试。')
@@ -711,6 +712,23 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         project=await api_execution.run('write',new_project,ProjectInput(name='示例 · '+demo['title']),request)
         project_id=project['id'];folder=store.project_dir(project_id);stage=Staging(store.root)
         mapping={};assets=[];auxiliary=[]
+        def discard_empty_project():
+            # Cancellation may race a still-running publisher. Wait for its
+            # private lock and never remove a committed import or user work.
+            with stage.lock:
+                if stage.committed:return
+                with store.connect() as db:
+                    db.execute('BEGIN IMMEDIATE')
+                    rows=store.query('SELECT name FROM projects WHERE id=?',(project_id,))
+                    if not rows or rows[0]['name']!=project['name']:return
+                    tables=('assets','project_drafts','project_demo_context','image_documents','image_versions',
+                            'jobs','agent_turns','edit_notes','edit_branches','edit_chapters','brand_templates',
+                            'execution_checkpoints','execution_checkpoint_versions','artifact_files')
+                    if any(store.query(f'SELECT project FROM {table} WHERE project=? LIMIT 1',(project_id,)) for table in tables):return
+                    if store.query('SELECT id FROM sessions WHERE project_id=? LIMIT 1',(project_id,)):return
+                    delete_project_data(project_id)
+                for directory in (folder,store.root/'cache/objects'/project_id):
+                    shutil.rmtree(directory,ignore_errors=True)
         limit=int(os.environ.get('VIDEO_USE_MAX_UPLOAD_MB','2048'))*1024**2
         def copy_source(source,name):
             with source.open('rb') as stream:return stage.copy(stream,name,limit)
@@ -784,7 +802,18 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
                     stage.check()
                 return {'project':project,'preset':preset,'prompt':demo['prompt']}
             return await api_execution.run('write',stage.commit,publish)
-        finally:await stage.finish(api_execution)
+        except ValueError as exc:raise HTTPException(422,str(exc)) from exc
+        except OverflowError as exc:raise HTTPException(413,'示例素材超过大小限制。') from exc
+        except subprocess.TimeoutExpired as exc:raise HTTPException(504,'示例素材检查超时。') from exc
+        finally:
+            await stage.finish(api_execution)
+            import anyio
+            with anyio.CancelScope(shield=True):
+                try:
+                    async with asyncio.timeout(2):await api_execution.run('cleanup',discard_empty_project)
+                except Exception as exc:
+                    from .telemetry import emit
+                    emit('api.cleanup_deferred','WARNING',reason='demo_project',exception_type=type(exc).__name__)
 
     image_api.register(app,store,own_project,mutation_lock,wake,public_job)
     edit_feedback.register(app,store,own_project,mutation_lock,wake)

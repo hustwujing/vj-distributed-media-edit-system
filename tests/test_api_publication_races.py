@@ -81,6 +81,36 @@ class APIPublicationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.store.assets(pid),[])
         self.assertEqual(list((self.store.root/'api-incoming').iterdir()),[])
 
+    async def test_demo_rejected_for_quota_or_invalid_media_does_not_leave_empty_projects(self):
+        source=self.root/'library';source_library(source);DemoLibrary(self.store).publish(source)
+        before=self.store.query('SELECT id FROM projects ORDER BY id')
+        with patch.dict(os.environ,{'VIDEO_USE_USER_STORAGE_BYTES':'1'}):
+            for _ in range(2):
+                response=await self.client.post('/api/demos/tiny/load')
+                self.assertEqual(response.status_code,422,response.text)
+                self.assertIn('存储额度',response.json()['detail'])
+                self.assertEqual(self.store.query('SELECT id FROM projects ORDER BY id'),before)
+        with patch('webapp.app.inspect_media',side_effect=ValueError('invalid demo media')):
+            response=await self.client.post('/api/demos/tiny/load')
+        self.assertEqual(response.status_code,422,response.text)
+        self.assertEqual(self.store.query('SELECT id FROM projects ORDER BY id'),before)
+        self.assertEqual(list((self.store.root/'api-incoming').iterdir()),[])
+
+    async def test_demo_cancel_during_inspection_removes_only_its_empty_project(self):
+        source=self.root/'library';source_library(source);DemoLibrary(self.store).publish(source)
+        before=self.store.query('SELECT id FROM projects ORDER BY id')
+        started,release=self.barrier()
+        from webapp.app import inspect_media
+        def slow(*args,**kwargs):started.set();release.wait(3);return inspect_media(*args,**kwargs)
+        with patch('webapp.app.inspect_media',side_effect=slow):
+            task=self.launch(self.client.post('/api/demos/tiny/load'))
+            await self.until(started.is_set)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):await task
+            release.set()
+            await self.until(lambda:not self.app.state.api_execution.pools['media'].snapshot()['active'])
+        self.assertEqual(self.store.query('SELECT id FROM projects ORDER BY id'),before)
+
     async def test_total_request_deadline_does_not_publish_late_result(self):
         self.app.state.api_execution.request_seconds['upload']=.05
         started,release=self.barrier();data=io.BytesIO();Image.new('RGB',(16,16),'blue').save(data,format='PNG')
