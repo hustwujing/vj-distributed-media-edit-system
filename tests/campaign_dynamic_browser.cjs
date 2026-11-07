@@ -273,11 +273,11 @@ async function runCase(browser,spec){
    try{
     await page.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await delayed.wait();
     assert.equal(await page.locator('#dynamic-input-submit').isDisabled(),true,'Submit was enabled before upload refresh completed');
-    await limit.fill('1');assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).isChecked(),false);
+    await limit.fill('1');assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).evaluate(node=>node.selected),false);
     await capture('upload-response-held');delayed.release();
     await page.waitForFunction(()=>document.body.dataset.uploading==='false');
     assert.equal(await page.locator(`[data-operation="${operation}"]`).inputValue(),'1','Late capabilities response overwrote consent');
-    assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).isChecked(),false,'Asset refresh overwrote selection');
+    assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).evaluate(node=>node.selected),false,'Asset refresh overwrote selection');
     await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).evaluate(node=>{node.selected=true;node.parentElement.dispatchEvent(new Event('change',{bubbles:true}));});
     state.upload_race={operation,limit:1,real_response_delayed:true,submit_disabled:true,selection_preserved:true};
     state.browser_assertions.push('Delayed real capabilities response preserved the edited provider limit and asset selection; upload blocked submit');persist();
