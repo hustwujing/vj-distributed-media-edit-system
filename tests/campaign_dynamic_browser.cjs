@@ -439,7 +439,8 @@ async function runCase(browser,spec){
     if(spec.id==='R13'){await control('pause');await wait(w=>paused(w));}
     if(!terminal((await read()).state)){await control('cancel');await wait(w=>terminal(w.state));}
     await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(runId=>document.querySelector('#dynamic-current')?.dataset.runId===runId&&!document.querySelector('#dynamic-run-tools')?.hidden,state.run_id);await page.locator('#dynamic-input-form').waitFor({state:'visible'});
-    await selectOptional(page.locator('#dynamic-input-assets'),selected);
+    const contextSettings=page.locator('#dynamic-context-settings'),inputAssets=page.locator('#dynamic-input-assets');await contextSettings.waitFor({state:'visible'});if(!await contextSettings.evaluate(node=>node.open))await contextSettings.locator('summary').click();await inputAssets.waitFor({state:'visible'});
+    await inputAssets.evaluate((node,values)=>{const chosen=new Set(values);for(const option of node.options)option.selected=chosen.has(option.value);node.dispatchEvent(new Event('change',{bubbles:true}));},selected);
     let revised=`复用已验收图片 prepare_a 在左、prepare_b 在右，不要重复亮度处理。用 Pillow ImageOps.fit 默认方法分别适配到${spec.expect.width/2}×${spec.expect.height}后并排合成${spec.expect.width}×${spec.expect.height}，交付 final.png。`;
     if(spec.id==='R01')revised+='最终文件改名为 renamed.png。';
     if(spec.id==='R02')revised+='最终改为64×32的 final.webp，采用无损WebP。';
