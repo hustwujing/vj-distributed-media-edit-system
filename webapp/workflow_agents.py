@@ -334,9 +334,12 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
             emit('workflow.model_response_structure',task_id=lease.run_id,step_id=lease.step_id,
                  error_code='model_response_incomplete',response_status=payload.get('status'),response_finish_reason=payload.get('stop_reason'),**structure)
             raise ModelServiceError(200,'model_response_incomplete')
+        response_stage='tool_envelope'
         try:
             name,arguments=tool_response(adapter,payload)
+            response_stage='credential_guard'
             assert_no_credentials(graph.encode(arguments),(*secrets(),key))
+            response_stage='tool_decode'
             reply=protocol.decode(name,arguments)
         except json.JSONDecodeError as exc:
             error=AgentReplyError('',exc.pos,'invalid_tool_json');error.details=[{'path':'arguments','type':'json_syntax','message':exc.msg}];raise error from None
@@ -349,8 +352,17 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
             error=AgentReplyError('',code='invalid_tool_arguments');error.details=details
             error.strict_not_enforced=bool(strict and isinstance(exc,SchemaError) and getattr(exc,'transport_stage',None)=='wire')
             raise error from None
-        except PublicResponseStructureError as exc:raise AgentReplyError('',code=exc.code) from None
-        except (ValueError,KeyError,TypeError,IndexError):raise AgentReplyError('',code='invalid_tool_response') from None
+        except PublicResponseStructureError as exc:
+            error=AgentReplyError('',code=exc.code)
+            error.details=[{'path':'tool_response','type':exc.code,'message':str(exc)}]
+            raise error from None
+        except (ValueError,KeyError,TypeError,IndexError) as exc:
+            emit('workflow.model_response_structure','WARNING',task_id=lease.run_id,step_id=lease.step_id,
+                 error_code='invalid_tool_response',operation=response_stage,exc=exc,**structure)
+            error=AgentReplyError('',code='invalid_tool_response')
+            error.details=[{'path':response_stage,'type':type(exc).__name__,
+                            'message':'Tool response could not be processed at this stage; no action was executed.'}]
+            raise error from None
         explicit_public=adapter.public_commentary(payload)
         public_texts=[] if streamed else explicit_public or [public_command_summary(profile,name,reply)]
         for text in public_texts:
@@ -686,6 +698,8 @@ def execute(host,lease,run,task):
         try:reply=model(host,lease,run,profile,current_prompt,images,deadline=deadline,protocol=protocol,transport=transport,text_stream=text_stream)
         except AgentReplyError as exc:
             from .telemetry import emit
+            details=getattr(exc,'details',None) or [{'path':'tool_response','type':exc.code,
+                'message':'Return exactly one complete call to an available tool with valid object arguments.'}]
             if getattr(exc,'strict_not_enforced',False):
                 transport['strict']=False
                 emit('workflow.structured_output_fallback',task_id=lease.run_id,step_id=lease.step_id,
@@ -697,8 +711,8 @@ def execute(host,lease,run,task):
                  graph.encode({'phase':'reply_validation' if exc.code=='invalid_json' else 'response_validation',
                                'origin':'model_reply' if exc.code in ('invalid_json','invalid_tool_json','invalid_tool_arguments') else 'provider_response','classification':'parameters',
                                'attempt_id':lease.attempt,'code':exc.code,'characters':len(exc.reply),'error_offset':exc.offset,
-                               'validation_errors':getattr(exc,'details',[])}),store.now()))
-            details=getattr(exc,'details',[])
+                               'validation_errors':details}),store.now()))
+            rejection_errors=details
             corrections=[name for name in protocol.schemas if name.startswith(('replace_','remove_draft'))]
             if corrections:details=[{**item,'allowed_actions':corrections} for item in details]
             feedback='\nLatest tool response rejected ('+exc.code+'). No action executed. Call one available tool and correct these fields without broadening scope:'+graph.encode(details)
@@ -710,7 +724,7 @@ def execute(host,lease,run,task):
             else:
                 if draft is not None:
                     from .workflow_plan_draft import record_error
-                    _,repeated=record_error(store,lease,task['spec']['request_id'],getattr(exc,'details',[]))
+                    _,repeated=record_error(store,lease,task['spec']['request_id'],rejection_errors)
                     if repeated>=2:
                         raise TaskQuotaReached('规划草稿连续收到相同的非法命令。',category='agent_contract',scope='turn',used=repeated,limit=2)
                 rejections[exc.code]=rejections.get(exc.code,0)+1

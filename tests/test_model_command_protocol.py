@@ -23,6 +23,19 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_tool_envelope_errors_are_specific_and_do_not_echo_response_content(self):
+        cases=[('anthropic',{'stop_reason':'end_turn','content':[{'type':'text','text':'private response'}]},'tool_call_required'),
+               ('anthropic',{'stop_reason':'tool_use','content':[]},'ambiguous_tool_calls'),
+               ('anthropic',{'stop_reason':'tool_use','content':[{'type':'tool_use','name':'inspect','input':[]}]},'tool_arguments_not_object'),
+               ('anthropic',{'stop_reason':'tool_use','content':[{'type':'tool_use','input':{}}]},'invalid_tool_name'),
+               ('responses',{'status':'completed','output':['private response']},'invalid_tool_items'),
+               ('chat_completions',{'choices':[{'finish_reason':'tool_calls','message':{'tool_calls':[{'type':'function','function':None}]}}]},'invalid_tool_envelope')]
+        for protocol,payload,code in cases:
+            with self.subTest(protocol=protocol,code=code):
+                with self.assertRaises(PublicResponseStructureError) as caught:response(get(protocol),payload)
+                self.assertEqual(caught.exception.code,code)
+                self.assertNotIn('private response',str(caught.exception))
+
     def test_completed_delivery_graph_exposes_only_narrow_completion_command(self):
         value=frozen();value['tasks'][0]['status']='succeeded'
         value['trigger']={'completed':['render']};value['input_batch']=None

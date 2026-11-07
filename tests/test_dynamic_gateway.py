@@ -369,6 +369,24 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual((usage['input_tokens'],usage['output_tokens']),(100,0))
         self.assertEqual(usage['receipt'],'conflict');self.assertEqual(usage['error_code'],'model_usage_zero_output')
 
+    def test_model_envelope_failure_preserves_actionable_safe_details(self):
+        from unittest.mock import patch
+        from webapp.model_adapters import PublicResponseStructureError
+        from webapp.workflow_agents import AgentReplyError
+        with patch('webapp.model_tool_protocol.response',side_effect=PublicResponseStructureError('Call exactly one available tool','tool_call_required')):
+            with self.assertRaises(AgentReplyError) as caught:self.estimated_generation()
+        self.assertEqual(caught.exception.code,'tool_call_required')
+        self.assertEqual(caught.exception.details,[{'path':'tool_response','type':'tool_call_required','message':'Call exactly one available tool'}])
+
+    def test_host_decode_failure_keeps_stage_without_exposing_exception_message(self):
+        from unittest.mock import patch
+        from webapp.workflow_agents import AgentReplyError
+        with patch('webapp.workflow_model_protocol.ToolProtocol.decode',side_effect=ValueError('private response content')):
+            with self.assertRaises(AgentReplyError) as caught:self.estimated_generation()
+        self.assertEqual(caught.exception.details[0]['path'],'tool_decode')
+        self.assertEqual(caught.exception.details[0]['type'],'ValueError')
+        self.assertNotIn('private response content',str(caught.exception.details))
+
     def test_actual_usage_over_estimate_is_recorded_and_blocks_further_budget_spending(self):
         from webapp.workflow_agents import model_budget
         from webapp.usage_protocol import Receipt
@@ -662,6 +680,44 @@ class DynamicGatewayTests(unittest.TestCase):
         row=self.store.query('SELECT last_error_signature,last_error_json,repeated_error_count FROM workflow_plan_drafts')[0]
         self.assertEqual((row['last_error_signature'],row['repeated_error_count']),(signature,repeated))
         self.assertEqual(json.loads(row['last_error_json']),errors)
+
+    def test_distinct_errors_without_field_details_do_not_exhaust_identical_error_limit(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute,AgentReplyError
+        from webapp.strict_schema import transform
+        calls=[]
+        def respond(*args,**kwargs):
+            calls.append(args[4])
+            if len(calls)<=2:raise AgentReplyError('',code=('tool_call_required','ambiguous_tool_calls')[len(calls)-1])
+            protocol=kwargs['protocol']
+            payload={'tasks':[{'id':'report','type':'agent','profile':'editing_implementer','name':'report','objective':'Write report',
+                'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file','stage':'final'}],
+                'basic_reason':'Local report'}],'kind':'COMPLETE','reason':'Corrected tool envelope'}
+            return protocol.decode('submit_typed_plan',transform(payload,protocol.schemas['submit_typed_plan'],encode=True))
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(len(calls),3)
+        self.assertIn('"type":"tool_call_required"',calls[1])
+        self.assertIn('"type":"ambiguous_tool_calls"',calls[2])
+        draft=self.store.query('SELECT status,repeated_error_count FROM workflow_plan_drafts')[0]
+        self.assertEqual((draft['status'],draft['repeated_error_count']),('COMMITTED',0))
+        records=[json.loads(r['record']) for r in self.store.query('SELECT record FROM workflow_diagnostics')]
+        self.assertTrue(all(record['validation_errors'] for record in records))
+
+    def test_identical_errors_without_field_details_still_stop_after_two(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute,AgentReplyError
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=AgentReplyError('',code='tool_call_required')) as model:
+            with self.assertRaises(TaskQuotaReached):
+                execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(model.call_count,2)
+        draft=self.store.query('SELECT repeated_error_count,last_error_json FROM workflow_plan_drafts')[0]
+        self.assertEqual(draft['repeated_error_count'],2)
+        self.assertEqual(json.loads(draft['last_error_json'])[0]['type'],'tool_call_required')
 
     def test_typed_batch_builds_and_stages_common_plan_in_one_model_call(self):
         from types import SimpleNamespace

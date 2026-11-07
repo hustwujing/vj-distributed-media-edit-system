@@ -27,25 +27,34 @@ def request(adapter,body,definitions,*,strict):
 
 
 def response(adapter,payload):
-    if not isinstance(payload,dict):raise ValueError('Response must be an object')
+    def reject(message,code):raise PublicResponseStructureError(message,code)
+    def objects(value):
+        if not isinstance(value,list) or any(not isinstance(item,dict) for item in value):
+            reject('Tool response items must be a list of objects','invalid_tool_items')
+        return value
+    if not isinstance(payload,dict):reject('Response must be an object','invalid_tool_envelope')
     if adapter.protocol=='responses':
-        if payload.get('status')!='completed':raise ValueError('Tool response is incomplete')
-        calls=[x for x in payload.get('output',[]) if x.get('type')=='function_call']
-        if any(x.get('status') not in (None,'completed') for x in calls):raise ValueError('Tool call is incomplete')
+        if payload.get('status')!='completed':reject('Tool response is incomplete','tool_response_incomplete')
+        calls=[x for x in objects(payload.get('output',[])) if x.get('type')=='function_call']
+        if any(x.get('status') not in (None,'completed') for x in calls):reject('Tool call is incomplete','tool_response_incomplete')
         rows=[(x.get('name'),x.get('arguments')) for x in calls]
     elif adapter.protocol=='anthropic':
-        if payload.get('stop_reason')!='tool_use':raise ValueError('Response did not finish with a tool call')
-        rows=[(x.get('name'),x.get('input')) for x in payload.get('content',[]) if x.get('type')=='tool_use']
+        if payload.get('stop_reason')!='tool_use':reject('Response did not finish with a tool call; call exactly one available tool','tool_call_required')
+        rows=[(x.get('name'),x.get('input')) for x in objects(payload.get('content',[])) if x.get('type')=='tool_use']
     elif adapter.protocol=='chat_completions':
-        choices=payload.get('choices',[])
-        if len(choices)!=1 or choices[0].get('finish_reason')!='tool_calls':raise ValueError('Tool response is incomplete')
-        rows=[(x.get('function',{}).get('name'),x.get('function',{}).get('arguments')) for x in choices[0].get('message',{}).get('tool_calls',[]) if x.get('type')=='function']
+        choices=objects(payload.get('choices',[]))
+        if len(choices)!=1 or choices[0].get('finish_reason')!='tool_calls':reject('Response must finish with one tool call','tool_call_required')
+        message=choices[0].get('message',{})
+        if not isinstance(message,dict):reject('Tool message must be an object','invalid_tool_envelope')
+        calls=[x for x in objects(message.get('tool_calls',[])) if x.get('type')=='function']
+        if any(not isinstance(x.get('function'),dict) for x in calls):reject('Tool function must be an object','invalid_tool_envelope')
+        rows=[(x['function'].get('name'),x['function'].get('arguments')) for x in calls]
     else:raise ValueError('Native tool protocol is not implemented')
     if len(rows)!=1:raise PublicResponseStructureError('Exactly one tool call is required','ambiguous_tool_calls')
     name,arguments=rows[0]
-    if not isinstance(name,str):raise ValueError('Tool name is missing')
+    if not isinstance(name,str) or not name:reject('Tool name is missing','invalid_tool_name')
     if isinstance(arguments,str):arguments=json.loads(arguments)
-    if not isinstance(arguments,dict):raise ValueError('Tool arguments must be an object')
+    if not isinstance(arguments,dict):reject('Tool arguments must be an object','tool_arguments_not_object')
     return name,arguments
 
 
