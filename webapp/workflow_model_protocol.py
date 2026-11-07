@@ -174,12 +174,13 @@ def bind_explicit_delivery_names(raw,filenames,roles,frozen):
     def extension(name):
         suffix=PurePosixPath(name).suffix.lstrip('.').lower()
         return aliases.get(suffix,suffix)
-    requested={}
+    requested={};forbidden=forbidden_delivery_names(frozen)
     for name in required_delivery_names(frozen):requested.setdefault(extension(name),[]).append(name)
     candidates={}
     for name in filenames:candidates.setdefault(extension(name),[]).append(name)
     replacements={values[0]:requested[kind][0] for kind,values in candidates.items()
                   if len(values)==1 and len(requested.get(kind,[]))==1
+                  and PurePosixPath(values[0]).name not in forbidden
                   and PurePosixPath(values[0]).name!=requested[kind][0]}
     for old,new_name in replacements.items():
         path=PurePosixPath(old);new=str(path.with_name(new_name))

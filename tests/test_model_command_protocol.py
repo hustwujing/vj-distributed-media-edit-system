@@ -157,6 +157,18 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(required_delivery_names(value),{'deliver.mp4','candidate.mp4'})
         self.assertEqual(approved_delivery_refs(value),{'edit/deliver.mp4','edit/candidate.mp4'})
 
+    def test_excluded_candidate_name_cannot_be_promoted_by_global_output_rename(self):
+        value=frozen(False);value['goal']='保留 candidate.mp4 候选。最终只交付 deliver.mp4，candidate.mp4不交付。'
+        task={'id':'candidate','type':'agent','profile':'editing_implementer','name':'Retained candidate',
+            'objective':'Copy the input bytes to candidate.mp4',
+            'files':[{'path':'candidate.mp4','roles':['video']}],
+            'acceptance':[{'kind':'media','file':'candidate.mp4','video':True,'stage':'final'}]}
+        proposal=compile_manager({'kind':'APPLY_PLAN','reason':'Retain source candidate','plan':{'new_tasks':[task]}},value)['proposal']
+        compiled=proposal['add_tasks'][0]
+        self.assertEqual(compiled['outputs'],['candidate.mp4'])
+        self.assertEqual(compiled['output_roles'],{'video':'candidate.mp4'})
+        self.assertEqual(compiled['acceptance'][0]['file'],'candidate.mp4')
+
     def test_prefix_delivery_exclusion_does_not_exclude_the_next_clause(self):
         value={'goal':'Create internal.png; do not deliver internal.png; deliver final.mp4.'}
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
