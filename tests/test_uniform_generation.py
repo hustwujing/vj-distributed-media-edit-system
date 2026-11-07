@@ -98,8 +98,43 @@ class UniformGenerationTests(unittest.TestCase):
 
     def test_configuration_change_cannot_redirect_existing_job(self):
         handle=service.implementation(service.prepare(service.TEXT_VIDEO,PARAMS))
-        with patch.dict(os.environ,{'VIDEO_USE_GENERATION_URL':'https://other.example'}),self.assertRaises(ValueError):
-            service.poll(Mock(),handle,'task')
+        client=Mock();client.get.return_value.status_code=200;client.get.return_value.json.return_value={'status':'running'}
+        with patch.dict(os.environ,{'VIDEO_USE_GENERATION_URL':'https://other.example','VIDEO_USE_GENERATION_MODEL':'new-default'}):
+            self.assertEqual(service.poll(client,handle,'task')['status'],'running')
+        self.assertEqual(client.get.call_args.args[0],CONFIG['VIDEO_USE_GENERATION_URL']+'/contents/generations/tasks/task')
+        self.assertEqual(client.get.call_args.kwargs['headers']['Authorization'],'Bearer test-private-key')
+
+    def test_frozen_video_credentials_reject_rotation_and_route_tampering_before_http(self):
+        cases=[(service.TEXT_VIDEO,CONFIG,'VIDEO_USE_GENERATION_KEY',None),
+               (service.IMAGE_VIDEO,{'VIDEO_USE_IMAGE_VIDEO_BACKEND':'wan','VIDEO_USE_IMAGE_VIDEO_URL':'https://wan.example/api/v1',
+                'VIDEO_USE_IMAGE_VIDEO_KEY':'wan-private-key','VIDEO_USE_IMAGE_VIDEO_MODEL':'wan2.6-i2v'},'VIDEO_USE_IMAGE_VIDEO_KEY',self.image())]
+        for operation,configuration,key_name,image in cases:
+            with self.subTest(protocol=operation),patch.dict(os.environ,configuration):
+                handle=service.implementation(service.prepare(operation,PARAMS,image))
+                self.assertRegex(handle['credential_binding'],r'^[a-f0-9]{64}$')
+                self.assertNotIn(configuration[key_name],json.dumps(handle))
+                for changed in ({**handle,'provider':'https://untrusted.example'},
+                                {**handle,'model':'changed-model'},
+                                {k:v for k,v in handle.items() if k!='credential_binding'}):
+                    client=Mock()
+                    with self.assertRaises(ValueError):service.poll(client,changed,'task')
+                    client.get.assert_not_called()
+                client=Mock()
+                with patch.dict(os.environ,{key_name:'different-credential'}),self.assertRaises(ValueError):
+                    service.poll(client,handle,'task')
+                client.get.assert_not_called()
+
+    def test_wan_poll_uses_frozen_route_when_default_address_changes(self):
+        configuration={'VIDEO_USE_IMAGE_VIDEO_BACKEND':'wan','VIDEO_USE_IMAGE_VIDEO_URL':'https://wan.example/api/v1',
+            'VIDEO_USE_IMAGE_VIDEO_KEY':'wan-private-key','VIDEO_USE_IMAGE_VIDEO_MODEL':'wan2.6-i2v'}
+        with patch.dict(os.environ,configuration):
+            prepared=service.prepare(service.IMAGE_VIDEO,PARAMS,self.image());handle=service.implementation(prepared)
+            client=Mock();client.get.return_value.status_code=200;client.get.return_value.json.return_value={'output':{'task_status':'RUNNING'}}
+            with patch.dict(os.environ,{'VIDEO_USE_IMAGE_VIDEO_URL':'http://127.0.0.1:1','VIDEO_USE_IMAGE_VIDEO_MODEL':'new-default'}):
+                self.assertEqual(service.poll(client,handle,'wan-id')['status'],'running')
+                with self.assertRaises(ValueError):service.submit(client,prepared,'no-new-submit')
+            self.assertEqual(client.get.call_args.args[0],'https://wan.example/api/v1/tasks/wan-id')
+            client.post.assert_not_called()
 
     def test_unknown_status_and_missing_video_are_not_success(self):
         client=Mock();client.get.return_value.status_code=200;handle=service.implementation(service.prepare(service.TEXT_VIDEO,PARAMS))

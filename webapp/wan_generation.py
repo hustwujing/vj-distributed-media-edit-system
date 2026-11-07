@@ -8,6 +8,7 @@ from PIL import Image
 from .egress_policy import provider_base
 from .ark_generation import validate_download_url
 from .generation_errors import raise_for_status
+from .generation_auth import credential_binding,frozen_headers
 
 PROTOCOL='wan-video-v1'
 OPERATION='video.generate_from_image'
@@ -40,7 +41,7 @@ def validate(operation,parameters):
 
 
 def prepare(operation,parameters,reference=None):
-    validate(operation,parameters);base,_,model=configuration()
+    validate(operation,parameters);base,key,model=configuration()
     if reference is None or len(reference)>10*1024**2:raise ValueError('Wan 需要唯一且不超过10MB的参考图')
     with Image.open(io.BytesIO(reference)) as image:
         if image.format not in ('PNG','JPEG','WEBP'):raise ValueError('参考图需要PNG/JPEG/WebP')
@@ -48,14 +49,14 @@ def prepare(operation,parameters,reference=None):
         mime=Image.MIME[image.format];image.verify()
     payload={'model':model,'input':{'prompt':parameters['prompt'],'img_url':'data:'+mime+';base64,'+base64.b64encode(reference).decode()},
              'parameters':{'duration':int(parameters['duration']),'resolution':'720P','seed':parameters.get('seed',1),'prompt_extend':False}}
-    return {'provider':base,'protocol':PROTOCOL,'model':model,'operation':operation,
-            'reference_sha256':hashlib.sha256(reference).hexdigest(),'payload':payload}
+    prepared={'provider':base,'protocol':PROTOCOL,'model':model,'operation':operation,
+              'reference_sha256':hashlib.sha256(reference).hexdigest(),'payload':payload}
+    prepared['credential_binding']=credential_binding(prepared,key)
+    return prepared
 
 
 def auth(handle):
-    base,key,_=configuration()
-    if handle['provider']!=base or handle['protocol']!=PROTOCOL:raise ValueError('原供应商配置已改变，需恢复配置后查询')
-    return {'Authorization':'Bearer '+key}
+    return frozen_headers(handle,PROTOCOL,'VIDEO_USE_IMAGE_VIDEO_KEY')
 
 
 def task_url(handle,identifier):
@@ -64,6 +65,8 @@ def task_url(handle,identifier):
 
 
 def submit(client,prepared,request_key):
+    base,_,model=configuration()
+    if (prepared['provider'],prepared['model'])!=(base,model):raise ValueError('Provider configuration changed before submission')
     response=client.post(prepared['provider']+'/services/aigc/video-generation/video-synthesis',json=prepared['payload'],
                          headers={**auth(prepared),'X-DashScope-Async':'enable'},timeout=(10,60),allow_redirects=False)
     raise_for_status(response);result=response.json();identifier=result.get('output',{}).get('task_id','')

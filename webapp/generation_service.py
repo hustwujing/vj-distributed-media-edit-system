@@ -35,7 +35,7 @@ def prepare(operation, parameters, reference=None):
 
 def implementation(prepared):
     """Persist routing and model, never credentials or inline image contents."""
-    return {k: prepared[k] for k in ('provider', 'protocol', 'model', 'operation', 'reference_sha256') if k in prepared}
+    return {k: prepared[k] for k in ('provider', 'protocol', 'model', 'operation', 'reference_sha256','credential_binding') if k in prepared}
 
 
 def submit(client, prepared, request_key):

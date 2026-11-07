@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 from PIL import Image
 from .egress_policy import provider_base
 from .generation_errors import raise_for_status
+from .generation_auth import credential_binding,frozen_headers
 
 PROTOCOL = 'ark-video-v1'
 OPERATIONS = ('video.generate_from_image', 'video.generate_from_text')
@@ -48,7 +49,7 @@ def validate(operation, parameters):
 
 def prepare(operation, parameters, reference=None):
     validate(operation, parameters)
-    base, _, model = configuration()
+    base, key, model = configuration()
     if (reference is not None) != (operation == 'video.generate_from_image'):
         raise ValueError('图生视频必须有唯一参考图；文生视频不能夹带参考图')
     content = [{'type': 'text', 'text': parameters['prompt']}]
@@ -70,15 +71,14 @@ def prepare(operation, parameters, reference=None):
     payload = {'model': model, 'content': content, 'duration': int(parameters['duration']),
                'ratio': ratio, 'resolution': '720p', 'generate_audio': False,
                'watermark': False, 'seed': parameters.get('seed', 1)}
-    return {'provider': base, 'protocol': PROTOCOL, 'model': model, 'operation': operation,
-            'reference_sha256': reference_hash, 'payload': payload}
+    prepared={'provider': base, 'protocol': PROTOCOL, 'model': model, 'operation': operation,
+              'reference_sha256': reference_hash, 'payload': payload}
+    prepared['credential_binding']=credential_binding(prepared,key)
+    return prepared
 
 
 def auth(handle):
-    base, key, _ = configuration()
-    if handle['provider'] != base or handle['protocol'] != PROTOCOL:
-        raise ValueError('已提交任务的供应商配置已改变，需恢复原配置后查询')
-    return {'Authorization': 'Bearer ' + key}
+    return frozen_headers(handle,PROTOCOL,'VIDEO_USE_GENERATION_KEY')
 
 
 def task_url(handle, identifier):
@@ -89,6 +89,8 @@ def task_url(handle, identifier):
 
 def submit(client, prepared, request_key):
     # No implicit network retries; a client request key is NOT an idempotency guarantee.
+    base,_,model=configuration()
+    if (prepared['provider'],prepared['model'])!=(base,model):raise ValueError('Provider configuration changed before submission')
     response = client.post(prepared['provider'] + '/contents/generations/tasks',
                            json=prepared['payload'], headers=auth(prepared),
                            timeout=(10, 60), allow_redirects=False)
