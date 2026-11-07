@@ -16,6 +16,7 @@ from .operations import InputRef
 
 TERMINAL={'succeeded','failed','cancelled'}
 RUN_TERMINAL={'SUCCEEDED','FAILED','CANCELLED'}
+CANDIDATE_REVIEW_LIMIT=2
 
 
 class AuthorizationRequired(ValueError):pass
@@ -688,10 +689,15 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     existing={t['id']:t for t in active_tasks(run)}
     added={task.id:task for task in proposal.add_tasks}
     revised={task.id:task for task in proposal.revise_tasks}
+    if (user_revision_scope is None and repair_scope in existing
+            and existing[repair_scope]['review_again_count']>=CANDIDATE_REVIEW_LIMIT
+            and repair_scope not in revised and repair_scope not in proposal.replacements
+            and any(task.purpose=='evidence' for task in added.values())):
+        raise ValueError('Candidate evidence review budget exhausted; further automatic evidence cannot be reviewed')
     for subject,evidence_ids in proposal.review_again.items():
         if subject not in existing or subject in revised or subject in proposal.replacements:raise ValueError('Review subject must retain its current candidate revision')
         row=existing[subject]
-        if row['review_again_count']>=2:raise ValueError('Candidate evidence review budget exhausted')
+        if row['review_again_count']>=CANDIDATE_REVIEW_LIMIT:raise ValueError('Candidate evidence review budget exhausted')
         if not row['quality'].get('technical_valid') or not row['quality'].get('passed') or not row['candidate_result']:
             raise ValueError('New evidence cannot waive a program acceptance failure')
         if user_revision_scope is not None:

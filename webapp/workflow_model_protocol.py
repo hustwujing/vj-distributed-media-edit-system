@@ -272,6 +272,7 @@ def repair_options(frozen):
                             'meaning':'Create a new immutable revision with the same Agent contract and current repair context.'})
         else:options.append({'action':'revise_task','task_id':identifier,'allowed_set_fields':fields})
     for subject,row in tasks.items():
+        if row.get('review_again_count',0)>=graph.CANDIDATE_REVIEW_LIMIT:continue
         if (not row.get('quality',{}).get('technical_valid') or not row.get('quality',{}).get('passed')
                 or not (row.get('accepted_result') or subject in candidate_subjects)):continue
         evidence=[]
@@ -283,6 +284,7 @@ def repair_options(frozen):
     for review in frozen.get('review_feedback',[]):
         decision=review.get('decision',{});subject=review.get('subject_task')
         if decision.get('verdict')!='inconclusive':continue
+        if subject in tasks and tasks[subject].get('review_again_count',0)>=graph.CANDIDATE_REVIEW_LIMIT:continue
         text=(decision.get('feedback') or '').lower();modes=[]
         if any(word in text for word in ('fade','淡出','淡入','rms','响度','音量包络')):modes.append('audio_envelope')
         if any(word in text for word in ('mix','混音','原声','music','声源')):modes.append('audio_compare')

@@ -301,6 +301,22 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(empty.exception.code,'missing_wait_work')
         self.assertIn('review_again',str(empty.exception));self.assertNotIn('continue_run',str(empty.exception))
 
+    def test_exhausted_candidate_review_does_not_offer_unusable_evidence_work(self):
+        f=frozen();f['tasks'][0].update(review_again_count=2,candidate_result=['report.txt'],
+            quality={'technical_valid':True,'passed':True})
+        f['repair_candidates']=[{'logical_task_id':'render'}]
+        f['review_feedback']=[{'subject_task':'render','decision':{'verdict':'inconclusive','feedback':'Need more evidence'}}]
+        f['tasks'].append({'id':'measure','status':'succeeded','spec':{'type':'operation','purpose':'evidence',
+            'inputs':{'source':{'repair_candidate':{'logical_task_id':'render','revision':2}}}},
+            'quality':{'verified_evidence':{'mode':'image'}}})
+        forbidden={'review_again','collect_evidence_then_review_again'}
+        self.assertFalse(forbidden & {o['action'] for o in repair_options(f)})
+        f['tasks'][0]['review_again_count']=1
+        self.assertTrue(forbidden <= {o['action'] for o in repair_options(f)})
+        # Final delivery evidence is a separate review, not another Task review.
+        f['tasks'][0]['review_again_count']=2;f['review_feedback'][0]['subject_task']=None
+        self.assertIn('collect_evidence_then_review_again',{o['action'] for o in repair_options(f)})
+
     def test_evidence_cannot_wait_on_unaccepted_output_from_paused_task(self):
         task={'id':'render','type':'agent','profile':'editing_implementer','name':'Render','objective':'Render audio',
               'outputs':['final.wav'],'output_roles':{'audio':'final.wav'},'acceptance':[{'kind':'media'}],

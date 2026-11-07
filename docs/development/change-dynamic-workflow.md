@@ -112,6 +112,8 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 
 失败候选通过 RepairCandidateRef 的 revision/artifact/hash/role 冻结引用，只供 repair/evidence Task 读取。media.evidence 的真实输出与源/参考/预览哈希绑定。review_again 只接受新增且已验收的证据，不能把技术失败改成通过。相同候选内容、验收标准和证据不因重命名或递增 revision 而重新抽取审查结论。
 
+候选的重审额度耗尽后，Planner 不再提供该候选的 review_again 或继续补证选项；权威 Proposal 校验也拒绝为该未变候选追加自动证据任务，避免花费计算和规划额度生成无法再审查的证据。实际内容修订、显式用户授权的证据工作及最终交付审查分别遵守各自边界，不通过放宽重审次数解决。
+
 异构片段使用独立 media.normalize_clip Task，统一明确规格并保存验收检查点，media.concat_sequence 只负责兼容流顺序汇合。禁止在单一脚本中隐藏大量解码器或让一次失败重做所有片段。
 
 用户批准原本声明的Review后，最终Reviewer快照提供server-owned user_reviews，只包含当前选中Task、当前revision且candidate_digest仍匹配的已应用approve决定。该事实不豁免技术或Agent失败。Manager回显错误的快照绑定字段仍拒绝暂存，但在同一有效租约/请求内给予有界纠正；失效租约、过期请求及图版本竞争不改为可忽略错误。

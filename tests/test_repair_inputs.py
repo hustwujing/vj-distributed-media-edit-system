@@ -54,6 +54,22 @@ class RepairInputTests(unittest.TestCase):
             graph.Task.model_validate(fixtures.script(inputs={'source':{'repair_candidate':self.ref}}))
         self.assertEqual(self.run['tasks'][0]['accepted_result'],[])
 
+    def test_exhausted_candidate_review_blocks_new_automatic_evidence(self):
+        self.store.execute("UPDATE run_tasks SET review_again_count=2 WHERE run_id=? AND id='first'",(self.run['id'],))
+        run=graph.get(self.store,self.run['id'])
+        task={'id':'unusable-evidence','type':'operation','purpose':'evidence','name':'Inspect candidate',
+            'objective':'Collect facts about the existing candidate','operation':'media.evidence',
+            'inputs':{'source':{'repair_candidate':self.ref}},'parameters':{'mode':'image'},
+            'acceptance':[{'kind':'json','file':'evidence-report.json','required_keys':['source_sha256']},
+                          {'kind':'image','file':'preview.jpg'}]}
+        proposal={'proposal_id':'spent-review','base_graph_version':run['graph_version'],'reason':'More evidence',
+            'add_tasks':[task],'replan_after':['unusable-evidence']}
+        with self.assertRaisesRegex(ValueError,'evidence review budget exhausted'):
+            graph.validate_proposal(self.store,run,proposal,repair_scope='first')
+        self.assertFalse(self.store.query("SELECT id FROM run_tasks WHERE id='unusable-evidence'"))
+        # Explicit user evidence work does not implicitly grant another review.
+        graph.validate_proposal(self.store,run,proposal,repair_scope='first',user_revision_scope={'first'})
+
     def test_opensandbox_command_materializes_registered_candidate(self):
         from webapp.opensandbox_command import OpenSandboxCommandRuntime
         from webapp.workflows import get
