@@ -17,6 +17,11 @@ does not prove transparent background, and a transparent border does not prove
 that the correct subject was selected. Compare semantic extent independently of
 image geometry and alpha topology.
 
+For background-only editing that must preserve an existing foreground's size,
+position and shape, provide an explicit background selection to the editor so
+the host can preserve pixels outside it. Text-only preservation requests to a
+whole-image generator do not provide that spatial guarantee.
+
 ## Generated subject consistency
 
 `strict_reference` requires preservation of the reference identity and explicit
