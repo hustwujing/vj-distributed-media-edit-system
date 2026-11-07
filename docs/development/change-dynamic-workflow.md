@@ -132,6 +132,8 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 
 存在明确带文件名的“交付/deliver”要求时，全局必交付名称以这些语句为准，不把前文步骤objective或内部复制过程的文件名一并列为最终要求。没有明确命名的交付语句时保留直接文件目标识别；改名和明确排除规则继续生效。
 
+注册Operation的原生输出名可能固定为image.png等；当某格式只有一个确认目标名、一个合格候选且归属唯一时，宿主可在发布元数据中绑定目标名。最终Review快照提供publication_names，选择校验和发布使用相同映射；原始候选路径、哈希、检查点及来源Task保持不变，不新增复制Task或对象。多候选/多目标歧义、格式不同、Agent自定义输出和明确排除的候选不做自动映射。
+
 异构片段使用独立 media.normalize_clip Task，统一明确规格并保存验收检查点，media.concat_sequence 只负责兼容流顺序汇合。禁止在单一脚本中隐藏大量解码器或让一次失败重做所有片段。
 
 用户批准原本声明的Review后，最终Reviewer快照提供server-owned user_reviews，只包含当前选中Task、当前revision且candidate_digest仍匹配的已应用approve决定。该事实不豁免技术或Agent失败。Manager回显错误的快照绑定字段仍拒绝暂存，但在同一有效租约/请求内给予有界纠正；失效租约、过期请求及图版本竞争不改为可忽略错误。

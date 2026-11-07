@@ -59,6 +59,29 @@ def delivery_leaf_refs(snapshot):
     return {identifier:refs[identifier] for identifier in tasks if identifier not in nonleaves}
 
 
+def delivery_publication_names(snapshot):
+    """Name one unambiguous native Operation output without mutating its bytes/ref."""
+    from pathlib import PurePosixPath
+    from .workflow_model_protocol import required_delivery_names
+    def suffix(name):
+        value=PurePosixPath(name).suffix.lower()
+        return '.jpeg' if value=='.jpg' else value
+    requested={};candidates={};owners={}
+    for name in required_delivery_names(snapshot):requested.setdefault(suffix(name),set()).add(name)
+    approved=approved_delivery_refs(snapshot)
+    for task in snapshot.get('tasks',[]):
+        if not task.get('spec',{}).get('delivery_stage'):continue
+        for ref in set(task.get('accepted_result',[]))&approved:
+            candidates.setdefault(suffix(ref),set()).add(ref);owners.setdefault(ref,[]).append(task)
+    result={}
+    for extension,names in requested.items():
+        refs=candidates.get(extension,set())
+        if len(names)!=1 or len(refs)!=1:continue
+        name=next(iter(names));ref=next(iter(refs));tasks=owners[ref]
+        if len(tasks)==1 and tasks[0]['spec'].get('type')=='operation' and PurePosixPath(ref).name!=name:result[ref]=name
+    return result
+
+
 def validate_review_scope(decision,snapshot):
     """A step verdict cannot introduce requirements from later delivery stages."""
     if snapshot.get('review_scope')!='task':return
@@ -113,7 +136,7 @@ class ResolvedReviewDecision(Contract):
 
 def review_candidate_aliases(snapshot,inspections,candidate_keys):
     from pathlib import PurePosixPath
-    choices={};ambiguous=set()
+    choices={};ambiguous=set();publication_names=delivery_publication_names(snapshot)
     def add(alias,identifier):
         if not alias or alias in ambiguous:return
         if alias in choices and choices[alias]!=identifier:choices.pop(alias);ambiguous.add(alias)
@@ -122,6 +145,7 @@ def review_candidate_aliases(snapshot,inspections,candidate_keys):
         reference=inspections.get(identifier)
         if not reference:continue
         add(key,identifier);add(reference,identifier);add(PurePosixPath(reference).name,identifier)
+        add(publication_names.get(reference),identifier)
         for task in snapshot.get('tasks',[]):
             if not task['spec'].get('delivery_stage'):continue
             for role,path in task.get('quality',{}).get('output_roles',{}).items():
@@ -218,7 +242,8 @@ def validate_resolved_review(decision, snapshot, inspections):
         missing_extensions=required_delivery_extensions(snapshot)-selected_extensions
         if missing_extensions:
             raise ValueError('Final selection is missing required formats: '+', '.join(sorted(missing_extensions)))
-        selected_names={PurePosixPath(ref).name for ref in selected}
+        publication_names=delivery_publication_names(snapshot)
+        selected_names={publication_names.get(ref,PurePosixPath(ref).name) for ref in selected}
         missing_names=required_delivery_names(snapshot)-selected_names
         if missing_names:
             raise ValueError('Final selection is missing required filenames: '+', '.join(sorted(missing_names)))

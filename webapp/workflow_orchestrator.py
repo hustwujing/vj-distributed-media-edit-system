@@ -780,6 +780,9 @@ class Orchestrator:
         if purpose=='final':evidence_ids.update(task['id'] for task in graph.active_tasks(run) if task['spec']['purpose']=='evidence' and task['status']=='succeeded')
         frozen['evidence_tasks']=[task for task in graph.active_tasks(run) if task['id'] in evidence_ids]
         if any(task['status']!='succeeded' or not task['quality'].get('verified_evidence') for task in frozen['evidence_tasks']):raise ValueError('Review evidence is not verified')
+        if purpose=='final':
+            from .workflow_agent_contracts import delivery_publication_names
+            frozen['publication_names']=delivery_publication_names(frozen)
         from .review_identity import identity
         review_identity=identity(store,run,frozen)
         prior=store.query('SELECT * FROM workflow_reviews WHERE run_id=? AND purpose=? AND review_identity=?',(run['id'],purpose,review_identity))
@@ -925,9 +928,10 @@ class Orchestrator:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
         review=authoritative[0]
         decision=json.loads(review['decision_json']);selected=decision.get('deliverables',[])
-        from .workflow_agent_contracts import approved_delivery_refs,delivery_leaf_refs
+        from .workflow_agent_contracts import approved_delivery_refs,delivery_leaf_refs,delivery_publication_names
         scope={**delivery_scope(store,run),'tasks':graph.active_tasks(run)}
         eligible=approved_delivery_refs(scope)
+        publication_names=delivery_publication_names(scope)
         accepted={name:t for t in graph.active_tasks(run) if t['spec']['delivery_stage'] for name in t['accepted_result'] if name in eligible}
         if not selected or not isinstance(selected,list) or any(name not in accepted for name in selected):
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
@@ -947,7 +951,7 @@ class Orchestrator:
                 'missing_task_ids':[],'missing_extensions':sorted(missing_extensions)})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         from pathlib import PurePosixPath
-        missing_names=required_names-{PurePosixPath(name).name for name in selected}
+        missing_names=required_names-{publication_names.get(name,PurePosixPath(name).name) for name in selected}
         if missing_names:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':[],'missing_names':sorted(missing_names)})
@@ -968,13 +972,14 @@ class Orchestrator:
                              (run['id'],task['id'],task['revision']))
             record=json.loads(rows[0]['manifest']).get(name) if rows else None
             if not record:raise ValueError('Delivery lacks a durable checkpoint')
-            filename=task['id']+'-'+record['artifact'][:12]+'-'+PurePosixPath(name).name
+            display_name=publication_names.get(name,PurePosixPath(name).name)
+            filename=task['id']+'-'+record['artifact'][:12]+'-'+display_name
             logical='edit/agent_exports/'+run['id']+'/'+filename
             if not store.shared_files:raise ValueError('Dynamic delivery requires shared immutable artifact storage')
             obj=store.artifacts.record(run['project_id'],record['artifact'])
             if obj['sha256']!=record['sha256']:raise ValueError('Delivery changed after review')
             publications.append((logical,record['artifact']))
-            artifacts.append({'file':filename,'name':PurePosixPath(name).name,'size':record['size'],'sha256':record['sha256'],
+            artifacts.append({'file':filename,'name':display_name,'size':record['size'],'sha256':record['sha256'],
                 'artifact_id':record['artifact'],
                 'type':mimetypes.guess_type(filename)[0] or 'application/octet-stream','role':'deliverable',
                 'quality_state':'approved','workflow_delivery':True,'source_step':task['id'],'source_revision':task['revision'],
