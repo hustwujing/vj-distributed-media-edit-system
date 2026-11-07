@@ -259,7 +259,7 @@ def act(directory,action,unit=None,attempt=None):
                      options='-c default_transaction_read_only=on -c statement_timeout=5000')
         denied=False
         try:
-            with psycopg.connect(**other) as connection:connection.execute('SELECT count(*) FROM projects')
+            with psycopg.connect(**other) as connection:connection.execute('SELECT 1 FROM public.projects LIMIT 0')
         except psycopg.Error as exc:denied=exc.sqlstate in ('42501','28000','28P01')
         own_storage=cluster.env_file(Path(release['config_root'])/'.storage.env');protected_storage=cluster.env_file(config/'.storage.env')
         result={'action':action,'protected_root':baseline['root'],'baseline_scope':'current_check_only','protected_database_read_denied':denied,
