@@ -719,17 +719,15 @@ class ToolProtocol:
             'question':command['properties']['question'],'options':command['properties']['options']},['reason','question']))
         defs['AuthorizationExpansion']=deepcopy(defs['Authorization']);auth=defs['AuthorizationExpansion']
         auth['properties'].pop('goal',None);auth['required']=[key for key in auth.get('required',[]) if key!='goal']
-        authorization=deepcopy(command['properties']['authorization'])
-        def expansion_ref(value):
-            if isinstance(value,dict):return {key:('#/$defs/AuthorizationExpansion' if key=='$ref' and item=='#/$defs/Authorization' else expansion_ref(item)) for key,item in value.items()}
-            if isinstance(value,list):return [expansion_ref(item) for item in value]
-            return value
-        authorization=expansion_ref(authorization)
+        # Unlike the general ManagerResult union, these dedicated tools always
+        # require an authorization. Bind its goal once from the owning command.
+        authorization={'$ref':'#/$defs/AuthorizationExpansion'}
         self.add('request_authorization','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
             'authorization':authorization}),defs))
         if not targeted:
             self.add('new_run_required','draft_control',referenced_schema(obj({'reason':command['properties']['reason'],
-                'new_goal':command['properties']['new_goal'],'authorization':command['properties']['authorization']}),defs))
+                'new_goal':{**command['properties']['new_goal'],'minLength':1,'pattern':r'\S'},
+                'authorization':authorization}),defs))
 
     def definitions(self):
         descriptions={'inspect':'Inspect authorized immutable inputs. Returns evidence IDs.',
@@ -784,6 +782,8 @@ class ToolProtocol:
             value=self._draft.get('draft',self._draft)
             command={'kind':kinds[name],**payload}
             if name=='complete_run':command['plan']={}
+            if name=='new_run_required':
+                command['authorization']={**payload['authorization'],'goal':payload['new_goal']}
             return {'action':'proposal','proposal':compile_manager(command,self.frozen),
                     '_model_command':payload,'_draft_commit':True,
                     '_draft_revision':self._draft.get('revision',0),'_draft_digest':graph.digest(value)}

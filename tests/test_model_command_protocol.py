@@ -690,6 +690,38 @@ class ModelCommandTests(unittest.TestCase):
         result=p.decode('request_authorization',wire)['proposal']
         self.assertEqual(result['authorization']['goal'],f['goal'])
 
+    def test_scope_tools_require_non_null_authorization_in_the_wire_schema(self):
+        from jsonschema import Draft202012Validator
+        p=ToolProtocol(profile('media_planner'),frozen(False),{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        for name in ('request_authorization','new_run_required'):
+            with self.subTest(tool=name):
+                payload={'reason':'Change scope','authorization':None}
+                if name=='new_run_required':payload['new_goal']='New confirmed goal'
+                self.assertFalse(Draft202012Validator(schema_for(p.schemas[name])).is_valid(payload))
+                with self.assertRaises(ValidationError):p.decode(name,payload)
+
+    def test_successor_tool_binds_single_new_goal_without_retyping_scope_goal(self):
+        f=frozen(False);f['goal']='Original immutable goal'
+        p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        source=p.schemas['new_run_required']
+        auth=graph.Authorization(goal='New goal',allowed_assets=['asset-a'],allowed_operations=[],
+            allowed_agent_profiles=['editing_implementer'],delivery_targets=['new video'],content_fingerprint='b'*64).model_dump()
+        auth.pop('goal')
+        payload={'reason':'User changed the global target','new_goal':'New goal','authorization':auth}
+        wire=transform(payload,source,encode=True)
+        result=p.decode('new_run_required',wire)['proposal']
+        self.assertEqual(result['authorization']['goal'],'New goal')
+        self.assertEqual(result['new_goal'],'New goal')
+        self.assertEqual(result['authorization']['allowed_assets'],['asset-a'])
+        self.assertEqual(result['snapshot_digest'],f['snapshot_digest'])
+        self.assertEqual(result['kind'],'NEW_RUN_REQUIRED')
+        self.assertIsNone(result['proposal'])
+        for bad in ('', '   '):
+            with self.subTest(goal=bad),self.assertRaises(ValidationError):
+                p.decode('new_run_required',{**wire,'new_goal':bad})
+        with self.assertRaises(ValidationError):
+            transform({**payload,'authorization':{**auth,'goal':'Conflicting goal'}},source,encode=True)
+
     def test_agent_repair_projects_same_contract_revision_as_explicit_option(self):
         task={'id':'review','type':'agent','profile':'editing_implementer','name':'Review repair','objective':'Recheck output',
               'outputs':['report.txt'],'output_roles':{'report':'report.txt'},'acceptance':[{'kind':'file'}],
