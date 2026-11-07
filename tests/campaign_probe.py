@@ -63,8 +63,8 @@ def image_info(path):
     with Image.open(path) as im:
         if im.width*im.height>32_000_000:raise ValueError('Image exceeds QA decoder budget')
         rgba=np.asarray(im.convert('RGBA'));rgb=rgba[...,:3].astype(float);alpha=rgba[...,3]
-        return {'width':im.width,'height':im.height,'format':im.format,'mode':im.mode,'transparent_fraction':float((alpha<255).mean()),
-                'visible_fraction':float((alpha>0).mean()),
+        return {'width':im.width,'height':im.height,'format':im.format,'mode':im.mode,'transparent_fraction':float((alpha==0).mean()),
+                'visible_fraction':float((alpha>=128).mean()),
                 'mean':float(rgb.mean()),'channel_difference':float(np.max(rgb,axis=2).mean()-np.min(rgb,axis=2).mean()),
                 'gradient':float(np.abs(np.diff(rgb,axis=0)).mean()+np.abs(np.diff(rgb,axis=1)).mean())}
 

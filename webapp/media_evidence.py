@@ -42,8 +42,8 @@ def alpha_evidence(image) -> dict:
     """Measure mask topology on a bounded 256px representation."""
     alpha=image.convert('RGBA').getchannel('A')
     pixels=image.width*image.height;histogram=alpha.histogram()
-    result={'transparent_fraction':sum(histogram[:255])/pixels,
-            'visible_fraction':sum(histogram[1:])/pixels,
+    result={'transparent_fraction':histogram[0]/pixels,
+            'visible_fraction':sum(histogram[128:])/pixels,
             'opaque_fraction':histogram[255]/pixels,
             'partial_alpha_fraction':sum(histogram[1:255])/pixels}
     sample=alpha.copy();sample.thumbnail((256,256))

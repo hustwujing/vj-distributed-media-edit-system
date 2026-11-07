@@ -45,10 +45,10 @@ class Acceptance(BaseModel):
     contains:list[str]=Field(default_factory=list,max_length=20)
     text_match:Literal['contains','token_sequence','line_sequence','normalized_text','exact_text']='contains'
     has_alpha:bool|None=None
-    transparent_subject:bool|None=None
-    min_transparent_fraction:float|None=Field(default=None,ge=0,le=1)
-    min_visible_fraction:float|None=Field(default=None,ge=0,le=1)
-    max_partial_alpha_fraction:float|None=Field(default=None,ge=0,le=1)
+    transparent_subject:bool|None=Field(default=None,description='Require alpha=0 background pixels and alpha>=128 subject pixels (8-bit alpha). This does not establish semantic subject correctness.')
+    min_transparent_fraction:float|None=Field(default=None,ge=0,le=1,description='Minimum fraction of pixels with 8-bit alpha exactly 0.')
+    min_visible_fraction:float|None=Field(default=None,ge=0,le=1,description='Minimum fraction of pixels with 8-bit alpha >=128, matching mask topology.')
+    max_partial_alpha_fraction:float|None=Field(default=None,ge=0,le=1,description='Maximum fraction with 8-bit alpha from 1 through 254, excluding fully transparent/opaque pixels.')
     max_alpha_components:int|None=Field(default=None,ge=1,le=10000)
     max_alpha_hole_fraction:float|None=Field(default=None,ge=0,le=1)
     fps:float|None=Field(default=None,gt=0,le=240)

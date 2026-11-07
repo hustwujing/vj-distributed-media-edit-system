@@ -20,6 +20,59 @@ class TextEvidenceTests(unittest.TestCase):
 
 
 class AlphaEvidenceTests(unittest.TestCase):
+    def test_alpha_levels_have_disjoint_transparent_partial_opaque_measurements(self):
+        for alpha,transparent,visible,opaque,partial in [
+                (0,1,0,0,0),(1,0,0,0,1),(127,0,0,0,1),
+                (128,0,1,0,1),(254,0,1,0,1),(255,0,1,1,0)]:
+            with self.subTest(alpha=alpha):
+                value=alpha_evidence(Image.new('RGBA',(8,8),(10,20,30,alpha)))
+                self.assertEqual((value['transparent_fraction'],value['visible_fraction'],
+                    value['opaque_fraction'],value['partial_alpha_fraction']),(transparent,visible,opaque,partial))
+                self.assertEqual(value['transparent_fraction']+value['opaque_fraction']+value['partial_alpha_fraction'],1)
+        mixed=Image.new('RGBA',(6,1));mixed.putdata([(10,20,30,a) for a in (0,1,127,128,254,255)])
+        value=alpha_evidence(mixed)
+        self.assertAlmostEqual(value['transparent_fraction'],1/6)
+        self.assertAlmostEqual(value['partial_alpha_fraction'],4/6)
+        self.assertAlmostEqual(value['opaque_fraction'],1/6)
+        self.assertEqual(value['visible_fraction'],.5)
+
+    def test_real_quality_checker_rejects_false_transparency_and_empty_subjects(self):
+        import json,subprocess,sys
+        checker=Path(__file__).resolve().parents[1]/'webapp/quality_check.py'
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            images={'almost_opaque':Image.new('RGBA',(8,8),(10,20,30,254)),
+                    'almost_empty':Image.new('RGBA',(8,8),(10,20,30,1)),
+                    'empty':Image.new('RGBA',(8,8),(0,0,0,0)),
+                    'cutout':Image.new('RGBA',(8,8),(0,0,0,0))}
+            images['cutout'].paste((10,20,30,255),(0,0,4,8))
+            for name,image in images.items():
+                image.save(root/(name+'.png'))
+                rules=[{'kind':'image','transparent_subject':True},
+                       {'kind':'image','min_transparent_fraction':.5},
+                       {'kind':'image','min_visible_fraction':.5}]
+                expected={'almost_opaque':[False,False,True],'almost_empty':[False,False,False],
+                          'empty':[False,True,False],'cutout':[True,True,True]}[name]
+                for rule,passed in zip(rules,expected):
+                    with self.subTest(name=name,rule=rule):
+                        result=subprocess.run([sys.executable,str(checker)],cwd=root,
+                            input=json.dumps({'files':[name+'.png'],'acceptance':[rule]}),
+                            capture_output=True,text=True,check=True)
+                        self.assertEqual(json.loads(result.stdout)['passed'],passed,result.stdout)
+
+    def test_independent_campaign_image_checker_uses_the_same_alpha_thresholds(self):
+        # Load only this pure image function, without importing the live
+        # campaign module's deployment configuration or database environment.
+        import ast
+        source=Path(__file__).with_name('campaign_probe.py')
+        node=next(item for item in ast.parse(source.read_text()).body if isinstance(item,ast.FunctionDef) and item.name=='image_info')
+        scope={};exec(compile(ast.Module(body=[node],type_ignores=[]),str(source),'exec'),scope)
+        with tempfile.TemporaryDirectory() as directory:
+            for alpha,transparent,visible in ((0,1,0),(1,0,0),(127,0,0),(128,0,1),(254,0,1),(255,0,1)):
+                path=Path(directory)/f'{alpha}.png';Image.new('RGBA',(8,8),(10,20,30,alpha)).save(path)
+                value=scope['image_info'](path)
+                self.assertEqual((value['transparent_fraction'],value['visible_fraction']),(transparent,visible))
+
     def test_reports_visible_components_and_holes(self):
         image=Image.new('RGBA',(20,20),(0,0,0,0))
         for y in range(2,18):
