@@ -64,6 +64,11 @@ Make qualitative camera motion concrete in the generation prompt. A slight
 push-in can use a small total scale change (for example 5–10% when no amount is
 specified), while keeping required reference features in frame. Explicit user
 amounts take precedence; smooth motion alone does not establish a small amplitude.
+An example generation target is not an additional user acceptance threshold.
+When the user specifies only qualitative motion, preserve that qualitative goal
+and required framing in acceptance; do not turn an illustrative percentage into
+a mandatory numeric bound. Explicit user bounds and already frozen acceptance
+remain binding.
 
 Use timestamped observations covering onset, middle and ending. A single still
 frame cannot establish motion, continuity, or a gradual transition. Distinguish

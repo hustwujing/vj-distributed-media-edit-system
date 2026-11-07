@@ -122,8 +122,8 @@
     },
     {
       "path": "references/media-semantics.md",
-      "sha256": "7dc01ab515223a59e63996238bd68337f800a8c2bfb765049834d5d6efb2a31e",
-      "size": 5377
+      "sha256": "fc4090c45fe7fb1c7c2475429173ee663eccdbc82fe251b80ed1da3cdf7bc859",
+      "size": 5708
     },
     {
       "path": "references/style-previews.md",
@@ -147,6 +147,6 @@
     }
   ],
   "schema_version": 1,
-  "skill_digest": "sha256:21b6cbfe59bc7a84e015c9e42ae451700e34e584db0a8dc98b13ee68c239b47a",
+  "skill_digest": "sha256:d457878d77ff8b4d05bc6bcbc6cc89473e9d0310ebfb4e56d626c06f01929e82",
   "tool_schema_digest": "sha256:f8de293751d181cb05491d32b3b81b55d372489a426935f20c3dbf8b8ffe023b"
 }
