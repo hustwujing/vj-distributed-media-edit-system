@@ -346,7 +346,10 @@ def journal(archive,stop):
                 except Exception:archive.drop()
         finally:
             process.terminate();process.wait(timeout=5)
-            if process.returncode and row:
+            process.stdout.close()
+            # SIGTERM/SIGINT and requested shutdown are normal lifecycle
+            # events, not evidence that the durable resume cursor is invalid.
+            if not stop.is_set() and process.returncode>0 and row:
                 with archive.connect() as db:db.execute("DELETE FROM metadata WHERE key='cursor'")
                 archive.drop()
         stop.wait(2)

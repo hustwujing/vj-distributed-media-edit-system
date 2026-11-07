@@ -25,6 +25,35 @@ class ObservationTests(unittest.TestCase):
         with telemetry.bind(request_id='a'*32):self.task=agent_store.add_turn(self.store,self.project,'plan','SECRET PRIVATE PROMPT')
     def tearDown(self):self.temp.cleanup()
 
+    def test_journal_preserves_cursor_on_shutdown_and_resumes_after_restart(self):
+        from webapp.observation_collector import journal
+        class Stop:
+            stopped=False
+            def is_set(self):return self.stopped
+            def set(self):self.stopped=True
+            def wait(self,timeout):self.set()
+        for code,requested in [(-15,True),(-15,False),(-2,False),(0,False),(1,True),(1,False)]:
+            with self.subTest(code=code,requested=requested):
+                archive=Archive(self.root/f'journal-{code}-{requested}');stop=Stop();commands=[]
+                with archive.connect() as db:db.execute("INSERT INTO metadata VALUES ('cursor','previous')")
+                class Child:
+                    def __init__(self,command,**kwargs):
+                        commands.append(command);self.returncode=None;self.stdout=self.entries()
+                    def entries(self):
+                        yield json.dumps({'MESSAGE':json.dumps(telemetry.record('service.started')),'__CURSOR':'current'})+'\n'
+                        if requested:stop.set()
+                    def terminate(self):self.returncode=code
+                    def wait(self,timeout):return self.returncode
+                with patch('webapp.observation_collector.subprocess.Popen',Child):journal(archive,stop)
+                with archive.connect() as db:row=db.execute("SELECT value FROM metadata WHERE key='cursor'").fetchone()
+                rejected=code>0 and not requested
+                self.assertEqual(row['value'] if row else None,None if rejected else 'current')
+                self.assertEqual(archive.dropped,1 if rejected else 0)
+                stop=Stop()
+                with patch('webapp.observation_collector.subprocess.Popen',Child):journal(archive,stop)
+                expected=['--since','-5min'] if rejected else ['--after-cursor','current']
+                self.assertEqual(commands[-1][-2:],expected)
+
     def test_provider_failure_evidence_survives_without_driving_business_state(self):
         from webapp import provider_calls
         w={'id':self.task,'run_id':self.task,'manual':True};step={'id':'image','revision':0,'attempts':0}
