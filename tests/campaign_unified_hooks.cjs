@@ -5,6 +5,10 @@ const key=()=>crypto.randomUUID().replaceAll('-','');
 const activeJob=(run,kind)=>run.control_jobs.some(job=>job.control_kind===kind&&job.status==='running');
 const terminal=run=>['SUCCEEDED','FAILED','CANCELLED'].includes(run.state);
 function hasActiveWork(run){return [...(run.tasks||[]),...(run.control_jobs||[])].some(item=>['running','leased'].includes(item.status));}
+function videoInterventionReady(run){
+ const selected=(id)=>run.tasks.find(t=>t.id===id&&t.selected);
+ return selected('export')?.status==='running'&&['prepare_a','prepare_b','clip'].every(id=>selected(id)?.status==='succeeded');
+}
 function verifyDrainedAttempts(boundary,run,facts){
  const originals=[];
  for(const old of boundary.started||[]){
@@ -226,4 +230,4 @@ function verifyFeedbackRevision(before,run,identifier){
  return current;
 }
 
-module.exports={before,after,hooks,verifyDrainedAttempts,verifyFeedbackRevision,hasActiveWork};
+module.exports={before,after,hooks,verifyDrainedAttempts,verifyFeedbackRevision,hasActiveWork,videoInterventionReady};

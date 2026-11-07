@@ -1,7 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
-const {verifyDrainedAttempts}=createRequire(import.meta.url)('./campaign_unified_hooks.cjs');
+const {verifyDrainedAttempts,videoInterventionReady}=createRequire(import.meta.url)('./campaign_unified_hooks.cjs');
+
+test('video intervention requires accepted sources while the current export is running',()=>{
+ const run={tasks:['prepare_a','prepare_b','clip'].map(id=>({id,status:'succeeded',selected:1}))};
+ run.tasks.push({id:'export',status:'running',selected:1});
+ assert.equal(videoInterventionReady(run),true);
+ for(const status of ['ready','running','reviewing','paused']){
+  run.tasks[1].status=status;assert.equal(videoInterventionReady(run),false);
+ }
+ run.tasks[1].status='succeeded';run.tasks[1].selected=0;
+ assert.equal(videoInterventionReady(run),false);
+ run.tasks[1].selected=1;run.tasks[3].status='succeeded';
+ assert.equal(videoInterventionReady(run),false);
+});
 
 function fixture(){
  return {

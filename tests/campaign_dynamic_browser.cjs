@@ -295,6 +295,7 @@ async function runCase(browser,spec){
     if(spec.assets.includes('clip_a.mp4'))initial+='另建 clip 节点，使用 media.edit 将 clip_a.mp4 前4秒处理成128×64、24fps、保留音频的MP4，保留该节点供后续复用。';
     if(['R04','R05','R06'].includes(spec.id))initial+='在两个图片节点后插入 staging 本地脚本节点，等待30秒再生成 staging.json；export 必须依赖 staging。';
     initial+=initialVideo?'export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。':'export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。';
+    if(initialVideo)initial+='export 必须在 prepare_a、prepare_b、clip 三个准备节点都验收成功后开始，显式声明这三个依赖，供在途修改时核对已验收成果复用。';
     initial+='export 声明 retry_policy=safe_once，正式处理前等待20秒。';
     if(spec.id==='R14')initial+='export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。';
     initial+=gated?'export 必须声明 review 人工验收，等待我决定。':'最后通过程序和最终验收交付。';
@@ -385,7 +386,7 @@ async function runCase(browser,spec){
     await page.waitForTimeout(2500);assert.equal((await read()).state,'WAITING_USER');await approve('reject');run=await wait(w=>paused(w));state.outcome='protocol_passed';
    }
    if(intervention&&spec.id==='R09'){
-    run=await wait(w=>w.tasks.some(t=>t.id==='export'&&t.status==='running'),600);const original=run.id;
+    run=await wait(unified.videoInterventionReady,600);const original=run.id;
     const selected=[];
     for(const identifier of ['prepare_a','prepare_b','clip']){const task=run.tasks.find(t=>t.id===identifier&&t.status==='succeeded');assert.ok(task);selected.push(await reuse(task));}
     const accepted=await appendInput(`改变整体交付范围：复用刚加入的已验收素材${selected.join('、')}，从clip取前${spec.expect.duration}秒并cover居中裁切为${spec.expect.width}×${spec.expect.height} MP4，保留原音频，交付final.mp4及prepare_a按ImageOps.fit生成的128×64 cover.png。请用NEW_RUN_REQUIRED提出完整新目标和授权；旧export正常结束后再到安全点，不要默认取消或发布旧版，不重复亮度处理或剪辑原clip。`,selected);
@@ -405,7 +406,7 @@ async function runCase(browser,spec){
    }else if(intervention&&['R04','R05','R06','R07','R08','R11','R15'].includes(spec.id)){
     if(['R11','R15'].includes(spec.id))run=await wait(w=>deciding(w),600);
     else if(['R04','R05','R06'].includes(spec.id))run=await wait(w=>w.tasks.some(task=>task.id==='staging'&&task.status==='running'),600);
-    else run=await wait(w=>w.tasks.some(task=>task.id==='export'&&task.status==='running'),600);
+    else run=await wait(unified.videoInterventionReady,600);
     recordSources(run);state.same_run_revision=true;const originalRun=run.id;
     const messages={
      R04:'保留原有128×64 PNG交付，另外从同一张最终图增加final.jpg。不要重做已验收的prepare_a和prepare_b。PNG仍是主交付。当前在途任务正常结束后统一规划，不要取消。',
