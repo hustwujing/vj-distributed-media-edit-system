@@ -143,6 +143,12 @@ def dominant_frequency(path: str | Path, *, sample_seconds: float=20, sample_rat
     if run.returncode or not run.stdout:return None
     import numpy as np
     values=np.frombuffer(run.stdout,dtype='<f4')
+    return _stable_tone_frequency(values,sample_rate)
+
+
+def _stable_tone_frequency(values,sample_rate):
+    """Measure an already bounded mono window; varying/broadband input is unknown."""
+    import numpy as np
     if len(values)<512 or not np.isfinite(values).all() or np.max(np.abs(values))<1e-4:return None
     size=min(4096,len(values));window=np.hanning(size);frequencies=[];frames=0
     for start in range(0,len(values)-size+1,max(1,size//2)):

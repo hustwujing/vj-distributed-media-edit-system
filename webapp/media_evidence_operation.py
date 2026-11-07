@@ -12,6 +12,7 @@ def collect(source,kind,output,parameters,*,reference=None):
     source=Path(source);output=Path(output)
     with source.open('rb') as stream:sha=hashlib.file_digest(stream,'sha256').hexdigest()
     params={'mode':parameters.get('mode','auto'),'offset':float(parameters.get('offset',0)),
+            'reference_offset':parameters.get('reference_offset'),
             'window_seconds':float(parameters.get('window_seconds',8)),'crop':parameters.get('crop')}
     mode=params['mode'] if params['mode']!='auto' else {'video':'video_window','audio':'audio','image':'image'}.get(kind)
     report={'version':'verified-media-evidence-v1','source_sha256':sha,'parameters':params,'kind':mode}
@@ -74,7 +75,8 @@ def collect(source,kind,output,parameters,*,reference=None):
             report['envelope_interpretation']='time_local_signal_levels_not_a_semantic_fade_verdict'
         if mode=='audio_compare':
             if not reference:raise ValueError('Audio comparison requires a reference input')
-            report['comparison']=audio_comparison(source,reference,params['offset'],params['window_seconds'])
+            report['comparison']=audio_comparison(source,reference,params['offset'],params['window_seconds'],
+                                                  reference_offset=params['reference_offset'])
         subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-threads','1','-filter_threads','1','-ss',str(params['offset']),
             '-t',str(params['window_seconds']),'-i',str(source),'-filter_complex','showwavespic=s=1024x256:colors=white',
             '-frames:v','1','-threads','1',str(preview)],capture_output=True,timeout=30,check=True)
@@ -88,14 +90,17 @@ def collect(source,kind,output,parameters,*,reference=None):
     return ['evidence-report.json','preview.jpg']
 
 
-def audio_comparison(source,reference,offset,window_seconds):
+def audio_comparison(source,reference,offset,window_seconds,*,reference_offset=None):
     """Bounded signal similarity evidence; it is not a source-separation verdict."""
     import numpy as np
     if not math.isfinite(offset) or not 0<=offset<=86400 or not math.isfinite(window_seconds) or not 0<window_seconds<=8:
         raise ValueError('Audio comparison window exceeds limits')
+    reference_offset=offset if reference_offset is None else reference_offset
+    if not math.isfinite(reference_offset) or not 0<=reference_offset<=86400:
+        raise ValueError('Audio comparison reference window exceeds limits')
     sample_limit=int(window_seconds*8000)
-    def decode(path):
-        result=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-ss',str(offset),'-t',str(window_seconds),
+    def decode(path,start):
+        result=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-ss',str(start),'-t',str(window_seconds),
             '-i',str(path),'-map','0:a:0','-ac','1',
             '-af',f'aresample=8000,atrim=end_sample={sample_limit}',
             '-ar','8000','-f','f32le','pipe:1'],capture_output=True,timeout=30,check=True)
@@ -104,11 +109,17 @@ def audio_comparison(source,reference,offset,window_seconds):
         if not result.stdout or len(result.stdout)%4 or len(result.stdout)>sample_limit*4:
             raise ValueError('Audio comparison sample limit')
         return np.frombuffer(result.stdout,dtype='<f4').astype(np.float64)
-    left=decode(source);right=decode(reference);count=min(len(left),len(right));left=left[:count];right=right[:count]
+    left=decode(source,offset);right=decode(reference,reference_offset);count=min(len(left),len(right));left=left[:count];right=right[:count]
     if count<800:raise ValueError('Audio comparison window too short')
     left-=left.mean();right-=right.mean();left_rms=float(np.sqrt(np.mean(left*left)));right_rms=float(np.sqrt(np.mean(right*right)))
     denominator=float(np.linalg.norm(left)*np.linalg.norm(right))
+    from .media_evidence import _stable_tone_frequency
+    source_tone=_stable_tone_frequency(left,8000);reference_tone=_stable_tone_frequency(right,8000)
     return {'sample_rate':8000,'samples':count,'offset_seconds':offset,'window_seconds':count/8000,
+            'reference_offset_seconds':reference_offset,
+            'source_tone_hz':source_tone,'reference_tone_hz':reference_tone,
+            'tone_difference_hz':abs(source_tone-reference_tone) if source_tone is not None and reference_tone is not None else None,
+            'tone_interpretation':'stable_narrowband_peak_not_general_speech_pitch',
             'normalized_correlation':float(np.dot(left,right)/denominator) if denominator else None,
             'source_rms':left_rms,'reference_rms':right_rms,
             'rms_ratio_db':20*math.log10(left_rms/right_rms) if left_rms>0 and right_rms>0 else None,

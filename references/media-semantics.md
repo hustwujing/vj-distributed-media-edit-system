@@ -68,6 +68,11 @@ loudness, text sequence and mask changes. A bounded audio or video sample does
 not establish an unobserved interval. Tone estimates are for stable narrow-band
 signals, not general music or speech identity.
 
+For a trimmed audio candidate, `media.evidence` audio_compare can use offset for
+the candidate and reference_offset for the corresponding original-source time.
+Its stable-tone measurements can support a narrow-band frequency comparison;
+null tone values do not establish speech pitch preservation or source identity.
+
 Automatic repairs keep the original goal, authorization and acceptance. Explicit
 user feedback can revise the allowed affected closure, but still cannot grant new
 assets/capabilities or bypass technical and Agent checks. ManagerResult states the

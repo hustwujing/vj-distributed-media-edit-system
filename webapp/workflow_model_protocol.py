@@ -289,7 +289,7 @@ def repair_options(frozen):
         if subject in tasks and tasks[subject].get('review_again_count',0)>=graph.CANDIDATE_REVIEW_LIMIT:continue
         text=(decision.get('feedback') or '').lower();modes=[]
         if any(word in text for word in ('fade','淡出','淡入','rms','响度','音量包络')):modes.append('audio_envelope')
-        if any(word in text for word in ('mix','混音','原声','music','声源')):modes.append('audio_compare')
+        if any(word in text for word in ('mix','混音','原声','music','声源','pitch','frequency','音高','频谱','频率')):modes.append('audio_compare')
         if any(word in text for word in ('pixel','像素','边距','位置','frame','帧')):modes.append('video_window')
         subjects=[subject] if subject in tasks else [identifier for identifier,item in tasks.items()
             if item['spec'].get('delivery_stage') and (item.get('accepted_result') or identifier in candidate_subjects)]

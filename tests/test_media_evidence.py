@@ -210,6 +210,39 @@ class AudioEvidenceTests(unittest.TestCase):
                     audio_comparison('unused','unused',offset,window)
             run.assert_not_called()
 
+    def test_audio_comparison_aligns_trimmed_source_and_measures_stable_tones(self):
+        import json,wave
+        import numpy as np
+        from webapp.media_evidence_operation import collect,audio_comparison
+        from webapp.operation_parameters import EvidenceParameters
+        rate=8000;t=np.arange(rate*2)/rate
+        values=np.rint(np.concatenate([.2*np.sin(2*np.pi*220*t),.2*np.sin(2*np.pi*660*t)])*32767).astype('<i2')
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);reference=root/'reference.wav';source=root/'trimmed.wav'
+            for path,data in ((reference,values),(source,values[rate*2:rate*3])):
+                with wave.open(str(path),'wb') as out:
+                    out.setnchannels(1);out.setsampwidth(2);out.setframerate(rate);out.writeframes(data.tobytes())
+            wrong=audio_comparison(source,reference,0,1)
+            self.assertLess(abs(wrong['normalized_correlation']),.05)
+            self.assertAlmostEqual(wrong['reference_tone_hz'],220,delta=2)
+            output=root/'evidence';output.mkdir()
+            params=EvidenceParameters(mode='audio_compare',offset=0,reference_offset=2,window_seconds=1).model_dump()
+            collect(source,'audio',output,params,reference=reference)
+            report=json.loads((output/'evidence-report.json').read_text());correct=report['comparison']
+            self.assertEqual(report['parameters'],params)
+            self.assertEqual(correct['reference_offset_seconds'],2)
+            self.assertGreater(correct['normalized_correlation'],.99999)
+            self.assertAlmostEqual(correct['source_tone_hz'],660,delta=2)
+            self.assertAlmostEqual(correct['reference_tone_hz'],660,delta=2)
+            self.assertAlmostEqual(correct['tone_difference_hz'],0,delta=.1)
+            with self.assertRaises(ValueError):EvidenceParameters(mode='video_window',reference_offset=2)
+
+    def test_stable_tone_measurement_does_not_invent_pitch_for_noise_or_silence(self):
+        import numpy as np
+        from webapp.media_evidence import _stable_tone_frequency
+        self.assertIsNone(_stable_tone_frequency(np.zeros(8000),8000))
+        self.assertIsNone(_stable_tone_frequency(np.random.default_rng(7).normal(size=8000),8000))
+
 
 class MaskChangeTests(unittest.TestCase):
     def test_change_limit_uses_subject_area_not_empty_canvas(self):
