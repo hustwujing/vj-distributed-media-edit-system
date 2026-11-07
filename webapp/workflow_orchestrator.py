@@ -317,6 +317,7 @@ class Orchestrator:
             request=json.loads(row['request_json']);task=next(t for t in graph.work_items(run) if t['id']==request['task_id'])
             if not any(item['kind']=='review' for item in task['spec']['acceptance']):raise ValueError('User review was not declared for this Task')
             if task['revision']!=request['revision'] or not task['quality'].get('technical_valid'):raise ValueError('Technical acceptance failed')
+            if task['id'] in self.pending_task_reviews(run):raise ValueError('Agent review is still pending')
             if task['quality'].get('requires_agent') and not task['quality'].get('agent_review_passed'):raise ValueError('Agent review has not passed')
             store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json,error_code='',error_detail='',wait_reason='' WHERE run_id=? AND id=?",(run['id'],task['id']))
             self.set_status(run,'ACTIVE')
@@ -641,13 +642,19 @@ class Orchestrator:
                 (used,row['id']))
             graph.event(store,run,'model_reservation_reconciled',{'attempt_id':row['attempt_id'],'outcome':'interrupted_usage_unknown'})
 
+    def pending_task_reviews(self,run):
+        return {row['subject_task'] for row in self.store.query(
+            "SELECT subject_task FROM workflow_reviews WHERE run_id=? AND purpose='task' AND status IN ('pending','running','staged')",
+            (run['id'],))}
+
     def advance(self,run):
         store=self.store;now=store.now()
         if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
             self.set_status(run,'WAITING_USER','user_decision_pending');return
         # Manual reviews are presented one at a time, but parallel candidates
         # must not lose their pending confirmation when the first is answered.
-        pending=next((t for t in graph.work_items(run) if t['status']=='reviewing' and t['quality'].get('requires_review')
+        pending_reviews=self.pending_task_reviews(run)
+        pending=next((t for t in graph.work_items(run) if t['status']=='reviewing' and t['quality'].get('requires_review') and t['id'] not in pending_reviews
                       and (not t['quality'].get('requires_agent') or t['quality'].get('agent_review_passed'))),None)
         if pending:
             self.decision(run,'quality',{'task_id':pending['id'],'revision':pending['revision'],'quality':pending['quality']});return

@@ -112,9 +112,17 @@ class RepairInputTests(unittest.TestCase):
         self.assertEqual(evidence['quality']['verified_evidence']['source_sha256'],self.ref['sha256'])
         self.assertEqual(next(item for item in run['tasks'] if item['id']=='first')['accepted_result'],[])
         self.assertFalse(self.store.query("SELECT id FROM execution_attempts WHERE step_id='first'"))
+        subject=next(item for item in run['tasks'] if item['id']=='first')
+        previous_quality={**subject['quality'],'agent_review_passed':True,'requires_review':True,'requires_agent':True}
+        spec={**subject['spec'],'acceptance':[*subject['spec']['acceptance'],{'kind':'review','criterion':'User confirms'}]}
+        self.store.execute('UPDATE run_tasks SET quality_json=?,spec_json=? WHERE run_id=? AND id=?',
+            (graph.encode(previous_quality),graph.encode(spec),run['id'],'first'))
         self.f.propose({'proposal_id':'review-with-evidence','base_graph_version':2,'reason':'Recheck the same candidate',
             'review_again':{'first':['evidence']},'sealed':True})
         run=self.f.tick();subject=next(item for item in run['tasks'] if item['id']=='first')
         self.assertEqual((subject['revision'],subject['review_again_count'],subject['status']),(0,1,'reviewing'))
+        self.assertNotIn('agent_review_passed',subject['quality'])
+        self.assertEqual(subject['quality'],{key:value for key,value in previous_quality.items() if key!='agent_review_passed'})
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE kind='quality' AND status='pending'"))
         reviews=self.store.query("SELECT snapshot_json FROM workflow_reviews WHERE subject_task='first' AND status='pending'")
         self.assertEqual(json.loads(reviews[0]['snapshot_json'])['evidence_tasks'][0]['id'],'evidence')

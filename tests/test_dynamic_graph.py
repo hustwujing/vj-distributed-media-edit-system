@@ -966,6 +966,25 @@ class DynamicGraphTests(unittest.TestCase):
         subject=next(t for t in graph.work_items(graph.get(self.store,run['id'])) if t['id']=='first')
         self.assertEqual(subject['status'],'succeeded');self.assertEqual(subject['accepted_result'],['edit/report.txt'])
 
+    def test_stale_agent_pass_cannot_bypass_an_outstanding_review(self):
+        run=self.review_fixture(user_review=True)
+        quality={'technical_valid':True,'passed':True,'requires_review':True,'requires_agent':True,'agent_review_passed':True}
+        self.store.execute('UPDATE run_tasks SET quality_json=? WHERE run_id=? AND id=?',
+                           (graph.encode(quality),run['id'],'first'))
+        run=graph.get(self.store,run['id']);self.orchestrator.queue_review(run,'first')
+        self.orchestrator.advance(graph.get(self.store,run['id']))
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE status='pending'"))
+        # Simulate a previously issued decision while the new agent review is
+        # still pending: the approval boundary independently checks that fact.
+        self.orchestrator.decision(graph.get(self.store,run['id']),'quality',{'task_id':'first','revision':0,'quality':quality})
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE status='pending'")[0]
+        with self.assertRaisesRegex(ValueError,'review is still pending'):
+            self.orchestrator.answer(graph.get(self.store,run['id']),{
+                'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':'approve'})
+        task=graph.get(self.store,run['id'])['tasks'][0]
+        self.assertEqual(task['status'],'reviewing');self.assertEqual(task['accepted_result'],[])
+        self.assertEqual(self.store.query("SELECT status FROM workflow_reviews WHERE subject_task='first'")[0]['status'],'pending')
+
     def test_scope_approval_uses_worker_implementation_without_controller_credentials(self):
         from unittest.mock import patch
         from webapp.operations import get

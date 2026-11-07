@@ -301,7 +301,9 @@ def apply(store,run,request):
         from .workflow_orchestrator import Orchestrator
         controller=Orchestrator(store)
         for subject,evidence in proposal.review_again.items():
-            store.execute("UPDATE run_tasks SET status='reviewing',accepted_result_json='[]',review_again_count=review_again_count+1,error_code='',error_detail='' WHERE run_id=? AND id=?",(run['id'],subject))
+            quality=dict(next(task for task in run['tasks'] if task['id']==subject)['quality'])
+            quality.pop('agent_review_passed',None)
+            store.execute("UPDATE run_tasks SET status='reviewing',accepted_result_json='[]',quality_json=?,review_again_count=review_again_count+1,error_code='',error_detail='' WHERE run_id=? AND id=?",(encode(quality),run['id'],subject))
             controller.queue_review(get(store,run['id']),subject,evidence_tasks=evidence)
     event(store,{**run,'graph_version':version},'proposal_applied',{'proposal_id':proposal.proposal_id,'added':[t.id for t in tasks],
         'revised':sorted(revisions),'sealed':proposal.sealed})
