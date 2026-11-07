@@ -304,7 +304,7 @@ def evidence_collection_available(frozen):
 
 
 def completion_candidate(frozen):
-    """A finished open graph only needs sealing before independent final review."""
+    """Offer sealing for a successful batch, without assuming the goal is complete."""
     tasks=frozen.get('tasks',[]);trigger=frozen.get('trigger') or {}
     return (set(trigger)=={'completed'} and tasks and all(item.get('status')=='succeeded' for item in tasks)
             and any(item.get('spec',{}).get('delivery_stage') for item in tasks)
@@ -618,10 +618,11 @@ class ToolProtocol:
         if 'script' in tools:self.add('script','script',obj({'code':{'type':'string','minLength':1,'maxLength':64000}}))
         if 'proposal' in tools:
             if draft is None:self.add('submit_plan','proposal',manager_schema(frozen,contracts))
-            elif completion_candidate(frozen):
-                reason=manager_schema(frozen,contracts,allow_script=False)['properties']['reason']
-                self.add('complete_run','draft_control',obj({'reason':reason},['reason']))
-            else:self.add_draft_tools(draft,contracts or {},finalize)
+            else:
+                self.add_draft_tools(draft,contracts or {},finalize)
+                if completion_candidate(frozen):
+                    reason=manager_schema(frozen,contracts,allow_script=False)['properties']['reason']
+                    self.add('complete_run','draft_control',obj({'reason':reason},['reason']))
         if 'result' in tools:
             source=deepcopy(frozen.get('result_schema') or {})
             if task.get('control_kind')=='REVIEW':
@@ -711,7 +712,7 @@ class ToolProtocol:
             'replace_plan_configuration':'Replace invalid dependency or revision sections in the server-owned draft.',
             'remove_draft_tasks':'Remove invalid new Tasks and their draft dependencies.',
             'commit_plan':'Validate and atomically submit the current server-owned draft.',
-            'complete_run':'Seal the completed graph for independent final delivery review. No Task or dependency changes are accepted.',
+            'complete_run':'Seal only when the entire user goal and all requested deliverables are fulfilled, for independent final review. A successful partial batch may still need new Tasks. No Task or dependency changes are accepted by this tool.',
             'continue_run':'Finish this planning round without changing the graph.',
             'request_user_input':'Request information that is required before planning can continue.',
             'request_authorization':'Request a complete expanded authorization.',
@@ -770,13 +771,13 @@ class ToolProtocol:
             'maps':'Dynamic maps are key/value entry arrays as declared in the tool schema; keys must be unique.',
             'host_derived_fields':['task_id_for_replacements','dependencies_from_inputs','revision','technical_acceptance','delivery_stage','replan_after'],
             'planning':'Use kind COMPLETE to seal a finished graph or APPLY_PLAN when this batch adds executable work. The host derives wait leaves from the changed dependency graph. Task changes contain only allowed set fields.'}
-        if 'complete_run' in self.schemas:
-            context['model_command_contract']['planning']='All declared work succeeded. Use complete_run to seal this graph for independent final delivery review.'
         if 'submit_typed_plan' in self.schemas or 'commit_plan' in self.schemas:
             from .workflow_plan_draft import summary
             context['model_command_contract'].update(version='plan-draft-v1',planning=
                 'Use submit_typed_plan once with the state-allowed typed changes. The host derives continuation and atomically validates a server-owned draft. If validation reports a specific error, use only the offered replace/remove tool and then commit_plan. Draft commands never execute business work.',
                 draft_state=summary(self._draft.get('draft',self._draft)))
+        if 'complete_run' in self.schemas:
+            context['model_command_contract']['planning']+=' All declared Tasks succeeded, which does not prove the entire user goal is complete. Add any remaining authorized work with submit_typed_plan; use complete_run only when all requested deliverables are fulfilled.'
         if 'submit_typed_plan' in self.schemas:
             context['model_command_contract']['repair_options']=repair_options(self.frozen)
             delivery=[item['id'] for item in self.frozen.get('tasks',[]) if item['status'] not in ('failed','cancelled') and item['spec'].get('delivery_stage')]

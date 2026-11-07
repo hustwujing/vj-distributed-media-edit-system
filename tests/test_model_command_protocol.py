@@ -36,15 +36,32 @@ class ModelCommandTests(unittest.TestCase):
                 self.assertEqual(caught.exception.code,code)
                 self.assertNotIn('private response',str(caught.exception))
 
-    def test_completed_delivery_graph_exposes_only_narrow_completion_command(self):
+    def test_completed_delivery_batch_keeps_planning_and_optional_completion(self):
         value=frozen();value['tasks'][0]['status']='succeeded'
         value['trigger']={'completed':['render']};value['input_batch']=None
         protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
-        self.assertEqual(set(protocol.schemas),{'complete_run'})
+        self.assertIn('complete_run',protocol.schemas)
+        self.assertIn('submit_typed_plan',protocol.schemas)
         result=protocol.decode('complete_run',{'reason':'All declared work completed'})['proposal']
         self.assertEqual(result['kind'],'COMPLETE')
         self.assertTrue(result['proposal']['sealed'])
         self.assertEqual(result['proposal']['add_tasks'],[])
+
+    def test_delivered_ocr_report_cannot_remove_the_tool_to_plan_remaining_image_edit(self):
+        value=frozen();value['goal']='Deliver the OCR report and an edited image with the requested text replacement.'
+        value['tasks'][0]['status']='succeeded';value['tasks'][0]['spec']['name']='OCR report'
+        value['trigger']={'completed':['render']};value['input_batch']=None
+        task={'id':'edit_image','type':'agent','profile':'editing_implementer','name':'Replace text',
+              'objective':'Perform the still outstanding authorized image edit',
+              'files':[{'path':'edited.png','roles':['primary_image']}],
+              'acceptance':[{'kind':'image','stage':'final'}]}
+        for finalize in (False,True):
+            with self.subTest(finalize=finalize):
+                protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'},finalize=finalize)
+                wire=transform({'tasks':[task],'kind':'APPLY_PLAN','reason':'The OCR batch is done; the requested image edit remains'},protocol.schemas['submit_typed_plan'],encode=True)
+                result=protocol.decode('submit_typed_plan',wire)
+                self.assertEqual(result['action'],'draft_batch_commit')
+                self.assertIn('does not prove the entire user goal is complete',protocol.context()['model_command_contract']['planning'])
 
     def test_incomplete_or_non_delivery_graph_keeps_planning_tools(self):
         for status,delivery,trigger in [('paused',True,{'completed':['render']}),
