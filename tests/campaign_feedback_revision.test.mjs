@@ -18,3 +18,11 @@ test('feedback follows explicit replacement without requiring the retired revisi
   const invalid=structuredClone(run);mutate(invalid);assert.throws(()=>verifyFeedbackRevision(before,invalid,'render'));
  }
 });
+test('feedback revision may be followed by a legal replacement without resetting provenance',()=>{
+ const before=baseline(),run=structuredClone(before);
+ Object.assign(run.tasks[0],{selected:false,revision:1,user_revision_count:1});
+ run.tasks.push({id:'repair',status:'succeeded',selected:true,revision:0,user_revision_count:1});
+ run.replacements=[{old_task_id:'render',new_task_id:'repair',source:'automatic_repair'}];
+ assert.equal(verifyFeedbackRevision(before,run,'render').id,'repair');
+ run.tasks[0].user_revision_count=0;assert.throws(()=>verifyFeedbackRevision(before,run,'render'));
+});

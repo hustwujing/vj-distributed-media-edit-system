@@ -173,7 +173,7 @@ D01–D21 全部保留。分别更新：Manager/Reviewer/Diagnosis 改为 contro
 
 | 新 case | 修改方式 | 必须实际验证 |
 | --- | --- | --- |
-| D36 | 人物抠图候选在人工 Review 后通过反馈收缩边缘 | 原候选保留、同 Run 新 revision、原图不重做、Alpha 实际变化且受限 |
+| D36 | 人物抠图候选在人工 Review 后通过反馈收缩边缘 | 原候选保留、同 Run 新 revision、原图不重做、Alpha 实际变化且受限。允许先有用户revision再合法replacement；被替代节点可保留该已授权revision，须核对user_revision_count来源，不能误要求退回反馈前版本。 |
 | D37 | 双图拼图在人工 Review 后交换左右构图 | 两张上游不重做，输出像素与原候选交换左右后的参考一致 |
 | D38 | Wan 提交前、参考图处理在途时更换已授权参考素材 | 原处理排空、新参考 revision、生成零提前提交、最终只有一个 Provider request key |
 

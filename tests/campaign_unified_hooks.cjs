@@ -222,7 +222,8 @@ function verifyFeedbackRevision(before,run,identifier){
  assert.equal(run.id,before.id);assert.ok(original&&current&&current.selected&&current.status==='succeeded');
  assert.ok(current.user_revision_count>(original.user_revision_count||0),'Feedback revision must retain its user input provenance');
  if(current.id===identifier)assert.ok(current.revision>original.revision);
- else{const retired=run.tasks.find(t=>t.id===identifier);assert.ok(retired&&!retired.selected);assert.equal(retired.revision,original.revision);}
+ else{const retired=run.tasks.find(t=>t.id===identifier);assert.ok(retired&&!retired.selected);assert.ok(retired.revision>=original.revision);
+  if(retired.revision>original.revision)assert.ok(retired.user_revision_count>(original.user_revision_count||0),'Intermediate revision must retain user feedback provenance');}
  for(const task of before.tasks.filter(t=>t.id!==identifier&&t.status==='succeeded')){
   const retained=run.tasks.find(t=>t.id===task.id);assert.ok(retained);assert.equal(retained.revision,task.revision);assert.equal(retained.attempts,task.attempts);
   assert.deepEqual(retained.quality.files,task.quality.files);
