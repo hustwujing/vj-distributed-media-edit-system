@@ -85,6 +85,43 @@ class ExecutionLeaseTests(unittest.TestCase):
         self.assertTrue(second.recovered)
         with self.assertRaises(ValueError):second.consume('image', 1)
 
+    def test_provider_daily_limits_use_shell_safe_keys_for_read_and_consume(self):
+        from webapp.task_leases import daily_quota,quota_status,TaskQuotaReached
+        lease=self.a.claim(self.turn,'agent')
+        try:
+            for category,key in [('provider:generation','VIDEO_USE_USER_PROVIDER_GENERATION_DAILY'),
+                                 ('provider:image.edit','VIDEO_USE_USER_PROVIDER_IMAGE_EDIT_DAILY')]:
+                with self.subTest(category=category),patch.dict('os.environ',{key:'100'}):
+                    for _ in range(41):lease.consume(category,150)
+                    self.assertIsNone(daily_quota(self.store,'owner',category))
+                    self.assertFalse(quota_status(self.store,self.turn,category,150)['blocked'])
+                    for _ in range(59):lease.consume(category,150)
+                    state=daily_quota(self.store,'owner',category)
+                    self.assertEqual((state['used'],state['limit']),(100,100))
+                    with self.assertRaises(TaskQuotaReached) as raised:lease.consume(category,150)
+                    self.assertEqual(raised.exception.diagnostic['scope'],'daily')
+                    self.assertIn(category.split(':',1)[1],str(raised.exception))
+                    self.assertEqual(self.store.query('SELECT used FROM execution_budgets WHERE category=?',(category,))[0]['used'],100)
+        finally:lease.release()
+
+    def test_daily_and_task_provider_limits_remain_independent(self):
+        from webapp.task_leases import daily_limit,TaskQuotaReached
+        lease=self.a.claim(self.turn,'agent')
+        try:
+            with patch.dict('os.environ',{'VIDEO_USE_USER_PROVIDER_AUDIO_TRANSCRIBE_DAILY':'1'}):
+                lease.consume('provider:audio.transcribe',100)
+                with self.assertRaises(TaskQuotaReached) as raised:lease.consume('provider:audio.transcribe',100)
+                self.assertEqual(raised.exception.diagnostic['scope'],'daily')
+                self.assertEqual(raised.exception.diagnostic['limit'],1)
+            with patch.dict('os.environ',{'VIDEO_USE_USER_PROVIDER_VIDEO_GENERATE_FROM_IMAGE_DAILY':'100'}):
+                lease.consume('provider:video.generate_from_image',1)
+                with self.assertRaises(TaskQuotaReached) as raised:lease.consume('provider:video.generate_from_image',1)
+                self.assertEqual(raised.exception.diagnostic['scope'],'task')
+            with patch.dict('os.environ',{},clear=True):
+                self.assertEqual(daily_limit('provider:image.edit'),40)
+                self.assertEqual(daily_limit('model'),200)
+        finally:lease.release()
+
     def test_new_worker_does_not_reset_healthy_tasks(self):
         first = self.a.claim(self.turn, 'agent')
         with first.bind():

@@ -523,7 +523,17 @@ recipients are not automatically configured.
 | `VIDEO_USE_TASK_MODEL_CALLS` | 40 | Model calls per Agent turn |
 | `VIDEO_USE_USER_MODEL_DAILY` | 200 | Model calls per user/UTC day |
 | `VIDEO_USE_USER_IMAGE_DAILY` | 40 | Image-tool calls per user/UTC day |
+| `VIDEO_USE_USER_PROVIDER_<BUDGET_GROUP>_DAILY` | 40 | Dynamic Provider calls per user/UTC day and budget group; uppercase the group and replace each non-alphanumeric character with `_`, e.g. `provider:image.edit` → `VIDEO_USE_USER_PROVIDER_IMAGE_EDIT_DAILY` |
 | `VIDEO_USE_IMAGE_EDIT_URL` / `VIDEO_USE_IMAGE_DECOMPOSE_URL` | local providers | Operator-selected upstream services |
+
+Run `provider_call_budget` and the owner's UTC daily limit are independent ceilings,
+not reserved capacity: another Run may consume the same owner's daily allowance.
+Both checks occur atomically before submission. Increasing a Run budget does not
+raise the operator's daily limit. For example, generation uses
+`VIDEO_USE_USER_PROVIDER_GENERATION_DAILY`, while audio.transcribe uses
+`VIDEO_USE_USER_PROVIDER_AUDIO_TRANSCRIBE_DAILY`. Counters retain their original
+`provider:<budget_group>` keys in the database; only environment variable names
+are normalized. Provider quota errors name the group and distinguish task/daily scope.
 
 Size memory/scratch/concurrency together. tmpfs consumes memory; the disk backend
 requires loop mounts, ext4 tools and sufficient provisioned space, with the same

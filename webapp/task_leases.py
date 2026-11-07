@@ -10,6 +10,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 import os
 import json
+import re
 import threading
 import time
 import uuid
@@ -45,9 +46,16 @@ def quota_status(store,task_id,category,limit):
     return daily if daily else {'category':category,'scope':'task','used':used,'limit':limit,'blocked':False}
 
 
+def daily_limit(category):
+    # Budget categories remain unchanged in the ledger; only the operator's
+    # environment key is encoded as a shell/systemd-compatible identifier.
+    segment=re.sub('[^A-Z0-9_]','_',category.upper())
+    return int(os.environ.get('VIDEO_USE_USER_'+segment+'_DAILY','200' if category=='model' else '40'))
+
+
 def daily_quota(store,owner,category):
     day=int(store.now()//86400)
-    cap=int(os.environ.get('VIDEO_USE_USER_'+category.upper()+'_DAILY','200' if category=='model' else '40'))
+    cap=daily_limit(category)
     rows=store.query('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category))
     used=rows[0]['used'] if rows else 0
     return {'category':category,'scope':'daily','used':used,'limit':cap,'reset_at':(day+1)*86400,'blocked':True} if used>=cap else None
@@ -57,6 +65,7 @@ def quota_error(state):
     from datetime import datetime,timezone
     scope=state['scope']
     label={'model':'模型','planning_model':'规划模型','image':'图片','local_image':'本地图片处理','video':'视频','transcribe':'转写'}.get(state['category'],'操作')
+    if state['category'].startswith('provider:'):label='外部服务（'+state['category'].split(':',1)[1]+'）'
     prefix={'task':'本任务','daily':'今日','turn':'本轮'}.get(scope,'当前')
     reset=state.get('reset_at')
     advice=('额度将于 '+datetime.fromtimestamp(reset,timezone.utc).strftime('%Y-%m-%d %H:%M UTC')+' 恢复，恢复前重复提交无效。') if scope=='daily' and reset else '请等待每日额度恢复或联系管理员。' if scope=='daily' else '已完成成果保留，请确认新的收尾方案。' if scope=='task' else '可在新一轮中继续检查。'
@@ -241,7 +250,7 @@ class Lease:
             day=int(now(db)//86400)
             daily=db.execute('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category)).fetchone()
             consumed=daily['used'] if daily else 0
-            cap=int(os.environ.get('VIDEO_USE_USER_'+category.upper()+'_DAILY', '200' if category=='model' else '40'))
+            cap=daily_limit(category)
             if consumed>=cap:raise quota_error({'category':category,'scope':'daily','used':consumed,'limit':cap,'reset_at':(day+1)*86400})
             db.execute('INSERT INTO execution_budgets VALUES (?,?,?) ON CONFLICT(run_id,category) DO UPDATE SET used=excluded.used',
                        (self.run_id, category, used + 1))
