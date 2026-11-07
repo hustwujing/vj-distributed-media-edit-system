@@ -23,6 +23,21 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_requested_quality_report_gets_canonical_role_without_losing_custom_role(self):
+        f=frozen(False);f['goal']='Deliver a video and a quality report'
+        task={'id':'final','name':'Final output','type':'agent','profile':'editing_implementer',
+              'objective':'Produce the requested video and report','files':[
+                  {'path':'final.mp4','roles':['final_video']},{'path':'quality.json','roles':['quality_report']}],
+              'acceptance':[{'kind':'media','video':True,'stage':'final'},{'kind':'json','required_keys':['duration'],'stage':'final'}]}
+        result=compile_manager({'kind':'COMPLETE','reason':'Deliver authorized outputs','plan':{'new_tasks':[task]}},f)['proposal']
+        roles=result['add_tasks'][0]['output_roles']
+        self.assertEqual(roles,{'final_video':'final.mp4','quality_report':'quality.json','report':'quality.json'})
+        duplicate=copy.deepcopy(task);duplicate['files'].append({'path':'other.json','roles':['other_report']})
+        with self.assertRaisesRegex(CommandError,'multiple report roles'):
+            compile_manager({'kind':'COMPLETE','reason':'Ambiguous reports','plan':{'new_tasks':[duplicate]}},f)
+        duplicate['files'][1]['roles'].append('report')
+        self.assertEqual(compile_manager({'kind':'COMPLETE','reason':'Explicit role','plan':{'new_tasks':[duplicate]}},f)['proposal']['add_tasks'][0]['output_roles']['report'],'quality.json')
+
     def test_tool_envelope_errors_are_specific_and_do_not_echo_response_content(self):
         cases=[('anthropic',{'stop_reason':'end_turn','content':[{'type':'text','text':'private response'}]},'tool_call_required'),
                ('anthropic',{'stop_reason':'tool_use','content':[]},'ambiguous_tool_calls'),

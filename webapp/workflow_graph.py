@@ -729,9 +729,10 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             proposed_specs={**original_specs,**added,**revised}
             if not source_assets(store,run,replacement.inputs,proposed_specs)<=source_assets(store,run,current.inputs,original_specs):
                 raise ValueError('Automatic replacement cannot introduce unrelated source inputs')
-            from .operations import get as operation
-            roles=lambda item:set(operation(item.operation,item.implementation).outputs) if item.type=='operation' else set(item.output_roles)
-            if not roles(current)<=roles(replacement):raise ValueError('Replacement lost a required output role')
+            from .operations import get as operation,active_output_roles
+            roles=lambda item:set(active_output_roles(operation(item.operation,item.implementation).public(),item.parameters)) if item.type=='operation' else set(item.output_roles)
+            missing=roles(current)-roles(replacement)
+            if missing:raise ValueError('Replacement lost a required output role: '+', '.join(sorted(missing)))
         counter='user_revision_count' if user_revision_scope is not None else 'repair_count'
         if row[counter]>=(5 if user_revision_scope is not None else 2):raise ValueError('Replacement cannot reset the repair budget')
         if user_revision_scope is None and all(getattr(current,key)==getattr(replacement,key) for key in
@@ -883,14 +884,21 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         raise AuthorizationRequired('Cumulative provider call budget exceeded')
     if not set(proposal.replan_after)<=set(specs):raise ValueError('Unknown replan trigger')
     if proposal.sealed and proposal.replan_after:raise ValueError('Sealed graph cannot request another planning round')
-    unresolved={identifier for identifier,task in existing.items() if task['status'] in ('paused','failed')}-set(revised)-set(replacements)-set(proposal.review_again)
+    # apply() gives revised roots and their descendants fresh immutable revisions.
+    # Validate the resulting wait graph, not the descendants' old paused states.
+    restarted=set(revised)
+    while True:
+        expanded=restarted|{child for parent,child in edges if parent in restarted}
+        if expanded==restarted:break
+        restarted=expanded
+    unresolved={identifier for identifier,task in existing.items() if task['status'] in ('paused','failed')}-restarted-set(replacements)-set(proposal.review_again)
     if proposal.sealed and unresolved:
         raise ValueError('Sealed repair plan must resolve paused tasks through revisions, replacements or review_again: '+','.join(sorted(unresolved)))
     if not proposal.sealed and not proposal.replan_after:raise ValueError('Open graph needs an explicit replan trigger')
     unreachable={t for t in proposal.replan_after if t in existing and existing[t]['status'] in ('paused','failed')
-                 and t not in revised and t not in replacements and t not in proposal.review_again}
+                 and t not in restarted and t not in replacements and t not in proposal.review_again}
     if unreachable:raise ValueError('Replan trigger cannot wait on an unresolved paused or failed Task: '+','.join(sorted(unreachable)))
-    if not proposal.sealed and not any(t in added or t in revised or existing[t]['status'] not in TERMINAL for t in proposal.replan_after):
+    if not proposal.sealed and not any(t in added or t in restarted or existing[t]['status'] not in TERMINAL for t in proposal.replan_after):
         raise ValueError('Replan trigger is already exhausted')
     if not specs:raise ValueError('A workflow must contain at least one business task')
     if proposal.sealed and not any(task.delivery_stage for task in specs.values()):

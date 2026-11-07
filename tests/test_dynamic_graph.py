@@ -782,6 +782,50 @@ class DynamicGraphTests(unittest.TestCase):
         planner=self.store.query("SELECT trigger_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))[0]
         self.assertIn('review_incomplete',json.loads(planner['trigger_json']))
 
+    def test_revised_upstream_can_wait_on_fresh_revision_of_paused_descendant(self):
+        self.tick();self.propose({'proposal_id':'paused-chain','base_graph_version':0,'reason':'initial',
+            'add_tasks':[script('first'),script('child'),script('unrelated')],
+            'add_dependencies':[{'upstream':'first','downstream':'child'}],'sealed':True})
+        run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed' WHERE run_id=?",(run['id'],))
+        self.store.execute("UPDATE runs SET sealed=0,status='ACTIVE' WHERE id=?",(run['id'],))
+        planning.queue(self.store,graph.get(self.store,run['id']),{'task_id':'first','repair_policy':'manager_revision'})
+        self.propose({'proposal_id':'repair-chain','base_graph_version':1,'reason':'Repair source of downstream defect',
+            'revise_tasks':[script('first',argv=['python','-c','print("fixed")'])],
+            'sealed':False,'replan_after':['child']})
+        run=self.tick();tasks={t['id']:t for t in run['tasks']}
+        self.assertEqual(run['replan_after'],['child'])
+        self.assertEqual((tasks['first']['revision'],tasks['first']['status']),(1,'ready'))
+        self.assertEqual((tasks['child']['revision'],tasks['child']['status']),(1,'blocked'))
+        self.assertEqual((tasks['unrelated']['revision'],tasks['unrelated']['status']),(0,'paused'))
+
+    def test_video_operation_replacement_preserves_selected_roles_without_requiring_audio_only_role(self):
+        self.authorization['allowed_operations'].append('media.edit')
+        encoded=graph.encode(planning.bind_scope(self.store,self.authorization).model_dump())
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(encoded,self.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(encoded,self.run['id']))
+        source={'id':'edit','type':'operation','operation':'media.edit','name':'edit','objective':'Create the requested video',
+                'inputs':{'source':{'asset':'asset'}},'parameters':{'edit_plan':{'clips':[{'asset':'source','end':1}]}},
+                'acceptance':[{'kind':'file'}],'basic_reason':'Local media integrity','delivery_stage':True}
+        self.tick();self.propose({'proposal_id':'initial-edit','base_graph_version':0,'reason':'Initial edit','add_tasks':[source],'sealed':True})
+        run=self.tick()
+        self.assertTrue(run['tasks'],{'status':run['status'],'terminal_reason':run['terminal_reason'],
+            'diagnostics':self.store.query('SELECT record FROM workflow_diagnostics WHERE workflow=?',(run['id'],))})
+        current=run['tasks'][0]['spec']
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed' WHERE run_id=? AND id='edit'",(run['id'],))
+        self.store.execute("UPDATE runs SET sealed=0,status='ACTIVE' WHERE id=?",(run['id'],))
+        planning.queue(self.store,graph.get(self.store,run['id']),{'task_id':'edit','repair_policy':'manager_revision'})
+        replacement=script('fixed',inputs={'source':{'asset':'asset'}},outputs=['final.mp4','plan.json','report.json'],
+                           output_roles={'video':'final.mp4','plan':'plan.json','report':'report.json'})
+        replacement.update({key:current[key] for key in ('objective','acceptance','semantics','delivery_stage')})
+        invalid={**replacement,'output_roles':{'video':'final.mp4','report':'report.json'}}
+        proposal={'proposal_id':'replacement','base_graph_version':1,'reason':'Repair implementation','add_tasks':[invalid],
+                  'replacements':{'edit':'fixed'},'sealed':True}
+        with self.assertRaisesRegex(ValueError,'required output role: plan'):
+            graph.validate_proposal(self.store,graph.get(self.store,run['id']),proposal,repair_scope='edit')
+        self.propose({**proposal,'add_tasks':[replacement]})
+        repaired=self.tick();self.assertEqual(next(t for t in repaired['tasks'] if t['id']=='fixed')['status'],'ready')
+
     def test_repair_revision_invalidates_descendants_and_preserves_unrelated_branch(self):
         self.tick();self.propose({'proposal_id':'initial-repair','base_graph_version':0,'reason':'initial',
             'add_tasks':[script('first'),script('child'),script('unrelated')],

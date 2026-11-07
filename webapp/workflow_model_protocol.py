@@ -197,13 +197,10 @@ def bind_explicit_delivery_formats(raw,filenames,frozen,role_filenames=None):
 
 
 def operation_acceptance(contract,parameters):
-    roles=list(contract.get('outputs',[]));alternatives=contract.get('output_contract',{}).get('alternatives',[])
+    from .operations import active_output_roles
+    roles=active_output_roles(contract,parameters)
     filenames=contract.get('output_contract',{}).get('filenames')
     fixed=dict(zip(roles,filenames)) if filenames and len(filenames)==len(roles) else {}
-    if alternatives:
-        selected=('audio' if contract['id']=='media.edit' and parameters.get('edit_plan',{}).get('output',{}).get('audio_only')
-                  else 'video' if contract['id']=='media.edit' else alternatives[0])
-        roles=[role for role in roles if role not in alternatives or role==selected]
     result=[]
     for role in roles:
         if role in ('primary_image','foreground','mask','preview'):kind='image'
@@ -500,6 +497,12 @@ def compile_manager(command,frozen):
                     if role in roles:raise CommandError('duplicate_output_role','plan.new_tasks.files.roles','Each role identifies exactly one file')
                     roles[role]=item['path']
             if task['type']!='operation':
+                if 'report' in required_delivery_roles(frozen) and 'report' not in roles:
+                    reports={path for role,path in roles.items() if role.endswith('_report')}
+                    if len(reports)==1:roles['report']=reports.pop()
+                    elif len(reports)>1:
+                        raise CommandError('ambiguous_report_role','plan.new_tasks.files.roles',
+                            'Assign the canonical report role to the requested report; multiple report roles are ambiguous.')
                 bind_explicit_delivery_names(raw,outputs,roles,frozen)
                 raw.update(outputs=outputs,output_roles=roles)
             bind_explicit_delivery_formats(raw,contract_filenames if task['type']=='operation' else outputs,frozen,

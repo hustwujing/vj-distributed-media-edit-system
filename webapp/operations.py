@@ -324,6 +324,16 @@ def for_step(spec):
     raise ValueError('工作流步骤只支持 script 或 operation')
 
 
+def active_output_roles(contract,parameters):
+    """Resolve mutually exclusive output roles using the frozen operation parameters."""
+    roles=list(contract.get('outputs',[]));alternatives=contract.get('output_contract',{}).get('alternatives',[])
+    if alternatives:
+        selected=('audio' if contract['id']=='media.edit' and parameters.get('edit_plan',{}).get('output',{}).get('audio_only')
+                  else 'video' if contract['id']=='media.edit' else alternatives[0])
+        roles=[role for role in roles if role not in alternatives or role==selected]
+    return roles
+
+
 def validate_parameters(operation,parameters,inputs,implementation=None):
     op=get(operation,implementation)
     normalized=contract(op).validate(parameters,inputs)
