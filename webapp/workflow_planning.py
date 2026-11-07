@@ -28,15 +28,25 @@ def available_operations(store):
     catalogues=[]
     for row in rows:
         try:
-            items=json.loads(row['catalogue']).get('operations',[])
+            value=json.loads(row['catalogue'])
+            if not isinstance(value,dict) or not isinstance(value.get('operations'),list):raise ValueError('Invalid catalogue')
+            items=value['operations']
             indexed={item['id']:item for item in items if isinstance(item,dict) and isinstance(item.get('id'),str)}
-            if len(indexed)!=len(items):indexed={}
-        except (TypeError,ValueError):indexed={}
+            if len(indexed)!=len(items) or any(not key for key in indexed):raise ValueError('Invalid operation identity')
+        except (TypeError,ValueError):
+            from .telemetry import emit
+            emit('workflow.catalogue_unavailable','WARNING',reason='invalid_catalogue')
+            return None
         catalogues.append(indexed)
     common=set(catalogues[0])
     for indexed in catalogues[1:]:common&=set(indexed)
-    return [catalogues[0][identifier] for identifier in sorted(common)
-            if len({digest(indexed[identifier]) for indexed in catalogues})==1]
+    operations=[catalogues[0][identifier] for identifier in sorted(common)
+                if len({digest(indexed[identifier]) for indexed in catalogues})==1]
+    if not operations and any(catalogues):
+        from .telemetry import emit
+        emit('workflow.catalogue_unavailable','WARNING',reason='no_common_contracts')
+        return None
+    return operations
 
 
 def bind_scope(store,raw):

@@ -77,6 +77,23 @@ class RunInputTests(unittest.TestCase):
         self.assertEqual(frozen['user_changes'],[{
             'sequence':1,'content':'Change left brightness to 1.35','source':'user',
             'context':accepted['context']}])
+        from webapp.workflow_model_protocol import scopes,available_changes
+        self.assertEqual(scopes(frozen),(None,None))
+        self.assertEqual(available_changes(frozen),{})
+        # Even bypassing the command compiler cannot turn applied history into
+        # a fresh controller-side grant to rewrite the task's objective.
+        revised={**run['tasks'][0]['spec'],'objective':'Unrequested weaker result'}
+        raw={'proposal_id':'stale-history','base_graph_version':run['graph_version'],
+             'reason':'Attempt stale revision','revise_tasks':[revised],'sealed':True}
+        result={'kind':'COMPLETE','reason':'Attempt stale revision','proposal':raw,
+                'base_graph_version':run['graph_version'],'authorization_version':run['authorization_version'],
+                'snapshot_digest':graph.digest(frozen),'input_through_sequence':0}
+        request={'status':'staged','authorization_version':run['authorization_version'],
+                 'snapshot_digest':graph.digest(frozen),'snapshot_json':graph.encode(frozen),
+                 'trigger_json':'{}','proposal_json':graph.encode(result)}
+        with self.assertRaisesRegex(ValueError,'frozen repair trigger'):
+            planning.apply(self.store,{**run,'sealed':False},request)
+        self.assertEqual(graph.get(self.store,run['id'])['tasks'],run['tasks'])
 
     def test_pending_user_decision_prevents_safe_point(self):
         self.f.orchestrator.decision(self.run,'quality',{'task_id':'left','revision':0})

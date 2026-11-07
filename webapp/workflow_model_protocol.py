@@ -73,13 +73,13 @@ def scopes(frozen):
     automatic=(repair.get('subject_task','') if repair.get('active') else trigger.get('task_id')
                if 'task_id' in trigger else '' if any(k in trigger for k in ('review_rejected','task_review_rejected')) else None)
     current=(frozen.get('input_batch') or {}).get('inputs') or []
-    records=current or (frozen.get('user_changes',[]) if automatic is None else [])
-    user=set().union(*(set(item['context']['allowed_revision_tasks']) for item in records)) if records else None
+    # Applied input is historical context, never a standing revision grant.
+    user=set().union(*(set(item['context']['allowed_revision_tasks']) for item in current)) if current else None
     return automatic,user
 
 
 def targeted_user_inputs(frozen):
-    records=(frozen.get('input_batch') or {}).get('inputs') or frozen.get('user_changes',[])
+    records=(frozen.get('input_batch') or {}).get('inputs') or []
     _,user=scopes(frozen)
     return user is not None and bool(records) and all((item.get('context') or {}).get('targets') for item in records)
 
@@ -89,22 +89,6 @@ def change_fields(task_type,user=False):
 
 
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage')
-
-
-def delivery_acceptance_signature(spec):
-    from .quality_policy import Acceptance
-    def normalize(value):
-        if isinstance(value,bool) or value is None:return value
-        if isinstance(value,(int,float)):return float(value)
-        if isinstance(value,list):return [normalize(item) for item in value]
-        if isinstance(value,dict):return {key:normalize(item) for key,item in value.items()}
-        return value
-    checks=[]
-    for raw in spec.get('acceptance',[]):
-        check=Acceptance.model_validate(raw).model_dump()
-        if check.get('source','user')!='user' or check.get('stage')!='final' or check.get('reviewer')!='program':continue
-        checks.append(normalize({key:value for key,value in check.items() if key not in ('file','criterion','source','stage')}))
-    return graph.digest(checks) if spec.get('delivery_stage') and checks else None
 
 
 def _delivery_request_text(frozen):
@@ -558,15 +542,6 @@ def compile_manager(command,frozen):
                 if ref.get('step') and (ref['step'],task['id']) not in edge_keys:
                     dependencies.append({'upstream':ref['step'],'downstream':task['id']});edge_keys.add((ref['step'],task['id']))
         replacements=dict(plan.get('replacements',{}))
-        if frozen['graph_version']>0:
-            existing_replaced=set(replacements)
-            for task in added:
-                signature=delivery_acceptance_signature(task)
-                if not signature or task['id'] in replacements.values():continue
-                matches=[identifier for identifier,row in current.items()
-                         if identifier not in existing_replaced and delivery_acceptance_signature(row['spec'])==signature]
-                if len(matches)==1:
-                    replacements[matches[0]]=task['id'];existing_replaced.add(matches[0])
         if replacements:
             for task in added:
                 for ref in task.get('inputs',{}).values():

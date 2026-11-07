@@ -92,14 +92,19 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(CommandError) as raised:compile_manager(command,value)
         self.assertEqual((raised.exception.code,raised.exception.path),('same_run_revision_required','kind'))
 
-    def test_applied_user_change_keeps_its_authorized_revision_scope(self):
+    def test_applied_user_change_is_context_not_a_revision_grant(self):
         value=frozen(user=True);record=value['input_batch']['inputs'][0]
         record['context']['targets']=['render'];value['input_batch']=None;value['user_changes']=[record];value['trigger']={}
         schema=manager_schema(value)
         changes=schema['properties']['plan']['anyOf'][0]['properties']['changes']
-        self.assertEqual(changes['maxItems'],16)
+        self.assertEqual(changes['maxItems'],0)
+        self.assertEqual(scopes(value),(None,None))
+        self.assertFalse(targeted_user_inputs(value))
         command={'kind':'COMPLETE','reason':'Apply retained input','plan':{'changes':[{
             'task_id':'render','set':{'objective':'Updated after the input drain'}}]}}
+        with self.assertRaises(CommandError) as raised:compile_manager(command,value)
+        self.assertEqual(raised.exception.code,'revision_not_available')
+        value['input_batch']={'through_sequence':8,'inputs':[record]}
         revised=compile_manager(command,value)['proposal']['revise_tasks'][0]
         self.assertEqual(revised['objective'],'Updated after the input drain')
 
@@ -144,7 +149,7 @@ class ModelCommandTests(unittest.TestCase):
         finals={(check['file'],check['source']) for check in compiled['acceptance'] if check['stage']=='final'}
         self.assertIn(('audio-process-report.json','user'),finals)
 
-    def test_unique_equivalent_delivery_task_replaces_the_old_leaf(self):
+    def test_equivalent_delivery_is_not_an_implicit_replacement(self):
         old={'id':'old','type':'agent','profile':'editing_implementer','name':'Old','objective':'Old attempt',
              'outputs':['old.png'],'output_roles':{'image':'old.png'},'delivery_stage':True,
              'acceptance':[{'kind':'image','file':'old.png','width':1024,'height':768,'source':'user','stage':'final'}],
@@ -153,8 +158,14 @@ class ModelCommandTests(unittest.TestCase):
         new={'id':'fixed','type':'agent','profile':'editing_implementer','name':'Fixed','objective':'Fixed attempt',
              'files':[{'path':'fixed.png','roles':['image']}],
              'acceptance':[{'kind':'image','width':1024,'height':768,'stage':'final','source':'user'}]}
-        result=compile_manager({'kind':'COMPLETE','reason':'Use the fixed candidate','plan':{'new_tasks':[new]}},f)
-        self.assertEqual(result['proposal']['replacements'],{'old':'fixed'})
+        for with_input in (False,True):
+            for objective in ('Fixed attempt','Old attempt'):
+                with self.subTest(with_input=with_input,objective=objective):
+                    f['input_batch']={'through_sequence':7,'inputs':[{'context':{'allowed_revision_tasks':['old']}}]} if with_input else None
+                    new['objective']=objective
+                    result=compile_manager({'kind':'COMPLETE','reason':'Add a second variant','plan':{'new_tasks':[new]}},f)
+                    self.assertEqual(result['proposal']['replacements'],{})
+                    self.assertEqual(result['proposal']['add_tasks'][0]['objective'],objective)
 
     def test_ambiguous_equivalent_delivery_tasks_are_not_guessed_as_replacements(self):
         old={'id':'old','type':'agent','profile':'editing_implementer','name':'Old','objective':'Old attempt',

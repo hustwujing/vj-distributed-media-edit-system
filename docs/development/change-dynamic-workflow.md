@@ -107,6 +107,8 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 
 质量决策携带候选摘要与快照，重复请求幂等、过期请求拒绝。只有原本声明的人工 Review 可 approve，不能批准技术失败或 Agent 拒绝。用户可指定修改根，服务器计算后代闭包；无关节点保持 revision、哈希和验收记录。自动修复不得改变原授权/要求。replacement 必须显式声明，被替代失败和历史 plan selection 保留。
 
+修订权限只来自本轮冻结 `input_batch` 或自动修复触发；`user_changes` 中已 APPLIED 的输入只提供历史事实，不能在后续普通规划轮重新授予修改 objective/acceptance 的权限。不得按交付物类型、尺寸或验收签名猜测 replacement；新增相似交付物保留原 Task，替代关系必须来自授权范围内的显式替代请求。在线 worker 目录损坏或非空目录无一致契约时延后规划，恢复后再创建 PLAN，不把暂不可知的能力当作空目录交给 Manager。
+
 失败候选通过 RepairCandidateRef 的 revision/artifact/hash/role 冻结引用，只供 repair/evidence Task 读取。media.evidence 的真实输出与源/参考/预览哈希绑定。review_again 只接受新增且已验收的证据，不能把技术失败改成通过。相同候选内容、验收标准和证据不因重命名或递增 revision 而重新抽取审查结论。
 
 异构片段使用独立 media.normalize_clip Task，统一明确规格并保存验收检查点，media.concat_sequence 只负责兼容流顺序汇合。禁止在单一脚本中隐藏大量解码器或让一次失败重做所有片段。

@@ -104,6 +104,38 @@ class DynamicGraphTests(unittest.TestCase):
         edit=next(item for item in frozen['operations'] if item['id']=='media.edit')
         self.assertEqual(edit['output_contract']['alternatives'],['audio','video'])
 
+    def test_invalid_or_conflicting_catalogue_defers_planning_and_recovers(self):
+        from webapp.operations import catalog
+        from unittest.mock import patch
+        operation=catalog()['operations'][0];good={'operations':[operation]}
+        for worker in ('catalogue-a','catalogue-b'):
+            self.store.execute('INSERT INTO execution_workers VALUES (?,?,?,?,?,0)',
+                               (worker,worker,'release','',self.store.now()))
+            self.store.execute('INSERT INTO execution_operation_catalog VALUES (?,?,?)',
+                               (worker,graph.encode(good),self.store.now()))
+        malformed=['{invalid','[]','null','{}',graph.encode({'operations':{}}),
+                   graph.encode({'operations':[operation,operation]}),
+                   graph.encode({'operations':[{'id':None}]}),
+                   graph.encode({'operations':[{**operation,'implementation':'conflicting@1'}]}),
+                   graph.encode({'operations':[]})]
+        for value in malformed:
+            with self.subTest(catalogue=value):
+                self.store.execute('UPDATE execution_operation_catalog SET catalogue=? WHERE worker=?',(value,'catalogue-b'))
+                with patch('webapp.telemetry.emit') as emitted:
+                    self.assertIsNone(planning.available_operations(self.store))
+                    self.assertTrue(emitted.called)
+                self.assertIsNone(planning.queue(self.store,graph.get(self.store,self.run['id']),{}))
+                self.assertFalse(self.store.query('SELECT id FROM planner_runs'))
+                self.assertFalse(self.store.query('SELECT id FROM control_jobs'))
+                state=graph.get(self.store,self.run['id'])
+                self.assertEqual((state['status'],state['terminal_reason']),('ACTIVE','workers_unavailable'))
+                self.assertGreater(state['next_reconcile_at'],self.store.now()+4)
+        self.store.execute('UPDATE execution_operation_catalog SET catalogue=? WHERE worker=?',(graph.encode(good),'catalogue-b'))
+        self.assertIsNotNone(planning.queue(self.store,graph.get(self.store,self.run['id']),{}))
+        self.assertEqual(len(self.store.query('SELECT id FROM planner_runs')),1)
+        self.assertEqual(len(self.store.query('SELECT id FROM control_jobs')),1)
+        self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'')
+
     def test_frozen_manager_schema_exposes_real_acceptance_target_domain(self):
         from pydantic import ValidationError
         from webapp.quality_policy import Acceptance
