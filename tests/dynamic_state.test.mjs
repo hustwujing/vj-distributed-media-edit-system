@@ -28,10 +28,12 @@ test('unknown external submission and planning have distinct input waiting messa
 test('accepted artifacts expose reuse controls outside the hidden task audit container',()=>{
  const html=readFileSync(new URL('../webapp/static/dynamic.html',import.meta.url),'utf8');
  const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ const css=readFileSync(new URL('../webapp/static/dynamic.css',import.meta.url),'utf8');
  assert.match(html,/<section id="dynamic-reusable"><\/section>/);
  assert.match(html,/<div id="dynamic-tasks" hidden><\/div>/);
  assert.match(source,/function renderReusable\(run\)/);
  assert.match(source,/renderDecisions\(run\);renderReusable\(run\)/);
  const legacy=source.slice(source.indexOf("$('dynamic-tasks').innerHTML"),source.indexOf('renderDecisions(run)'));
  assert.doesNotMatch(legacy,/data-reuse=/);
+ assert.match(css,/:has\(#dynamic-context-settings\[open\]\)\{max-height:55vh;overflow-y:auto\}/);
 });
