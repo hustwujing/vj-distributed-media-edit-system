@@ -12,6 +12,8 @@
 推理参数和预算。不能因为项目模型配置中保留了 SDK harness 字段，就把结构化 HTTP 循环的调用
 报告成某个 SDK 已执行。
 
+`response_transport`也是冻结执行策略。当前控制角色使用`buffered`，Editing Implementer使用`stream`；它同时进入SpecialistProfile和Run角色模型摘要。恢复或接管不得改读当前默认值。buffered只改变响应传输，不绕过strict、本地Schema、语义、权限、预算或回执校验；没有公开commentary时由宿主生成动作摘要，不能拒绝合法命令。
+
 ## 实现入口
 
 `profile_harnesses.ProfileHarness`、`specialist_profiles.SpecialistProfile`、`workflow_agents.py`、
@@ -58,6 +60,8 @@ finalize有独立调用上限，提前耗尽纠正额度后也不能把所有剩
 Harness 生成证据计划时必须区分已验收输出与失败候选。普通 step/role 只表示等待上游 accepted output；检查暂停或失败候选时必须从宿主提供的 `repair_candidates` 选择完整的 Task/revision/artifact/SHA/role 引用。不得把无法执行的 evidence Task 提交为 `replan_after` 叶节点。模型若选择错误引用，编译错误应只返回当前字段和可用候选，不把整个历史提示重新注入。
 
 真实模型可能在相同冻结输入上产生不同计划、脚本或 Reviewer 决定。Harness 的完成标准是有界、可审计和安全，而不是用无限轮次逼出成功。相同语义错误重复达到策略上限后进入 `REQUEST_USER_INPUT` 或失败结案；不要通过增加工具数、恢复完整 Proposal 入口或不断扩张 system prompt 掩盖模型波动。
+
+流式公开文本不得把同步Redis或数据库写入放大为Provider读取背压。中间delta使用有界异步队列并合并，Redis TTL定期刷新，数据库保存有界周期快照，完成快照同步封口。必须保留传输方式、首响应块、首段公开文本、总耗时及Publisher开销观测，以实际数据区分模型长尾和本地发布开销。
 
 ## 模型协议对照评测
 

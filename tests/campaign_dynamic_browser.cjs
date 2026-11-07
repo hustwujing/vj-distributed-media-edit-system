@@ -36,6 +36,13 @@ const globalHooks=new Set(['orchestrator_restart','orchestrator_competition','ex
 // Capacity-sensitive parallel-drain coverage also needs an otherwise idle cluster.
 for(const hook of ['unknown_input','frozen_route','drain_local'])globalHooks.add(hook);
 const pauseNewCases=()=>fs.existsSync(path.join(ROOT,'pause-new-cases'));
+let interrupted=false,secondInterrupt=false,stopPromise=Promise.resolve();const activeStops=new Set();
+const interrupt=signal=>{
+ if(interrupted){if(secondInterrupt)process.exit(130);secondInterrupt=true;return;}
+ interrupted=true;fs.writeFileSync(path.join(ROOT,'pause-new-cases'),`Campaign interrupted by ${signal}; active cases are being cancelled and cleaned\n`);
+ stopPromise=Promise.allSettled([...activeStops].map(stop=>stop(signal)));
+};
+process.on('SIGINT',()=>interrupt('SIGINT'));process.on('SIGTERM',()=>interrupt('SIGTERM'));
 
 function targetText(spec){
  if(spec.delivery_target_text)return spec.delivery_target_text;
@@ -64,13 +71,17 @@ async function runCase(browser,spec){
  const context=await browser.newContext({viewport:{width:1440,height:1100}}),page=await context.newPage();
  page.setDefaultTimeout(45000);let run=null,stoppedWorker=null,orchestratorStopped=false,observerStopped=false,apiStopped=false,workersHeld=false,secondStarted=false,objectCorrupted=false,lastCapture='';
  const persist=()=>save(path.join(directory,'state.json'),state);
+ const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
  const requestRecord=response=>{const url=new URL(response.url());if(url.origin===baseURL.origin&&url.pathname.includes('/api/'))state.requests.push({at:Date.now()/1000,method:response.request().method(),path:url.pathname,status:response.status(),request_id:response.headers()['x-request-id']||null,serving_api:response.headers()['x-video-use-api']||null});};
  page.on('response',requestRecord);page.on('pageerror',e=>state.page_errors.push(e.message));
  page.on('console',m=>{if(m.type()==='error')state.console_errors.push(m.text().slice(0,1000));});
- const api=async(method,suffix,data)=>{const deadline=Date.now()+60000;while(true){const response=await context.request.fetch(BASE+suffix,{method,...(data===undefined?{}:{data}),timeout:Math.max(1000,Math.min(45000,deadline-Date.now()))});
+ const storedApi=async(method,suffix,data)=>{const storage=JSON.parse(fs.readFileSync(path.join(directory,'browser-state.json')));const cookie=storage.cookies.map(item=>`${item.name}=${item.value}`).join('; ');
+  if(!cookie)throw Error('Saved browser session is unavailable for interrupt recovery');const response=await fetch(BASE+suffix,{method,headers:{cookie,...(data===undefined?{}:{'content-type':'application/json'})},...(data===undefined?{}:{body:JSON.stringify(data)})});
+  state.requests.push({at:Date.now()/1000,method,path:suffix,status:response.status,request_id:response.headers.get('x-request-id')||null});const body=await response.json().catch(()=>({}));if(!response.ok)throw Error(`HTTP ${response.status} ${suffix}: ${JSON.stringify(body)}`);return body;};
+ const api=async(method,suffix,data)=>{if(interrupted)return storedApi(method,suffix,data);const deadline=Date.now()+60000;while(true){const response=await context.request.fetch(BASE+suffix,{method,...(data===undefined?{}:{data}),timeout:Math.max(1000,Math.min(45000,deadline-Date.now()))});
   state.requests.push({at:Date.now()/1000,method,path:suffix,status:response.status(),request_id:response.headers()['x-request-id']||null});
   const body=await response.json().catch(()=>({}));const databaseUnavailable=response.status()===503&&body.code==='API_DATABASE_UNAVAILABLE';
-  if(method==='GET'&&databaseUnavailable&&Date.now()+1500<deadline){state.events.push({action:'database_read_retry',path:suffix,request_id:body.request_id,at:Date.now()/1000});persist();await page.waitForTimeout(1500);continue;}
+  if(method==='GET'&&databaseUnavailable&&Date.now()+1500<deadline){state.events.push({action:'database_read_retry',path:suffix,request_id:body.request_id,at:Date.now()/1000});persist();await delay(1500);continue;}
   if(!response.ok())throw Object.assign(Error(`HTTP ${response.status()} ${suffix}: ${JSON.stringify(body)}`),{dependency:databaseUnavailable});return body;}};
  const read=async()=>api('GET',`/api/projects/${state.project}/runs/${state.run_id}`);
  const helperEnvironment={...process.env,DYNAMIC_CAMPAIGN_REPO:REPO};
@@ -139,6 +150,13 @@ async function runCase(browser,spec){
   if(input.run_id!==state.run_id){state.run_id=input.run_id;state.execute_id=input.run_id;state.run_ids.push(input.run_id);state.task_ids.push(input.run_id);}
   persist();return input;
  };
+ const cancelForInterrupt=async signal=>{
+  state.interrupted_by=signal;state.events.push({action:'campaign_interrupt',signal,at:Date.now()/1000});persist();
+  if(!state.project)return;
+  try{const listing=await storedApi('GET',`/api/projects/${state.project}/runs`);for(const item of listing.runs)if(!terminal(item.state))await storedApi('POST',`/api/projects/${state.project}/runs/${item.id}/commands`,{request_id:uid(),action:'cancel'});}
+  catch(error){state.interrupt_cancel_error=error.message;persist();}
+ };
+ activeStops.add(cancelForInterrupt);
  const feedback=async(content,attachments=[])=>{
   run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
   if(!state.feedback_baseline&&decision.request.task_id&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
@@ -519,9 +537,9 @@ async function runCase(browser,spec){
    }
    if(secondStarted){try{await fault('stop_second_orchestrator');}catch(e){state.restore_error=e.message;}}
    try{
-    state.events.push({action:'cleanup_started',at:Date.now()/1000});persist();await page.goto('about:blank');
+    state.events.push({action:'cleanup_started',at:Date.now()/1000});persist();if(!interrupted)await page.goto('about:blank');
     const listing=await api('GET',`/api/projects/${state.project}/runs`);
-    for(const item of listing.runs){if(!terminal(item.state)){await api('POST',`/api/projects/${state.project}/runs/${item.id}/commands`,{request_id:uid(),action:'cancel'});const end=Date.now()+180000;while(Date.now()<end){const current=await api('GET',`/api/projects/${state.project}/runs/${item.id}`);if(terminal(current.state))break;await page.waitForTimeout(1000);}}}
+    for(const item of listing.runs){if(!terminal(item.state)){await api('POST',`/api/projects/${state.project}/runs/${item.id}/commands`,{request_id:uid(),action:'cancel'});const end=Date.now()+180000;while(Date.now()<end){const current=await api('GET',`/api/projects/${state.project}/runs/${item.id}`);if(terminal(current.state))break;await delay(1000);}}}
     await probe('inspect');state.internal=await probe('final');
     const external=JSON.parse(fs.readFileSync(path.join(directory,'internal-snapshot.json'))).dimensions.external_cleanup.records;
     if(!state.internal?.complete){state.cleanup_retained='Internal evidence is incomplete; retain the project until the audit can be completed';save(path.join(directory,'cleanup.json'),{complete:false,expected_retention:false,reason:state.cleanup_retained});}
@@ -529,7 +547,7 @@ async function runCase(browser,spec){
     else{await api('DELETE',`/api/projects/${state.project}`);state.cleanup=await probe('cleanup');}
    }catch(e){state.cleanup_error=e.message;}
   }
-  state.finished_at=Date.now()/1000;state.status='finished';persist();await context.close();
+  activeStops.delete(cancelForInterrupt);state.finished_at=Date.now()/1000;state.status='finished';persist();await context.close().catch(()=>{});
   // A case failure is evidence, not a reason to abandon full-round coverage.
   // Failed infrastructure restoration can contaminate later cases and must stop dispatch.
   if(state.restore_error)fs.writeFileSync(path.join(ROOT,'pause-new-cases'),'Infrastructure restoration failed for '+spec.id+' '+number+'; restore the isolated environment before continuing\n');
@@ -544,8 +562,8 @@ async function runCase(browser,spec){
   const serial=cases.filter(c=>globalHooks.has(c.dynamic_hook));
   const ordinary=cases.filter(c=>!serial.includes(c));let index=0;
   const concurrency=Math.max(1,Math.min(6,Number(process.env.DYNAMIC_CASE_JOBS||2)));
-  await Promise.all(Array.from({length:concurrency},async()=>{while(index<ordinary.length&&!pauseNewCases()){const spec=ordinary[index++];await runCase(browser,spec);}}));
-  for(const spec of serial){if(pauseNewCases())break;await runCase(browser,spec);}
+  await Promise.all(Array.from({length:concurrency},async()=>{while(index<ordinary.length&&!pauseNewCases()&&!interrupted){const spec=ordinary[index++];await runCase(browser,spec);}}));
+  for(const spec of serial){if(pauseNewCases()||interrupted)break;await runCase(browser,spec);}
   if(pauseNewCases())console.log(JSON.stringify({event:'campaign_paused_between_cases',reason:'pause-new-cases marker; unfinished coverage remains not_run'}));
- }finally{await browser.close();}
+ }finally{await stopPromise;await browser.close().catch(()=>{});if(interrupted)process.exitCode=130;}
 })().catch(error=>{console.error(error.stack);process.exitCode=1;});

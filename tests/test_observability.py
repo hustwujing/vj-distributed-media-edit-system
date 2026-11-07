@@ -70,6 +70,13 @@ class ObservationTests(unittest.TestCase):
         self.assertEqual(r['exception_type'],'ValueError');self.assertTrue(r['stack'])
         self.assertEqual(telemetry.record('newline\nattack')['event'],'invalid')
 
+    def test_model_transport_latency_and_route_fields_are_retained(self):
+        row=telemetry.record('workflow.model_latency',response_transport='buffered',requested_model='claude-sonnet-5-5',
+            response_model='claude-sonnet-5-5',model_route_changed=False,headers_seconds=1.2,first_chunk_seconds=1.3,
+            first_public_seconds=1.4,publisher_calls=2,publisher_seconds=.01,duration_seconds=1.5)
+        self.assertEqual(row['response_transport'],'buffered');self.assertEqual(row['response_model'],'claude-sonnet-5-5')
+        self.assertEqual((row['headers_seconds'],row['publisher_calls'],row['model_route_changed']),(1.2,2,False))
+
     def test_http_request_ids_500_and_owner_authorization(self):
         app=create_app(self.root/'api',False)
         @app.get('/test-failure')

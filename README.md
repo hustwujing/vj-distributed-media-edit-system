@@ -47,6 +47,8 @@ Redis：带过期时间的事件传输；业务状态仍以数据库为准
 
 专业 Agent 默认使用注册的 `structured-profile-v4` 工具循环：Manager 通过类型化命令修改 snapshot 绑定的 PlanDraft，`commit_plan` 原子编译为权威 Proposal；strict 优先、明确不支持时回退，本地校验始终执行。底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
 
+专业角色还冻结各自的响应传输策略。Manager、Reviewer和Diagnostician使用`buffered`结构化响应，避免网关因`stream=true`切换到不同的长尾路由；需要动态编写和执行处理代码的Editing Implementer保留`stream`。页面仍实时展示工具与DAG活动，buffered角色在每轮完成后展示公开摘要；缺少模型commentary不会使合法工具调用失败。
+
 ## 本机隔离部署
 
 工作区：`/data2/wujing03/distributed-agent-system`。服务入口：`/distributed-agent-system/`。

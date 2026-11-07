@@ -18,7 +18,7 @@ class TextTests(unittest.TestCase):
         self.events.append((kind,payload));return str(len(self.events))+'-0'
     def test_completed_item_flushes_the_exact_tail_before_next_model_or_tool(self):
         with patch('webapp.agent_text.bus') as bus,patch.dict(os.environ,{'VIDEO_USE_AGENT_TEXT_SNAPSHOT_SECONDS':'5'}),patch('webapp.agent_text.time.monotonic',return_value=100):
-            bus.return_value.publish.side_effect=self.publish
+            bus.return_value.publish.side_effect=self.publish;bus.return_value.publish_async.side_effect=self.publish
             publisher=TextPublisher(self.store,self.task);publisher.update('我');publisher.update('我现在检查透明边缘。')
             self.assertEqual(agent_store.turn(self.store,self.task)['text'],'我')
             publisher.update('我现在检查透明边缘。',complete=True)
@@ -32,8 +32,8 @@ class TextTests(unittest.TestCase):
             publisher=TextPublisher(self.store,self.task);publisher.update('整条公开说明',complete=True)
             row=agent_store.turn(self.store,self.task);self.assertEqual(row['text'],'整条公开说明');self.assertEqual(row['text_phase'],'idle')
     def test_replacement_is_a_snapshot_and_append_has_base_version(self):
-        with patch('webapp.agent_text.bus') as bus:
-            bus.return_value.publish.side_effect=self.publish;publisher=TextPublisher(self.store,self.task)
+        with patch('webapp.agent_text.bus') as bus,patch('webapp.agent_text.time.monotonic',side_effect=[100,101,102]):
+            bus.return_value.publish.side_effect=self.publish;bus.return_value.publish_async.side_effect=self.publish;publisher=TextPublisher(self.store,self.task)
             publisher.update('第一句');publisher.update('第一句\n\n第二句');publisher.update('纠正后的内容',complete=True)
             self.assertEqual([x[0] for x in self.events],['text_snapshot','text_delta','text_snapshot'])
             self.assertEqual(self.events[1][1]['delta'],'\n\n第二句');self.assertEqual(self.events[1][1]['base_version'],self.events[0][1]['text_version'])

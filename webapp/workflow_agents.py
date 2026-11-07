@@ -239,7 +239,8 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
     definitions=None
     if protocol is not None:
         from .model_tool_protocol import request as tool_request
-        definitions=protocol.definitions();body=tool_request(adapter,body,definitions,strict=strict);body['stream']=True
+        definitions=protocol.definitions();body=tool_request(adapter,body,definitions,strict=strict)
+        body['stream']=configuration.response_transport=='stream'
     output_limit=model_output_limit(profile,protocol)
     body=adapter.prepare(body,configuration.model,output_limit,configuration.reasoning_effort)
     raw=graph.encode(body);assert_no_credentials(raw,(*secrets(),key))
@@ -253,17 +254,21 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
          harness=profile.harness,profile_id=profile.id,configuration_digest=graph.digest(profile.snapshot()),
          max_output_tokens=output_limit,reasoning_effort=configuration.reasoning_effort,
          structured_output_mode=('strict_tools' if strict else 'non_strict_tools') if protocol else 'text',
+         response_transport='sse' if body.get('stream') else 'buffered',
          schema_digest=graph.digest(definitions) if definitions is not None else None,**complexity)
     deadline=deadline or time.monotonic()+profile.timeout_seconds
     with session() as counter:
         input_tokens,method=input_token_reservation(adapter,body,counter,base,key,lease,deadline,images,configuration.vision_tokenizer,configuration.input_token_policy)
     emit('workflow.model_token_reservation',task_id=lease.run_id,step_id=lease.step_id,
          input_tokens=input_tokens,output_tokens=output_limit,image_count=len(images),method=method)
+    request_started=time.monotonic();first_chunk_at=None;first_public_at=None
+    publisher_before=text_stream.metrics() if text_stream and hasattr(text_stream,'metrics') else {'calls':0,'seconds':0.0}
     with model_budget(lease,run,input_tokens+output_limit,receipt,input_reserved_tokens=input_tokens,
                       output_reserved_tokens=output_limit,method=method,
                       model_call_limit=configuration.budget['task_models']),model_call(lease,configuration.model,actor=actor(profile),observer=receipt),session() as client:
         with client.post(provider_base(base)+adapter.path,json=body,headers=adapter.headers(key),stream=True,
                          timeout=(10,max(1,min(240,deadline-time.monotonic()))),allow_redirects=False) as response:
+            headers_at=time.monotonic()
             if response.status_code!=200:
                 receipt.status='failed'
                 from .model_tool_protocol import strict_unsupported
@@ -280,15 +285,17 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
             from .safe_stream import PrefixGuard
             guard=PrefixGuard((*secrets(),key))
             def public_delta(delta):
-                nonlocal streamed
+                nonlocal streamed,first_public_at
+                if first_public_at is None:first_public_at=time.monotonic()
                 safe=guard.feed(delta)
                 if not safe:return
                 streamed+=safe
                 if text_stream:text_stream.message(message_id,public_actor_label(profile)+'：'+streamed)
             from .model_adapters import StructuredStream
-            structured_stream=StructuredStream(adapter.protocol,public_delta) if protocol is not None else None
+            structured_stream=StructuredStream(adapter.protocol,public_delta) if protocol is not None and body.get('stream') else None
             from .safe_stream import chunks
             for chunk in chunks(response):
+                if first_chunk_at is None:first_chunk_at=time.monotonic()
                 lease.check()
                 if host.stop.is_set():raise LeaseLost('Worker is stopping')
                 if time.monotonic()>deadline:raise TimeoutError('Agent phase deadline reached')
@@ -302,7 +309,19 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
                 tail=guard.finish()
                 if tail:streamed+=tail
                 if streamed and text_stream:text_stream.message(message_id,public_actor_label(profile)+'：'+streamed,complete=True)
+    response_finished=time.monotonic()
+    publisher_after=text_stream.metrics() if text_stream and hasattr(text_stream,'metrics') else publisher_before
+    emit('workflow.model_latency',task_id=lease.run_id,step_id=lease.step_id,
+         response_transport='sse' if body.get('stream') else 'buffered',duration_seconds=response_finished-request_started,
+         headers_seconds=headers_at-request_started,
+         first_chunk_seconds=(first_chunk_at-request_started) if first_chunk_at else None,
+         first_public_seconds=(first_public_at-request_started) if first_public_at else None,
+         publisher_calls=publisher_after['calls']-publisher_before['calls'],
+         publisher_seconds=publisher_after['seconds']-publisher_before['seconds'])
     structure={'payload_type':type(payload).__name__,'top_level_keys':sorted(payload)[:30] if isinstance(payload,dict) else []}
+    response_model=payload.get('model') if isinstance(payload,dict) and isinstance(payload.get('model'),str) else None
+    structure.update(requested_model=configuration.model,response_model=response_model,
+                     model_route_changed=bool(response_model and response_model!=configuration.model))
     if protocol is not None:
         from .model_tool_protocol import response as tool_response
         from .workflow_model_protocol import CommandError
@@ -333,8 +352,6 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
         except PublicResponseStructureError as exc:raise AgentReplyError('',code=exc.code) from None
         except (ValueError,KeyError,TypeError,IndexError):raise AgentReplyError('',code='invalid_tool_response') from None
         explicit_public=adapter.public_commentary(payload)
-        if structured_stream.sse and not streamed and not explicit_public:
-            error=AgentReplyError('',code='missing_public_commentary');error.details=[{'path':'assistant.text','type':'missing_public_commentary','message':'Before the tool call, emit one concise public progress sentence without private reasoning or raw arguments.'}];raise error
         public_texts=[] if streamed else explicit_public or [public_command_summary(profile,name,reply)]
         for text in public_texts:
             text=text.strip()[:5000]
