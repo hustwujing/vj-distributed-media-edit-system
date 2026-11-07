@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {canApproveDecision,acceptsFeedback,inputStatus,terminalRun} from '../webapp/static/dynamic_state.js';
 
 test('user approval requires declared review, technical pass and required agent pass',()=>{
@@ -22,4 +23,15 @@ test('unknown external submission and planning have distinct input waiting messa
  assert.equal(terminalRun('WAITING_USER'),false);
  assert.equal(terminalRun('CANCELLING'),false);
  assert.equal(terminalRun('SUCCEEDED'),true);
+});
+
+test('accepted artifacts expose reuse controls outside the hidden task audit container',()=>{
+ const html=readFileSync(new URL('../webapp/static/dynamic.html',import.meta.url),'utf8');
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.match(html,/<section id="dynamic-reusable"><\/section>/);
+ assert.match(html,/<div id="dynamic-tasks" hidden><\/div>/);
+ assert.match(source,/function renderReusable\(run\)/);
+ assert.match(source,/renderDecisions\(run\);renderReusable\(run\)/);
+ const legacy=source.slice(source.indexOf("$('dynamic-tasks').innerHTML"),source.indexOf('renderDecisions(run)'));
+ assert.doesNotMatch(legacy,/data-reuse=/);
 });
