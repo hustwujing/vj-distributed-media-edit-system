@@ -616,12 +616,10 @@ class Adapter:
         from .image_sandbox import image_command,gpu_slot
         from .task_leases import CURRENT
         lease=CURRENT.get()
-        if lease:lease.consume('local_image',int(os.environ.get('VIDEO_USE_TASK_LOCAL_IMAGE_CALLS','20')))
+        if not lease:raise RuntimeError('图片后台步骤需要有效执行租约')
+        lease.consume('local_image',int(os.environ.get('VIDEO_USE_TASK_LOCAL_IMAGE_CALLS','20')))
         from .paths import SANDBOX_WORKSPACE
         env=self.environment(w)
-        lease=CURRENT.get()
-        if not lease:raise RuntimeError('图片后台步骤需要有效执行租约')
-        lease.consume('local_image',20)
         from .workflow_inputs import image_task
         from .operations import for_step
         task,assets=image_task(self.store,w,s,env)

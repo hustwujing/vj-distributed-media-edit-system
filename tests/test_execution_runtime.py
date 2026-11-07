@@ -426,6 +426,8 @@ Image.new('L',(8,8),128).save(out/'mask.png')
         files=adapter.fixed_image(w,step,lambda:False)
         report=adapter.validate(w,step,files)
         self.assertTrue(report['passed'],report)
+        self.assertEqual(self.store.query("SELECT used FROM execution_budgets WHERE run_id=? AND category='local_image'",(self.turn,))[0]['used'],1)
+        self.assertEqual(self.store.query("SELECT used FROM execution_daily_usage WHERE category='local_image'")[0]['used'],1)
         from webapp.workflow_inputs import roles
         self.assertEqual(set(roles(step['spec'],files)),{'primary_image'})
 
