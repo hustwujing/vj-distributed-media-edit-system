@@ -1,15 +1,15 @@
 # 动态工作流完整真机 case 测试报告
 
-本报告包含清单中的全部 119 条 case 的执行状态和所有历史尝试。未执行、未触发目标边界、缺少审查证据以及旧版本结果均不计为当前版本通过。
+本报告包含清单中的全部 126 条 case 的执行状态和所有历史尝试。未执行、未触发目标边界、缺少审查证据以及旧版本结果均不计为当前版本通过。
 
-当前部署：`1db761cad5176417ce3565d066864d789ad9a552b13605fc7ee4fe064fe44112`。整体验收：**未完成**。
+当前部署：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`。整体验收：**未完成**。
 
-冻结 Python 门禁：980 项，失败 0，错误 0，跳过 6。绑定摘要：`1db761cad5176417ce3565d066864d789ad9a552b13605fc7ee4fe064fe44112`。
-JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/1db761cad517.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
+冻结 Python 门禁：98 项，失败 0，错误 0，跳过 0。绑定摘要：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`。
+JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cluster/verification/c5e0f2ff5cf8.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
 
-统计：需在当前版本复测 118；模型/依赖失败已正确处理 1。
+统计：阻塞或证据不完整 1；需在当前版本复测 124；未执行 1。
 
-当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 1；待归因 0。非程序错误仍是业务或用例失败，不并入业务成功。
+当前版本失败分类：程序错误 0；非程序错误（程序处理正确） 0；待归因 1。非程序错误仍是业务或用例失败，不并入业务成功。
 
 必须完成的额外回归：F48-history-archive：Historical executed revisions must have retained checkpoint manifests and bytes；F52-script-receipts：Implementer must observe real script receipts and submit within bounded phases；F53-bound-correction：Invalid binding is rejected and bounded correction completes the original goal；F54-feedback-approval：Revision retains declared user Review; independent candidate checking precedes approval；F62-acceptance-target-schema：Schema枚举修复已部署，完整门禁通过；当前119轮继续验证实际Manager调用，不能将待真机关闭误写为待开发。；F66-local-edge-fixture-scope：局部请求、5%上限及人工预览已一致；最终检查器残留整图腐蚀已在12dcf71修复。D36 attempt-004原始真机产物回放通过，原测试失败保留；当前完整轮正式复测。；F68-revision-new-descendant：A single valid APPLY_PLAN revises an existing upstream and adds a new downstream. The affected revision closure includes the new node, but apply indexes only the old active Task snapshot, raising KeyError and rolling back every reconcile.；F69-planner-contract-feedback：Current round has repeated sealed+replan_after contradiction; prompt says name replan_after and seal when complete but omits explicit mutual exclusion. Frozen-field rejection lists a broad field family without the actually changed field paths. review_again prerequisite must be exposed in current snapshot/action guidance.；F70-feedback-replacement-assertion：Feedback post-hook requires original render revision increase. Legal explicit replacement creates new logical Task at revision0 with user_revision_count1 while preserving retired original; application succeeds but harness rejects.。
 
@@ -18,7 +18,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 [用例保留与调整审查](dynamic-case-review.md) · [失败与修复记录](dynamic-fixes.md) · [非程序错误分析](dynamic-non-program-failures.md)
 
 
-部署后真机批次按源码版本统计。每个版本可能包含定向验证、失败复测或部分全量运行，不能把候选版本数表述为完整119条测试轮数。
+部署后真机批次按源码版本统计。每个版本可能包含定向验证、失败复测或部分全量运行，不能把候选版本数表述为完整126条测试轮数。
 
 | 部署版本 | 涉及用例数 | 实际执行次数 | 已结束次数 |
 | --- | --- | --- | --- |
@@ -122,10 +122,22 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | `d3605a60a768` | 13 | 13 | 13 |
 | `cb27fbdd8723` | 119 | 143 | 143 |
 | `1db761cad517` | 1 | 1 | 1 |
+| `1ed35591224e` | 5 | 7 | 5 |
+| `269f2502b277` | 12 | 16 | 15 |
+| `07887eb4773d` | 1 | 2 | 2 |
+| `c5e8110b80e0` | 11 | 11 | 11 |
+| `624042415e25` | 4 | 4 | 4 |
+| `721c364f39f9` | 9 | 10 | 10 |
+| `8aac762a9136` | 1 | 1 | 1 |
+| `ad1343a56399` | 8 | 8 | 8 |
+| `e39426e5d08e` | 11 | 13 | 13 |
+| `c468e591b23a` | 19 | 36 | 31 |
+| `eb20035d1eea` | 1 | 2 | 1 |
+| `c5e0f2ff5cf8` | 4 | 9 | 7 |
 
 | Case | 场景 | 当前结论 | 尝试次数 |
 | --- | --- | --- | --- |
-| S01 | 图片中心裁切 | 需在当前版本复测 | 35 |
+| S01 | 图片中心裁切 | 阻塞或证据不完整 | 41 |
 | S02 | 图片等比缩小 | 需在当前版本复测 | 24 |
 | S03 | 图片顺时针旋转 | 需在当前版本复测 | 25 |
 | S04 | 图片水平镜像 | 需在当前版本复测 | 24 |
@@ -156,25 +168,25 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | S29 | 真实图生视频 | 需在当前版本复测 | 18 |
 | S30 | 字幕整理为文字 | 需在当前版本复测 | 19 |
 | S31 | 保留静音音轨 | 需在当前版本复测 | 13 |
-| C01 | 三段精剪与配乐 | 需在当前版本复测 | 43 |
-| C02 | 双片段交叉淡化 | 需在当前版本复测 | 29 |
-| C03 | 竖屏字幕与角标 | 需在当前版本复测 | 29 |
-| C04 | 抠图后视频合成 | 需在当前版本复测 | 27 |
-| C05 | 人像分割精修海报 | 需在当前版本复测 | 36 |
-| C06 | 跨图调色批量输出 | 需在当前版本复测 | 24 |
-| C07 | OCR驱动文字替换 | 需在当前版本复测 | 35 |
-| C08 | 透视校正打印卡片 | 需在当前版本复测 | 22 |
-| C09 | 真实图片分层与ORA | 需在当前版本复测 | 23 |
-| C10 | 异构素材竖版混剪 | 需在当前版本复测 | 20 |
-| C11 | 四宫格视频 | 需在当前版本复测 | 21 |
-| C12 | 图片动态幻灯片 | 需在当前版本复测 | 21 |
-| C13 | 分段变速与定格 | 需在当前版本复测 | 21 |
-| C14 | 倒放混剪 | 需在当前版本复测 | 21 |
-| C15 | 旁白配乐压低与字幕 | 模型/依赖失败已正确处理 | 23 |
-| C16 | 降噪与双格式播客 | 需在当前版本复测 | 31 |
-| C17 | 中英字幕品牌短片 | 需在当前版本复测 | 22 |
-| C18 | 音画分离后重组 | 需在当前版本复测 | 22 |
-| C19 | 海报动画与透明角标 | 需在当前版本复测 | 22 |
+| C01 | 三段精剪与配乐 | 需在当前版本复测 | 51 |
+| C02 | 双片段交叉淡化 | 需在当前版本复测 | 36 |
+| C03 | 竖屏字幕与角标 | 需在当前版本复测 | 40 |
+| C04 | 抠图后视频合成 | 需在当前版本复测 | 33 |
+| C05 | 人像分割精修海报 | 需在当前版本复测 | 42 |
+| C06 | 跨图调色批量输出 | 需在当前版本复测 | 31 |
+| C07 | OCR驱动文字替换 | 需在当前版本复测 | 42 |
+| C08 | 透视校正打印卡片 | 需在当前版本复测 | 30 |
+| C09 | 真实图片分层与ORA | 需在当前版本复测 | 29 |
+| C10 | 异构素材竖版混剪 | 需在当前版本复测 | 24 |
+| C11 | 四宫格视频 | 需在当前版本复测 | 26 |
+| C12 | 图片动态幻灯片 | 需在当前版本复测 | 23 |
+| C13 | 分段变速与定格 | 需在当前版本复测 | 24 |
+| C14 | 倒放混剪 | 需在当前版本复测 | 23 |
+| C15 | 旁白配乐压低与字幕 | 需在当前版本复测 | 25 |
+| C16 | 降噪与双格式播客 | 需在当前版本复测 | 32 |
+| C17 | 中英字幕品牌短片 | 需在当前版本复测 | 23 |
+| C18 | 音画分离后重组 | 需在当前版本复测 | 23 |
+| C19 | 海报动画与透明角标 | 需在当前版本复测 | 23 |
 | C20 | 精修人像双背景对照 | 需在当前版本复测 | 16 |
 | C21 | 并行预处理后汇合 | 需在当前版本复测 | 17 |
 | C22 | 24片段长程批处理与暂停续跑 | 需在当前版本复测 | 23 |
@@ -206,9 +218,9 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D01 | 真实 Manager 多轮扩图 | 需在当前版本复测 | 11 |
 | D02 | 并行分支完成后触发汇合规划 | 需在当前版本复测 | 8 |
 | D03 | 未封口禁止提前交付 | 需在当前版本复测 | 9 |
-| D04 | Orchestrator 重启与提案去重 | 需在当前版本复测 | 9 |
+| D04 | Orchestrator 重启与提案去重 | 需在当前版本复测 | 11 |
 | D05 | 两个 Orchestrator 竞争推进 | 需在当前版本复测 | 8 |
-| D06 | 执行器退出后换节点恢复 | 需在当前版本复测 | 9 |
+| D06 | 执行器退出后换节点恢复 | 需在当前版本复测 | 11 |
 | D07 | Manager 执行中取消 | 需在当前版本复测 | 10 |
 | D08 | 暂停边界不启动新任务 | 需在当前版本复测 | 10 |
 | D09 | 外部调用超范围审批 | 需在当前版本复测 | 12 |
@@ -218,7 +230,7 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D13 | 模型预算耗尽有界暂停 | 需在当前版本复测 | 13 |
 | D14 | BOSS 内容校验与候选不放行 | 需在当前版本复测 | 13 |
 | D15 | 授权内容指纹失效拒绝 | 需在当前版本复测 | 9 |
-| D16 | 外部提交未知不重复生成 | 需在当前版本复测 | 9 |
+| D16 | 外部提交未知不重复生成 | 需在当前版本复测 | 10 |
 | D17 | 观测服务中断不影响业务状态 | 需在当前版本复测 | 9 |
 | D18 | API 切换与浏览器恢复 | 需在当前版本复测 | 9 |
 | D19 | 独立部署与 main 数据隔离 | 需在当前版本复测 | 11 |
@@ -229,34 +241,32 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-system/.cl
 | D24 | 专业Agent在途输入排空 | 需在当前版本复测 | 13 |
 | D25 | 规划期间连续输入分批处理 | 需在当前版本复测 | 9 |
 | D26 | Wan在途输入保持原句柄 | 需在当前版本复测 | 5 |
-| D27 | 外部提交未知时输入屏障 | 需在当前版本复测 | 6 |
+| D27 | 外部提交未知时输入屏障 | 需在当前版本复测 | 7 |
 | D28 | 质量反馈幂等与过期快照 | 需在当前版本复测 | 10 |
 | D29 | 拒绝不能被人工批准且可补证据 | 需在当前版本复测 | 6 |
 | D30 | 局部蒙版修复比例边界 | 需在当前版本复测 | 7 |
 | D31 | 持续动作的真实时序证据 | 需在当前版本复测 | 15 |
-| D32 | 输入与最终发布竞争 | 需在当前版本复测 | 6 |
+| D32 | 输入与最终发布竞争 | 需在当前版本复测 | 8 |
 | D33 | 交付后successor输入幂等 | 需在当前版本复测 | 14 |
-| D34 | 同步外部请求在途输入 | 需在当前版本复测 | 6 |
-| D35 | Provider配置切换后冻结路由恢复 | 需在当前版本复测 | 10 |
+| D34 | 同步外部请求在途输入 | 需在当前版本复测 | 8 |
+| D35 | Provider配置切换后冻结路由恢复 | 需在当前版本复测 | 11 |
 | D36 | 抠图候选边缘反馈修订 | 需在当前版本复测 | 15 |
 | D37 | 双图构图反馈修订 | 需在当前版本复测 | 6 |
 | D38 | Wan提交前参考图反馈修订 | 需在当前版本复测 | 13 |
 | D39 | 合法替代失败节点与历史读取 | 需在当前版本复测 | 20 |
 | D40 | 已验收音频下游Operation取证 | 需在当前版本复测 | 16 |
 | D41 | 最终交付选择与多视频时序证据 | 需在当前版本复测 | 10 |
-
-Python 门禁跳过项（不计作真实模型通过证据）：
-
-- `test_real_birefnet_cutout (test_execution_runtime.RuntimeTests.test_real_birefnet_cutout)`：Explicit real GPU smoke
-- `test_real_ocr (test_execution_runtime.RuntimeTests.test_real_ocr)`：Explicit real OCR smoke
-- `test_real_sam2_segment (test_execution_runtime.RuntimeTests.test_real_sam2_segment)`：Explicit real GPU smoke
-- `test_real_sam3_empty_selection (test_execution_runtime.RuntimeTests.test_real_sam3_empty_selection)`：Explicit real SAM3 smoke
-- `test_real_sam3_segment (test_execution_runtime.RuntimeTests.test_real_sam3_segment)`：Explicit real SAM3 smoke
-- `test_real_cutout_uses_pinned_step_resources_after_claim (test_native_operation_dispatch.NativeDispatchTests.test_real_cutout_uses_pinned_step_resources_after_claim)`：Explicit real GPU workflow dispatch smoke
+| D42 | Manager硬杀后同快照接管 | 需在当前版本复测 | 4 |
+| D43 | Reviewer硬杀后证据与预算恢复 | 需在当前版本复测 | 1 |
+| D44 | 业务Agent默认不可重试契约下的基础设施接管 | 需在当前版本复测 | 1 |
+| D45 | 业务Agent连续两次硬杀与恢复预算分账 | 需在当前版本复测 | 1 |
+| D46 | 异步Provider轮询硬杀后沿用原句柄 | 需在当前版本复测 | 5 |
+| D47 | 自然语言附加交付与Delivery叶节点完整选择 | 需在当前版本复测 | 2 |
+| D48 | 安全点前附件失效并拒绝补充输入 | 未执行 | 0 |
 
 ## S01 · 图片中心裁切
 
-当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+当前结论：**阻塞或证据不完整**。目标边界：`业务成果及全链路状态`。
 
 输入素材：portrait.png。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。
@@ -1232,6 +1242,178 @@ Call log:
 实际确认的执行轮次：
 
 - `de5654d36e134274a27e63f9b56e97b1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 1000000；外部调用上限 `{}`。
+
+### attempt-036 · 执行中
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T12:26:15+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`03e5745f4e304bf3b50cf85f9fc9fca1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-036/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-036/state.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-036/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "audit incomplete"]
+
+实际控制步骤：campaign_interrupt。
+
+实际确认的执行轮次：
+
+- `08c81895c9bf4b1ebc484122b7935ed6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 1000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-037 · 执行中
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-07T12:29:09+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`None`；项目：`6201f2a51a184924aa23f0b35b2ad07d`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-037/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-037/state.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-037/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "audit incomplete"]
+
+实际控制步骤：campaign_interrupt。
+
+实际确认的执行轮次：
+
+- `3a0b67fc206d48f4a1d6809e00708897`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 1000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-038 · 阻塞或证据不完整
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-07T12:31:54+08:00 → 2026-11-07T12:32:34+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`user_stopped`；项目：`8807cf1753fd4433acb1968ee8b6f6db`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-038/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-038/state.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-038/internal-final.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-038/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-038/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-038/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+证据缺口：["browser", "audit incomplete"]
+
+结果分类：待归因。
+
+实际控制步骤：campaign_interrupt。
+
+实际确认的执行轮次：
+
+- `f5e5ea5305254b27b5541f512e33d498`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 1000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-039 · 阻塞或证据不完整
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-07T12:34:17+08:00 → 2026-11-07T12:34:57+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`user_stopped`；项目：`9ac1f18754574748af4b32dc2128e23e`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-039/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-039/state.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-039/internal-final.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-039/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-039/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-039/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+证据缺口：["browser", "audit incomplete"]
+
+结果分类：待归因。
+
+实际控制步骤：campaign_interrupt。
+
+实际确认的执行轮次：
+
+- `c6e1b7fc5ac54f93aae07ac96384aa51`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 1000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-040 · 阻塞或证据不完整
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-07T12:37:08+08:00 → 2026-11-07T12:39:30+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`user_stopped`；项目：`61753e8bdd8d4281abfd43e2ce456eba`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-040/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-040/state.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-040/internal-final.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-040/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-040/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-040/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+证据缺口：["browser", "audit incomplete"]
+
+结果分类：待归因。
+
+实际控制步骤：campaign_interrupt。
+
+实际确认的执行轮次：
+
+- `0620ee8a2e3041d3923b4157d0d9e5cc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 1000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-041 · 阻塞或证据不完整
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：是。
+时间（UTC+08:00）：2026-11-07T12:39:47+08:00 → 2026-11-07T12:40:29+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`user_stopped`；项目：`1f1098fc409e4666b71ea6896dd7fe69`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-041/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-041/state.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-041/internal-final.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-041/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-041/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/S01/attempt-041/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+证据缺口：["browser", "audit incomplete"]
+
+结果分类：待归因。
+
+实际控制步骤：campaign_interrupt。
+
+实际确认的执行轮次：
+
+- `2e2fced6f3b7466ab6a009b2702e7fd0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。把 portrait.png 从中心裁出256×256，不缩放，输出PNG。；Token上限 1000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## S02 · 图片等比缩小
 
@@ -8962,7 +9144,7 @@ Call log:
 
 执行错误：Workflow requested user input or feedback after bounded processing: quality_feedback
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "reviewer_again_failed_to_close_trim_identity_with_completed_window_evidence", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793945100, "findings": ["The trim candidate and both candidate/source registered window evidence Tasks succeeded.", "Reviewer still requested quality feedback instead of resolving the supplied evidence.", "No insufficiently reviewed WAV was delivered and cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "candidate-archive.json", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "reviewer_again_failed_to_close_trim_identity_with_completed_window_evidence", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793945100, "findings": ["The trim candidate and both candidate/source registered window evidence Tasks succeeded.", "Reviewer still requested quality feedback instead of resolving the supplied evidence.", "No insufficiently reviewed WAV was delivered and cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "candidate-archive.json", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -20103,6 +20285,238 @@ Call log:
 
 - `42260477b9ef487ba2784aa7a6d3d8e9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-044 · 通过
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:29:35+08:00 → 2026-11-07T01:44:55+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f9bc6d7810044156bf2113eb93cc6cc2`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-044/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793987115, "findings": ["The current attempt delivered the requested MP4 and quality report with independently verified hashes.", "Database, lease, graph, model usage, observability, cache, and BOSS invariants passed for the current release.", "The browser delivery matched the authoritative Run and actual media playback advanced beyond 0.2 seconds; project, Redis, BOSS, and node-local cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [2.268064236111111, 2.1427314814814813, 1.826148726851852]}`。
+
+实际确认的执行轮次：
+
+- `cd93962ada754abb97ffe902c1159bd0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-045 · 程序缺陷
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:27:15+08:00 → 2026-11-07T04:03:39+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`839e4196285c490cb80e534e41eeb3f1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-045/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "retried_control_job_exposed_stale_error_code_while_running", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793995600, "findings": ["The Manager received three bounded attempts after repeated external stream failures and then failed closed without business side effects.", "During retry generations, the running Control Job retained the previous agent_failed error code and produced a contradictory public/DAG snapshot.", "Fatal cleanup completed, but claim must clear current error fields while retaining historical Attempt and event evidence."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `a6d5256424154524abf0e34b11a74295`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-046 · 通过
+
+版本：`8aac762a9136464cd0df19191bb285810f5b54e6e3c8fd866336692246589ea5`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T04:18:44+08:00 → 2026-11-07T04:32:42+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`297197c0e5e945fc8435991e9992d580`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-046/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793997000, "findings": ["The targeted attempt completed graph version two and delivered the requested MP4 and quality report.", "All claimed/running work items exposed empty current error fields while historical failures remained in durable Attempt and event evidence.", "Artifact hashes, browser playback, program invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [2.161524884259259, 1.9767664930555555, 1.879636863425926]}`。
+
+实际确认的执行轮次：
+
+- `84ef9b0593cd444bbc24c655cbf060d6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-047 · 程序缺陷
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T04:56:50+08:00 → 2026-11-07T05:10:40+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`98524d8db4874a6b8b12e2459d75e0e1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-047/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "evidence_only_delivery_stage_not_host_derived", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793999500, "findings": ["Production tasks passed, but final review required source-window and audio-envelope evidence.", "The repair Manager twice proposed registered evidence collectors whose model-authored acceptance implied delivery_stage=true; the host rejected them because evidence-only Tasks cannot be deliverables.", "The compiler should derive purpose=evidence and delivery_stage=false for registered evidence-only operations instead of allowing this known field combination to exhaust correction."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `e01df94916c54a50b13266b9e47b82ae`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-048 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T05:42:12+08:00 → 2026-11-07T05:59:09+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`675e9dede3904a12ade38733cea3e61c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-048/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794003000, "findings": ["The targeted attempt completed graph version two and delivered the verified MP4 plus audio, compiler, and quality reports.", "Evidence and delivery semantics remained separated and no evidence-only Task became a deliverable.", "Browser playback, artifact hashes, program invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [2.034508101851852, 1.913855613425926, 1.7133738425925926]}`。
+
+实际确认的执行轮次：
+
+- `8554b184a19c4bc0b72f7a8eaa967633`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-049 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:11:16+08:00 → 2026-11-07T06:27:05+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`5b75cb546a6c42c1b0bba796c1af546f`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-049/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794004100, "findings": ["The attempt delivered a verified MP4 and quality report.", "Evidence and delivery semantics remained separated through graph version two.", "Browser playback, program invariants, hashes, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [2.5289236111111113, 2.330570023148148, 2.025515046296296]}`。
+
+实际确认的执行轮次：
+
+- `c4735d8ce0d3420ea7ee3bbcef402f27`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-050 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T07:47:38+08:00 → 2026-11-07T08:32:28+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`e5ef90b972a54420a20a4ad389d1b9ae`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-050/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794011600, "findings": ["The attempt delivered the verified MP4 and quality report.", "Evidence and delivery semantics remained separated and final review passed.", "Browser playback, program invariants, hashes, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [2.5289236111111113, 2.330570023148148, 2.025515046296296]}`。
+
+实际确认的执行轮次：
+
+- `e767742ffe324a46b3e9114ca011bc02`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-051 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:52:48+08:00 → 2026-11-07T10:06:32+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`0afd1e604f114052a8cb7ef8566f53af`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C01/attempt-051/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794017300, "findings": ["The attempt delivered the verified MP4 and quality report.", "Final review, browser playback, program invariants, and cleanup passed.", "No evidence-only output was promoted to delivery."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [2.034508101851852, 1.913855613425926, 1.7133738425925926]}`。
+
+实际确认的执行轮次：
+
+- `002adcfb8bba499c8af55e1fdeb1c56e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取 clip_a.mp4 的2–6、10–14、20–24秒，拼成12秒视频；首尾各0.5秒淡入淡出；去掉原音，混入music.wav；输出640×360 MP4及质量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C02 · 双片段交叉淡化
 
 当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
@@ -20926,6 +21340,207 @@ Call log:
 实际确认的执行轮次：
 
 - `76c1cea519b34ed9af6b436885181b28`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-030 · 待逐例审查
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:29:35+08:00 → 2026-11-07T01:37:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`e8408a50b4324c16a6de302692033a70`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-030/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f4fb13186f5b467bb69a5de65bfacb77`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-031 · 通过
+
+版本：`624042415e25fa9bbf714a72daf9d2bb97b308b2e3266190ca83d64db1a5c7df`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T02:36:36+08:00 → 2026-11-07T02:45:40+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`0d2c29ba4e2047f58e9110f577d0bd88`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-031/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793990760, "findings": ["The current attempt recovered from the intermediate quality failure through Diagnosis and repair planning, then delivered the requested MP4.", "The delivered artifact hash, technical checks, database/graph/lease invariants, and cleanup all passed.", "Actual browser playback advanced beyond 0.2 seconds and matched the authoritative Run."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"transition_blend_mae": 3.636824363425926}`。
+
+实际确认的执行轮次：
+
+- `0c8d519d862f469aa91bfaf0ed300057`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-032 · 通过
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:27:15+08:00 → 2026-11-07T03:47:44+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`842b7fa03c334b4aad3cd41eda40c7bc`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-032/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793994500, "findings": ["The current full-round attempt delivered the requested cross-fade video as a verified MP4.", "Artifact hash, technical checks, graph/lease/model invariants, and cleanup passed.", "Actual browser playback advanced beyond 0.2 seconds and matched the authoritative Run."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"transition_blend_mae": 3.622738715277778}`。
+
+实际确认的执行轮次：
+
+- `453468046990442b89ffa494fe5006c7`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-033 · 通过
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T04:56:50+08:00 → 2026-11-07T05:23:21+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`ed0795bfc68a4f118d850419f8d0e99b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-033/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794000150, "findings": ["The attempt delivered the requested cross-fade video as a verified MP4.", "Browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No failed candidate was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"transition_blend_mae": 3.8347395833333335}`。
+
+实际确认的执行轮次：
+
+- `0f4df8ada6ff47a195ea74c49bae94cd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-034 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:11:16+08:00 → 2026-11-07T06:46:30+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`1a39aaa7985441818249f3a0bf4902a4`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-034/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794005300, "findings": ["The attempt delivered the verified cross-fade MP4.", "Browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No failed candidate was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"transition_blend_mae": 3.8347395833333335}`。
+
+实际确认的执行轮次：
+
+- `6fbad767008847b28b70df5b029cf1c9`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-035 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T07:47:38+08:00 → 2026-11-07T08:20:51+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`0519fe28c3d040c1a480fdb045a9c93a`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-035/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794010000, "findings": ["The attempt delivered the verified cross-fade MP4.", "Browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No failed candidate was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"transition_blend_mae": 3.622783564814815}`。
+
+实际确认的执行轮次：
+
+- `d885b0f7c28c4161aa73b73a5b52bf84`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-036 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:52:48+08:00 → 2026-11-07T10:10:26+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`52080c02c91c48889929ab2651921c4c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C02/attempt-036/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794017500, "findings": ["The attempt delivered the verified cross-fade MP4.", "Browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No failed candidate was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"transition_blend_mae": 3.8433897569444446}`。
+
+实际确认的执行轮次：
+
+- `32ea83c3d09b450c81698b1bafbb6a06`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A和B各前6秒，A后接B，中间交叉淡化1秒，得到11秒640×360；补齐B的音频，使用music.wav铺底；开头2秒标题SPACE DAY，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C03 · 竖屏字幕与角标
 
@@ -21753,6 +22368,313 @@ Call log:
 
 - `6d8b95ea0d894f15ac98eefb1c0d1c55`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-030 · 通过
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:29:35+08:00 → 2026-11-07T02:29:36+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`015e468f1af249a7856975453685203a`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-030/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793989818, "findings": ["The current attempt delivered the requested vertical subtitled and branded video as a verified MP4.", "Database, graph, lease, model usage, observability, cache, artifact, and BOSS invariants passed for the current release.", "The browser delivery matched the authoritative Run and actual media playback advanced beyond 0.2 seconds; cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `92f8de4615b34a57a11d689b5a22cf57`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-031 · 通过
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:27:15+08:00 → 2026-11-07T04:15:24+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`59a59a38b7dc47c89d2355794f0dc584`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-031/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793996200, "findings": ["The full-round attempt delivered the requested vertical subtitled and branded video as a verified MP4.", "Evidence planning and final review converged without rerendering accepted media unnecessarily.", "Browser playback, program invariants, artifact hashes, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `749bdc3d29394160a6cd0b7a7c496c81`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-032 · 程序缺陷
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T04:56:50+08:00 → 2026-11-07T05:20:58+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`42df1070aef8413cb0d0081dcc950675`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-032/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "missing_wait_work_feedback_recommended_unavailable_continue_command", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1794000000, "findings": ["All four evidence Tasks completed successfully after an inconclusive review.", "The Manager twice submitted an empty APPLY_PLAN and received missing_wait_work feedback that told it to use continue_run.", "continue_run is intentionally unavailable without an input batch; the state-aware feedback should instead require review_again with eligible evidence IDs."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `d1a9c449c78d49538f964a8f2955d5b3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-033 · 模型/依赖失败已正确处理
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T05:42:12+08:00 → 2026-11-07T05:53:20+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`f601b65dbd314fec9f1b4c5eefe5b308`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-033/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "manager_repeated_empty_apply_plan_despite_state_aware_review_again_feedback", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794002200, "findings": ["Four evidence-only Tasks were host-compiled with purpose=evidence and delivery_stage=false and completed successfully.", "The compiler twice returned precise state-aware feedback requiring plan.review_again with eligible evidence IDs.", "The Manager nevertheless repeated an empty APPLY_PLAN; the host rejected it, withheld delivery, stopped within bounded correction, and cleaned up correctly."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `43bdadf2bf724901a59d8f6f81b5db8a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-034 · 程序缺陷
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:11:16+08:00 → 2026-11-07T06:44:46+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`7bca2e0dda4c4d87a9ba4a18017d6a1b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-034/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "review_again_feedback_not_exposed_by_typed_plan_schema", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1794005400, "findings": ["Evidence-only Tasks were correctly host-derived and completed.", "The state-aware compiler feedback required review_again for logo_overlay, but the strict submit_typed_plan command variant rejected review_again.logo_overlay as extra_forbidden.", "The feedback, repair options, and discriminated command Schema must expose the same eligible review_again mapping."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `4c6f70969cde4d1eaadb71b69ccbb1bb`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-035 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T07:13:45+08:00 → 2026-11-07T07:35:08+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`9d0d93b824264d6faa1c556196021474`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-035/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "bounded_evidence_review_and_replan_budget_did_not_converge", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794008500, "findings": ["Evidence-only Tasks were host-derived correctly and two evidence batches completed.", "review_again passed the strict command Schema and executed; the Reviewer still did not reach a pass conclusion.", "After the deterministic replan trigger was exhausted, repeated further expansion was rejected with precise structured errors; no insufficiently evidenced artifact was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `876a6f4f23b14b27bb21f5bd20e8dc92`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-036 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T07:47:38+08:00 → 2026-11-07T08:23:49+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`afa0b97488064cf49a9bf0d55df83ae2`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-036/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "manager_repeated_empty_apply_plan_instead_of_available_review_again", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794010300, "findings": ["Five host-derived evidence Tasks completed successfully.", "The strict review_again command is available and was verified in the preceding targeted run, but this Manager repeatedly submitted an empty APPLY_PLAN.", "The host returned precise missing_wait_work feedback, withheld delivery, stopped within bounded correction, and cleaned up correctly."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `9d4ed17ff73448c19772dad70a2ba6a3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-037 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:52:48+08:00 → 2026-11-07T10:59:36+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`e97a803e781b4fe58dccf8c9a0cf498c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-037/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f68a81ec3b4f4aca9840ceee928ae606`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-038 · 待逐例审查
+
+版本：`eb20035d1eea0bc01b6498cb79f3116a89fa651823f8287b1d5bfb9b7b1f6a0e`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T11:23:51+08:00 → 2026-11-07T11:31:46+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`c0d1e681bca4446fa17ae031d63f4848`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-038/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `9ac830a09fab4123a6854130d0e3f0dd`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-039 · 执行中
+
+版本：`eb20035d1eea0bc01b6498cb79f3116a89fa651823f8287b1d5bfb9b7b1f6a0e`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T11:33:39+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`2baac5ce3c5146818944534237e22652`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-039/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-039/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+实际确认的执行轮次：
+
+- `dc543a005ce1414b8b833d265c835ce6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-040 · 通过
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T11:58:21+08:00 → 2026-11-07T12:08:57+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`e58433be99c54429a817ee9ffed410fb`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C03/attempt-040/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794025409, "findings": ["The per-role transport policy was frozen on the Run: Manager and Reviewers used buffered Claude Sonnet 5.5 while the editing Implementer retained streamed Claude 4.6 output.", "The vertical 12 second video, burned subtitles, logo placement and audio fade passed independent artifact verification and actual browser playback.", "The case completed in 636 seconds without the prior 400-900 second control-call tail; database invariants passed and all 46 BOSS objects, Redis stream and node caches were cleaned."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `2e61c0eacca449dfaaa29fd1451b1cde`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用clip_a前12秒做360×640竖版，等比裁切保留主要人物；烧入captions.srt中对应前12秒的字幕；右上角64像素Logo，边距16；保留声音并在结尾0.5秒淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C04 · 抠图后视频合成
 
 当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
@@ -22498,6 +23420,172 @@ Call log:
 实际确认的执行轮次：
 
 - `e5944eede5e043da88b13a77eb27325e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-028 · 通过
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:29:35+08:00 → 2026-11-07T01:55:30+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`dcf4aad1cd394734855d8ebf4c193b34`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-028/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793987775, "findings": ["The current attempt delivered the requested MP4, transparent logo, and 64px badge with verified hashes and formats.", "Database, graph, lease, model usage, observability, cache, and BOSS invariants passed for the current release.", "The browser delivery matched the authoritative Run and actual video playback advanced beyond 0.2 seconds; cleanup completed across project, Redis, BOSS, and node caches."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `9e0dce9bd5b64fc39a317e7a9fb54359`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-029 · 通过
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:27:15+08:00 → 2026-11-07T04:03:42+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`1cdb60994177439392d9925ba685e68c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-029/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793995600, "findings": ["The full-round attempt delivered a verified MP4 and transparent logo.", "Actual browser playback, program acceptance, graph/lease invariants, and cleanup passed.", "No intermediate artifact was promoted without review."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f0ede478823e426dab1db2c68733d961`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-030 · 通过
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T04:56:50+08:00 → 2026-11-07T05:31:28+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`5d6ce68f3606469bada7ed76a9604f24`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-030/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794000750, "findings": ["The attempt delivered a verified MP4 and 64px badge.", "Actual browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "Only reviewed current artifacts were delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `71496f2beba741bcb3e68bcebc26ed36`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-031 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:11:16+08:00 → 2026-11-07T06:38:16+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`20079f2708dd49b9a349c015b1a917d1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-031/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794004800, "findings": ["The attempt delivered a verified MP4, 64px badge, and transparent logo.", "Actual browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "Only reviewed current artifacts were delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `4715846810274e159c0ad8ac0d8eb6ca`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-032 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T07:47:38+08:00 → 2026-11-07T08:19:10+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`fc21d6417f6946ae8279e8ae4c2fbd82`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-032/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "specialist_result_and_bounded_repair_plan_did_not_converge", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794009900, "findings": ["The compose specialist did not submit a valid result after prior cutout, mix, and badge work succeeded.", "Diagnosis completed, but the Manager submitted an APPLY_PLAN with no executable or review work and received precise missing_wait_work feedback.", "The host stopped within bounded planning budget, delivered nothing invalid, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `306d7d36ecd74b57a0b1b0761d7f8977`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-033 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:52:48+08:00 → 2026-11-07T10:23:29+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`378c6f5af6924c2f81a018e977f43e55`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C04/attempt-033/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "two_transient_model_timeouts_then_invalid_reply_turn_exhaustion", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794018000, "findings": ["The first two Manager generations timed out at the external model boundary and were retried as transient failures.", "The third generation exhausted bounded reply correction without a valid plan.", "The Run remained graph version zero with no business side effect; current retry error fields, browser state, and cleanup were correct."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `c8d516e4b6794aedbcc72134346bc0aa`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先抠掉Logo白背景，再制作64×64透明角标；贴入clip_a前10秒右上角，边距16；原声音保留并低音量混入music；交付640×360的10秒MP4和透明Logo。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C05 · 人像分割精修海报
 
@@ -23508,6 +24596,178 @@ Call log:
 
 - `e134c01fca824199a44867dc7b264e17`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-037 · 模型/依赖失败已正确处理
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:29:35+08:00 → 2026-11-07T01:33:08+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`784e5951da9a470990a1d05f10251976`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-037/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "sam3_text_selection_empty_after_specific_prompt", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793986430, "findings": ["The real SAM3 operation returned model_result because it found no valid portrait subject for the requested selection.", "Dependent cutout, refinement, layout, and poster tasks remained blocked; no empty mask or invalid artifact was accepted or delivered.", "Browser state matched the authoritative WAITING_USER state, program invariants passed, and cleanup removed the project, Redis stream, BOSS objects, and node caches."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `e93fcac980734f979f81f1bcb6349485`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-038 · 模型/依赖失败已正确处理
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:27:15+08:00 → 2026-11-07T03:33:24+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`89901bafd3244fbcb4cbe96a6f1e220a`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-038/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "sam3_text_selection_empty_after_specific_prompt", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793993650, "findings": ["The real SAM3 operation returned model_result because no valid portrait subject matched the requested selection.", "All dependent refinement, layout, export, and poster tasks remained blocked; no invalid mask or artifact was accepted or delivered.", "Browser state, program invariants, and project/Redis/BOSS/node-cache cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f436d69d38654893bd177cb149571d70`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-039 · 模型/依赖失败已正确处理
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T04:56:50+08:00 → 2026-11-07T05:09:04+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`dbca8caa2f9443ec855e42939f33ea06`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-039/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "sam3_text_selection_empty_after_specific_prompt", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793999350, "findings": ["The real SAM3 operation returned model_result because no valid portrait subject matched the requested selection.", "Dependent tasks remained blocked and no invalid mask or artifact was accepted or delivered.", "Browser state, invariants, and project/Redis/BOSS/node-cache cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `7eb51dce59c049b9b2c8ffa2c526e650`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-040 · 模型/依赖失败已正确处理
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:11:16+08:00 → 2026-11-07T06:20:15+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`869f2211acfa451f8db882620e1713be`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-040/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "sam3_text_selection_empty_after_specific_prompt", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794003800, "findings": ["SAM3 returned model_result because no valid subject matched the requested selection.", "All dependent Tasks remained blocked and no invalid mask or artifact was accepted or delivered.", "Browser state, invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `407769fbd1aa4072b15a731ef5402dfb`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-041 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T07:47:38+08:00 → 2026-11-07T08:28:46+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`806ba54abe8f4ffaa7cbc2775112729d`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-041/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794011400, "findings": ["The attempt successfully produced the verified poster and transparent portrait outputs.", "This confirms earlier SAM3 empty selections were model variability rather than a deterministic program defect.", "Browser, program invariants, artifact hashes, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `a8cca85c5b624b798fcb172b39290649`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-042 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:52:48+08:00 → 2026-11-07T09:58:43+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`2214995c06f549508712cb8c402edc0d`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C05/attempt-042/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "sam3_text_selection_empty_after_specific_prompt", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794016800, "findings": ["SAM3 returned model_result because no valid subject matched the requested selection.", "Dependent Tasks remained blocked and no invalid mask or artifact was delivered.", "Browser state, invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `2f8669867e3b45cf9531566a142daffc`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先SAM3分割人像，再单独精修蒙版边缘，导出透明人像；居中放入800×600深蓝背景海报，顶部标题SPACE HERO；同时交付海报和精修透明PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C06 · 跨图调色批量输出
 
 当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
@@ -24162,6 +25422,197 @@ Call log:
 实际确认的执行轮次：
 
 - `6264cc7d464845c3bae32d7038163a6a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-025 · 通过
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:29:35+08:00 → 2026-11-07T02:00:09+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`10c3468b6a3e485fb670371325ffa40d`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-025/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793988050, "findings": ["The current attempt delivered the color-match sheet and three WebP outputs with independently verified hashes and formats.", "Database, graph, lease, model usage, observability, cache, and BOSS invariants passed for the current release.", "The browser delivery matched the authoritative Run, and project, Redis, BOSS, and node-local cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `4ee29582be814a028c6b738875f1887a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-026 · 通过
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:27:15+08:00 → 2026-11-07T04:01:03+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`587b84d80dbf4ef7ad14cc52e5b4b320`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-026/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793995350, "findings": ["The current full-round attempt delivered the contact sheet and three color-matched WebP outputs with verified hashes.", "Program acceptance, graph/lease/model invariants, browser state, and cleanup passed.", "No rejected candidate or historical revision was promoted to delivery."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `a79f5f1f446d4b12acbaeec0abb85d2b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-027 · 通过
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T04:56:50+08:00 → 2026-11-07T05:17:28+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`6a816fac3ea1429a932e94d5bda2008f`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-027/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793999900, "findings": ["The attempt delivered a verified contact sheet, three color-matched WebP files, and a check report.", "Program acceptance, browser state, graph/lease/model invariants, and cleanup passed.", "Only reviewed current artifacts were delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `a5164cd126bf4a86a6b8747681be4a70`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-028 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:11:16+08:00 → 2026-11-07T06:40:12+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`336c9dbbf56240ab89aae7a27c7a6f78`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-028/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794005000, "findings": ["The attempt delivered a verified contact sheet and three color-matched WebP outputs.", "Program acceptance, browser state, graph/lease/model invariants, and cleanup passed.", "No historical or rejected output was promoted."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `ea08fe5e373c495891dd8b8149203f99`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-029 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T07:47:38+08:00 → 2026-11-07T08:24:39+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`54660a78ad824909b6286c18610b57f3`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-029/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "manager_repeated_empty_apply_plan_instead_of_available_review_again", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794010500, "findings": ["All production and export Tasks succeeded, while review remained inconclusive only on quantitative cool-tone evidence.", "Two evidence Tasks completed, but the Manager repeated an empty APPLY_PLAN instead of using the available strict review_again mapping.", "The host rejected the no-op, withheld delivery, stopped within bounded correction, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `9a5a3af6a2804e7c9e27805319cf4678`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-030 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:52:48+08:00 → 2026-11-07T10:53:01+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`8c6ec713bfff44b4af7d14a98b615dea`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-030/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `610c8418b86a4c8abcdba28e22acab7b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-031 · 通过
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T12:08:57+08:00 → 2026-11-07T12:16:21+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f5302355d8d0469eb7685e4f464bfd2b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C06/attempt-031/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "passed", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794025409, "findings": ["The Manager and both content Reviewers used buffered control transport while both editing Implementers retained streamed output with bounded Publisher cost.", "Color matching, layouts, labels, three exports and the contact sheet passed artifact and browser verification in 443 seconds.", "Database and observability checks reported no program or dependency issue; all 47 BOSS objects, Redis state and node caches were cleaned."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "observability.json", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `6f38586b01b942089dd9f4862492a7d1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。以rocket的夜景色调为参考，按0.35强度匹配另两张图片；三张均等比置入640×480白底，20像素边距，加1、2、3编号；分别导出WebP，再交付1920×480横向联系表PNG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C07 · OCR驱动文字替换
 
@@ -25159,7 +26610,7 @@ Call log:
 
 执行错误：Workflow requested user input or feedback after bounded processing: input_question
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_script_again_mismatched_declared_ocr_text_acceptance", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793948000, "findings": ["OCR succeeded, but bounded TXT revisions again failed the model-authored phrase acceptance.", "Deterministic checks blocked downstream replacement and delivery.", "No invalid artifact was published and cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "candidate-archive.json", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_script_again_mismatched_declared_ocr_text_acceptance", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793948000, "findings": ["OCR succeeded, but bounded TXT revisions again failed the model-authored phrase acceptance.", "Deterministic checks blocked downstream replacement and delivery.", "No invalid artifact was published and cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "candidate-archive.json", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -25168,6 +26619,209 @@ Call log:
 实际确认的执行轮次：
 
 - `c84af9caf79c443da81a0458fa39b4ff`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-036 · 模型/依赖失败已正确处理
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:33:08+08:00 → 2026-11-07T02:22:20+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`770f5d6285c94be78774c1a8fb23e067`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-036/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "bounded_text_style_repair_did_not_match_original_typography", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793989380, "findings": ["OCR, initial replacement, and multiple immutable repair revisions completed, but the Reviewer found the replacement text smaller, thinner, and shorter than the original typography.", "Six graph versions and bounded Diagnosis, Manager, and Reviewer cycles preserved failed candidates and never delivered an unapproved image.", "After bounded repair did not converge, the Run requested user input instead of consuming unbounded model budget; browser state, invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `545b7c3aa73a42c2a5aa972451a5886d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-037 · 模型/依赖失败已正确处理
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:33:24+08:00 → 2026-11-07T04:08:03+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`87974f0c81724999b872c1cdf1480f0e`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-037/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "bounded_typography_repair_and_planning_contract_did_not_converge", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793996200, "findings": ["Two immutable candidate revisions were rejected because the replacement typography did not match the original size, weight, baseline, and spacing.", "The subsequent Manager failed bounded contract correction and stopped at planning_contract_exhausted.", "No rejected image was delivered; browser state, revision history, invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `4f1e9c78c6744c77bf3bc62165354790`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-038 · 模型/依赖失败已正确处理
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T05:09:04+08:00 → 2026-11-07T05:38:23+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`2a5ba77c852147f59ce650b9bfdb0de1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-038/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "bounded_typography_repair_exhausted_revision_budget", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794001000, "findings": ["Two candidate revisions were rejected because the replacement glyph did not match the original typography and baseline.", "A further repair was rejected by the deterministic Task revision budget, and the Manager stopped at planning_contract_exhausted.", "No rejected candidate was delivered; structured errors, revision history, browser state, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `fce2facf12324202acbb2d589182381a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-039 · 模型/依赖失败已正确处理
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:20:15+08:00 → 2026-11-07T07:06:22+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`a7993752a68b40a5a3152e4e08b78aef`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-039/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "specialist_result_and_repair_budget_did_not_converge", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794007500, "findings": ["Multiple OCR, replacement, and review revisions completed, but one specialist Agent failed to submit a valid result.", "A subsequent replacement that would reset the repair budget was rejected by the deterministic graph contract.", "No failed or over-budget candidate was delivered; structured errors, browser state, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `cc34234847b14acb8374fa5977c51da1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-040 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:19:10+08:00 → 2026-11-07T08:44:27+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`2a1009e0ce4d4ac693f987eca1cbf5c6`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-040/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "typography_repair_did_not_converge_within_bounded_planning", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794012200, "findings": ["OCR and diagnosis completed, but the replacement glyph failed Reviewer checks for size, weight, baseline, and spacing.", "The Manager did not produce a valid further revision within bounded planning budget.", "No rejected image was delivered; browser state, evidence, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `3e47097bad8e4f3d9657d0300928b6ac`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-041 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:58:43+08:00 → 2026-11-07T10:57:29+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`97540a5ae5674296b576604c2d24a9d2`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-041/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `ad3e97ef560b44c8b8485f912439d50e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-042 · 模型/依赖失败已正确处理
+
+版本：`c5e0f2ff5cf88e5edaaec837aa4d5232e67793913a76ecc84c54e9d68f3a085e`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T12:16:21+08:00 → 2026-11-07T12:22:08+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`f10af03545dd4185be207eadd385577f`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C07/attempt-042/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_ocr_text_revisions_and_final_planner_contract_did_not_converge", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "business_delivery_verified": false, "reviewed_at": 1794025409, "findings": ["OCR completed, but three bounded editing revisions did not produce text satisfying the frozen full-line acceptance requirements, so no invalid candidate was delivered.", "The final Manager attempt exhausted its legal command correction budget; the terminal reason is now the precise planning_contract_exhausted classification rather than the misleading generic budget_exhausted state.", "All control calls used buffered Claude Sonnet 5.5 and all Implementer calls used streamed Claude 4.6; the case stopped in 346 seconds with program invariants intact and all 17 BOSS objects, Redis state and node caches cleaned."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "failure-browser.png", "observability.json", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `1cbf888a0b1c4257b02a264d3c0d0fd8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。先OCR识别文字位置，保存识别JSON/TXT；只把15 SECONDS换成30 SECONDS，保持SUMMER RUN和BEACH CLUB不变；交付1024×768 PNG及原始识别记录。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C08 · 透视校正打印卡片
 
@@ -25763,6 +27417,230 @@ Call log:
 实际确认的执行轮次：
 
 - `92914107514b4e0f95bd82c0e2af183b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-023 · 程序缺陷
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:37:45+08:00 → 2026-11-07T01:57:33+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`307a8aaabe034885a2e66b474b8236b1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-023/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "rejected_result_detail_missing_and_stream_reset_misclassified_fatal", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793988550, "findings": ["The label Agent produced the declared files, but task result acceptance rejected the manifest while persisting only invalid_result_manifest and no structured validation path or message.", "The subsequent Diagnosis stream was reset by the gateway; urllib3 ProtocolError was not classified transient, so the control job became fatal instead of receiving a bounded retry.", "The Run failed closed and cleanup completed, but missing rejection evidence and incorrect transient classification are program defects."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `c04a749d52644f60953d5335cd36e330`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-024 · 待逐例审查
+
+版本：`624042415e25fa9bbf714a72daf9d2bb97b308b2e3266190ca83d64db1a5c7df`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T02:36:36+08:00 → 2026-11-07T02:41:12+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`b71b4f35f2104de4a13b40021cab6f55`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-024/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "manager_incorrectly_claimed_submit_typed_plan_was_unavailable", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793990550, "findings": ["The Manager incorrectly claimed that submit_typed_plan was unavailable even though the frozen host protocol exposes it.", "The host did not execute an empty or fabricated plan and safely requested user input at graph version zero.", "Cleanup and program invariants passed, but this attempt did not reach the prior rejected-result boundary and therefore does not close the C08 program-fix retest."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `6807587acb584ce3ad315e15c149646a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-025 · 通过
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T02:54:11+08:00 → 2026-11-07T03:00:55+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`91299d753ea7487b83c30a7395f33542`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-025/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793991600, "findings": ["The current attempt corrected the initial typed plan, progressed through graph version two, and delivered the requested PNG and JPEG outputs.", "Artifact hashes, technical checks, database/graph/lease invariants, and cleanup passed.", "The browser delivery matched the authoritative Run; no invalid manifest or fatal control-job transport failure occurred."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `aa969fa3d0d84957888dbcecc1a7666e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-026 · 通过
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T03:47:44+08:00 → 2026-11-07T04:03:14+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f28061f7b11d49a29f8e9003c024f310`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-026/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793995600, "findings": ["The full-round attempt delivered verified PNG and JPEG outputs.", "Graph version three completed all repair and review work without invalid result or fatal transport behavior.", "Browser, internal invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `938a981cac084fa8b3eb0d61f01e24fa`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-027 · 通过
+
+版本：`ad1343a5639951c387e8d1ae5ca0b08492904ed900f9587320dbde1606fb6465`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T05:10:40+08:00 → 2026-11-07T05:28:20+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`633bf1f6466c4b0cb536f04099013e5a`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-027/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794000500, "findings": ["The attempt delivered verified PNG and JPEG card outputs.", "All repair and review work converged with clean current state and no invalid result publication.", "Browser, artifact, program invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `dba17a72903741039c85b1597f9b23e8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-028 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:27:05+08:00 → 2026-11-07T06:46:33+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`c894688ca9da4c23aa31842a0b553158`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-028/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794005300, "findings": ["The attempt delivered verified PNG and JPEG card outputs.", "All repair and review work converged with no invalid result publication.", "Browser, artifact, program invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `08a8d6139cc3412c94cd531b8998029e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-029 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:20:51+08:00 → 2026-11-07T09:10:46+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`37f15abf571d4442964da322b54c20f5`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-029/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "manager_submitted_empty_apply_plan_after_all_tasks_succeeded", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794014500, "findings": ["All four business Tasks reached succeeded after bounded revisions.", "The final Manager submitted an APPLY_PLAN with no executable or review work and received precise missing_wait_work feedback instead of sealing the graph.", "The host stopped within bounded planning contract and correctly withheld delivery from an unsealed Run; cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `0791222f1f444902a2988bbfe4ca1f4b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-030 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:06:32+08:00 → 2026-11-07T10:32:24+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`c8e2319007ab40f4918720645095bdd7`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C08/attempt-030/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794019100, "findings": ["The attempt delivered verified PNG and JPEG card outputs.", "All planning, repair, review, browser, and cleanup invariants passed.", "No invalid result was published."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `84ff2918ec8544359b3fe99b04fdb5a3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。按四角(100,80),(700,40),(650,520),(160,550)拉正卡片；内容等比放入600×400；放到640×480白底，留20像素边距，底部加BEACH CLUB；交付PNG和JPEG。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C09 · 真实图片分层与ORA
 
@@ -26426,6 +28304,182 @@ Call log:
 
 - `40e646e31bfd4c7a8711c41e2fc74516`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 4000000；外部调用上限 `{"image.decompose": 1}`。
 
+### attempt-024 · 程序缺陷
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:44:55+08:00 → 2026-11-07T02:23:25+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`8cd63d896ae04dc680eaf0b5a4333f27`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-024/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "archive_evidence_contract_could_not_prove_openraster_member_integrity", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793989440, "findings": ["The Run safely withheld delivery after bounded rebuild and review cycles could not prove all OpenRaster requirements.", "Existing archive evidence confirmed stack.xml, canvas size, and layer count but did not prove ZIP mimetype ordering/compression, each member PNG dimension, mergedimage.png, or thumbnail presence.", "The safe user-input fallback and cleanup were correct, but the registered archive evidence contract lacks generally useful member-integrity facts needed for deterministic review."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f81d0a17fea145a4a6ead86ce3a1b0a3`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 1, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-025 · 待逐例审查
+
+版本：`624042415e25fa9bbf714a72daf9d2bb97b308b2e3266190ca83d64db1a5c7df`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T02:36:36+08:00 → 2026-11-07T02:46:54+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`041e595be8914e4cb3ec5876eff90449`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-025/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `144f6477b01043a4833d3560b8e1ea52`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 1, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-026 · 通过
+
+版本：`721c364f39f906a82b93724f527a9166587dfbe9df38359e1a9b8c27762689c6`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T02:54:11+08:00 → 2026-11-07T03:05:27+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`e0e0b22a8a044baaae8da2be36992c72`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-026/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793991900, "findings": ["The current attempt corrected the initial plan and delivered reconstructed.png, editable-layers.ora, and rebuild-check.json.", "Bounded OpenRaster evidence verified the stored mimetype entry, stack structure, three 512x512 layer PNGs, merged image, thumbnail, and canvas dimensions.", "Artifact hashes, browser state, database/graph/lease invariants, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"provider_receipts": [{"request_key": "77024c0061cc469c9f6888c4daf72d9c:decompose:0", "step": "decompose", "revision": 0, "provider": "http://127.0.0.1:8912", "operation": "image.decompose", "state": "succeeded", "external_id": "image-layered_20261107_025522_773046cf", "network_seconds": 0.9546117205172777, "poll_count": 12}]}`。
+
+实际确认的执行轮次：
+
+- `77024c0061cc469c9f6888c4daf72d9c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 1, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-027 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:38:16+08:00 → 2026-11-07T06:59:00+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`cf422c2f597749fb84b08abc77190921`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-027/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794006700, "findings": ["The attempt delivered verified reconstructed PNG, OpenRaster archive, and check reports.", "Bounded archive evidence verified mimetype, merged image, thumbnail, and all layer dimensions.", "Browser, program invariants, artifact hashes, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"provider_receipts": [{"request_key": "25273046e85740879171ffbb19c719cb:decompose:0", "step": "decompose", "revision": 0, "provider": "http://127.0.0.1:8912", "operation": "image.decompose", "state": "succeeded", "external_id": "image-layered_20261107_064032_31c305cc", "network_seconds": 1.9785487689077854, "poll_count": 11}]}`。
+
+实际确认的执行轮次：
+
+- `25273046e85740879171ffbb19c719cb`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 1, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-028 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:23:49+08:00 → 2026-11-07T09:10:43+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`875e83984b764ff08099aaa46e5f032b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-028/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794014500, "findings": ["The attempt delivered verified reconstructed PNG, editable ORA, and build/render reports.", "OpenRaster structure and member evidence, browser state, program invariants, and cleanup passed.", "Only current reviewed artifacts were delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"provider_receipts": [{"request_key": "8052b6d9144249aba4ecbdbc51fe4da8:decompose:0", "step": "decompose", "revision": 0, "provider": "http://127.0.0.1:8912", "operation": "image.decompose", "state": "succeeded", "external_id": "image-layered_20261107_082840_ffb198be", "network_seconds": 1.7567724790424109, "poll_count": 11}]}`。
+
+实际确认的执行轮次：
+
+- `8052b6d9144249aba4ecbdbc51fe4da8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 1, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-029 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:10:26+08:00 → 2026-11-07T10:28:31+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`995fc44aad2447b99b993ecc77f26b12`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C09/attempt-029/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794018600, "findings": ["The attempt delivered verified rebuilt PNG and layered OpenRaster outputs.", "OpenRaster evidence, browser state, program invariants, and cleanup passed.", "Only current reviewed artifacts were delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "artifact-verification.json", "final-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"provider_receipts": [{"request_key": "0f3ef4e775aa4155965a9105198d1984:decompose:0", "step": "decompose", "revision": 0, "provider": "http://127.0.0.1:8912", "operation": "image.decompose", "state": "succeeded", "external_id": "image-layered_20261107_101452_402d8d95", "network_seconds": 1.9136913567781448, "poll_count": 11}]}`。
+
+实际确认的执行轮次：
+
+- `0f3ef4e775aa4155965a9105198d1984`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。调用图片分层服务，把portrait分为3个可编辑图层；检查透明图层后重建合成图；交付512×512重建PNG和至少3层的可编辑ORA。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 1, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C10 · 异构素材竖版混剪
 
 当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
@@ -26979,6 +29033,114 @@ Call log:
 实际确认的执行轮次：
 
 - `7eab0edf9576436ab07b882c3c39a8f2`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-021 · 通过
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:55:30+08:00 → 2026-11-07T02:21:04+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`491d136bb89a47ceb5cb8be32899aea3`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-021/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793989300, "findings": ["The current attempt delivered the requested heterogeneous-material vertical montage as a verified MP4.", "Database, graph, lease, model usage, observability, cache, artifact, and BOSS invariants passed for the current release.", "The browser delivery matched the authoritative Run and actual media playback advanced beyond 0.2 seconds; cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `0fb9be470b4c40db9b0471188493d914`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-022 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:40:12+08:00 → 2026-11-07T06:51:02+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`3670d60c98364ee18f3fbde52b412570`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-022/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794006100, "findings": ["The attempt delivered the verified vertical montage MP4.", "Actual browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No rejected output was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `2e7bb3ffd7b44ee2b159232909c17358`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-023 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:24:39+08:00 → 2026-11-07T08:36:02+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`054d067aaa244ed2badf517b1b11e48a`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-023/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "manager_omitted_required_media_normalization_before_concat", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794011800, "findings": ["The Manager attempted media.concat_sequence on incompatible streams without prior media.normalize_clip Tasks.", "The deterministic compiler returned media_normalization_required with an explicit general remedy; the single safe retry remained identical and was stopped.", "No invalid output was delivered; diagnostics, browser state, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f6a9219121e94c97b4b0bb415b6df48e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-024 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:23:29+08:00 → 2026-11-07T11:00:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f289407a81c8464fab5b38ae4a30fe4f`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C10/attempt-024/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `4e21bd1dc6444c4b85fda84a22f9da9d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。依次取三段视频各前4秒，统一为360×640竖版，完整保留画面、需要时加背景；硬切拼成12秒；顶部标题DAYS IN SPACE显示2秒，换成music配乐，首尾各0.5秒淡变。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C11 · 四宫格视频
 
@@ -27547,6 +29709,141 @@ Call log:
 实际确认的执行轮次：
 
 - `3efcec7782e54167b947062b9563d043`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-022 · 程序缺陷
+
+版本：`c5e8110b80e04dbec35503b441c12248d81fb395a97709072afe0a666c5c4aaa`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T01:57:33+08:00 → 2026-11-07T02:08:21+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`479b1c72fc2d4377b462d5982ce0aec6`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-022/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "manager_stream_reset_misclassified_fatal", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793988550, "findings": ["The initial Manager stream ended with ConnectionResetError wrapped as urllib3 ProtocolError before any graph was applied.", "The execution boundary did not classify this transport error as transient, so the Manager was failed fatally instead of receiving the configured bounded control-job retry.", "No business Task or external side effect was created and cleanup completed, but the recovery behavior is a program defect."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `2836467cade24d05b50e90bca55b6076`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-023 · 通过
+
+版本：`624042415e25fa9bbf714a72daf9d2bb97b308b2e3266190ca83d64db1a5c7df`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T02:36:36+08:00 → 2026-11-07T02:49:29+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`d4b362b0e1dd4478a6fad81477c4c87c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-023/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793990950, "findings": ["The current attempt progressed beyond the prior graph-zero Manager transport failure and delivered the requested four-panel video.", "The MP4 hash, technical checks, database/graph/lease invariants, and cleanup passed.", "Actual browser playback advanced beyond 0.2 seconds and matched the authoritative Run."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `7b563ea46fee4f67bda9153e003ba162`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-024 · 通过
+
+版本：`e39426e5d08e101f06827f32f6b06b9d7f167bb9f722d368301c44ed74ed08fc`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T06:44:47+08:00 → 2026-11-07T07:07:58+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`2c5a891a28c043ca8e6bb21720e55057`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-024/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794007700, "findings": ["The attempt delivered the verified four-panel MP4.", "Actual browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No failed candidate was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `025333eaab8745779f38f60a16eae8d6`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-025 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:28:46+08:00 → 2026-11-07T09:06:35+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`674020d9b64a4bfb92daf4f0eb103fed`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-025/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794014300, "findings": ["The attempt delivered the verified four-panel MP4.", "Actual browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No failed output was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `70f440a8769a407f92612e901e9a6361`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-026 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:28:31+08:00 → 2026-11-07T11:11:45+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f6a04c514298483e850e6b35728d8fce`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C11/attempt-026/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `f0ca08323fa9483d8353fcec062fa11e`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。用A、B、竖版视频各前10秒，第四格使用A的10–20秒；等比放进1280×720四宫格，格间留8像素，标1–4编号；配music前10秒，交付MP4。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C12 · 图片动态幻灯片
 
@@ -28117,6 +30414,62 @@ Call log:
 实际确认的执行轮次：
 
 - `35c27c0e78884817aeeb114a70c6f832`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-022 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:32:28+08:00 → 2026-11-07T08:55:07+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`e9c9bf41af494dcda9c17b6fb6e542c8`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/failure-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-022/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: input_question
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "portrait_specialist_and_bounded_repair_did_not_converge", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794013300, "findings": ["Poster and rocket branches succeeded, while the portrait specialist failed to submit a valid result.", "Diagnosis and bounded replanning ran; an out-of-scope replacement was rejected by the graph contract.", "The Run requested user input rather than delivering an incomplete slideshow, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `15d8f45e2c9e49aeadc9f5acc14dcbe0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-023 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:32:24+08:00 → 2026-11-07T10:57:01+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`da5d991cd69c4bc7be044548245185ab`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C12/attempt-023/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `30e2e03ec8f34cab8e1e525dd76778d8`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。三张图各展示3秒并轻微推镜，顺序portrait、rocket、poster；两处转场各交叉淡化0.5秒，总长8秒；640×360，配music，右上角Logo。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C13 · 分段变速与定格
 
@@ -28728,6 +31081,91 @@ Call log:
 
 - `fa429cf1880e450d9022e4421001fa67`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-022 · 程序缺陷
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:36:02+08:00 → 2026-11-07T08:50:07+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`dda883876721482d9ef2575a74993380`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-022/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "program_failed", "failure_origin": "campaign_concluded_waiting_user_before_running_siblings_drained", "program_behavior_verified": false, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1794012600, "findings": ["One evidence branch failed while two sibling evidence Tasks were still running.", "The Run truthfully entered WAITING_USER for the failed branch and retained started sibling execution, but the campaign harness concluded the case after five seconds and initiated cancellation.", "The harness must wait until no running/leased work remains before treating WAITING_USER as a finished handled failure."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：程序错误。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `94319a8e462143da8fb58b5016efb0ea`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-023 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T09:23:05+08:00 → 2026-11-07T09:50:22+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`c4178348221d4b57ac2055a76463bb3b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-023/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794015200, "findings": ["The attempt completed multiple evidence and review rounds and delivered the verified speed/freeze MP4.", "The campaign waited for all running/leased sibling work before concluding WAITING_USER or cleanup, so no in-flight evidence was truncated.", "Browser playback, program invariants, artifact hash, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [2.055056423611111, 2.494280960648148, 2.0969270833333336], "freeze_frame_mae": 0.014836516203703704, "normal_fast_slow_reference_pitch_hz": [440.0, 440.0, 440.0]}`。
+
+实际确认的执行轮次：
+
+- `af43614114ce465dbd9efa3652bd2f3f`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-024 · 执行中
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:53:01+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`7b5a76ebc9a74719997244a9fcb2c2f1`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-024/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C13/attempt-024/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+实际确认的执行轮次：
+
+- `6fbf0a55fde2446c9092017dcb139f2c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A的0–6秒保持原速，6–12秒用2倍速，12–18秒用0.5倍速，再把最后一帧定格2秒；总长23秒，640×360；有声部分保持音高，定格处用music补齐。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C14 · 倒放混剪
 
 当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
@@ -29322,9 +31760,65 @@ Call log:
 
 - `543d86b8b0b14d568f36e89aaa0aa541`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-022 · 通过
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:44:27+08:00 → 2026-11-07T08:56:59+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`b0f015addc824ca3b66e430a6a7fd3af`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/artifact-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-022/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "business_succeeded", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794013400, "findings": ["The attempt delivered the verified reverse-montage MP4.", "Actual browser playback, program acceptance, graph/lease/model invariants, and cleanup passed.", "No failed output was delivered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "artifact-verification.json", "final-browser.png", "artifact-browser.png", "cleanup.json"]}
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [1.9389670138888888, 1.4999435763888889, 1.6704398148148147, 1.9719285300925926], "reverse_match_mae": [1.4999435763888889, 1.6704398148148147], "incorrect_forward_match_mae": [6.6712818287037035, 6.709765625]}`。
+
+实际确认的执行轮次：
+
+- `51606218068747419c66146033f50dd0`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-023 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:57:01+08:00 → 2026-11-07T11:13:34+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`8417f68ae20c42e4af2576551bb0a72a`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C14/attempt-023/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"source_frame_mae": [1.9389670138888888, 1.4999435763888889, 1.6704398148148147, 1.9719285300925926], "reverse_match_mae": [1.4999435763888889, 1.6704398148148147], "incorrect_forward_match_mae": [6.6712818287037035, 6.709765625]}`。
+
+实际确认的执行轮次：
+
+- `5345dbcd173a49eebd091b73340f19a1`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。A前5秒正放、B前5秒倒放、A第10–15秒正放，硬切成15秒640×360；不要原声，用music铺满并末尾淡出。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C15 · 旁白配乐压低与字幕
 
-当前结论：**模型/依赖失败已正确处理**。目标边界：`业务成果及全链路状态`。
+当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
 
 输入素材：clip_a.mp4、music.wav。
 执行目标：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。
@@ -29963,7 +32457,7 @@ Call log:
 
 ### attempt-023 · 模型/依赖失败已正确处理
 
-版本：`1db761cad5176417ce3565d066864d789ad9a552b13605fc7ee4fe064fe44112`；是否当前部署：是。
+版本：`1db761cad5176417ce3565d066864d789ad9a552b13605fc7ee4fe064fe44112`；是否当前部署：否。
 时间（UTC+08:00）：2026-11-06T14:40:09+08:00 → 2026-11-06T14:48:38+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
 执行结果：`paused_or_failed`；项目：`b4fce83037a0414787cc59bb389e4922`。
 [当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-023/cleanup.json)
@@ -29989,6 +32483,62 @@ Call log:
 实际确认的执行轮次：
 
 - `7a8552963549434da90290f05171a92a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 1}`。
+
+### attempt-024 · 模型/依赖失败已正确处理
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T08:50:07+08:00 → 2026-11-07T09:19:39+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`83427c5b9891483484ff529521240957`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/final-browser.png) · [逐例审查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/review.json) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-024/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "manager_repeated_empty_apply_plan_after_audio_evidence", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1794015000, "findings": ["Production, transcription, subtitle, mix, and nine bounded audio evidence Tasks completed.", "Review still lacked a decisive speech-versus-nonspeech ducking comparison, and the Manager repeated an empty APPLY_PLAN instead of review_again.", "The host returned precise feedback, withheld delivery, stopped within bounded correction, and cleanup passed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "internal-snapshot.json", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+
+结果分类：非程序错误（程序处理正确）。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `a934e6ace19e4d6dafd4578e719e64ff`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 1, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-025 · 执行中
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:57:29+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`860ddef7b2354bcdbc3778aded939d18`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-025/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C15/attempt-025/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+实际确认的执行轮次：
+
+- `eddb104b7b3f4b60b4f7b63e67035d6b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前20秒，提取左声道人声并转写；人声做响度规范，加入music，在说话时自动压低配乐；烧入英文字幕，输出20秒640×360 MP4及SRT。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 1, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C16 · 降噪与双格式播客
 
@@ -30877,6 +33427,33 @@ Call log:
 
 - `04d4c9f2563a436ba5a5ce31ba212caf`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-032 · 待逐例审查
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T10:59:36+08:00 → 2026-11-07T11:12:54+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`59550ebc6d934ffdaeed326694cca6ae`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C16/attempt-032/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+独立成果检查值：`{"filter_delay_samples": 400, "filter_delay_ms": 25.0, "quiet_region_absolute_noise_ratio": 0.28642964363098145, "quiet_region_noise_ratio_at_equal_voice_gain": 0.2537651888395305, "voice_correlation": 0.997789598776677}`。
+
+实际确认的执行轮次：
+
+- `42f1251badea4b81a731cb464ca12a8d`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。给speech_noisy降噪，必须使用登记的audio.process做两遍-16 LUFS处理和首尾各0.5秒淡变，不改变30秒总长；再从已验收结果导出单声道WAV、MP3，并交付audio-process客观测量报告。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C17 · 中英字幕品牌短片
 
 当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
@@ -31510,6 +34087,33 @@ Call log:
 
 - `7939b2d8de0a4a189d9acf89f0a0dfb5`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-023 · 执行中
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T11:00:45+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`ffb21140ef254149aa68d98871fc09f9`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C17/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C17/attempt-023/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+实际确认的执行轮次：
+
+- `5f2dea039e1748f38dcb806f2e162c53`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。取A前15秒，整体偏暖；前3秒显示中文标题“探索之旅”；烧入对应英文字幕并加黑描边；右上角64像素Logo；保留声音，末尾0.5秒音频淡出，640×360。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## C18 · 音画分离后重组
 
 当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
@@ -32136,6 +34740,33 @@ Call log:
 实际确认的执行轮次：
 
 - `f69ff4e05f41432e9130e7e3acaa941b`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-023 · 执行中
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T11:11:45+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`ff4a81fbd5604e5aa493e7c98db1e069`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C18/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C18/attempt-023/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+实际确认的执行轮次：
+
+- `2f1ca82288504793903b9ebafc6d1264`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把A前12秒的音画分开；视频中心裁成480×360并提升对比度到1.15；音频降低6dB；重新合成12秒MP4，同时交付处理后的WAV和抽帧联系表。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C19 · 海报动画与透明角标
 
@@ -32784,6 +35415,33 @@ Call log:
 实际确认的执行轮次：
 
 - `3c0ef2cfe631418b937c917f4649c13c`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-023 · 执行中
+
+版本：`c468e591b23abf0231af4011a7e6d240b3eddb221f378acf411068f5536c8b0f`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-07T11:12:54+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`dcca369647c84173b5dd875b51b2c607`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C19/attempt-023/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/C19/attempt-023/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+实际确认的执行轮次：
+
+- `cf336cf83d404a0b84fd520f9aecac5a`：已在界面确认本次执行范围。请按实际结果滚动规划，完成后经过最终验收交付。请使用后台工作流，至少分为三个独立阶段，保存可复用的中间成果，不能只给我脚本或说明。把poster做成8秒轻微平移缩放动画，640×480；另将白底Logo抠透明并缩64像素，叠到右上角；配music，首尾各0.5秒画面淡变。Logo蓝块内的白色V属于本体，必须保留为不透明白色，只去除外部白底。；Token上限 4000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## C20 · 精修人像双背景对照
 
@@ -37116,7 +39774,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 执行错误：Workflow requested user input or feedback after bounded processing: input_question
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "editing_model_revisions_repeated_invalid_wav_tmp_muxer_path", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793942900, "findings": ["Executor a was stopped during a real retry-safe business attempt and another node recovered the task with a higher generation without losing completed work.", "The audio Agent and its bounded revisions all asked FFmpeg to write a .wav.tmp path without an explicit WAV muxer, causing deterministic code-234 failures.", "Diagnosis and dependency blocking were correct, no partial long video was delivered, and all services and cleanup recovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "worker-stopped.png", "runtime-evidence.json", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "editing_model_revisions_repeated_invalid_wav_tmp_muxer_path", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793942900, "findings": ["Executor a was stopped during a real retry-safe business attempt and another node recovered the task with a higher generation without losing completed work.", "The audio Agent and its bounded revisions all asked FFmpeg to write a .wav.tmp path without an explicit WAV muxer, causing deterministic code-234 failures.", "Diagnosis and dependency blocking were correct, no partial long video was delivered, and all services and cleanup recovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "worker-stopped.png", "runtime-evidence.json", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -42838,7 +45496,7 @@ Call log:
 
 执行错误：Workflow requested user input or feedback after bounded processing: input_question
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "successor_final_review_requested_input_after_video_and_cover_succeeded", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793948000, "findings": ["The delivered predecessor and separate successor boundary executed with immutable reused inputs.", "Successor video and cover Tasks both succeeded, but the final model requested user input.", "No partial successor delivery was published and cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "successor_final_review_requested_input_after_video_and_cover_succeeded", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "reviewed_at": 1793948000, "findings": ["The delivered predecessor and separate successor boundary executed with immutable reused inputs.", "Successor video and cover Tasks both succeeded, but the final model requested user input.", "No partial successor delivery was published and cleanup completed."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -44072,7 +46730,7 @@ LINE 1: SELECT name,owner FROM projects WHERE id=$1
 
 执行错误：Workflow requested user input or feedback after bounded processing: input_question
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "second_version_model_again_requested_input_before_required_third_run", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793944650, "findings": ["V1 and V2 executed with immutable reuse and V2 composition succeeded.", "The model again requested user input before V2 delivery, so V3 could not start.", "Program isolation and cleanup passed, but the three-version boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "second_version_model_again_requested_input_before_required_third_run", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793944650, "findings": ["V1 and V2 executed with immutable reuse and V2 composition succeeded.", "The model again requested user input before V2 delivery, so V3 could not start.", "Program isolation and cleanup passed, but the three-version boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -45582,6 +48240,58 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 - `921be1b54a464025a4aac809ef348727`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-010 · 待逐例审查
+
+版本：`1ed35591224ea41ec1b8df4993412c421361fc1531579857e9475693f3456776`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:12:35+08:00 → 2026-11-06T21:13:24+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`ed84c8a8eb9d4c5f90ea364799353711`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-010/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：page.waitForFunction: Timeout 45000ms exceeded.
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+### attempt-011 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:33:06+08:00 → 2026-11-06T21:36:15+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`e6b36ce3b8094f9b9d33a96bf0a7f0f5`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D04/attempt-011/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+故障注入：stop_orchestrator → start_orchestrator。
+
+实际确认的执行轮次：
+
+- `b1fd69a41a81475c885a1278a16f9b58`：分析 portrait.png 后生成64×64 PNG并交付。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## D05 · 两个 Orchestrator 竞争推进
 
 当前结论：**需在当前版本复测**。目标边界：`orchestrator_competition`。
@@ -46092,6 +48802,56 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `cb01618e32734761b6cbef9decd0d632`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 4000000；外部调用上限 `{}`。
+
+### attempt-010 · 执行中
+
+版本：`1ed35591224ea41ec1b8df4993412c421361fc1531579857e9475693f3456776`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:13:24+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`76ca2a171a594656bd5c7193bed153ed`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-010/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForFunction: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+### attempt-011 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:36:15+08:00 → 2026-11-06T21:40:51+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`f1d0818644da404b850f03dff2deb9fc`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D06/attempt-011/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+故障注入：stop_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `c3e6adfcac414880b16db28aa568d147`：用本地脚本生成128×128预览，再在独立步骤中处理64×64 PNG；第二步开始时等待10秒再处理。 第二步必须声明 retry_policy=safe_once，以便执行器意外退出后可安全重放；等待时间不少于15秒。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## D07 · Manager 执行中取消
 
@@ -48892,6 +51652,37 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `b48e2b4134be4b51a770acf7d21861a3`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 4000000；外部调用上限 `{"image.generate_from_text": 1}`。
+
+### attempt-010 · 阻塞或证据不完整
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:40:51+08:00 → 2026-11-06T21:43:10+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`protocol_passed`；项目：`8033fbb122d14265ac8040120a864b26`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D16/attempt-010/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+证据缺口：["cleanup"]
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+故障注入：stop_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `9eeab6f226404edab5465d362305c40a`：调用真实文生图服务生成蓝色杯子PNG。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 1, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## D17 · 观测服务中断不影响业务状态
 
@@ -51938,7 +54729,7 @@ Call log:
 | local_cleanup | 是 |  |
 | external_cleanup | 是 |  |
 
-审查与修复记录：{"complete": true, "outcome": "protocol_passed", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "retention_verified": true, "reviewed_at": 1793948350, "findings": ["A real synchronous image call was interrupted after submission intent; another node restored execution without replaying the Provider request.", "The sole request key has no external ID or verified usage/cost, so the Provider result remains explicitly unknown.", "The workflow stopped safely, local runtime cleanup completed, and the dedicated QA project plus call intent were retained for audit."], "evidence": ["state.json", "internal-final.json", "internal-snapshot.json", "worker-stopped.png", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "protocol_passed", "failure_origin": null, "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": true, "retention_verified": true, "reviewed_at": 1793948350, "findings": ["A real synchronous image call was interrupted after submission intent; another node restored execution without replaying the Provider request.", "The sole request key has no external ID or verified usage/cost, so the Provider result remains explicitly unknown.", "The workflow stopped safely, local runtime cleanup completed, and the dedicated QA project plus call intent were retained for audit."], "evidence": ["state.json", "internal-final.json", "internal-snapshot.json", "unified-boundary-unknown_input.png", "final-browser.png", "cleanup.json"]}
 
 实际控制步骤：input_accepted → cleanup_started。
 
@@ -51947,6 +54738,37 @@ Call log:
 实际确认的执行轮次：
 
 - `830b804b787b4178b478e627909391da`：使用真实image.generate_from_text生成蓝色杯子PNG，只允许一次生成。；Token上限 4000000；外部调用上限 `{"image.generate_from_text": 1}`。
+
+### attempt-007 · 阻塞或证据不完整
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:43:11+08:00 → 2026-11-06T21:45:21+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`protocol_passed`；项目：`4d16afcd789643cca13120b1d2156883`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D27/attempt-007/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+证据缺口：["cleanup"]
+
+结果分类：待归因。
+
+实际控制步骤：input_accepted → cleanup_started。
+
+故障注入：stop_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `32e405620364472d8cd243219cde7b13`：使用真实image.generate_from_text生成蓝色杯子PNG，只允许一次生成。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 1, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
 
 ## D28 · 质量反馈幂等与过期快照
 
@@ -52616,7 +55438,7 @@ Call log:
 
 执行错误：Workflow requested user input or feedback after bounded processing: quality_feedback
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "editing_model_mask_candidate_still_failed_review_after_evidence_collection", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793944800, "findings": ["The second targeted attempt added a registered mask evidence Task, which succeeded.", "The source mask still did not pass review and the local-hole repair Task remained blocked.", "No invalid mask was delivered; the repair-ratio boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "editing_model_mask_candidate_still_failed_review_after_evidence_collection", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793944800, "findings": ["The second targeted attempt added a registered mask evidence Task, which succeeded.", "The source mask still did not pass review and the local-hole repair Task remained blocked.", "No invalid mask was delivered; the repair-ratio boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -53237,6 +56059,56 @@ Call log:
 
 - `4c037ece3f3a47baa0727807bfe7f932`：创建type=agent、profile=editing_implementer的业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。Manager不得直接提交脚本或代码。；Token上限 4000000；外部调用上限 `{}`。
 
+### attempt-007 · 待逐例审查
+
+版本：`1ed35591224ea41ec1b8df4993412c421361fc1531579857e9475693f3456776`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:11:47+08:00 → 2026-11-06T21:12:35+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`e13940e8acad449aa21a491ed5b5a847`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-007/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：page.waitForFunction: Timeout 45000ms exceeded.
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+### attempt-008 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:29:42+08:00 → 2026-11-06T21:33:06+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`eff9518ade404b59b619a2db1376c5a5`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D32/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `5186c4a801dc4c478324c94e8372f2cc`：创建type=agent、profile=editing_implementer的业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。Manager不得直接提交脚本或代码。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## D33 · 交付后successor输入幂等
 
 当前结论：**需在当前版本复测**。目标边界：`successor_inputs`。
@@ -53808,6 +56680,59 @@ Call log:
 
 - `b82ba70835064afe9582e83f9bb09175`：使用真实image.generate_from_text生成蓝色杯子PNG，使用同步图片实现image_sync@1，只允许一次请求。；Token上限 4000000；外部调用上限 `{"image.generate_from_text": 1}`。
 
+### attempt-007 · 待逐例审查
+
+版本：`1ed35591224ea41ec1b8df4993412c421361fc1531579857e9475693f3456776`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:11:47+08:00 → 2026-11-06T21:12:35+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`1a7db5c8c14b464489073a9492a05add`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-007/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：locator.waitFor: Timeout 45000ms exceeded.
+Call log:
+[2m  - waiting for locator('#dynamic-start') to be visible[22m
+
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+### attempt-008 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:29:42+08:00 → 2026-11-06T21:32:38+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`protocol_passed`；项目：`c5be985c8e9241278a5975cef54a0a20`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D34/attempt-008/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：input_accepted → cleanup_started。
+
+实际确认的执行轮次：
+
+- `a2198d68bb344ae5bf2909eddae712dd`：使用真实image.generate_from_text生成蓝色杯子PNG，使用同步图片实现image_sync@1，只允许一次请求。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 1, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
 ## D35 · Provider配置切换后冻结路由恢复
 
 当前结论：**需在当前版本复测**。目标边界：`frozen_route`。
@@ -54144,6 +57069,37 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `cbbb9635c52b4683a5e7791275e3b283`：使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持整体形象，只允许一次生成。；Token上限 4000000；外部调用上限 `{"video.generate_from_image": 1}`。
+
+### attempt-011 · 阻塞或证据不完整
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:45:21+08:00 → 2026-11-06T21:49:13+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`200b9bea0a8942ea8a91cb3f01b12145`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D35/attempt-011/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+证据缺口：["cleanup"]
+
+结果分类：待归因。
+
+实际控制步骤：input_accepted → resume → command_applied → cleanup_started。
+
+故障注入：switch_provider_route → restore_provider_route。
+
+实际确认的执行轮次：
+
+- `880b2789f5bc4f2fa32faced25c4d11a`：使用真实video.generate_from_image，以portrait.png生成5秒1280×720轻微推镜视频，保持整体形象，只允许一次生成。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 1, "video.generate_from_text": 10}`。
 
 ## D36 · 抠图候选边缘反馈修订
 
@@ -54594,7 +57550,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 执行错误：Workflow requested user input or feedback after bounded processing: quality_feedback
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_feedback_revision_again_preserved_original_bytes_instead_of_local_alpha_patch", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793945200, "findings": ["The same-Run feedback and source reuse protocol executed again, and render evidence succeeded.", "The revised candidate remained byte- and pixel-identical to the original instead of changing the expected 59 Alpha pixels.", "User Review was not bypassed, no artifact was published, and the local edge content boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "feedback-original.png", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "model_feedback_revision_again_preserved_original_bytes_instead_of_local_alpha_patch", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793945200, "findings": ["The same-Run feedback and source reuse protocol executed again, and render evidence succeeded.", "The revised candidate remained byte- and pixel-identical to the original instead of changing the expected 59 Alpha pixels.", "User Review was not bypassed, no artifact was published, and the local edge content boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "feedback-original.png", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -56528,7 +59484,7 @@ ValueError: Fault injection requires other workflows to be quiescent
 
 执行错误：Workflow requested user input or feedback after bounded processing: input_question
 
-审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "final_delivery_model_again_requested_input_before_selecting_alternate_video", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793945000, "findings": ["Candidate and deliver Agent tasks both succeeded again with the declared temporal semantics.", "The final model requested user input instead of selecting only alternate deliver.mp4.", "No wrong default candidate was published; the alternate-role delivery boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "candidate-archive.json", "final-browser.png", "cleanup.json"]}
+审查与修复记录：{"complete": true, "outcome": "handled_failure", "failure_origin": "final_delivery_model_again_requested_input_before_selecting_alternate_video", "program_behavior_verified": true, "browser_verified": true, "required_boundary_verified": false, "reviewed_at": 1793945000, "findings": ["Candidate and deliver Agent tasks both succeeded again with the declared temporal semantics.", "The final model requested user input instead of selecting only alternate deliver.mp4.", "No wrong default candidate was published; the alternate-role delivery boundary remains uncovered."], "evidence": ["state.json", "workflow-latest.json", "internal-final.json", "candidate-archive.json", "failure-browser.png", "cleanup.json"]}
 
 结果分类：非程序错误（程序处理正确）。
 
@@ -56537,3 +59493,505 @@ ValueError: Fault injection requires other workflows to be quiescent
 实际确认的执行轮次：
 
 - `c77e1e7b0fd34597b765039f619241ec`：使用motion_reference.mp4完成本次候选选择验证。创建两个type=agent、profile=editing_implementer的业务Task：candidate在受限沙箱内复制原素材为candidate.mp4；deliver依赖candidate并把同一已验收视频复制为primary.mp4和deliver.mp4，输出角色必须分别为video和alternate。两个Task都声明delivery_stage=true，保留所有候选；两者semantics.temporal都声明红色方块持续向右移动、transition=continuous、start_by_seconds=0.2、required_coverage=0.9、max_interruption_seconds=0.5。保持4秒、128×96、25fps、无音轨、原视频内容及字节。最终只交付deliver Task的alternate角色deliver.mp4，candidate.mp4和primary.mp4不交付。系统Final Review实际检查deliver.mp4的时序证据；无需新增业务Review Task或人工确认。Manager不得直接提交脚本或代码。；Token上限 4000000；外部调用上限 `{}`。
+
+## D42 · Manager硬杀后同快照接管
+
+当前结论：**需在当前版本复测**。目标边界：`manager_hard_kill`。
+
+输入素材：portrait.png。
+执行目标：分析portrait.png并生成64×64 final.png。规划必须使用注册Operation或editing_implementer，不直接提交脚本；经过程序与最终验收后交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 待逐例审查
+
+版本：`1ed35591224ea41ec1b8df4993412c421361fc1531579857e9475693f3456776`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:13:54+08:00 → 2026-11-06T21:14:43+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`2f0787a4dc874b0c8d9eee4e6cb03f78`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：page.waitForFunction: Timeout 45000ms exceeded.
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+### attempt-002 · 待逐例审查
+
+版本：`1ed35591224ea41ec1b8df4993412c421361fc1531579857e9475693f3456776`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:16:04+08:00 → 2026-11-06T21:16:53+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`32aae94ecb8741cc80b80ab8995f5f5b`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：locator.fill: Timeout 45000ms exceeded.
+Call log:
+[2m  - waiting for locator('#dynamic-targets-other')[22m
+[2m    - locator resolved to <input maxlength="500" id="dynamic-targets-other" placeholder="其他交付内容，用逗号分隔"/>[22m
+[2m    - fill("符合需求的 64×64 图片")[22m
+[2m  - attempting fill action[22m
+[2m    2 × waiting for element to be visible, enabled and editable[22m
+[2m      - element is not visible[22m
+[2m    - retrying fill action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and editable[22m
+[2m      - element is not visible[22m
+[2m    - retrying fill action[22m
+[2m      - waiting 100ms[22m
+[2m    90 × waiting for element to be visible, enabled and editable[22m
+[2m       - element is not visible[22m
+[2m     - retrying fill action[22m
+[2m       - waiting 500ms[22m
+
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+### attempt-003 · 执行中
+
+版本：`1ed35591224ea41ec1b8df4993412c421361fc1531579857e9475693f3456776`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:17:37+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`33b8a8cf38b6488bab49c3eeeb2d78d9`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-003/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+实际确认的执行轮次：
+
+- `b8aef8f21d22441ca0243f2a91a672bb`：分析portrait.png并生成64×64 final.png。规划必须使用注册Operation或editing_implementer，不直接提交脚本；经过程序与最终验收后交付。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-004 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:22:17+08:00 → 2026-11-06T21:28:02+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`cb59ed6c6d694937bd21541b94ebd2fa`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D42/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+故障注入：kill_attempt_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `642a05106e4b4b1aac024cb832b473e6`：分析portrait.png并生成64×64 final.png。规划必须使用注册Operation或editing_implementer，不直接提交脚本；经过程序与最终验收后交付。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+## D43 · Reviewer硬杀后证据与预算恢复
+
+当前结论：**需在当前版本复测**。目标边界：`reviewer_hard_kill`。
+
+输入素材：portrait.png。
+执行目标：使用image.local_adjust将portrait.png亮度调整为1.05并导出64×64 final.png，声明内容Agent验收，最终交付PNG。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:49:13+08:00 → 2026-11-06T21:55:19+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`paused_or_failed`；项目：`fdf742e94b1e424b8baa35c78c383630`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/final-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D43/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+故障注入：kill_attempt_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `71e107bf9e1e465b82d45aced96ba5c8`：使用image.local_adjust将portrait.png亮度调整为1.05并导出64×64 final.png，声明内容Agent验收，最终交付PNG。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+## D44 · 业务Agent默认不可重试契约下的基础设施接管
+
+当前结论：**需在当前版本复测**。目标边界：`agent_hard_kill`。
+
+输入素材：portrait.png。
+执行目标：创建type=agent、profile=editing_implementer业务Task，保持默认retry_policy=never；在沙箱脚本中先等待20秒，再将portrait.png等比适配为64×64 final.png，经过程序和最终验收交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:55:19+08:00 → 2026-11-06T21:59:21+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`19559294226848f38fdbc40cd97444d9`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D44/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+故障注入：kill_attempt_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `97342941432e465e903d997cb4200b6a`：创建type=agent、profile=editing_implementer业务Task，保持默认retry_policy=never；在沙箱脚本中先等待20秒，再将portrait.png等比适配为64×64 final.png，经过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+## D45 · 业务Agent连续两次硬杀与恢复预算分账
+
+当前结论：**需在当前版本复测**。目标边界：`repeated_agent_hard_kill`。
+
+输入素材：portrait.png。
+执行目标：创建type=agent、profile=editing_implementer业务Task；每次执行先等待30秒，再将portrait.png复制并适配为64×64 final.png。保持业务修订不变，经过程序和最终验收交付。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T21:59:21+08:00 → 2026-11-06T22:05:00+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`e53195b1f6484a2b98818ecde10b5e30`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D45/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+故障注入：kill_attempt_worker → start_worker → kill_attempt_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `29a9f2877a0345268a997cd95ea64a22`：创建type=agent、profile=editing_implementer业务Task；每次执行先等待30秒，再将portrait.png复制并适配为64×64 final.png。保持业务修订不变，经过程序和最终验收交付。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+## D46 · 异步Provider轮询硬杀后沿用原句柄
+
+当前结论：**需在当前版本复测**。目标边界：`provider_poll_hard_kill`。
+
+输入素材：portrait.png。
+执行目标：调用已授权图生视频服务，让portrait.png产生5秒轻微镜头运动视频并交付。必须使用原Provider任务句柄完成poll和collect，不得重复submit。
+独立成果预期：`{"kind": "video", "width": 1280, "height": 720, "duration": 5, "duration_tolerance": 1.0}`。
+外部调用范围：video.generate_from_image。
+
+### attempt-001 · 执行中
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T22:05:00+08:00 → 未结束。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`99252306411143578aa145ae6d6af2ac`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-001/state.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 否 |  |
+| logs | 否 |  |
+| observability | 否 |  |
+| database | 否 |  |
+| cache | 否 |  |
+| boss | 否 |  |
+| candidate_archive | 否 |  |
+| local_cleanup | 否 |  |
+| external_cleanup | 否 |  |
+
+执行错误：page.waitForTimeout: Target page, context or browser has been closed
+
+证据缺口：["browser", "logs", "observability", "database", "cache", "boss", "candidate_archive", "local_cleanup", "external_cleanup", "cleanup", "audit incomplete"]
+
+故障注入：kill_attempt_worker。
+
+实际确认的执行轮次：
+
+- `dc7556947f8c47cfb75b4aa92d0f47e2`：调用已授权图生视频服务，让portrait.png产生5秒轻微镜头运动视频并交付。必须使用原Provider任务句柄完成poll和collect，不得重复submit。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 1, "video.generate_from_text": 10}`。
+
+### attempt-002 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T22:12:20+08:00 → 2026-11-06T22:20:00+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`30d35623ce6346ef85a7231907f0974d`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：No takeover followed provider_poll_hard_kill
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+故障注入：kill_attempt_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `6ed467853ad6404ca9a11258e7b8375b`：调用已授权图生视频服务，让portrait.png产生5秒轻微镜头运动视频并交付。必须使用原Provider任务句柄完成poll和collect，不得重复submit。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 1, "video.generate_from_text": 10}`。
+
+### attempt-003 · 阻塞或证据不完整
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T22:21:52+08:00 → 2026-11-06T22:24:40+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`770092b78388495ab3a81c9690f0caf5`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Command failed: /data2/wujing03/distributed-agent-system/.venv/bin/python /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/harness/campaign_dynamic_faults.py kill_attempt_worker /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003 --unit dynamic-agent-executor@a.service --attempt 083cfd4c0f2e4db9aa33d10cfcf9d728
+Traceback (most recent call last):
+  File "/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/harness/campaign_dynamic_faults.py", line 248, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/harness/campaign_dynamic_faults.py", line 245, in main
+    print(json.dumps(progress(args.directory) if args.action=='progress' else act(args.directory,args.action,args.unit,args.attempt),ensure_ascii=False))
+                                                                              ~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-003/harness/campaign_dynamic_faults.py", line 139, in act
+    if not assigned:raise ValueError('No replay-safe QA task is running on this worker')
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: No replay-safe QA task is running on this worker
+
+
+证据缺口：["cleanup"]
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+故障注入：start_worker。
+
+实际确认的执行轮次：
+
+- `dcc964db55af4a0aa12091df50e7b329`：调用已授权图生视频服务，让portrait.png产生5秒轻微镜头运动视频并交付。必须使用原Provider任务句柄完成poll和collect，不得重复submit。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 1, "video.generate_from_text": 10}`。
+
+### attempt-004 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T22:25:41+08:00 → 2026-11-06T22:33:02+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`test_failed`；项目：`865ae348926349efbe3fed0c46830869`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/final-browser.png) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/failure-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Command failed: /data2/wujing03/distributed-agent-system/.venv/bin/python /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/harness/campaign_dynamic_probe.py verify /data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004
+Traceback (most recent call last):
+  File "/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/harness/campaign_dynamic_probe.py", line 445, in <module>
+    if __name__=='__main__':main()
+                            ~~~~^^
+  File "/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/harness/campaign_dynamic_probe.py", line 439, in main
+    result=verify(directory);save(directory/'artifact-verification.json',result)
+  File "/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-004/harness/campaign_probe.py", line 119, in verify
+    matches=[a for a in videos if a['media']['video'] and (a['media']['video']['width'],a['media']['video']['height'])==(expected['width'],expected['height'])]
+                                                                                                                         ~~~~~~~~^^^^^^^^^
+KeyError: 'width'
+
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+故障注入：kill_attempt_worker → start_worker。
+
+实际确认的执行轮次：
+
+- `c1f97d8982824bdd8aa149f5c8596014`：调用已授权图生视频服务，让portrait.png产生5秒轻微镜头运动视频并交付。必须使用原Provider任务句柄完成poll和collect，不得重复submit。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 1, "video.generate_from_text": 10}`。
+
+### attempt-005 · 待逐例审查
+
+版本：`269f2502b27748750b711a95a8c1e925d72e031fe4ca24cbf5fb2ae8c072985a`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T22:34:10+08:00 → 2026-11-06T22:43:11+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`2ad5665bf6014e139a71a120dc00bc2c`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D46/attempt-005/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+故障注入：kill_attempt_worker → start_worker。
+
+独立成果检查值：`{"provider_receipts": [{"request_key": "dd92fd10e3bb46e388ca5953633f5f2d:gen_video:0", "step": "gen_video", "revision": 0, "provider": "https://bashscope.bilibili.co/api/v1", "operation": "video.generate_from_image", "state": "succeeded", "external_id": "493b3b58-e8c5-4277-80f6-960316ac87c1", "network_seconds": 5.359415860846639, "poll_count": 22}]}`。
+
+实际确认的执行轮次：
+
+- `dd92fd10e3bb46e388ca5953633f5f2d`：调用已授权图生视频服务，让portrait.png产生5秒轻微镜头运动视频并交付。必须使用原Provider任务句柄完成poll和collect，不得重复submit。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 1, "video.generate_from_text": 10}`。
+
+## D47 · 自然语言附加交付与Delivery叶节点完整选择
+
+当前结论：**需在当前版本复测**。目标边界：`业务成果及全链路状态`。
+
+输入素材：clip_a.mp4、captions.srt。
+执行目标：取clip_a.mp4前9秒，烧入captions.srt中对应前9秒的英文字幕；交付烧入字幕的9秒640×360 MP4，同时把同一段字幕按原时间码导出为subtitles.srt。视频和SRT必须由两个真实delivery-stage叶Task分别拥有，不增加复制媒体的空转Task。
+独立成果预期：`{"kind": "video", "width": 640, "height": 360, "duration": 9, "duration_tolerance": 0.3, "audio": true}`。
+外部调用范围：未预先授权外部付费调用。
+
+### attempt-001 · 待逐例审查
+
+版本：`07887eb4773dc3ca903fdb8ce4da1942e085e26b6aa7d63e6989f6bc693811dd`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T22:52:24+08:00 → 2026-11-06T23:03:05+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`model_or_policy_pause`；项目：`74bab597ed5b4f189da858ba54b35492`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/state.json) · [失败页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/failure-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/runtime-evidence.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-001/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+执行错误：Workflow requested user input or feedback after bounded processing: quality_feedback
+
+结果分类：待归因。
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `da62092368ec48d6970411e545156ca9`：取clip_a.mp4前9秒，按实际对白生成英文字幕，每次显示两个词并按时间对齐；交付烧入字幕的9秒640×360 MP4，同时导出对应SRT字幕文件。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 1, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+### attempt-002 · 待逐例审查
+
+版本：`07887eb4773dc3ca903fdb8ce4da1942e085e26b6aa7d63e6989f6bc693811dd`；是否当前部署：否。
+时间（UTC+08:00）：2026-11-06T23:03:52+08:00 → 2026-11-06T23:09:35+08:00。入口：`http://127.0.0.1/distributed-agent-system`。
+执行结果：`business_succeeded`；项目：`b00d5b8510ee4106bf04ab59ae0c0179`。
+[当次用例定义](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/case-definition.json) · [浏览器与执行记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/state.json) · [最终页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/final-browser.png) · [成果页面](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/artifact-browser.png) · [内部审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/internal-final.json) · [取消后审计](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/internal-snapshot.json) · [候选文件索引](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/candidate-archive.json) · [运行日志证据](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/runtime-evidence.json) · [产物检查](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/artifact-verification.json) · [清理记录](/data2/wujing03/distributed-agent-system/.cluster/campaigns/dynamic-plan/runs/D47/attempt-002/cleanup.json)
+
+| 维度 | 已取证 | 说明 |
+| --- | --- | --- |
+| browser | 是 |  |
+| logs | 是 | log-index.json |
+| observability | 是 | observability.json |
+| database | 是 |  |
+| cache | 是 |  |
+| boss | 是 | HEAD and encrypted header for every retained object; plaintext hashes for downloaded deliveries |
+| candidate_archive | 是 |  |
+| local_cleanup | 是 |  |
+| external_cleanup | 是 |  |
+
+实际控制步骤：cleanup_started。
+
+实际确认的执行轮次：
+
+- `da85b51706e6417d8b1dbebb4e8ea4c8`：取clip_a.mp4前9秒，烧入captions.srt中对应前9秒的英文字幕；交付烧入字幕的9秒640×360 MP4，同时把同一段字幕按原时间码导出为subtitles.srt。视频和SRT必须由两个真实delivery-stage叶Task分别拥有，不增加复制媒体的空转Task。；Token上限 2000000；外部调用上限 `{"audio.transcribe": 10, "image.decompose": 10, "image.edit": 10, "image.edit_region": 10, "image.erase": 10, "image.generate_from_text": 10, "video.generate_from_image": 10, "video.generate_from_text": 10}`。
+
+## D48 · 安全点前附件失效并拒绝补充输入
+
+当前结论：**未执行**。目标边界：`attachment_change_reject`。
+
+输入素材：portrait.png。
+执行目标：创建type=agent、profile=editing_implementer业务Task；执行开始后先等待20秒，再将portrait.png等比适配为64×64 final.png。保持原图内容，完成程序验收和最终Review后交付PNG。
+独立成果预期：`{"kind": "image", "width": 64, "height": 64}`。
+外部调用范围：未预先授权外部付费调用。
+
+尚未执行，无通过证据。

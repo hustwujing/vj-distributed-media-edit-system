@@ -67,6 +67,7 @@ class SpecialistProfile:
     artifact_policy:str='declared-task-output-only'
     version:int=1
     harness:str='structured-profile-v4'
+    response_transport:str='buffered'
 
     @property
     def tools(self):
@@ -119,7 +120,7 @@ PROFILES={p.id:p for p in (
         '文字替换必须从源图测量目标区域的字体字重、textbbox字高、基线和相邻间距，选择已安装的匹配字体并在提交前复测。'
         '布局任务必须区分画布/容器与实际可见内容边界；按目标背景色测量可见内容bbox、四边边距和区域颜色，不能仅用resize后的容器尺寸冒充内容尺寸。'
         '透明合成须在至少两种对比背景上检查边缘和残留；所有确定性自检结果应写入任务输出中的简短JSON供审查。',
-        skills=('script-runtime','media-editing','media-semantics'),max_output_tokens=12000),
+        skills=('script-runtime','media-editing','media-semantics'),max_output_tokens=12000,response_transport='stream'),
     SpecialistProfile('delivery_reviewer','核对封口图和最终交付',AgentRole.REVIEWER,('INSPECT','SUBMIT_DECISION'),
         '逐项核对用户交付目标、技术验收和实际产物；提交 pass/reject/inconclusive 及结构化证据。'
         '缺失、无法检查或不确定的证据不得通过。不得改变目标或权限。',
@@ -143,6 +144,7 @@ def validate(value):
     if 'contract' in value.tools and value.id!='media_planner':raise ValueError('Only the Manager may query operation contracts')
     if value.model_policy!='frozen-project-model' or value.output_schema not in ('manager-result-v1','frozen-review-v1','visual-report-v1','diagnosis-v1','declared-files-v1'):
         raise ValueError('Unsupported Agent model/output policy')
+    if value.response_transport not in ('buffered','stream'):raise ValueError('Unsupported Agent response transport')
     if not 1<=value.max_turns<=40 or not 256<=value.max_output_tokens<=32000 or not 10<=value.timeout_seconds<=3600:
         raise ValueError('Invalid Agent budgets')
     if (not 0<=value.max_inspection_rounds<=value.max_turns or not 0<=value.max_correction_rounds<=value.max_turns

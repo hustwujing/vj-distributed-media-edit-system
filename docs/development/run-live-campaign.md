@@ -15,6 +15,8 @@
 
 本轮约定的业务沙盒模型为 `claude-4.6-sonnet`，推理强度 `high`；专业角色模型由系统冻结为 `claude-sonnet-5-5`，并使用 `structured-profile-v4`。驱动提交前核对 `model_protocol_policy=plan_draft_v1_strict_preferred`，创建后核对 Run 的 `model_configuration`，保存实际配置摘要。每个 PLAN 还必须核对唯一 PlanDraft 的 snapshot/graph/authorization/input cutoff 绑定、revision 及 COMMITTED/REJECTED/EXPIRED 终态。服务能力策略、Run 冻结配置、PlanDraft 和每次请求实际 strict/回退是不同证据；只核对一个字段不能证明全部生效。
 
+还需核对每个角色冻结的`response_transport`：控制角色为`buffered`，Editing Implementer为`stream`。日志中的请求模型、上游实际模型和传输方式必须一致解释；配置Claude而上游回显其他路由时单列。性能报告至少包含各角色模型调用数、平均/最大总耗时和Publisher耗时，不能把整个case耗时笼统归给媒体处理。
+
 改变模型默认值不能追溯修改已有 Run 或重标历史结果。预算边界用例保留设计中的低额度，不能为了让模型执行而放宽；模型选择部署 smoke 不替代正式媒体 case。
 
 ## 每个 case 的审查
@@ -47,5 +49,7 @@
 每个已启动但未终态的 case 单独一行：ID、阶段、耗时、最近有效进展、是否符合设计预期、异常原因或下一检查点。重复无进展、重复付费请求或确定性程序错误立即报告，不等待定时报表。协议实验另按模型和协议报告平均时间，说明失败、超时、排队与用户停止的计入方式。
 
 多窗口协作先明确负责执行和修改的一方，其他窗口默认只读审查，避免同时部署、重启、修改相同文件或创建重复轮次。交接须包含已部署版本、暂停状态、活动 case、未解决缺陷及证据路径。
+
+驱动收到SIGINT/SIGTERM时必须先阻止新case，向所有活动Run提交cancel并进入既有finally审计与项目清理；第二次强制信号才允许直接退出。仅停止父进程而留下后台Run不算停止成功。
 
 最终报告绑定轮次和版本，包含逐例结果、实际配置、必测边界、归因、首次失败与复测、内部/浏览器证据、清理及未验证限制。代码检查、模型回复实验、预算链路测试、部署 smoke 和完整媒体 case 验收分别列出，不能互相替代。仅修改本规范时检查链接、命令和实现一致性，无需启动付费测试。

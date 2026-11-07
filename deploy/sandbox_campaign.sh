@@ -27,6 +27,7 @@ export DYNAMIC_CASE_DEPLOY_ROOT="$repo/.sandbox-cluster"
 export DYNAMIC_CASE_BASE=http://127.0.0.1/distributed-agent-sandbox
 export DYNAMIC_EXPECT_PATH=/distributed-agent-sandbox
 export DYNAMIC_EXPECT_NAMESPACE=sandbox-agent
+export DYNAMIC_SESSION_COOKIE=sandbox_agent_session
 export DYNAMIC_EXPECT_OBJECT_PREFIX=distributed-agent-sandbox
 export DYNAMIC_EXPECT_STREAM_PREFIX=distributed-agent-sandbox:
 

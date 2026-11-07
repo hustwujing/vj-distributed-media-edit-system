@@ -101,6 +101,9 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(len(self.store.query('SELECT * FROM workflow_inspections')),8)
         self.assertEqual(len(self.store.query('SELECT * FROM task_results')),1)
         self.assertEqual(get('media_planner').snapshot()['max_images'],8)
+        self.assertEqual(get('media_planner').snapshot()['response_transport'],'buffered')
+        self.assertEqual(get('visual_quality_reviewer').snapshot()['response_transport'],'buffered')
+        self.assertEqual(get('editing_implementer').snapshot()['response_transport'],'stream')
         import hashlib
         diagnostic=json.loads(self.store.query('SELECT record FROM workflow_diagnostics')[0]['record'])
         self.assertEqual(diagnostic['reference_sha256'],hashlib.sha256(b'asset').hexdigest())
@@ -274,7 +277,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertGreater(len(image),100000)
         self.run['authorization']['model_token_budget']=100000
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',input_token_policy='native',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
         calls=[]
         def post(url,**kwargs):
@@ -294,7 +297,8 @@ class DynamicGatewayTests(unittest.TestCase):
         row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
         self.assertEqual((row['used_tokens'],row['state']),(2500,'settled'))
 
-    def estimated_generation(self,output_tokens=12):
+    def estimated_generation(self,output_tokens=12,streaming='1'):
+        from dataclasses import replace
         import threading
         from contextlib import nullcontext
         from types import SimpleNamespace
@@ -306,24 +310,25 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.strict_schema import transform
         request=self.store.query('SELECT * FROM planner_runs WHERE id=?',(self.task['spec']['request_id'],))[0]
         frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
-        protocol=ToolProtocol(get('media_planner'),frozen,self.task,finalize=True)
+        profile=replace(get('media_planner'),response_transport='stream' if streaming=='1' else 'buffered')
+        protocol=ToolProtocol(profile,frozen,self.task,finalize=True)
         wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output?'},protocol.schemas['submit_plan'],encode=True)
-        configuration=SimpleNamespace(protocol='anthropic',model='claude-4.6-sonnet',reasoning_effort='high',
+        configuration=SimpleNamespace(protocol='anthropic',model='claude-4.6-sonnet',reasoning_effort='high',response_transport=profile.response_transport,
             vision_tokenizer='unconfigured',input_token_policy='claude_bpe_estimate_v1',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
-        self.actual_model_posts=[]
+        self.actual_model_posts=[];self.actual_model_bodies=[]
         def post(url,**kwargs):
-            self.actual_model_posts.append(url);self.assertTrue(url.endswith('/messages'))
+            self.actual_model_posts.append(url);self.actual_model_bodies.append(kwargs['json']);self.assertTrue(url.endswith('/messages'))
             rows=self.store.query('SELECT reserved_tokens,state FROM workflow_model_reservations')
             self.assertEqual(len(rows),1);self.assertEqual(rows[0]['state'],'reserved')
-            self.assertGreater(rows[0]['reserved_tokens'],get('media_planner').max_output_tokens)
+            self.assertGreater(rows[0]['reserved_tokens'],profile.max_output_tokens)
             return nullcontext(Response({'stop_reason':'tool_use','usage':{'input_tokens':100,'output_tokens':output_tokens},
                 'content':[{'type':'tool_use','name':'submit_plan','input':wire}]}))
         client=Mock();client.post.side_effect=post
         with self.lease.bind(),patch('webapp.agent_profiles.for_specialist',return_value=configuration), \
              patch('webapp.egress_policy.session',side_effect=lambda:nullcontext(client)):
             return model(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,
-                get('media_planner'),'Frozen context',protocol=protocol)
+                profile,'Frozen context',protocol=protocol)
 
     def test_estimated_input_is_reserved_before_generation_and_settles_actual_usage(self):
         self.assertEqual(self.estimated_generation()['proposal']['kind'],'REQUEST_USER_INPUT')
@@ -331,6 +336,14 @@ class DynamicGatewayTests(unittest.TestCase):
         row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
         self.assertEqual((row['used_tokens'],row['state']),(112,'settled_derived'))
         self.assertEqual(self.store.query("SELECT used FROM execution_budgets WHERE run_id=? AND category='model'",(self.run['id'],))[0]['used'],1)
+
+    def test_structured_generation_can_use_buffered_transport(self):
+        self.assertEqual(self.estimated_generation(streaming='0')['proposal']['kind'],'REQUEST_USER_INPUT')
+        self.assertEqual(self.actual_model_bodies[0]['stream'],False)
+
+    def test_structured_generation_streams_when_enabled(self):
+        self.assertEqual(self.estimated_generation(streaming='1')['proposal']['kind'],'REQUEST_USER_INPUT')
+        self.assertEqual(self.actual_model_bodies[0]['stream'],True)
 
     def test_estimated_input_cannot_bypass_the_authorized_token_limit(self):
         self.run['authorization']['model_token_budget']=1
@@ -373,7 +386,7 @@ class DynamicGatewayTests(unittest.TestCase):
         frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,finalize=True)
         wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output is required?'},protocol.schemas['submit_plan'],encode=True)
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',input_token_policy='native',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'))
         sent=[]
         def post(url,**kwargs):
@@ -413,7 +426,7 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.workflow_plan_draft import get as get_draft
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,draft=get_draft(self.store,self.task['spec']['request_id']),store=self.store)
         wire=transform({'reason':'Missing detail','question':'Which output?'},protocol.schemas['request_user_input'],encode=True)
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',vision_tokenizer='patch32_1_2',input_token_policy='native',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
             budget={'task_models':40},credentials=lambda:('https://model.example/v1','test'),digest='frozen')
         sent=[]
         def post(url,**kwargs):

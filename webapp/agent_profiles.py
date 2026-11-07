@@ -3,7 +3,7 @@
 Credentials are environment references, never values in snapshots or events.
 Changing the default profile does not change an existing task's configuration.
 """
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 import hashlib
 import json
 import os
@@ -51,6 +51,7 @@ class AgentProfile:
     input_token_policy: str = 'native'
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
+    response_transport: str = 'stream'
     budget: dict = field(default_factory=configured_budget)
 
     def __post_init__(self):
@@ -60,6 +61,8 @@ class AgentProfile:
             raise ValueError('Unsupported harness/model protocol combination')
         if self.adapter_version != 1 or self.tool_policy != 'media-restricted-v1':
             raise ValueError('Unsupported Agent adapter or tool policy version')
+        if self.response_transport not in ('buffered','stream'):
+            raise ValueError('Unsupported Agent response transport')
         if not self.model or len(self.model) > 200 or any(ord(c) < 32 for c in self.model):
             raise ValueError('Invalid model identifier')
         if not re.fullmatch(r'(?:VIDEO_USE_|ANTHROPIC_|DEEPSEEK_|OPENAI_)[A-Z0-9_]*(?:KEY|TOKEN)', self.credential_env):
@@ -201,6 +204,7 @@ def freeze(db, task, project, created, parent=None,*,configuration=None,role_pro
         from .specialist_profiles import PROFILES
         configured={**configured,**{identifier:configuration or selected() for identifier,value in PROFILES.items() if str(value.role)=='IMPLEMENTER'}}
         for identifier,value in configured.items():
+            value=replace(value,response_transport=PROFILES[identifier].response_transport)
             db.execute('INSERT INTO agent_run_role_profiles VALUES (?,?,?,?,?)',
                        (task,identifier,json.dumps(value.snapshot(),sort_keys=True),value.digest,created))
     return profile

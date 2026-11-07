@@ -270,6 +270,13 @@
 - unit 直接读取工作区 `.agent.env` 等文件；新字段提前落盘会让旧 release 在 watchdog 重启时加载不兼容配置。现在四份私有 env 按内容 SHA 冻结到只读配置快照，unit、release 记录和 campaign 同时绑定源码/配置摘要。
 - 当前规范仍把历史 119 条当现行清单，并残留 structured-profile-v2 表述。现行入口已统一为 126 条、structured-profile-v4、沙盒 Claude 4.6/high、专家 Claude Sonnet 5.5。
 
+## 模型传输性能复核
+
+- 历史`cb27fbdd8723`完整119轮的中位case耗时为165秒；后续全角色强制`stream=true`后，C03相同33次模型调用从491秒增长到4008秒。受控请求A/B证明TextPublisher本身只有毫秒级开销，但stream请求由网关回显为`kiro-claude-sonnet-5-5`，buffered请求回显为`claude-sonnet-5-5`。
+- 响应传输现按角色冻结：Manager、Reviewer、Diagnostician和Delivery Reviewer使用buffered，Editing Implementer保留stream。缺少commentary改为宿主摘要；Redis delta异步合并，完成快照同步封口，TTL定期刷新。
+- targeted版本`c5e0f2ff5cf8`验证C03 636秒业务成功、C06 443秒业务成功、C07 346秒非程序失败且程序处理正确；0程序错误。C07的重复非法规划现准确归类为`planning_contract_exhausted`。三条均完成浏览器、数据库、BOSS、Redis和节点缓存审查与清理。
+- SIGINT恢复以S01真机验证：父驱动不依赖已退出的Playwright进程，使用本轮落盘session取消Run，等待终态、零活动工作和本地cleanup后读取完整内部审计；安全时删除项目。最终状态为`user_stopped`，BOSS、Redis和节点缓存零残留。
+
 真机 case 调整：
 
 - 新增 D48“安全点前附件失效并拒绝补充输入”，通过真实浏览器输入、受控项目内附件删除和用户 reject，验证 input supersede、barrier 收敛、原 Attempt 正常完成和最终交付。

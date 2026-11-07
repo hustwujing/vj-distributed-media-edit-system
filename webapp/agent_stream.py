@@ -27,7 +27,7 @@ class StreamBus:
         self.maxlen = int(os.environ.get("VIDEO_USE_AGENT_STREAM_MAXLEN", "10000"))
         self._client = None
         self._retry_after = 0.0
-        self._publish_lock=threading.Lock();self._publisher=None;self._events=None
+        self._publish_lock=threading.Lock();self._publisher=None;self._events=None;self._expires={}
 
     @property
     def enabled(self) -> bool:
@@ -37,7 +37,7 @@ class StreamBus:
         from .telemetry import emit
         emit('stream.transport_failed','WARNING',reason=phase,exception_type=type(exc).__name__)
         self._retry_after=time.monotonic()+5
-        self._client=None
+        self._client=None;self._expires={}
 
     def _get(self):
         if not self.enabled:
@@ -61,11 +61,14 @@ class StreamBus:
         if client is None:
             return None
         try:
-            message = client.xadd(self.key(run_id), {
+            key=self.key(run_id);message = client.xadd(key, {
                 "kind": kind,
                 "payload": json.dumps(payload, ensure_ascii=False),
             }, maxlen=self.maxlen, approximate=True)
-            client.expire(self.key(run_id), self.ttl)
+            now=time.monotonic()
+            if now>=self._expires.get(key,0):
+                client.expire(key,self.ttl);self._expires[key]=now+max(1,min(60,self.ttl/4))
+                if len(self._expires)>10000:self._expires={name:expiry for name,expiry in self._expires.items() if expiry>now}
             return str(message)
         except Exception as exc:
             # A Redis outage must not stop a task or make the durable DB path
@@ -93,6 +96,13 @@ class StreamBus:
             except queue.Full:
                 from .telemetry import emit
                 emit('stream.activity_dropped','WARNING',task_id=run_id,reason='queue_full')
+
+    def flush_async(self,timeout=5):
+        events=self._events
+        if events is None:return True
+        deadline=time.monotonic()+timeout
+        while events.unfinished_tasks and time.monotonic()<deadline:time.sleep(.01)
+        return not events.unfinished_tasks
 
     def read(self, run_id: str, after: str, count: int = 200,
              block_ms: int = 1000) -> list[dict[str, Any]] | None:

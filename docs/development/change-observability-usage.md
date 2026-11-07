@@ -103,6 +103,8 @@
 | 回执和幂等 | 分片、重复、补充、冲突、失败、取消及断流均不误计；迟到回执不恢复业务 | [test_task_usage.py](../../tests/test_task_usage.py) |
 | 关联、范围和分页 | 独立需求不混合；跨项目拒绝；详情分页不截断汇总；未知、零与计算值可区分 | [test_task_usage.py](../../tests/test_task_usage.py)、[task_usage.test.mjs](../../tests/task_usage.test.mjs) |
 | 事件与公开活动 | 提交事件保持一次计量；重连/接管后状态正确；不暴露推理正文 | [test_usage_stream_integration.py](../../tests/test_usage_stream_integration.py)、[test_live_activity.py](../../tests/test_live_activity.py) |
+
+模型性能观测分别保存配置模型、上游实际模型、响应传输、响应头、首块、首段公开文本、完成耗时和Publisher开销。上游未提供公开文本时保持该时间为空；不能用完成时间冒充首字节。Publisher指标只计本地公开文本发布，不与模型推理耗时混合。
 | 采集、告警和权限 | 受保护查询、留存、低基数指标、持续窗口、去重、恢复及静默有效 | [test_observability.py](../../tests/test_observability.py) |
 
 例如，修改计量与诊断时：
