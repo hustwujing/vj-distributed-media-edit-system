@@ -30,6 +30,11 @@ role, iterate the path list explicitly. Write only under `VIDEO_USE_STEP_OUTPUT`
 do not infer writable locations from the process working directory. Declare
 actual output filenames and their roles, and atomically finish each output.
 
+JSON reports must use finite built-in Python values. Convert NumPy scalar
+measurements with `int`/`float` or `.item()`, and arrays with `.tolist()` before
+serialization; do not pass NumPy coordinates or scalars directly to json.dumps.
+Verify crop/index bounds before applying them, then write the self-check report.
+
 For model-authored scripts, choose `on_failure: "diagnose"` when
 `media_failure_diagnostician` is already authorized. A syntax, type, missing-file
 or command error should produce a bounded Diagnosis and Manager revision within

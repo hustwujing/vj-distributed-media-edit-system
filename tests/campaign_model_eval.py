@@ -212,7 +212,7 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
         body=adapter.conversation(instructions,text+feedback)
         if native:body=tool_request(adapter,body,definitions,strict=strict)
         from webapp.workflow_agents import model_output_limit
-        body=adapter.prepare(body,config.model,model_output_limit(p,protocol,policy=config.output_token_policy,maximum=config.budget['max_output_tokens']) if compact else min(12000,config.budget['max_output_tokens']),config.reasoning_effort);assert_no_credentials(graph.encode(body),(key,))
+        body=adapter.prepare(body,config.model,model_output_limit(p,protocol,policy=config.output_token_policy,maximum=config.budget['max_output_tokens'],role_maximum=config.specialist_output_tokens.get(p.id)) if compact else min(12000,config.budget['max_output_tokens']),config.reasoning_effort);assert_no_credentials(graph.encode(body),(key,))
         record={'turn':turn,'strict_requested':strict if native else False,'request_sha256':graph.digest(body),'at':time.time()}
         if native:
             record['wire_strict_settings']=[(tool.get('function',tool)).get('strict','omitted') for tool in body['tools']]

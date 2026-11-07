@@ -72,6 +72,8 @@ Responses的非strict回退必须显式发送工具字段`strict: false`；省�
 
 AgentProfile.output_token_policy 支持 phase 和 profile，策略随模型配置摘要进入Run。phase沿用命令阶段上限；profile使用角色的max_output_tokens，避免把推理Token也计入输出的模型截断在较小阶段额度。两者都必须再取模型配置budget.max_output_tokens的较小值，并按实际请求上限预留Run总预算；切换模型不得重置总预算、重试次数或调用额度。
 
+模型可通过specialist_output_tokens按已登记角色ID覆盖该角色的默认输出额度；映射也参与配置摘要。最终上限仍不得超过模型budget.max_output_tokens，phase策略还保留阶段限制。未知角色、布尔值及非法额度拒绝加载。DS复杂规划在12000仍有截断，候选media_planner上限设为16000；受控对照也观察到12000成功而16000截断，说明存在模型长度波动，不能无限抬高额度或把提高额度当作成功保证。
+
 2026-11-07独立DS4.1 Flash/high批次8例都在6144输出Token处max_tokens截断。基于同一C08冻结事实的受控重建请求（不是原始wire重放），6144仍截断，12000返回合法工具调用、实际6573输出Token。故deepseek41候选配置显式选择profile策略；其他模型保持其已校准策略，不能因一个模型失败整体抬高额度。不同角色仍分别受角色上限约束，后续按实际回执验证。
 
 ## 提示与失败收敛

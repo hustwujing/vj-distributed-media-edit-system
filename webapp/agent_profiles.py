@@ -50,6 +50,7 @@ class AgentProfile:
     vision_tokenizer: str = 'unconfigured'
     input_token_policy: str = 'native'
     output_token_policy: str = 'phase'
+    specialist_output_tokens: dict = field(default_factory=dict)
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     response_transport: str = 'stream'
@@ -66,6 +67,10 @@ class AgentProfile:
             raise ValueError('Unsupported Agent response transport')
         if self.output_token_policy not in ('phase','profile'):
             raise ValueError('Unsupported Agent output token policy')
+        from .specialist_profiles import PROFILES
+        if (not isinstance(self.specialist_output_tokens,dict) or set(self.specialist_output_tokens)-set(PROFILES)
+                or any(type(v) is not int or not 1<=v<=128000 for v in self.specialist_output_tokens.values())):
+            raise ValueError('Invalid specialist output token limits')
         if not self.model or len(self.model) > 200 or any(ord(c) < 32 for c in self.model):
             raise ValueError('Invalid model identifier')
         if not re.fullmatch(r'(?:VIDEO_USE_|ANTHROPIC_|DEEPSEEK_|OPENAI_)[A-Z0-9_]*(?:KEY|TOKEN)', self.credential_env):

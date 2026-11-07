@@ -341,10 +341,14 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         if kind=='script' and not allow_script:continue
         fields={key:deepcopy(value) for key,value in props.items() if key not in removed|{'outputs','output_roles','delivery_stage'}}
         fields['type']={'type':'string','enum':[kind]}
-        if kind=='agent':fields['purpose']={'type':'string','enum':['business','repair']}
+        if kind=='agent':
+            from .specialist_profiles import PROFILES
+            fields['purpose']={'type':'string','enum':['business','repair']}
+            fields['profile']={'type':'string','enum':sorted(p.id for p in PROFILES.values() if p.role=='IMPLEMENTER')}
         if kind!='operation':
             fields.pop('inputs',None);fields['input_bindings']=deepcopy(input_bindings);fields['files']=files
         required=[key for key in task.get('required',[]) if key in fields]
+        if kind=='agent':required.append('profile')
         if kind!='operation':required.append('files')
         if kind=='operation':
             for index,(identifier,contract) in enumerate(sorted(contracts.items())):

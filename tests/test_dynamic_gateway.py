@@ -285,7 +285,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.run['authorization']['model_token_budget']=100000
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
         configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
-            output_token_policy='phase',budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'))
+            output_token_policy='phase',specialist_output_tokens={},budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'))
         calls=[]
         def post(url,**kwargs):
             calls.append(url)
@@ -304,7 +304,7 @@ class DynamicGatewayTests(unittest.TestCase):
         row=self.store.query('SELECT used_tokens,state FROM workflow_model_reservations')[0]
         self.assertEqual((row['used_tokens'],row['state']),(2500,'settled'))
 
-    def estimated_generation(self,output_tokens=12,streaming='1',output_policy='phase',model_maximum=16000,draft_mode=False):
+    def estimated_generation(self,output_tokens=12,streaming='1',output_policy='phase',model_maximum=16000,draft_mode=False,role_maximum=None):
         from dataclasses import replace
         import threading
         from contextlib import nullcontext
@@ -328,7 +328,8 @@ class DynamicGatewayTests(unittest.TestCase):
         wire=transform(arguments,protocol.schemas[tool_name],encode=True)
         configuration=SimpleNamespace(protocol='anthropic',model='claude-4.6-sonnet',reasoning_effort='high',response_transport=profile.response_transport,
             vision_tokenizer='unconfigured',input_token_policy='claude_bpe_estimate_v1',
-            output_token_policy=output_policy,budget={'task_models':40,'max_output_tokens':model_maximum},credentials=lambda:('https://model.example/v1','test'))
+            output_token_policy=output_policy,specialist_output_tokens={profile.id:role_maximum} if role_maximum else {},
+            budget={'task_models':40,'max_output_tokens':model_maximum},credentials=lambda:('https://model.example/v1','test'))
         self.actual_model_posts=[];self.actual_model_bodies=[]
         def post(url,**kwargs):
             self.actual_model_posts.append(url);self.actual_model_bodies.append(kwargs['json']);self.assertTrue(url.endswith('/messages'))
@@ -360,6 +361,11 @@ class DynamicGatewayTests(unittest.TestCase):
         self.estimated_generation(output_policy='profile',model_maximum=7000,draft_mode=True)
         self.assertEqual(self.actual_model_bodies[0]['max_tokens'],7000)
         self.assertEqual(self.store.query('SELECT output_reserved_tokens FROM workflow_model_reservations')[0]['output_reserved_tokens'],7000)
+
+    def test_model_specific_role_override_is_sent_and_reserved(self):
+        self.estimated_generation(output_policy='profile',role_maximum=16000,draft_mode=True)
+        self.assertEqual(self.actual_model_bodies[0]['max_tokens'],16000)
+        self.assertEqual(self.store.query('SELECT output_reserved_tokens FROM workflow_model_reservations')[0]['output_reserved_tokens'],16000)
 
     def test_default_phase_output_policy_keeps_compact_plan_budget(self):
         self.estimated_generation(draft_mode=True)
@@ -433,7 +439,7 @@ class DynamicGatewayTests(unittest.TestCase):
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,finalize=True)
         wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output is required?'},protocol.schemas['submit_plan'],encode=True)
         configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
-            output_token_policy='phase',budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'))
+            output_token_policy='phase',specialist_output_tokens={},budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'))
         sent=[]
         def post(url,**kwargs):
             if url.endswith('/input_tokens'):return nullcontext(Response({'input_tokens':100}))
@@ -473,7 +479,7 @@ class DynamicGatewayTests(unittest.TestCase):
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,draft=get_draft(self.store,self.task['spec']['request_id']),store=self.store)
         wire=transform({'reason':'Missing detail','question':'Which output?'},protocol.schemas['request_user_input'],encode=True)
         configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
-            output_token_policy='phase',budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'),digest='frozen')
+            output_token_policy='phase',specialist_output_tokens={},budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'),digest='frozen')
         sent=[]
         def post(url,**kwargs):
             if url.endswith('/input_tokens'):return nullcontext(Response({'input_tokens':100}))

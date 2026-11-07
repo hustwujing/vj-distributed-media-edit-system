@@ -103,8 +103,8 @@ PROFILES={p.id:p for p in (
         '程序验收 image/media/text/json/file 不接受 criterion；criterion 仅用于 agent/review 内容验收。'
         '专业 Agent 的结构化报告必须符合目录中的 result_schema，不能要求该 Schema 之外的字段；额外业务数据由独立脚本任务生成。'
         'delivery_stage表示该Task的输出文件直接交付给用户，不表示它只是DAG的最后一步。continuation=complete必须有delivery_stage=true的真实媒体或业务交付Task。'
-        '视觉Reviewer、诊断、证据及其他JSON检查报告只能阻断或放行上游Task，必须delivery_stage=false；其acceptance使用stage=current。'
-        '例如render_image输出final.png时render_image.delivery_stage=true，review_image输出review.json时review_image.delivery_stage=false；反过来是非法计划。'
+        '业务Agent Task只使用IMPLEMENTER类Profile；Planner、Reviewer和Diagnostician由宿主创建为Control Job，不得放入任务列表。'
+        '内容验收通过acceptance的kind=agent声明，宿主安排审查；独立测量使用已登记的media.evidence，purpose=evidence，不作为最终交付。'
         '最终Reviewer只能从真实交付Task的已验收产物选择交付，不能把review.json当作图片、视频或音频成果。'
         '内容检查使用 agent 验收；仅用户明确要求人工确认时使用 review。最终交付总会经过独立 Reviewer。',
         skills=('workflow-operations','script-runtime','media-semantics'),max_output_tokens=12000,output_schema='manager-result-v1',max_turns=16,

@@ -23,6 +23,18 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_native_business_agent_schema_rejects_control_profiles_before_compilation(self):
+        protocol=ToolProtocol(profile('media_planner'),frozen(False),{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        task={'id':'work','name':'Work','type':'agent','profile':'editing_implementer','objective':'Create output',
+              'files':[{'path':'result.txt','roles':['report']}],
+              'acceptance':[{'kind':'text','contains':['result'],'stage':'final'}]}
+        payload={'kind':'APPLY_PLAN','reason':'Authorized work','tasks':[task]}
+        schema=protocol.schemas['submit_typed_plan']
+        self.assertEqual(protocol.decode('submit_typed_plan',transform(payload,schema,encode=True))['action'],'draft_batch_commit')
+        for identifier in ('media_planner','visual_quality_reviewer','delivery_reviewer','media_failure_diagnostician'):
+            with self.subTest(profile=identifier):
+                bad=copy.deepcopy(payload);bad['tasks'][0]['profile']=identifier
+                with self.assertRaises(ValidationError):protocol.decode('submit_typed_plan',transform(bad,schema,encode=True))
     def test_requested_quality_report_gets_canonical_role_without_losing_custom_role(self):
         f=frozen(False);f['goal']='Deliver a video and a quality report'
         task={'id':'final','name':'Final output','type':'agent','profile':'editing_implementer',

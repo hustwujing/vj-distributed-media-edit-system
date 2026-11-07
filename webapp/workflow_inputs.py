@@ -144,7 +144,8 @@ def image_task(store,w,s,env):
     op=for_step(s['spec'])
     assets,ids=staged_assets(store,w,s,env)
     from .image_document import ImageTask,check_task
-    task=ImageTask.model_validate({'action':op.action,**s['spec']['parameters'],'asset':ids.get('source'),
-        'mask':ids.get('mask'),'references':[ids[k] for k in ('reference','reference2') if k in ids]})
+    refining=op.id=='image.refine_mask'
+    task=ImageTask.model_validate({'action':op.action,**s['spec']['parameters'],'asset':ids.get('mask' if refining else 'source'),
+        'mask':None if refining else ids.get('mask'),'references':[ids[k] for k in ('reference','reference2') if k in ids]})
     check_task(task,{a['id']:a for a in assets})
     return task.model_dump(),assets

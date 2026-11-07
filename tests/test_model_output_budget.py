@@ -13,6 +13,11 @@ class ModelOutputBudgetTests(unittest.TestCase):
         self.assertEqual(AgentProfile(**full.snapshot()).output_token_policy,'profile')
         self.assertEqual(AgentProfile(**full.snapshot()).digest,full.digest)
         with self.assertRaises(ValueError):replace(phase,output_token_policy='unbounded')
+        overridden=replace(full,specialist_output_tokens={'media_planner':16000})
+        self.assertNotEqual(full.digest,overridden.digest)
+        self.assertEqual(AgentProfile(**overridden.snapshot()).specialist_output_tokens,{'media_planner':16000})
+        for limits in ({'unknown_role':16000},{'media_planner':True},{'media_planner':0}):
+            with self.assertRaises(ValueError):replace(full,specialist_output_tokens=limits)
 
     def test_role_phase_and_model_caps_remain_independent(self):
         planner=get('media_planner');draft=SimpleNamespace(schemas={'submit_typed_plan':{}},correction_mode=False)
@@ -22,5 +27,6 @@ class ModelOutputBudgetTests(unittest.TestCase):
         self.assertEqual(model_output_limit(planner,commit,policy='phase',maximum=16000),1024)
         self.assertEqual(model_output_limit(planner,commit,policy='profile',maximum=16000),12000)
         self.assertEqual(model_output_limit(planner,draft,policy='profile',maximum=5000),5000)
+        self.assertEqual(model_output_limit(planner,draft,policy='profile',maximum=16000,role_maximum=20000),16000)
         self.assertEqual(model_output_limit(get('delivery_reviewer'),None,policy='profile',maximum=16000),8000)
         with self.assertRaises(ValueError):model_output_limit(planner,draft,policy='unbounded')

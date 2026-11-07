@@ -274,6 +274,8 @@ def contract(operation):
     if operation.id in _CONTRACTS:return _CONTRACTS[operation.id]
     from .operation_parameters import model
     parameters=model(operation.id,operation.executor,operation.action)
+    if operation.id=='image.refine_mask':return OperationContract(parameters,frozenset({'mask'}),frozenset({'mask'}),
+        role_kinds={'mask':('image',)})
     if operation.evidence_only:return OperationContract(parameters,frozenset({'source'}),frozenset({'source','reference'}),
         role_kinds={'reference':('image','video','audio')},
         conditional_required_inputs=(('mode','audio_compare',frozenset({'reference'})),))
@@ -373,7 +375,8 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
         return value
     from .image_document import ImageTask
     if set(parameters)-IMAGE_PARAMETERS[op.action]:raise ValueError('图片操作包含不适用的参数，不能覆盖输入或动作')
-    if 'source' not in inputs:raise ValueError('图片操作需要 source 输入')
+    primary='mask' if op.id=='image.refine_mask' else 'source'
+    if primary not in inputs:raise ValueError('图片操作需要 '+primary+' 输入')
     if set(inputs)-{'source','mask','reference','reference2'}:raise ValueError('未知图片输入角色')
     value=ImageTask.model_validate({'action':op.action,**parameters}).model_dump()
     if op.action=='segment_sam3':

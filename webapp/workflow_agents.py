@@ -216,9 +216,11 @@ def model(host,lease,run,profile,conversation,images=(),deadline=None,protocol=N
         return _model_request(host,lease,run,profile,conversation,images,deadline,protocol,text_stream,False)
 
 
-def model_output_limit(profile,protocol,*,policy='phase',maximum=None):
+def model_output_limit(profile,protocol,*,policy='phase',maximum=None,role_maximum=None):
     if policy not in ('phase','profile'):raise ValueError('Unsupported output token policy')
-    limit=profile.max_output_tokens
+    if role_maximum is not None and (type(role_maximum) is not int or not 1<=role_maximum<=128000):
+        raise ValueError('Invalid role output maximum')
+    limit=role_maximum if role_maximum is not None else profile.max_output_tokens
     if policy=='phase' and protocol is not None:
         if 'submit_typed_plan' in protocol.schemas:limit=min(limit,6144)
         elif 'commit_plan' in protocol.schemas:
@@ -245,7 +247,8 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
         definitions=protocol.definitions();body=tool_request(adapter,body,definitions,strict=strict)
         body['stream']=configuration.response_transport=='stream'
     output_limit=model_output_limit(profile,protocol,policy=configuration.output_token_policy,
-                                    maximum=configuration.budget['max_output_tokens'])
+                                    maximum=configuration.budget['max_output_tokens'],
+                                    role_maximum=configuration.specialist_output_tokens.get(profile.id))
     body=adapter.prepare(body,configuration.model,output_limit,configuration.reasoning_effort)
     raw=graph.encode(body);assert_no_credentials(raw,(*secrets(),key))
     receipt=adapter.receipt()

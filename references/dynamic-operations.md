@@ -162,6 +162,12 @@ source image and an existing mask. Use the output_contract names/roles; do not
 invent filenames. OCR returns ocr.json and ocr-preview.png, not a finished text
 transcript. A separate script can extract lines into TXT.
 
+`image.refine_mask` accepts one input role, `mask`: bind the actual grayscale or
+alpha mask to refine. Do not pass the original photo as `source` or send a separate
+photo alongside the mask. Local mask-repair semantics use `reference_role=mask`
+and `output_role=mask`, so execution and changed-area measurement share the same
+reference pixels. `image.refine_zim` remains a separate image-plus-mask operation.
+
 Transcription returns transcript.json. Reuse its real text/word timestamps to
 format TXT/SRT in a script; do not call transcription again just to change format.
 No provider HTTP loops, service credentials or GPU model invocations belong in
