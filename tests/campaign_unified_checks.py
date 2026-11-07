@@ -11,6 +11,15 @@ def check(state,images,videos,database,frame):
     import numpy as np
     from PIL import Image
     errors=[];checks={};case=state['case']
+    if case=='D41':
+        delivery=state.get('artifacts',[])
+        names=[item.get('name') for item in delivery]
+        checks['exact_delivery_names']=names
+        if names!=['deliver.mp4']:errors.append('Only deliver.mp4 may be published; retained candidates must not be delivered')
+        expected=state.get('fixture_hashes',{}).get('motion_reference.mp4')
+        same=bool(expected and len(delivery)==1 and delivery[0].get('sha256')==expected)
+        checks['delivery_matches_frozen_input_sha256']=same
+        if not same:errors.append('Selected delivery must retain the exact frozen motion-reference bytes')
     if case in ('D36','D37'):
         before=state['unified_boundary']['before'];task=next(item for item in before['tasks'] if item['id']=='render')
         filename=task['quality'].get('output_roles',{}).get('primary_image') or task['candidate_result'][0]
