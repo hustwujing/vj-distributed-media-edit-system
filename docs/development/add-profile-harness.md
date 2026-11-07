@@ -24,6 +24,7 @@
 
 1. 登记稳定的版本化 ID，实现 `run(host, lease, workflow, task)` 和 `fingerprint()`；未知 ID 拒绝执行。
 2. 指纹覆盖实际执行代码和协议依赖。Profile 快照保存该指纹；代码或权限变化时，旧任务不得静默换引擎。
+   本地 bwrap 直接挂载的宿主 Python 脚本统一登记在 `runtime_image.MOUNTED_MODULES`；`agent_sandbox.command` 和环境指纹共用该映射，包含源文件摘要及沙盒目标路径。新增挂载不能绕开该定义，须通过 `test_runtime_fingerprint` 的实际挂载逐文件变更回归。固定工具包仍通过 package.sha256 参与身份。
 3. 定义如何使用冻结输入、固定提示模板、实际加载的注册技能、工具白名单、输出 Schema、Token/时间上限。检查、格式纠正和 finalize 预算分别声明；必须为最终结构化结果保留调用，不能让工具检查耗尽结论机会。技能文件内容摘要必须绑定策略，执行代码指纹覆盖技能装载逻辑。
 4. 复用已有 TaskRuntime、最小挂载、独立 UID、资源上限、取消监控和 reaper；不另建特权执行通道。
 5. 模型请求经过已登记 ModelAdapter、受控 egress、调用意图和实际用量账本；不能在 SDK 中私自切供应商或重放未知提交。

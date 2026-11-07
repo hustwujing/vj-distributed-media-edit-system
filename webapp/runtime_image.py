@@ -19,6 +19,30 @@ CODEX_DEFAULT='/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/co
 TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','media_plan_compiler.py','media_evidence.py','media_evidence_operation.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
               'image_providers.py','image_models.py','image_replace.py','sam3_zim.py','models.py','edit_tools.py','quality_review.py')
 
+# Single source of truth for host Python files exposed directly to bwrap.
+# Both the actual mount command and the environment digest consume this map.
+MOUNTED_MODULES=(
+    ('sandbox_entry.py','/opt/sandbox_entry.py'),
+    ('harness_bridge.py','/opt/harness_bridge.py'),
+    ('harness_sdk_events.py','/opt/harness_sdk_events.py'),
+    ('sandbox_limits.py','/opt/sandbox_limits.py'),
+    ('canvas_pixels.py','/opt/canvas_pixels.py'),
+    ('agent_transcribe.py','/opt/transcribe.py'),
+    ('agent_image.py','/opt/image_ai.py'),
+    ('agent_canvas.py','/opt/canvas_edit.py'),
+    ('agent_workflow.py','/opt/workflow.py'),
+    ('agent_context_query.py','/opt/context.py'),
+    ('workflow_io.py','/opt/workflow_io.py'),
+    ('operation_io.py','/opt/operation_io.py'),
+    ('script_preflight.py','/opt/script_preflight.py'),
+    ('step_sdk.py','/opt/step.py'),
+    ('preview_export.py','/opt/preview_export.py'),
+    ('validate_outputs.py','/opt/validate_outputs.py'),
+    ('quality_check.py','/opt/quality_check.py'),
+    ('media_evidence.py','/opt/media_evidence.py'),
+    ('text_formats.py','/opt/text_formats.py'),
+)
+
 
 def stage_tools(directory):
     """Build a versioned tool package; callers choose a test or release directory."""
@@ -54,6 +78,8 @@ def fingerprint():
     value['execution_contract']={name:hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()
         for name in ('workflow_runtime.py','workflow_executor.py','execution_runtime.py','agent_sandbox.py',
                      'workflow_inputs.py','operation_lifecycle.py','workflow_io.py','quality_check.py','media_evidence.py')}
+    value['mounted_modules']={target:{'source':name,'sha256':hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()}
+                              for name,target in MOUNTED_MODULES}
     return hashlib.sha256(json.dumps(value,sort_keys=True).encode()).hexdigest()
 
 

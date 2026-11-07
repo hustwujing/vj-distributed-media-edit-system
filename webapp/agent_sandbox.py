@@ -203,34 +203,17 @@ def command(env, gateway_socket, executable=None):
             '--unshare-ipc', '--unshare-uts', '--unshare-cgroup-try', '--hostname', 'video-use-project']
     for directory in ('/opt','/opt/video-use','/opt/video-use/helpers','/gateway','/etc'):
         args += ['--perms','0755','--dir',directory]
-    from .runtime_image import mounts
+    from .runtime_image import mounts,MOUNTED_MODULES
     args += mounts()
     args += ['--proc', '/proc', '--dev', '/dev',
             '--perms', '1777', '--size', '268435456', '--tmpfs', '/tmp',
             '--ro-bind', str(agent/'passwd'), '/etc/passwd',
             '--ro-bind', str(agent/'group'), '/etc/group']
     args += ['--ro-bind', str(REPO/'runtime/public/SKILL.md'), '/opt/video-use/SKILL.md',
-             '--ro-bind', str(REPO/'references'), '/opt/video-use/references',
-             '--ro-bind', str(REPO/'webapp/sandbox_entry.py'), '/opt/sandbox_entry.py',
-             '--ro-bind', str(REPO/'webapp/harness_bridge.py'), '/opt/harness_bridge.py',
-             '--ro-bind', str(REPO/'webapp/harness_sdk_events.py'), '/opt/harness_sdk_events.py',
-             '--ro-bind', str(agent/'harness-config.json'), '/opt/harness-config.json',
-             '--ro-bind', str(REPO/'webapp/sandbox_limits.py'), '/opt/sandbox_limits.py',
-             '--ro-bind', str(REPO/'webapp/canvas_pixels.py'), '/opt/canvas_pixels.py',
-             '--ro-bind', str(REPO/'webapp/agent_transcribe.py'), '/opt/transcribe.py',
-             '--ro-bind', str(REPO/'webapp/agent_image.py'), '/opt/image_ai.py',
-             '--ro-bind', str(REPO/'webapp/agent_canvas.py'), '/opt/canvas_edit.py',
-             '--ro-bind', str(REPO/'webapp/agent_workflow.py'), '/opt/workflow.py',
-             '--ro-bind', str(REPO/'webapp/agent_context_query.py'), '/opt/context.py',
-             '--ro-bind', str(REPO/'webapp/workflow_io.py'), '/opt/workflow_io.py',
-             '--ro-bind', str(REPO/'webapp/operation_io.py'), '/opt/operation_io.py',
-             '--ro-bind', str(REPO/'webapp/script_preflight.py'), '/opt/script_preflight.py',
-             '--ro-bind', str(REPO/'webapp/step_sdk.py'), '/opt/step.py',
-             '--ro-bind', str(REPO/'webapp/preview_export.py'), '/opt/preview_export.py',
-             '--ro-bind', str(REPO/'webapp/validate_outputs.py'), '/opt/validate_outputs.py',
-             '--ro-bind', str(REPO/'webapp/quality_check.py'), '/opt/quality_check.py',
-             '--ro-bind', str(REPO/'webapp/media_evidence.py'), '/opt/media_evidence.py',
-             '--ro-bind', str(REPO/'webapp/text_formats.py'), '/opt/text_formats.py',
+             '--ro-bind', str(REPO/'references'), '/opt/video-use/references']
+    for name,target in MOUNTED_MODULES:
+        args += ['--ro-bind',str(REPO/'webapp'/name),target]
+    args += ['--ro-bind', str(agent/'harness-config.json'), '/opt/harness-config.json',
              '--bind', str(env['state']), '/state',
              '--ro-bind', str(agent/'config.toml'), '/state/codex/config.toml',
              '--bind' if editable else '--ro-bind', str(env['workspace']), SANDBOX_WORKSPACE,
