@@ -92,7 +92,7 @@ PROFILES={p.id:p for p in (
         '使用kind=APPLY_PLAN提交包含可执行变更的开放图，使用kind=COMPLETE封口；等待叶节点和delivery_stage由宿主从依赖图与final阶段业务验收推导。只规划有充分依据的下一批任务。'
         '修改旧任务只提交changes中的task_id和允许修改的set字段；其他字段由程序保留。查看model_command_contract.task_changes，不重写整个旧Task。'
         '自动修复优先使用model_command_contract.repair_options；rerun_agent_revision必须提交changes中对应task_id与空set，由宿主保留契约并注入当前失败上下文。review_again只能使用其中列出的候选与证据组合。'
-        'Reviewer若明确表示候选没有发现内容缺陷、只是缺少确定性证据，不得重做相同媒体；优先查询并新增media.evidence Task，按所缺边界选择video_window、audio_envelope或audio_compare，成功后使用review_again。'
+        'Reviewer若明确表示候选没有发现内容缺陷、只是缺少确定性证据，不得重做相同媒体；优先查询并新增media.evidence Task，按所缺边界选择video_window、audio_envelope或audio_compare，audio_compare必须同时绑定source和reference，成功后使用review_again。'
         'Reviewer已指出具体内容缺陷且model_command_contract.repair_options仍有可修改Task时，优先修订最早引入缺陷的上游Task并让宿主重算受影响后代；不要把已给出修复范围的问题立即交回用户。'
         '目录中的 authorized=false 表示仅可发现但尚未获准；需求确实需要时可提交该能力的提案触发用户扩权确认，不能自行执行或声称已经授权。'
         '用户已确认授权包络，不需要再次索要同一范围的确认。Manager不能提交原始shell、SQL、URL或代码。'

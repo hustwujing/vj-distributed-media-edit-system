@@ -23,6 +23,28 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_completed_delivery_graph_exposes_only_narrow_completion_command(self):
+        value=frozen();value['tasks'][0]['status']='succeeded'
+        value['trigger']={'completed':['render']};value['input_batch']=None
+        protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertEqual(set(protocol.schemas),{'complete_run'})
+        result=protocol.decode('complete_run',{'reason':'All declared work completed'})['proposal']
+        self.assertEqual(result['kind'],'COMPLETE')
+        self.assertTrue(result['proposal']['sealed'])
+        self.assertEqual(result['proposal']['add_tasks'],[])
+
+    def test_incomplete_or_non_delivery_graph_keeps_planning_tools(self):
+        for status,delivery,trigger in [('paused',True,{'completed':['render']}),
+                                        ('succeeded',False,{'completed':['render']}),
+                                        ('succeeded',True,{'review_incomplete':'review'})]:
+            with self.subTest(status=status,delivery=delivery,trigger=trigger):
+                value=frozen();value['tasks'][0]['status']=status
+                value['tasks'][0]['spec']['delivery_stage']=delivery
+                value['trigger']=trigger;value['input_batch']=None
+                protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+                self.assertIn('submit_typed_plan',protocol.schemas)
+                self.assertNotIn('complete_run',protocol.schemas)
+
     def test_unique_trailing_underscore_acceptance_field_is_normalized(self):
         value={'tasks':[{'type':'agent','acceptance':[{'kind':'image','height_':64,'max_participation':.5}]}]}
         normalized,changes=normalize_planner_arguments('submit_typed_plan',value)
@@ -250,6 +272,21 @@ class ModelCommandTests(unittest.TestCase):
         implementation['acceptance']=[]
         with self.assertRaises(ValidationError):transform(cmd,schema,encode=True)
         with self.assertRaises(CommandError):compile_manager(cmd,f)
+
+    def test_replacement_waits_for_invalidated_downstream_leaf_before_replanning(self):
+        f=frozen();base=f['tasks'][0]['spec'];f['tasks'][0]['id']='render';f['tasks'][0]['status']='paused'
+        middle={**copy.deepcopy(f['tasks'][0]),'id':'compose','status':'succeeded'}
+        middle['spec']={**copy.deepcopy(base),'id':'compose','inputs':{'source':{'step':'render','role':'report'}}}
+        leaf={**copy.deepcopy(f['tasks'][0]),'id':'deliver','status':'succeeded'}
+        leaf['spec']={**copy.deepcopy(base),'id':'deliver','inputs':{'source':{'step':'compose','role':'report'}}}
+        f['tasks']+=[middle,leaf]
+        f['dependencies']=[{'upstream_task_id':'render','downstream_task_id':'compose'},
+                           {'upstream_task_id':'compose','downstream_task_id':'deliver'}]
+        implementation={'name':'New implementation','type':'script','argv':['python','-c','print(1)'],
+                        'files':[{'path':'report.txt','roles':['report']}],'basic_reason':'Local repair'}
+        result=compile_manager({'kind':'APPLY_PLAN','reason':'Replace the failed root','plan':{
+            'repair_replacements':[{'task_id':'render','implementation':implementation}]}},f)['proposal']
+        self.assertEqual(result['replan_after'],['deliver'])
 
     def test_operation_replacement_does_not_reclassify_inherited_technical_acceptance(self):
         from webapp.operations import catalog

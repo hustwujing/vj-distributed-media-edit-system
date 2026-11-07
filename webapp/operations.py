@@ -117,7 +117,9 @@ class Operation:
         result['input_contract']={'required_roles':sorted(inputs.required_inputs),
                                  'allowed_roles':sorted(inputs.allowed_inputs) if inputs.allowed_inputs is not None else None,
                                  'minimum_inputs':inputs.minimum_inputs,'kinds':list(self.input_kinds),
-                                 'role_kinds':inputs.role_kinds}
+                                 'role_kinds':inputs.role_kinds,
+                                 'conditional_required_roles':[{'parameter':parameter,'equals':expected,'roles':sorted(roles)}
+                                     for parameter,expected,roles in inputs.conditional_required_inputs]}
         if self.executor=='image_sync':result['native_size_guaranteed']=False
         if self.id=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan' and self.available():
             from .wan_generation import capabilities
@@ -213,14 +215,19 @@ class OperationContract:
     allowed_inputs:frozenset[str]|None=None
     minimum_inputs:int=0
     role_kinds:dict[str,tuple[str,...]]=field(default_factory=dict)
+    conditional_required_inputs:tuple[tuple[str,object,frozenset[str]],...]=()
 
     def validate(self,parameters,inputs):
-        if not self.required_inputs.issubset(inputs) or len(inputs)<self.minimum_inputs:
+        value=self.parameters.model_validate(parameters).model_dump(exclude_none=True)
+        required=set(self.required_inputs)
+        for parameter,expected,roles in self.conditional_required_inputs:
+            if value.get(parameter)==expected:required.update(roles)
+        if not required.issubset(inputs) or len(inputs)<self.minimum_inputs:
             raise ValueError('Operation is missing required inputs')
         if self.allowed_inputs is not None and set(inputs)-self.allowed_inputs:
             raise ValueError('Operation received undeclared input roles')
         for value in inputs.values():InputRef.model_validate(value)
-        return self.parameters.model_validate(parameters).model_dump(exclude_none=True)
+        return value
 
 
 _CONTRACTS={}
@@ -262,7 +269,9 @@ def contract(operation):
     if operation.id in _CONTRACTS:return _CONTRACTS[operation.id]
     from .operation_parameters import model
     parameters=model(operation.id,operation.executor,operation.action)
-    if operation.evidence_only:return OperationContract(parameters,frozenset({'source'}),frozenset({'source','reference'}),role_kinds={'reference':('image',)})
+    if operation.evidence_only:return OperationContract(parameters,frozenset({'source'}),frozenset({'source','reference'}),
+        role_kinds={'reference':('image','video','audio')},
+        conditional_required_inputs=(('mode','audio_compare',frozenset({'reference'})),))
     if operation.action=='normalize_clip':return OperationContract(parameters,frozenset({'source'}),frozenset({'source'}))
     if operation.executor=='fixed_media':
         return OperationContract(parameters,minimum_inputs=1)

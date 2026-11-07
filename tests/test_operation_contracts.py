@@ -6,6 +6,19 @@ from webapp.quality_policy import Acceptance
 from webapp.execution_contracts import profile,dispatch_kind,classify_error
 
 class ContractTests(unittest.TestCase):
+    def test_audio_compare_requires_declared_reference_before_execution(self):
+        from webapp.operations import validate_parameters
+        source={'source':{'asset':'candidate'}}
+        with self.assertRaisesRegex(ValueError,'missing required inputs'):
+            validate_parameters('media.evidence',{'mode':'audio_compare'},source)
+        normalized=validate_parameters('media.evidence',{'mode':'audio_compare'},
+            {**source,'reference':{'asset':'baseline'}})
+        self.assertEqual(normalized['mode'],'audio_compare')
+        contract=get('media.evidence').public()['input_contract']
+        self.assertIn({'parameter':'mode','equals':'audio_compare','roles':['reference']},
+            contract['conditional_required_roles'])
+        self.assertEqual(set(contract['role_kinds']['reference']),{'image','video','audio'})
+
     def test_sam3_text_constraints_are_enforced_before_execution_and_discoverable(self):
         from webapp.operations import validate_parameters
         inputs={'source':{'asset':'owned'}}

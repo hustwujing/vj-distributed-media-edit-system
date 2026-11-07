@@ -309,6 +309,14 @@ def evidence_collection_available(frozen):
     return any(item['action']=='collect_evidence_then_review_again' for item in repair_options(frozen))
 
 
+def completion_candidate(frozen):
+    """A finished open graph only needs sealing before independent final review."""
+    tasks=frozen.get('tasks',[]);trigger=frozen.get('trigger') or {}
+    return (set(trigger)=={'completed'} and tasks and all(item.get('status')=='succeeded' for item in tasks)
+            and any(item.get('spec',{}).get('delivery_stage') for item in tasks)
+            and not frozen.get('input_batch') and not (frozen.get('repair_context') or {}).get('active'))
+
+
 def manager_schema(frozen,contracts=None,*,allow_script=True):
     contracts=contracts or {}
     domain=graph.ManagerResult.model_json_schema();defs=deepcopy(domain['$defs']);task=defs['Task'];props=task['properties']
@@ -577,7 +585,20 @@ def compile_manager(command,frozen):
         changed={task['id'] for task in added}|revised_ids
         changed|={identifier for identifier in plan.get('review_again',{}) if identifier in current}
         changed={replacements.get(identifier,identifier) for identifier in changed}
-        waiting=sorted(identifier for identifier in changed if not any(edge['upstream']==identifier and edge['downstream'] in changed for edge in dependencies))
+        removed={(replacements.get(edge['upstream'],edge['upstream']),replacements.get(edge['downstream'],edge['downstream']))
+                 for edge in plan.get('remove_dependencies',[])}
+        effective={(replacements.get(edge['upstream_task_id'],edge['upstream_task_id']),
+                    replacements.get(edge['downstream_task_id'],edge['downstream_task_id']))
+                   for edge in frozen.get('dependencies',[])}-removed
+        effective|={(edge['upstream'],edge['downstream']) for edge in dependencies}
+        affected=set(changed)
+        while True:
+            downstream={target for source,target in effective if source in affected}
+            expanded=affected|downstream
+            if expanded==affected:break
+            affected=expanded
+        waiting=sorted(identifier for identifier in affected
+                       if not any(source==identifier and target in affected for source,target in effective))
         if result['kind']=='APPLY_PLAN' and not waiting:
             eligible=[item for item in repair_options(frozen) if item['action'] in ('review_again','collect_evidence_then_review_again')]
             if eligible:
@@ -612,6 +633,9 @@ class ToolProtocol:
         if 'script' in tools:self.add('script','script',obj({'code':{'type':'string','minLength':1,'maxLength':64000}}))
         if 'proposal' in tools:
             if draft is None:self.add('submit_plan','proposal',manager_schema(frozen,contracts))
+            elif completion_candidate(frozen):
+                reason=manager_schema(frozen,contracts,allow_script=False)['properties']['reason']
+                self.add('complete_run','draft_control',obj({'reason':reason},['reason']))
             else:self.add_draft_tools(draft,contracts or {},finalize)
         if 'result' in tools:
             source=deepcopy(frozen.get('result_schema') or {})
@@ -698,6 +722,7 @@ class ToolProtocol:
             'replace_plan_configuration':'Replace invalid dependency or revision sections in the server-owned draft.',
             'remove_draft_tasks':'Remove invalid new Tasks and their draft dependencies.',
             'commit_plan':'Validate and atomically submit the current server-owned draft.',
+            'complete_run':'Seal the completed graph for independent final delivery review. No Task or dependency changes are accepted.',
             'continue_run':'Finish this planning round without changing the graph.',
             'request_user_input':'Request information that is required before planning can continue.',
             'request_authorization':'Request a complete expanded authorization.',
@@ -733,9 +758,12 @@ class ToolProtocol:
                     '_draft_revision':revision,'_draft_digest':draft_digest}
         if action=='draft_control':
             kinds={'continue_run':'CONTINUE','request_user_input':'REQUEST_USER_INPUT',
-                   'request_authorization':'REQUEST_AUTHORIZATION','new_run_required':'NEW_RUN_REQUIRED'}
+                   'request_authorization':'REQUEST_AUTHORIZATION','new_run_required':'NEW_RUN_REQUIRED',
+                   'complete_run':'COMPLETE'}
             value=self._draft.get('draft',self._draft)
-            return {'action':'proposal','proposal':compile_manager({'kind':kinds[name],**payload},self.frozen),
+            command={'kind':kinds[name],**payload}
+            if name=='complete_run':command['plan']={}
+            return {'action':'proposal','proposal':compile_manager(command,self.frozen),
                     '_model_command':payload,'_draft_commit':True,
                     '_draft_revision':self._draft.get('revision',0),'_draft_digest':graph.digest(value)}
         if action=='result':
@@ -753,6 +781,8 @@ class ToolProtocol:
             'maps':'Dynamic maps are key/value entry arrays as declared in the tool schema; keys must be unique.',
             'host_derived_fields':['task_id_for_replacements','dependencies_from_inputs','revision','technical_acceptance','delivery_stage','replan_after'],
             'planning':'Use kind COMPLETE to seal a finished graph or APPLY_PLAN when this batch adds executable work. The host derives wait leaves from the changed dependency graph. Task changes contain only allowed set fields.'}
+        if 'complete_run' in self.schemas:
+            context['model_command_contract']['planning']='All declared work succeeded. Use complete_run to seal this graph for independent final delivery review.'
         if 'submit_typed_plan' in self.schemas or 'commit_plan' in self.schemas:
             from .workflow_plan_draft import summary
             context['model_command_contract'].update(version='plan-draft-v1',planning=

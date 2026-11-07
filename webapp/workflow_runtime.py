@@ -565,6 +565,8 @@ class Adapter:
         from .paths import SANDBOX_WORKSPACE
         env=self.environment(w);assets,ids=staged_assets(self.store,w,s,env)
         op=for_step(s['spec']);payload={'kind':op.action,**s['spec']['parameters'],'assets':list(ids.values())}
+        if op.id=='media.evidence' and payload.get('mode')=='audio_compare' and 'reference' not in ids:
+            raise StepFailure({'message':'音频对比证据缺少 reference 输入','code':'operation_input_contract'})
         assets=[a for a in assets if a['id'] in ids.values()]
         media_assets=[a for a in assets if a['metadata']['kind']!='json']
         if op.action!='pack':payload['assets']=[a['id'] for a in media_assets]
