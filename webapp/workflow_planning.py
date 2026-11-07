@@ -120,7 +120,7 @@ def snapshot(store,run):
         'repair_context':run.get('repair_context',{}),'repair_candidates':descriptors(store,run),
         'history':history_snapshot(store,run),'user_reviews':user_reviews(store,run),
         'user_changes':list(reversed(applied_inputs[:100])),'user_changes_truncated':len(applied_inputs)>100,
-        'tasks':[{k:task[k] for k in ('id','spec','status','revision','authorization_version','accepted_result','quality','error_code','error_detail')}
+        'tasks':[{k:task[k] for k in ('id','spec','status','revision','created_graph_version','authorization_version','accepted_result','quality','error_code','error_detail')}
                  for task in active_tasks(run)],
         'dependencies':run['dependencies'],'assets':[a for a in assets if a['id'] in permitted],
         'upstream_media_constraints':media_constraints,

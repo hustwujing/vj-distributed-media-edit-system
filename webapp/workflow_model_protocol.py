@@ -303,9 +303,15 @@ def evidence_collection_available(frozen):
 def completion_candidate(frozen):
     """Offer sealing for a successful batch, without assuming the goal is complete."""
     tasks=frozen.get('tasks',[]);trigger=frozen.get('trigger') or {}
-    return (set(trigger)=={'completed'} and tasks and all(item.get('status')=='succeeded' for item in tasks)
+    context=frozen.get('repair_context') or {}
+    final_evidence=(trigger.get('repair_resume')=='review_evidence' and context.get('active')
+        and context.get('source')=='review_evidence' and not context.get('subject_task')
+        and any(item.get('spec',{}).get('purpose')=='evidence' and item.get('status')=='succeeded'
+                and item.get('created_graph_version',-1)>context.get('opened_graph_version',0) for item in tasks))
+    return ((set(trigger)=={'completed'} and not context.get('active') or final_evidence)
+            and tasks and all(item.get('status')=='succeeded' for item in tasks)
             and any(item.get('spec',{}).get('delivery_stage') for item in tasks)
-            and not frozen.get('input_batch') and not (frozen.get('repair_context') or {}).get('active'))
+            and not frozen.get('input_batch'))
 
 
 def manager_schema(frozen,contracts=None,*,allow_script=True):

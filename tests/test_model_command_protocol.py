@@ -90,6 +90,23 @@ class ModelCommandTests(unittest.TestCase):
                 self.assertIn('submit_typed_plan',protocol.schemas)
                 self.assertNotIn('complete_run',protocol.schemas)
 
+    def test_new_final_review_evidence_allows_explicit_resubmission_without_empty_work(self):
+        value=frozen();value['tasks'][0]['status']='succeeded';value['input_batch']=None
+        value['trigger']={'repair_resume':'review_evidence','task_id':''}
+        value['repair_context']={'active':True,'source':'review_evidence','subject_task':'','opened_graph_version':2}
+        evidence=copy.deepcopy(value['tasks'][0]);evidence['id']='evidence';evidence['created_graph_version']=3
+        evidence['spec'].update(id='evidence',purpose='evidence',delivery_stage=False)
+        value['tasks'].append(evidence)
+        protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertIn('complete_run',protocol.schemas)
+        result=protocol.decode('complete_run',{'reason':'New evidence is accepted; request independent final review'})['proposal']
+        self.assertEqual(result['kind'],'COMPLETE');self.assertTrue(result['proposal']['sealed'])
+        for mutate in (lambda v:v['tasks'][-1].update(created_graph_version=2),
+                       lambda v:v['tasks'][-1].update(status='running'),
+                       lambda v:v['repair_context'].update(subject_task='render')):
+            changed=copy.deepcopy(value);mutate(changed)
+            self.assertNotIn('complete_run',ToolProtocol(profile('media_planner'),changed,{'control_kind':'PLAN'},draft={'status':'OPEN'}).schemas)
+
     def test_unique_trailing_underscore_acceptance_field_is_normalized(self):
         value={'tasks':[{'type':'agent','acceptance':[{'kind':'image','height_':64,'max_participation':.5}]}]}
         normalized,changes=normalize_planner_arguments('submit_typed_plan',value)
