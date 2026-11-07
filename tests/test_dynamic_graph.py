@@ -539,7 +539,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(len(self.store.query('SELECT id FROM artifact_objects')),1)
 
     def publish_metadata_fixture(self,names,primary_index=0,expect_success=True,selected_indices=None,
-                                 dependencies=None,delivery_indices=None):
+                                 dependencies=None,delivery_indices=None,before_publish=None):
         """Exercise publication of previously accepted metadata, not decoding."""
         from unittest.mock import patch
         delivery_indices=set(range(len(names))) if delivery_indices is None else set(delivery_indices)
@@ -568,6 +568,7 @@ class DynamicGraphTests(unittest.TestCase):
                 snapshot_json,snapshot_digest,status,decision_json,created_at,updated_at)
                 VALUES (?,?,'final-review','final','',?,'fixture','{}',?,'passed',?,?,?)''',
                 (review_id,run['id'],run['graph_version'],'f'*64,graph.encode(decision),now,now))
+            if before_publish:before_publish(run,review_id)
             self.orchestrator.publish(run,{'id':review_id,'decision_json':'{}'})
             if not expect_success:
                 result=graph.get(self.store,run['id'])
@@ -592,6 +593,29 @@ class DynamicGraphTests(unittest.TestCase):
         current=graph.get(self.store,run['id'])
         self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','invalid_delivery_manifest'))
         self.assertIsNone(current['delivered_at'])
+
+    def test_passed_final_review_can_be_reused_after_graph_only_change(self):
+        from webapp.review_identity import identity
+        def reseal(run,review_id):
+            frozen={'review_scope':'final','goal':run['goal'],'delivery_targets':run['authorization']['delivery_targets'],
+                    'tasks':graph.active_tasks(run)}
+            key=identity(self.store,run,frozen)
+            self.store.execute('UPDATE workflow_reviews SET review_identity=? WHERE id=?',(key,review_id))
+            self.store.execute('UPDATE runs SET graph_version=graph_version+1 WHERE id=?',(run['id'],))
+        delivered,_=self.publish_metadata_fixture(['report.txt'],before_publish=reseal)
+        self.assertEqual(len(delivered),1)
+        self.assertEqual(len(self.store.query("SELECT id FROM workflow_reviews WHERE purpose='final'")),1)
+        self.assertEqual(self.store.query("SELECT graph_version FROM workflow_reviews WHERE purpose='final'")[0]['graph_version'],1)
+
+    def test_cross_graph_review_reuse_rejects_changed_requirements(self):
+        from webapp.review_identity import identity
+        def change_goal(run,review_id):
+            frozen={'review_scope':'final','goal':run['goal'],'delivery_targets':run['authorization']['delivery_targets'],
+                    'tasks':graph.active_tasks(run)}
+            self.store.execute('UPDATE workflow_reviews SET review_identity=? WHERE id=?',(identity(self.store,run,frozen),review_id))
+            self.store.execute("UPDATE runs SET graph_version=graph_version+1,goal='Different required contents' WHERE id=?",(run['id'],))
+        delivered,_=self.publish_metadata_fixture(['report.txt'],before_publish=change_goal,expect_success=False)
+        self.assertEqual(delivered,[])
 
     def test_publisher_rejects_preview_only_selection_even_with_a_passed_review(self):
         run=self.review_fixture()

@@ -3,6 +3,21 @@ import json
 from .workflow_graph import digest,encode
 
 
+def applied_user_changes(store,run):
+    changes=store.query("SELECT sequence,content,source,context_json FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence DESC LIMIT 101",(run['id'],))
+    for change in changes:change['context']=json.loads(change.pop('context_json'))
+    return list(reversed(changes[:100])),len(changes)>100
+
+
+def final_identity(store,run):
+    from .workflow_graph import work_items
+    changes,truncated=applied_user_changes(store,run)
+    return identity(store,run,{'review_scope':'final','goal':run['goal'],
+        'delivery_targets':run['authorization']['delivery_targets'],
+        'tasks':[task for task in work_items(run) if not task.get('control_kind')],
+        'user_changes':changes,'user_changes_truncated':truncated})
+
+
 def identity(store,run,frozen):
     if frozen['review_scope']=='diagnose':return digest(frozen)
     candidates=[];verified=set()
@@ -25,6 +40,13 @@ def identity(store,run,frozen):
         candidates.append({'content':files,'input_content':inputs,
             'objective':task['spec']['objective'],'acceptance':task['spec']['acceptance'],
             'semantics':task['spec'].get('semantics'),'delivery_stage':task['spec'].get('delivery_stage')})
-    return digest({'scope':frozen['review_scope'],'goal':frozen['goal'],
+    context={'scope':frozen['review_scope'],'goal':frozen['goal'],
         'criteria':frozen.get('review_criteria',frozen.get('delivery_targets',[])),
-        'candidates':sorted(candidates,key=encode),'verified_evidence':sorted(verified)})
+        'candidates':sorted(candidates,key=encode),'verified_evidence':sorted(verified)}
+    if frozen['review_scope']=='final':
+        # Applied user requirements are final-review criteria, unlike bare graph
+        # counters or task labels. Never reuse a verdict that predates them.
+        context['user_changes']=[{'content':item.get('content',''),'source':item.get('source',''),
+            'targets':(item.get('context') or {}).get('targets',[])} for item in frozen.get('user_changes',[])]
+        context['user_changes_truncated']=bool(frozen.get('user_changes_truncated'))
+    return digest(context)

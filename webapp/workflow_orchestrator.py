@@ -746,9 +746,8 @@ class Orchestrator:
                 implementation=json.loads(call.pop('implementation'))
                 frozen['provider_receipts'].append({**call,**{key:implementation.get(key,'') for key in
                     ('provider_identity','route_adapter','model')}})
-            changes=store.query("SELECT sequence,content,source,context_json FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence DESC LIMIT 101",(run['id'],))
-            for change in changes:change['context']=json.loads(change.pop('context_json'))
-            frozen['user_changes']=list(reversed(changes[:100]));frozen['user_changes_truncated']=len(changes)>100
+            from .review_identity import applied_user_changes
+            frozen['user_changes'],frozen['user_changes_truncated']=applied_user_changes(store,run)
             from .workflow_history import snapshot as history_snapshot,user_reviews
             frozen['user_reviews']=user_reviews(store,run)
             frozen['history']=history_snapshot(store,run)
@@ -914,7 +913,10 @@ class Orchestrator:
         if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
             self.set_status(run,'WAITING_USER','user_decision_pending');return
         authoritative=store.query("""SELECT * FROM workflow_reviews WHERE id=? AND run_id=? AND purpose='final'
-            AND subject_task='' AND graph_version=? AND status='passed'""",(review.get('id'),run['id'],run['graph_version']))
+            AND subject_task='' AND status='passed'""",(review.get('id'),run['id']))
+        if authoritative and authoritative[0]['graph_version']!=run['graph_version']:
+            from .review_identity import final_identity
+            if authoritative[0]['review_identity']!=final_identity(store,run):authoritative=[]
         if not authoritative:
             graph.event(store,run,'delivery_blocked',{'reason':'invalid_final_review'})
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
