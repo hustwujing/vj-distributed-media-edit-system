@@ -137,6 +137,11 @@ cleanup 或 Workspace 时按分布式规范追加对应模块，并完成全量�
 Sandbox ID，按 Attempt metadata 确认消失，最后才释放资源。`begin_cleanup` 和 `cleanup` 必须幂等；
 撤销、删除或确认失败保留重试/隔离状态，不能因为业务终态或 Lease 过期假定物理资源已回收。
 
+远程 Agent 与本地 Agent 共用轮次终态处理：Harness 明确失败、运行超时、导出或检查点失败必须结束
+无工作流的轮次，未提交检查点的工作流暂停，不能当作节点中断反复重派。已输出公开文本在失败前封口；
+Shutdown、LeaseLost、TaskLimitReached 仍向执行器上层传播，保留接管、取消及总预算终止语义。
+租约过期清理在撤销 active 时必须同时保留 interrupted，确保接管方仍执行恢复逻辑，而非按首次执行派发。
+
 Command Runtime 下载不信任远端目录响应：路径必须在声明的输出子目录内，禁止 `..` 和链接/特殊文件；
 宿主逐级使用目录 FD 与 `O_NOFOLLOW`，以私有临时文件完成后原子替换。按实际流字节累计执行
 `VIDEO_USE_TASK_DISK_BYTES` 下载上限，每次清单最多 50000 条，失败不留下半写文件。

@@ -6,6 +6,7 @@ import hashlib
 import json
 from pathlib import Path,PurePosixPath
 import shutil
+import time
 import uuid
 
 from .agent_activity import ActivityTracker
@@ -75,10 +76,20 @@ class RemoteTurnResult:
 class RemoteAgentRunner:
     def __init__(self,host):self.host=host;self.store=host.store
 
-    def run(self,lease,row,profile):
+    def run(self,lease,row,profile,*,text=None):
         runtime=lease.runtime;run_id=lease.run_id;project=row['project']
         messages={};completed=None;event_sequence=0;final=''
-        text=TextPublisher(self.store,run_id,self.host.redact)
+        text=text or TextPublisher(self.store,run_id,self.host.redact)
+        deadline=time.monotonic()+profile.budget['run_seconds']
+        def check():
+            if self.host.stop.is_set():
+                from .agent_host import Shutdown
+                try:runtime.interrupt()
+                finally:raise Shutdown()
+            lease.check()
+            if time.monotonic()>deadline:
+                raise TimeoutError('本轮已达到 Agent 运行时限，已停止；已有任务状态保留。')
+        check()
         tracker=ActivityTracker(lambda kind,payload:self.host.notify(run_id,kind,payload),
             self.store.assets(project))
         def event_received(event):
@@ -109,13 +120,10 @@ class RemoteAgentRunner:
         phase='方案讨论' if row['mode']=='plan' else '已确认执行'
         prompt=f'当前阶段：{phase}。\n用户消息：{row["prompt"]}'
         runtime.run_turn(session_id,prompt)
-        deadline=self.store.now()+profile.budget['run_seconds']
         while completed is None:
-            if self.host.stop.is_set():
-                runtime.interrupt();raise RuntimeError('Executor is stopping')
-            lease.check()
-            if self.store.now()>deadline:raise TimeoutError('Remote Agent turn exceeded its runtime limit')
+            check()
             runtime.receive_once()
+        check()
         if completed.get('status')!='completed':raise RuntimeError(str(completed.get('error') or 'Remote Agent turn failed'))
         exported=runtime.export_session();sink=RemoteCheckpointSink(
             self.store,lease,project,runtime_profile)

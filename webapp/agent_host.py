@@ -126,11 +126,6 @@ class AgentHost:
         row = agent_store.turn(self.store, run_id)
         if not row or row['status'] != 'running':
             return
-        lease=CURRENT.get()
-        if lease and getattr(lease.runtime,'is_remote',False):
-            from .agent_profiles import for_task
-            from .remote_agent import RemoteAgentRunner
-            return RemoteAgentRunner(self).run(lease,row,for_task(self.store,run_id))
         project_id, mode = row['project'], row['mode']
         from . import workflow_review
         review_request=None
@@ -140,8 +135,15 @@ class AgentHost:
         messages = {}
         final = ''
         lease = CURRENT.get()
+        remote=bool(lease and getattr(lease.runtime,'is_remote',False))
+        text_stream=None
         try:
             from .agent_profiles import for_task
+            if remote:
+                from .agent_text import TextPublisher
+                from .remote_agent import RemoteAgentRunner
+                text_stream=TextPublisher(self.store,run_id,self.redact)
+                return RemoteAgentRunner(self).run(lease,row,for_task(self.store,run_id),text=text_stream)
             from .harness_adapters import get as harness_adapter
             execution_profile=for_task(self.store,run_id)
             adapter=harness_adapter(execution_profile.harness)
@@ -405,6 +407,8 @@ class AgentHost:
         except (Shutdown, LeaseLost, TaskLimitReached):
             raise
         except Cancelled:
+            if remote and text_stream:
+                text_stream.flush(complete=True);final=text_stream.pending
             workflow=workflows.get(self.store,run_id)
             if workflow:
                 if not self.stop.is_set():workflows.cancel(self.store,run_id)
@@ -414,7 +418,9 @@ class AgentHost:
         except Exception as exc:
             from .telemetry import emit
             from .planning_budget import PlanningLimit
-            if isinstance(exc,PlanningLimit):
+            if remote and text_stream:
+                text_stream.flush(complete=True);final=text_stream.pending
+            if isinstance(exc,PlanningLimit) and not remote:
                 if process:terminate(process)
                 if lease and lease.runtime:lease.runtime.quiesce()
                 artifacts=agent_sandbox.export_previews(env,run_id,socket_path)
