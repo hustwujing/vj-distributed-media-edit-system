@@ -116,6 +116,8 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 
 最终交付审查补证使用 collect_delivery_evidence 指引；新证据验收成功后调用 complete_run，重新封口进入最终审查。任务级候选补证才调用 review_again。能力提示和空 APPLY_PLAN 的纠错指引必须与当前工具 Schema 一致，不能把最终审查恢复引向未开放的任务级字段。
 
+既有证据节点可以继续等待未验收上游；上游随后暂停，不应使无关的新补证提案失效。暂停候选必须使用冻结引用的校验针对新增或修改的节点，旧等待关系仍受原有依赖派发规则约束，不能提前读取候选。
+
 异构片段使用独立 media.normalize_clip Task，统一明确规格并保存验收检查点，media.concat_sequence 只负责兼容流顺序汇合。禁止在单一脚本中隐藏大量解码器或让一次失败重做所有片段。
 
 用户批准原本声明的Review后，最终Reviewer快照提供server-owned user_reviews，只包含当前选中Task、当前revision且candidate_digest仍匹配的已应用approve决定。该事实不豁免技术或Agent失败。Manager回显错误的快照绑定字段仍拒绝暂存，但在同一有效租约/请求内给予有界纠正；失效租约、过期请求及图版本竞争不改为可忽略错误。

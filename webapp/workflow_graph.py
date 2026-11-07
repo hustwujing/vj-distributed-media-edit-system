@@ -878,7 +878,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                 if ref.step in replacements:
                     raise ValueError('Input must reference the replacement Task, not a retired Task')
                 if (ref.step,task.id) not in edges:raise ValueError('Input must declare its upstream dependency')
-                if (task.purpose=='evidence' and ref.step in existing and ref.step not in revised
+                if (task.id in added or task.id in revised) and (task.purpose=='evidence' and ref.step in existing and ref.step not in revised
                         and existing[ref.step]['status']!='succeeded'):
                     raise ValueError('Evidence for a paused or failed Task must use a frozen repair candidate')
                 parent=specs[ref.step]

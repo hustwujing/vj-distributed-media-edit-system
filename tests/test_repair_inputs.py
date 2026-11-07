@@ -23,8 +23,13 @@ class RepairInputTests(unittest.TestCase):
         self.f.tick()
         self.source_spec=fixtures.script('first',outputs=['image.png'],output_roles={'primary_image':'image.png'},
             acceptance=[{'kind':'image','width':64,'height':64},{'kind':'agent','criterion':'The corner is red'}])
+        future={'id':'later-evidence','type':'operation','purpose':'evidence','name':'Inspect accepted image',
+            'objective':'Inspect after the parent is accepted','operation':'media.evidence',
+            'inputs':{'source':{'step':'first','role':'primary_image'}},'parameters':{'mode':'image'},
+            'acceptance':[{'kind':'json','file':'evidence-report.json'},{'kind':'image','file':'preview.jpg'}]}
         self.f.propose({'proposal_id':'candidate','base_graph_version':0,'reason':'Create an image',
-            'add_tasks':[self.source_spec],'sealed':True})
+            'add_tasks':[self.source_spec,future],
+            'add_dependencies':[{'upstream':'first','downstream':'later-evidence'}],'sealed':True})
         self.run=self.f.tick();task=self.run['tasks'][0]
         source=self.store.root/'source-candidate.png';Image.new('RGB',(64,64),'blue').save(source)
         obj=self.store.artifacts.upload(self.f.f.project,source)
@@ -71,6 +76,21 @@ class RepairInputTests(unittest.TestCase):
         self.assertFalse(self.store.query("SELECT id FROM run_tasks WHERE id='unusable-evidence'"))
         # Explicit user evidence work does not implicitly grant another review.
         graph.validate_proposal(self.store,run,proposal,repair_scope='first',user_revision_scope={'first'})
+
+    def test_existing_blocked_evidence_does_not_block_new_candidate_evidence(self):
+        self.assertEqual(next(t['status'] for t in self.run['tasks'] if t['id']=='later-evidence'),'blocked')
+        task={'id':'fresh-evidence','type':'operation','purpose':'evidence','name':'Inspect paused candidate',
+            'objective':'Collect missing facts for the existing candidate','operation':'media.evidence',
+            'inputs':{'source':{'repair_candidate':self.ref}},'parameters':{'mode':'image'},
+            'acceptance':[{'kind':'json','file':'evidence-report.json'},{'kind':'image','file':'preview.jpg'}]}
+        proposal={'proposal_id':'repair-evidence','base_graph_version':self.run['graph_version'],
+            'reason':'Collect candidate evidence without changing existing dependencies',
+            'add_tasks':[task],'replan_after':['fresh-evidence']}
+        graph.validate_proposal(self.store,self.run,proposal,repair_scope='first')
+        invalid={**task,'inputs':{'source':{'step':'first','role':'primary_image'}}}
+        with self.assertRaisesRegex(ValueError,'frozen repair candidate'):
+            graph.validate_proposal(self.store,self.run,{**proposal,'add_tasks':[invalid],
+                'add_dependencies':[{'upstream':'first','downstream':'fresh-evidence'}]},repair_scope='first')
 
     def test_opensandbox_command_materializes_registered_candidate(self):
         from webapp.opensandbox_command import OpenSandboxCommandRuntime
