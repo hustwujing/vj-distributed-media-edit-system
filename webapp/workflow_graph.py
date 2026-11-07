@@ -298,6 +298,50 @@ class ManagerResult(Contract):
         return self
 
 
+def _upgrade_schema(store,db):
+    additions={
+        'runs':{
+            'reconcile_error_signature':"TEXT NOT NULL DEFAULT ''",
+            'reconcile_error_count':'INTEGER NOT NULL DEFAULT 0',
+        },
+        'run_tasks':{'infrastructure_interruptions':'INTEGER NOT NULL DEFAULT 0'},
+        'control_jobs':{'infrastructure_interruptions':'INTEGER NOT NULL DEFAULT 0'},
+        'task_results':{'error_json':"TEXT NOT NULL DEFAULT '{}'"},
+        'workflow_plan_drafts':{'last_error_json':"TEXT NOT NULL DEFAULT '[]'"},
+    }
+    for table,definitions in additions.items():
+        existing={row['name'] for row in db.execute(f'PRAGMA table_info({table})')}
+        for name,declaration in definitions.items():
+            if name not in existing:db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {declaration}')
+
+    expected=['run_id','upstream_task_id','downstream_task_id','created_graph_version']
+    if store.dsn:
+        rows=db.execute('''SELECT kcu.column_name AS name,tc.constraint_name AS constraint_name
+            FROM information_schema.table_constraints tc
+            JOIN information_schema.key_column_usage kcu
+              ON tc.constraint_schema=kcu.constraint_schema AND tc.constraint_name=kcu.constraint_name
+            WHERE tc.table_schema=current_schema() AND tc.table_name='workflow_dependencies'
+              AND tc.constraint_type='PRIMARY KEY' ORDER BY kcu.ordinal_position''').fetchall()
+        current=[row['name'] for row in rows]
+        if current!=expected:
+            constraint=rows[0]['constraint_name'] if rows else ''
+            if constraint!='workflow_dependencies_pkey':raise ValueError('Unexpected workflow dependency primary key')
+            db.execute('ALTER TABLE workflow_dependencies DROP CONSTRAINT workflow_dependencies_pkey')
+            db.execute('ALTER TABLE workflow_dependencies ADD PRIMARY KEY(run_id,upstream_task_id,downstream_task_id,created_graph_version)')
+    else:
+        current=[row['name'] for row in sorted(db.execute('PRAGMA table_info(workflow_dependencies)'),key=lambda row:row['pk']) if row['pk']]
+        if current!=expected:
+            db.execute('ALTER TABLE workflow_dependencies RENAME TO workflow_dependencies_legacy')
+            db.execute('''CREATE TABLE workflow_dependencies(
+                run_id TEXT NOT NULL,upstream_task_id TEXT NOT NULL,downstream_task_id TEXT NOT NULL,
+                created_graph_version INTEGER NOT NULL,retired_graph_version INTEGER,
+                PRIMARY KEY(run_id,upstream_task_id,downstream_task_id,created_graph_version))''')
+            db.execute('''INSERT INTO workflow_dependencies
+                SELECT run_id,upstream_task_id,downstream_task_id,created_graph_version,retired_graph_version
+                FROM workflow_dependencies_legacy''')
+            db.execute('DROP TABLE workflow_dependencies_legacy')
+
+
 def initialize(store):
     with store.connect() as db:
         db.executescript('''
@@ -426,6 +470,7 @@ def initialize(store):
           generation INTEGER NOT NULL,payload_json TEXT NOT NULL,created_at REAL NOT NULL);
         ''')
     with store.connect() as db:
+        _upgrade_schema(store,db)
         from .run_inputs import initialize as initialize_inputs
         initialize_inputs(db)
         view_ddl='CREATE OR REPLACE VIEW ' if store.dsn else 'CREATE VIEW IF NOT EXISTS '

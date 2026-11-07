@@ -26,6 +26,40 @@ def envelope(store,request_id,proposal=None,kind='APPLY_PLAN',**extra):
 
 
 class DynamicGraphTests(unittest.TestCase):
+    def test_initialize_upgrades_legacy_dynamic_schema_without_losing_rows(self):
+        with self.store.connect() as db:
+            db.execute('DROP VIEW run_work_items')
+            db.execute('ALTER TABLE runs DROP COLUMN reconcile_error_signature')
+            db.execute('ALTER TABLE runs DROP COLUMN reconcile_error_count')
+            db.execute('ALTER TABLE run_tasks DROP COLUMN infrastructure_interruptions')
+            db.execute('ALTER TABLE control_jobs DROP COLUMN infrastructure_interruptions')
+            db.execute('ALTER TABLE task_results DROP COLUMN error_json')
+            db.execute('ALTER TABLE workflow_plan_drafts DROP COLUMN last_error_json')
+            db.execute('ALTER TABLE workflow_dependencies RENAME TO workflow_dependencies_current')
+            db.execute('''CREATE TABLE workflow_dependencies(
+                run_id TEXT NOT NULL,upstream_task_id TEXT NOT NULL,downstream_task_id TEXT NOT NULL,
+                created_graph_version INTEGER NOT NULL,retired_graph_version INTEGER,
+                PRIMARY KEY(run_id,upstream_task_id,downstream_task_id))''')
+            db.execute('INSERT INTO workflow_dependencies VALUES (?,?,?,?,NULL)',
+                       (self.run['id'],'legacy_parent','legacy_child',1))
+            db.execute('DROP TABLE workflow_dependencies_current')
+
+        graph.initialize(self.store)
+        expected={
+            'runs':{'reconcile_error_signature','reconcile_error_count'},
+            'run_tasks':{'infrastructure_interruptions'},
+            'control_jobs':{'infrastructure_interruptions'},
+            'task_results':{'error_json'},
+            'workflow_plan_drafts':{'last_error_json'},
+        }
+        with self.store.connect() as db:
+            for table,names in expected.items():
+                self.assertTrue(names<={row['name'] for row in db.execute(f'PRAGMA table_info({table})')})
+            self.assertEqual(db.execute('SELECT COUNT(*) AS n FROM workflow_dependencies').fetchone()['n'],1)
+            db.execute('INSERT INTO workflow_dependencies VALUES (?,?,?,?,NULL)',
+                       (self.run['id'],'legacy_parent','legacy_child',2))
+            self.assertEqual(db.execute('SELECT COUNT(*) AS n FROM workflow_dependencies').fetchone()['n'],2)
+
     def test_default_run_limits_are_generous_but_remain_bounded(self):
         authorization=graph.Authorization(goal='bounded',allowed_assets=[],allowed_operations=[],
             delivery_targets=['result'],content_fingerprint='a'*64)
