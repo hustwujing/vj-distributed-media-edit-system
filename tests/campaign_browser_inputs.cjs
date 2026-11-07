@@ -19,4 +19,20 @@ async function setProviderLimits(page,requested){
  for(const operation of Object.keys(requested))assert.ok(seen.has(operation),'Unknown fixture provider operation: '+operation);
  return budgets;
 }
-module.exports={selectOptional,setProviderLimits};
+async function holdNextResponse(page,pattern){
+ let release,markHeld,markFinished,started=false,failure;
+ const held=new Promise(resolve=>{markHeld=resolve;}),released=new Promise(resolve=>{release=resolve;}),finished=new Promise(resolve=>{markFinished=resolve;});
+ const handler=async route=>{
+  started=true;
+  try{const response=await route.fetch();markHeld();await released;await route.fulfill({response});}
+  catch(error){failure=error;markHeld();}
+  finally{markFinished();}
+ };
+ await page.route(pattern,handler,{times:1});
+ return {release,async wait(){await held;if(failure)throw failure;},async finish(){
+  release();if(started)await finished;
+  await page.unroute(pattern,handler);
+  if(failure)throw failure;
+ }};
+}
+module.exports={selectOptional,setProviderLimits,holdNextResponse};

@@ -5,7 +5,7 @@ const {execFile}=require('node:child_process');
 const {promisify}=require('node:util');
 const execute=promisify(execFile),assert=require('node:assert/strict');
 const unified=require('./campaign_unified_hooks.cjs');
-const {selectOptional,setProviderLimits}=require('./campaign_browser_inputs.cjs');
+const {selectOptional,setProviderLimits,holdNextResponse}=require('./campaign_browser_inputs.cjs');
 const REPO=path.resolve(__dirname,'..'),PY=path.join(REPO,'.venv/bin/python');
 const DEPLOY_ROOT=path.resolve(process.env.DYNAMIC_CASE_DEPLOY_ROOT||path.join(REPO,'.cluster'));
 const ROOT=path.join(DEPLOY_ROOT,'campaigns/dynamic-plan');
@@ -258,6 +258,7 @@ async function runCase(browser,spec){
   await page.goto(BASE+'/',{waitUntil:'domcontentloaded'});await page.locator('#new-project').click();await page.locator('#new-project-form input[name="name"]').fill('DYNAMIC-QA-'+state.campaign_attempt_id+'-'+spec.id);
   await page.locator('#new-project-form .mode-choices label').filter({has:page.locator('input[value="chat"]')}).click();await page.locator('#new-project-form button[type="submit"]').click();await page.waitForURL(/\/chat\/[a-f0-9]{32}/);
   state.project=await page.locator('body').getAttribute('data-project');assert.match(state.project,/^[a-f0-9]{32}$/);persist();
+  await context.storageState({path:path.join(directory,'browser-state.json')});fs.chmodSync(path.join(directory,'browser-state.json'),0o600);
   state.browser_context=await page.evaluate(()=>({secure:isSecureContext,randomUUID:typeof crypto.randomUUID,getRandomValues:typeof crypto.getRandomValues}));
   await page.waitForFunction(()=>document.querySelector('#dynamic-connection').textContent.includes('同步'));
   if(spec.assets.length){await page.locator('#dynamic-upload').setInputFiles(spec.assets.map(n=>path.join(ROOT,'fixtures',n)));await page.waitForFunction(n=>document.querySelectorAll('#dynamic-input-assets option').length===n&&document.body.dataset.uploading!=='true',spec.assets.length);}
@@ -267,21 +268,21 @@ async function runCase(browser,spec){
    await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});
    const firstAsset=page.locator('#dynamic-input-assets option').first(),firstId=await firstAsset.getAttribute('value');await firstAsset.evaluate(node=>{node.selected=false;node.parentElement.dispatchEvent(new Event('change',{bubbles:true}));});
    const limit=page.locator('[data-operation]:not([disabled])').first(),operation=await limit.getAttribute('data-operation');
-   let releaseResponse,markHeld;const held=new Promise(resolve=>{markHeld=resolve;}),released=new Promise(resolve=>{releaseResponse=resolve;});
    const pattern=`**/api/projects/${state.project}/runs/capabilities`;
-   await page.route(pattern,async route=>{const response=await route.fetch();markHeld();await released;await route.fulfill({response});},{times:1});
+   const delayed=await holdNextResponse(page,pattern);let originalError;
    try{
-    await page.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await held;
+    await page.locator('#dynamic-upload').setInputFiles(path.join(ROOT,'fixtures/rocket.png'));await delayed.wait();
     assert.equal(await page.locator('#dynamic-input-submit').isDisabled(),true,'Submit was enabled before upload refresh completed');
     await limit.fill('1');assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).isChecked(),false);
-    await capture('upload-response-held');releaseResponse();
+    await capture('upload-response-held');delayed.release();
     await page.waitForFunction(()=>document.body.dataset.uploading==='false');
     assert.equal(await page.locator(`[data-operation="${operation}"]`).inputValue(),'1','Late capabilities response overwrote consent');
     assert.equal(await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).isChecked(),false,'Asset refresh overwrote selection');
     await page.locator(`#dynamic-input-assets option[value="${firstId}"]`).evaluate(node=>{node.selected=true;node.parentElement.dispatchEvent(new Event('change',{bubbles:true}));});
     state.upload_race={operation,limit:1,real_response_delayed:true,submit_disabled:true,selection_preserved:true};
     state.browser_assertions.push('Delayed real capabilities response preserved the edited provider limit and asset selection; upload blocked submit');persist();
-   }finally{releaseResponse();await page.unroute(pattern);}
+   }catch(error){originalError=error;throw error;}
+   finally{try{await delayed.finish();}catch(error){if(!originalError)throw error;state.upload_route_error=error.message;}}
   }
   await capture('initial');
   if(spec.dynamic_hook==='stale_authorization'){
