@@ -146,6 +146,37 @@ class ModelCommandTests(unittest.TestCase):
                'user_changes':[{'content':'Keep evidence.json internal only; deliver final.mp4.'}]}
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
 
+    def test_final_exclusions_override_earlier_candidate_filename_mentions(self):
+        from webapp.workflow_agent_contracts import approved_delivery_refs,delivery_leaf_refs
+        value={'goal':'先保存 candidate.mp4；再复制为 primary.mp4 和 deliver.mp4。最终只交付 deliver.mp4，candidate.mp4和primary.mp4不交付。',
+            'tasks':[{'id':name,'spec':{'delivery_stage':True},'accepted_result':['edit/'+name]} for name in ('candidate.mp4','primary.mp4','deliver.mp4')]}
+        self.assertEqual(required_delivery_names(value),{'deliver.mp4'})
+        self.assertEqual(approved_delivery_refs(value),{'edit/deliver.mp4'})
+        self.assertEqual(delivery_leaf_refs(value),{'deliver.mp4':{'edit/deliver.mp4'}})
+        value['user_changes']=[{'content':'现在也交付 candidate.mp4。'}]
+        self.assertEqual(required_delivery_names(value),{'deliver.mp4','candidate.mp4'})
+        self.assertEqual(approved_delivery_refs(value),{'edit/deliver.mp4','edit/candidate.mp4'})
+
+    def test_prefix_delivery_exclusion_does_not_exclude_the_next_clause(self):
+        value={'goal':'Create internal.png; do not deliver internal.png; deliver final.mp4.'}
+        self.assertEqual(required_delivery_names(value),{'final.mp4'})
+        self.assertEqual(required_delivery_extensions(value),{'mp4'})
+
+    def test_internal_evidence_is_not_promoted_by_global_report_or_format_requests(self):
+        from webapp.workflow_model_protocol import required_delivery_roles,bind_explicit_delivery_formats
+        value={'goal':'交付处理后的WAV；证据报告留在工作流中供系统最终Review检查，不交付。'}
+        self.assertEqual(required_delivery_roles(value),set())
+        self.assertEqual(required_delivery_roles({'goal':'交付WAV，并附上质检报告。'}),{'report'})
+        task={'purpose':'evidence','acceptance':[{'kind':'json','source':'technical','stage':'current','file':'evidence.json'}]}
+        original=copy.deepcopy(task)
+        bind_explicit_delivery_formats(task,['evidence.json'],{'goal':'Deliver audio and a report as JSON'},{'report':'evidence.json'})
+        self.assertEqual(task,original)
+
+    def test_missing_delivery_bytes_remain_required_unless_explicitly_excluded(self):
+        from webapp.workflow_agent_contracts import delivery_leaf_refs
+        snapshot={'goal':'Deliver final.png','tasks':[{'id':'empty','spec':{'delivery_stage':True},'accepted_result':[]}]}
+        self.assertEqual(delivery_leaf_refs(snapshot),{'empty':set()})
+
     def test_negated_processing_of_original_source_is_not_an_output_request(self):
         for clause in ('不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。',
                        '无需重新处理原始 recording.wav。',

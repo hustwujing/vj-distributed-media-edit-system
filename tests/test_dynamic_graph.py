@@ -617,6 +617,20 @@ class DynamicGraphTests(unittest.TestCase):
         delivered,_=self.publish_metadata_fixture(['report.txt'],before_publish=change_goal,expect_success=False)
         self.assertEqual(delivered,[])
 
+    def test_publisher_rejects_explicitly_excluded_files_even_if_review_passed(self):
+        def scope(run,review_id):
+            self.store.execute('UPDATE runs SET goal=? WHERE id=?',
+                ('先保留 final.txt 和 internal.json。最终交付 final.txt，internal.json不交付。',run['id']))
+        delivered,_=self.publish_metadata_fixture(['final.txt','internal.json'],before_publish=scope,expect_success=False)
+        self.assertEqual(delivered,[])
+
+    def test_excluded_delivery_stage_does_not_force_publication_of_internal_file(self):
+        def scope(run,review_id):
+            self.store.execute('UPDATE runs SET goal=? WHERE id=?',
+                ('先保留 final.txt 和 internal.json。最终交付 final.txt，internal.json不交付。',run['id']))
+        delivered,_=self.publish_metadata_fixture(['final.txt','internal.json'],selected_indices=[0],before_publish=scope)
+        self.assertEqual([item['name'] for item in delivered],['final.txt'])
+
     def test_publisher_rejects_preview_only_selection_even_with_a_passed_review(self):
         run=self.review_fixture()
         self.store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=?,quality_json=? WHERE run_id=? AND id='first'",

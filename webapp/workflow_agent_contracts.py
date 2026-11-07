@@ -24,22 +24,25 @@ def delivery_candidate_refs(task):
     return primary or {path for path in roles.values() if path in accepted}
 
 
-def approved_delivery_refs(snapshot):
+def approved_delivery_refs(snapshot,*,exclude_forbidden=True):
     """Return delivery candidates, including auxiliary roles explicitly requested by the user."""
-    from .workflow_model_protocol import required_delivery_roles
+    from .workflow_model_protocol import required_delivery_roles,forbidden_delivery_names
     required_roles=required_delivery_roles(snapshot);approved=set()
     for task in snapshot.get('tasks',[]):
         if not task.get('spec',{}).get('delivery_stage'):continue
         accepted=set(task.get('accepted_result',[]));approved.update(delivery_candidate_refs(task))
         approved.update(path for role,path in task.get('quality',{}).get('output_roles',{}).items()
                         if role in required_roles and path in accepted)
-    return approved
+    forbidden=forbidden_delivery_names(snapshot) if exclude_forbidden else set()
+    return {path for path in approved if path.rsplit('/',1)[-1] not in forbidden}
 
 
 def delivery_leaf_refs(snapshot):
     """Return approved candidates grouped by required delivery-stage DAG leaf."""
     indexed=[(task.get('id') or '__delivery_'+str(index),task) for index,task in enumerate(snapshot.get('tasks',[]))]
-    tasks={identifier:task for identifier,task in indexed if task.get('spec',{}).get('delivery_stage')}
+    refs={identifier:approved_delivery_refs({**snapshot,'tasks':[task]}) for identifier,task in indexed if task.get('spec',{}).get('delivery_stage')}
+    tasks={identifier:task for identifier,task in indexed if identifier in refs and
+        (refs[identifier] or not approved_delivery_refs({**snapshot,'tasks':[task]},exclude_forbidden=False))}
     graph_downstream={identifier:set() for identifier,_ in indexed}
     for edge in snapshot.get('dependencies',[]):
         upstream=edge.get('upstream_task_id') or edge.get('upstream')
@@ -53,9 +56,7 @@ def delivery_leaf_refs(snapshot):
             if child in seen:continue
             seen.add(child);pending.extend(graph_downstream.get(child,()))
         if seen & set(tasks):nonleaves.add(identifier)
-    return {identifier:approved_delivery_refs({'tasks':[task],'goal':snapshot.get('goal',''),
-        'authorization':snapshot.get('authorization',{}),'assets':snapshot.get('assets',[])})
-        for identifier,task in tasks.items() if identifier not in nonleaves}
+    return {identifier:refs[identifier] for identifier in tasks if identifier not in nonleaves}
 
 
 def validate_review_scope(decision,snapshot):
@@ -140,8 +141,7 @@ def required_reviewed_deliverables(snapshot,decision,inspections,candidate_keys)
     candidates=[]
     for task in snapshot.get('tasks',[]):
         if not task.get('spec',{}).get('delivery_stage'):continue
-        approved=approved_delivery_refs({'tasks':[task],'goal':snapshot.get('goal',''),
-            'authorization':snapshot.get('authorization',{}),'assets':snapshot.get('assets',[])})
+        approved=approved_delivery_refs({**snapshot,'tasks':[task]})
         roles=task.get('quality',{}).get('output_roles',{})
         for reference in approved & cited & set(inspected):
             extension=reference.rsplit('.',1)[-1].lower() if '.' in reference else ''

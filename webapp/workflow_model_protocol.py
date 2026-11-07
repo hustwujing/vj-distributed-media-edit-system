@@ -91,7 +91,7 @@ def change_fields(task_type,user=False):
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage')
 
 
-def _delivery_request_text(frozen):
+def _delivery_request_text(frozen,forbidden_names=None):
     import re
     records=[*frozen.get('user_changes',[]),*((frozen.get('input_batch') or {}).get('inputs') or [])]
     changes=[item.get('content','') for item in records if isinstance(item,dict)]
@@ -103,6 +103,7 @@ def _delivery_request_text(frozen):
             if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
     extension=r'(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
     filename=re.compile(r'(?i)(?<![A-Za-z0-9_.-])[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+extension+r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])')
+    exclusions={};inclusions={}
     def omit_non_delivery(match):
         before=re.split(r'[;；。\n,，.!?！？]',text[:match.start()])[-1]
         # A prohibition on reprocessing an original input is not an output
@@ -110,11 +111,23 @@ def _delivery_request_text(frozen):
         original_input=r'(?:(?:不要|无需|不得|不再)(?:重新|重复)?(?:剪辑|处理|生成|制作|编码|转码)\s*(?:原始|原(?:视频|音频|图片)|源(?:文件|素材))\s*|(?:do not|don\x27t|without)\s+(?:reprocess|re-?edit|regenerate|re-?encode)\s+(?:the\s+)?(?:original|source|input)\s+)$'
         if re.search(original_input,before,re.IGNORECASE):return ' '
         after=text[match.end():]
-        endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
-        nearby=match.group(0)+after[:min(endings) if endings else len(after)]
         excluded=r'(?:非交付|不交付|不要交付|无需交付|不得交付|仅(?:作为|供)?(?:中间|内部|参考)|non[- ]?deliverable|do not deliver|not for delivery|internal only)'
-        return ' ' if re.search(excluded,nearby,re.IGNORECASE) else match.group(0)
+        endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
+        tail=after[:min(endings) if endings else len(after)]
+        for comma in re.finditer(r'[,，]',tail):
+            remaining=tail[comma.end():];other=filename.search(remaining);negative=re.search(excluded,remaining,re.IGNORECASE)
+            if other and (not negative or other.start()<negative.start()):tail=tail[:comma.start()];break
+        nearby=match.group(0)+tail
+        prefix=re.split(r'[;；。\n,，]|\.\s+',text[:match.start()])[-1]
+        negative_prefix=r'(?:不交付|不要交付|无需交付|不得交付|do not deliver|not for delivery)'
+        if re.search(excluded,nearby,re.IGNORECASE) or re.search(negative_prefix,prefix,re.IGNORECASE):
+            exclusions[match.group(0)]=match.start();return ' '
+        if re.search(r'(?:交付|\bdeliver\b)',prefix,re.IGNORECASE):inclusions[match.group(0)]=match.start()
+        return match.group(0)
     text=filename.sub(omit_non_delivery,text)
+    forbidden={name for name,offset in exclusions.items() if inclusions.get(name,-1)<offset}
+    if forbidden_names is not None:forbidden_names.update(forbidden)
+    text=filename.sub(lambda match:' ' if match.group(0) in forbidden else match.group(0),text)
     format_token=re.compile(r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])')
     def omit_intermediate_format(match):
         after=text[match.end():]
@@ -138,6 +151,11 @@ def required_delivery_names(frozen):
         for match in matches:
             if match.start()<renamed.start() and match.group(0).rsplit('.',1)[-1].lower()==extension:names.discard(match.group(0))
         names.add(target)
+    return names
+
+
+def forbidden_delivery_names(frozen):
+    names=set();_delivery_request_text(frozen,names)
     return names
 
 
@@ -174,12 +192,15 @@ def bind_explicit_delivery_names(raw,filenames,roles,frozen):
 
 def required_delivery_roles(frozen):
     import re
-    text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[])])
+    text,_=_delivery_request_text(frozen)
     pattern=r'(?:交付|输出|保存|附上|deliver|provide|include|output|save|attach).{0,48}(?:报告|\breport\b)'
-    return {'report'} if re.search(pattern,text,re.IGNORECASE) else set()
+    excluded=r'(?:不交付|非交付|不要交付|仅(?:作为|供)?(?:内部|参考)|留在工作流|internal only|do not deliver|not for delivery)'
+    clauses=re.split(r'[;；。\n,，]|\.\s+',text)
+    return {'report'} if any(re.search(pattern,clause,re.IGNORECASE) and not re.search(excluded,clause,re.IGNORECASE) for clause in clauses) else set()
 
 
 def bind_explicit_delivery_formats(raw,filenames,frozen,role_filenames=None):
+    if raw.get('purpose')=='evidence':return
     aliases={'jpg':'jpeg'};required=required_delivery_extensions(frozen);acceptance=list(raw.get('acceptance',[]))
     matches=[]
     for name in filenames:

@@ -16,7 +16,7 @@ class DecisionError(ValueError):
         super().__init__(message or code);self.code=code
 
 
-def delivery_requirements(store,run):
+def delivery_scope(store,run):
     """Extract output requirements without treating authorized input filenames as outputs."""
     asset_ids=run['authorization'].get('allowed_assets',[])
     input_names=[]
@@ -26,9 +26,12 @@ def delivery_requirements(store,run):
             for value in (asset.get('name'),asset.get('filename')):
                 if value:input_names.append(value)
     changes=store.query("SELECT content FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence",(run['id'],))
+    return {**run,'input_asset_names':input_names,'user_changes':changes}
+
+
+def delivery_requirements(store,run):
     from .workflow_model_protocol import required_delivery_extensions,required_delivery_names
-    frozen={'goal':run['goal'],'authorization':run['authorization'],'input_asset_names':input_names,
-            'user_changes':changes}
+    frozen=delivery_scope(store,run)
     return required_delivery_extensions(frozen),required_delivery_names(frozen)
 
 
@@ -922,29 +925,16 @@ class Orchestrator:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
         review=authoritative[0]
         decision=json.loads(review['decision_json']);selected=decision.get('deliverables',[])
-        from .workflow_agent_contracts import approved_delivery_refs
-        eligible=approved_delivery_refs(run)
+        from .workflow_agent_contracts import approved_delivery_refs,delivery_leaf_refs
+        scope={**delivery_scope(store,run),'tasks':graph.active_tasks(run)}
+        eligible=approved_delivery_refs(scope)
         accepted={name:t for t in graph.active_tasks(run) if t['spec']['delivery_stage'] for name in t['accepted_result'] if name in eligible}
         if not selected or not isinstance(selected,list) or any(name not in accepted for name in selected):
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
         primary=decision.get('primary') or (selected[0] if len(set(selected))==1 else '')
         if primary not in selected:
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
-        delivery_tasks={task['id'] for task in graph.active_tasks(run) if task['spec']['delivery_stage']}
-        downstream={task['id']:set() for task in graph.active_tasks(run)}
-        for edge in run['dependencies']:
-            if edge['upstream_task_id'] in downstream and edge['downstream_task_id'] in downstream:
-                downstream[edge['upstream_task_id']].add(edge['downstream_task_id'])
-        upstream_delivery=set()
-        for identifier in delivery_tasks:
-            pending=list(downstream[identifier]);seen=set()
-            while pending:
-                current=pending.pop()
-                if current in seen:continue
-                seen.add(current);pending.extend(downstream[current])
-            if seen & delivery_tasks:upstream_delivery.add(identifier)
-        required_tasks=delivery_tasks-upstream_delivery
-        missing_tasks=required_tasks-{accepted[name]['id'] for name in selected}
+        missing_tasks={identifier for identifier,refs in delivery_leaf_refs(scope).items() if not set(selected).intersection(refs)}
         if missing_tasks:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':sorted(missing_tasks),'missing_extensions':[]})
