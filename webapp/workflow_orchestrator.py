@@ -280,7 +280,8 @@ class Orchestrator:
             self.set_status(run,'ACTIVE','input_draining')
         elif payload.get('action')=='reject':
             if row['kind']=='external_wait':
-                task=next(t for t in graph.work_items(run) if t['id']==request['task_id']);graph.write_work(store,task,"UPDATE run_tasks SET status='paused',error_code='external_wait_timeout',error_detail=? WHERE run_id=? AND id=?",('外部任务等待超时，已放弃等待。',run['id'],task['id']));store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']));self.set_status(run,'ACTIVE','external_wait_abandoned');return
+                task=next(t for t in graph.work_items(run) if t['id']==request['task_id']);graph.write_work(store,task,"UPDATE run_tasks SET status='paused',error_code='external_wait_timeout',error_detail=? WHERE run_id=? AND id=?",('外部任务等待超时，已放弃等待。',run['id'],task['id']));store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
+                self.open_repair(run,task['id'],'external_wait',row['id'],'external_wait_timeout');store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],));self.set_status(run,'ACTIVE','external_wait_replan');self.queue_plan(graph.get(store,run['id']),{'external_wait_abandoned':row['id'],'task_id':task['id']});return
             if row['kind']=='external_submission':
                 task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
                 import uuid
