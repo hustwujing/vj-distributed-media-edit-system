@@ -145,8 +145,14 @@ def public(store,run):
             'created_at':blocked[0]['created_at'] if blocked else run['updated_at'],
         }
     elif run['status']=='WAITING_USER' and run['terminal_reason']:
+        waiting_guidance={
+            'planning_budget_exhausted':('本轮规划轮次已耗尽','请停止本轮并新建一轮；如仍需多轮规划，请提高规划轮次上限。'),
+            'model_token_budget_exhausted':('本轮模型预算已耗尽','请停止本轮并新建一轮；如仍需继续，请提高模型 Token 上限。'),
+            'budget_exhausted':('本轮执行预算已耗尽','请停止本轮并新建一轮后再继续。'),
+        }
+        title,message=waiting_guidance.get(run['terminal_reason'],('需要你的处理','当前工作流需要你的确认或补充信息。'))
         value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
-            'title':'需要你的处理','message':'当前工作流需要你的确认或补充信息。','decision_id':value['decisions'][0]['id'] if value['decisions'] else None}
+            'title':title,'message':message,'decision_id':value['decisions'][0]['id'] if value['decisions'] else None}
     value['reviews']=store.query('SELECT id,task_id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in

@@ -35,7 +35,10 @@ function safeName(task){return task.spec.name;}
 function modelControls(){
  $('dynamic-model-profile').disabled=busy;
  $('dynamic-reasoning-effort').disabled=busy||!modelChoice;
- $('dynamic-input-submit').disabled=busy||uploading>0||(!current&&!modelChoice);
+ const inputBlocked=current&&['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted'].includes(current.terminal_reason);
+ $('dynamic-input-content').disabled=Boolean(inputBlocked);
+ $('dynamic-input-submit').disabled=busy||uploading>0||Boolean(inputBlocked)||(!current&&!modelChoice);
+ $('dynamic-upload').disabled=uploading>0||Boolean(inputBlocked);
 }
 function renderModelChoices(){
  const choices=capabilities.model_choices;
@@ -308,7 +311,8 @@ function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.
  $('dynamic-model-current').textContent=configurationText(run.model_configuration);
  const active=!terminalRun(run.state);$('dynamic-workspace-title').textContent='任务对话';$('dynamic-execution-settings').hidden=true;$('dynamic-context-settings').hidden=false;$('dynamic-input-content').placeholder=active?'继续描述修改意见或下一步要求…':'描述下一轮修改要求…';$('dynamic-input-submit').setAttribute('aria-label',active?'发送修改要求':'开始下一轮修改');
  document.querySelector('[data-control=pause]').hidden=!active||['WAITING_USER','CANCELLING'].includes(run.state);
- document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER';document.querySelector('[data-control=cancel]').hidden=!active;
+ const inputBlocked=['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted'].includes(run.terminal_reason);document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER'||inputBlocked;document.querySelector('[data-control=cancel]').hidden=!active;
+ modelControls();
  $('dynamic-input-form').hidden=false;syncAssetOptions($('dynamic-input-assets'));renderAttachmentChips();
  $('dynamic-input-status').textContent=inputStatus(run);
  const choices=$('dynamic-input-targets');$('dynamic-input-target-field').hidden=terminalRun(run.state)||!run.tasks.some(item=>item.selected);

@@ -18,7 +18,7 @@ test('unknown external submission and planning have distinct input waiting messa
  assert.match(inputStatus({input_barrier_sequence:2,terminal_reason:'input_waiting_external_unknown'}),/核实.*不会重复提交/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'review_contract_exhausted'}),/Reviewer.*证据已保留/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'planning_contract_exhausted'}),/Manager.*校验错误已保留/);
- assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'model_token_budget_exhausted'}),/Token.*未继续/);
+ assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'model_token_budget_exhausted'}),/Token.*耗尽/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'delivery_scope_change'}),/交付范围.*确认/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'delivery_targets_incomplete'}),/交付范围/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'user_decision_pending'}),/等待你的确认/);
@@ -33,6 +33,13 @@ test('unknown external submission and planning have distinct input waiting messa
 test('terminal notices explain failure and cancellation after re-entry',()=>{
  assert.equal(inputStatus({state:'FAILED',terminal_notice:'任务预算已耗尽，系统停止了后续执行。'}),'任务预算已耗尽，系统停止了后续执行。');
  assert.equal(inputStatus({state:'CANCELLED',terminal_notice:'你已取消本次任务，已完成成果会保留。'}),'你已取消本次任务，已完成成果会保留。');
+});
+
+test('budget exhausted waiting runs explain the only recovery path',()=>{
+ assert.match(inputStatus({state:'WAITING_USER',terminal_reason:'planning_budget_exhausted'}),/停止本轮并新建一轮/);
+ assert.match(inputStatus({state:'WAITING_USER',terminal_reason:'model_token_budget_exhausted'}),/停止本轮并新建一轮/);
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.match(source,/inputBlocked=.*planning_budget_exhausted/);
 });
 
 test('stale tool activity is visibly interrupted after worker loss or terminal run',()=>{

@@ -60,6 +60,17 @@ class DynamicAPITests(unittest.TestCase):
         self.app.state.store.execute("UPDATE runs SET status='FAILED',terminal_reason='planning_budget_exhausted' WHERE id=?",(run['id'],))
         snapshot=self.a.get(self.prefix+'/'+run['id']).json()
         self.assertEqual(snapshot['terminal_notice'],'规划轮次已耗尽，任务未继续执行。')
+
+    def test_budget_exhausted_waiting_run_rejects_new_input_with_recovery_guidance(self):
+        import uuid
+        run=self.a.post(self.prefix,json=self.body()).json()
+        self.app.state.store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='planning_budget_exhausted' WHERE id=?",(run['id'],))
+        snapshot=self.a.get(self.prefix+'/'+run['id']).json()
+        self.assertEqual(snapshot['blocking_action']['title'],'本轮规划轮次已耗尽')
+        self.assertIn('新建一轮',snapshot['blocking_action']['message'])
+        response=self.a.post(self.prefix+'/'+run['id']+'/inputs',json={'request_id':uuid.uuid4().hex,'content':'继续修改','attachments':[],'targets':[]})
+        self.assertEqual(response.status_code,409,response.text)
+        self.assertIn('新建一轮',response.json()['detail'])
     def test_stale_content_creates_no_task(self):
         body=self.body();body['authorization']['content_fingerprint']='0'*64
         response=self.a.post(self.prefix,json=body)
