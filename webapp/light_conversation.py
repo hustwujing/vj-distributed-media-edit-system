@@ -97,14 +97,19 @@ def handoff(host,row,capability,asset_ids,reason,trigger='model_request'):
         raise ValueError('Invalid capability')
     if row['mode']!='plan' or row.get('workflow'):raise ValueError('Only discussion may request a capability')
     store=host.store;task=row['id'];lease=CURRENT.get();lease.check()
-    _assets(store,row['project'],asset_ids)
+    assets=_assets(store,row['project'],asset_ids)
+    selected=assets if asset_ids else []
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         lease.validate(db)
         current=db.execute('SELECT mode,status FROM agent_turns WHERE id=?',(task,)).fetchone()
         if not current or current['mode']!='plan' or current['status']!='running':raise LeaseLost('Discussion is no longer running')
-        if not db.execute("UPDATE agent_routes SET stage='heavy',capability=?,reason=?,updated=? WHERE task_id=? AND stage='light'",
-                          (capability,reason.strip(),store.now(),task)).rowcount:raise LeaseLost('Capability already handed off')
+        route=db.execute('SELECT context FROM agent_routes WHERE task_id=?',(task,)).fetchone()
+        context=json.loads(route['context']) if route else {}
+        if not isinstance(context,dict):context={}
+        context['selected_assets']=selected
+        if not db.execute("UPDATE agent_routes SET stage='heavy',capability=?,reason=?,context=?,updated=? WHERE task_id=? AND stage='light'",
+                          (capability,reason.strip(),json.dumps(context,ensure_ascii=False),store.now(),task)).rowcount:raise LeaseLost('Capability already handed off')
         if capability=='plan_edit':
             db.execute("UPDATE plan_readiness SET state='stale',reason=?,updated=? WHERE project=? AND state IN ('pending','ready','unavailable')",
                        ('正在形成新的执行方案',store.now(),row['project']))

@@ -104,6 +104,22 @@ class LightRoutingTests(unittest.TestCase):
         self.assertEqual(restored.query('SELECT active FROM execution_leases WHERE run_id=?',(task,))[0]['active'],0)
         self.assertEqual(restored.query('SELECT runtime FROM execution_attempts WHERE run_id=?',(task,))[0]['runtime'],'')
 
+    def test_handoff_selected_assets_survive_restart_without_becoming_all_assets(self):
+        for identifier in ('a','b','unselected'):
+            self.store.add_asset(self.project,identifier,identifier+'.png',identifier+'.png',{'kind':'image','width':10,'height':10})
+        for selection in (['b','a'],[]):
+            with self.subTest(selection=selection):
+                self.responses=[output(tool=('request_capability',{'capability':'inspect_media','asset_ids':selection,'reason':'分析选中素材'}))]
+                task=self.task('分析这些素材')
+                self.run_task(task)
+                restored=Store(self.root)
+                row=plan_readiness.route(restored,task)
+                prompt_context=plan_readiness.capability_request(row)
+                self.assertEqual([a['id'] for a in prompt_context['selected_assets']],selection)
+                self.assertNotIn('unselected',[a['id'] for a in prompt_context['selected_assets']])
+                self.assertEqual(row['stage'],'heavy')
+                agent_store.finish(self.store,task,'cancelled','fixture cleanup')
+
     def test_valid_query_round_limit_hands_off_without_fifth_model_request(self):
         for n in range(4):
             response=output(tool=('project_metadata',{'asset_ids':[],'query':''}));response['output'][0]['call_id']='query-'+str(n);self.responses.append(response)

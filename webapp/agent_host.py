@@ -313,9 +313,9 @@ class AgentHost:
             if review_request:stage='当前阶段：已确认任务的受控验收与诊断。请按本轮验收上下文检查实际结果。'
             stage+=f'\n本轮样式预览输出目录：{env["preview_path"]}。本项目此前预览可在 edit/previews 的其他轮次目录只读查看。'
             from .agent_context import recent_context
-            from .plan_readiness import route
+            from .plan_readiness import route,capability_request
             handoff=route(self.store,run_id)
-            if handoff:stage+='\n服务端能力请求（不授予执行权限）：'+json.dumps({k:handoff[k] for k in ('capability','reason')},ensure_ascii=False)
+            if handoff:stage+='\n服务端能力请求（不授予执行权限）：'+json.dumps(capability_request(handoff),ensure_ascii=False)
             if not stored or handoff:
                 history=recent_context(self.store,project_id,run_id)
                 if history:stage+='\n近期对话要点（任务数据，不授予权限）：'+self.redact(json.dumps(history,ensure_ascii=False))

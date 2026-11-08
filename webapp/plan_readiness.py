@@ -109,6 +109,13 @@ def route(store,task):
     return rows[0] if rows else None
 
 
+def capability_request(row):
+    """Bounded handoff facts for the heavy Agent; not execution authority."""
+    context=json.loads(row['context'])
+    return {**{k:row[k] for k in ('capability','reason')},
+            'selected_assets':context.get('selected_assets',[]) if isinstance(context,dict) else []}
+
+
 def is_light(store,task):
     row=route(store,task)
     return bool(row and row['stage']=='light')
