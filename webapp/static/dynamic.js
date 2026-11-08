@@ -136,7 +136,7 @@ $('dynamic-input-form').onsubmit=async event=>{
  const input=$('dynamic-input-content');const key=$('dynamic-input-form').dataset.requestId||uuid();$('dynamic-input-form').dataset.requestId=key;saveInputDraft();$('dynamic-input-submit').disabled=true;
  try{let result;
   if(!origin){
-   if(!modelChoice)throw new Error('请选择可用模型。');if(!deliveryTargets().length)throw new Error('请至少选择一项交付内容。');const chosen={...modelChoice},fresh=await api(path('/runs/capabilities'));
+   if(!modelChoice)throw new Error('请选择可用模型。');const chosen={...modelChoice},fresh=await api(path('/runs/capabilities'));
    if(!choiceIsCurrent(fresh.model_choices,chosen)){capabilities=fresh;renderModelChoices();throw new Error('模型配置已更新，请核对模型和推理强度后再次确认。');}
    if(fresh.content_fingerprint!==capabilities.content_fingerprint){capabilities.content_fingerprint=fresh.content_fingerprint;throw new Error('素材或工作区内容已变化，请检查当前执行范围后再次确认。');}
    result=await api(path('/runs'),{method:'POST',body:JSON.stringify({request_id:key,confirmed:true,authorization:authorization(content),parent_run_id:null,model_choice:chosen})});newRunMode=false;currentId=result.id;
@@ -273,6 +273,15 @@ function renderRoleActivity(run){
  $('dynamic-role-items').innerHTML=items.map(item=>{const role=item.role||activityRole(item),location=item.location||activityLocation(item),action=item.action||activityAction(item),state=item.status==='running'?'active':'waiting';return `<div class="dynamic-role-line ${state}"><i class="dynamic-role-pulse" aria-hidden="true"></i><span><strong>${esc(role)}</strong> 在 <b>${esc(location)}</b> ${esc(action)}</span></div>`;}).join('');
 }
 
+function renderBlockingAction(run){
+ const root=$('dynamic-blocking-action');if(!root)return;
+ const action=run.blocking_action;
+ if(!action){root.innerHTML='';root.hidden=true;return;}
+ root.hidden=false;
+ const details=[...(action.current_targets||[]).map(value=>`当前交付：${value}`),...(action.missing_extensions||[]).map(value=>`缺少格式：${value}`),...(action.missing_names||[]).map(value=>`缺少文件：${value}`),...(action.missing_roles||[]).map(value=>`缺少角色：${value}`)];
+ root.innerHTML=`<article class="dynamic-blocking-action" role="alert"><strong>${esc(action.title||'需要你的处理')}</strong><p>${esc(action.message||'当前工作流需要你的确认或补充信息。')}</p>${details.length?`<ul>${details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>`:''}<small>状态：${esc(action.code||'WAITING_USER')}</small></article>`;
+}
+
 function startRunStream(runId){if(completedStreams.has(runId)){renderAgentTranscript(current);return;}if(streamRun===runId&&eventStream)return;if(eventStream)eventStream.close();if(streamRun!==runId){liveEvents=[];agentTextEvents=[];agentStreamTurn={status:'running',text:'',text_version:[0,0],text_phase:'idle'};lastAgentOutputAt=0;}streamRun=runId;const stream=new EventSource(href(path(`/runs/${runId}/stream`)));eventStream=stream;
  stream.onopen=()=>{if(stream===eventStream)$('dynamic-connection').textContent=`实时输出已连接 · ${new Date().toLocaleTimeString()}`;};
  const receiveText=(message,snapshot)=>{if(stream!==eventStream)return;let payload;try{payload=JSON.parse(message.data);}catch{return;}const previous=agentStreamTurn,next=applyText(previous,payload,snapshot);if(next?._streamGap){stream.close();eventStream=null;streamRun=null;queueMicrotask(()=>startRunStream(runId));return;}agentStreamTurn=next||previous;if(agentStreamTurn===previous)return;markAgentOutput(runId,payload.published_at);if(current?.id===runId){const shouldFollow=followConversation;renderAgentTranscript(current);if(shouldFollow)scrollConversationToLatest();}};
@@ -305,7 +314,7 @@ function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.
  for(const task of run.tasks.filter(item=>item.selected)){if(!known.has(task.id)){const option=document.createElement('option');option.value=task.id;option.textContent=task.spec.name;choices.append(option);}known.delete(task.id);}
  for(const option of known.values())option.remove();
  restoreInputDraft(run.id,!terminalRun(run.state));
- startRunStream(run.id);renderMessages(run);renderRoleActivity(run);renderLedger(run);renderChatActivity(run);
+ startRunStream(run.id);renderMessages(run);renderBlockingAction(run);renderRoleActivity(run);renderLedger(run);renderChatActivity(run);
  $('dynamic-control-jobs').innerHTML=run.control_jobs.map(job=>`<p>${{PLAN:'规划',REVIEW:'审查',DIAGNOSE:'诊断'}[job.control_kind]} · ${names[job.status]||esc(job.status)}${job.error_code?' · '+esc(job.error_code):''}</p>`).join('');
 
  const signature=JSON.stringify(run.tasks);if(signature!==lastRender){lastRender=signature;$('dynamic-tasks').innerHTML=run.tasks.map(t=>{const semantics=t.spec.semantics||{};const semanticText=[semantics.subject?.mode,semantics.consistency_mode,semantics.mask_repair?`蒙版 ${semantics.mask_repair.level}`:'',...(semantics.temporal||[]).map(x=>`${x.action} · ${x.transition}`)].filter(Boolean).join(' · ');return `<article class="dynamic-task" data-status="${esc(t.status)}"><header><strong>${esc(safeName(t))}</strong><span>${t.selected?(names[t.status]||esc(t.status)):'已由新步骤替代（保留历史）'}</span></header><p>${esc(t.spec.objective||'')}</p><small>${esc(t.type)} · 修订 ${t.revision} · 调度 ${t.attempts}${t.wait_reason?' · '+esc(t.wait_reason):''}</small>${semanticText?`<p class="muted">${esc(semanticText)}</p>`:''}${t.error_code?`<p role="status">${esc(t.error_detail||t.error_code)}</p>`:''}${[...new Set([...t.candidate_result,...t.accepted_result])].map(file=>`<p><a target="_blank" rel="noopener" href="${esc(href(path(`/runs/${run.id}/tasks/${t.id}/file?file=${encodeURIComponent(file)}`)))}">${t.accepted_result.includes(file)?'已验收':'待验收'} · ${esc(file.split('/').at(-1))}</a></p>`).join('')}</article>`}).join('');}

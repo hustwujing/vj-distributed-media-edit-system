@@ -113,6 +113,25 @@ def public(store,run):
         repeated_error_count,created_at,updated_at FROM workflow_plan_drafts WHERE run_id=? ORDER BY created_at''',(run['id'],))
     value['decisions']=store.query("SELECT id,kind,graph_version,authorization_version,snapshot_digest,request_json,status FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
     for item in value['decisions']:item['request']=json.loads(item.pop('request_json'))
+    blocked=store.query("SELECT payload_json,created_at FROM workflow_graph_events WHERE run_id=? AND kind='delivery_blocked' ORDER BY seq DESC LIMIT 1",(run['id'],))
+    if run['terminal_reason']=='delivery_targets_incomplete':
+        details=json.loads(blocked[0]['payload_json']) if blocked else {}
+        value['blocking_action']={
+            'kind':'delivery_scope_change',
+            'code':'delivery_targets_incomplete',
+            'title':'交付范围需要确认',
+            'message':'当前成果未满足冻结的全部交付范围。请确认保留哪些交付内容，或补充缺少的产物。',
+            'current_targets':run['authorization'].get('delivery_targets',[]),
+            'missing_task_ids':details.get('missing_task_ids',[]),
+            'missing_extensions':details.get('missing_extensions',[]),
+            'missing_names':details.get('missing_names',[]),
+            'missing_roles':details.get('missing_roles',[]),
+            'decision_id':next((item['id'] for item in value['decisions'] if item['kind']=='delivery_scope_change'),None),
+            'created_at':blocked[0]['created_at'] if blocked else run['updated_at'],
+        }
+    elif run['status']=='WAITING_USER' and run['terminal_reason']:
+        value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
+            'title':'需要你的处理','message':'当前工作流需要你的确认或补充信息。','decision_id':value['decisions'][0]['id'] if value['decisions'] else None}
     value['reviews']=store.query('SELECT id,task_id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in

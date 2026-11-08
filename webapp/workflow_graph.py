@@ -63,7 +63,7 @@ class Authorization(Contract):
     wall_time_budget:int=Field(default=86400,ge=60,le=86400)
     max_tasks:int=Field(default=256,ge=1,le=256)
     max_planning_rounds:int=Field(default=64,ge=1,le=64)
-    delivery_targets:list[str]=Field(min_length=1,max_length=20)
+    delivery_targets:list[str]=Field(default_factory=list,max_length=20)
     content_fingerprint:str=Field(pattern=r'^[a-f0-9]{64}$')
     semantic_policy_version:Literal['media-semantics-v1']='media-semantics-v1'
 
