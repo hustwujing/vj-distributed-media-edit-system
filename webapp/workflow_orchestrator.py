@@ -418,8 +418,9 @@ class Orchestrator:
                 elif outcome=='waiting':
                     handle=data.get('external_id') or task['external_id']
                     if not re_full_handle(handle):raise InvalidProviderHandle('Provider submission has no usable handle')
-                    graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,next_run_at=?,wait_reason='provider',recovery_count=0,error_code='',error_detail='' WHERE run_id=? AND id=?",
-                        (handle,store.now()+max(1,min(60,data.get('poll_after',5))),run['id'],task['id']))
+                    delay=max(1,min(60,int(data.get('poll_after',min(60,5*2**min(task.get('recovery_count',0),4))))))
+                    graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,next_run_at=?,wait_reason='provider',recovery_count=recovery_count+1,error_code='',error_detail='' WHERE run_id=? AND id=?",
+                        (handle,store.now()+delay,run['id'],task['id']))
                 elif outcome=='succeeded':
                     self.accept_artifacts(run,task,data,json.loads(result['artifact_manifest']))
                 else:self.task_failure(run,task,data)
@@ -526,7 +527,7 @@ class Orchestrator:
         if code=='execution_failed':
             detail=str(data.get('error_detail') or '')
             error_type=str(data.get('error_type') or '')
-            if error_type=='ImportError' or 'opensandbox' in detail.lower():
+            if error_type=='ImportError' and 'opensandbox' in detail.lower():
                 message='系统执行错误：OpenSandbox 运行时加载失败（ImportError）。这不是输入问题；修复运行时后可点击“继续”重试失败步骤。'
             elif detail:
                 message='系统执行错误：'+detail[:400]+'。请修复运行环境后重试。'
@@ -580,7 +581,7 @@ class Orchestrator:
                 self.set_status(graph.get(store,run['id']),'ACTIVE','failure_diagnosis')
             else:
                 fatal=(code=='result_unavailable' or task.get('control_kind') and code in {
-                    'agent_failed','review_contract_exhausted','planning_contract_exhausted','missing_proposal','policy_changed'})
+                    'agent_failed','missing_proposal','policy_changed'})
                 if fatal:
                     graph.write_work(store,task,"UPDATE run_tasks SET status='failed' WHERE run_id=? AND id=?",(run['id'],task['id']))
                     self.begin_failure(run,code)

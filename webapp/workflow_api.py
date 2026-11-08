@@ -231,10 +231,10 @@ def register(app,store,own_project):
         try:operations=available_operations(store) or []
         except PermissionError:operations=[]
         from .model_selection import options
-        from .task_leases import daily_quota
+        from .task_leases import daily_usage
         owner=store.query('SELECT owner FROM projects WHERE id=?',(project_id,))[0]['owner']
         return {'operations':operations,'profiles':catalogue(),'workers_ready':bool(workers),
-                'daily_quota':daily_quota(store,owner,'model') or {'category':'model','scope':'daily','used':0,'limit':200,'reset_at':None,'blocked':False},
+                'daily_quota':daily_usage(store,owner,'model'),
                 'model_choices':options(store,project_id),
                 'model_protocol_policy':'plan_draft_v1_strict_preferred',
                 'content_fingerprint':graph.content_fingerprint(store,project_id),

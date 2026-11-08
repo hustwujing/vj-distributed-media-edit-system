@@ -60,6 +60,12 @@ def daily_quota(store,owner,category):
     used=rows[0]['used'] if rows else 0
     return {'category':category,'scope':'daily','used':used,'limit':cap,'reset_at':(day+1)*86400,'blocked':True} if used>=cap else None
 
+def daily_usage(store,owner,category):
+    day=int(store.now()//86400);cap=daily_limit(category)
+    rows=store.query('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category))
+    used=rows[0]['used'] if rows else 0
+    return {'category':category,'scope':'daily','used':used,'limit':cap,'reset_at':(day+1)*86400,'blocked':used>=cap}
+
 
 def quota_error(state):
     from datetime import datetime,timezone
