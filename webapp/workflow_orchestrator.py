@@ -407,8 +407,14 @@ class Orchestrator:
             if not new_targets<=old_targets:raise ValueError('Delivery scope expansion requires a new explicit plan change')
             from .run_authorization import approve
             approve(store,run,authorization)
+            superseded=store.query("SELECT task_id FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status IN ('passed','rejected','pending','running','staged')",(run['id'],))
             store.execute("UPDATE workflow_reviews SET status='superseded',updated_at=? WHERE run_id=? AND purpose='final' AND status IN ('passed','rejected','pending','running','staged')",(store.now(),run['id']))
-            store.execute("UPDATE control_jobs SET status='cancelled',updated_at=? WHERE run_id=? AND control_kind='REVIEW' AND status IN ('pending','running','staged')",(store.now(),run['id']))
+            from .task_lifecycle import request_cleanup
+            with store.connect() as db:
+                for old in superseded:
+                    db.execute("UPDATE control_jobs SET status='cancelled',lease_id='',lease_generation=0,updated_at=? WHERE run_id=? AND id=? AND status NOT IN ('succeeded','failed','cancelled')",
+                               (store.now(),run['id'],old['task_id']))
+                    request_cleanup(db,run['id'],external=False,step_id=old['task_id'])
             current=graph.get(store,run['id'])
             self.set_status(current,'ACTIVE','delivery_scope_confirmed')
             self.queue_review(graph.get(store,run['id']))
@@ -990,6 +996,7 @@ class Orchestrator:
         store=self.store
         rows=store.query('SELECT * FROM workflow_reviews WHERE id=? AND run_id=?',(task['spec']['request_id'],run['id']))
         if not rows:raise ValueError('Unknown review')
+        if rows[0]['status'] not in ('pending','running','staged'):raise ValueError('Review is no longer pending')
         from .workflow_agent_contracts import ResolvedReviewDecision
         row=rows[0];decision=ResolvedReviewDecision.model_validate(data.get('decision',{})).model_dump()
         if decision.get('snapshot_digest')!=row['snapshot_digest']:raise ValueError('Review snapshot mismatch')
