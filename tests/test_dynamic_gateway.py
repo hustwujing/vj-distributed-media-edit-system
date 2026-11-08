@@ -80,6 +80,14 @@ class DynamicGatewayTests(unittest.TestCase):
         red,green,blue=pixels.getpixel((pixels.width//2,pixels.height//2))
         self.assertGreater(red,240);self.assertLess(green,10);self.assertLess(blue,10)
         self.assertEqual(result['elements'][1]['attributes']['fill'],'red')
+        path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect width="64" height="64" opacity="0"/></svg>')
+        record.update(sha256=hashlib.sha256(path.read_bytes()).hexdigest(),size=path.stat().st_size)
+        evidence=inspect(SimpleNamespace(shared_files=False,root=self.store.root),self.run,{reference:{'record':record}},reference)
+        with patch.object(self.lease,'runtime',object()),patch('webapp.agent_sandbox.command',side_effect=command):
+            unavailable=inspect_media(host,self.lease,self.run,self.task,evidence,remaining_images=1)
+        self.assertNotIn('image',unavailable)
+        self.assertEqual(unavailable['rendering_unavailable'],'renderer_returned_fully_transparent')
+        self.assertEqual(unavailable['elements'][1]['attributes']['opacity'],'0')
 
     def test_exhausted_image_budget_is_feedback_before_any_pixel_decoder(self):
         from PIL import Image

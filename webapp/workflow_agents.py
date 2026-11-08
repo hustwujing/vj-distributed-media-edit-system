@@ -1282,10 +1282,30 @@ def finish_files(host,lease,run,task,files,output=None):
         'output_roles':{role:output+'/'+name for role,name in task['spec']['output_roles'].items()}},json.loads(checkpoint['manifest']))
 
 
-STILL_THUMBNAIL='''import sys,io,subprocess
+STILL_THUMBNAIL='''import sys,io,subprocess,tempfile
 from PIL import Image,ImageOps
 source_input=sys.argv[1]
 if len(sys.argv)>3 and sys.argv[3]=='svg':
+    from xml.etree import ElementTree
+    elements=list(ElementTree.parse(source_input).getroot().iter())
+    shadow=any(node.tag.rsplit('}',1)[-1]=='feDropShadow' for node in elements)
+    paint=any('paint-order' in node.attrib or 'paint-order' in node.attrib.get('style','').lower() for node in elements)
+    if shadow or paint:
+        definitions='<defs><filter id="s" filterUnits="userSpaceOnUse" x="0" y="0" width="32" height="32"><feDropShadow dx="8" dy="8" stdDeviation="1" flood-color="black" flood-opacity="1"/></filter></defs>' if shadow else ''
+        attributes=(' filter="url(#s)"' if shadow else '')+(' stroke="black" stroke-width="4" paint-order="stroke fill"' if paint else '')
+        fixture=('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32">'+definitions+'<rect x="4" y="4" width="8" height="8" fill="red"'+attributes+'/></svg>').encode()
+        with tempfile.NamedTemporaryFile(suffix='.svg') as probe:
+            probe.write(fixture);probe.flush()
+            checked=subprocess.run(['/usr/bin/ffmpeg','-nostdin','-v','error','-threads','1','-i',probe.name,
+                '-frames:v','1','-threads','1','-f','image2pipe','-vcodec','png','pipe:1'],capture_output=True,timeout=10)
+        supported=False
+        if checked.returncode==0 and len(checked.stdout)<65536:
+            with Image.open(io.BytesIO(checked.stdout)) as decoded:
+                capability=decoded.convert('RGBA');red=capability.getpixel((5,5) if paint else (7,7))
+                supported=red[0]>200 and red[1]<50 and red[3]>200 and (not shadow or capability.getpixel((16,16))[3]>100)
+        if not supported:
+            sys.stderr.write('SVG decoder lacks a required presentation feature.\\n')
+            raise SystemExit(43)
     rendered=subprocess.run(['/usr/bin/ffmpeg','-nostdin','-v','error','-threads','1','-i',source_input,
         '-frames:v','1','-vf','scale=1024:1024:force_original_aspect_ratio=decrease','-threads','1',
         '-f','image2pipe','-vcodec','png','pipe:1'],capture_output=True,timeout=25,check=True)
@@ -1295,6 +1315,9 @@ with Image.open(source_input) as source:
     if source.width*source.height>32000000 or getattr(source,'n_frames',1)!=1:
         raise ValueError('Still image inspection limit')
     pixels=ImageOps.exif_transpose(source).convert('RGBA')
+    if len(sys.argv)>3 and sys.argv[3]=='svg' and pixels.getchannel('A').getextrema()[1]==0:
+        sys.stderr.write('SVG decoder returned fully transparent pixels; unsupported filters are possible.\\n')
+        raise SystemExit(42)
     size=int(sys.argv[2]) if len(sys.argv)>2 else 256
     pixels.thumbnail((size,size),Image.Resampling.LANCZOS)
     matte=Image.new('RGBA',pixels.size,(184,190,200,255))
@@ -1361,6 +1384,10 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
                 *seek,'-t',str(span),'-i','/workspace/'+relative,'-an','-sn','-dn','-frames:v','1','-vf',filters,
                 '-q:v','5','-threads','1','-f','image2pipe','-vcodec','mjpeg','pipe:1']
         sampled=subprocess.run(agent_sandbox.command(dict(env,workspace_policy='REVIEW_SCRATCH_ONLY'),None,arguments),capture_output=True,timeout=30)
+        if evidence.get('vector_image') and sampled.returncode in (42,43):
+            return {**evidence,'probe':probe,'coverage':'svg_structure',
+                'rendering_unavailable':'renderer_missing_required_svg_features' if sampled.returncode==43 else 'renderer_returned_fully_transparent',
+                'limitation':'This runtime could not establish SVG appearance: its presentation-feature probe failed or the result was fully transparent. This does not prove missing text, missing styles or an invalid document. Structural declarations remain available. Use another authorized renderer or portable equivalent SVG styling for appearance evidence.'}
         if not sampled.returncode and not sampled.stdout and not evidence.get('still_image'):
             raise InspectionInputError('No frame at that timestamp; inspect an earlier position, not the exact end of the video')
         if sampled.returncode or not sampled.stdout or len(sampled.stdout)>(524288 if window is not None or verified or evidence.get('still_image') else 65536):
