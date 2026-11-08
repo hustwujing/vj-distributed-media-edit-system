@@ -18,6 +18,10 @@ export function inputStatus(run) {
   if (run.terminal_reason === 'review_contract_exhausted') return 'Reviewer 未能在限定纠错轮次内提交合法选择；候选与检查证据已保留。';
   if (run.terminal_reason === 'planning_contract_exhausted') return 'Manager 未能在限定纠错轮次内提交合法计划；草稿与校验错误已保留。';
   if (run.terminal_reason === 'model_token_budget_exhausted') return '模型 Token 预算已耗尽，系统未继续发起模型请求。';
+  if (run.terminal_reason === 'delivery_scope_change') return '交付范围需要确认；已有成果会保留，不会自动重新生成。';
+  if (run.terminal_reason === 'delivery_targets_incomplete') return '当前成果与冻结交付范围不一致，请确认保留的交付内容。';
+  if (run.terminal_reason === 'user_decision_pending') return '当前任务等待你的确认，确认后会继续处理。';
+  if (run.state === 'FAILED') return '任务已失败；请查看下方失败原因和诊断信息。';
   if (run.input_barrier_sequence !== null) return run.activity === 'PLANNING'
     ? '正在根据已接收的要求重新规划；此时追加的要求会进入下一批。'
     : '补充要求已接收，等待当前任务及验收结束后重新规划。';

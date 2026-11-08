@@ -75,7 +75,7 @@ def public(store,run):
         store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}
     value['tasks']=[]
     for task in run['tasks']:
-        public_task={k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','user_revision_count','attempts',
+        public_task={k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','recovery_count','infrastructure_interruptions','user_revision_count','attempts',
             'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
         public_task['revision_graph_version']=revision_versions.get((task['id'],task['revision']),task['created_graph_version'])
         public_task['execution_location']=execution_location(task)

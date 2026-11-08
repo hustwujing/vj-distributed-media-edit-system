@@ -18,6 +18,10 @@ test('unknown external submission and planning have distinct input waiting messa
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'review_contract_exhausted'}),/Reviewer.*证据已保留/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'planning_contract_exhausted'}),/Manager.*校验错误已保留/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'model_token_budget_exhausted'}),/Token.*未继续/);
+ assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'delivery_scope_change'}),/交付范围.*确认/);
+ assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'delivery_targets_incomplete'}),/交付范围/);
+ assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'user_decision_pending'}),/等待你的确认/);
+ assert.match(inputStatus({input_barrier_sequence:null,state:'FAILED',terminal_reason:'review_contract_exhausted'}),/Reviewer.*证据已保留/);
  assert.match(inputStatus({input_barrier_sequence:2,activity:'PLANNING'}),/下一批/);
  assert.match(inputStatus({input_barrier_sequence:null,state:'SUCCEEDED'}),/下一轮/);
  assert.equal(terminalRun('WAITING_USER'),false);
