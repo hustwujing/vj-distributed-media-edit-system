@@ -88,6 +88,8 @@ def cancel_task(store,task_id,reason='user'):
 
 
 def ensure(db,task_id,created=None):
+    existing=db.execute('SELECT * FROM execution_limits WHERE task_id=?',(task_id,)).fetchone()
+    if existing:return existing
     created=clock(db) if created is None else created
     lifetime=max(1,float(os.environ.get('VIDEO_USE_TASK_TTL_SECONDS','86400')))
     budget=max(1,float(os.environ.get('VIDEO_USE_TASK_BUDGET_SECONDS','7200')))

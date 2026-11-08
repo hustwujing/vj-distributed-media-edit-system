@@ -66,6 +66,7 @@ def connect(dsn, timeout, *, readonly=False, control_lock=True):
     # A separate bounded observation connection is used by cancellation monitors.
     raw = psycopg.connect(dsn, connect_timeout=max(1, int(timeout)), row_factory=dict_row)
     try:
+        raw.read_only=readonly
         raw.execute("SELECT set_config('statement_timeout', %s, true)", (str(max(1, int(timeout * 1000))),))
         raw.execute("SELECT set_config('lock_timeout', %s, true)", (str(max(1, int(timeout * 1000))),))
         if not readonly and control_lock:

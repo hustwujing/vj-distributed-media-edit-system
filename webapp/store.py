@@ -99,8 +99,10 @@ class Store:
             db = connect(self.dsn, self.timeout, readonly=readonly)
             connection = PostgresConnection(db)
         else:
-            db = sqlite3.connect(self.database, timeout=self.timeout)
+            db = sqlite3.connect(self.database.as_uri()+'?mode=ro' if readonly else self.database,
+                                 timeout=self.timeout,uri=readonly)
             db.row_factory = sqlite3.Row
+            if readonly:db.execute('PRAGMA query_only=ON')
             connection = Connection(db)
         self._connections.db = connection
         notices=[];self._connections.notices=notices;committed=False
@@ -109,7 +111,7 @@ class Store:
                 from .task_leases import CURRENT
                 lease = CURRENT.get()
                 if lease is not None and lease.store.identity == self.identity:
-                    connection.execute('BEGIN IMMEDIATE')
+                    if not readonly:connection.execute('BEGIN IMMEDIATE')
                     lease.validate(connection)
                 yield connection
             committed=True
