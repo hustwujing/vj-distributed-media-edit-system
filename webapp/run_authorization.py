@@ -4,6 +4,7 @@ from .workflow_graph import encode
 
 def approve(store,run,authorization):
     old=run['authorization'];new=authorization.model_dump()
+    new['require_plan_confirmation']=old.get('require_plan_confirmation',False) or not run['scope_confirmed']
     if run['scope_confirmed']:
         for key in ('allowed_assets','allowed_operations','allowed_agent_profiles'):
             if not set(old[key])<=set(new[key]):raise ValueError('Scope expansion cannot revoke previously granted capabilities; stop the Run to revoke them')

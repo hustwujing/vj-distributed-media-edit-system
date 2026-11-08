@@ -23,6 +23,15 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_read_only_response_tool_is_bound_to_an_empty_run(self):
+        f=frozen(False);f.update(can_respond=True,scope_confirmation_required=True)
+        protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertIn('respond',protocol.schemas)
+        result=protocol.decode('respond',transform({'reason':'上一轮成果已发布，本次没有重新处理。'},protocol.schemas['respond'],encode=True))
+        self.assertEqual(result['proposal']['kind'],'RESPOND');self.assertIsNone(result['proposal']['proposal'])
+        f['can_respond']=False
+        self.assertNotIn('respond',ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'}).schemas)
+
     def test_native_business_agent_schema_rejects_control_profiles_before_compilation(self):
         protocol=ToolProtocol(profile('media_planner'),frozen(False),{'control_kind':'PLAN'},draft={'status':'OPEN'})
         task={'id':'work','name':'Work','type':'agent','profile':'editing_implementer','objective':'Create output',

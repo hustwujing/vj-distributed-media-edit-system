@@ -31,7 +31,11 @@
 
 ## 必须保持的不变量
 
-- Manager 提交绑定 snapshot、授权版本、graph 版本与输入 cutoff 的 ManagerResult。结果仅限 CONTINUE、APPLY_PLAN、REQUEST_AUTHORIZATION、REQUEST_USER_INPUT、COMPLETE、NEW_RUN_REQUIRED；只有 APPLY_PLAN/COMPLETE 携带 Proposal；专业 Agent 的 JSON 或进程退出码不构成业务成功。
+- 聊天创建 Run 强制 `authorization.require_plan_confirmation=true`。第一次业务计划及用户输入导致的计划变更先形成 `plan_confirmation`，不创建新业务 Task。确认绑定 planner request、proposal digest、输入序号、图/授权版本与素材指纹；批准在同一事务中复核、补齐交付清单并应用原提案。禁止凭“开始规划”或模型文字自动批准。普通聊天修改会作废旧方案并保留被修改的方案上下文。
+- `RESPOND` 只允许无业务 Task、graph_version=0 且无 Provider 调用的 Run，持久化公开答复并以 `conversation_answer` 结束；不产生媒体交付，不绕过验收。后续仍可提问。同项目父轮上下文和澄清历史只提供事实，不扩大授权或将旧产物直接变成新输入。未确认范围也允许只读回答。
+- 主输入框可回答 `input_question` 或修订待确认方案，但不能隐式批准授权/质量决策。空业务轮连续三次澄清仍无进展后停止自动追问并明确原因。拒绝空业务澄清后不自行启动新规划；已有冻结业务与新的独立输入按原安全点规则处理。
+
+- Manager 提交绑定 snapshot、授权版本、graph 版本与输入 cutoff 的 ManagerResult。结果仅限 CONTINUE、APPLY_PLAN、REQUEST_AUTHORIZATION、REQUEST_USER_INPUT、COMPLETE、NEW_RUN_REQUIRED、RESPOND；只有 APPLY_PLAN/COMPLETE 携带 Proposal；专业 Agent 的 JSON 或进程退出码不构成业务成功。
 - Manager 不直接生成完整 Proposal。每个 PLAN Control Job 创建唯一 `plan-draft-v1` 草稿；按 Task 类型和已查询 Operation 契约使用白名单命令追加或局部替换内容，`commit_plan` 在同一事务复核草稿 revision/digest、租约和冻结快照后暂存权威 ManagerResult。草稿命令不创建业务 Task、不执行工具，也不授予权限。
 - Manager 只用 `APPLY_PLAN` 表示本批增加了可执行工作，或用 `COMPLETE` 封口。等待叶节点由宿主从本批变更和依赖图推导；无变更时使用 `continue_run`。模型不填写 continuation。
 - replacement 的既有依赖由权威图重映射；编译器从输入绑定派生新增依赖时，须排除重映射后已存在的边。不能要求模型修改输入来绕过宿主生成的重复依赖，也不能放宽原始 Proposal 的重复边校验。

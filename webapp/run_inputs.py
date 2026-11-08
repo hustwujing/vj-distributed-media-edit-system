@@ -79,7 +79,7 @@ def accept(store,identifier,actor,raw,*,context=None):
             predecessor_targets=[{'task_id':task['id'],'revision':task['revision'],'objective':task['spec']['objective'],'inputs':task['spec']['inputs']} for task in graph.active_tasks(run) if task['id'] in request.targets]
             # A successor has a fresh authority decision; input alone never grants
             # use of new assets, providers or an altered delivery scope.
-            authorization={**run['authorization'],'goal':request.content,
+            authorization={**run['authorization'],'goal':request.content,'require_plan_confirmation':True,
                 'content_fingerprint':graph.content_fingerprint(store,run['project_id'])}
             authorization['allowed_assets']=[identifier for identifier in authorization['allowed_assets'] if identifier in owned]
             authorization['allowed_asset_digests']={key:value for key,value in authorization['allowed_asset_digests'].items() if key in owned}
@@ -96,8 +96,24 @@ def accept(store,identifier,actor,raw,*,context=None):
             for target in targets:affected.update(revision_closure(run,target))
             context={**context,'targets':targets,'predecessor_targets':predecessor_targets,'allowed_revision_tasks':sorted(affected) if targets else [task['id'] for task in graph.active_tasks(run)],
                 'base_task_revisions':{task['id']:task['revision'] for task in graph.active_tasks(run)}}
-        if run['terminal_reason']=='user_rejected' and request.source=='user':
+        if run['terminal_reason'] in ('user_rejected','clarification_exhausted') and request.source=='user':
             db.execute("UPDATE runs SET status='ACTIVE',terminal_reason='input_draining' WHERE id=?",(run['id'],))
+        # Ordinary chat can answer an information question or revise an
+        # unexecuted plan. It never approves scope or a quality decision.
+        if request.source=='user' and not context.get('decision_id'):
+            pending_questions=store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending' AND kind IN ('input_question','plan_confirmation')",(run['id'],))
+            for decision in pending_questions:
+                question=json.loads(decision['request_json'])
+                if question.get('invalid_input_ids'):continue
+                context={**context,'responding_to':{'decision_id':decision['id'],'question':question.get('question','')}}
+                if decision['kind']=='plan_confirmation':
+                    from .workflow_conversation import invalidate_plan
+                    context['superseded_plan']={key:question[key] for key in ('reason','delivery_targets','steps','dependencies')}
+                    invalidate_plan(store,run,decision)
+                else:
+                    store.execute("UPDATE workflow_decisions SET status='superseded',answer_json=?,updated_at=? WHERE id=?",
+                                  (graph.encode({'action':'revise','feedback':request.content}),store.now(),decision['id']))
+                store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='input_draining' WHERE id=?",(run['id'],))
         sequence=run['input_sequence']+1;input_id=uuid.uuid4().hex;now=store.now()
         attachments=[{'id':name,'authorized':name in run['authorization']['allowed_assets'] and run['authorization']['allowed_asset_digests'].get(name)==graph.asset_digest(owned[name]),
                       'name':owned[name]['name'],'metadata':{key:owned[name]['metadata'][key] for key in ('kind','width','height','duration','size') if key in owned[name]['metadata']},

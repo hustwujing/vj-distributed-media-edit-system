@@ -32,6 +32,7 @@ const server=http.createServer((req,res)=>{
       await page.goto('http://127.0.0.1:'+server.address().port+'/');
       await page.addScriptTag({type:'module',content:`
         import {$,esc,toast} from '/common.js';
+        import {confirmationDetails} from '/dynamic_results.js';
         import {acceptsFeedback,decisionPresentation,assertCommandAccepted} from '/dynamic_state.js';
         let lastDecisions='',pendingCommand=null,current=null;
         const project={assets:[]},capabilities={operations:[]};

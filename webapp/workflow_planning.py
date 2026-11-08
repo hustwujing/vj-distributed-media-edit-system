@@ -80,6 +80,7 @@ def rebind_scope(store,raw):
 
 
 def snapshot(store,run):
+    from .workflow_conversation import context as conversation_context,can_respond
     from .specialist_profiles import catalogue as profiles
     from .repair_inputs import descriptors
     from .workflow_history import snapshot as history_snapshot,user_reviews
@@ -115,6 +116,7 @@ def snapshot(store,run):
                 'roles':[role for role,path in roles.items() if path==item['name']],
                 **{key:item.get(key) for key in ('duration','width','height','fps','video','audio_track_present')}})
     return {'run_id':run['id'],'goal':run['goal'],'graph_version':run['graph_version'],
+        'conversation_context':conversation_context(store,run),'can_respond':can_respond(run),
         'scope_confirmation_required':not run['scope_confirmed'],
         'sealed':run['sealed'],'authorization':run['authorization'],'authorization_version':run['authorization_version'],
         'repair_context':run.get('repair_context',{}),'repair_candidates':descriptors(store,run),
@@ -151,7 +153,7 @@ def operation_contract(store,frozen,identifier):
 def queue(store,run,trigger):
     """Called in the orchestrator's fenced transaction."""
     if run['input_barrier_sequence'] is not None and 'input_batch' not in trigger:return None
-    current=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
+    current=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged','awaiting_confirmation')",(run['id'],))
     if current:return current[0]['id']
     count=store.query('SELECT COUNT(*) AS n FROM planner_runs WHERE run_id=?',(run['id'],))[0]['n']
     if count>=run['authorization']['max_planning_rounds']:raise PlanningBudgetExceeded('Planning round budget exhausted')
@@ -191,10 +193,15 @@ def stage(store,lease,request_id,raw,*,draft_revision=None,draft_digest=None):
         run=get(store,request['run_id'])
         if run['id']!=lease.run_id or request['status'] not in ('pending','running','staged'):raise ValueError('Planner request is no longer active')
         frozen=json.loads(request['snapshot_json'])
-        if frozen.get('scope_confirmation_required') and result.kind not in ('REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED'):
+        if result.kind=='RESPOND':
+            from .workflow_conversation import can_respond
+            if not can_respond(run):raise ValueError('RESPOND cannot bypass business execution or review')
+        if frozen.get('scope_confirmation_required') and result.kind not in ('REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED','RESPOND'):
             raise PlanningScopeRequired('This successor has no confirmed business scope. Propose a complete authorization and delivery targets before any execution.')
         if result.kind=='REQUEST_AUTHORIZATION' and result.authorization.goal!=run['goal']:
             raise PlanningScopeRequired('Copy the frozen goal exactly for scope expansion; use NEW_RUN_REQUIRED for a different top-level goal')
+        if result.proposal and run['authorization'].get('require_plan_confirmation') and not run['authorization']['delivery_targets'] and not result.delivery_targets:
+            raise PlanningScopeRequired('Supply delivery_targets with the proposed concrete outputs before asking the user to confirm the plan')
         cutoff=(frozen.get('input_batch') or {}).get('through_sequence',0)
         expected={'snapshot_digest':request['snapshot_digest'],'base_graph_version':request['base_graph_version'],
                   'authorization_version':request['authorization_version'],'input_through_sequence':cutoff}
@@ -222,13 +229,13 @@ def stage(store,lease,request_id,raw,*,draft_revision=None,draft_digest=None):
         event(store,run,'proposal_staged',{'proposal_id':proposal.proposal_id if proposal else '', 'result_kind':result.kind,'task_id':lease.step_id})
 
 
-def apply(store,run,request):
+def apply(store,run,request,*,confirmed_plan=False):
     """Caller owns the reconcile fence; repeat application returns the prior version."""
     if request['status']=='applied':return request['applied_graph_version']
     if request['status']!='staged':raise ValueError('Planner result has not been staged')
     if request['authorization_version']!=run['authorization_version']:raise ValueError('Planning authorization changed')
     result=ManagerResult.model_validate(json.loads(request['proposal_json']))
-    if not run['scope_confirmed'] and result.kind not in ('REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED'):
+    if not run['scope_confirmed'] and result.kind not in ('REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED','RESPOND'):
         raise ValueError('Business scope has not been confirmed')
     if result.base_graph_version!=run['graph_version'] or result.snapshot_digest!=request['snapshot_digest']:
         raise ValueError('Manager result is stale')
@@ -237,7 +244,16 @@ def apply(store,run,request):
     from .workflow_model_protocol import scopes
     repair_scope,user_scope=scopes(frozen)
     batch=frozen.get('input_batch') or {};input_records=batch.get('inputs',[])
+    from .workflow_conversation import needs_confirmation,hold_plan
+    if confirmed_plan and not run['authorization']['delivery_targets']:
+        from .run_authorization import approve
+        if not result.delivery_targets:raise ValueError('Confirmed plan has no delivery targets')
+        approve(store,run,Authorization.model_validate({**run['authorization'],'delivery_targets':result.delivery_targets}))
+        run=get(store,run['id'])
     proposal,tasks,revisions,edges=validate_proposal(store,run,result.proposal.model_dump(),repair_scope=repair_scope,user_revision_scope=user_scope)
+    if not confirmed_plan and needs_confirmation(run,frozen):
+        hold_plan(store,run,request,result,tasks)
+        return run['graph_version']
 
     version=run['graph_version']+1;now=store.now()
     for task in tasks:
@@ -317,7 +333,10 @@ def apply_control_result(store,run,request,result,frozen):
     from .workflow_orchestrator import Orchestrator
     from .run_inputs import finish_batch,defer_batch
     now=store.now()
-    if result.kind=='CONTINUE':
+    if result.kind=='RESPOND':
+        from .workflow_conversation import respond
+        respond(store,run,request,result)
+    elif result.kind=='CONTINUE':
         if not result.input_through_sequence:raise ValueError('CONTINUE requires an input batch')
         from .workflow_graph import asset_digest,AuthorizationRequired
         assets={asset['id']:asset for asset in store.assets(run['project_id'])}
@@ -328,6 +347,10 @@ def apply_control_result(store,run,request,result,frozen):
         store.execute("UPDATE runs SET sealed=?,status='ACTIVE',terminal_reason='' WHERE id=?",
                       (int((frozen.get('input_batch') or {}).get('was_sealed',False)),run['id']))
         finish_batch(store,run,result.input_through_sequence)
+    elif (result.kind=='REQUEST_USER_INPUT' and not run['tasks'] and
+          len(store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND kind='input_question' LIMIT 3",(run['id'],)))>=3):
+        finish_batch(store,run,result.input_through_sequence,status='FAILED')
+        store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='clarification_exhausted' WHERE id=?",(run['id'],))
     else:
         request_kind={'REQUEST_AUTHORIZATION':'plan_change','REQUEST_USER_INPUT':'input_question',
                       'NEW_RUN_REQUIRED':'new_run'}[result.kind]

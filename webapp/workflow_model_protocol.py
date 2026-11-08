@@ -454,7 +454,8 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
             if key not in ('proposal','snapshot_digest','base_graph_version','authorization_version','input_through_sequence')}
     fields['plan']={'anyOf':[plan,{'type':'null'}]}
     if frozen.get('scope_confirmation_required'):
-        fields['kind']['enum']=['REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED']
+        fields['kind']['enum']=['REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','NEW_RUN_REQUIRED','RESPOND']
+    if not frozen.get('can_respond'):fields['kind']['enum']=[kind for kind in fields['kind']['enum'] if kind!='RESPOND']
     if targeted_user_inputs(frozen):
         fields['kind']['enum']=[kind for kind in fields['kind']['enum'] if kind!='NEW_RUN_REQUIRED']
     result=obj(fields,['kind','reason']);result['$defs']=defs
@@ -713,7 +714,8 @@ class ToolProtocol:
         draft_value=draft.get('draft',draft);existing=draft_value.get('new_tasks',[])
         can_correct=self.correction_mode
         config_fields={key:deepcopy(plan[key]) for key in ('changes','dependencies','remove_dependencies','repair_replacements','replacements','review_again') if key in plan}
-        commit_fields={'kind':{'type':'string','enum':['APPLY_PLAN','COMPLETE']},'reason':command['properties']['reason']}
+        commit_fields={'kind':{'type':'string','enum':['APPLY_PLAN','COMPLETE']},'reason':command['properties']['reason'],
+                       'delivery_targets':command['properties']['delivery_targets']}
         automatic,user=scopes(self.frozen);targeted=targeted_user_inputs(self.frozen)
         evidence_repair=automatic is not None and user is None and evidence_collection_available(self.frozen)
         allow_new_tasks=((automatic is None or user is not None) and not targeted) or evidence_repair
@@ -742,11 +744,14 @@ class ToolProtocol:
             if can_correct and any(draft_value.get(key) for key in config_fields):self.add('replace_plan_configuration','draft_replace_configuration',schema)
         identifiers=[item['id'] for item in existing]
         if can_correct and identifiers:self.add('remove_draft_tasks','draft_remove_tasks',obj({'task_ids':{'type':'array','minItems':1,'maxItems':16,'uniqueItems':True,'items':{'type':'string','enum':identifiers}}}))
-        if existing or finalize or can_correct:self.add('commit_plan','draft_commit',obj(commit_fields))
+        if existing or finalize or can_correct:self.add('commit_plan','draft_commit',obj(commit_fields,['kind','reason']))
         if (self.frozen.get('input_batch') or {}).get('through_sequence',0):
             self.add('continue_run','draft_control',obj({'reason':command['properties']['reason']}))
         self.add('request_user_input','draft_control',obj({'reason':command['properties']['reason'],
             'question':command['properties']['question'],'options':command['properties']['options']},['reason','question']))
+        if self.frozen.get('can_respond'):
+            self.add('respond','draft_control',obj({'reason':{**command['properties']['reason'],
+                'description':'User-facing factual answer. No media work is requested or executed; mention existing results from conversation_context.'}}))
         defs['AuthorizationExpansion']=deepcopy(defs['Authorization']);auth=defs['AuthorizationExpansion']
         auth['properties'].pop('goal',None);auth['required']=[key for key in auth.get('required',[]) if key!='goal']
         # Unlike the general ManagerResult union, these dedicated tools always
@@ -774,6 +779,7 @@ class ToolProtocol:
             'complete_run':'Seal only when the entire user goal and all requested deliverables are fulfilled, for independent final review. A successful partial batch may still need new Tasks. No Task or dependency changes are accepted by this tool.',
             'continue_run':'Finish this planning round without changing the graph.',
             'request_user_input':'Request information that is required before planning can continue.',
+            'respond':'Answer a status question, explanation or UI feedback without executing media work. Never claim new artifacts or finish business Tasks.',
             'request_authorization':'Request a complete expanded authorization.',
             'new_run_required':'Request a successor Run for a changed top-level goal.'}
         result=[{'name':name,'description':descriptions.get(name,'Append Tasks for one queried Operation to the server-owned draft.'),
@@ -806,7 +812,7 @@ class ToolProtocol:
             return {'action':'proposal','proposal':proposal,'_model_command':payload,'_draft_commit':True,
                     '_draft_revision':revision,'_draft_digest':draft_digest}
         if action=='draft_control':
-            kinds={'continue_run':'CONTINUE','request_user_input':'REQUEST_USER_INPUT',
+            kinds={'continue_run':'CONTINUE','request_user_input':'REQUEST_USER_INPUT','respond':'RESPOND',
                    'request_authorization':'REQUEST_AUTHORIZATION','new_run_required':'NEW_RUN_REQUIRED',
                    'complete_run':'COMPLETE'}
             value=self._draft.get('draft',self._draft)

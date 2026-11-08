@@ -65,6 +65,7 @@ class Authorization(Contract):
     max_tasks:int=Field(default=256,ge=1,le=256)
     max_planning_rounds:int=Field(default=64,ge=1,le=64)
     delivery_targets:list[str]=Field(default_factory=list,max_length=20)
+    require_plan_confirmation:bool=False
     content_fingerprint:str=Field(pattern=r'^[a-f0-9]{64}$')
     semantic_policy_version:Literal['media-semantics-v1']='media-semantics-v1'
 
@@ -274,7 +275,7 @@ class Proposal(Contract):
 
 
 class ManagerResult(Contract):
-    kind:Literal['CONTINUE','APPLY_PLAN','REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','COMPLETE','NEW_RUN_REQUIRED']
+    kind:Literal['CONTINUE','APPLY_PLAN','REQUEST_AUTHORIZATION','REQUEST_USER_INPUT','COMPLETE','NEW_RUN_REQUIRED','RESPOND']
     snapshot_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
     base_graph_version:int=Field(ge=0)
     authorization_version:int=Field(ge=1)
@@ -285,12 +286,14 @@ class ManagerResult(Contract):
     options:list[str]=Field(default_factory=list,max_length=8)
     authorization:Authorization|None=None
     new_goal:str=Field(default='',max_length=8000)
+    delivery_targets:list[str]=Field(default_factory=list,max_length=20)
 
     @model_validator(mode='after')
     def shape(self):
         requires_proposal=self.kind in ('APPLY_PLAN','COMPLETE')
         if requires_proposal != (self.proposal is not None):raise ValueError('Only APPLY_PLAN and COMPLETE carry a Proposal')
         if self.kind=='CONTINUE' and self.input_through_sequence<=0:raise ValueError('CONTINUE requires a frozen input batch')
+        if self.kind=='RESPOND' and (not self.reason.strip() or self.authorization is not None or self.question or self.options or self.new_goal or self.delivery_targets):raise ValueError('RESPOND carries only an answer, never a plan, question, delivery or authorization')
         if self.proposal and self.proposal.base_graph_version!=self.base_graph_version:raise ValueError('Proposal version differs from result envelope')
         if self.kind=='COMPLETE' and not self.proposal.sealed:raise ValueError('COMPLETE requires a sealed Proposal and independent final review')
         if self.kind=='REQUEST_AUTHORIZATION' and self.authorization is None:raise ValueError('Authorization request requires the complete proposed scope')

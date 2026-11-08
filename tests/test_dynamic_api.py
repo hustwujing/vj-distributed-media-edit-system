@@ -127,6 +127,21 @@ class DynamicAPITests(unittest.TestCase):
             self.assertEqual(denied.status_code,409,denied.text)
             self.assertEqual(len(store.query('SELECT id FROM runs WHERE project_id=?',(self.project,))),1)
 
+    def test_chat_starts_with_confirmation_required_and_prior_delivery_survives_readonly_rounds(self):
+        import json
+        first=self.a.post(self.prefix,json=self.body()).json();store=self.app.state.store
+        self.assertTrue(first['authorization']['require_plan_confirmation'])
+        delivery=[{'file':'final.wav','name':'final.wav','type':'audio/wav','size':12}]
+        store.execute("UPDATE runs SET status='SUCCEEDED',delivery_json=?,delivered_at=? WHERE id=?",(json.dumps(delivery),store.now(),first['id']))
+        second=self.a.post(self.prefix,json=self.body()).json()
+        store.execute("UPDATE runs SET parent_run_id=?,status='SUCCEEDED',terminal_reason='conversation_answer' WHERE id=?",(first['id'],second['id']))
+        third=self.a.post(self.prefix,json=self.body()).json()
+        store.execute('UPDATE runs SET parent_run_id=? WHERE id=?',(second['id'],third['id']))
+        result=self.a.get(self.prefix+'/'+third['id']).json()
+        self.assertEqual(result['parent_result']['id'],first['id'])
+        self.assertIn(first['id'],result['parent_result']['delivery'][0]['url'])
+        self.assertEqual(self.b.get(self.prefix+'/'+third['id']).status_code,404)
+
     def test_terminal_snapshot_exposes_user_readable_reason(self):
         run=self.a.post(self.prefix,json=self.body()).json()
         self.app.state.store.execute("UPDATE runs SET status='FAILED',terminal_reason='planning_budget_exhausted' WHERE id=?",(run['id'],))

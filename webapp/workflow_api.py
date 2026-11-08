@@ -132,6 +132,11 @@ def public(store,run):
         repeated_error_count,created_at,updated_at FROM workflow_plan_drafts WHERE run_id=? ORDER BY created_at''',(run['id'],))
     value['decisions']=store.query("SELECT id,kind,graph_version,authorization_version,snapshot_digest,request_json,status FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
     for item in value['decisions']:item['request']=json.loads(item.pop('request_json'))
+    question_cutoff=max((item['request'].get('input_through_sequence',0) for item in value['decisions'] if item['kind']=='input_question'),default=0)
+    for item in value['inputs']:
+        item['waiting_for_answer']=bool(item['status']=='ACCEPTED' and item['sequence']<=question_cutoff)
+    answers=store.query("SELECT content FROM session_messages WHERE run_id=? AND role='assistant' ORDER BY created_at DESC LIMIT 1",(run['id'],))
+    value['conversation_answer']=answers[0]['content'] if answers else ''
     blocked=store.query("SELECT payload_json,created_at FROM workflow_graph_events WHERE run_id=? AND kind='delivery_blocked' ORDER BY seq DESC LIMIT 1",(run['id'],))
     if run['terminal_reason']=='delivery_targets_incomplete':
         details=json.loads(blocked[0]['payload_json']) if blocked else {}
@@ -160,6 +165,8 @@ def public(store,run):
                 'action':'retry','details':failed}
         else:
             waiting_guidance={
+                'clarification_exhausted':('已停止重复追问','系统连续澄清仍未确定下一步，已停止自动追问，也没有重新处理素材。上一轮成果仍可使用；你可以提出明确的修改要求，或停止本轮。'),
+                'user_rejected':('当前方向已停止','已按你的选择停止这个方向，不会自动重新规划；已有成果仍会保留。'),
                 'planning_budget_exhausted':('本轮规划轮次已耗尽','请停止本轮并新建一轮；如仍需多轮规划，请提高规划轮次上限。'),
                 'model_token_budget_exhausted':('本轮模型预算已耗尽','请停止本轮并新建一轮；如仍需继续，请提高模型 Token 上限。'),
                 'budget_exhausted':('本轮执行预算已耗尽','请停止本轮并新建一轮后再继续。'),
@@ -195,9 +202,23 @@ def public(store,run):
     committed=value['token_usage']['committed'];value['token_usage']['limit']=run['authorization']['model_token_budget']
     value['token_usage']['remaining']=max(0,value['token_usage']['limit']-committed)
     value['cleanup_pending']=sum(1 for item in value['external_cleanup'] if item['state']!='complete')+store.query("SELECT COUNT(*) AS n FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],))[0]['n']
-    for artifact in value['delivery']:
+    def delivery_urls(identifier,artifacts):
         from urllib.parse import quote
-        artifact['url']=f'api/projects/{run["project_id"]}/runs/{run["id"]}/files/{quote(artifact["file"],safe="")}'
+        return [{**artifact,'url':f'api/projects/{run["project_id"]}/runs/{identifier}/files/{quote(artifact["file"],safe="")}'} for artifact in artifacts]
+    value['delivery']=delivery_urls(run['id'],value['delivery'])
+    value['parent_result']=None
+    ancestor=run['parent_run_id'];seen={run['id']}
+    while ancestor and ancestor not in seen and len(seen)<=8:
+        seen.add(ancestor)
+        parents=store.query('SELECT id,parent_run_id,status,goal,delivery_json FROM runs WHERE id=? AND project_id=?',
+                            (ancestor,run['project_id']))
+        if not parents:break
+        parent=parents[0]
+        if json.loads(parent['delivery_json']):
+            value['parent_result']={'id':parent['id'],'state':parent['status'],'goal':parent['goal'],
+                                    'delivery':delivery_urls(parent['id'],json.loads(parent['delivery_json']))}
+            break
+        ancestor=parent['parent_run_id']
     return value
 
 
@@ -240,7 +261,7 @@ def register(app,store,own_project):
     @lane('write')
     def start(project_id:str,body:Start,request:Request):
         own_project(project_id,request);owner=request.state.owner
-        raw=body.authorization.model_dump();identity=graph.digest({'authorization':raw,'parent_run_id':body.parent_run_id,
+        raw={**body.authorization.model_dump(),'require_plan_confirmation':True};identity=graph.digest({'authorization':raw,'parent_run_id':body.parent_run_id,
             'model_choice':body.model_choice.model_dump() if body.model_choice else None})
         try:
             with store.connect() as db:

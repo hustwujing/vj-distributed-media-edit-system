@@ -708,7 +708,7 @@ class DynamicGatewayTests(unittest.TestCase):
         draft=json.loads(row['draft_json']);self.assertEqual(draft['new_tasks'][0]['id'],'draft_report')
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['proposal']['add_tasks'][0]['id'],'draft_report')
-        self.assertEqual(calls,[['inspect','contract','submit_typed_plan','request_user_input','request_authorization','new_run_required']])
+        self.assertEqual(calls,[['inspect','contract','submit_typed_plan','request_user_input','respond','request_authorization','new_run_required']])
 
     def test_manager_control_result_closes_its_bound_plan_draft(self):
         from types import SimpleNamespace

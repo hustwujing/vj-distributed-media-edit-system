@@ -114,7 +114,7 @@ class Orchestrator:
 
     def process_inputs(self,run):
         from .run_inputs import safe_point_reason,freeze_batch,InputAttachmentChanged
-        if run['terminal_reason'] in ('user_paused','user_rejected'):return
+        if run['terminal_reason'] in ('user_paused','user_rejected','clarification_exhausted'):return
         reason=safe_point_reason(self.store,run)
         if reason:
             if reason in ('input_waiting_external_unknown','input_waiting_user_decision'):
@@ -200,7 +200,7 @@ class Orchestrator:
                 unresolved=store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
                 requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted',
                     'invalid_delivery_manifest','delivery_targets_incomplete','diagnostic_policy_not_authorized',
-                    'user_decision','new_run_rejected'}
+                    'user_decision','new_run_rejected','clarification_exhausted','user_rejected'}
                 if run['status']!='WAITING_USER':error='resume_requires_safe_paused_state'
                 elif unresolved and run['terminal_reason']=='user_paused':self.set_status(run,'WAITING_USER','user_decision_pending')
                 elif unresolved:error='decision_requires_answer'
@@ -271,6 +271,20 @@ class Orchestrator:
         if row['graph_version']!=run['graph_version'] or row['authorization_version']!=run['authorization_version'] or payload.get('snapshot_digest')!=row['snapshot_digest']:
             raise DecisionError('decision_snapshot_stale')
         request=json.loads(row['request_json'])
+        if row['kind']=='plan_confirmation' and payload['action']=='approve':
+            if run['input_sequence']!=request['input_sequence']:raise DecisionError('decision_snapshot_stale')
+            if graph.content_fingerprint(store,run['project_id'])!=request['content_fingerprint']:raise DecisionError('content_changed')
+            plans=store.query("SELECT * FROM planner_runs WHERE id=? AND run_id=? AND status='awaiting_confirmation'",
+                              (request['planning_request_id'],run['id']))
+            if not plans or graph.digest(json.loads(plans[0]['proposal_json']))!=request['proposal_digest']:
+                raise DecisionError('decision_snapshot_stale')
+            plan=plans[0]
+            store.execute("UPDATE planner_runs SET status='staged' WHERE id=?",(plan['id'],))
+            self.set_status(run,'ACTIVE','plan_confirmed')
+            planning.apply(store,graph.get(store,run['id']),{**plan,'status':'staged'},confirmed_plan=True)
+            store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",
+                          (encode(payload),store.now(),row['id']))
+            return
         if row['kind'] in ('quality','quality_feedback'):
             from .run_inputs import candidate_digest
             subject=next(t for t in run['tasks'] if t['id']==request['task_id'])
@@ -278,10 +292,14 @@ class Orchestrator:
                 raise ValueError('Candidate changed after the decision snapshot')
         if payload.get('action')=='revise':
             from .run_inputs import accept,revision_closure
-            if row['kind'] not in ('quality','quality_feedback','input_question'):raise ValueError('Decision does not support feedback')
+            if row['kind'] not in ('quality','quality_feedback','input_question','plan_confirmation'):raise ValueError('Decision does not support feedback')
             if not request_id:raise ValueError('Feedback requires an idempotency request ID')
             context={'decision_id':row['id'],'decision_snapshot':row['snapshot_digest']}
-            if row['kind']!='input_question':
+            if row['kind']=='plan_confirmation':
+                from .workflow_conversation import invalidate_plan
+                context['superseded_plan']={key:request[key] for key in ('reason','delivery_targets','steps','dependencies')}
+                invalidate_plan(store,run,row)
+            if row['kind'] not in ('input_question','plan_confirmation'):
                 if subject['user_revision_count']>=5:raise ValueError('User revision limit reached')
                 context.update(subject_task=subject['id'],subject_revision=subject['revision'],
                     candidate_digest=request['candidate_digest'],candidate=subject['candidate_result'],quality=subject['quality'],
@@ -293,12 +311,20 @@ class Orchestrator:
             if invalid_inputs:
                 context['superseded_inputs']=[{'id':item['id'],'content':item['content'],'context':json.loads(item['context_json'])} for item in store.query("SELECT id,content,context_json FROM run_inputs WHERE run_id=? AND status='ACCEPTED'",(run['id'],)) if item['id'] in invalid_inputs]
             accept(store,run['id'],actor,{'request_id':request_id,'content':payload['feedback'],
-                'attachments':payload['attachments'],'source':'user' if row['kind']=='input_question' else 'quality_feedback'},context=context)
+                'attachments':payload['attachments'],'source':'user' if row['kind'] in ('input_question','plan_confirmation') else 'quality_feedback'},context=context)
             if invalid_inputs:
                 from .run_inputs import supersede_inputs
                 supersede_inputs(store,run,invalid_inputs,'attachment_replaced_by_user')
             self.set_status(run,'ACTIVE','input_draining')
         elif payload.get('action')=='reject':
+            if row['kind']=='plan_confirmation':
+                from .workflow_conversation import invalidate_plan
+                from .run_inputs import reject_batch
+                invalidate_plan(store,run,row)
+                reject_batch(store,run,int(request.get('input_through_sequence') or 0),'user_rejected_plan')
+                store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
+                self.set_status(run,'WAITING_USER','user_rejected')
+                return
             if row['kind']=='external_wait':
                 task=next(t for t in graph.work_items(run) if t['id']==request['task_id']);graph.write_work(store,task,"UPDATE run_tasks SET status='paused',error_code='external_wait_timeout',error_detail=? WHERE run_id=? AND id=?",('外部任务等待超时，已放弃等待。',run['id'],task['id']));store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
                 from .task_lifecycle import request_cleanup
@@ -328,8 +354,10 @@ class Orchestrator:
                 invalid_inputs=request.get('invalid_input_ids',[])
                 if cutoff:reject_batch(store,run,cutoff,'user_rejected_input')
                 elif invalid_inputs:supersede_inputs(store,run,invalid_inputs,'user_rejected_input')
-                self.set_status(run,'ACTIVE' if cutoff or invalid_inputs else 'WAITING_USER',
-                                'input_draining' if cutoff or invalid_inputs else 'user_rejected')
+                remaining=store.query("SELECT id FROM run_inputs WHERE run_id=? AND sequence>? AND status='ACCEPTED' LIMIT 1",(run['id'],cutoff))
+                continue_work=bool(remaining or run['tasks'])
+                self.set_status(run,'ACTIVE' if continue_work else 'WAITING_USER',
+                                'input_draining' if continue_work else 'user_rejected')
             elif row['kind']=='new_run':self.set_status(run,'WAITING_USER','new_run_rejected')
             if row['kind'] in ('quality','quality_feedback'):
                 subject=json.loads(row['request_json'])['task_id']
@@ -363,7 +391,7 @@ class Orchestrator:
                 raise ValueError('Successor cannot abandon an unresolved external call')
             self.set_status(run,'CANCELLED','successor_confirmed')
             store.execute("UPDATE run_tasks SET status='cancelled' WHERE run_id=? AND selected=1 AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
-            successor=graph.create(store,run['project_id'],None,authorization.model_dump(),parent_run_id=run['id'])
+            successor=graph.create(store,run['project_id'],None,{**authorization.model_dump(),'require_plan_confirmation':True},parent_run_id=run['id'])
             cutoff=int(request.get('input_through_sequence',0))
             for item in store.query("SELECT * FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING') ORDER BY sequence",(run['id'],)):
                 carried=accept(store,successor['id'],actor,{'request_id':item['id'],'content':item['content'],
@@ -387,7 +415,8 @@ class Orchestrator:
             # Freeze the implementation advertised by the actual executors.
             try:authorization=planning.rebind_scope(store,payload.get('authorization'))
             except ValueError as exc:raise DecisionError('scope_invalid',str(exc)) from exc
-            if authorization.goal!=run['goal'] or run['scope_confirmed'] and authorization.delivery_targets!=run['authorization']['delivery_targets']:
+            filling_initial_targets=not run['tasks'] and run['graph_version']==0 and not run['authorization']['delivery_targets']
+            if authorization.goal!=run['goal'] or run['scope_confirmed'] and not filling_initial_targets and authorization.delivery_targets!=run['authorization']['delivery_targets']:
                 raise ValueError('Changing the top-level goal or delivery contract requires a new Run')
             owned={asset['id'] for asset in store.assets(run['project_id'])}
             if not set(authorization.allowed_assets)<=owned:raise ValueError('Foreign asset')

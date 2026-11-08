@@ -95,6 +95,7 @@ async function runCase(browser,spec){
   const {stdout}=await execute(PY,args,{cwd:REPO,env:helperEnvironment,timeout:180000,maxBuffer:4*1024*1024});const value=JSON.parse(stdout.trim().split('\n').at(-1));
   if(action!=='progress'){state.faults.push(value);persist();}return value;};
  const wait=async(predicate,seconds=300)=>{const until=Date.now()+seconds*1000;let value,pausedAt=0;while(Date.now()<until){value=await read();if(await predicate(value))return value;
+  if(await approvePlannedWork(value))continue;
   const diagnosing=controlActive(value,'DIAGNOSE');
   if(paused(value)&&!diagnosing&&!unified.hasActiveWork(value)){pausedAt||=Date.now();}else pausedAt=0;
   if(terminal(value.state)||(pausedAt&&Date.now()-pausedAt>5000)){save(path.join(directory,'boundary-not-reached.json'),value);throw Object.assign(Error('Workflow stopped before the required test boundary: '+value.state),{boundary:true});}
@@ -144,6 +145,19 @@ async function runCase(browser,spec){
   let result=await Promise.race([response,page.locator('.dynamic-decision .scope-diff').filter({hasText:'请核对后再次确认'}).waitFor({state:'visible'}).then(()=>null)]);
   if(!result){await capture('scope-fingerprint-reconfirmation');await button.click();result=await response;}
   assert.equal(result.status(),202);state.events.push({action:'decision_'+action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);const updated=await read();if(updated.successor_run_id){state.run_id=updated.successor_run_id;state.execute_id=state.run_id;state.run_ids.push(state.run_id);state.task_ids.push(state.run_id);persist();}};
+ async function approvePlannedWork(snapshot){
+  const decision=snapshot.decisions.find(item=>item.kind==='plan_confirmation');if(!decision)return false;
+  assert.ok(decision.request.steps.length,'Plan confirmation must expose concrete work');
+  assert.deepEqual(decision.request.delivery_targets,snapshot.authorization.delivery_targets,'Campaign confirmation cannot silently change its declared delivery contract');
+  for(const step of decision.request.steps){
+   if(step.type==='operation')assert.ok(snapshot.authorization.allowed_operations.includes(step.operation));
+   if(step.type==='agent')assert.ok(snapshot.authorization.allowed_agent_profiles.includes(step.profile));
+  }
+  if(snapshot.graph_version===0)assert.equal(snapshot.tasks.length,0,'Business work existed before initial approval');
+  save(path.join(directory,'plan-confirmation-'+decision.id+'.json'),decision);
+  state.browser_assertions.push('Explicit plan confirmation matched frozen fixture scope before business work');
+  await approve('approve',decision.id);return true;
+ }
  const reuse=async(task)=>{const file=task.quality.output_roles?.primary_image||task.quality.output_roles?.video||task.accepted_result[0];
   const button=page.locator(`[data-reuse="${file}"][data-task="${task.id}"]`).first();await button.waitFor({state:'visible'});
   const response=page.waitForResponse(r=>r.url().endsWith('/reuse')&&r.request().method()==='POST');await button.click();const result=await response;assert.equal(result.status(),201,await result.text());const asset=await result.json();
@@ -219,6 +233,7 @@ async function runCase(browser,spec){
  async function observeTerminal(){
   const end=Date.now()+Number(process.env.DYNAMIC_CASE_TIMEOUT_SECONDS||10800)*1000;let resumed=0;
   while(Date.now()<end){run=await read();state.last_status=run.state;
+   if(await approvePlannedWork(run))continue;
    const signature=JSON.stringify([run.state,run.graph_version,run.tasks.map(t=>[t.id,t.status])]);
    if(signature!==lastCapture){lastCapture=signature;save(path.join(directory,'workflow-latest.json'),run);persist();if(state.events.filter(e=>e.action==='snapshot').length<40){await capture('stage-'+String(state.events.length).padStart(3,'0'));state.events.push({action:'snapshot',status:run.state,graph_version:run.graph_version,at:Date.now()/1000});}}
    if(terminal(run.state))return run;
