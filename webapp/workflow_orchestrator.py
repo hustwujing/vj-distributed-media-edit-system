@@ -196,10 +196,15 @@ class Orchestrator:
                 elif unresolved:error='decision_requires_answer'
                 elif run['terminal_reason']=='execution_failed':
                     failed=[task for task in graph.work_items(run) if task['status']=='paused' and task.get('error_code') in ('execution_failed','agent_failed')]
-                    retryable=bool(failed) and all(
-                        'opensandbox' in (task.get('error_detail') or '').lower()
-                        or 'importerror' in (task.get('error_detail') or '').lower()
-                        for task in failed)
+                    def environment_failure(task):
+                        if 'opensandbox' in (task.get('error_detail') or '').lower() or 'importerror' in (task.get('error_detail') or '').lower():return True
+                        records=store.query('SELECT record FROM workflow_diagnostics WHERE workflow=? AND step=? ORDER BY created DESC LIMIT 1',(run['id'],task['id']))
+                        if not records:return False
+                        try:
+                            record=json.loads(records[0]['record'])
+                            return record.get('error_type')=='ImportError' or 'opensandbox' in str(record.get('message','')).lower()
+                        except (TypeError,ValueError):return False
+                    retryable=bool(failed) and all(environment_failure(task) for task in failed)
                     if retryable:
                         for task in failed:
                             store.execute("UPDATE run_tasks SET status='ready',phase='local',error_code='',error_detail='',wait_reason='',next_run_at=? WHERE run_id=? AND id=?",
