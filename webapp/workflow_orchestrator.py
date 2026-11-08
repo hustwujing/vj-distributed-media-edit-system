@@ -491,7 +491,7 @@ class Orchestrator:
         if phase not in ('local','sync','submit','poll','collect','validate'):phase=task['phase']
         if code not in {'submission_unknown','result_unavailable','technical_validation_failed','quality_failed','execution_failed',
                         'provider_failed','poll_failed','collect_failed','agent_failed','review_incomplete','review_contract_exhausted',
-                        'planning_contract_exhausted','model_token_budget_exhausted','budget_exhausted','missing_proposal','invalid_result_manifest','model_result','pre_submit',
+                        'planning_contract_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted','missing_proposal','invalid_result_manifest','model_result','pre_submit',
                         'provider_cancelled','runtime_profile_changed','policy_changed'}:code='execution_failed'
         business_attempts=max(0,task['attempts']-task.get('infrastructure_interruptions',0))
         retry=(not task.get('control_kind') and graph.Task.model_validate(task['spec']).retry_policy=='safe_once'
@@ -509,6 +509,7 @@ class Orchestrator:
         message={
             'model_result':'模型未找到符合条件的结果，请调整输入或要求后重新规划。',
             'budget_exhausted':'本轮操作次数或模型预算已达上限。请调整执行范围或预算后重新发起。',
+            'daily_model_quota_exhausted':'今日模型调用额度已用完。额度按用户跨 Run 共享，请等待恢复后再继续；新建一轮不会绕过每日额度。',
             'model_token_budget_exhausted':'本轮模型 Token 预算已耗尽，未继续发起模型请求。请调整范围或预算。',
             'review_contract_exhausted':'Reviewer 未能在限定纠错轮次内提交合法选择；已保留候选、检查和字段错误。',
             'planning_contract_exhausted':'Manager 未能在限定纠错轮次内提交合法计划；已保留草稿和精确校验错误。',

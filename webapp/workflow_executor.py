@@ -26,6 +26,7 @@ def transient_model_error(exc):
 
 def quota_error_code(task,exc):
     category=exc.diagnostic.get('category')
+    if category=='model' and exc.diagnostic.get('scope')=='daily':return 'daily_model_quota_exhausted'
     if category=='model_tokens':return 'model_token_budget_exhausted'
     if task.get('control_kind')=='PLAN' and category in ('agent_turns','agent_seconds','agent_finalize','agent_contract'):
         return 'planning_contract_exhausted'
@@ -174,4 +175,8 @@ def _execute(host,lease):
         else:code=failure_error_code(task,phase,calls,classification)
         stage_result(store,lease,'failed',{'error_code':code,'phase':phase,
                                          'classification':classification,'transient':transient_model,
-                                         'error_type':diagnostic['error_type'],'error_detail':diagnostic['message']})
+                                         'error_type':diagnostic['error_type'],'error_detail':diagnostic['message'],
+                                         'quota_scope':getattr(exc,'diagnostic',{}).get('scope'),
+                                         'quota_used':getattr(exc,'diagnostic',{}).get('used'),
+                                         'quota_limit':getattr(exc,'diagnostic',{}).get('limit'),
+                                         'quota_reset_at':getattr(exc,'diagnostic',{}).get('reset_at')})

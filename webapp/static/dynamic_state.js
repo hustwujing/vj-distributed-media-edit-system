@@ -22,6 +22,7 @@ export function inputStatus(run) {
   if (run.terminal_reason === 'planning_budget_exhausted') return '本轮规划轮次已耗尽，请停止本轮并新建一轮。';
   if (run.terminal_reason === 'model_token_budget_exhausted') return '本轮模型 Token 预算已耗尽，请停止本轮并新建一轮。';
   if (run.terminal_reason === 'budget_exhausted') return '本轮执行预算已耗尽，请停止本轮并新建一轮。';
+  if (run.terminal_reason === 'daily_model_quota_exhausted') return '今日模型调用额度已用完，额度按用户跨任务共享；请等待恢复后再继续，新建一轮不会绕过额度。';
   if (run.terminal_reason === 'delivery_scope_change') return '交付范围需要确认；已有成果会保留，不会自动重新生成。';
   if (run.terminal_reason === 'delivery_targets_incomplete') return '当前成果与冻结交付范围不一致，请确认保留的交付内容。';
   if (run.terminal_reason === 'user_decision_pending') return '当前任务等待你的确认，确认后会继续处理。';
