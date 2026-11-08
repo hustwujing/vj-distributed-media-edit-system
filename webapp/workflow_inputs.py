@@ -26,12 +26,15 @@ def roles(spec,files,selected=None):
         result[role]=found[0]
     op=for_step(spec)
     if not op:return result
+    declared_names=dict(zip(op.outputs,op.output_files or ()))
+    declared_names.update(op.role_filenames)
     for role in op.outputs:
         if role in result:continue
         names={'foreground':['foreground.png'],'mask':['mask.png'],'transcript':['transcript.json'],
                'report':['ocr.json','layer-report.json','image.report.json','analysis.json','quality-review.json','final.report.json'], 'preview':['ocr-preview.png','timeline.png'],
                'plan':['edit_plan.json'],'subtitle':['master.srt'],'text':['takes_packed.md'],
                'layers':['editable-layers.ora','editable-layers.psd']} .get(role,[])
+        if role in declared_names:names=[declared_names[role],*names]
         candidates=[f for f in files if Path(f).name in names]
         if not candidates and role=='primary_image':
             candidates=[f for f in files if Path(f).suffix.lower() in ('.png','.jpg','.jpeg','.webp') and Path(f).name not in ('mask.png','ocr-preview.png','layer-overview.png')]

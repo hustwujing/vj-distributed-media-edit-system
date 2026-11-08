@@ -83,6 +83,7 @@ class Operation:
     implementation_id:str=''
     output_files:tuple[str,...]|None=None
     role_filenames:tuple[tuple[str,str],...]=()
+    required_output_roles:tuple[str,...]=()
     reuse_safe:bool=False
     evidence_only:bool=False
     execution_mode:str='local_bwrap'
@@ -96,6 +97,8 @@ class Operation:
         mapped=dict(self.role_filenames)
         if len(mapped)!=len(self.role_filenames) or not set(mapped)<=set(self.outputs):
             raise ValueError('Operation role filenames must bind unique declared output roles')
+        if len(set(self.required_output_roles))!=len(self.required_output_roles) or not set(self.required_output_roles)<=set(self.outputs):
+            raise ValueError('Required output roles must be unique declared roles')
 
     def public(self):
         result=asdict(self)
@@ -113,6 +116,7 @@ class Operation:
         filenames=list(self.output_files) if self.output_files is not None else None
         role_filenames=dict(zip(self.outputs,filenames or []));role_filenames.update(self.role_filenames)
         result['output_contract']={'roles':list(self.outputs),'primary':self.outputs[0] if self.outputs else None,
+                                   'required_roles':list(self.required_output_roles),
                                    'role_filenames':role_filenames,
                                    'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':filenames}
         parameter_schema=contract(self).parameters.model_json_schema()
@@ -200,13 +204,14 @@ for action in ('render','edit','timeline','analyze','review','pack','concat_sequ
     input_kinds=('json',) if action=='pack' else ('video','json') if action=='timeline' else ('video',) if action in ('analyze','review','concat_sequence','normalize_clip') else ('video','audio','image','subtitle','json')
     op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800,reuse_safe=True,
                  execution_mode='opensandbox_command',
-                 output_files=('final.mp4','compiler-report.json') if action in ('concat_sequence','normalize_clip') else None)
+                 output_files=('final.mp4','compiler-report.json') if action in ('concat_sequence','normalize_clip') else None,
+                 required_output_roles=output_roles if action in ('concat_sequence','normalize_clip') else ())
     REGISTRY[op.id]=op
 REGISTRY['media.evidence']=Operation('media.evidence','evidence','fixed_media',('image','video','audio'),('report','preview'),
-    cpu=1,memory_mb=2048,timeout=300,reuse_safe=True,evidence_only=True,output_files=('evidence-report.json','preview.jpg'),execution_mode='opensandbox_command')
+    cpu=1,memory_mb=2048,timeout=300,reuse_safe=True,evidence_only=True,output_files=('evidence-report.json','preview.jpg'),execution_mode='opensandbox_command',required_output_roles=('report','preview'))
 REGISTRY['audio.process']=Operation('audio.process','audio_process','fixed_media',('audio','video'),('audio','report'),
     memory_mb=2048,timeout=1800,reuse_safe=True,execution_mode='opensandbox_command',
-    role_filenames=(('report','audio-process-report.json'),))
+    role_filenames=(('report','audio-process-report.json'),),required_output_roles=('audio','report'))
 REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,external_side_effects=True,budget_group='audio.transcribe',concurrency_group='elevenlabs',route_adapter='elevenlabs',provider_identity='elevenlabs',cleanup_category='unqueryable_sync',output_files=('transcript.json',))
 REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,external_side_effects=True,budget_group='image.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api')
 REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_image',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)

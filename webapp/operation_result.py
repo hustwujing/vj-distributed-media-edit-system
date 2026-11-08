@@ -61,6 +61,12 @@ def validate_contract(operation,report,selected=None):
     for role,path in (selected or {}).items():
         if role not in operation.outputs or path not in records or not matches(role,records[path]):
             failures.append('输出角色与实际文件不符: '+role)
+    for role in operation.required_output_roles:
+        path=(selected or {}).get(role)
+        if not path or path not in records:
+            report['checks'].append({'passed':False,'code':'output_role_missing','role':role,
+                                     'reason':'缺少 operation 必需的输出角色: '+role})
+            report['technical_valid']=False;report['passed']=False
     # Some capabilities have optional outputs; media.edit may produce audio OR
     # video. Validate its alternatives rather than demanding both streams.
     primary=operation.outputs[0] if operation.outputs else None
