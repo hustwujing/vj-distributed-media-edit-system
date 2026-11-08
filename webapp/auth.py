@@ -53,6 +53,8 @@ class Sessions:
             return hashlib.sha256(identity.encode()).hexdigest(),self.sign(identity),True
         if re.fullmatch(r'[a-f0-9]{64}', token):
             owner = hashlib.sha256(token.encode()).hexdigest()
-            legacy = bool(self.store.execute('DELETE FROM legacy_sessions WHERE owner=?', (owner,)))
+            # Concurrent requests can still carry the same pre-upgrade cookie
+            # before any response's Set-Cookie has reached the browser.
+            legacy = bool(self.store.query('SELECT owner FROM legacy_sessions WHERE owner=?', (owner,)))
         identity = token if legacy else secrets.token_hex(32)
         return hashlib.sha256(identity.encode()).hexdigest(), self.sign(identity), True
