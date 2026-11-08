@@ -42,6 +42,10 @@ test('budget exhausted waiting runs explain the only recovery path',()=>{
  assert.match(source,/inputBlocked=.*planning_budget_exhausted/);
 });
 
+test('an unavailable control plane is visible to users',()=>{
+ assert.match(inputStatus({state:'ACTIVE',control_plane:{available:false}}),/控制服务暂不可用/);
+});
+
 test('stale tool activity is visibly interrupted after worker loss or terminal run',()=>{
  const item={status:'running',execution:{attempt_id:'old'},sequence:1};
  assert.equal(settleTool({status:'running',activity_attempts:[{id:'old',status:'expired'}]},item).status,'interrupted');

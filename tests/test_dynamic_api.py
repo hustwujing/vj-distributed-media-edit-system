@@ -71,6 +71,16 @@ class DynamicAPITests(unittest.TestCase):
         response=self.a.post(self.prefix+'/'+run['id']+'/inputs',json={'request_id':uuid.uuid4().hex,'content':'继续修改','attachments':[],'targets':[]})
         self.assertEqual(response.status_code,409,response.text)
         self.assertIn('新建一轮',response.json()['detail'])
+
+    def test_run_snapshot_reports_control_plane_liveness(self):
+        run=self.a.post(self.prefix,json=self.body()).json()
+        unavailable=self.a.get(self.prefix+'/'+run['id']).json()['control_plane']
+        self.assertFalse(unavailable['available'])
+        self.app.state.store.execute('INSERT INTO workflow_orchestrators(id,release,heartbeat,draining) VALUES (?,?,?,0)',
+                                     ('orchestrator-a','test',self.app.state.store.now()))
+        available=self.a.get(self.prefix+'/'+run['id']).json()['control_plane']
+        self.assertTrue(available['available'])
+        self.assertLess(available['stale_seconds'],15)
     def test_stale_content_creates_no_task(self):
         body=self.body();body['authorization']['content_fingerprint']='0'*64
         response=self.a.post(self.prefix,json=body)

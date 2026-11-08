@@ -12,6 +12,7 @@ export const acceptsFeedback = decision => ['quality', 'quality_feedback', 'inpu
 
 export function inputStatus(run) {
   if (run.scope_confirmed === false || run.scope_confirmed === 0) return '正在整理新的执行范围，确认后才开始处理。';
+  if (!terminalRun(run.state) && run.control_plane?.available === false) return '控制服务暂不可用，任务与操作会在恢复后继续处理。';
   if (run.terminal_reason === 'workers_unavailable') return '补充要求已保存，等待执行器恢复后继续规划。';
   if (run.terminal_reason === 'input_waiting_external_unknown') return '补充要求已保存，正在核实已有外部请求；不会重复提交。';
   if (run.terminal_reason === 'input_waiting_user_decision') return '补充要求已保存，等待处理当前确认事项。';

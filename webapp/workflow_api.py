@@ -66,6 +66,16 @@ def public(store,run):
     value={k:run[k] for k in ('id','project_id','session_id','parent_run_id','scope_confirmed','goal','status','graph_version','sealed','authorization',
                              'authorization_version','replan_after','repair_context','created_at','updated_at','terminal_reason','delivery','delivered_at','input_sequence','input_barrier_sequence')}
     value['state']=value.pop('status')
+    now=store.now()
+    heartbeat=store.query('''SELECT heartbeat,draining FROM workflow_orchestrators
+        WHERE draining=0 ORDER BY heartbeat DESC LIMIT 1''')
+    latest=heartbeat[0]['heartbeat'] if heartbeat else None
+    value['control_plane']={
+        'available':bool(latest is not None and now-latest<15),
+        'last_heartbeat_at':latest,
+        'stale_seconds':None if latest is None else max(0,now-latest),
+        'reconcile_overdue_seconds':max(0,now-run.get('next_reconcile_at',now)),
+    }
     # Dynamic pages need authoritative attempt state to settle activity rows
     # when a worker disappears before it can publish a completion event.
     value['activity_attempts']=store.query(
