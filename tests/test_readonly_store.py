@@ -37,6 +37,19 @@ class ReadonlyStoreTests(unittest.TestCase):
                 self.store.execute("DELETE FROM projects WHERE id=?",(self.project,))
         self.assertIsNotNone(self.project_row())
 
+    def test_snapshot_keeps_related_reads_consistent_without_blocking_writer(self):
+        writer=Store(self.store.root,dsn=self.dsn,initialize_schema=False)
+        with self.store.connect(readonly=True,snapshot=True):
+            self.assertEqual(self.project_row()['name'],'original')
+            writer.execute("UPDATE projects SET name='new state' WHERE id=?",(self.project,))
+            self.assertEqual(self.project_row()['name'],'original')
+        self.assertEqual(self.project_row()['name'],'new state')
+        # Ordinary observation/cancellation reads retain fresh committed data.
+        with self.store.connect(readonly=True):
+            self.assertEqual(self.project_row()['name'],'new state')
+            writer.execute("UPDATE projects SET name='newer state' WHERE id=?",(self.project,))
+            self.assertEqual(self.project_row()['name'],'newer state')
+
     def test_read_in_write_transaction_observes_uncommitted_state_and_rolls_back(self):
         with self.assertRaisesRegex(ValueError,'rollback'):
             with self.store.connect():

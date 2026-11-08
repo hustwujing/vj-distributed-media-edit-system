@@ -23,6 +23,25 @@ class DynamicAPITests(unittest.TestCase):
         return {'request_id':uuid.uuid4().hex,'confirmed':True,'authorization':{'goal':'Produce a report',
             'allowed_assets':[],'allowed_operations':['script'],'delivery_targets':['report'],
             'content_fingerprint':capabilities['content_fingerprint']}}
+
+    def test_detail_never_mixes_waiting_state_with_newly_applied_decision(self):
+        from webapp import workflow_api,workflow_graph as graph
+        from webapp.store import Store
+        response=self.a.post(self.prefix,json=self.body());identifier=response.json()['id'];store=self.app.state.store
+        controller=Orchestrator(store);run=graph.get(store,identifier)
+        controller.decision(run,'input_question',{'question':'Which interval?'})
+        store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='input_question' WHERE id=?",(identifier,))
+        writer=Store(store.root,dsn=store.dsn,initialize_schema=False);original=workflow_api.public
+        def interleaved(store,run):
+            with writer.connect() as db:
+                db.execute("UPDATE workflow_decisions SET status='applied' WHERE run_id=?",(identifier,))
+                db.execute("UPDATE runs SET status='ACTIVE',terminal_reason='' WHERE id=?",(identifier,))
+            return original(store,run)
+        with patch.object(workflow_api,'public',side_effect=interleaved):
+            frozen=self.a.get(self.prefix+'/'+identifier).json()
+        self.assertEqual(frozen['state'],'WAITING_USER');self.assertEqual(len(frozen['decisions']),1)
+        current=self.a.get(self.prefix+'/'+identifier).json()
+        self.assertEqual(current['state'],'ACTIVE');self.assertEqual(current['decisions'],[])
     def test_owned_explicit_confirmation_and_idempotent_start(self):
         body=self.body()
         self.assertEqual(self.b.post(self.prefix,json=body).status_code,404)

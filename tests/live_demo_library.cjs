@@ -87,9 +87,16 @@ async function runCase(demo){
    }
    if(current.state==='WAITING_USER'){
     const decision=current.decisions[0];state.status='awaiting_review';state.waiting_since??=Date.now()/1000;
+    const reason=current.terminal_reason,waiting=decision?page.locator(`[data-decision="${decision.id}"]`):page.locator('#dynamic-blocking-action');
+    const visibleUntil=Date.now()+45000;let stale=false;
+    while(!await waiting.isVisible()&&Date.now()<visibleUntil){
+     await page.waitForTimeout(500);await read();
+     if(current.state!=='WAITING_USER'||current.terminal_reason!==reason||current.decisions[0]?.id!==decision?.id){stale=true;break;}
+    }
+    if(stale){state.status='running';delete state.waiting_since;persist();continue;}
+    assert.ok(await waiting.isVisible(),'Current pending action stayed invisible for45seconds');
     save(path.join(dir,'attention.json'),{run:current,decision,answer_file:decision?'answer-'+decision.id+'.json':'resolution.json'});persist();
-    if(decision){const card=page.locator(`[data-decision="${decision.id}"]`);await card.waitFor({state:'visible'});const normalized=text=>text.replace(/\s+/g,' ').trim();assert.ok(normalized(await card.innerText()).includes(normalized(decision.request.question||decision.request.reason||'')),'Pending decision text is missing');}
-    else await page.locator('#dynamic-blocking-action').waitFor({state:'visible'});
+    if(decision){const normalized=text=>text.replace(/\s+/g,' ').trim();assert.ok(normalized(await waiting.innerText()).includes(normalized(decision.request.question||decision.request.reason||'')),'Pending decision text is missing');}
     await capture('needs-attention');
     const answerFile=path.join(dir,decision?'answer-'+decision.id+'.json':'resolution.json');
     if(fs.existsSync(answerFile)){

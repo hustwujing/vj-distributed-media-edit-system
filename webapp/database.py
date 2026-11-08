@@ -60,12 +60,15 @@ class PostgresConnection:
                 self.execute(sql)
 
 
-def connect(dsn, timeout, *, readonly=False, control_lock=True):
+def connect(dsn, timeout, *, readonly=False, control_lock=True, snapshot=False):
     import psycopg
     from psycopg.rows import dict_row
     # A separate bounded observation connection is used by cancellation monitors.
     raw = psycopg.connect(dsn, connect_timeout=max(1, int(timeout)), row_factory=dict_row)
     try:
+        if snapshot:
+            if not readonly:raise ValueError('Observation snapshots must be read-only')
+            raw.isolation_level=psycopg.IsolationLevel.REPEATABLE_READ
         raw.read_only=readonly
         raw.execute("SELECT set_config('statement_timeout', %s, true)", (str(max(1, int(timeout * 1000))),))
         raw.execute("SELECT set_config('lock_timeout', %s, true)", (str(max(1, int(timeout * 1000))),))

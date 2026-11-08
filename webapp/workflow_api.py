@@ -293,7 +293,10 @@ def register(app,store,own_project):
 
     @app.get('/api/projects/{project_id}/runs/{run_id}')
     def detail(project_id:str,run_id:str,request:Request):
-        return public(store,own_run(project_id,run_id,request))
+        # Run state, decisions, inputs and tasks must describe one moment.
+        # This MVCC read does not take the control-plane mutation lock.
+        with store.connect(readonly=True,snapshot=True):
+            return public(store,own_run(project_id,run_id,request))
 
     @app.get('/api/projects/{project_id}/runs/{run_id}/files/{filename}')
     async def delivery_file(project_id:str,run_id:str,filename:str,request:Request):

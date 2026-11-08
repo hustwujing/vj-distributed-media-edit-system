@@ -89,14 +89,15 @@ class Store:
             ''')
 
     @contextmanager
-    def connect(self, readonly=False):
+    def connect(self, readonly=False, *, snapshot=False):
+        if snapshot and not readonly:raise ValueError('Observation snapshots must be read-only')
         existing = getattr(self._connections, 'db', None)
         if existing is not None:
             yield existing
             return
         if self.dsn:
             from .database import connect, PostgresConnection
-            db = connect(self.dsn, self.timeout, readonly=readonly)
+            db = connect(self.dsn, self.timeout, readonly=readonly,snapshot=snapshot)
             connection = PostgresConnection(db)
         else:
             db = sqlite3.connect(self.database.as_uri()+'?mode=ro' if readonly else self.database,
@@ -108,6 +109,7 @@ class Store:
         notices=[];self._connections.notices=notices;committed=False
         try:
             with db:
+                if snapshot and not self.dsn:connection.execute('BEGIN')
                 from .task_leases import CURRENT
                 lease = CURRENT.get()
                 if lease is not None and lease.store.identity == self.identity:
