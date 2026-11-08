@@ -1,4 +1,36 @@
 export const terminalRun = state => ['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(state);
+export const quotaBlockedReasons = new Set(['planning_budget_exhausted', 'model_token_budget_exhausted', 'budget_exhausted', 'daily_model_quota_exhausted']);
+
+export function commandRejectionMessage(receipt) {
+  return ({replan_required:'当前状态需要重新规划，请提交补充要求或新建一轮。',
+    external_result_requires_resolution:'需要先核实外部请求及结果，不能重复调用。',
+    external_recovery_attempt_active:'原执行仍在收尾，请稍后再确认恢复。',
+    external_recovery_cleanup_pending:'原执行资源尚未清理完成，请稍后再确认恢复。',
+    external_submission_changed:'外部请求状态已变化，请刷新并使用最新确认信息。',
+    external_submission_id_conflict:'提供的任务 ID 与已保存的上游任务不一致，请核对。',
+    external_submission_has_known_id:'系统已经取得上游任务 ID，请继续核实原任务，不能再次提交。',
+    external_submission_not_queryable:'该供应商不支持按任务 ID 查询，请先核实原请求。',
+    invalid_or_stale_decision:'确认信息不完整，请按当前状态重新确认。',
+    decision_not_pending:'当前确认已经处理。',decision_snapshot_stale:'执行状态已变化，请使用最新确认信息。',
+    content_changed:'关联素材已经变化，请核对后重新确认。',scope_invalid:'当前执行范围无法授权，请核对能力、素材和预算。',
+    workflow_terminal:'本轮已经结束。',cancellation_in_progress:'取消正在处理中。'})[receipt.error_code] || '控制请求未通过，请核对当前状态。';
+}
+
+export function assertCommandAccepted(receipt) {
+  if (receipt.status === 'rejected') throw new Error(commandRejectionMessage(receipt));
+  return receipt;
+}
+
+export function decisionPresentation(decision, run) {
+  if (decision.kind === 'external_wait') return {title:'外部任务等待超时', description:'继续等待原任务，或放弃该任务并重新规划；其他已完成成果保留。',
+    actions:[{action:'approve',label:'再等一个周期',primary:true},{action:'reject',label:'放弃该任务并重新规划',primary:false}]};
+  if (decision.kind === 'external_submission') return {title:'外部请求结果需要核实', description:'有任务 ID 时继续查询原请求；只有确认上游未受理，才选择重新提交。',
+    actions:[{action:'approve',label:'提供 ID 并继续查询',primary:true},{action:'reject',label:'确认未受理并重新提交',primary:false}]};
+  return {title:['plan_change','successor_authorization','new_run'].includes(decision.kind)?'请确认执行范围':decision.kind==='input_question'?'需要补充信息':'请检查当前候选',
+    description:'请确认候选是否满足你的要求。',
+    actions:[...(canApproveDecision(decision,run)?[{action:'approve',label:'批准并继续',primary:true}]:[]),
+      {action:'reject',label:'停止当前方向',primary:false}]};
+}
 
 export function canApproveDecision(decision, run) {
   if (['plan_change', 'successor_authorization', 'new_run', 'external_submission', 'external_wait'].includes(decision.kind)) return true;

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {canApproveDecision,acceptsFeedback,inputStatus,terminalRun} from '../webapp/static/dynamic_state.js';
+import {canApproveDecision,acceptsFeedback,inputStatus,terminalRun,quotaBlockedReasons,decisionPresentation,assertCommandAccepted,commandRejectionMessage} from '../webapp/static/dynamic_state.js';
 import {settleTool} from '../webapp/static/work_status.js';
 
 test('user approval requires declared review, technical pass and required agent pass',()=>{
@@ -38,8 +38,32 @@ test('terminal notices explain failure and cancellation after re-entry',()=>{
 test('budget exhausted waiting runs explain the only recovery path',()=>{
  assert.match(inputStatus({state:'WAITING_USER',terminal_reason:'planning_budget_exhausted'}),/停止本轮并新建一轮/);
  assert.match(inputStatus({state:'WAITING_USER',terminal_reason:'model_token_budget_exhausted'}),/停止本轮并新建一轮/);
- const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
- assert.match(source,/inputBlocked=.*planning_budget_exhausted/);
+ for(const reason of ['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted'])
+  assert.equal(quotaBlockedReasons.has(reason),true);
+ assert.equal(quotaBlockedReasons.has('storage_quota_exceeded'),false);
+});
+
+test('external decisions expose exactly one clearly named action for each choice',()=>{
+ const run={tasks:[]};
+ const waiting=decisionPresentation({kind:'external_wait'},run);
+ assert.equal(waiting.title,'外部任务等待超时');
+ assert.deepEqual(waiting.actions.map(item=>[item.action,item.label]),[['approve','再等一个周期'],['reject','放弃该任务并重新规划']]);
+ const submission=decisionPresentation({kind:'external_submission'},run);
+ assert.equal(submission.actions.filter(item=>item.action==='approve').length,1);
+ assert.equal(submission.actions.find(item=>item.action==='reject').label,'确认未受理并重新提交');
+ assert.equal(decisionPresentation({kind:'quality_feedback'},run).actions.some(item=>item.action==='approve'),false);
+});
+
+test('immediate and later command rejections share actionable error messages',()=>{
+ for(const error_code of ['replan_required','external_recovery_cleanup_pending','external_recovery_attempt_active','decision_snapshot_stale']){
+  const receipt={status:'rejected',error_code};
+  let success=false;
+  assert.throws(()=>{assertCommandAccepted(receipt);success=true;},error=>error.message===commandRejectionMessage(receipt));
+  assert.equal(success,false);
+ }
+ assert.match(commandRejectionMessage({error_code:'external_recovery_cleanup_pending'}),/清理.*稍后/);
+ const accepted={status:'pending',id:'command'};
+ assert.equal(assertCommandAccepted(accepted),accepted);
 });
 
 test('an unavailable control plane is visible to users',()=>{
