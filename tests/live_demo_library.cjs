@@ -21,7 +21,7 @@ async function runCase(demo){
  const persist=()=>save(path.join(dir,'state.json'),state);persist();save(path.join(dir,'case.json'),demo);
  const context=await browser.newContext({viewport:{width:1440,height:1000}}),page=await context.newPage();page.setDefaultTimeout(45000);
  const streams=new Map();let lastSignature='',current=null;
- const api=async(method,suffix,data)=>{const cookies=await context.cookies(base);const response=await context.request.fetch(internal+suffix,{method,headers:{Cookie:cookies.map(c=>c.name+'='+c.value).join('; ')},...(data===undefined?{}:{data}),timeout:60000});
+ const api=async(method,suffix,data)=>{const cookies=await context.cookies(base+'/');const response=await context.request.fetch(internal+suffix,{method,headers:{Cookie:cookies.map(c=>c.name+'='+c.value).join('; ')},...(data===undefined?{}:{data}),timeout:60000});
   if(!response.ok())throw Error(`HTTP ${response.status()} ${suffix}: ${(await response.text()).slice(0,1000)}`);return response;};
  const read=async()=>{current=await(await api('GET',`/api/projects/${state.project}/runs/${state.run_id}`)).json();state.phase={state:current.state,activity:current.activity,reason:current.terminal_reason,graph_version:current.graph_version};return current;};
  const capture=async name=>{await page.screenshot({path:path.join(dir,name+'.png'),fullPage:true});};
