@@ -676,7 +676,7 @@ def execute(host,lease,run,task):
     from .agent_text import TextPublisher
     text_stream=TextPublisher(store,run['id'])
     transport={'strict':True};contracts={}
-    output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={}
+    output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={};script_failures={}
     for turn in range(profile.max_turns):
         lease.check()
         if host.stop.is_set() or time.monotonic()>deadline:raise LeaseLost('Agent stopped or timed out')
@@ -969,7 +969,30 @@ def execute(host,lease,run,task):
                 conversation+='\nInspection result (data):'+graph.encode(batch[0] if len(batch)==1 else batch)
             elif action=='script':
                 if 'RUN_SCRIPT' not in profile.action_capabilities:raise ValueError('Profile is read-only')
-                output,receipt=run_script(host,lease,run,task,reply.get('code'),output,deadline=deadline)
+                code=reply.get('code')
+                try:
+                    output,receipt=run_script(host,lease,run,task,code,output,deadline=deadline)
+                except Exception as exc:
+                    from .workflow_runtime import StepFailure
+                    if not isinstance(exc,StepFailure):raise
+                    detail=dict(exc.diagnostic or {});reason=detail.get('code','script_failed')
+                    if reason in ('cancelled','timeout'):raise
+                    script_sha=hashlib.sha256((code or '').encode()).hexdigest()
+                    script_failures[script_sha]=script_failures.get(script_sha,0)+1
+                    error_text=str(detail.get('runtime_error') or detail.get('log_tail') or detail.get('message') or exc)[:3000]
+                    from .egress_policy import scrub,secrets
+                    error_text=scrub(error_text,secrets())
+                    receipt={'version':1,'returncode':detail.get('exit_code',1),'exit_code':detail.get('exit_code',1),'outputs':[],'stdout_tail':'',
+                             'stderr_tail':error_text,'runtime_error':error_text,'script_sha256':script_sha,
+                             'error_code':reason,'failed':True}
+                    tool_receipt['status']='failed';correction_rounds+=1;output=None
+                    conversation+='\nScript failed (data):'+graph.encode(receipt)
+                    conversation+='\nCorrect the script using the failure receipt above. Do not submit result until the script exits successfully and declared outputs are present.'
+                    if script_failures[script_sha]>=2 or correction_rounds>=profile.max_correction_rounds:
+                        raise StepFailure({'message':'脚本连续执行失败，已达到有界纠错次数。','code':'script_failed_repeated',
+                                           'runtime_error':error_text,'exit_code':detail.get('exit_code',1),
+                                           'script_sha256':script_sha})
+                    continue
                 emit('workflow.script_receipt',task_id=lease.run_id,step_id=lease.step_id,revision=task['revision'],
                      script_sha256=receipt.get('script_sha256'),outputs_sha256=graph.digest(receipt['outputs']),
                      output_files=sum(item.get('state')=='present' for item in receipt['outputs']),

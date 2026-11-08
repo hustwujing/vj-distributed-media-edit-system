@@ -579,6 +579,43 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertIn('Script receipt (data)',model.call_args_list[-1].args[4])
         self.assertIn('No script, inspect or contract action was executed',model.call_args_list[-1].args[4])
 
+    def test_script_failure_is_returned_to_model_before_agent_attempt_ends(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import threading
+        from webapp.workflow_agents import execute
+        from webapp.workflow_runtime import StepFailure
+        from webapp.specialist_profiles import get
+        policy=get('editing_implementer')
+        task={**self.task,'control_kind':'','profile':policy.snapshot(),'spec':{'profile':policy.id,
+            'inputs':{'source':{'asset':'asset'}},'output_roles':{'report':'report.txt'},'timeout_seconds':900}}
+        replies=[{'action':'script','code':'raise RuntimeError("boom")'},{'action':'result','files':{}}]
+        calls=[]
+        def model(*args,**kwargs):
+            calls.append(args[4]);return replies.pop(0)
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=model), \
+             patch('webapp.workflow_agents.run_script',side_effect=[StepFailure({'exit_code':1,'runtime_error':'boom'}),
+                 ('edit/workflows/output',{'returncode':0,'outputs':[{'name':'report.txt','state':'present'}]})]), \
+             patch('webapp.workflow_agents.finish_files',return_value='candidate'):
+            self.assertEqual(execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task),'candidate')
+        self.assertEqual(len(calls),2)
+        self.assertIn('Script failed (data)',calls[1]);self.assertIn('boom',calls[1]);self.assertIn('exit_code',calls[1])
+
+    def test_repeated_identical_script_failure_is_bounded(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import threading
+        from webapp.workflow_agents import execute
+        from webapp.workflow_runtime import StepFailure
+        from webapp.specialist_profiles import get
+        policy=get('editing_implementer')
+        task={**self.task,'control_kind':'','profile':policy.snapshot(),'spec':{'profile':policy.id,
+            'inputs':{'source':{'asset':'asset'}},'output_roles':{'report':'report.txt'},'timeout_seconds':900}}
+        replies=[{'action':'script','code':'raise RuntimeError("boom")'}]*2
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=replies), \
+             patch('webapp.workflow_agents.run_script',side_effect=StepFailure({'exit_code':1,'runtime_error':'boom'})):
+            with self.assertRaises(StepFailure):execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,task)
+
     def test_early_correction_exhaustion_does_not_create_extra_finalize_calls(self):
         from dataclasses import replace
         from types import SimpleNamespace
