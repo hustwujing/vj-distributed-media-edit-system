@@ -172,7 +172,7 @@ class Task(Contract):
         description='Existing workspace configuration file paths beginning with edit/. No parent traversal or absolute paths.',
         json_schema_extra={'items':{'type':'string','pattern':'^edit/'}})
     timeout_seconds:int=Field(default=900,ge=10,le=3600)
-    retry_policy:Literal['never','safe_once']='never'
+    retry_policy:Literal['never','safe_once']=Field(default='never',description='业务失败重试策略；确定性本地操作的环境故障由系统自动重试，不需要模型设置。')
     on_failure:Literal['pause','diagnose']=Field(default='pause',description='Use diagnose for model-authored implementations when media_failure_diagnostician is authorized, so bounded repair can resume the original goal.')
     basic_reason:str=Field(default='',max_length=1000)
     semantics:TaskSemantics=Field(default_factory=TaskSemantics)

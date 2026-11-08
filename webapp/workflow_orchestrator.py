@@ -481,6 +481,13 @@ class Orchestrator:
         retry=(not task.get('control_kind') and graph.Task.model_validate(task['spec']).retry_policy=='safe_once'
                and business_attempts<2 and phase=='local' and code=='execution_failed'
                and data.get('classification') not in ('code','environment','parameters','model_result'))
+        if not task.get('control_kind') and phase=='local' and code=='execution_failed' and business_attempts<3:
+            try:
+                from .operations import get as get_operation
+                operation=get_operation(task['spec'].get('operation'),task['spec'].get('implementation')) if task['spec'].get('type')=='operation' else None
+                infrastructure=data.get('classification') in ('environment','resource','network','timeout') or data.get('error_type') in ('ImportError','OSError','ConnectionError','TimeoutError','RuntimeTransportError')
+                retry=retry or bool(operation and operation.retry_safe and not operation.external_side_effects and infrastructure)
+            except (KeyError,ValueError):pass
         retry=retry or bool(not task.get('control_kind') and task['external_id'] and phase in ('poll','collect') and code in ('poll_failed','collect_failed') and task['recovery_count']<3)
         retry=retry or bool(task.get('type')=='agent' and code=='agent_failed' and data.get('transient') and business_attempts<3)
         message={
