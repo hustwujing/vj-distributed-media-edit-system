@@ -897,12 +897,8 @@ class Orchestrator:
             frozen['failure_facts']=[{'task_id':item['step'],'revision':item['revision'],
                 'diagnostic':json.loads(item['record'])} for item in store.query(
                     'SELECT step,revision,record FROM workflow_diagnostics WHERE workflow=? ORDER BY created DESC LIMIT 100',(run['id'],))]
-            criteria=list(dict.fromkeys(run['authorization']['delivery_targets']))
-            if not criteria:
-                criteria=list(dict.fromkeys(check.get('criterion','') for task in complete_tasks
-                    if task['spec'].get('delivery_stage') for check in task['spec'].get('acceptance',[])
-                    if check.get('criterion')))
-            frozen['review_criteria']=criteria or [run['goal']]
+            from .review_identity import final_criteria
+            frozen['review_criteria']=final_criteria(run,complete_tasks)
         if purpose=='task':
             selected=frozen['tasks'][0]
             frozen['goal']=selected['spec']['objective']

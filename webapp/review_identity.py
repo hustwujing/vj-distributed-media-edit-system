@@ -12,10 +12,20 @@ def applied_user_changes(store,run):
 def final_identity(store,run):
     from .workflow_graph import work_items
     changes,truncated=applied_user_changes(store,run)
+    tasks=[task for task in work_items(run) if not task.get('control_kind')]
     return identity(store,run,{'review_scope':'final','goal':run['goal'],
         'delivery_targets':run['authorization']['delivery_targets'],
-        'tasks':[task for task in work_items(run) if not task.get('control_kind')],
+        'review_criteria':final_criteria(run,tasks),'tasks':tasks,
         'user_changes':changes,'user_changes_truncated':truncated})
+
+
+def final_criteria(run,tasks):
+    criteria=list(dict.fromkeys(run['authorization']['delivery_targets']))
+    if not criteria:
+        criteria=list(dict.fromkeys(check.get('criterion','') for task in tasks
+            if task['spec'].get('delivery_stage') for check in task['spec'].get('acceptance',[])
+            if check.get('criterion')))
+    return criteria or [run['goal']]
 
 
 def identity(store,run,frozen):

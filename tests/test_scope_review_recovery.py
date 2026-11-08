@@ -32,11 +32,30 @@ class ScopeReviewRecoveryTests(unittest.TestCase):
         self.assertEqual(len(pending),1)
         self.assertNotEqual(pending[0]['id'],self.old['id'])
         self.assertEqual(json.loads(pending[0]['snapshot_json'])['delivery_targets'],['report'])
+        from webapp.review_identity import final_identity
+        self.assertEqual(pending[0]['review_identity'],final_identity(self.store,run))
         self.assertEqual(run['status'],'ACTIVE')
         return run
 
     def test_ready_final_review_is_cancelled_and_replaced(self):
         self.confirm()
+
+    def test_empty_delivery_targets_use_same_identity_at_review_and_publication(self):
+        from webapp.review_identity import final_identity
+        # Start with no pending review so an independently queued final review
+        # actually freezes the empty-target fallback, rather than reusing one.
+        self.store.execute("UPDATE workflow_reviews SET status='superseded' WHERE run_id=?",(self.run['id'],))
+        self.store.execute("UPDATE control_jobs SET status='cancelled' WHERE run_id=? AND control_kind='REVIEW'",(self.run['id'],))
+        run=graph.get(self.store,self.run['id'])
+        authorization={**run['authorization'],'delivery_targets':[]}
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(authorization),run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(graph.encode(authorization),run['id']))
+        self.f.orchestrator.queue_review(graph.get(self.store,run['id']))
+        row=self.store.query("SELECT * FROM workflow_reviews WHERE run_id=? AND status='pending'",(run['id'],))[0]
+        self.assertEqual(json.loads(row['snapshot_json'])['review_criteria'],[run['goal']])
+        self.assertEqual(row['review_identity'],final_identity(self.store,graph.get(self.store,run['id'])))
+        self.store.execute('UPDATE runs SET graph_version=graph_version+1 WHERE id=?',(run['id'],))
+        self.assertEqual(row['review_identity'],final_identity(self.store,graph.get(self.store,run['id'])))
 
     def test_active_final_review_is_fenced_and_cleaned_without_touching_step_review(self):
         lease=Coordinator(self.store,'old-review','test').claim(self.run['id'],'workflow',step_id=self.old['task_id'])
