@@ -216,9 +216,9 @@ function renderMessages(run){
 }
 
 function renderAgentTranscript(run){
- const actorLabel=event=>event.payload?.display_name||({manager_agent:'任务规划师',reviewer_agent:'质量审查员',diagnostician_agent:'故障诊断师',specialist_agent:'编辑实现师',sandbox_agent:'本机沙盒创作助手',remote_sandbox_agent:'远程沙盒创作助手'}[event.payload?.actor||event.payload?.execution?.actor]||'创作助手');
+ const actorLabel=event=>event.payload?.display_name||({manager_agent:'任务规划师',reviewer_agent:'质量审查员',diagnostician_agent:'故障诊断师',specialist_agent:'代码编辑师',sandbox_agent:'本机沙盒创作助手',remote_sandbox_agent:'远程沙盒创作助手'}[event.payload?.actor||event.payload?.execution?.actor]||'创作助手');
  const streamText=(agentStreamTurn.text||'').trim(),entries=agentTextEvents.filter(event=>typeof event.payload?.text==='string'&&event.payload.text.trim()&&!streamText.includes(event.payload.text.trim())).map(event=>({id:'note-'+(event.payload.event_id||event.seq),role:actorLabel(event),text:event.payload.text.trim(),time:event.created}));
- if(streamText){const roles='任务规划师|质量审查员|故障诊断师|编辑实现师|本机沙盒创作助手|远程沙盒创作助手|Manager|Reviewer|Diagnostician|Implementer|Sandbox Agent',chunks=streamText.split(new RegExp(`\\n\\n(?=(?:${roles})：)`));for(const [index,chunk] of chunks.entries()){const match=chunk.match(new RegExp(`^(${roles})：([\\s\\S]*)$`));entries.push({id:'stream-'+index,role:match?.[1]||'本机沙盒创作助手',text:(match?.[2]||chunk).trim(),time:(agentStreamTurn._lastTextAt||0)/1000});}}
+ if(streamText){const roles='任务规划师|质量审查员|故障诊断师|代码编辑师|编辑实现师|本机沙盒创作助手|远程沙盒创作助手|Manager|Reviewer|Diagnostician|Implementer|Sandbox Agent',chunks=streamText.split(new RegExp(`\\n\\n(?=(?:${roles})：)`));for(const [index,chunk] of chunks.entries()){const match=chunk.match(new RegExp(`^(${roles})：([\\s\\S]*)$`));entries.push({id:'stream-'+index,role:match?.[1]||'本机沙盒创作助手',text:(match?.[2]||chunk).trim(),time:(agentStreamTurn._lastTextAt||0)/1000});}}
  const response=$('dynamic-agent-response'),output=$('dynamic-agent-text'),streaming=!terminalRun(run.state)&&eventStream!=null&&Date.now()-lastAgentOutputAt<1800,known=new Set(entries.map(entry=>entry.id));
  for(const entry of entries){let node=output.querySelector(`[data-agent-output="${CSS.escape(entry.id)}"]`);if(!node){node=document.createElement('section');node.className='agent-output-entry';node.dataset.agentOutput=entry.id;node.innerHTML='<div class="agent-output-meta"><span></span><small></small></div><div class="assistant-text markdown"></div>';output.append(node);}node.querySelector('.agent-output-meta span').textContent=entry.role;node.querySelector('.agent-output-meta small').textContent=entry.time?new Date(entry.time*1000).toLocaleTimeString():'';const textNode=node.querySelector('.assistant-text');if(textNode.dataset.text!==entry.text){textNode.dataset.text=entry.text;textNode.innerHTML=markdown(entry.text,current?.delivery||[]);}textNode.classList.remove('streaming-text');}
  output.querySelectorAll('[data-agent-output]').forEach(node=>{if(!known.has(node.dataset.agentOutput))node.remove();});const latestText=output.querySelector('[data-agent-output]:last-child .assistant-text');latestText?.classList.toggle('streaming-text',streaming&&entries.length>0);
@@ -248,7 +248,7 @@ const roleActivityStatuses=new Set(['ready','running','leased','waiting','retry_
 function activityRole(item){
  if(item.display_name)return item.display_name;
  if(item.control_kind)return {PLAN:'任务规划师',REVIEW:'质量审查员',DIAGNOSE:'故障诊断师'}[item.control_kind]||'流程控制助手';
- if(item.type==='agent')return item.agent_policy?.id==='editing_implementer'?'编辑实现师':'专业编辑助手';
+ if(item.type==='agent')return item.agent_policy?.id==='editing_implementer'?'代码编辑师':'专业编辑助手';
  return '媒体执行器';
 }
 function activityLocation(item){

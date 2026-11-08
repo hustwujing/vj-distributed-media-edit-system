@@ -412,7 +412,7 @@ def public_actor_label(profile):
     if profile.id=='media_planner':return '任务规划师'
     if profile.role.name=='DIAGNOSTICIAN':return '故障诊断师'
     if profile.role.name=='REVIEWER':return '质量审查员'
-    return '编辑实现师'
+    return '代码编辑师'
 
 
 def public_command_summary(profile,name,reply):
