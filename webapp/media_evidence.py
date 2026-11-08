@@ -110,12 +110,14 @@ def audio_evidence(path: str | Path, *, sample_seconds: float|None=None,offset_s
         return float('-inf') if matches[-1].lower()=='-inf' else float(matches[-1])
     integrated=number(r'\bI:\s*(-?inf|-?\d+(?:\.\d+)?)\s+LUFS')
     peak=number(r'max_volume:\s*(-?inf|-?\d+(?:\.\d+)?)\s+dB')
+    true_peak=number(r'True peak:\s*Peak:\s*(-?inf|-?\d+(?:\.\d+)?)\s+dBFS')
     mean=number(r'mean_volume:\s*(-?inf|-?\d+(?:\.\d+)?)\s+dB')
-    if peak is None or mean is None or integrated is None:raise ValueError('Audio measurement is incomplete')
+    if peak is None or true_peak is None or mean is None or integrated is None:raise ValueError('Audio measurement is incomplete')
     finite=lambda value:value if math.isfinite(value) else None
     sample_values=number(r'n_samples:\s*(\d+)')
     return {'audio_silent':peak<=-60,'integrated_loudness_lufs':finite(integrated),
             'mean_volume_db':finite(mean),'peak_volume_db':finite(peak),
+            'true_peak_dbtp':finite(true_peak),'true_peak_method':'ffmpeg_ebur128_peak_true',
             'decoded_sample_values':int(sample_values) if sample_values is not None else None,
             'audio_track':audio_track,
             'measurement_seconds':sample_seconds,'measurement_offset_seconds':offset_seconds,

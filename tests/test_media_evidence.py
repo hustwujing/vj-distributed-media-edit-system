@@ -186,6 +186,25 @@ class AudioEvidenceTests(unittest.TestCase):
             self.assertEqual(measured['measurement_scope'],'sampled')
             self.assertEqual(measured['measurement_offset_seconds'],1)
 
+    def test_true_peak_preserves_intersample_overshoot_distinct_from_sample_peak(self):
+        import wave,json
+        from array import array
+        with tempfile.TemporaryDirectory() as root:
+            path=Path(root)/'intersample.wav'
+            # Fs/4 with45degreephase:sampleamplitude0.7, reconstructedpeak~0.99.
+            with wave.open(str(path),'wb') as wav:
+                wav.setnchannels(1);wav.setsampwidth(2);wav.setframerate(48000)
+                values=array('h',[22937,22937,-22937,-22937]*12000)
+                import sys
+                if sys.byteorder!='little':values.byteswap()
+                wav.writeframes(values.tobytes())
+            measured=audio_evidence(path)
+            self.assertAlmostEqual(measured['peak_volume_db'],-3.1,delta=.2)
+            self.assertGreater(measured['true_peak_dbtp'],measured['peak_volume_db']+2)
+            self.assertEqual(measured['measurement_scope'],'full')
+            self.assertEqual(measured['true_peak_method'],'ffmpeg_ebur128_peak_true')
+            json.dumps(measured,allow_nan=False)
+
     def test_audio_envelope_and_comparison_are_bounded_measurements(self):
         import subprocess,json
         from webapp.media_evidence_operation import collect
