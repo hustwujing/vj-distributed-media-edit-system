@@ -207,7 +207,7 @@ class Orchestrator:
                     retryable=bool(failed) and all(environment_failure(task) for task in failed)
                     if retryable:
                         for task in failed:
-                            store.execute(f"UPDATE {graph.work_table(task)} SET status='ready',phase='local',error_code='',error_detail='',wait_reason='',next_run_at=? WHERE run_id=? AND id=?",
+                            store.execute(f"UPDATE {graph.work_table(task)} SET status='ready',phase='local',lease_id='',lease_generation=0,error_code='',error_detail='',wait_reason='',next_run_at=? WHERE run_id=? AND id=?",
                                           (store.now(),run['id'],task['id']))
                         self.set_status(run,'ACTIVE','execution_retry')
                     else:error='replan_required'
