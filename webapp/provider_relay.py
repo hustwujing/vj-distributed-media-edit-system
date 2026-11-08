@@ -76,14 +76,11 @@ class ImageRelay:
                             length=int(self.headers.get('Content-Length','0'))
                             if not 0<length<=32*1024**2:raise ValueError('Invalid request size')
                             raw=self.rfile.read(length)
+                            if len(raw)!=length:raise ValueError('Incomplete request body')
                             with outer.lock:
                                 if outer.submitted:
                                     self.reply(202 if outer.job else 409, {'id':outer.job} if outer.job else {'error':'Submission outcome unknown'})
                                     return
-                                outer.submitted=True
-                            outer.lease.consume('image_provider',4)
-                            outer.lease.store.execute('INSERT INTO execution_provider_calls VALUES (?,?,?,?,?,?)',
-                                (outer.call,outer.lease.run_id,outer.lease.attempt,'submitting','',outer.base))
                             content_type=self.headers.get('Content-Type','')
                             if '\r' in content_type or '\n' in content_type:raise ValueError('Invalid multipart header')
                             message=BytesParser(policy=default).parsebytes(('Content-Type: '+content_type+'\r\nMIME-Version: 1.0\r\n\r\n').encode()+raw)
@@ -106,7 +103,20 @@ class ImageRelay:
                                 params={'prompt':prompt,'quality':task.quality,'output_megapixels':'0.6','seed':'2511','preserve_details':'true','auto_retry':'false'}
                             from .provider_calls import intent,save_session,update
                             from .operations import for_image
-                            intent(outer.lease.store,outer.record_w,outer.record_s,outer.base,for_image(task.action).id)
+                            with outer.lock:
+                                if outer.submitted:
+                                    self.reply(202 if outer.job else 409, {'id':outer.job} if outer.job else {'error':'Submission outcome unknown'})
+                                    return
+                                # Local validation is complete. Commit quota and
+                                # both durable intents together before any HTTP;
+                                # an admission failure leaves this relay reusable.
+                                with outer.lease.store.connect() as db:
+                                    db.execute('BEGIN IMMEDIATE')
+                                    outer.lease.consume('image_provider',4)
+                                    db.execute('INSERT INTO execution_provider_calls VALUES (?,?,?,?,?,?)',
+                                        (outer.call,outer.lease.run_id,outer.lease.attempt,'submitting','',outer.base))
+                                    intent(outer.lease.store,outer.record_w,outer.record_s,outer.base,for_image(task.action).id)
+                                outer.submitted=True
                             with provider_session() as session:
                                 session.trust_env=False
                                 response=session.post(outer.base+'/api/jobs',files=files,data=params,
@@ -150,7 +160,15 @@ class ImageRelay:
                                     if record.get('status') in ('succeeded','failed','cancelled'):
                                         outer.lease.store.execute('UPDATE execution_provider_calls SET status=? WHERE id=?',(record['status'],outer.call))
                                 self.reply(response.status_code,bytes(data),response.headers.get('Content-Type','application/octet-stream'))
-                except Exception:
+                except Exception as exc:
+                    if method=='POST' and self.path=='/api/jobs' and not outer.submitted:
+                        from .task_leases import TaskQuotaReached
+                        if isinstance(exc,TaskQuotaReached):
+                            with contextlib.suppress(OSError):self.reply(403,{'error':exc.diagnostic,'request_sent':False})
+                            return
+                        if isinstance(exc,ValueError):
+                            with contextlib.suppress(OSError):self.reply(422,{'error':'Invalid image request; nothing was submitted','request_sent':False})
+                            return
                     if outer.submitted and not outer.job:
                         with contextlib.suppress(Exception):
                             outer.lease.store.execute("UPDATE workflow_provider_calls SET state='submission_unknown' WHERE request_key=? AND state='submitting'",(outer.lease.run_id+':direct-image:0',))
