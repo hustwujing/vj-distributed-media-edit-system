@@ -246,6 +246,22 @@ class Orchestrator:
         with graph.atomic_effect(self.store):
             return self._answer(graph.get(self.store,run['id']),payload,request_id=request_id,actor=actor)
 
+    def external_submission_subject(self,run,request):
+        task=graph.work_item(run,request['task_id'])
+        if not task or task['type']!='operation' or task['status']!='paused' or task['error_code']!='submission_unknown':
+            raise DecisionError('external_submission_changed')
+        key=f'{run["id"]}:{task["id"]}:{task["revision"]}'
+        rows=self.store.query('SELECT * FROM workflow_provider_calls WHERE request_key=?',(key,))
+        if not rows or rows[0]['state'] not in ('submitting','unknown','submission_unknown'):
+            raise DecisionError('external_submission_changed')
+        if self.store.query('SELECT l.attempt FROM execution_leases l JOIN execution_attempts a ON a.id=l.attempt WHERE l.run_id=? AND a.step_id=? AND l.active=1 AND l.expires>?',
+                            (run['id'],task['id'],self.store.now())):
+            raise DecisionError('external_recovery_attempt_active')
+        if self.store.query("SELECT c.attempt FROM execution_cleanup c JOIN execution_attempts a ON a.id=c.attempt WHERE a.run_id=? AND a.step_id=? AND c.state<>'complete'",
+                            (run['id'],task['id'])):
+            raise DecisionError('external_recovery_cleanup_pending')
+        return task,rows[0]
+
     def _answer(self,run,payload,*,request_id=None,actor='user'):
         store=self.store
         payload=graph.DecisionAnswer.model_validate(payload).model_dump(exclude_none=True)
@@ -289,10 +305,14 @@ class Orchestrator:
                 with store.connect() as db:request_cleanup(db,run['id'],external=True,step_id=task['id'])
                 self.open_repair(run,task['id'],'external_wait',row['id'],'external_wait_timeout');store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],));self.set_status(run,'ACTIVE','external_wait_replan');self.queue_plan(graph.get(store,run['id']),{'external_wait_abandoned':row['id'],'task_id':task['id']});return
             if row['kind']=='external_submission':
-                task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
+                task,call=self.external_submission_subject(run,request)
+                if call['external_id']:raise DecisionError('external_submission_has_known_id')
+                from .operation_lifecycle import for_operation
+                from .operations import get as operation
+                phase=for_operation(operation(task['spec']['operation'],task['spec']['implementation'])).protocol.state_phases['pending']
                 import uuid
-                store.execute("UPDATE workflow_provider_calls SET request_key=request_key||?,state='superseded',updated=? WHERE workflow=? AND step=? AND state IN ('submitting','unknown','submission_unknown')",(':superseded:'+uuid.uuid4().hex,store.now(),run['id'],task_id))
-                graph.write_work(store,task,"UPDATE run_tasks SET status='ready',phase='submit',external_id='',error_code='',error_detail='',next_run_at=? WHERE run_id=? AND id=?",(store.now(),run['id'],task_id))
+                store.execute("UPDATE workflow_provider_calls SET request_key=request_key||?,state='superseded',updated=? WHERE request_key=?",(':superseded:'+uuid.uuid4().hex,store.now(),call['request_key']))
+                graph.write_work(store,task,"UPDATE run_tasks SET status='retry_wait',phase=?,external_id='',error_code='',error_detail='',next_run_at=? WHERE run_id=? AND id=?",(phase,store.now(),run['id'],task['id']))
                 store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
                 self.set_status(run,'ACTIVE','external_submission_resubmit');return
             if row['kind'] in ('plan_change','successor_authorization'):
@@ -321,8 +341,15 @@ class Orchestrator:
         elif row['kind']=='external_submission' and payload.get('action')=='approve':
             external_id=str(payload.get('external_id') or '').strip()
             if not re_full_handle(external_id):raise ValueError('请填写供应商任务 ID 后再继续')
-            task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
-            graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,error_code='',error_detail='',next_run_at=? WHERE run_id=? AND id=?",(external_id,store.now(),run['id'],task_id))
+            task,call=self.external_submission_subject(run,request)
+            from .operation_lifecycle import for_operation
+            from .operations import get as operation
+            if 'poll' not in for_operation(operation(task['spec']['operation'],task['spec']['implementation'])).protocol.phases:
+                raise DecisionError('external_submission_not_queryable')
+            if call['external_id'] and call['external_id']!=external_id:raise DecisionError('external_submission_id_conflict')
+            store.execute("UPDATE workflow_provider_calls SET state='waiting',external_id=?,updated=? WHERE request_key=?",
+                          (external_id,store.now(),call['request_key']))
+            graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,error_code='',error_detail='',wait_recorded_at=?,next_run_at=? WHERE run_id=? AND id=?",(external_id,store.now(),store.now(),run['id'],task['id']))
             store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
             self.set_status(run,'ACTIVE','external_submission_attached');return
         elif row['kind']=='new_run' and payload.get('action')=='approve':
