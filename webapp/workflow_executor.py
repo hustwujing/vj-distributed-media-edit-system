@@ -168,7 +168,7 @@ def _execute(host,lease):
             except (LeaseLost,TaskLimitReached):raise
             except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.run_id,step_id=lease.step_id)
         calls=store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(run['id']+':'+task['id']+':'+str(task['revision']),))
-        transient_model=bool(task.get('control_kind') and task['type']=='agent' and transient_model_error(exc))
+        transient_model=bool(task['type']=='agent' and transient_model_error(exc))
         if isinstance(exc,TaskQuotaReached):
             code=quota_error_code(task,exc)
         else:code=failure_error_code(task,phase,calls,classification)

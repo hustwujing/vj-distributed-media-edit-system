@@ -63,8 +63,9 @@ def classify_error(detail,phase):
     if 'syntaxerror' in text or 'nameerror' in text or 'typeerror' in text or 'assertionerror' in text:return 'code'
     if 'permissionerror' in text or 'permission denied' in text or 'read-only file system' in text or 'modulenotfounderror' in text or 'no module named' in text or 'no such file' in text:return 'environment'
     if 'no space left' in text or 'out of memory' in text:return 'resource'
-    if '401' in text or '403' in text:return 'authorization'
-    if '429' in text or 'rate limit' in text:return 'rate_limit'
+    status=detail.get('http_status') if isinstance(detail,dict) else None
+    if status in (401,403):return 'authorization'
+    if status==429:return 'rate_limit'
     if 'timeout' in text or 'timed out' in text or '超时' in text:return 'timeout'
     if phase=='validate':return 'validation'
     if phase in ('poll','collect'):return 'network'

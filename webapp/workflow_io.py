@@ -32,8 +32,12 @@ def execute(request):
             name = item['name']
             if Path(name).name != name or name in ('.', '..'):
                 raise ValueError('Invalid output name')
-            with (folder/name).open('xb') as stream:
-                stream.write(base64.b64decode(item['data'], validate=True))
+            data=base64.b64decode(item['data'], validate=True)
+            target=folder/name
+            if target.exists() and target.is_file() and target.read_bytes()==data:
+                continue
+            with target.open('wb') as stream:
+                stream.write(data)
             if Path(name).suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp'):
                 from PIL import Image
                 with Image.open(folder/name) as image:

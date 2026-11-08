@@ -202,7 +202,8 @@ class Orchestrator:
                         if not records:return False
                         try:
                             record=json.loads(records[0]['record'])
-                            return record.get('error_type')=='ImportError' or 'opensandbox' in str(record.get('message','')).lower()
+                            return (record.get('classification') in ('environment','resource','network','timeout','execution') and
+                                    record.get('error_type') not in ('ValueError','ValidationError','ModelResultError'))
                         except (TypeError,ValueError):return False
                     retryable=bool(failed) and all(environment_failure(task) for task in failed)
                     if retryable:
@@ -481,7 +482,7 @@ class Orchestrator:
                and business_attempts<2 and phase=='local' and code=='execution_failed'
                and data.get('classification') not in ('code','environment','parameters','model_result'))
         retry=retry or bool(not task.get('control_kind') and task['external_id'] and phase in ('poll','collect') and code in ('poll_failed','collect_failed') and task['recovery_count']<3)
-        retry=retry or bool(task.get('control_kind') and code=='agent_failed' and data.get('transient') and business_attempts<3)
+        retry=retry or bool(task.get('type')=='agent' and code=='agent_failed' and data.get('transient') and business_attempts<3)
         message={
             'model_result':'模型未找到符合条件的结果，请调整输入或要求后重新规划。',
             'budget_exhausted':'本轮操作次数或模型预算已达上限。请调整执行范围或预算后重新发起。',
@@ -508,6 +509,8 @@ class Orchestrator:
                 message='系统执行错误：OpenSandbox 运行时加载失败（ImportError）。这不是输入问题；修复运行时后可点击“继续”重试失败步骤。'
             elif detail:
                 message='系统执行错误：'+detail[:400]+'。请修复运行环境后重试。'
+        if code=='agent_failed' and data.get('transient'):
+            message='模型服务出现瞬时故障，系统将自动重试（第 '+str(task.get('recovery_count',0)+1)+' 次）。'
         if code=='agent_failed' and data.get('error_detail'):
             message='脚本执行失败：'+str(data['error_detail'])[:400]+'。已保留错误回执，请修正脚本后重试。'
         graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',
