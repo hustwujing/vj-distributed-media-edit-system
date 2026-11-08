@@ -76,6 +76,16 @@ def public(store,run):
     successors=store.query('SELECT id FROM runs WHERE parent_run_id=? ORDER BY created_at DESC LIMIT 1',(run['id'],))
     value['successor_run_id']=successors[0]['id'] if successors else None
     value['activity']=run['activity']
+    terminal_notice=''
+    if run['status'] in ('FAILED','CANCELLED'):
+        reason=run.get('terminal_reason') or ''
+        if reason=='deadline_or_budget':
+            limit=store.query('SELECT termination_reason FROM execution_limits WHERE task_id=?',(run['id'],))
+            cause=limit[0]['termination_reason'] if limit else ''
+            terminal_notice={'budget':'任务预算已耗尽，系统停止了后续执行。','deadline':'任务时限已到，系统停止了后续执行。','security':'安全策略触发，系统停止了后续执行。'}.get(cause,'任务预算或时限已耗尽，系统停止了后续执行。')
+        else:
+            terminal_notice={'authorization_rejected':'当前执行方向未获授权，任务已停止。','planning_budget_exhausted':'规划轮次已耗尽，任务未继续执行。','user_cancelled':'你已取消本次任务，已完成成果会保留。','successor_confirmed':'本轮已由新一轮任务取代，请查看后继任务。'}.get(reason,'任务未完成，请查看下方诊断信息。' if run['status']=='FAILED' else '任务已取消。')
+    value['terminal_notice']=terminal_notice
     revision_versions={(row['task_id'],row['revision']):row['created_graph_version'] for row in
         store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}
     value['tasks']=[]

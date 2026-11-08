@@ -27,7 +27,7 @@ export function settleTool(turn,item){
  if(item.status!=='running')return item;
  const attempt=item.execution?.attempt_id||item.attempt;
  const known=(turn.activity_attempts||[]).find(x=>x.id===attempt);
- const runStatus=String(turn.status||'').toLowerCase();
+ const runStatus=String(turn.state||turn.status||'').toLowerCase();
  if(['succeeded','failed','cancelled'].includes(runStatus)||(known&&known.status!=='running'))return {...item,status:'interrupted'};
  return item;
 }

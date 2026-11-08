@@ -30,6 +30,11 @@ test('unknown external submission and planning have distinct input waiting messa
  assert.equal(terminalRun('SUCCEEDED'),true);
 });
 
+test('terminal notices explain failure and cancellation after re-entry',()=>{
+ assert.equal(inputStatus({state:'FAILED',terminal_notice:'任务预算已耗尽，系统停止了后续执行。'}),'任务预算已耗尽，系统停止了后续执行。');
+ assert.equal(inputStatus({state:'CANCELLED',terminal_notice:'你已取消本次任务，已完成成果会保留。'}),'你已取消本次任务，已完成成果会保留。');
+});
+
 test('stale tool activity is visibly interrupted after worker loss or terminal run',()=>{
  const item={status:'running',execution:{attempt_id:'old'},sequence:1};
  assert.equal(settleTool({status:'running',activity_attempts:[{id:'old',status:'expired'}]},item).status,'interrupted');
@@ -42,6 +47,7 @@ test('dynamic activity renders an explicit interrupted state',()=>{
  assert.match(source,/import \{settleTool\} from '\.\/work_status\.js'/);
  assert.match(source,/执行器中断，未收到结束回执/);
  assert.match(source,/state==='interrupted'\?'↯'/);
+ assert.match(source,/error\('\'\);if\(!eventStream\)/);
 });
 
 test('accepted artifacts expose reuse controls outside the hidden task audit container',()=>{

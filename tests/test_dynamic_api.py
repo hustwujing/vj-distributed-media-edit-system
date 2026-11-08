@@ -54,6 +54,12 @@ class DynamicAPITests(unittest.TestCase):
              self.app.state.store.now(),'expired'))
         snapshot=self.a.get(self.prefix+'/'+run['id']).json()
         self.assertEqual(snapshot['activity_attempts'],[{'id':'expired-attempt','status':'expired','generation':0}])
+
+    def test_terminal_snapshot_exposes_user_readable_reason(self):
+        run=self.a.post(self.prefix,json=self.body()).json()
+        self.app.state.store.execute("UPDATE runs SET status='FAILED',terminal_reason='planning_budget_exhausted' WHERE id=?",(run['id'],))
+        snapshot=self.a.get(self.prefix+'/'+run['id']).json()
+        self.assertEqual(snapshot['terminal_notice'],'规划轮次已耗尽，任务未继续执行。')
     def test_stale_content_creates_no_task(self):
         body=self.body();body['authorization']['content_fingerprint']='0'*64
         response=self.a.post(self.prefix,json=body)

@@ -21,6 +21,7 @@ export function inputStatus(run) {
   if (run.terminal_reason === 'delivery_scope_change') return '交付范围需要确认；已有成果会保留，不会自动重新生成。';
   if (run.terminal_reason === 'delivery_targets_incomplete') return '当前成果与冻结交付范围不一致，请确认保留的交付内容。';
   if (run.terminal_reason === 'user_decision_pending') return '当前任务等待你的确认，确认后会继续处理。';
+  if (terminalRun(run.state) && run.terminal_notice) return run.terminal_notice;
   if (run.state === 'FAILED') return '任务已失败；请查看下方失败原因和诊断信息。';
   if (run.input_barrier_sequence !== null) return run.activity === 'PLANNING'
     ? '正在根据已接收的要求重新规划；此时追加的要求会进入下一批。'
