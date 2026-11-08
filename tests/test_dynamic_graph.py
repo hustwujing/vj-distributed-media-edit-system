@@ -69,6 +69,29 @@ class DynamicGraphTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             graph.Authorization.model_validate({**authorization.model_dump(),'model_token_budget':4000001})
 
+    def test_resolution_guidance_leads_to_input_replanning_not_resume(self):
+        import uuid
+        from webapp import run_inputs
+        from webapp.workflow_api import public
+        self.tick()
+        self.propose({'proposal_id':'resolution-plan','reason':'Create report','base_graph_version':0,'add_tasks':[script()], 'replan_after':['first']})
+        self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed' WHERE run_id=?",(self.run['id'],))
+        self.store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='task_requires_resolution' WHERE id=?",(self.run['id'],))
+        notice=public(self.store,graph.get(self.store,self.run['id']))['blocking_action']
+        self.assertIn('提交补充要求',notice['message'])
+        self.assertIn('不会自动重新规划',notice['message'])
+        command=graph.command(self.store,self.run['id'],'owner','resume',request_id=uuid.uuid4().hex)
+        self.tick()
+        self.assertEqual(self.store.query('SELECT error_code FROM workflow_commands WHERE id=?',(command['id'],))[0]['error_code'],'replan_required')
+        request=run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'请根据失败反馈修改报告'})
+        self.tick()
+        row=self.store.query('SELECT status FROM run_inputs WHERE id=?',(request['id'],))[0]
+        self.assertEqual(row['status'],'PLANNING')
+        pending=self.store.query("SELECT snapshot_json FROM planner_runs WHERE run_id=? AND status='pending'",(self.run['id'],))
+        self.assertEqual(len(pending),1)
+        self.assertIn('请根据失败反馈修改报告',pending[0]['snapshot_json'])
+
     def setUp(self):
         self.f=fixtures.WorkflowTests();self.f.setUp();self.store=self.f.store
         self.authorization={'goal':'Make a report','allowed_assets':['asset'],'allowed_operations':['script'],

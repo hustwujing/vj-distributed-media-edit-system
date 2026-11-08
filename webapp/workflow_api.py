@@ -184,7 +184,7 @@ def public(store,run):
                 'review_incomplete':('审查证据不足','自动补证据已达到上限。请查看下方审查反馈，决定是否补充素材/要求，或停止本轮。'),
                 'external_wait_timeout':('外部任务等待超时','上游任务等待已超过上限。请停止当前任务或重新规划，不会继续无限轮询。'),
                 'storage_quota_exceeded':('存储额度不足','请清理旧项目或增加存储额度，然后点击“继续”重新检查发布。'),
-                'task_requires_resolution':('任务需要重新规划','当前任务无法继续复用，请点击“继续”重新规划。'),
+                'task_requires_resolution':('任务需要处理','请提交补充要求，系统会在当前执行安全收尾后重新规划；也可以停止本轮。“继续”仅尝试恢复可安全重试的步骤，不会自动重新规划。'),
             }
             pending=value['decisions'][0] if value['decisions'] else None
             request=(pending or {}).get('request') or {}
