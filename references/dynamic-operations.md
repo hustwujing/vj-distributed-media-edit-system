@@ -184,6 +184,14 @@ Image/video crops use [x1,y1,x2,y2]. Reports include actual source/preview hashe
 full-stream audio measurements or bounded frame structure metrics. These metrics
 are not identity or semantic verdicts.
 
+For `mode=image`, bind `reference` to compare the candidate against the original
+at full resolution. The report includes exact changed-pixel counts, maximum
+channel difference and changed bounding box. With `crop=[x1,y1,x2,y2]`, it also
+measures inside and outside that rectangle separately; an outside count of zero
+establishes pixel preservation there. Images must have matching oriented geometry;
+the collector never silently resizes a comparison. The preview crop does not
+limit the full-image difference measurement.
+
 A failed candidate is not an accepted dependency. Use only a frozen descriptor
 from `repair_candidates`, as
 `inputs.source = {"repair_candidate": {logical_task_id, revision, artifact_id, sha256, role}}`.

@@ -3,6 +3,23 @@ import json
 from . import workflow_graph as graph
 
 
+def plan_confirmation_evidence(store,run):
+    """Process receipts prove presentation/approval, never content acceptance."""
+    rows=store.query("SELECT id,graph_version,authorization_version,snapshot_digest,request_json,answer_json,updated_at FROM workflow_decisions WHERE run_id=? AND kind='plan_confirmation' AND status='applied' ORDER BY updated_at DESC LIMIT 101",(run['id'],))
+    approved=[]
+    for row in rows[:100]:
+        request=json.loads(row['request_json']);answer=json.loads(row['answer_json'])
+        if answer.get('action')!='approve':continue
+        approved.append({'decision_id':row['id'],'planning_request_id':request.get('planning_request_id'),
+            'graph_version':row['graph_version'],'authorization_version':row['authorization_version'],
+            'snapshot_digest':row['snapshot_digest'],'approved_at':row['updated_at'],
+            'delivery_targets':request.get('delivery_targets',[]),
+            'task_ids':[step['id'] for step in request.get('steps',[]) if step.get('id')]})
+    return {'source':'server_decision_ledger','approved_plans':list(reversed(approved)),
+            'history_truncated':len(rows)>100,
+            'scope':'Plan presentation and explicit approval only; not a content-review or technical-check waiver.'}
+
+
 def user_reviews(store,run):
     from .run_inputs import candidate_digest
     selected={task['id']:task for task in graph.active_tasks(run)};result=[]

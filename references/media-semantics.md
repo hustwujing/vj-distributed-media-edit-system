@@ -78,6 +78,15 @@ finalizing; if that cannot be done, do not fabricate a positive conclusion.
 
 ## Evidence and repair
 
+Keep process requirements, interface capabilities and artifact contents distinct.
+An approved-plan receipt proves that a plan was shown before execution; it does
+not require exporting a plan document unless the user asked for one. A PNG can
+be loaded as a raster image layer and manipulated by the image workbench; that
+does not make its text or adjustment parameters editable. Statements that the
+interface supports manual selection, layer positioning or importing results are
+not requests to embed those interface controls into each output. Do not claim
+that a UI action was performed merely because the capability exists.
+
 Editable behavior requires an implementation that consumes the delivered
 parameters, not just parameter names or values saved beside a rendered image.
 For parametric adjustments, deliver a supported native document with its source

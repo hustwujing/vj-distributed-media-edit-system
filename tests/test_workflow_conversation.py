@@ -35,7 +35,9 @@ class ConversationTests(unittest.TestCase):
             request_id=uuid.uuid4().hex,actor='owner')
 
     def test_plan_creates_no_business_work_until_versioned_approval_and_fills_targets(self):
+        from webapp.workflow_history import plan_confirmation_evidence
         run=self.stage();self.assertEqual(run['status'],'WAITING_USER');self.assertEqual(run['tasks'],[])
+        self.assertEqual(plan_confirmation_evidence(self.store,run)['approved_plans'],[])
         decision=self.decision();self.assertEqual(decision['kind'],'plan_confirmation')
         self.assertEqual(json.loads(decision['request_json'])['delivery_targets'],['report.txt'])
         self.assertIsNone(Coordinator(self.store,'business-test','test').claim(run['id'],'workflow',step_id='first'))
@@ -46,6 +48,13 @@ class ConversationTests(unittest.TestCase):
         self.assertTrue(run['authorization']['require_plan_confirmation'])
         self.assertEqual(len(run['tasks']),1)
         self.assertEqual(run['tasks'][0]['authorization_version'],run['authorization_version'])
+        proof=plan_confirmation_evidence(self.store,run)
+        self.assertEqual(proof['approved_plans'][0]['decision_id'],decision['id'])
+        self.assertEqual(proof['approved_plans'][0]['delivery_targets'],['report.txt'])
+        self.f.orchestrator.queue_review(run,subject='first')
+        self.f.orchestrator.queue_review(run)
+        for row in self.store.query('SELECT snapshot_json FROM workflow_reviews WHERE run_id=?',(run['id'],)):
+            self.assertEqual(json.loads(row['snapshot_json'])['plan_confirmation_evidence'],proof)
         with self.assertRaises(ValueError):self.answer(decision,'approve')
 
     def test_chat_revision_invalidates_confirmation_and_preserves_both_inputs(self):
@@ -61,6 +70,8 @@ class ConversationTests(unittest.TestCase):
 
     def test_reject_plan_does_not_replan_without_new_input(self):
         self.stage();self.answer(self.decision(),'reject')
+        from webapp.workflow_history import plan_confirmation_evidence
+        self.assertEqual(plan_confirmation_evidence(self.store,self.run)['approved_plans'],[])
         count=len(self.store.query('SELECT id FROM planner_runs WHERE run_id=?',(self.run['id'],)))
         for _ in range(3):run=self.f.tick()
         self.assertEqual((run['status'],run['terminal_reason']),('WAITING_USER','user_rejected'))

@@ -67,6 +67,20 @@ class InspectionFormatTests(unittest.TestCase):
             self.assertEqual(evidence['coverage'],'svg_structure')
             self.assertEqual(evidence['text_nodes'][0]['text'],'缓存标题')
 
+    def test_svg_preserves_parent_filters_paint_order_and_filter_parameters(self):
+        path=self.root/'effects.svg';path.write_text('<svg xmlns="http://www.w3.org/2000/svg" xmlns:c="urn:custom">'
+            '<defs><filter id="shadow"><feComponentTransfer><feFuncA type="linear" slope="0.65"/></feComponentTransfer></filter></defs>'
+            '<g filter="url(#shadow)"><text paint-order="stroke fill" stroke-linejoin="round" c:fill="unimplemented">标题</text></g></svg>')
+        with patch('subprocess.run',side_effect=AssertionError('Structural inspection cannot execute SVG')):
+            evidence=self.inspect_file(path)
+        text=evidence['text_nodes'][0];parent=evidence['elements'][text['parent_index']]
+        self.assertEqual(text['attributes']['paint-order'],'stroke fill')
+        self.assertEqual(text['attributes']['stroke-linejoin'],'round')
+        self.assertEqual(parent['tag'],'g');self.assertEqual(parent['attributes']['filter'],'url(#shadow)')
+        self.assertNotIn('fill',text['attributes']);self.assertEqual(text['attributes']['{urn:custom}fill'],'unimplemented')
+        transfer=next(item for item in evidence['effects'] if item['tag']=='feFuncA')
+        self.assertEqual(transfer['attributes'],{'type':'linear','slope':'0.65'})
+
     def test_real_segment_archive_lists_members_without_extracting_or_claiming_media(self):
         path=self.root/'segments.zip'
         with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as archive:

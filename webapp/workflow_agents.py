@@ -569,18 +569,27 @@ def svg_structure(path):
         raise InspectionInputError(str(exc),'inspection_svg_limit' if exc.code=='max_bytes' else 'inspection_svg_invalid') from exc
     local=lambda name:name.rsplit('}',1)[-1]
     nodes=list(root.iter())
-    fields={'id','class','x','y','dx','dy','width','height','viewBox','transform','opacity','display','visibility',
-            'fill','stroke','stroke-width','font-family','font-size','font-weight','text-anchor','style','filter',
-            'stdDeviation','flood-color','flood-opacity','in','in2','result','preserveAspectRatio'}
-    def attributes(node):return {local(key):value for key,value in node.attrib.items() if local(key) in fields}
-    texts=[];images=[];effects=[];active=False
-    for node in nodes:
+    # Preserve declarative properties instead of silently dropping presentation
+    # semantics such as paint-order or filter primitive parameters. Qualified
+    # custom attributes remain qualified; they must not impersonate SVG fields.
+    def attributes(node):return {key:value for key,value in node.attrib.items()
+        if local(key)!='href' and not local(key).lower().startswith('on')}
+    indexes={node:index for index,node in enumerate(nodes)}
+    parents={child:indexes[parent] for parent in nodes for child in parent}
+    texts=[];images=[];effects=[];elements=[];active=False;structure_bytes=0
+    for index,node in enumerate(nodes):
         tag=local(node.tag);active|=tag in ('script','foreignObject') or any(local(key).lower().startswith('on') for key in node.attrib)
+        element={'node_index':index,'parent_index':parents.get(node),'tag':tag,'attributes':attributes(node)}
+        if tag not in ('script','foreignObject','image'):
+            element.update(text=node.text or '',tail=node.tail or '')
+        structure_bytes+=len(graph.encode(element).encode())
+        if structure_bytes>24576:raise InspectionInputError('SVG structure exceeds the bounded element projection','inspection_svg_limit')
+        elements.append(element)
         if tag in ('text','tspan'):
-            texts.append({'tag':tag,'attributes':attributes(node),'text':node.text or '','tail':node.tail or ''})
+            texts.append(element)
         elif tag=='image':
             href=next((value for key,value in node.attrib.items() if local(key)=='href'),'')
-            item={'attributes':attributes(node),'embedded':href.startswith('data:')}
+            item={'node_index':index,'parent_index':parents.get(node),'attributes':attributes(node),'embedded':href.startswith('data:')}
             if href.startswith('data:') and ';base64,' in href:
                 header,payload=href.split(',',1)
                 try:decoded=base64.b64decode(payload,validate=True)
@@ -589,10 +598,10 @@ def svg_structure(path):
             else:item.update(href=href[:500] if not item['embedded'] else '[embedded non-base64 data]',resolved=False)
             images.append(item)
         elif tag in ('filter','style') or tag.startswith('fe'):
-            effects.append({'tag':tag,'attributes':attributes(node),'text':node.text or ''})
+            effects.append(element)
     report={'coverage':'svg_structure','document':attributes(root),'element_count':len(nodes),'text_nodes':texts,
-            'images':images,'effects':effects,'active_content_present':bool(active),
-            'limitation':'XML structure only; scripts and external references were not executed or fetched. Inspect a separate raster preview for appearance.'}
+            'images':images,'effects':effects,'elements':elements,'active_content_present':bool(active),
+            'limitation':'XML declarations and parent relationships only; scripts and external references were not executed or fetched. Presentation properties may be inherited from parent elements or supplied by style declarations; absence on the text element alone is not absence of an effect. Inspect a separate raster preview for appearance.'}
     if len(graph.encode(report).encode())>32768:raise InspectionInputError('SVG structure exceeds the 32KiB evidence limit','inspection_svg_limit')
     return report
 
@@ -711,6 +720,7 @@ def execute(host,lease,run,task):
             frozen['result_contract']+=' Every frozen review_criteria item requires evidence, including the complete user goal, not only the planner-summarized filenames. Structural requirements such as editable layers, retained parameters or separate tracks require inspection of the delivered structure; a flattened preview with a similar appearance is not evidence of editability. Apply user_changes to superseded content/parameters instead of demanding both old and new values.'
             frozen['result_contract']+=' An explicit requirement or parameter in the user goal remains required even when a Task acceptance or planner delivery summary omitted it. Do not waive it as a suggestion on that basis. Editable/default parameters remain in effect until the user actually changes them; a planner omission or an appearance-only preview is not such a change.'
         frozen['result_contract']+=' Respect operation_output_contracts, including what a provider detects versus what is independently proven. Source-input evidence describes the original input, not the candidate output. Video frames and waveform energy cannot establish semantic sound events. For audio.transcribe, preserve detected events; an empty event list alone is not a demonstrated omission. If the user explicitly requires exhaustive independent sound-event verification and the available tools cannot provide it, state that precise limitation rather than repeatedly requesting loudness measurements.'
+        frozen['result_contract']+=' plan_confirmation_evidence contains server-owned receipts that a concrete plan was shown and explicitly approved. Use those facts for plan-before-execution requirements; do not demand a separate plan file unless the user requested that file. These receipts do not waive artifact content, technical checks or current parameter requirements.'
         # Native tool context drops legacy result-envelope instructions. Review
         # scope and evidence policy are semantic constraints, not wire syntax.
         frozen['review_policy']=frozen.pop('result_contract')

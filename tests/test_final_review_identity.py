@@ -23,6 +23,8 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
             context=json.loads(args[4])
             self.assertIn('An explicit requirement or parameter in the user goal remains required',context['review_policy'])
             self.assertIn('Source-input evidence describes the original input',context['review_policy'])
+            self.assertIn('plan_confirmation_evidence',context)
+            self.assertIn('do not demand a separate plan file',context['review_policy'])
             self.assertNotIn('result_contract',context);self.assertNotIn('result_schema',context)
             self.assertTrue(context['review_criteria'])
             raise Captured()

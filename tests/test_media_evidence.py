@@ -312,6 +312,42 @@ class MaskChangeTests(unittest.TestCase):
 
 
 class MediaSemanticsTests(unittest.TestCase):
+    def test_image_reference_comparison_measures_full_crop_and_outside_pixels(self):
+        import json
+        from webapp.media_evidence_operation import collect
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);source=root/'candidate.png';reference=root/'original.png';output=root/'evidence';output.mkdir()
+            original=Image.new('RGBA',(12,10),(20,40,60,255));original.save(reference)
+            candidate=original.copy();candidate.putpixel((5,4),(20,40,160,255));candidate.save(source)
+            collect(source,'image',output,{'mode':'image','crop':[3,2,8,7]},reference=reference)
+            comparison=json.loads((output/'evidence-report.json').read_text())['comparison']
+            self.assertEqual(comparison['full']['changed_pixels'],1)
+            self.assertEqual(comparison['full']['changed_bbox'],[5,4,6,5])
+            self.assertEqual(comparison['inside_crop']['max_abs_channel_delta'],100)
+            self.assertEqual(comparison['outside_crop']['changed_pixels'],0)
+            candidate.putpixel((0,0),(21,40,60,255));candidate.save(source)
+            collect(source,'image',output,{'mode':'image','crop':[3,2,8,7]},reference=reference)
+            comparison=json.loads((output/'evidence-report.json').read_text())['comparison']
+            self.assertEqual(comparison['full']['changed_pixels'],2)
+            self.assertEqual(comparison['outside_crop']['changed_pixels'],1)
+            self.assertEqual(comparison['outside_crop']['max_abs_channel_delta'],1)
+            original.resize((6,5)).save(reference)
+            with self.assertRaisesRegex(ValueError,'matching geometry'):
+                collect(source,'image',output,{'mode':'image'},reference=reference)
+
+    def test_reference_mutation_cannot_be_attributed_to_the_original_hash(self):
+        from unittest.mock import patch
+        from webapp import media_evidence_operation as evidence
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);source=root/'candidate.png';reference=root/'original.png';output=root/'evidence';output.mkdir()
+            Image.new('RGB',(4,4),'red').save(source);Image.new('RGB',(4,4),'red').save(reference)
+            compare=evidence.image_comparison
+            def mutate(*args):
+                result=compare(*args);Image.new('RGB',(4,4),'blue').save(reference);return result
+            with patch.object(evidence,'image_comparison',side_effect=mutate),self.assertRaisesRegex(ValueError,'reference changed'):
+                evidence.collect(source,'image',output,{'mode':'image'},reference=reference)
+            self.assertFalse((output/'evidence-report.json').exists())
+
     def test_explicit_subject_relations_override_defaults_without_conflicts(self):
         from webapp.workflow_graph import SubjectSemantics
         subject=SubjectSemantics(mode='subject_cutout',include_relations=['held'])

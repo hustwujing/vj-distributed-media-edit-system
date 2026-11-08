@@ -29,6 +29,10 @@ def collect(source,kind,output,parameters,*,reference=None):
             if opened.width*opened.height>32_000_000 or getattr(opened,'n_frames',1)!=1:raise ValueError('Image evidence limit')
             image=ImageOps.exif_transpose(opened).convert('RGBA')
             report.update(width=image.width,height=image.height,alpha=alpha_evidence(image))
+            if reference:
+                with Image.open(reference) as original:
+                    if original.width*original.height>32_000_000 or getattr(original,'n_frames',1)!=1:raise ValueError('Reference image evidence limit')
+                    report['comparison']=image_comparison(image,ImageOps.exif_transpose(original).convert('RGBA'),params['crop'])
             if params['crop']:
                 x1,y1,x2,y2=params['crop']
                 if not (0<=x1<x2<=image.width and 0<=y1<y2<=image.height):raise ValueError('Evidence crop outside image')
@@ -86,9 +90,41 @@ def collect(source,kind,output,parameters,*,reference=None):
     if not preview.is_file() or preview.stat().st_size>1024*1024:raise ValueError('Evidence preview exceeds limit')
     with source.open('rb') as stream:
         if hashlib.file_digest(stream,'sha256').hexdigest()!=sha:raise ValueError('Evidence source changed during measurement')
+    if reference:
+        with Path(reference).open('rb') as stream:
+            if hashlib.file_digest(stream,'sha256').hexdigest()!=report['reference_sha256']:raise ValueError('Evidence reference changed during measurement')
     with preview.open('rb') as stream:report['preview_sha256']=hashlib.file_digest(stream,'sha256').hexdigest()
     (output/'evidence-report.json').write_text(json.dumps(report,ensure_ascii=False,sort_keys=True,allow_nan=False))
     return ['evidence-report.json','preview.jpg']
+
+
+def image_comparison(candidate,reference,crop=None):
+    """Exact full-resolution channel differences, with bounded scratch arrays."""
+    import numpy as np
+    if candidate.size!=reference.size:raise ValueError('Image comparison requires matching geometry; no implicit resize')
+    width,height=candidate.size
+    if crop and not (0<=crop[0]<crop[2]<=width and 0<=crop[1]<crop[3]<=height):raise ValueError('Evidence crop outside image')
+    def measure(regions):
+        pixels=changed=absolute_sum=maximum=0;bounds=None
+        for left,top,right,bottom in regions:
+            for y in range(top,bottom,256):
+                for x in range(left,right,1024):
+                    box=(x,y,min(right,x+1024),min(bottom,y+256))
+                    a=np.asarray(candidate.crop(box),dtype=np.int16);b=np.asarray(reference.crop(box),dtype=np.int16)
+                    delta=np.abs(a-b);mask=np.any(delta!=0,axis=2)
+                    pixels+=mask.size;changed+=int(mask.sum());absolute_sum+=int(delta.sum());maximum=max(maximum,int(delta.max()))
+                    if mask.any():
+                        ys,xs=np.nonzero(mask);current=[x+int(xs.min()),y+int(ys.min()),x+int(xs.max())+1,y+int(ys.max())+1]
+                        bounds=current if bounds is None else [min(bounds[0],current[0]),min(bounds[1],current[1]),max(bounds[2],current[2]),max(bounds[3],current[3])]
+        return {'compared_pixels':pixels,'changed_pixels':changed,'max_abs_channel_delta':maximum,
+                'mean_abs_channel_delta':absolute_sum/(pixels*4) if pixels else 0.0,'changed_bbox':bounds}
+    result={'coordinate_space':'EXIF-transposed RGBA uint8; no resize; exact channel comparison',
+            'width':width,'height':height,'full':measure([(0,0,width,height)])}
+    if crop:
+        x1,y1,x2,y2=crop
+        result['crop']=list(crop);result['inside_crop']=measure([crop])
+        result['outside_crop']=measure([(0,0,width,y1),(0,y2,width,height),(0,y1,x1,y2),(x2,y1,width,y2)])
+    return result
 
 
 def audio_comparison(source,reference,offset,window_seconds,*,reference_offset=None):
