@@ -59,7 +59,10 @@ def clean(pool,uid,attempt):
 class Reaper:
     def __init__(self,store,pool):
         self.store,self.pool=store,pool
-        self.store.timeout=.1
+        # Reaper must remain bounded, but 100 ms is shorter than normal
+        # control-plane transactions and turns harmless lock contention into
+        # repeated 57014 noise. Local cleanup remains fail-closed on DB outage.
+        self.store.timeout=1.0
         self.children={}
         self.external_children={}
         self.command_cleanup_child=None;self.command_cleanup_started=0

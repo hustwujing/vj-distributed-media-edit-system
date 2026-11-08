@@ -634,6 +634,8 @@ class AgentHost:
         finally:
             # Keep renewing until cleanup ends. UID reuse is independent of the
             # database lease and requires successful node-local cleanup.
+            done.set()
+            heartbeat.join(timeout=3)
             reservation=getattr(lease,'gpu_reservation',None)
             if reservation:reservation.release();lease.gpu_reservation=None
             runtime = lease.runtime
@@ -649,8 +651,6 @@ class AgentHost:
                     interrupted=True
                     from .telemetry import emit
                     emit('executor.cleanup_failed','ERROR',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
-            done.set()
-            heartbeat.join(timeout=3)
             try:lease.release(interrupted or self.stop.is_set())
             except LeaseLost:pass
 

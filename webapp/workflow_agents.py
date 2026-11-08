@@ -651,7 +651,7 @@ def execute(host,lease,run,task):
                 for item in complete_tasks if not item['spec'].get('delivery_stage') and item['spec'].get('purpose')!='evidence']
             frozen['tasks']=[item for item in complete_tasks
                 if item['spec'].get('delivery_stage') or item['spec'].get('purpose')=='evidence']
-            frozen['review_criteria']=frozen['delivery_targets']
+            frozen['review_criteria']=frozen.get('review_criteria') or frozen.get('delivery_targets') or [frozen.get('goal') or task['spec'].get('objective','满足当前最终交付目标')]
             frozen['result_contract']='Final delivery review: select only accepted outputs from delivery_stage Tasks. Inspect each selected deliverable and satisfy delivery_targets and the full goal. Apply explicit user_changes to permitted content/parameters and current frozen Task acceptance, never as technical/Agent-review waivers or an implicit change of top-level goal or delivery type. If relevant user history is truncated, report insufficient evidence. Evidence uses inspection_id. deliverables and primary use only candidate_key values returned by inspect with eligible_for_delivery=true; never use a file path, filename, Task ID, artifact ID or inspection_id there. The host resolves each key to the current immutable reference. Respect the requested main output; if none is requested, prefer main video over covers/reports and PNG over equivalent JPEG. A step report is not the main deliverable.'
             frozen['result_contract']+=' history and failure_facts are server-owned records of earlier Task specs, dependency changes, replacements and failures; retired failures do not remain current delivery requirements. Do not demand a new execution to reproduce facts already present in that history. user_reviews contains server-verified user approvals bound to the current candidate and revision; use those records for declared human confirmation, without treating them as technical or Agent-review waivers.'
     elif profile.output_schema=='visual-report-v1':
@@ -676,7 +676,7 @@ def execute(host,lease,run,task):
     from .agent_text import TextPublisher
     text_stream=TextPublisher(store,run['id'])
     transport={'strict':True};contracts={}
-    output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={};script_failures={}
+    output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={};script_failures={};inspection_failures={}
     for turn in range(profile.max_turns):
         lease.check()
         if host.stop.is_set() or time.monotonic()>deadline:raise LeaseLost('Agent stopped or timed out')
@@ -937,14 +937,29 @@ def execute(host,lease,run,task):
                             evidence['window_seconds']=window
                         if evidence.get('media'):evidence=inspect_media(host,lease,run,task,evidence,
                             remaining_images=profile.max_images-len(images))
-                    except InspectionInputError as exc:
+                    except (InspectionInputError,MediaInspectionError) as exc:
                         tool_receipt['status']='failed'
+                        detail=getattr(exc,'diagnostic',{}) or {}
+                        code=detail.get('code',getattr(exc,'code','inspection_failed'))
+                        inspection_key=(reference,request.get('offset',0),request.get('window_seconds'))
+                        inspection_failures[inspection_key]=inspection_failures.get(inspection_key,0)+1
+                        inspection_keys.discard(inspection_key)
                         store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',
                             (uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],
-                             graph.encode({'phase':'inspect','origin':'inspection_tool','classification':'parameters',
-                                           'attempt_id':lease.attempt,'code':exc.code,
+                            graph.encode({'phase':'inspect','origin':'inspection_tool','classification':'parameters',
+                                           'attempt_id':lease.attempt,'code':code,
                                            'reference_sha256':hashlib.sha256(reference.encode()).hexdigest()}),store.now()))
-                        batch.append({'ref':reference,'error':str(exc),'code':exc.code});continue
+                        batch.append({'ref':reference,'error':str(exc),'code':code,'diagnostic':detail});continue
+                    except Exception as exc:
+                        from .artifact_store import ArtifactUnavailable
+                        if not isinstance(exc,ArtifactUnavailable):raise
+                        tool_receipt['status']='failed';code='result_unavailable';inspection_key=(reference,request.get('offset',0),request.get('window_seconds'));inspection_keys.discard(inspection_key)
+                        detail=getattr(exc,'diagnostic',{}) or {'code':code}
+                        store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',
+                            (uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],
+                             graph.encode({'phase':'inspect','origin':'artifact_store','classification':'environment','attempt_id':lease.attempt,'code':code,
+                                           'reference_sha256':hashlib.sha256(reference.encode()).hexdigest()}),store.now()))
+                        batch.append({'ref':reference,'error':'检查所需产物暂时不可用，请稍后重试。','code':code,'diagnostic':detail});continue
                     if evidence.get('media') and 'image' in evidence:
                         images.append(evidence.pop('image'));evidence['image_index']=len(images)
                         evidence['remaining_images']=profile.max_images-len(images)
