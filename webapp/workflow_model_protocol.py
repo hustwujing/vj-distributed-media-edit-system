@@ -293,6 +293,7 @@ def available_changes(frozen):
 
 
 def repair_options(frozen):
+    from .review_evidence import relationship
     changes=available_changes(frozen);tasks={item['id']:item for item in frozen.get('tasks',[])};options=[]
     candidate_subjects={item['logical_task_id'] for item in frozen.get('repair_candidates',[])}
     for identifier,fields in changes.items():
@@ -307,9 +308,8 @@ def repair_options(frozen):
                 or not (row.get('accepted_result') or subject in candidate_subjects)):continue
         evidence=[]
         for identifier,item in tasks.items():
-            source=item['spec'].get('inputs',{}).get('source',{}).get('repair_candidate')
             if (item['status']=='succeeded' and item['spec'].get('purpose')=='evidence' and item.get('quality',{}).get('verified_evidence')
-                    and source and source['logical_task_id']==subject and source['revision']==row['revision']):evidence.append(identifier)
+                    and relationship(row,item)):evidence.append(identifier)
         if evidence:options.append({'action':'review_again','task_id':subject,'eligible_evidence_tasks':sorted(evidence)})
     for review in frozen.get('review_feedback',[]):
         decision=review.get('decision',{});subject=review.get('subject_task')

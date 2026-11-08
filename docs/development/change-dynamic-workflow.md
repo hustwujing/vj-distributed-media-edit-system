@@ -92,6 +92,8 @@ Planner 首轮只接收冻结能力摘要；完整 operation 契约通过 `contr
 
 ## 验证与完成标准
 
+复审证据资格由 `review_evidence.relationship` 统一供工具 Schema 和权威 Proposal 校验使用。除匹配当前候选 revision 的证据外，也接受被审任务实际读取过的源素材证据：必须同时匹配 asset ID、双方持久化输入 SHA 和已验证报告的 source_reference/source_sha256。规划快照仅投影所需绑定，不依赖当前可变素材名。源素材证据说明输入，不能冒充输出质量或音频语义证明。转写的声音事件是供应商检测结果；空事件列表不等于已证明遗漏，也不能被画面或能量包络推断补写。任务与最终审查均接收注册 operation 的输出契约和能力限制。
+
 先运行 `tests.test_dynamic_graph`、`tests.test_dynamic_gateway`、`tests.test_dynamic_api`；
 执行或恢复变化追加 `tests.test_dynamic_execution`、lease、scheduler、取消、对象存储和诊断相关模块。
 真实分布式用例必须使用独立 PostgreSQL、对象协议服务、节点目录、UID 与真实沙盒。

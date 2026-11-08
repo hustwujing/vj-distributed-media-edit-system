@@ -59,6 +59,38 @@ class RepairInputTests(unittest.TestCase):
             graph.Task.model_validate(fixtures.script(inputs={'source':{'repair_candidate':self.ref}}))
         self.assertEqual(self.run['tasks'][0]['accepted_result'],[])
 
+    def test_source_input_evidence_is_consistent_in_schema_and_authoritative_validation(self):
+        from webapp.workflow_model_protocol import repair_options,ToolProtocol
+        from webapp.specialist_profiles import get
+        subject=next(item for item in self.run['tasks'] if item['id']=='first')
+        evidence=next(item for item in self.run['tasks'] if item['id']=='later-evidence')
+        source={'asset':'asset','sha256':'a'*64}
+        self.store.execute('UPDATE run_tasks SET spec_json=?,bindings_json=? WHERE run_id=? AND id=?',
+            (graph.encode({**subject['spec'],'inputs':{'source':{'asset':'asset'}}}),graph.encode({'source':source}),self.run['id'],'first'))
+        spec={**evidence['spec'],'inputs':{'source':{'asset':'asset'}}}
+        quality={'technical_valid':True,'passed':True,'verified_evidence':{'source_reference':'asset','source_sha256':'a'*64}}
+        self.store.execute("UPDATE run_tasks SET spec_json=?,bindings_json=?,quality_json=?,status='succeeded' WHERE run_id=? AND id=?",
+            (graph.encode(spec),graph.encode({'source':source}),graph.encode(quality),self.run['id'],'later-evidence'))
+        run=graph.get(self.store,self.run['id']);frozen=planning.snapshot(self.store,run)
+        option=next(item for item in repair_options(frozen) if item['action']=='review_again')
+        self.assertEqual(option['eligible_evidence_tasks'],['later-evidence'])
+        protocol=ToolProtocol(get('media_planner'),frozen,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertEqual(protocol.schemas['submit_typed_plan']['properties']['review_again']['properties']['first']['items']['enum'],['later-evidence'])
+        proposal={'proposal_id':'source-proof','base_graph_version':run['graph_version'],'reason':'Review the existing candidate against its actual input',
+                  'review_again':{'first':['later-evidence']},'replan_after':['first']}
+        graph.validate_proposal(self.store,run,proposal,repair_scope='first')
+        # A reused asset ID with different bytes, or forged report binding,
+        # cannot make unrelated evidence eligible in either layer.
+        for binding,report in [({'asset':'other','sha256':'a'*64},quality),
+                               ({'asset':'asset','sha256':'b'*64},{**quality,'verified_evidence':{'source_reference':'asset','source_sha256':'b'*64}}),
+                               (source,{**quality,'verified_evidence':{'source_reference':'asset','source_sha256':'b'*64}})]:
+            self.store.execute('UPDATE run_tasks SET bindings_json=?,quality_json=? WHERE run_id=? AND id=?',
+                               (graph.encode({'source':binding}),graph.encode(report),run['id'],'later-evidence'))
+            current=graph.get(self.store,run['id'])
+            with self.assertRaisesRegex(ValueError,'different frozen input'):
+                graph.validate_proposal(self.store,current,proposal,repair_scope='first')
+            self.assertFalse(any(item['action']=='review_again' for item in repair_options(planning.snapshot(self.store,current))))
+
     def test_exhausted_candidate_review_blocks_new_automatic_evidence(self):
         self.store.execute("UPDATE run_tasks SET review_again_count=2 WHERE run_id=? AND id='first'",(self.run['id'],))
         run=graph.get(self.store,self.run['id'])

@@ -119,6 +119,8 @@ class Operation:
                                    'required_roles':list(self.required_output_roles),
                                    'role_filenames':role_filenames,
                                    'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':filenames}
+        if self.id=='audio.transcribe':
+            result['output_contract']['audio_events']={'requested':True,'semantics':'Preserve provider-detected events. An empty detection list is not evidence of an omitted event, nor proof that the source contains no non-speech sounds. Do not infer sound events from video frames or waveform energy.'}
         parameter_schema=contract(self).parameters.model_json_schema()
         inputs=contract(self)
         result['input_contract']={'required_roles':sorted(inputs.required_inputs),

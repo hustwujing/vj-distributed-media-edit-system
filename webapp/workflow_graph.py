@@ -723,9 +723,9 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             evidence=existing.get(identifier)
             if not evidence or evidence['status']!='succeeded' or evidence['spec']['purpose']!='evidence' or not evidence['quality'].get('verified_evidence'):
                 raise ValueError('Only accepted registered evidence can support a new review')
-            ref=evidence['spec']['inputs']['source'].get('repair_candidate')
-            if not ref or ref['logical_task_id']!=subject or ref['revision']!=row['revision']:
-                raise ValueError('Evidence belongs to another candidate revision')
+            from .review_evidence import relationship
+            if not relationship(row,evidence):
+                raise ValueError('Evidence belongs to another candidate revision or different frozen input bytes')
     if len(added)!=len(proposal.add_tasks) or set(added)&{t['id'] for t in run['tasks']} or set(added)&{t['id'] for t in run['control_jobs']}:raise ValueError('Task IDs must be unique for the whole workflow')
     if len(revised)!=len(proposal.revise_tasks) or not set(revised)<=set(existing) or set(revised)&set(added):
         raise ValueError('Task revisions must name unique existing logical tasks')

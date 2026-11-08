@@ -906,6 +906,9 @@ class Orchestrator:
                 frozen['input_asset_names'].extend(value for value in (asset.get('name'),asset.get('filename')) if value)
         frozen['input_asset_names']=list(dict.fromkeys(frozen['input_asset_names']))
         frozen['review_scope']=purpose
+        from .operations import get as get_operation
+        frozen['operation_output_contracts']={item['id']:get_operation(item['spec']['operation'],item['spec'].get('implementation')).public()['output_contract']
+            for item in frozen['tasks'] if item['type']=='operation'}
         if purpose=='final':
             complete_tasks=frozen['tasks']
             frozen['dependencies']=run['dependencies']
