@@ -71,6 +71,11 @@ class Orchestrator:
             db.execute('BEGIN IMMEDIATE');self.check(db,identifier,generation)
             run=graph.get(store,identifier)
             if run['status'] in RUN_TERMINAL:return
+            if run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete' and not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
+                self.decision(run,'delivery_scope_change',{
+                    'question':'当前成果未满足全部交付目标。请确认新的交付范围；已有合格成果可以复用。',
+                    'current_targets':run['authorization'].get('delivery_targets',[]),
+                    'reason':'已应用的用户要求可能收窄了交付范围，需要确认新的授权版本。'})
             self.commands(run)
             run=graph.get(store,identifier)
             user_paused=run['status']=='WAITING_USER' and run['terminal_reason']=='user_paused'
