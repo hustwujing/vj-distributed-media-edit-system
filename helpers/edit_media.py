@@ -235,9 +235,17 @@ def audio_meter_report(path):
             'samples':samples,'windows_total':count,'windows_truncated':count>128,'windows':head+list(tail)}
 
 
+def output_has_audio(p):
+    if p['output']['audio_only'] or 'source' in p['audio']:
+        return True
+    selected=p['clips'] if p['layout']=='sequence' else [p['clips'][p['split_audio']]]
+    return any(p['_metadata'][c['source']]['audio_tracks'] and not c['mute']
+               and not (c['reverse'] and not c['reverse_audio']) for c in selected)
+
+
 def finish(p,base,work):
     video=not p['output']['audio_only'];duration=p['_duration'];out=p['output'];audio=p['audio']
-    no_audio=video and 'source' not in audio and all(c['mute'] or (c['reverse'] and not c['reverse_audio']) for c in p['clips'])
+    no_audio=not output_has_audio(p)
     args=['-i',base];filters=[];nextinput=1;current='0:v';audio_label='0:a'
     metered=[]
     def meter(label,name):
@@ -356,8 +364,7 @@ def render_plan(p,output,keep_work=False):
         result=finish(p,base,work)
         actual=probe(result);fps=p['output']['fps']
         if abs(actual['duration']-p['_duration'])>max(.15,2/fps):raise RuntimeError('Output duration differs from the validated timeline')
-        audio_expected=(p['output']['audio_only'] or 'source' in p['audio']
-                        or any(not c['mute'] and not (c['reverse'] and not c['reverse_audio']) for c in p['clips']))
+        audio_expected=output_has_audio(p)
         if audio_expected!=bool(actual['audio_tracks']):
             raise RuntimeError('Output audio track presence differs from the validated timeline')
         if not p['output']['audio_only']:

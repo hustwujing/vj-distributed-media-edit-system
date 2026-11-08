@@ -171,6 +171,7 @@ class LocalEditingTests(unittest.TestCase):
 
     def test_reverse_hold_repeat_and_silent_source(self):
         normal,_=self.render(self.plan(clips=[{'source':'pattern','end':1}]),'normal.mp4')
+        self.assertEqual(probe(normal)['audio_tracks'],0)
         reverse,_=self.render(self.plan(clips=[{'source':'pattern','end':1,'reverse':True,'freeze_end':.5,'repeat':2}]),'reverse.mp4')
         expected=frame(normal,.9);actual=frame(reverse,0)
         self.assertLess(np.abs(expected-actual).mean(),15)
@@ -181,6 +182,16 @@ class LocalEditingTests(unittest.TestCase):
     def test_all_muted_video_clips_produce_no_audio_track(self):
         out,_=self.render(self.plan(clips=[{'source':'a','end':1,'mute':True}]),'muted.mp4')
         self.assertEqual(probe(out)['audio_tracks'],0)
+
+    def test_split_audio_tracks_follow_selected_cell_not_unselected_inputs(self):
+        raw=self.plan(layout='horizontal',split_audio=0,
+            clips=[{'source':'pattern','end':1},{'source':'a','end':1}])
+        silent,_=self.render(raw,'split-no-selected-audio.mp4')
+        self.assertEqual(probe(silent)['audio_tracks'],0)
+        raw['split_audio']=1
+        audible,_=self.render(raw,'split-selected-audio.mp4')
+        self.assertEqual(probe(audible)['audio_tracks'],1)
+        self.assertGreater(float(np.sqrt(np.mean(samples(audible,.2,.4)**2))),.01)
 
     def test_crop_rotate_flip_background_and_mask_timing(self):
         raw=self.plan(clips=[{'source':'pattern','end':1,'crop':[20,0,120,120],'rotate':90,'flip':'horizontal','fit':'blur'}],
