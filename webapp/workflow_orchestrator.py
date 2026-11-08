@@ -363,7 +363,8 @@ class Orchestrator:
             if not new_targets<=old_targets:raise ValueError('Delivery scope expansion requires a new explicit plan change')
             from .run_authorization import approve
             approve(store,run,authorization)
-            store.execute("UPDATE workflow_reviews SET status='superseded',updated_at=? WHERE run_id=? AND purpose='final' AND status IN ('passed','rejected')",(store.now(),run['id']))
+            store.execute("UPDATE workflow_reviews SET status='superseded',updated_at=? WHERE run_id=? AND purpose='final' AND status IN ('passed','rejected','pending','running','staged')",(store.now(),run['id']))
+            store.execute("UPDATE control_jobs SET status='cancelled',updated_at=? WHERE run_id=? AND control_kind='REVIEW' AND status IN ('pending','running','staged')",(store.now(),run['id']))
             current=graph.get(store,run['id'])
             self.set_status(current,'ACTIVE','delivery_scope_confirmed')
             self.queue_review(graph.get(store,run['id']))
@@ -1022,7 +1023,11 @@ class Orchestrator:
             if authoritative[0]['review_identity']!=final_identity(store,run):authoritative=[]
         if not authoritative:
             graph.event(store,run,'delivery_blocked',{'reason':'invalid_final_review'})
-            self.set_status(run,'WAITING_USER','invalid_delivery_manifest');return
+            if not store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status IN ('pending','running','staged')",(run['id'],)):
+                self.queue_review(run)
+                self.set_status(run,'ACTIVE','final_review_refresh')
+            else:self.set_status(run,'WAITING_USER','invalid_delivery_manifest')
+            return
         review=authoritative[0]
         decision=json.loads(review['decision_json']);selected=decision.get('deliverables',[])
         from .workflow_agent_contracts import approved_delivery_refs,delivery_leaf_refs,delivery_publication_names
