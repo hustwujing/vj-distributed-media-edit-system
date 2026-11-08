@@ -1034,6 +1034,12 @@ def execute(host,lease,run,task):
                      script_sha256=receipt.get('script_sha256'),outputs_sha256=graph.digest(receipt['outputs']),
                      output_files=sum(item.get('state')=='present' for item in receipt['outputs']),
                      stdout_bytes=receipt.get('stdout_bytes'),stdout_truncated=receipt.get('stdout_truncated'))
+                observed={item['name']:item for item in receipt['outputs']}
+                declared=set(task['spec']['output_roles'].values())
+                missing=sorted(name for name in declared if observed.get(name,{}).get('state')!='present')
+                empty=sorted(name for name in declared if observed.get(name,{}).get('state')=='present' and observed[name].get('size')==0)
+                if missing or empty:
+                    receipt={**receipt,'output_contract':{'code':'output_missing','missing':missing,'empty':empty}}
                 conversation+='\nExecuted script action (data):'+graph.encode(reply)
                 conversation+='\nScript receipt (data):'+graph.encode(receipt)
                 conversation+='\nWhen the declared outputs are present, submit result with files={}; independent acceptance still validates their bytes.'
