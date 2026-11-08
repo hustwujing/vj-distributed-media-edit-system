@@ -24,14 +24,14 @@ class Context:
         self.assets={a['id']:a for a in manifest['assets']}
         self.edit=self.project/'edit'
         self.input_roles=manifest.get('input_roles',{})
+        self.transcript_inputs=manifest.get('transcript_inputs',{})
         self.explicit_inputs=manifest.get('explicit_inputs',False)
     def source(self, identifier):
         if identifier not in self.assets:raise ValueError('Undeclared input asset')
         return self.project/'sources'/self.assets[identifier]['filename']
     def transcript(self, identifier, track=0):
         if self.explicit_inputs:
-            source_role=next((role for role,asset in self.input_roles.items() if asset==identifier),'source')
-            reference=self.input_roles.get('transcript_'+source_role) or self.input_roles.get('transcript')
+            reference=self.transcript_inputs.get(identifier,{}).get(str(track))
             return self.source(reference) if reference else self.output/'undeclared-transcript.json'
         import transcribe
         return transcribe.transcript_path(self.edit,self.source(identifier),track)
@@ -232,9 +232,13 @@ def audio_process(ctx):
     if probe_run.returncode:
         report.update(status='failed',error_code='audio_probe_failed');_atomic_report(report_path,report);raise ValueError('Audio input probe failed')
     info=json.loads(probe_run.stdout);stream=info['streams'][0]
-    duration=float(info['format']['duration']);sample_rate=int(stream['sample_rate']);channels=int(stream['channels']);filters=[]
+    sample_rate=int(stream['sample_rate']);channels=int(stream['channels']);filters=[]
     report['source_audio']={'sample_rate':sample_rate,'channels':channels,'channel_layout':stream.get('channel_layout')}
     report['source_measurement']=audio_evidence(source)
+    samples=report['source_measurement']['decoded_sample_values']
+    if not samples or samples % channels:raise ValueError('Audio decoded sample count is unavailable')
+    duration=samples/channels/sample_rate
+    report['source_audio'].update(duration=duration,decoded_frames=samples//channels,duration_basis='decoded_samples')
     if p['highpass_hz']:filters.append(f'highpass=f={p["highpass_hz"]:g}')
     if p['denoise']:filters.append('afftdn=nf=-25')
     if p['gain_db']:filters.append(f'volume={p["gain_db"]:g}dB')

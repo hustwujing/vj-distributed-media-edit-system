@@ -166,6 +166,9 @@ def public(store,run):
             value['blocking_action']={'kind':'execution_failure','code':'execution_failed','title':'系统执行失败',
                 'message':message or '系统执行失败，未能完成当前步骤。请查看失败详情并点击“继续”重试；这不需要补充素材。',
                 'action':'retry','details':failed}
+            if first.get('classification')=='parameters':
+                value['blocking_action'].update(title='执行方案参数需要修订',action='replan',
+                    message=message or '参数与操作契约不匹配，请在聊天框说明修订要求，重新规划后执行。')
         else:
             waiting_guidance={
                 'clarification_exhausted':('已停止重复追问','系统连续澄清仍未确定下一步，已停止自动追问，也没有重新处理素材。上一轮成果仍可使用；你可以提出明确的修改要求，或停止本轮。'),

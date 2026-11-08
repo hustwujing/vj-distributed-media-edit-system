@@ -79,6 +79,25 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(run['tasks'],[]);self.assertEqual(run['authorization_version'],1)
         self.assertEqual(self.decision()['id'],decision['id'])
 
+    def test_remote_parameter_failure_is_not_retried_as_environment_failure(self):
+        self.stage();self.answer(self.decision(),'approve')
+        run_id=self.run['id']
+        self.store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='execution_failed' WHERE id=?",(run_id,))
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='execution_failed',error_detail=? WHERE run_id=? AND id='first'",
+                           ('OpenSandbox command operation failed: transcript binding is missing',run_id))
+        self.store.execute('INSERT INTO workflow_diagnostics(id,workflow,step,revision,attempt,record,created) VALUES(?,?,?,?,?,?,?)',
+                           (uuid.uuid4().hex,run_id,'first',0,1,graph.encode({'classification':'parameters','error_type':'PlanError',
+                            'message':'Transcript subtitles require declared words'}),self.store.now()))
+        from webapp.workflow_api import public
+        shown=public(self.store,graph.get(self.store,run_id))
+        self.assertEqual(shown['blocking_action']['action'],'replan')
+        self.assertIn('transcript binding is missing',shown['blocking_action']['message'])
+        command=graph.command(self.store,run_id,'owner','resume',request_id=uuid.uuid4().hex)
+        self.f.orchestrator.commands(graph.get(self.store,run_id))
+        receipt=self.store.query('SELECT status,error_code FROM workflow_commands WHERE id=?',(command['id'],))[0]
+        self.assertEqual(receipt,{'status':'rejected','error_code':'replan_required'})
+        self.assertEqual(graph.get(self.store,run_id)['tasks'][0]['status'],'paused')
+
     def test_new_input_during_replanning_is_included_before_confirmation(self):
         self.stage()
         run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'先修改标题'})

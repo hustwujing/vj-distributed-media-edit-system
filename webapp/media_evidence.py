@@ -105,8 +105,10 @@ def audio_evidence(path: str | Path, *, sample_seconds: float|None=None,offset_s
     mean=number(r'mean_volume:\s*(-?inf|-?\d+(?:\.\d+)?)\s+dB')
     if peak is None or mean is None or integrated is None:raise ValueError('Audio measurement is incomplete')
     finite=lambda value:value if math.isfinite(value) else None
+    sample_values=number(r'n_samples:\s*(\d+)')
     return {'audio_silent':peak<=-60,'integrated_loudness_lufs':finite(integrated),
             'mean_volume_db':finite(mean),'peak_volume_db':finite(peak),
+            'decoded_sample_values':int(sample_values) if sample_values is not None else None,
             'measurement_seconds':sample_seconds,'measurement_offset_seconds':offset_seconds,
             'measurement_scope':'full' if sample_seconds is None and not offset_seconds else 'sampled'}
 

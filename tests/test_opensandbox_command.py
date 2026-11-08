@@ -230,5 +230,27 @@ class OpenSandboxCommandTests(unittest.TestCase):
             self.assertEqual(failed.exception.diagnostic,
                 {'code':'opensandbox_command_failed','exit_code':7,'log_tail':'bounded diagnostic'})
 
+    def test_nested_worker_error_preserves_cause_without_escaped_json_message(self):
+        from webapp.execution_contracts import classify_error
+        tail='Traceback (most recent call last):\n  worker frame\nedit_plan.PlanError: Transcript input role is missing\n'
+        receipt={'message':'本地处理命令执行失败','exit_code':1,'log_tail':tail}
+        execution=SimpleNamespace(exit_code=1,logs=SimpleNamespace(stdout=[SimpleNamespace(text=json.dumps(receipt))],stderr=[]))
+        session=Session();session.commands=SimpleNamespace(run=lambda *a,**kw:execution)
+        runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'s','a',SimpleNamespace(check=lambda:None))
+        with self.assertRaisesRegex(RuntimeError,'Transcript input role is missing') as failure:
+            runtime._run(['false'],30,lambda:False)
+        self.assertNotIn('log_tail',str(failure.exception))
+        self.assertEqual(failure.exception.diagnostic['error_type'],'PlanError')
+        self.assertEqual(failure.exception.diagnostic['log_tail'],tail)
+        self.assertEqual(classify_error(failure.exception.diagnostic,'local'),'parameters')
+
+    def test_unwrapped_remote_import_error_keeps_its_actionable_cause(self):
+        execution=SimpleNamespace(exit_code=1,logs=SimpleNamespace(stdout=[],stderr=[SimpleNamespace(text="Traceback (most recent call last):\n  frame\nModuleNotFoundError: No module named 'required_helper'\n")]))
+        session=Session();session.commands=SimpleNamespace(run=lambda *a,**kw:execution)
+        runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'s','a',SimpleNamespace(check=lambda:None))
+        with self.assertRaisesRegex(RuntimeError,"No module named 'required_helper'") as failure:runtime._run(['false'],30,lambda:False)
+        self.assertNotIn('Traceback',str(failure.exception))
+        self.assertEqual(failure.exception.diagnostic['error_type'],'ModuleNotFoundError')
+
 
 if __name__=='__main__':unittest.main()

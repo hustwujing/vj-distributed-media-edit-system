@@ -60,6 +60,12 @@ const server=http.createServer(async(req,res)=>{
   await page.locator('#dynamic-run-result [data-result-preview="candidate-0"]').click();
   assert.match(await page.locator('#dynamic-preview img').getAttribute('src'),/\/tasks\/edit\/file/);
   evidence.push('pending_candidate_visible_without_becoming_delivery');
+  run.terminal_reason='execution_failed';run.blocking_action={kind:'execution_failure',code:'execution_failed',
+    title:'执行方案参数需要修订',message:'字幕输入缺少声明的 transcript_source_t0，请修订方案。',action:'replan',details:[]};run.updated_at++;
+  await page.getByText(run.blocking_action.message,{exact:true}).first().waitFor();
+  assert.equal(await page.locator('[data-control=resume]').isVisible(),false);
+  evidence.push('parameter_failure_visible_without_blind_retry');
+  delete run.blocking_action;
   run.state='SUCCEEDED';run.activity='IDLE';run.sealed=true;run.delivery=[file];run.updated_at++;task.status='succeeded';
   task.accepted_result=['edit/candidate.png'];run.terminal_reason='';
   streams.get(id).end('event: done\ndata: {}\n\n');streams.delete(id);

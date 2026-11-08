@@ -207,13 +207,12 @@ class Orchestrator:
                 elif run['terminal_reason']=='execution_failed':
                     failed=[task for task in graph.work_items(run) if task['status']=='paused' and task.get('error_code') in ('execution_failed','agent_failed')]
                     def environment_failure(task):
-                        if 'opensandbox' in (task.get('error_detail') or '').lower() or 'importerror' in (task.get('error_detail') or '').lower():return True
                         records=store.query('SELECT record FROM workflow_diagnostics WHERE workflow=? AND step=? ORDER BY created DESC LIMIT 1',(run['id'],task['id']))
                         if not records:return False
                         try:
                             record=json.loads(records[0]['record'])
                             return (record.get('classification') in ('environment','resource','network','timeout','execution') and
-                                    record.get('error_type') not in ('ValueError','ValidationError','ModelResultError'))
+                                    record.get('error_type') not in ('PlanError','ValueError','ValidationError','ModelResultError'))
                         except (TypeError,ValueError):return False
                     retryable=bool(failed) and all(environment_failure(task) for task in failed)
                     if retryable:
@@ -611,6 +610,8 @@ class Orchestrator:
             error_type=str(data.get('error_type') or '')
             if error_type=='ImportError' and 'opensandbox' in detail.lower():
                 message='系统执行错误：OpenSandbox 运行时加载失败（ImportError）。这不是输入问题；修复运行时后可点击“继续”重试失败步骤。'
+            elif data.get('classification')=='parameters':
+                message='执行方案参数不符合契约：'+detail[:1000]+'。请修订方案后再执行，直接重复运行不会修正参数。'
             elif detail:
                 message='系统执行错误：'+detail[:400]+'。请修复运行环境后重试。'
         if code=='agent_failed' and data.get('transient'):

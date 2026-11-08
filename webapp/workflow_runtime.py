@@ -577,6 +577,8 @@ class Adapter:
             raise StepFailure({'message':'音频对比证据缺少 reference 输入','code':'operation_input_contract'})
         assets=[a for a in assets if a['id'] in ids.values()]
         media_assets=[a for a in assets if a['metadata']['kind']!='json']
+        from .media_transcript_inputs import materialized
+        transcript_inputs=materialized(op.action,s['spec']['parameters'],s['spec'].get('inputs',{}),ids)
         if op.action!='pack':payload['assets']=[a['id'] for a in media_assets]
         if op.action in ('timeline','analyze','review') and (len(media_assets)!=1 or media_assets[0]['metadata']['kind']!='video'):
             raise ValueError('该媒体检查操作需要唯一视频输入')
@@ -599,7 +601,7 @@ class Adapter:
             parent.mkdir(exist_ok=True,mode=0o700);os.chown(parent,env['uid'],env['gid'])
         manifest=folder/'request.json'
         manifest.write_text(json.dumps({'project_dir':SANDBOX_WORKSPACE,'output_dir':SANDBOX_WORKSPACE+'/'+output,
-                                       'payload':payload,'assets':assets,'input_roles':ids,'explicit_inputs':True}))
+                                       'payload':payload,'assets':assets,'input_roles':ids,'transcript_inputs':transcript_inputs,'explicit_inputs':True}))
         os.chown(manifest,env['uid'],env['gid']);manifest.chmod(0o400)
         self.isolated(dict(env,mode='plan',step_output=output,manual=True),{'mode':'local','output':output,
             'argv':['python','-P','-m','webapp.worker',output+'/request.json'],'outputs':['result.json']},s['spec']['timeout'],cancelled)

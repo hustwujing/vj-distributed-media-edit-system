@@ -8,6 +8,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 from pathlib import Path,PurePosixPath
 import shutil
 import stat
@@ -164,8 +165,28 @@ class OpenSandboxCommandRuntime:
         finally:pool.shutdown(wait=False,cancel_futures=True)
         if execution.exit_code not in (None,0):
             detail=self._diagnostic(execution).strip()
-            error=RuntimeError('OpenSandbox command operation failed'+(': '+detail if detail else ''))
-            error.diagnostic={'code':'opensandbox_command_failed','exit_code':execution.exit_code,'log_tail':detail}
+            diagnostic={'code':'opensandbox_command_failed','exit_code':execution.exit_code,'log_tail':detail}
+            message=detail;receipt=None
+            for line in reversed(self._stdout(execution)[-32768:].splitlines()):
+                try:value=json.loads(line)
+                except (ValueError,RecursionError):continue
+                if isinstance(value,dict) and isinstance(value.get('message'),str) and ('log_tail' in value or 'exit_code' in value):receipt=value;break
+            if receipt is not None:
+                message=receipt['message'];tail=receipt.get('log_tail')
+                if isinstance(tail,str):diagnostic['log_tail']=tail[-4000:]
+                if receipt.get('code') in ('output_contract','preflight','operation_input_contract','parameters'):
+                    diagnostic['code']=receipt['code']
+                for key in ('output','report'):
+                    if isinstance(receipt.get(key),dict):diagnostic[key]=receipt[key]
+                error_type=receipt.get('error_type')
+                if isinstance(error_type,str) and error_type.isidentifier() and len(error_type)<=80:diagnostic['error_type']=error_type
+                # Keep the child error as data. Do not embed an escaped JSON
+                # receipt in str(exc), where the public message is truncated.
+            for line in diagnostic['log_tail'].splitlines():
+                match=re.match(r'^(?:[A-Za-z_]\w*\.)*([A-Za-z_]\w*(?:Error|Exception)):\s*(.+)$',line)
+                if match:diagnostic['error_type'],message=match.groups()
+            error=RuntimeError('OpenSandbox command operation failed'+(': '+message[:2000] if message else ''))
+            error.diagnostic=diagnostic
             raise error
         return execution
 

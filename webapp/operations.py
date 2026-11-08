@@ -131,6 +131,14 @@ class Operation:
                                  'role_kinds':inputs.role_kinds,
                                  'conditional_required_roles':[{'parameter':parameter,'equals':expected,'roles':sorted(roles)}
                                      for parameter,expected,roles in inputs.conditional_required_inputs]}
+        if self.executor=='fixed_media' and self.action in ('edit','render','timeline'):
+            result['input_contract']['transcript_binding']={
+                'role':'transcript_<source_role>_t<audio_track>',
+                'single_track_alias':'transcript_<source_role>',
+                'single_source_single_track_alias':'transcript',
+                'required_for':['edit_plan.subtitles.from_transcripts=true','edit_plan.clips[].words','media.render subtitles=transcript'],
+                'timeline':'Without a declared transcript, timeline renders frames/waveform without words.',
+                'cache':'Project transcript caches are not implicit inputs. Bind the transcript artifact explicitly.'}
         if self.executor=='image_sync':result['native_size_guaranteed']=False
         if self.id=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan' and self.available():
             from .wan_generation import capabilities
@@ -364,6 +372,9 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
         value=model(op.id,op.executor,op.action).model_validate(parameters).model_dump(exclude_none=True)
         if op.action=='render' and not value['segments']:raise ValueError('渲染操作需要 segments')
         if op.action=='edit' and not value['edit_plan']:raise ValueError('编辑操作需要 edit_plan')
+        if op.action in ('edit','render','timeline'):
+            from .media_transcript_inputs import resolve
+            resolve(op.action,value,inputs)
         if op.action=='concat_sequence' and set(value['roles'])!=set(inputs):
             raise ValueError('顺序拼接 roles 必须逐一且仅引用已声明输入角色')
         if op.action=='audio_process' and set(inputs)!={value['role']}:

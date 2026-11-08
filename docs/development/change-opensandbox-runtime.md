@@ -143,6 +143,9 @@ Shutdown、LeaseLost、TaskLimitReached 仍向执行器上层传播，保留接�
 租约过期清理在撤销 active 时必须同时保留 interrupted，确保接管方仍执行恢复逻辑，而非按首次执行派发。
 
 Command Runtime 下载不信任远端目录响应：路径必须在声明的输出子目录内，禁止 `..` 和链接/特殊文件；
+Command 失败须解包有界的结构化 worker 错误回执，保留真实子错误类型、退出码和日志尾部，
+不能把整段转义 JSON 嵌入公开错误后截断根因。回执不授予重试或外部提交权限。
+参数/PlanError 应要求修订方案；错误文字含 OpenSandbox 不代表环境错误，也不能据此原样重跑。
 宿主逐级使用目录 FD 与 `O_NOFOLLOW`，以私有临时文件完成后原子替换。按实际流字节累计执行
 `VIDEO_USE_TASK_DISK_BYTES` 下载上限，每次清单最多 50000 条，失败不留下半写文件。
 宿主 `command-attempts/<attempt>` 由 Runtime 持有 `.owner` 排他文件锁；节点 watchdog 每轮清理完成后

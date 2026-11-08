@@ -114,5 +114,26 @@ class CompilerTests(unittest.TestCase):
                 self.assertAlmostEqual(report['gain_measurement']['mean_delta_db'],-6,delta=.11)
                 self.assertEqual(report['source_audio']['channels'],channels)
 
+    def test_audio_fade_uses_decoded_samples_not_longer_video_duration(self):
+        import numpy as np
+        import wave
+        from webapp.media_handlers import execute
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);sources=root/'sources';sources.mkdir();source=sources/'source.mkv'
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i','color=s=64x48:r=10:d=2',
+                '-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=1.25',
+                '-c:v','libx264','-threads','1','-c:a','pcm_s16le',str(source)],check=True)
+            output=root/'output';params=validate_parameters('audio.process',{'fade_out':.2},{'source':{'asset':'bound'}})
+            execute({'project_dir':str(root),'output_dir':str(output),'assets':[{'id':'bound','filename':source.name}],
+                'input_roles':{'source':'bound'},'explicit_inputs':True,'payload':{'kind':'audio_process','assets':['bound'],**params}})
+            with wave.open(str(output/'final.wav'),'rb') as wav:
+                self.assertEqual(wav.getnframes(),60000)
+                samples=np.frombuffer(wav.readframes(wav.getnframes()),dtype='<i2').astype(float)
+            rms=lambda values:float(np.sqrt(np.mean(values**2)))
+            self.assertLess(rms(samples[-480:])/rms(samples[24000:24480]),.04)
+            report=json.loads((output/'audio-process-report.json').read_text())
+            self.assertEqual(report['source_audio']['duration'],1.25)
+            self.assertIn('afade=t=out:st=1.05:d=0.2',report['filters'])
+
 
 if __name__=='__main__':unittest.main()

@@ -45,6 +45,12 @@ operation 是业务能力，implementation 是固定版本的实现，lifecycle 
 
 参数合法不等于输入已获授权；项目归属、修订和哈希仍由框架在解析与执行时校验。
 
+媒体逐词剪辑和转写字幕通过 `media_transcript_inputs` 共用源角色/音轨绑定：
+`transcript_<source_role>_t<audio_track>`；一个源只有一个使用中的音轨时允许
+`transcript_<source_role>`，整个操作只有一个源/音轨组合时允许 `transcript`。
+能力目录公开同一规则，规划校验拒绝缺失或歧义绑定；执行器把已授权输入映射写入只读 manifest。
+worker 不查找未声明的项目转写缓存，多源、多音轨不能共享一个含义不明的转写别名。
+
 ## 4. 实现并注册执行流程
 
 以下是已有三种流程。新增生命周期或改变阶段协议时，必须同时阅读 [operation 生命周期开发说明](change-operation-lifecycle.md)；只添加枚举、注册 handler 或填写恢复/取消描述不能完成框架接入。
@@ -72,6 +78,10 @@ handler 的调用形态为 `handler(adapter, workflow, step, *, cancelled=None, 
 音频窗口证据必须在重采样后按采样点数截取，再输出 PCM；FFmpeg 的 `-t` 受包时间戳和 AAC 填充影响，不能单独保证解码样本数上限。验证包括上限窗口、带 offset 的短窗口和合法但不均匀的包时间戳，不通过增大资源上限掩盖溢出。
 
 audio_compare 的 offset 定位候选窗口，reference_offset 可独立定位参考窗口；缺省时两者使用同一起点。参考偏移只适用于音频对比，参与证据参数和输入哈希绑定。稳定窄带主频是测量事实，噪声、静音或不稳定信号返回未知，不能把主频一致升级为通用语音音高或身份一致证明。
+
+音频淡出必须按实际解码样本数、通道数和采样率计算音轨末端，不能使用视频容器时长。
+`audio.process` 复用全流测量得到的样本数，并在报告记录 `duration_basis=decoded_samples`；
+回归应包含视频比音轨长的输入，并检查输出末尾样本确实淡至零。
 
 ## 5. 确认服务与隔离运行时都能装载
 
