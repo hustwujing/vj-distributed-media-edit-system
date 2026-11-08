@@ -61,6 +61,26 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(result['audio_measurement']['measurement_scope'],'full')
         self.assertFalse(result['requested_window_applied'])
 
+    def test_static_svg_inspection_returns_real_rendered_pixels_and_structure(self):
+        from PIL import Image
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        import base64,io,sys,hashlib
+        from webapp.workflow_agents import inspect,inspect_media
+        path=self.store.root/'vector.svg';path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><g fill="red"><rect width="64" height="64"/></g></svg>')
+        reference='edit/candidate/vector.svg';record={'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'size':path.stat().st_size,'location':path.name}
+        evidence=inspect(SimpleNamespace(shared_files=False,root=self.store.root),self.run,{reference:{'record':record}},reference)
+        host=SimpleNamespace(store=self.store,workflow_runner=SimpleNamespace(adapter=SimpleNamespace(environment=lambda _:{'assets':[]})))
+        def command(env,gateway,argv):return [str(path) if item=='/workspace/'+reference else sys.executable if item=='/opt/venv/bin/python' else item for item in argv]
+        with patch.object(self.lease,'runtime',object()),patch('webapp.agent_sandbox.command',side_effect=command):
+            result=inspect_media(host,self.lease,self.run,self.task,evidence,remaining_images=1)
+        self.assertEqual(result['coverage'],'svg_structure_and_rendered_image')
+        self.assertEqual(result['svg_rendering']['source'],'same_declared_svg')
+        pixels=Image.open(io.BytesIO(base64.b64decode(result['image'].split(',')[1]))).convert('RGB')
+        red,green,blue=pixels.getpixel((pixels.width//2,pixels.height//2))
+        self.assertGreater(red,240);self.assertLess(green,10);self.assertLess(blue,10)
+        self.assertEqual(result['elements'][1]['attributes']['fill'],'red')
+
     def test_exhausted_image_budget_is_feedback_before_any_pixel_decoder(self):
         from PIL import Image
         from types import SimpleNamespace

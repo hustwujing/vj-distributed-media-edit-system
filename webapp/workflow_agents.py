@@ -576,9 +576,19 @@ def svg_structure(path):
         if local(key)!='href' and not local(key).lower().startswith('on')}
     indexes={node:index for index,node in enumerate(nodes)}
     parents={child:indexes[parent] for parent in nodes for child in parent}
-    texts=[];images=[];effects=[];elements=[];active=False;structure_bytes=0
+    import re
+    def local_resource(value):
+        return value.startswith('#') or value.lower().startswith(('data:image/png;base64,','data:image/jpeg;base64,','data:image/webp;base64,'))
+    texts=[];images=[];effects=[];elements=[];active=False;external=False;structure_bytes=0
     for index,node in enumerate(nodes):
         tag=local(node.tag);active|=tag in ('script','foreignObject') or any(local(key).lower().startswith('on') for key in node.attrib)
+        for key,value in node.attrib.items():
+            if local(key)=='href' and not local_resource(value):external=True
+        styles=list(node.attrib.values())+([node.text or ''] if tag=='style' else [])
+        for style in styles:
+            if re.search(r'@import',style,re.I):external=True
+            for resource in re.findall(r'url\(\s*[\"\x27]?([^\)\"\x27]+)',style,re.I):
+                if not local_resource(resource.strip()):external=True
         element={'node_index':index,'parent_index':parents.get(node),'tag':tag,'attributes':attributes(node)}
         if tag not in ('script','foreignObject','image'):
             element.update(text=node.text or '',tail=node.tail or '')
@@ -601,6 +611,7 @@ def svg_structure(path):
             effects.append(element)
     report={'coverage':'svg_structure','document':attributes(root),'element_count':len(nodes),'text_nodes':texts,
             'images':images,'effects':effects,'elements':elements,'active_content_present':bool(active),
+            'external_resources_present':bool(external),'static_rendering_eligible':not active and not external,
             'limitation':'XML declarations and parent relationships only; scripts and external references were not executed or fetched. Presentation properties may be inherited from parent elements or supplied by style declarations; absence on the text element alone is not absence of an effect. Inspect a separate raster preview for appearance.'}
     if len(graph.encode(report).encode())>32768:raise InspectionInputError('SVG structure exceeds the 32KiB evidence limit','inspection_svg_limit')
     return report
@@ -619,7 +630,10 @@ def inspect(store,run,allowed,reference,offset=0):
     suffix=Path(reference).suffix.lower() if 'asset' not in item else Path(item['asset']['filename']).suffix.lower()
     if suffix=='.svg':
         if offset!=0:raise InspectionInputError('SVG structure inspection requires offset0')
-        return {'ref':reference,'metadata':metadata,**svg_structure(path)}
+        result={'ref':reference,'metadata':metadata,**svg_structure(path)}
+        if result['static_rendering_eligible']:
+            result.update(media=True,still_image=True,vector_image=True,path=path,offset_seconds=0)
+        return result
     if suffix in ('.txt','.md','.json','.srt','.vtt','.ass','.csv','.py','.log'):
         if type(offset)!=int:raise InspectionInputError('Text offset is an integer byte offset, not a video timestamp')
         if path.stat().st_size and offset>=path.stat().st_size:raise InspectionInputError('Text offset is beyond EOF; use an earlier byte offset')
@@ -1268,9 +1282,16 @@ def finish_files(host,lease,run,task,files,output=None):
         'output_roles':{role:output+'/'+name for role,name in task['spec']['output_roles'].items()}},json.loads(checkpoint['manifest']))
 
 
-STILL_THUMBNAIL='''import sys
+STILL_THUMBNAIL='''import sys,io,subprocess
 from PIL import Image,ImageOps
-with Image.open(sys.argv[1]) as source:
+source_input=sys.argv[1]
+if len(sys.argv)>3 and sys.argv[3]=='svg':
+    rendered=subprocess.run(['/usr/bin/ffmpeg','-nostdin','-v','error','-threads','1','-i',source_input,
+        '-frames:v','1','-vf','scale=1024:1024:force_original_aspect_ratio=decrease','-threads','1',
+        '-f','image2pipe','-vcodec','png','pipe:1'],capture_output=True,timeout=25,check=True)
+    if len(rendered.stdout)>8*1024*1024:raise ValueError('SVG preview exceeds limit')
+    source_input=io.BytesIO(rendered.stdout)
+with Image.open(source_input) as source:
     if source.width*source.height>32000000 or getattr(source,'n_frames',1)!=1:
         raise ValueError('Still image inspection limit')
     pixels=ImageOps.exif_transpose(source).convert('RGBA')
@@ -1304,6 +1325,8 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
     probe=json.loads(result.stdout)
     videos=[s for s in probe.get('streams',[]) if s.get('codec_type')=='video' and not s.get('disposition',{}).get('attached_pic')]
     if videos:
+        if evidence.get('vector_image') and (not videos[0].get('width') or not videos[0].get('height') or videos[0]['width']*videos[0]['height']>32_000_000):
+            raise InspectionInputError('SVG rendering dimensions exceed the image limit','inspection_svg_limit')
         if remaining_images is not None and remaining_images<=0:
             raise InspectionInputError('Inspection image budget exhausted; no image decoded or evidence recorded. '
                 'Use the already inspected images, inspect text/JSON/audio metadata, or report inconclusive. '
@@ -1319,7 +1342,7 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
         seek=[] if evidence.get('still_image') else ['-copyts','-start_at_zero','-ss',str(evidence['offset_seconds'])]
         # General still images include documents, captions and diagrams. A256px
         # thumbnail erases their content before the reviewer ever receives it.
-        arguments=(['/opt/venv/bin/python','-c',STILL_THUMBNAIL,'/workspace/'+relative,'1024']
+        arguments=(['/opt/venv/bin/python','-c',STILL_THUMBNAIL,'/workspace/'+relative,'1024',*(['svg'] if evidence.get('vector_image') else [])]
             if evidence.get('still_image') else
             ['/usr/bin/ffmpeg','-v','info','-threads','1','-filter_threads','1',*seek,'-i','/workspace/'+relative,
              '-frames:v','1','-vf','showinfo,scale=256:256:force_original_aspect_ratio=decrease','-q:v','5',
@@ -1363,7 +1386,10 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
             if not timestamps:raise InspectionInputError('Decoded frame timestamp is unavailable')
             actual_timestamp=float(timestamps[0])
             if not math.isfinite(actual_timestamp):raise InspectionInputError('Invalid decoded frame timestamp')
-        return {**evidence,'probe':probe,'coverage':'still_image' if evidence.get('still_image') else 'sampled_frame',
+        if evidence.get('vector_image'):
+            evidence={**evidence,'svg_rendering':{'renderer':'ffmpeg_svg_decoder','source':'same_declared_svg','max_preview_side':1024},
+                'limitation':'The self-contained static SVG was rasterized in the existing read-only media sandbox; the image is its actual rendering, not a separately authored PNG. Structure includes declarations and parent relationships. No scripts or external resources were executed or fetched; this does not prove every external editor renders identically.'}
+        return {**evidence,'probe':probe,'coverage':'svg_structure_and_rendered_image' if evidence.get('vector_image') else 'still_image' if evidence.get('still_image') else 'sampled_frame',
                 'verified_media':verified,'duration_seconds':None if evidence.get('still_image') else duration,
                 'source_frame_interval_seconds':1/source_fps if source_fps>0 else None,
                 'preview_background':'#b8bec8' if evidence.get('still_image') else None,'timestamp_seconds':actual_timestamp,

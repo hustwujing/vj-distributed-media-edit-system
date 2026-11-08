@@ -32,12 +32,12 @@ class InspectionFormatTests(unittest.TestCase):
             '<text x="192" text-anchor="middle" fill="white" stroke="black" filter="url(#shadow)"><tspan>可编辑标题</tspan></text></svg>')
         with patch('subprocess.run',side_effect=AssertionError('SVG inspection must not execute a renderer')):
             result=self.inspect_file(path)
-        self.assertEqual(result['coverage'],'svg_structure');self.assertNotIn('media',result)
+        self.assertEqual(result['coverage'],'svg_structure');self.assertTrue(result['vector_image'])
         self.assertEqual(result['images'][0]['sha256'],hashlib.sha256(data).hexdigest())
         self.assertEqual(result['text_nodes'][1]['text'],'可编辑标题')
         self.assertEqual(result['text_nodes'][0]['attributes']['text-anchor'],'middle')
         self.assertEqual(result['effects'][1]['tag'],'feDropShadow')
-        self.assertNotIn(base64.b64encode(data).decode(),json.dumps(result))
+        self.assertNotIn(base64.b64encode(data).decode(),json.dumps(result,default=str))
         path.write_text('<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>')
         with self.assertRaises(InspectionInputError):self.inspect_file(path)
 
@@ -80,6 +80,14 @@ class InspectionFormatTests(unittest.TestCase):
         self.assertNotIn('fill',text['attributes']);self.assertEqual(text['attributes']['{urn:custom}fill'],'unimplemented')
         transfer=next(item for item in evidence['effects'] if item['tag']=='feFuncA')
         self.assertEqual(transfer['attributes'],{'type':'linear','slope':'0.65'})
+
+    def test_svg_external_or_active_content_is_structure_only(self):
+        for content in ('<image href="file:///private.png"/>','<script>ignored()</script>',
+                        '<style>@import url(https://example.invalid/x.css);</style>',
+                        '<rect fill="url(https://example.invalid/paint.svg#x)" width="10" height="10"/>'):
+            path=self.root/'external.svg';path.write_text('<svg xmlns="http://www.w3.org/2000/svg">'+content+'</svg>')
+            result=self.inspect_file(path)
+            self.assertFalse(result['static_rendering_eligible']);self.assertNotIn('media',result)
 
     def test_real_segment_archive_lists_members_without_extracting_or_claiming_media(self):
         path=self.root/'segments.zip'

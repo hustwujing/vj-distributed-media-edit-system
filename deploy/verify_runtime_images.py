@@ -37,6 +37,8 @@ python -c 'from edit_captions import caption_font; path,family=caption_font(); a
 python -c 'import json; from webapp.runtime_bootstrap import verify_runtime_bundle; verify_runtime_bundle(json.load(open("/opt/video-use/bundle.json")))'
 python -m webapp.runtime_bootstrap --help >/dev/null
 ffmpeg -version >/dev/null 2>&1
+printf '%s' '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="red"/></svg>' >/workspace/decoder-probe.svg
+ffmpeg -v error -i /workspace/decoder-probe.svg -frames:v 1 -f null - >/dev/null 2>&1
 mkdir -p /workspace/sources /workspace/edit
 ffmpeg -v error -f lavfi -i color=red:s=64x64:r=25:d=2 -f lavfi -i sine=frequency=440:sample_rate=48000:duration=2 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest /workspace/sources/a.mp4
 ffmpeg -v error -f lavfi -i color=blue:s=64x64:r=25:d=2 -f lavfi -i sine=frequency=880:sample_rate=48000:duration=2 -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest /workspace/sources/b.mp4
