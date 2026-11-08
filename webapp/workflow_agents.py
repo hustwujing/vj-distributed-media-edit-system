@@ -1172,21 +1172,22 @@ def validate_result_files(store,lease,task,files):
 
 
 def finish_files(host,lease,run,task,files,output=None):
+    from .workflow_runtime import StepFailure
     declared=validate_result_files(host.store,lease,task,files)
     output,env=output_directory(host,lease,run,task,output)
-    missing=[];empty=[]
-    for name in declared:
-        path=env['workspace']/output/name
-        if not path.is_file():missing.append(name)
-        elif path.stat().st_size==0:empty.append(name)
-    if missing or empty:
-        raise StepFailure({'code':'output_missing','message':'声明产物尚未生成','missing':missing,'empty':empty})
     if files:
         records=[]
         for name,text in files.items():
             if not isinstance(text,str) or len(text.encode())>256000:raise ValueError('Agent file exceeds limit')
             records.append({'name':name,'data':base64.b64encode(text.encode()).decode()})
         host.workflow_runner.adapter.isolated(dict(env,workspace_policy='TASK_OUTPUT_ONLY',step_output=output),{'mode':'import','output':output,'files':records},60,lambda:lease.lost.is_set())
+    missing=[];empty=[]
+    for name in sorted(declared):
+        path=env['workspace']/output/name
+        if path.is_symlink() or not path.is_file():missing.append(name)
+        elif path.stat().st_size==0:empty.append(name)
+    if missing or empty:
+        raise StepFailure({'code':'output_missing','message':'声明产物尚未生成','missing':missing,'empty':empty})
     paths=[output+'/'+name for name in declared]
     view=graph.execution_view(run);step=next(s for s in view['steps'] if s['id']==task['id'])
     from .workflow_executor import validate_candidate,record_phase

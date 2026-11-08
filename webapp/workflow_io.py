@@ -3,6 +3,9 @@ import base64
 import hashlib
 import json
 import os
+import stat
+import uuid
+import io
 from pathlib import Path
 import subprocess
 import sys
@@ -14,6 +17,36 @@ class OutputContractError(ValueError):
                   'not_file':'Declared output is not a regular file', 'symlink':'Declared output must not be a link'}
         super().__init__(messages[problem]+': '+name)
         self.diagnostic={'code':'output_contract','output':{'name':name,'problem':problem,'bytes':size}}
+
+
+def import_files(root,relative,files):
+    parent=os.open(root,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW)
+    try:
+        for part in relative.parts:
+            child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=parent)
+            os.close(parent);parent=child
+        for item in files:
+            name=item['name']
+            if not name or Path(name).name!=name or name in ('.','..'):raise ValueError('Invalid output name')
+            data=base64.b64decode(item['data'],validate=True)
+            if Path(name).suffix.lower() in ('.png','.jpg','.jpeg','.webp'):
+                from PIL import Image
+                with Image.open(io.BytesIO(data)) as image:image.verify()
+            try:info=os.stat(name,dir_fd=parent,follow_symlinks=False)
+            except FileNotFoundError:info=None
+            if info and (not stat.S_ISREG(info.st_mode) or info.st_nlink!=1):
+                raise ValueError('Output must be an independent regular file')
+            temporary='.import-'+uuid.uuid4().hex
+            try:
+                fd=os.open(temporary,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600,dir_fd=parent)
+                with os.fdopen(fd,'wb') as stream:stream.write(data)
+                # Atomic replacement neither follows a raced symlink nor
+                # truncates another path's inode through a hard link.
+                os.replace(temporary,name,src_dir_fd=parent,dst_dir_fd=parent)
+            finally:
+                try:os.unlink(temporary,dir_fd=parent)
+                except FileNotFoundError:pass
+    finally:os.close(parent)
 
 
 def execute(request):
@@ -28,20 +61,7 @@ def execute(request):
             raise ValueError('Output directory must not be a link')
         folder.mkdir(exist_ok=True)
     if request['mode'] == 'import':
-        for item in request['files']:
-            name = item['name']
-            if Path(name).name != name or name in ('.', '..'):
-                raise ValueError('Invalid output name')
-            data=base64.b64decode(item['data'], validate=True)
-            target=folder/name
-            if target.exists() and target.is_file() and target.read_bytes()==data:
-                continue
-            with target.open('wb') as stream:
-                stream.write(data)
-            if Path(name).suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp'):
-                from PIL import Image
-                with Image.open(folder/name) as image:
-                    image.verify()
+        import_files(root,relative,request['files'])
     else:
         argv = [arg.replace('{output}', str(folder)) for arg in request['argv']]
         # Dependency outputs are passed as data; no shell interpolation is used.
