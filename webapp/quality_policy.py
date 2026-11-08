@@ -5,15 +5,25 @@ from .text_formats import TEXT_SUFFIXES,SUBTITLE_SUFFIXES
 from pydantic import BaseModel,ConfigDict,Field,model_validator
 
 
+OUTPUT_SUFFIXES={'text':TEXT_SUFFIXES,'subtitle':SUBTITLE_SUFFIXES,'json':{'.json'},'image':{'.png','.jpg','.jpeg','.webp'},
+                'media':{'.mp4','.mov','.webm','.mkv','.mp3','.wav','.m4a','.flac','.ogg','.aac','.opus'}}
+
+
+def output_target_matches(check,filename):
+    kind=check.get('kind','file');suffix=PurePosixPath(filename).suffix.lower()
+    if kind=='file':return True
+    if suffix not in OUTPUT_SUFFIXES.get(kind,set()):return False
+    if kind=='media' and check.get('video') is True:
+        return suffix in {'.mp4','.mov','.webm','.mkv'}
+    return True
+
+
 def validate_typed_output_targets(checks,filenames):
-    # These are the types recognized by the fixed quality inspector. A script
-    # report about an input video does not make that report a media output.
-    suffixes={'text':TEXT_SUFFIXES,'subtitle':SUBTITLE_SUFFIXES,'json':{'.json'},'image':{'.png','.jpg','.jpeg','.webp'},
-              'media':{'.mp4','.mov','.webm','.mkv','.mp3','.wav','.m4a','.flac','.ogg','.aac','.opus'}}
+    # Use the same file type vocabulary for declaration and delivery binding.
     for check in checks:
-        if check.kind not in suffixes or check.severity=='signal':continue
+        if check.kind not in OUTPUT_SUFFIXES or check.severity=='signal':continue
         selected=[name for name in filenames if check.file in ('*',name)]
-        if not any(PurePosixPath(name).suffix.lower() in suffixes[check.kind] for name in selected):
+        if not any(output_target_matches(check.model_dump(),name) for name in selected):
             raise ValueError(f'{check.kind} 验收没有对应类型的已声明输出；请声明要验收的文件，或将上游检查结果作为报告验收')
 
 

@@ -23,6 +23,30 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_delivery_format_binding_preserves_type_and_multi_file_wildcards(self):
+        from webapp.workflow_model_protocol import bind_explicit_delivery_formats
+        raw={'acceptance':[{'kind':'media','video':True,'width':854,'file':'*','source':'user','stage':'current'},
+            {'kind':'subtitle','file':'*','source':'user','stage':'current'},
+            {'kind':'json','file':'*','source':'user','stage':'current'}]}
+        bind_explicit_delivery_formats(raw,['final.mp4','final.srt','report.json'],{'goal':'Deliver MP4, SRT and a JSON report'})
+        finals={x['file']:x['kind'] for x in raw['acceptance'] if x['stage']=='final'}
+        self.assertEqual(finals,{'final.mp4':'media','final.srt':'subtitle','report.json':'json'})
+        self.assertEqual(len([x for x in raw['acceptance'] if x['file']=='*']),3)
+        raw={'acceptance':[{'kind':'image','width':64,'file':'*','source':'user','stage':'current'}]}
+        bind_explicit_delivery_formats(raw,['a.png','b.png'],{'goal':'Deliver PNG images'})
+        self.assertEqual({x['file'] for x in raw['acceptance'] if x['stage']=='final'},{'a.png','b.png'})
+
+    def test_operation_srt_delivery_never_retargets_video_acceptance(self):
+        from webapp.operations import get as operation
+        value=frozen(False);value.update(goal='Deliver MP4 and SRT',operations=[operation('media.edit').public()])
+        task={'id':'render','name':'Render','type':'operation','operation':'media.edit','objective':'Video and subtitles',
+            'inputs':{'source':{'asset':'clip'},'transcript':{'asset':'words'}},
+            'parameters':{'edit_plan':{'clips':[{'asset':'source','end':1}],'subtitles':{'from_transcripts':True}}},
+            'acceptance':[{'kind':'media','video':True,'width':854,'stage':'final'},{'kind':'subtitle','stage':'final'}]}
+        compiled=compile_manager({'kind':'COMPLETE','reason':'Deliver both','plan':{'new_tasks':[task]}},value)['proposal']['add_tasks'][0]
+        self.assertTrue(any(check['kind']=='subtitle' and check['file']=='final.srt' for check in compiled['acceptance']))
+        self.assertTrue(all(check['file']!='final.srt' for check in compiled['acceptance'] if check['kind']=='media'))
+
     def test_read_only_response_tool_is_bound_to_an_empty_run(self):
         f=frozen(False);f.update(can_respond=True,scope_confirmation_required=True)
         protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})

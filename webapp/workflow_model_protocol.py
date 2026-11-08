@@ -205,24 +205,29 @@ def required_delivery_roles(frozen):
 
 def bind_explicit_delivery_formats(raw,filenames,frozen,role_filenames=None):
     if raw.get('purpose')=='evidence':return
+    from .quality_policy import output_target_matches
     aliases={'jpg':'jpeg'};required=required_delivery_extensions(frozen);acceptance=list(raw.get('acceptance',[]))
+    def promote(name,existing):
+        check=next((check for check in existing if check.get('source','user')=='user'),existing[0] if existing else None)
+        if check is None:return
+        # A wildcard describes every matching output. Binding one deliverable
+        # must neither consume that rule nor assign it to a different type.
+        bound={**check,'source':'user','stage':'final','file':name}
+        if check.get('file')==name:check.update(bound)
+        elif bound not in acceptance:acceptance.append(bound)
     matches=[]
     for name in filenames:
         if '.' not in name:continue
         extension=aliases.get(name.rsplit('.',1)[-1].lower(),name.rsplit('.',1)[-1].lower())
         if extension in required:matches.append(name)
     for name in matches:
-        existing=[check for check in acceptance if check.get('file') in (name,'*')]
-        user=next((check for check in existing if check.get('source','user')=='user'),None)
-        if user:user['stage']='final';user['file']=name
-        elif existing:acceptance.append({**existing[0],'source':'user','stage':'final','file':name})
+        existing=[check for check in acceptance if check.get('file') in (name,'*') and output_target_matches(check,name)]
+        promote(name,existing)
     for role in required_delivery_roles(frozen):
         name=(role_filenames or {}).get(role)
         if not name:continue
-        existing=[check for check in acceptance if check.get('file') in (name,role,'*') and check.get('kind') in ('json','text','file')]
-        user=next((check for check in existing if check.get('source','user')=='user'),None)
-        if user:user['stage']='final';user['file']=name
-        elif existing:acceptance.append({**existing[0],'source':'user','stage':'final','file':name})
+        existing=[check for check in acceptance if check.get('file') in (name,role,'*') and check.get('kind') in ('json','text','file') and output_target_matches(check,name)]
+        promote(name,existing)
     raw['acceptance']=acceptance
 
 
