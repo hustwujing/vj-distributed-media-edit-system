@@ -644,6 +644,8 @@ def inspect(store,run,allowed,reference,offset=0):
             dimensions={key:int(document.attrib[key]) for key in ('w','h') if str(document.attrib.get(key,'')).isdigit()}
             layer_dimensions={item['name']:(item['width'],item['height']) for item in images if item['name'] in {layer['src'] for layer in layers}}
             expected=(dimensions.get('w'),dimensions.get('h'))
+            baseline_attributes={'name','src','x','y','opacity','visibility','composite-op'}
+            extension_attributes=sorted({key for layer in layers for key in layer if key not in baseline_attributes})
             return {'ref':reference,'metadata':metadata,'coverage':'layer_structure','layers':layers,'dimensions':dimensions,
                     'archive_members':directory['members'],'archive_member_count':directory['member_count'],
                     'mimetype_valid':mimetype_valid,'mergedimage_present':'mergedimage.png' in names,
@@ -651,7 +653,11 @@ def inspect(store,run,allowed,reference,offset=0):
                     'all_layer_dimensions_match_canvas':bool(expected[0] and expected[1] and layer_dimensions
                         and all(size==expected for size in layer_dimensions.values())),
                     'contents_verified':False,
-                    'limitation':'Archive structure and bounded image headers were verified; full member pixels were not decoded or compared.'}
+                    'editing_semantics':{'verified_scope':'image_layer_structure_only',
+                        'baseline_controls':['position','opacity','visibility','blend_mode'],
+                        'uninterpreted_layer_attributes':extension_attributes,
+                        'custom_attributes_interpreted':False,'parametric_adjustment_editability_verified':False},
+                    'limitation':'Archive structure and bounded image headers were verified; full member pixels were not decoded or compared. Raster layers, names, blend-mode proxies and custom XML/JSON parameters do not establish working contrast/saturation/temperature adjustment controls. Such controls require a supported native reader or a supplied functional renderer.'}
     if suffix=='.zip':
         if offset!=0:raise InspectionInputError('ZIP directory inspection requires offset 0')
         return {'ref':reference,'metadata':metadata,**archive_index(path)}

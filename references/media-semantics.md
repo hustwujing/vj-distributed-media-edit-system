@@ -78,6 +78,23 @@ finalizing; if that cannot be done, do not fabricate a positive conclusion.
 
 ## Evidence and repair
 
+Editable behavior requires an implementation that consumes the delivered
+parameters, not just parameter names or values saved beside a rendered image.
+For parametric adjustments, deliver a supported native document with its source
+assets, or a runnable renderer plus parameter file and necessary sources. Verify
+in a clean directory that the default settings reproduce the preview, disabling
+all adjustments restores the base, and changing or disabling each requested
+adjustment changes the output. A self-check claiming these properties without a
+usable reader/renderer is insufficient evidence.
+
+OpenRaster baseline image layers expose position, opacity, visibility and blend
+modes; they do not by themselves implement contrast/saturation/temperature
+parameters. Custom XML attributes or an `adjustments.json` member require an
+actual compatible reader. Approximate raster blend proxies are not evidence that
+the saved adjustment parameters can be edited and re-rendered. Inspect the
+supplied implementation or report the missing functional evidence. See the
+[OpenRaster layer-stack specification](https://www.openraster.org/baseline/layer-stack-spec.html).
+
 Deterministic measurements establish geometry, stream presence, full-stream silence,
 loudness, text sequence and mask changes. A bounded audio or video sample does
 not establish an unobserved interval. Tone estimates are for stable narrow-band

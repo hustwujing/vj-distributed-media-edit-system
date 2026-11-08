@@ -103,7 +103,7 @@ class InspectionFormatTests(unittest.TestCase):
         path=self.root/'editable.ora'
         def png(width,height):
             output=io.BytesIO();Image.new('RGBA',(width,height),(255,255,255,255)).save(output,format='PNG');return output.getvalue()
-        stack=b'<?xml version="1.0"?><image w="512" h="512"><stack><layer name="one" src="data/one.png"/><layer name="two" src="data/two.png"/></stack></image>'
+        stack=b'<?xml version="1.0"?><image w="512" h="512" xmlns:custom="urn:unimplemented-adjustment"><stack><layer name="Contrast adjustment" src="data/one.png" custom:contrast="1.5"/><layer name="two" src="data/two.png"/></stack></image>'
         with zipfile.ZipFile(path,'w') as archive:
             archive.writestr('mimetype',b'image/openraster',compress_type=zipfile.ZIP_STORED)
             archive.writestr('stack.xml',stack)
@@ -113,5 +113,8 @@ class InspectionFormatTests(unittest.TestCase):
         self.assertEqual(result['coverage'],'layer_structure');self.assertTrue(result['mimetype_valid'])
         self.assertTrue(result['mergedimage_present']);self.assertTrue(result['thumbnail_present'])
         self.assertTrue(result['all_layer_dimensions_match_canvas']);self.assertFalse(result['contents_verified'])
+        self.assertFalse(result['editing_semantics']['parametric_adjustment_editability_verified'])
+        self.assertFalse(result['editing_semantics']['custom_attributes_interpreted'])
+        self.assertEqual(result['editing_semantics']['uninterpreted_layer_attributes'],['{urn:unimplemented-adjustment}contrast'])
         self.assertEqual(result['archive_members'][0]['compression'],'stored')
         self.assertEqual({item['name']:(item['width'],item['height']) for item in result['member_images']}['data/one.png'],(512,512))
