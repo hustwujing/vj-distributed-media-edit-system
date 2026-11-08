@@ -1,7 +1,7 @@
 export const terminalRun = state => ['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(state);
 
 export function canApproveDecision(decision, run) {
-  if (['plan_change', 'successor_authorization', 'new_run'].includes(decision.kind)) return true;
+  if (['plan_change', 'successor_authorization', 'new_run', 'external_submission'].includes(decision.kind)) return true;
   if (decision.kind !== 'quality') return false;
   const task = run.tasks.find(task => task.id === decision.request.task_id);
   return Boolean(task?.quality.technical_valid && task.spec.acceptance.some(rule => rule.kind === 'review') &&

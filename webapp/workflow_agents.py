@@ -83,8 +83,10 @@ def reserve_tokens(store,lease,run,amount,*,input_tokens=None,output_tokens=None
 
 @contextmanager
 def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_reserved_tokens=None,method='unspecified',model_call_limit=None):
+    call_limit=model_call_limit
+    if call_limit is not None:call_limit=min(call_limit,int(run['authorization'].get('max_model_calls',call_limit)))
     reservation=reserve_tokens(lease.store,lease,run,amount,input_tokens=input_reserved_tokens,
-                               output_tokens=output_reserved_tokens,model_call_limit=model_call_limit)
+                               output_tokens=output_reserved_tokens,model_call_limit=call_limit)
     from .telemetry import emit,bind
     emit('workflow.model_budget_reserved',reservation_id=reservation,reserved_tokens=amount,
          input_reserved_tokens=input_reserved_tokens,output_reserved_tokens=output_reserved_tokens,method=method)

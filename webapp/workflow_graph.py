@@ -60,6 +60,7 @@ class Authorization(Contract):
     provider_call_budget:dict[str,int]=Field(default_factory=dict,max_length=50)
     cost_budget:float|None=Field(default=None,ge=0)
     model_token_budget:int=Field(default=4000000,ge=1024,le=4000000)
+    max_model_calls:int=Field(default=200,ge=1,le=10000,description='本轮模型调用次数上限；独立于 Token 预算。')
     wall_time_budget:int=Field(default=86400,ge=60,le=86400)
     max_tasks:int=Field(default=256,ge=1,le=256)
     max_planning_rounds:int=Field(default=64,ge=1,le=64)
