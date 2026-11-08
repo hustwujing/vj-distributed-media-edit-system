@@ -153,18 +153,21 @@ def terminate(db,task_id,reason):
     request_cleanup(db,task_id)
 
 
-def request_cleanup(db,task_id,attempt_id=None,external=True):
+def request_cleanup(db,task_id,attempt_id=None,external=True,*,step_id=None):
     now=clock(db)
     duration=max(1,float(os.environ.get('VIDEO_USE_CLEANUP_SECONDS','60')))
-    db.execute("UPDATE execution_cleanup SET state='pending',started=COALESCE(started,?),deadline_at=COALESCE(deadline_at,?),updated=? WHERE task_id=? AND state='allocated'"+(' AND attempt=?' if attempt_id else ''),
-               (now,now+duration,now,task_id)+((attempt_id,) if attempt_id else ()))
+    step_filter=' AND attempt IN (SELECT id FROM execution_attempts WHERE run_id=? AND step_id=?)' if step_id is not None else ''
+    step_args=(task_id,step_id) if step_id is not None else ()
+    db.execute("UPDATE execution_cleanup SET state='pending',started=COALESCE(started,?),deadline_at=COALESCE(deadline_at,?),updated=? WHERE task_id=? AND state='allocated'"+(' AND attempt=?' if attempt_id else '')+step_filter,
+               (now,now+duration,now,task_id)+((attempt_id,) if attempt_id else ())+step_args)
     if not external:return
-    for row in db.execute("SELECT * FROM execution_provider_calls WHERE run_id=? AND status IN ('waiting','submitting')",(task_id,)).fetchall():
+    for row in db.execute("SELECT * FROM execution_provider_calls WHERE run_id=? AND status IN ('waiting','submitting')"+step_filter,(task_id,)+step_args).fetchall():
         db.execute('INSERT OR IGNORE INTO execution_external_cleanup(id,task_id,provider,external_id,state,error) VALUES (?,?,?,?,?,?)',
                    (row['id'],task_id,row['provider'],row['external_id'],'pending' if row['external_id'] else 'unknown',
                     '' if row['external_id'] else '提交结果未知，无法确认上游是否仍在运行。'))
-    for row in db.execute("SELECT request_key,provider,external_id,state FROM workflow_provider_calls WHERE (workflow=? OR workflow IN (SELECT id FROM runs WHERE id=?)) AND state NOT IN ('succeeded','failed','cancelled','rejected')",(task_id,task_id)).fetchall():
+    for row in db.execute("SELECT request_key,provider,external_id,state FROM workflow_provider_calls WHERE (workflow=? OR workflow IN (SELECT id FROM runs WHERE id=?)) AND state NOT IN ('succeeded','failed','cancelled','rejected','superseded')"+(' AND step=?' if step_id is not None else ''),(task_id,task_id)+((step_id,) if step_id is not None else ())).fetchall():
         db.execute('INSERT OR IGNORE INTO execution_external_cleanup(id,task_id,provider,external_id,state,error) VALUES (?,?,?,?,?,?)',(row['request_key'],task_id,row['provider'],row['external_id'],'pending' if row['external_id'] else 'unknown','' if row['external_id'] else '提交结果未知，未重复调用'))
+    if step_id is not None:return
     task=db.execute('SELECT status FROM agent_turns WHERE id=?',(task_id,)).fetchone()
     if task and task['status'] in ('failed','cancelled','cancelling'):
         import json

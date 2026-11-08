@@ -36,8 +36,78 @@ class RunRecoveryTests(unittest.TestCase):
         finally:lease.release()
         self.f.orchestrator.accept_results(graph.get(self.store,run['id']))
         task=graph.get(self.store,run['id'])['tasks'][0]
-        self.assertEqual((task['status'],task['recovery_count']),('waiting',0))
+        self.assertEqual((task['status'],task['recovery_count']),('waiting',2))
         self.assertEqual(len(self.store.query('SELECT request_key FROM workflow_provider_calls')),1)
+
+    def test_repeated_wait_receipts_back_off_without_spending_recovery_budget(self):
+        self.provider_task()
+        self.store.execute("UPDATE run_tasks SET status='waiting',lease_id='',next_run_at=0,recovery_count=0 WHERE run_id=?",(self.run['id'],))
+        for index,expected in enumerate((2,10,20,40,60)):
+            self.store.execute('UPDATE run_tasks SET next_run_at=0 WHERE run_id=?',(self.run['id'],))
+            self.f.orchestrator.advance_ready(graph.get(self.store,self.run['id']))
+            lease=Coordinator(self.store,'poll-backoff','test').claim(self.run['id'],'workflow',step_id='render')
+            self.assertIsNotNone(lease)
+            try:
+                with lease.bind():stage_result(self.store,lease,'waiting',{'external_id':'original-job','poll_after':2 if index==0 else 5})
+            finally:lease.release()
+            before=self.store.now()
+            self.f.orchestrator.accept_results(graph.get(self.store,self.run['id']))
+            task=graph.get(self.store,self.run['id'])['tasks'][0]
+            self.assertAlmostEqual(task['next_run_at']-before,expected,delta=.5)
+            self.assertEqual(task['poll_count'],index+1)
+            self.assertEqual(task['recovery_count'],0)
+            self.assertEqual(len(self.store.query('SELECT request_key FROM workflow_provider_calls')),1)
+        self.f.orchestrator.task_failure(graph.get(self.store,self.run['id']),task,{'error_code':'poll_failed','phase':'poll'})
+        task=graph.get(self.store,self.run['id'])['tasks'][0]
+        self.assertEqual((task['status'],task['recovery_count']),('retry_wait',1))
+
+    def timed_external_wait(self):
+        self.provider_task()
+        self.store.execute("UPDATE run_tasks SET status='waiting',lease_id='',wait_recorded_at=?,next_run_at=? WHERE run_id=?",
+            (self.store.now()-8000,self.store.now()+60,self.run['id']))
+        self.store.execute('UPDATE workflow_provider_calls SET implementation=? WHERE workflow=?',
+            (graph.encode({'budget_group':'video.generate_from_image'}),self.run['id']))
+        run=self.f.tick()
+        self.assertEqual((run['status'],run['terminal_reason']),('WAITING_USER','external_wait_timeout'))
+        return self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND kind='external_wait' AND status='pending'",(self.run['id'],))[0]
+
+    def test_wait_timeout_answer_is_processed_before_timeout_check(self):
+        decision=self.timed_external_wait()
+        command=graph.command(self.store,self.run['id'],'owner','answer',
+            {'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':'approve'})
+        run=self.f.tick()
+        self.assertEqual(self.store.query('SELECT status FROM workflow_commands WHERE id=?',(command['id'],))[0]['status'],'applied')
+        self.assertEqual(run['status'],'ACTIVE')
+        self.assertGreater(run['tasks'][0]['wait_recorded_at'],self.store.now()-5)
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],)))
+        self.assertEqual(run['reconcile_owner'],'')
+
+    def test_wait_timeout_does_not_starve_cancel(self):
+        self.timed_external_wait()
+        command=graph.command(self.store,self.run['id'],'owner','cancel')
+        run=self.f.tick()
+        self.assertEqual(self.store.query('SELECT status FROM workflow_commands WHERE id=?',(command['id'],))[0]['status'],'applied')
+        self.assertIn(run['status'],('CANCELLING','CANCELLED'))
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],)))
+
+    def test_abandon_external_wait_cleans_only_selected_task(self):
+        decision=self.timed_external_wait()
+        now=self.store.now()
+        for task_id in ('render','sibling'):
+            attempt=task_id+'-attempt'
+            self.store.execute("INSERT INTO execution_attempts(id,run_id,worker,generation,kind,started,status,step_id) VALUES (?,?,?,1,'workflow',?,'finished',?)",
+                (attempt,self.run['id'],'worker',now,task_id))
+            self.store.execute("INSERT INTO execution_cleanup(attempt,task_id,node,state,updated) VALUES (?,?,?,'allocated',?)",
+                (attempt,self.run['id'],'worker',now))
+        self.store.execute("INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,external_id,inputs,created,updated,implementation) VALUES (?,?,?,0,1,?,'video.generate_from_image','running','sibling-job','{}',?,?,?)",
+            (self.run['id']+':sibling:0',self.run['id'],'sibling','https://provider.invalid',now,now,graph.encode({'budget_group':'video.generate_from_image'})))
+        command=graph.command(self.store,self.run['id'],'owner','answer',
+            {'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':'reject'})
+        self.f.tick()
+        self.assertEqual(self.store.query('SELECT status FROM workflow_commands WHERE id=?',(command['id'],))[0]['status'],'applied')
+        cleanup={row['attempt']:row['state'] for row in self.store.query('SELECT attempt,state FROM execution_cleanup')}
+        self.assertEqual(cleanup,{'render-attempt':'pending','sibling-attempt':'allocated'})
+        self.assertEqual([row['id'] for row in self.store.query('SELECT id FROM execution_external_cleanup')],[self.run['id']+':render:0'])
 
     def test_terminal_provider_failure_is_not_polled_again(self):
         self.provider_task()
@@ -65,6 +135,9 @@ class RunRecoveryTests(unittest.TestCase):
         row=self.store.query('SELECT state,used_tokens,input_settled_tokens,output_settled_tokens FROM workflow_model_reservations')[0]
         self.assertEqual((row['state'],row['used_tokens'],row['input_settled_tokens'],row['output_settled_tokens']),
                          ('interrupted_usage_unknown',9000,None,None))
+        from webapp.workflow_api import public
+        usage=public(self.store,graph.get(self.store,self.run['id']))['token_usage']
+        self.assertEqual((usage['settled_input'],usage['fully_unknown_reserved'],usage['unknown_output_reserved']),(0,9000,0))
 
     def test_expired_running_attempt_is_visible_then_reconciled_while_user_waits(self):
         import os,uuid

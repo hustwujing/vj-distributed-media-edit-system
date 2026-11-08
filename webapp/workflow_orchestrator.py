@@ -71,12 +71,6 @@ class Orchestrator:
             db.execute('BEGIN IMMEDIATE');self.check(db,identifier,generation)
             run=graph.get(store,identifier)
             if run['status'] in RUN_TERMINAL:return
-            wait_budget=float(os.environ.get('VIDEO_USE_EXTERNAL_WAIT_SECONDS','7200'))
-            timed_out=[task for task in graph.work_items(run) if task['status']=='waiting' and task.get('phase') in ('poll','collect') and task.get('wait_recorded_at') and store.now()-task['wait_recorded_at']>wait_budget]
-            if timed_out:
-                self.decision(run,'external_wait',{'task_id':timed_out[0]['id'],'question':'外部任务等待已超时。请选择继续等待，或放弃该任务并保留其他成果后重新规划。','options':['keep_waiting','abandon_task']})
-                self.set_status(run,'WAITING_USER','external_wait_timeout')
-                return
             if run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete' and not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
                 self.decision(run,'delivery_scope_change',{
                     'question':'当前成果未满足全部交付目标。请确认新的交付范围；已有合格成果可以复用。',
@@ -91,6 +85,16 @@ class Orchestrator:
             run=graph.get(store,identifier)
             if user_paused and run['status'] not in ('CANCELLING',*RUN_TERMINAL):
                 self.set_status(run,'WAITING_USER','user_paused');run=graph.get(store,identifier)
+            # Process commands and any staged completion first. A timeout must
+            # neither starve its own answer/cancel command nor mask a result.
+            wait_budget=float(os.environ.get('VIDEO_USE_EXTERNAL_WAIT_SECONDS','7200'))
+            timed_out=[task for task in graph.active_tasks(run) if task['status']=='waiting'
+                       and task['phase'] in ('poll','collect') and task.get('wait_recorded_at')
+                       and store.now()-task['wait_recorded_at']>wait_budget]
+            if run['status']=='ACTIVE' and timed_out:
+                self.decision(run,'external_wait',{'task_id':timed_out[0]['id'],'question':'外部任务等待已超时。请选择继续等待，或放弃该任务并保留其他成果后重新规划。','options':['keep_waiting','abandon_task']})
+                self.set_status(run,'WAITING_USER','external_wait_timeout')
+                run=graph.get(store,identifier)
             if run['input_barrier_sequence'] is not None and run['status'] not in ('CANCELLING',*RUN_TERMINAL):
                 self.apply_planner(run)
                 self.advance_ready(graph.get(store,identifier))
@@ -282,7 +286,7 @@ class Orchestrator:
             if row['kind']=='external_wait':
                 task=next(t for t in graph.work_items(run) if t['id']==request['task_id']);graph.write_work(store,task,"UPDATE run_tasks SET status='paused',error_code='external_wait_timeout',error_detail=? WHERE run_id=? AND id=?",('外部任务等待超时，已放弃等待。',run['id'],task['id']));store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
                 from .task_lifecycle import request_cleanup
-                with store.connect() as db:request_cleanup(db,run['id'],external=True)
+                with store.connect() as db:request_cleanup(db,run['id'],external=True,step_id=task['id'])
                 self.open_repair(run,task['id'],'external_wait',row['id'],'external_wait_timeout');store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],));self.set_status(run,'ACTIVE','external_wait_replan');self.queue_plan(graph.get(store,run['id']),{'external_wait_abandoned':row['id'],'task_id':task['id']});return
             if row['kind']=='external_submission':
                 task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
@@ -433,7 +437,7 @@ class Orchestrator:
                     handle=data.get('external_id') or task['external_id']
                     if not re_full_handle(handle):raise InvalidProviderHandle('Provider submission has no usable handle')
                     backoff=min(60,5*2**min(task.get('poll_count',0),4));suggested=int(data.get('poll_after',backoff))
-                    delay=max(1,min(backoff,suggested))
+                    delay=max(1,min(60,suggested if task.get('poll_count',0)==0 else max(backoff,suggested)))
                     graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,next_run_at=?,wait_reason='provider',poll_count=poll_count+1,wait_recorded_at=COALESCE(wait_recorded_at,?),error_code='',error_detail='' WHERE run_id=? AND id=?",
                         (handle,store.now()+delay,store.now(),run['id'],task['id']))
                 elif outcome=='succeeded':
@@ -747,10 +751,10 @@ class Orchestrator:
                 SELECT 1 FROM execution_leases l WHERE l.attempt=r.attempt_id AND l.active=1 AND l.expires>?)''',
             (run['id'],store.now()))
         for row in rows:
-            if row['input_reserved_tokens'] is not None:
-                used=int(row['input_reserved_tokens'])+int(row['output_reserved_tokens'] or 0);state='interrupted_output_unknown';input_settled=row['input_reserved_tokens']
-            else:
-                used=row['reserved_tokens'];state='interrupted_usage_unknown';input_settled=None
+            # A reservation is an estimate, not a provider receipt. A killed
+            # request without a trusted receipt cannot settle estimated input
+            # as actual usage; retain the bounded unknown envelope instead.
+            used=row['reserved_tokens'];state='interrupted_usage_unknown';input_settled=None
             store.execute('''UPDATE workflow_model_reservations SET used_tokens=?,state=?,
                 input_settled_tokens=?,output_settled_tokens=NULL WHERE id=? AND state='reserved' ''',
                 (used,state,input_settled,row['id']))
