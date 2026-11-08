@@ -194,7 +194,7 @@ class Orchestrator:
             elif command['action']=='pause':self.set_status(run,'WAITING_USER','user_paused')
             elif command['action']=='resume':
                 unresolved=store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
-                requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted','task_requires_resolution','storage_quota_exceeded',
+                requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted',
                     'invalid_delivery_manifest','delivery_targets_incomplete','diagnostic_policy_not_authorized',
                     'user_decision','new_run_rejected'}
                 if run['status']!='WAITING_USER':error='resume_requires_safe_paused_state'
