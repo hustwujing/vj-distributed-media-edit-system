@@ -55,7 +55,10 @@ async function runCase(demo){
   await page.locator('#dynamic-execution-settings').evaluate(node=>node.open=true);
   await page.locator('#dynamic-model-profile').selectOption('claude55');await page.locator('#dynamic-reasoning-effort').selectOption('high');
   // Model options are populated only after loadProject has restored the draft.
-  assert.equal((await page.locator('#dynamic-input-content').inputValue()).trim(),demo.prompt.trim(),'Example prompt was lost on import');
+  const importedPrompt=(await page.locator('#dynamic-input-content').inputValue()).trim();
+  assert.equal(importedPrompt,project.draft.prompt.trim(),'Restored draft differs from the visible request');
+  assert.ok(importedPrompt.includes(demo.prompt.trim()),'Example prompt was lost on import');
+  for(const option of demo.options||[])assert.ok(importedPrompt.includes(option.trim()),'Visible example parameters were lost on import');
   await page.locator('[name=delivery-target]').evaluateAll(nodes=>nodes.forEach(node=>node.checked=false));await page.locator('#dynamic-targets-other').fill('');
   await capture('01-imported');
   const started=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/api/projects/${state.project}/runs`));

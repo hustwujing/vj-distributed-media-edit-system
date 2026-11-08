@@ -672,7 +672,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         return FileResponse(path,media_type='image/jpeg')
 
     # Demo previews are intentionally public. User projects are isolated by session.
-    from .demo_library import DemoLibrary
+    from .demo_library import DemoLibrary,conversation_prompt
     demo_library=DemoLibrary(store)
     def catalog():return demo_library.snapshot().catalog
 
@@ -784,6 +784,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
                 draft_preset={'kind':'edit','tool':DEMO_TO_TOOL.get(demo_id,'render'),'edit_plan':browser_plan}
             draft=JobInput(**draft_preset).model_dump()
             editor='images' if demo.get('media')=='image' else 'chat' if demo.get('workflow')=='agent' else 'tools'
+            prompt=conversation_prompt(demo)
             def publish():
                 with store.connect() as db:
                     db.execute('BEGIN IMMEDIATE');own_project(project_id,request)
@@ -798,9 +799,9 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
                     for item in auxiliary:
                         stage.move(item['filename'],folder/item['logical'])
                         if item['artifact']:store.artifacts.publish(project_id,item['logical'],item['artifact']['id'],expected_revision=0)
-                    store.save_draft(project_id,draft,demo['prompt'],editor);store.set_demo_context(project_id,demo_id)
+                    store.save_draft(project_id,draft,prompt,editor);store.set_demo_context(project_id,demo_id)
                     stage.check()
-                return {'project':project,'preset':preset,'prompt':demo['prompt']}
+                return {'project':project,'preset':preset,'prompt':prompt}
             return await api_execution.run('write',stage.commit,publish)
         except ValueError as exc:raise HTTPException(422,str(exc)) from exc
         except OverflowError as exc:raise HTTPException(413,'示例素材超过大小限制。') from exc

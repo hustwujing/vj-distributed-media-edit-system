@@ -8,6 +8,13 @@ import uuid
 OWNER='system:demo-library'
 
 
+def conversation_prompt(demo):
+    """Preserve the card's visible parameters in the editable imported request."""
+    prompt=demo['prompt'].strip()
+    options=[item.strip() for item in demo.get('options',[]) if isinstance(item,str) and item.strip()]
+    return prompt+('\n\n示例参数（可修改）：\n'+'\n'.join('- '+item for item in options) if options else '')
+
+
 def component(value):
     if not isinstance(value,str) or not value or value.startswith('.') or Path(value).name!=value or '\\' in value:
         raise ValueError('Invalid example file name')

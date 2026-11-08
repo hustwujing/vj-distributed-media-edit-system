@@ -26,6 +26,7 @@ def source_library(root):
     plan={'version':1,'sources':{'v':'sources/source.mp4'},'transcripts':{'v':'transcripts/words.json'},'clips':[{'source':'v','end':.4}]}
     (root/'tiny/plan.json').write_text(json.dumps(plan))
     catalog=[{'id':'tiny','title':'Test','poster':'poster.png','files':['poster.png','plan.json'],'renderer':'edit_media','workflow':'agent','prompt':'查看示例方案',
+              'options':['保留前 0.4 秒','输出 32×32'],
               'sources':[{'key':'v','file':'source.mp4','name':'Source','transcripts':{'0':'words.json'}}], 'preset':{'kind':'agent','assets':['v']}}]
     (root/'catalog.json').write_text(json.dumps(catalog));return catalog
 
@@ -60,6 +61,10 @@ class LibraryTests(unittest.TestCase):
                     self.assertEqual(b.get('/api/demos/tiny/files/poster.png').content,(source/'tiny/poster.png').read_bytes())
                     self.assertEqual(b.get('/api/demos/tiny/files/private.env').status_code,404)
                     response=a.post('/api/demos/tiny/load');self.assertEqual(response.status_code,201,response.text);project=response.json()['project']['id'];b.cookies.update(a.cookies)
+                    restored=b.get('/api/projects/'+project).json()['draft']['prompt']
+                    self.assertEqual(restored,response.json()['prompt'])
+                    self.assertIn(catalog[0]['prompt'],restored)
+                    for option in catalog[0]['options']:self.assertIn(option,restored)
                     assets=a.get('/api/projects/'+project).json()['assets'];asset=assets[0]['id']
                     shutil.rmtree(root/'a');shutil.rmtree(source)
                     self.assertEqual(b.get('/api/demos').json(),catalog)
