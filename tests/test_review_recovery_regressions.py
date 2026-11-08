@@ -108,3 +108,14 @@ class ReviewRecoveryRegressions(unittest.TestCase):
         finally:lease.release()
         self.assertEqual(self.store.query("SELECT used FROM execution_budgets WHERE run_id=? AND category='model'",(run['id'],))[0]['used'],5)
         self.assertEqual(len(self.store.query('SELECT id FROM workflow_model_reservations WHERE run_id=?',(run['id'],))),5)
+
+    def test_daily_quota_failure_exposes_actual_counts_and_reset_guidance(self):
+        from webapp.workflow_api import public
+        self.f.f.orchestrator.task_failure(self.run,self.run['tasks'][0],{
+            'error_code':'daily_model_quota_exhausted','quota_used':37,'quota_limit':37,
+            'quota_reset_at':self.store.now()+7200})
+        snapshot=public(self.store,graph.get(self.store,self.run['id']))
+        failure=next(row for row in snapshot['failure_details'] if row['code']=='daily_model_quota_exhausted')
+        self.assertIn('37/37',failure['message'])
+        self.assertIn('小时后恢复',failure['message'])
+        self.assertEqual(snapshot['blocking_action']['code'],'daily_model_quota_exhausted')
