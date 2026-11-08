@@ -52,7 +52,8 @@ class ScopeReviewRecoveryTests(unittest.TestCase):
         self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(graph.encode(authorization),run['id']))
         self.f.orchestrator.queue_review(graph.get(self.store,run['id']))
         row=self.store.query("SELECT * FROM workflow_reviews WHERE run_id=? AND status='pending'",(run['id'],))[0]
-        self.assertEqual(json.loads(row['snapshot_json'])['review_criteria'],[run['goal']])
+        criteria=json.loads(row['snapshot_json'])['review_criteria']
+        self.assertEqual(len(criteria),1);self.assertIn(run['goal'],criteria[0])
         self.assertEqual(row['review_identity'],final_identity(self.store,graph.get(self.store,run['id'])))
         self.store.execute('UPDATE runs SET graph_version=graph_version+1 WHERE id=?',(run['id'],))
         self.assertEqual(row['review_identity'],final_identity(self.store,graph.get(self.store,run['id'])))

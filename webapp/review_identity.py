@@ -25,7 +25,14 @@ def final_criteria(run,tasks):
         criteria=list(dict.fromkeys(check.get('criterion','') for task in tasks
             if task['spec'].get('delivery_stage') for check in task['spec'].get('acceptance',[])
             if check.get('criterion')))
-    return criteria or [run['goal']]
+    # A planner's deliverable summary cannot replace the user's full request.
+    # Keep bounded clauses so every part can be cited by the review protocol.
+    import textwrap
+    goal=str(run.get('goal') or '').strip()
+    for part in textwrap.wrap(goal,width=1200,break_long_words=True,break_on_hyphens=False):
+        criterion='完整用户目标（已应用的 user_changes 对内容/参数的修订优先）：'+part
+        if part not in criteria and criterion not in criteria:criteria.append(criterion)
+    return criteria or [goal]
 
 
 def identity(store,run,frozen):

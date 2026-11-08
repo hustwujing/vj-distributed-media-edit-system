@@ -639,10 +639,10 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(len(run['delivery']),1)
 
     def test_passed_final_review_can_be_reused_after_graph_only_change(self):
-        from webapp.review_identity import identity
+        from webapp.review_identity import identity,final_criteria
         def reseal(run,review_id):
             frozen={'review_scope':'final','goal':run['goal'],'delivery_targets':run['authorization']['delivery_targets'],
-                    'tasks':graph.active_tasks(run)}
+                    'tasks':graph.active_tasks(run),'review_criteria':final_criteria(run,graph.active_tasks(run))}
             key=identity(self.store,run,frozen)
             self.store.execute('UPDATE workflow_reviews SET review_identity=? WHERE id=?',(key,review_id))
             self.store.execute('UPDATE runs SET graph_version=graph_version+1 WHERE id=?',(run['id'],))
@@ -776,7 +776,8 @@ class DynamicGraphTests(unittest.TestCase):
         selected=['edit/master.mp4','edit/final.mp4']
         ids=['a'*32,'b'*32];inspections=dict(zip(ids,selected));keys={'delivery_1':ids[0],'delivery_2':ids[1]}
         decision={'snapshot_digest':row['snapshot_digest'],'verdict':'pass','deliverables':list(keys),
-                  'evidence':[{'criterion_index':0,'observation':'Checked both variants','inspection_id':ids[0]}]}
+                  'evidence':[{'criterion_index':index,'observation':'Checked both variants against this requirement','inspection_id':ids[0]}
+                              for index in range(len(frozen['review_criteria']))]}
         with self.assertRaisesRegex(ValueError,'[Pp]rimary'):
             validated_internal_result(run,task,get('delivery_reviewer'),{'decision':decision},frozen,inspections,keys)
         with self.assertRaisesRegex(ValueError,'candidate_key'):
