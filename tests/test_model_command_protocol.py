@@ -934,6 +934,21 @@ class ModelCommandTests(unittest.TestCase):
             wire=transform(value,p.schemas['submit_result'],encode=True);wire['primary']=invalid
             with self.assertRaises(ValidationError):p.decode('submit_result',wire)
 
+    def test_final_review_with_empty_delivery_targets_uses_frozen_goal_criterion(self):
+        from webapp.workflow_agent_contracts import resolve_review
+        snapshot={'review_scope':'final','goal':'交付符合要求的最终视频','delivery_targets':[],
+                  'review_criteria':['交付符合要求的最终视频'],'tasks':[{'id':'render','spec':{'delivery_stage':True},
+                  'accepted_result':['edit/final.mp4'],'quality':{'output_roles':{'video':'edit/final.mp4'}}}]}
+        inspection='b'*32;decision={'snapshot_digest':'a'*64,'verdict':'pass',
+            'evidence':[{'criterion_index':0,'observation':'已检查成片','inspection_id':inspection}],
+            'deliverables':['delivery_1'],'primary':'delivery_1','feedback':''}
+        resolved=resolve_review(decision,snapshot,{inspection:'edit/final.mp4'},{'delivery_1':inspection})
+        self.assertEqual(resolved['evidence'][0]['criterion'],snapshot['review_criteria'][0])
+        self.assertEqual(resolved['primary'],'edit/final.mp4')
+        bad={**decision,'evidence':[{'criterion_index':1,'observation':'越界','inspection_id':inspection}]}
+        with self.assertRaisesRegex(ValueError,'0..0'):
+            resolve_review(bad,snapshot,{inspection:'edit/final.mp4'},{'delivery_1':inspection})
+
     def test_input_asset_filename_is_not_a_required_delivery_format(self):
         from webapp.workflow_model_protocol import required_delivery_extensions
         frozen_review={'goal':'Use music.wav under the video and deliver MP4',

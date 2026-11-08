@@ -508,6 +508,8 @@ class Orchestrator:
                 message='系统执行错误：OpenSandbox 运行时加载失败（ImportError）。这不是输入问题；修复运行时后可点击“继续”重试失败步骤。'
             elif detail:
                 message='系统执行错误：'+detail[:400]+'。请修复运行环境后重试。'
+        if code=='agent_failed' and data.get('error_detail'):
+            message='脚本执行失败：'+str(data['error_detail'])[:400]+'。已保留错误回执，请修正脚本后重试。'
         graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',
             ('retry_wait' if retry else 'paused',phase,code,message,int(retry and phase in ('poll','collect')),store.now()+min(30,2**(task['recovery_count']+1)),run['id'],task['id']))
         if task.get('control_kind') and retry:
@@ -802,6 +804,12 @@ class Orchestrator:
             frozen['failure_facts']=[{'task_id':item['step'],'revision':item['revision'],
                 'diagnostic':json.loads(item['record'])} for item in store.query(
                     'SELECT step,revision,record FROM workflow_diagnostics WHERE workflow=? ORDER BY created DESC LIMIT 100',(run['id'],))]
+            criteria=list(dict.fromkeys(run['authorization']['delivery_targets']))
+            if not criteria:
+                criteria=list(dict.fromkeys(check.get('criterion','') for task in complete_tasks
+                    if task['spec'].get('delivery_stage') for check in task['spec'].get('acceptance',[])
+                    if check.get('criterion')))
+            frozen['review_criteria']=criteria or [run['goal']]
         if purpose=='task':
             selected=frozen['tasks'][0]
             frozen['goal']=selected['spec']['objective']

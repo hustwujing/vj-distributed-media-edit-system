@@ -183,7 +183,9 @@ def required_reviewed_deliverables(snapshot,decision,inspections,candidate_keys)
 
 def resolve_review(decision,snapshot,inspections,candidate_keys=None):
     criteria=review_criteria(snapshot)
-    if any(item['criterion_index']>=len(criteria) for item in decision['evidence']):raise ValueError('Unknown frozen criterion index')
+    if any(item['criterion_index']>=len(criteria) for item in decision['evidence']):
+        upper=max(0,len(criteria)-1)
+        raise ValueError(f'criterion_index 超出冻结范围；可用索引为 0..{upper}')
     evidence_ids={item['inspection_id'] for item in decision['evidence']}
     if not evidence_ids<=set(inspections):raise ValueError('Review evidence must use completed inspection_id values from this attempt')
     candidate_keys=candidate_keys or {};aliases=review_candidate_aliases(snapshot,inspections,candidate_keys)
