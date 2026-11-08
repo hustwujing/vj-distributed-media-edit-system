@@ -46,7 +46,7 @@ function renderModelChoices(){
  $('dynamic-model-profile').innerHTML='<option value="" disabled>请选择模型</option>'+(choices?.profiles||[]).map(p=>`<option value="${esc(p.id)}" ${p.available?'':'disabled'}>${esc(p.harness)} · ${esc(p.model)}${p.available?'':'（未配置）'}</option>`).join('');
  $('dynamic-model-profile').value=modelChoice?.profile||'';
  renderEfforts();modelControls();
- $('dynamic-model-hint').textContent=modelChoice?'沙盒 Implementer 使用本次选择；专家模型由系统配置并随本轮冻结。':'暂无已配置的沙盒模型，请选择可用模型或联系管理员。';
+ const daily=capabilities.daily_quota;$('dynamic-model-hint').textContent=(modelChoice?'沙盒 Implementer 使用本次选择；专家模型由系统配置并随本轮冻结。':'暂无已配置的沙盒模型，请选择可用模型或联系管理员。')+(daily?` 今日模型调用 ${daily.used}/${daily.limit}`:'');
 }
 function renderEfforts(){
  const profile=capabilities.model_choices?.profiles.find(p=>p.id===modelChoice?.profile);
