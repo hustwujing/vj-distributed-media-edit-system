@@ -33,8 +33,8 @@ class DynamicAPITests(unittest.TestCase):
         for claim in controller.claim_due():controller.reconcile(*claim)
         snapshot=self.a.get(self.prefix+'/'+first.json()['id']).json()
         self.assertEqual(snapshot['control_jobs'][0]['created_graph_version'],0)
-        self.assertEqual(snapshot['control_jobs'][0]['execution_location'],'agent_worker')
-        self.assertEqual(snapshot['control_jobs'][0]['tool_location'],'bwrap_sandbox')
+        self.assertEqual(snapshot['control_jobs'][0]['execution_location'],'unallocated')
+        self.assertEqual(snapshot['control_jobs'][0]['tool_location'],'unallocated')
         self.assertEqual(snapshot['control_jobs'][0]['display_name'],'任务规划师')
         self.assertEqual(snapshot['planners'][0]['task_id'],snapshot['control_jobs'][0]['id'])
         self.assertEqual(snapshot['planners'][0]['trigger_task_ids'],[])
@@ -54,6 +54,60 @@ class DynamicAPITests(unittest.TestCase):
              self.app.state.store.now(),'expired'))
         snapshot=self.a.get(self.prefix+'/'+run['id']).json()
         self.assertEqual(snapshot['activity_attempts'],[{'id':'expired-attempt','status':'expired','generation':0}])
+
+    def test_execution_locations_follow_actual_attempts_and_not_declared_bindings(self):
+        import json
+        run=self.a.post(self.prefix,json=self.body()).json()
+        store=self.app.state.store
+        controller=Orchestrator(store)
+        for claim in controller.claim_due():controller.reconcile(*claim)
+        def snapshot():return self.a.get(self.prefix+'/'+run['id']).json()
+        control=snapshot()['control_jobs'][0]['id']
+        store.execute('''INSERT INTO run_tasks
+            (run_id,id,type,spec_json,status,created_graph_version,created_at,updated_at,bindings_json)
+            VALUES (?,?,?,?,?,0,?,?,?)''',(run['id'],'mix','operation',
+            json.dumps({'operation':'media.edit','name':'Mix music'}),'ready',store.now(),store.now(),
+            json.dumps({'_backend':'local_bwrap'})))
+        self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unallocated')
+        def attempt(identifier,step,generation,revision=0,runtime='',uid=None):
+            store.execute('''INSERT INTO execution_attempts
+                (id,run_id,worker,generation,kind,started,status,step_id,task_revision,runtime,uid)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?)''',
+                (identifier,run['id'],'worker',generation,'workflow',store.now(),'running',step,revision,runtime,uid))
+        attempt('remote-mix','mix',1)
+        store.execute('''INSERT INTO execution_external_cleanup
+            (id,task_id,provider,external_id,state,phase,error) VALUES (?,?,?,?,?,?,?)''',
+            ('opensandbox:remote-mix',run['id'],'opensandbox:remote-mix','','dormant','delete',''))
+        self.assertEqual(snapshot()['tasks'][0]['execution_location'],'opensandbox_unconfirmed')
+        store.execute("UPDATE execution_external_cleanup SET external_id='sandbox-id',state='complete',phase='deleted' WHERE id=?",
+                      ('opensandbox:remote-mix',))
+        task=snapshot()['tasks'][0]
+        self.assertEqual((task['execution_location'],task['execution_attempt_id']),('opensandbox','remote-mix'))
+        self.assertNotIn('sandbox-id',json.dumps(task))
+        # Experts run on the worker. A local tool environment is only claimed
+        # once TaskRuntime has persisted its allocation, never from the type.
+        attempt('expert',control,2)
+        job=snapshot()['control_jobs'][0]
+        self.assertEqual((job['execution_location'],job['tool_location']),('agent_worker','unrecorded'))
+        store.execute('UPDATE execution_attempts SET runtime=?,uid=? WHERE id=?',('/private/node/runs/expert',720100,'expert'))
+        job=snapshot()['control_jobs'][0]
+        self.assertEqual((job['execution_location'],job['tool_location']),('agent_worker','bwrap_sandbox'))
+        self.assertNotIn('/private/node',json.dumps(job))
+        # The next attempt must not borrow the first attempt's sandbox.
+        attempt('retry-mix','mix',3)
+        self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unrecorded')
+        store.execute('UPDATE execution_attempts SET runtime=?,uid=? WHERE id=?',('/private/node/runs/retry',720101,'retry-mix'))
+        self.assertEqual(snapshot()['tasks'][0]['execution_location'],'bwrap_sandbox')
+        store.execute("UPDATE run_tasks SET revision=1,attempts=0 WHERE run_id=? AND id='mix'",(run['id'],))
+        self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unallocated')
+        store.execute("UPDATE run_tasks SET attempts=1 WHERE run_id=? AND id='mix'",(run['id'],))
+        self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unrecorded')
+        attempt('revision-one','mix',4,revision=1)
+        # Even a matching receipt ID must belong to this Run.
+        store.execute('''INSERT INTO execution_external_cleanup
+            (id,task_id,provider,external_id,state,phase,error) VALUES (?,?,?,?,?,?,?)''',
+            ('opensandbox:revision-one','foreign-run','opensandbox:revision-one','foreign-sandbox','complete','deleted',''))
+        self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unrecorded')
 
     def test_daily_quota_display_and_idempotent_create_replay(self):
         with patch.dict(os.environ,{'VIDEO_USE_USER_MODEL_DAILY':'37'}):

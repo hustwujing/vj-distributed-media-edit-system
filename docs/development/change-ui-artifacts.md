@@ -38,6 +38,8 @@
 
 新增字段先明确由谁写入、缺失时如何兼容、如何恢复以及是否允许客户端修改。关闭按钮只是交互提示；归属、revision、确认范围和有效状态仍须由 API 重新校验。历史数据缺少字段时使用明确兼容规则，不能默认把候选结果升级为交付。
 
+执行位置通过 `execution_locations.for_run` 批量读取当前 revision 最近 attempt 的本地 Runtime / OpenSandbox cleanup 记录。不得用节点当前配置、任务类型或旧 bindings 推断已经使用的沙箱；重试、revision 变更、已销毁实例和实例创建未确认均须区分。前端位置缺失显示未记录，活动行缓存包含位置及 attempt ID。定向验证使用 `tests.test_dynamic_api` 和 `tests/browser_execution_locations.cjs`；后者用实际渲染器与 CSS 验证桌面/窄屏、位置更新、紧凑排版和代码块换行，不启动真实模型任务。
+
 ## 3. 修改实时更新与交互
 
 - 文本快照、文本增量、任务快照和活动事件分别处理。正文通过现有 `mergeTurn`、`applyText` 等入口按版本合并，不按网络到达顺序直接覆盖；增量缺少对应基础版本时重新获取快照。

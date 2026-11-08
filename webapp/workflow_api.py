@@ -45,23 +45,8 @@ class Command(graph.Contract):
 
 def public(store,run):
     from .role_display import item_name
-    def execution_location(item):
-        bindings=item.get('bindings') or {}
-        backend=bindings.get('_backend') or bindings.get('backend')
-        if isinstance(backend,dict):backend=backend.get('backend') or backend.get('runtime_kind')
-        environment=bindings.get('_environment')
-        if not backend and isinstance(environment,dict):backend=environment.get('backend') or environment.get('runtime_kind')
-        if backend in ('opensandbox','agent_runtime','command_runtime'):return 'opensandbox'
-        if backend in ('local_bwrap','bwrap'):return 'bwrap_sandbox'
-        if item.get('control_kind') or item.get('type')=='agent':return 'agent_worker'
-        if item.get('type')=='script':return 'bwrap_sandbox'
-        if item.get('type')=='operation':
-            try:
-                from .operations import get
-                operation=get(item['spec']['operation'],item['spec'].get('implementation'))
-                return 'executor_host' if operation.external_side_effects else 'bwrap_sandbox'
-            except (KeyError,ValueError):pass
-        return 'executor_host'
+    from .execution_locations import for_run
+    locations=for_run(store,run)
 
     value={k:run[k] for k in ('id','project_id','session_id','parent_run_id','scope_confirmed','goal','status','graph_version','sealed','authorization',
                              'authorization_version','replan_after','repair_context','created_at','updated_at','terminal_reason','delivery','delivered_at','input_sequence','input_barrier_sequence')}
@@ -106,9 +91,8 @@ def public(store,run):
         public_task={k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','recovery_count','infrastructure_interruptions','user_revision_count','attempts',
             'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
         public_task['revision_graph_version']=revision_versions.get((task['id'],task['revision']),task['created_graph_version'])
-        public_task['execution_location']=execution_location(task)
+        public_task.update(locations[task['id']])
         public_task['display_name']=item_name(task)
-        if task.get('type')=='agent':public_task['tool_location']='bwrap_sandbox'
         value['tasks'].append(public_task)
     value['failure_details']=[]
     for task in value['tasks']:
@@ -121,9 +105,8 @@ def public(store,run):
     value['control_jobs']=[]
     for job in run['control_jobs']:
         public_job={key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','created_graph_version','created_at','updated_at')}
-        public_job['execution_location']=execution_location(job)
+        public_job.update(locations[job['id']])
         public_job['display_name']=item_name(job)
-        public_job['tool_location']='bwrap_sandbox'
         value['control_jobs'].append(public_job)
     from .run_inputs import public as public_input
     value['inputs']=[public_input(row) for row in store.query('SELECT * FROM run_inputs WHERE run_id=? ORDER BY sequence',(run['id'],))]
