@@ -13,6 +13,10 @@ class FormatError(ValueError):
 def read_text(path,suffixes=TEXT_SUFFIXES):
     path=Path(path)
     if path.suffix.lower() not in suffixes:raise FormatError('unsupported_format','不支持此文本或字幕格式')
+    return _read_utf8(path)
+
+
+def _read_utf8(path):
     with path.open('rb') as stream:data=stream.read(MAX_TEXT_BYTES+1)
     if len(data)>MAX_TEXT_BYTES:raise FormatError('max_bytes','文本过大')
     try:text=data.decode('utf-8-sig')
@@ -24,7 +28,9 @@ def read_text(path,suffixes=TEXT_SUFFIXES):
 def read_svg(path):
     """Bounded UTF-8 SVG source; declarations/entities are never interpreted."""
     from xml.etree import ElementTree
-    text=read_text(path,suffixes={'.svg'})
+    # The caller selected SVG by its authorized logical reference. Object-store
+    # cache paths are content-addressed and need not have any file extension.
+    text=_read_utf8(Path(path))
     if '<!DOCTYPE' in text.upper() or '<!ENTITY' in text.upper():
         raise FormatError('unsupported_format','SVG不支持声明或实体引用')
     try:root=ElementTree.fromstring(text)

@@ -55,6 +55,18 @@ class InspectionFormatTests(unittest.TestCase):
                 input=json.dumps({'files':[path.name],'acceptance':[rule]}),capture_output=True,text=True,check=True)
             self.assertEqual(json.loads(result.stdout)['passed'],passed,result.stdout)
 
+    def test_svg_format_comes_from_logical_reference_not_object_cache_filename(self):
+        path=self.root/('c'*64);path.write_text('<svg xmlns="http://www.w3.org/2000/svg"><text>缓存标题</text></svg>')
+        reference='edit/candidate/title.svg'
+        record={'artifact':'owned-object','sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+                'size':path.stat().st_size,'location':path.name}
+        for shared in (False,True):
+            store=SimpleNamespace(shared_files=shared,root=self.root,
+                artifacts=SimpleNamespace(materialize=lambda project,artifact:path))
+            evidence=inspect(store,{'project_id':'owned'},{reference:{'record':record}},reference)
+            self.assertEqual(evidence['coverage'],'svg_structure')
+            self.assertEqual(evidence['text_nodes'][0]['text'],'缓存标题')
+
     def test_real_segment_archive_lists_members_without_extracting_or_claiming_media(self):
         path=self.root/'segments.zip'
         with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as archive:
