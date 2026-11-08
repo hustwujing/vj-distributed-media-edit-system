@@ -10,6 +10,18 @@ import unittest
 from tests.suite_lock import serialized
 
 
+class ImmediateFailureResult(unittest.TextTestResult):
+    def addFailure(self,test,error):
+        super().addFailure(test,error)
+        self.stream.writeln('\nFAILURE NOW: '+test.id())
+        self.stream.writeln(self.failures[-1][1]);self.stream.flush()
+
+    def addError(self,test,error):
+        super().addError(test,error)
+        self.stream.writeln('\nERROR NOW: '+test.id())
+        self.stream.writeln(self.errors[-1][1]);self.stream.flush()
+
+
 @serialized
 def main():
     started=time.monotonic()
@@ -34,7 +46,7 @@ def main():
         names=sys.argv[1:]
         suite=(unittest.defaultTestLoader.loadTestsFromNames(names) if names
                else unittest.defaultTestLoader.discover('tests',pattern='test_*.py'))
-        result=unittest.TextTestRunner(verbosity=1).run(suite)
+        result=unittest.TextTestRunner(verbosity=1,resultclass=ImmediateFailureResult).run(suite)
         after=source_digest()
         report={'passed':result.wasSuccessful() and before==after,'tests':result.testsRun,'failures':len(result.failures),
                 'errors':len(result.errors),'skipped':len(result.skipped),'seconds':round(time.monotonic()-started,2),
