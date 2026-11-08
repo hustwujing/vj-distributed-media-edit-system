@@ -174,6 +174,56 @@ Provider 调用和控制任务，区分 `input_waiting_external_unknown` 与 `in
 
 ### 授权与用户反馈
 
+### 用户输入导致契约变化的统一分类（新增）
+
+用户在规划开始后追加的内容不能只按“是否有新文字”处理。Orchestrator 必须把输入相对当前冻结
+Run/Task 契约的变化分类，并在安全点生成唯一的结构化结果。分类由宿主依据冻结快照、已应用输入、
+当前 Proposal 和确定性字段差异复核，不能只信任 Manager 的自然语言判断。
+
+| 变化类型 | 例子 | 正式路径 | 是否改变授权版本 |
+| --- | --- | --- | --- |
+| 同一 Run 内修订 | 修改已有 Task 的参数、目标细节、验收标准、语义或反馈 | 输入屏障 → `APPLY_PLAN` → 受影响 Task 新 revision；旧 revision 保留 | 否，除非触及授权字段 |
+| 交付范围变化 | “只要 MP4”、增加 SRT/封面、修改主文件名或交付角色 | `delivery_scope_change` 提案 → 用户确认 → 更新交付授权 → 重新绑定 Final Review；已有合格成果可复用 | 是 |
+| 素材范围变化 | 新增附件、替换素材、删除补充附件、素材内容版本变化 | 新素材/版本先进入授权决策；已开始 Task 继续排空；拒绝失效输入只 supersede 该输入 | 新素材或版本变化时是 |
+| 能力范围变化 | 新增 Operation、Agent Profile、Provider 或 Gateway 能力 | `REQUEST_AUTHORIZATION` / `plan_change`，宿主按当前 capability catalog 重派生绑定 | 是 |
+| 调用额度变化 | 增加 Provider 次数、模型 Token、时限、Task/规划上限 | 授权决策；已消耗额度不可回写，批准后从剩余额度继续 | 是 |
+| Task 契约变化 | 改变 Task 类型、implementation、output role、依赖、`delivery_stage` | `APPLY_PLAN` 中显式 replacement 或新逻辑 Task；旧 Task/候选不可变 | 通常否；若扩大权限则是 |
+| 顶层目标/交付类型变化 | 从图片改成视频、从剪辑改成完全不同任务 | `NEW_RUN_REQUIRED`，创建同 Session successor；原 Run 不静默改写 | 新 Run 重新确认 |
+| 证据或审查范围变化 | 要求新增时间窗、音频对比、人工 Review | 新增 evidence Task 或 Review Decision；不把 evidence 直接升格为交付 | 通常否 |
+| 执行控制 | 暂停、继续、取消、停止本地任务 | 独立 Control Command；不能伪装成业务输入或契约修订 | 否 |
+| 已交付后的变化 | 交付完成后追加要求或改变主成果 | successor Run，显式选择可复用的已验收资产 | 新 Run 重新确认 |
+| 模型/Runtime/安全策略变化 | 切换模型、Harness、沙箱权限、Gateway 能力 | 重新绑定当前策略并确认；不能静默切换已冻结 Run | 是 |
+
+#### 统一约束
+
+- `delivery_scope_change` 不能只写入 `run_inputs` 后继续沿用旧 `authorization.delivery_targets`。确认后必须
+  生成新的授权版本，记录旧范围、新范围、来源 input ID、确认者和变更时间；发布事务只使用新版本。
+- 任何 `WAITING_USER` 都必须带结构化 `blocking_action`：原因、当前状态、缺失项、建议动作、decision ID
+  和可执行 CTA。仅显示“等待处理”或裸 `terminal_reason` 不合格。
+- Final Review、发布和输入处理必须绑定同一 `authorization_version`。交付范围确认后，旧 Review 只能在
+  审查身份重新计算并确认候选/证据未变化时复用，否则创建轻量 Final Review，不重跑媒体 Task。
+- 已应用输入改变目标、交付范围、授权、预算或素材版本时，必须在 Run 摘要和输入历史中显示“改变了什么、
+  是否需要确认、确认后影响哪些 Task”；用户不能通过重复点击旧按钮绕过决策快照。
+- 用户拒绝范围/授权变化与取消整个 Run 使用不同 Decision 和文案。拒绝后保留原授权和已完成成果，清理
+  未应用输入与对应 barrier；取消仍走 `CANCELLING → CANCELLED` 和完整回收。
+- Manager 只能提交结构化变化意图，宿主派生授权版本、依赖、revision、交付阶段和 Provider 绑定；自然
+  语言中的“已交付/不需要其他文件”不能直接覆盖服务端字段。
+
+#### 当前缺口与真机验收
+
+当前 Run `96df55a61b104ad1851c41ae1c8e226a` 已证明两个缺口：用户输入“只需要成片 MP4”已经 `APPLIED`，
+但旧的六项 `authorization.delivery_targets` 没有升级，导致 Final Review 已通过仍被发布器以
+`delivery_targets_incomplete` 阻塞；页面只显示“等待处理”，没有显示缺失范围、decision 或 CTA。修复必须
+覆盖该 Run 的现有 `final.mp4` 复用路径，并增加以下矩阵：
+
+1. 交付范围收窄、扩大、改主文件名、增加交付角色；分别验证授权版本、Review 身份、发布和不重复执行。
+2. 新增/替换/删除素材，素材内容指纹变化，以及补充输入被拒绝；验证原 Task、barrier 和 successor 关系。
+3. 新增 Operation/Profile/Provider、增加调用额度、模型预算/时限变化；验证授权决策、剩余额度和旧回执。
+4. 修改已有 Task 的 objective/parameters/acceptance/semantics、Task 类型、依赖、output role、delivery stage；
+   验证 revision/replacement、旧候选保留和下游重算。
+5. 改变顶层目标、已交付后追加要求、模型/Runtime/安全策略变化；验证 `NEW_RUN_REQUIRED` 或重新授权。
+6. 每一类都验证页面存在可执行提示；没有可执行决策的 `WAITING_USER`、只有裸错误码或旧范围摘要均为程序错误。
+
 - [ ] Manager Proposal 使用现有确定性授权校验：新增素材、operation/Profile、Provider 次数或交付范围时创建 `plan_change`；授权批准后继续同一安全点规划。Orchestrator 不需要在输入到达时判断“相关/不相关”。
 - [ ] 前述质量决策 `revise` 仅负责把 feedback 和候选身份写入同一 `run_inputs` 邮箱并建立 barrier；原质量 Decision 按正常拒绝/暂停语义完成，后续与其他运行中输入一起统一规划，不维护第二套修订入口。
 - [ ] UI 始终允许在活动 Run 中追加业务要求，并显示“已接收，等待当前任务结束后重新规划”；另保留显式“立即停止当前本地任务”控制按钮，但它属于取消/中断命令，不是普通输入的默认行为。对不可取消 Provider 明确提示仍会继续核实结果。
