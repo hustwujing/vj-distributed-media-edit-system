@@ -41,6 +41,20 @@ class InspectionFormatTests(unittest.TestCase):
         path.write_text('<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>')
         with self.assertRaises(InspectionInputError):self.inspect_file(path)
 
+    def test_svg_text_acceptance_uses_real_xml_integrity_and_shared_format_support(self):
+        import subprocess,sys
+        from webapp.quality_policy import Acceptance,validate_typed_output_targets
+        checker=Path(__file__).resolve().parents[1]/'webapp/quality_check.py'
+        rule={'kind':'text','file':'title.svg','contains':['可编辑标题','<text']}
+        validate_typed_output_targets([Acceptance.model_validate(rule)],['title.svg'])
+        for content,passed in [('<svg xmlns="http://www.w3.org/2000/svg"><text>可编辑标题</text></svg>',True),
+                               ('<svg><text>可编辑标题',False),
+                               ('<!DOCTYPE svg [<!ENTITY x "可编辑标题">]><svg><text>&x;</text></svg>',False)]:
+            path=self.root/'title.svg';path.write_text(content)
+            result=subprocess.run([sys.executable,str(checker)],cwd=self.root,
+                input=json.dumps({'files':[path.name],'acceptance':[rule]}),capture_output=True,text=True,check=True)
+            self.assertEqual(json.loads(result.stdout)['passed'],passed,result.stdout)
+
     def test_real_segment_archive_lists_members_without_extracting_or_claiming_media(self):
         path=self.root/'segments.zip'
         with zipfile.ZipFile(path,'w',zipfile.ZIP_DEFLATED) as archive:

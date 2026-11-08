@@ -563,17 +563,12 @@ def archive_index(path):
 
 def svg_structure(path):
     """Read editable SVG structure without rendering, scripting or fetching hrefs."""
-    from xml.etree import ElementTree
-    if path.stat().st_size>2*1024**2:raise InspectionInputError('SVG exceeds the 2MiB inspection limit','inspection_svg_limit')
-    data=path.read_bytes()
-    if b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
-        raise InspectionInputError('SVG declarations/entities are not supported','inspection_svg_invalid')
-    try:root=ElementTree.fromstring(data)
-    except ElementTree.ParseError as exc:raise InspectionInputError('Invalid SVG XML','inspection_svg_invalid') from exc
+    from .text_formats import read_svg,FormatError
+    try:root=read_svg(path)
+    except FormatError as exc:
+        raise InspectionInputError(str(exc),'inspection_svg_limit' if exc.code=='max_bytes' else 'inspection_svg_invalid') from exc
     local=lambda name:name.rsplit('}',1)[-1]
-    if local(root.tag)!='svg':raise InspectionInputError('Document root is not SVG','inspection_svg_invalid')
     nodes=list(root.iter())
-    if len(nodes)>2000:raise InspectionInputError('SVG element limit exceeded','inspection_svg_limit')
     fields={'id','class','x','y','dx','dy','width','height','viewBox','transform','opacity','display','visibility',
             'fill','stroke','stroke-width','font-family','font-size','font-weight','text-anchor','style','filter',
             'stdDeviation','flood-color','flood-opacity','in','in2','result','preserveAspectRatio'}

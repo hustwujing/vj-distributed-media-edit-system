@@ -9,7 +9,7 @@ import tempfile
 import os
 import subprocess
 import sys
-from text_formats import read_text,validate_subtitle,FormatError,TEXT_SUFFIXES,SUBTITLE_SUFFIXES
+from text_formats import read_text,read_svg,validate_subtitle,FormatError,TEXT_SUFFIXES,SUBTITLE_SUFFIXES
 from media_evidence import alpha_evidence,audio_evidence,audio_channel_layout,dominant_frequency,text_matches
 
 resource.setrlimit(resource.RLIMIT_AS,(2*1024**3,2*1024**3))
@@ -51,6 +51,9 @@ def inspect(name):
         value.update(audio_channel_layout(audio_streams[0]) if audio_streams else {'channel_layout':None})
         rate=video.get('avg_frame_rate','0/1').split('/')
         value['fps']=float(rate[0])/max(1,float(rate[1])) if len(rate)==2 else float(rate[0])
+    elif path.suffix.lower()=='.svg':
+        document=read_svg(path)
+        value.update(kind='text',format='svg',svg_root=True,svg_element_count=sum(1 for _ in document.iter()))
     elif path.suffix.lower()=='.json':
         if size>2*1024**2:raise ValueError('JSON exceeds limit')
         parsed=json.loads(path.read_text());value.update(kind='json',keys=list(parsed) if isinstance(parsed,dict) else [])

@@ -2,7 +2,7 @@
 import re
 from pathlib import Path
 
-TEXT_SUFFIXES=frozenset({'.txt','.md','.json','.srt','.vtt','.ass','.ssa','.csv','.log'})
+TEXT_SUFFIXES=frozenset({'.txt','.md','.json','.srt','.vtt','.ass','.ssa','.csv','.log','.svg'})
 SUBTITLE_SUFFIXES=frozenset({'.srt','.vtt','.ass','.ssa'})
 MAX_TEXT_BYTES=2*1024**2
 
@@ -19,6 +19,19 @@ def read_text(path,suffixes=TEXT_SUFFIXES):
     except UnicodeError as exc:raise FormatError('encoding','文本不是有效的 UTF-8 编码') from exc
     if any(ord(c)<32 and c not in '\n\r\t' for c in text):raise FormatError('encoding','文本包含无效控制字符')
     return text
+
+
+def read_svg(path):
+    """Bounded UTF-8 SVG source; declarations/entities are never interpreted."""
+    from xml.etree import ElementTree
+    text=read_text(path,suffixes={'.svg'})
+    if '<!DOCTYPE' in text.upper() or '<!ENTITY' in text.upper():
+        raise FormatError('unsupported_format','SVG不支持声明或实体引用')
+    try:root=ElementTree.fromstring(text)
+    except ElementTree.ParseError as exc:raise FormatError('unsupported_format','SVG XML结构无效') from exc
+    if root.tag.rsplit('}',1)[-1]!='svg':raise FormatError('unsupported_format','文档根元素必须是SVG')
+    if sum(1 for _ in root.iter())>2000:raise FormatError('max_bytes','SVG元素数量超过限制')
+    return root
 
 def _time(value,ass=False):
     pattern=r'(\d+):(\d{2}):(\d{2})\.(\d{2})' if ass else r'(?:(\d{2,}):)?(\d{2}):(\d{2})[.,](\d{3})'
