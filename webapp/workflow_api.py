@@ -177,9 +177,10 @@ def public(store,run):
                 'action':'retry','details':failed}
         else:
             waiting_guidance={
-            'planning_budget_exhausted':('本轮规划轮次已耗尽','请停止本轮并新建一轮；如仍需多轮规划，请提高规划轮次上限。'),
-            'model_token_budget_exhausted':('本轮模型预算已耗尽','请停止本轮并新建一轮；如仍需继续，请提高模型 Token 上限。'),
-            'budget_exhausted':('本轮执行预算已耗尽','请停止本轮并新建一轮后再继续。'),
+                'planning_budget_exhausted':('本轮规划轮次已耗尽','请停止本轮并新建一轮；如仍需多轮规划，请提高规划轮次上限。'),
+                'model_token_budget_exhausted':('本轮模型预算已耗尽','请停止本轮并新建一轮；如仍需继续，请提高模型 Token 上限。'),
+                'budget_exhausted':('本轮执行预算已耗尽','请停止本轮并新建一轮后再继续。'),
+                'review_incomplete':('审查证据不足','自动补证据已达到上限。请查看下方审查反馈，决定是否补充素材/要求，或停止本轮。'),
             }
             pending=value['decisions'][0] if value['decisions'] else None
             request=(pending or {}).get('request') or {}

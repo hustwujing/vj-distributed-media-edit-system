@@ -799,7 +799,20 @@ def execute(host,lease,run,task):
             if action in draft_actions:
                 if profile.id!='media_planner':raise ValueError('Only Manager can update a planning draft')
                 from .workflow_plan_draft import mutate,summary
-                value,revision=mutate(store,lease,task['spec']['request_id'],action,reply['command'])
+                try:value,revision=mutate(store,lease,task['spec']['request_id'],action,reply['command'])
+                except Exception as exc:
+                    from .workflow_plan_draft import CommandError,record_error
+                    if not isinstance(exc,CommandError):raise
+                    details=[{'path':getattr(exc,'path','command'),'type':getattr(exc,'code','draft_command'),'message':str(exc)[:1000]}]
+                    tool_receipt['status']='failed';correction_rounds+=1
+                    _,repeated=record_error(store,lease,task['spec']['request_id'],details)
+                    store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',
+                        (uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],
+                         graph.encode({'phase':'draft_command','origin':'model_command','classification':'parameters','attempt_id':lease.attempt,
+                                       'code':details[0]['type'],'validation_errors':details}),store.now()))
+                    feedback='\nPlanning draft command rejected; no business change was applied. Correct only these fields and retry:'+graph.encode(details)
+                    if repeated>=2:raise TaskQuotaReached('规划草稿连续产生相同的语义错误。',category='agent_contract',scope='turn',used=repeated,limit=2)
+                    continue
                 draft_mutation_rounds+=1
                 conversation+='\nServer-owned planning draft updated. No business action executed. Current bounded structure:'+graph.encode(summary(value))
                 emit('workflow.plan_draft_updated',task_id=lease.run_id,step_id=lease.step_id,
@@ -1049,7 +1062,16 @@ def execute(host,lease,run,task):
                     correction_rounds+=1
                     continue
                 if task.get('control_kind'):return stage_result(store,lease,'succeeded',result)
-                return finish_files(host,lease,run,task,files,output)
+                try:return finish_files(host,lease,run,task,files,output)
+                except Exception as exc:
+                    from .workflow_runtime import StepFailure
+                    if not isinstance(exc,StepFailure):raise
+                    detail=exc.diagnostic or {};tool_receipt['status']='failed';correction_rounds+=1
+                    message=str(detail.get('runtime_error') or detail.get('log_tail') or detail.get('message') or exc)[:3000]
+                    conversation+='\nResult finalization failed (data):'+graph.encode({'code':detail.get('code','result_finalize_failed'),'message':message})
+                    conversation+='\nCorrect the declared outputs or script and resubmit result; no candidate was committed.'
+                    if correction_rounds>=profile.max_correction_rounds:raise
+                    continue
     raise TaskQuotaReached('专业 Agent 已达到本轮操作上限。',category='agent_turns',scope='turn',used=profile.max_turns,limit=profile.max_turns)
 
 

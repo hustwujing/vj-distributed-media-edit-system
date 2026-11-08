@@ -533,6 +533,11 @@ class Orchestrator:
             review=store.query('SELECT id,subject_task FROM workflow_reviews WHERE run_id=? AND task_id=?',(run['id'],task['id']))[0]
             decision={'verdict':'inconclusive','feedback':message,'error_code':code}
             store.execute('UPDATE workflow_reviews SET decision_json=? WHERE id=?',(encode(decision),review['id']))
+            prior=store.query("SELECT decision_json FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status='rejected'",(run['id'],))
+            inconclusive=sum(1 for item in prior if json.loads(item['decision_json'] or '{}').get('verdict')=='inconclusive')
+            if inconclusive>=2:
+                self.set_status(run,'WAITING_USER','review_incomplete')
+                return
             if review['subject_task']:
                 store.execute("UPDATE run_tasks SET status='paused',error_code=?,error_detail=? WHERE run_id=? AND id=?",(code,message,run['id'],review['subject_task']))
             self.open_repair(run,review['subject_task'],'review_evidence',review['id'],code)
