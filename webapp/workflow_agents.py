@@ -1068,7 +1068,8 @@ def execute(host,lease,run,task):
                     if not isinstance(exc,StepFailure):raise
                     detail=exc.diagnostic or {};tool_receipt['status']='failed';correction_rounds+=1
                     message=str(detail.get('runtime_error') or detail.get('log_tail') or detail.get('message') or exc)[:3000]
-                    conversation+='\nResult finalization failed (data):'+graph.encode({'code':detail.get('code','result_finalize_failed'),'message':message})
+                    conversation+='\nResult finalization failed (data):'+graph.encode({'code':detail.get('code','result_finalize_failed'),'message':message,
+                        'missing':detail.get('missing',[]),'empty':detail.get('empty',[])})
                     conversation+='\nCorrect the declared outputs or script and resubmit result; no candidate was committed.'
                     if correction_rounds>=profile.max_correction_rounds:raise
                     continue

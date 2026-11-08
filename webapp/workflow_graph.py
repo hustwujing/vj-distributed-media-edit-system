@@ -88,6 +88,7 @@ class DecisionAnswer(Contract):
     decision_id:str=Field(pattern=r'^[a-f0-9]{32}$')
     snapshot_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
     action:Literal['approve','revise','reject']
+    external_id:str=Field(default='',max_length=200)
     authorization:Authorization|None=None
     feedback:str=Field(default='',max_length=4000)
     attachments:list[str]=Field(default_factory=list,max_length=20)

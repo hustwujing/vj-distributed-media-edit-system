@@ -273,6 +273,11 @@ class Orchestrator:
                 supersede_inputs(store,run,invalid_inputs,'attachment_replaced_by_user')
             self.set_status(run,'ACTIVE','input_draining')
         elif payload.get('action')=='reject':
+            if row['kind']=='external_submission':
+                task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
+                graph.write_work(store,task,"UPDATE run_tasks SET status='ready',phase='submit',external_id='',error_code='',error_detail='',next_run_at=? WHERE run_id=? AND id=?",(store.now(),run['id'],task_id))
+                store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
+                self.set_status(run,'ACTIVE','external_submission_resubmit');return
             if row['kind'] in ('plan_change','successor_authorization'):
                 cutoff=int(request.get('input_through_sequence') or 0)
                 if cutoff:
@@ -294,6 +299,13 @@ class Orchestrator:
                 store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed',error_detail=? WHERE run_id=? AND id=?",
                     ('用户未通过内容验收，请调整要求后重新规划。',run['id'],subject))
                 self.set_status(run,'WAITING_USER','user_rejected')
+        elif row['kind']=='external_submission' and payload.get('action')=='approve':
+            external_id=str(payload.get('external_id') or '').strip()
+            if not re_full_handle(external_id):raise ValueError('请填写供应商任务 ID 后再继续')
+            task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
+            graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,error_code='',error_detail='',next_run_at=? WHERE run_id=? AND id=?",(external_id,store.now(),run['id'],task_id))
+            store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
+            self.set_status(run,'ACTIVE','external_submission_attached');return
         elif row['kind']=='new_run' and payload.get('action')=='approve':
             from .run_inputs import accept
             if not payload.get('authorization'):raise ValueError('Successor requires explicit scope approval')
@@ -551,6 +563,11 @@ class Orchestrator:
             store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],))
             self.set_status(run,'ACTIVE','evidence_planning')
             self.queue_plan(graph.get(store,run['id']),{'review_incomplete':review['id'],'task_id':review['subject_task']})
+            return
+        if not retry and code=='submission_unknown':
+            self.decision(run,'external_submission',{'task_id':task['id'],
+                'question':'外部请求结果未确认。请选择：提供供应商任务 ID 以继续查询，或确认未受理后允许使用同一请求重新提交。',
+                'options':['attach_external_id','resubmit']})
             return
         if not retry:
             diagnose=(not task.get('control_kind') and task['spec'].get('on_failure')=='diagnose'
