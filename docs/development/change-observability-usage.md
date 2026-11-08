@@ -54,6 +54,7 @@
 - `usage_tasks` 保存 task → project/run/parent。新需求建立独立 run，确认执行及显式续接按已有父子关系关联并校验同项目；不能按相似文字、最近任务或项目相同自动合并。
 - `usage_calls` 以稳定 call_id 去重，关联 attempt、step 和 revision。复用 `start/complete/tool/model_call`；重复完成回执不能累加，晚到开始事件不能覆盖终态。
 - 主模型实际请求前保存调用记录，记录失败时不继续发起请求。回执写入与业务授权分离，取消或租约失效后只能补充已有调用的消耗；没有先前调用记录的回执不得新建业务或发布成果。
+- 语义分类、方案备用审查和自然语言控制使用 `auxiliary_model_budget.model_request`：与执行请求共用任务调用数、用户每日额度及 Token 预留账本；回退是第二次独立请求。API 检查没有执行租约时不得伪造 attempt，按 task 和 `review:` / `control:` operation 归因；`model_purposes` 和总用量包含它们，Harness 统计仅描述真实执行尝试。短文本分类的字节预留是准入估算，缺失回执仍保留未知，不能称作实际消耗。
 - 回执写入失败、进程退出或断流应保留缺失证据。旧尝试已经结束而调用仍显示 running 时按现有汇总规则表达 unknown，不因此重发模型请求。
 - 供应商生成以 `workflow_provider_calls` 为权威调用记录；`provider_submit/poll/collect` 表示阶段请求。不要把一次生成的多次轮询或下载计为多次新生成，也不要重复累计两个表中的同一费用。
 - 工作流 retry 按同任务、同一步骤、同 revision 的额外实际启动统计；repair_count 单列。恢复调度、等待资源、控制操作及轮询不自动算重试；无关联证据时不猜测 SDK 内部重试次数。

@@ -25,6 +25,13 @@ def response(action='cancel', confidence=.99):
 class ClassifierTests(unittest.TestCase):
     def setUp(self):
         self.classifier = ControlIntentClassifier()
+        from webapp.store import Store
+        from webapp.task_usage import control_target
+        directory=tempfile.TemporaryDirectory();self.addCleanup(directory.cleanup)
+        store=Store(Path(directory.name));agent_store.initialize(store)
+        project=store.add_project('classifier-fixture','classifier')['id']
+        task=agent_store.add_turn(store,project,'plan','fixture')
+        self.enterContext(control_target(store,task))
 
     def test_fixed_commands_bypass_model_even_during_outage(self):
         self.classifier.retry_at = float('inf')

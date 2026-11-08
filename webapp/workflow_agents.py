@@ -68,24 +68,31 @@ def proposal_feedback(raw):
 def reserve_tokens(store,lease,run,amount,*,input_tokens=None,output_tokens=None,model_call_limit=None):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
-        lease.validate(db)
+        if lease:lease.validate(db)
+        elif not db.execute('SELECT id FROM execution_subjects WHERE id=?',(run['id'],)).fetchone():
+            raise ValueError('Unknown model budget target')
         used=db.execute('SELECT COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS n FROM workflow_model_reservations WHERE run_id=?',(run['id'],)).fetchone()['n']
         if used+amount>run['authorization']['model_token_budget']:
             raise TaskQuotaReached('工作流模型 Token 预算不足，未发起新的请求。',category='model_tokens',scope='workflow',used=used,limit=run['authorization']['model_token_budget'])
-        if model_call_limit is not None:lease.consume('model',model_call_limit)
+        if model_call_limit is not None:
+            from .task_leases import consume_budget
+            consume_budget(store,run['id'],'model',model_call_limit)
         identifier=uuid.uuid4().hex
         db.execute("""INSERT INTO workflow_model_reservations(
             id,run_id,attempt_id,reserved_tokens,state,created_at,input_reserved_tokens,output_reserved_tokens)
             VALUES (?,?,?,?,'reserved',?,?,?)""",
-            (identifier,run['id'],lease.attempt,amount,store.now(),input_tokens,output_tokens))
+            (identifier,run['id'],lease.attempt if lease else '',amount,store.now(),input_tokens,output_tokens))
         return identifier
 
 
 @contextmanager
-def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_reserved_tokens=None,method='unspecified',model_call_limit=None):
+def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_reserved_tokens=None,method='unspecified',model_call_limit=None,store=None):
+    store=lease.store if lease else store
+    if store is None:raise ValueError('Model budget requires a task store')
+    attempt=lease.attempt if lease else ''
     call_limit=model_call_limit
     if call_limit is not None:call_limit=min(call_limit,int(run['authorization'].get('max_model_calls',call_limit)))
-    reservation=reserve_tokens(lease.store,lease,run,amount,input_tokens=input_reserved_tokens,
+    reservation=reserve_tokens(store,lease,run,amount,input_tokens=input_reserved_tokens,
                                output_tokens=output_reserved_tokens,model_call_limit=call_limit)
     from .telemetry import emit,bind
     emit('workflow.model_budget_reserved',reservation_id=reservation,reserved_tokens=amount,
@@ -118,19 +125,19 @@ def model_budget(lease,run,amount,receipt,*,input_reserved_tokens=None,output_re
             from .task_lifecycle import administrative
             from .execution_metrics import measurement_connection
             from .store import Store
-            ledger=Store(lease.store.root,timeout=2,initialize_schema=False,dsn=lease.store.dsn)
+            ledger=Store(store.root,timeout=2,initialize_schema=False,dsn=store.dsn)
             try:
                 with administrative(),measurement_connection(ledger) as db:
                     db.execute('''UPDATE workflow_model_reservations SET used_tokens=?,state=?,
                         input_settled_tokens=?,output_settled_tokens=? WHERE id=? AND attempt_id=?''',
-                        (used,state,input_settled,output_settled,reservation,lease.attempt))
+                        (used,state,input_settled,output_settled,reservation,attempt))
                 emit('workflow.model_budget_settled',reservation_id=reservation,reserved_tokens=amount,
                      actual_tokens=used,reservation_overrun_tokens=max(0,used-amount),method=method,
                      input_tokens=input_settled,output_tokens=output_settled,
                      output_tokens_unknown=state=='partially_settled_output_unknown')
             except Exception as exc:
                 from .telemetry import emit
-                emit('workflow.token_receipt_failed','WARNING',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
+                emit('workflow.token_receipt_failed','WARNING',exc=exc,task_id=run['id'],attempt_id=attempt)
 
 
 def image_token_envelope(images,policy):

@@ -36,6 +36,30 @@ def model_call_limit():
     return current().budget['task_models']
 
 
+def consume_budget(store,run_id,category,limit):
+    """Atomic quota admission, also used by owned API-side model requests.
+
+    This grants no execution authority. Execution callers still bind a lease;
+    API callers must already have checked ownership of their target task.
+    """
+    with store.connect() as db:
+        db.execute('BEGIN IMMEDIATE')
+        row=db.execute('SELECT used FROM execution_budgets WHERE run_id=? AND category=?',(run_id,category)).fetchone()
+        used=row['used'] if row else 0
+        if used>=limit:raise quota_error({'category':category,'scope':'task','used':used,'limit':limit})
+        subject=db.execute('SELECT p.owner FROM projects p JOIN execution_subjects t ON t.project=p.id WHERE t.id=?',(run_id,)).fetchone()
+        if not subject:raise ValueError('Unknown model budget target')
+        owner=subject['owner'];day=int(now(db)//86400)
+        daily=db.execute('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category)).fetchone()
+        consumed=daily['used'] if daily else 0
+        cap=daily_limit(category)
+        if consumed>=cap:raise quota_error({'category':category,'scope':'daily','used':consumed,'limit':cap,'reset_at':(day+1)*86400})
+        db.execute('INSERT INTO execution_budgets VALUES (?,?,?) ON CONFLICT(run_id,category) DO UPDATE SET used=excluded.used',
+                   (run_id,category,used+1))
+        db.execute('INSERT INTO execution_daily_usage VALUES (?,?,?,?) ON CONFLICT(owner,day,category) DO UPDATE SET used=excluded.used',
+                   (owner,day,category,consumed+1))
+
+
 def quota_status(store,task_id,category,limit):
     """Read authoritative counters; never infer budget state from error prose."""
     rows=store.query('SELECT used FROM execution_budgets WHERE run_id=? AND category=?',(task_id,category))
@@ -246,22 +270,7 @@ class Lease:
             settle(db,self.attempt,conservative)
 
     def consume(self, category, limit):
-        with self.bind(), self.store.connect() as db:
-            row = db.execute('SELECT used FROM execution_budgets WHERE run_id=? AND category=?',
-                             (self.run_id, category)).fetchone()
-            used = row['used'] if row else 0
-            if used >= limit:
-                raise quota_error({'category':category,'scope':'task','used':used,'limit':limit})
-            owner=db.execute('SELECT p.owner FROM projects p JOIN (SELECT id,project FROM execution_subjects) t ON t.project=p.id WHERE t.id=?',(self.run_id,)).fetchone()['owner']
-            day=int(now(db)//86400)
-            daily=db.execute('SELECT used FROM execution_daily_usage WHERE owner=? AND day=? AND category=?',(owner,day,category)).fetchone()
-            consumed=daily['used'] if daily else 0
-            cap=daily_limit(category)
-            if consumed>=cap:raise quota_error({'category':category,'scope':'daily','used':consumed,'limit':cap,'reset_at':(day+1)*86400})
-            db.execute('INSERT INTO execution_budgets VALUES (?,?,?) ON CONFLICT(run_id,category) DO UPDATE SET used=excluded.used',
-                       (self.run_id, category, used + 1))
-            db.execute('INSERT INTO execution_daily_usage VALUES (?,?,?,?) ON CONFLICT(owner,day,category) DO UPDATE SET used=excluded.used',
-                       (owner,day,category,consumed+1))
+        with self.bind():consume_budget(self.store,self.run_id,category,limit)
 
     def release(self, interrupted=False):
         from .task_lifecycle import administrative,settle

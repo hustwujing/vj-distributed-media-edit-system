@@ -105,9 +105,12 @@ class ControlIntentClassifier:
                 'samples': 1, 'steps': 1, 'think': 0,
             }
             # Local service requests must not inherit shell proxy settings or netrc credentials.
-            from .task_usage import CONTROL_TARGET,model_call
+            from .task_usage import CONTROL_TARGET
+            from .auxiliary_model_budget import model_request
             from .usage_protocol import normalize
-            with model_call(CONTROL_TARGET.get(),'control:'+self.model) as receipt, requests.Session() as session:
+            target=CONTROL_TARGET.get()
+            if target is None:raise ControlUnavailable('Classifier requires an owned task target')
+            with model_request(target.store,target.run_id,'control:'+self.model,payload) as receipt, requests.Session() as session:
                 session.trust_env = False
                 headers = {'Authorization': 'Bearer ' + self.key} if self.key else {}
                 with session.post(self.url, json=payload, headers=headers,
