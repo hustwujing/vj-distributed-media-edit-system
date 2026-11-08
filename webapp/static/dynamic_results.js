@@ -13,10 +13,11 @@ export function renderPlanSummary(root,run){
  return true;
 }
 
-export function confirmationDetails(decision){
+export function confirmationDetails(decision,assets=[]){
  if(decision.kind!=='plan_confirmation')return '';
  const request=decision.request;
- return `<section class="plan-confirmation-details"><p><strong>交付内容：</strong>${esc((request.delivery_targets||[]).join('、'))}</p><ol>${(request.steps||[]).map(step=>`<li><strong>${esc(step.name)}</strong><p>${esc(step.objective)}</p>${step.parameters&&Object.keys(step.parameters).length?`<details><summary>关键参数</summary><pre>${esc(JSON.stringify(step.parameters,null,2))}</pre></details>`:''}</li>`).join('')}</ol></section>`;
+ const inputs=step=>Object.entries(step.inputs||{}).map(([role,ref])=>`${role}：${ref.asset?(assets.find(asset=>asset.id===ref.asset)?.name||ref.asset):ref.step?`${ref.step} / ${ref.role}`:ref.repair_candidate?'当前修复候选':'未指定'}`).join('；');
+ return `<section class="plan-confirmation-details"><p><strong>交付内容：</strong>${esc((request.delivery_targets||[]).join('、'))}</p><ol>${(request.steps||[]).map(step=>`<li><strong>${esc(step.name)}</strong><p>${esc(step.objective)}</p>${inputs(step)?`<p>使用素材：${esc(inputs(step))}</p>`:''}${step.parameters&&Object.keys(step.parameters).length?`<details><summary>关键参数</summary><pre>${esc(JSON.stringify(step.parameters,null,2))}</pre></details>`:''}</li>`).join('')}</ol></section>`;
 }
 
 export function renderRunResult(root,run,showPreview){

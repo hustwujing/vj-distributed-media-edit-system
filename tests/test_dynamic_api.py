@@ -160,6 +160,21 @@ class DynamicAPITests(unittest.TestCase):
                 self.assertNotIn('请确认下面列出的事项',action['message'])
                 self.assertIsNone(action['decision_id'])
 
+    def test_planner_compiler_errors_are_visible_without_downloading_diagnostics(self):
+        import json
+        run=self.a.post(self.prefix,json=self.body()).json();store=self.app.state.store
+        controller=Orchestrator(store)
+        for claim in controller.claim_due():controller.reconcile(*claim)
+        job=store.query('SELECT id FROM control_jobs WHERE run_id=?',(run['id'],))[0]['id']
+        store.execute("UPDATE control_jobs SET status='paused',error_code='planning_contract_exhausted',error_detail='规划草稿重复失败' WHERE id=?",(job,))
+        store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='planning_contract_exhausted' WHERE id=?",(run['id'],))
+        record={'code':'missing_wait_work','classification':'parameters','validation_errors':[{'path':'plan.review_again','message':'没有可用的证据复审对象'}]}
+        store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',('compile-error',run['id'],job,0,1,json.dumps(record),store.now()))
+        snapshot=self.a.get(self.prefix+'/'+run['id']).json()
+        self.assertIn('没有可用的证据复审对象',snapshot['blocking_action']['details'][0]['message'])
+        self.assertEqual(snapshot['failure_details'][0]['name'],'任务规划师')
+        self.assertEqual(snapshot['control_jobs'][0]['error_detail'],'规划草稿重复失败')
+
     def test_budget_exhausted_waiting_run_rejects_new_input_with_recovery_guidance(self):
         import uuid
         run=self.a.post(self.prefix,json=self.body()).json()

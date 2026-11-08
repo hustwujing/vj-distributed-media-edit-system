@@ -95,16 +95,19 @@ def public(store,run):
         public_task['display_name']=item_name(task)
         value['tasks'].append(public_task)
     value['failure_details']=[]
-    for task in value['tasks']:
+    for task in [*run['tasks'],*run['control_jobs']]:
         if task.get('error_code'):
-            records=store.query('SELECT record FROM workflow_diagnostics WHERE workflow=? AND step=? ORDER BY created DESC LIMIT 1',(run['id'],task['id']))
-            detail=json.loads(records[0]['record']) if records else {}
-            value['failure_details'].append({'task_id':task['id'],'name':task['spec'].get('name',''),'code':task['error_code'],
-                'message':task.get('error_detail') or detail.get('message',''),'error_type':detail.get('error_type',''),
+            records=[json.loads(row['record']) for row in store.query('SELECT record FROM workflow_diagnostics WHERE workflow=? AND step=? ORDER BY created DESC LIMIT 3',(run['id'],task['id']))]
+            detail=records[0] if records else {}
+            errors=list(dict.fromkeys((str(item.get('path',''))+': '+str(item.get('message','')))[:1000]
+                for record in records for item in record.get('validation_errors',[]) if isinstance(item,dict)))[:6]
+            message=task.get('error_detail') or detail.get('message','')
+            value['failure_details'].append({'task_id':task['id'],'name':item_name(task),'code':task['error_code'],
+                'message':'；'.join([text for text in [message,*errors] if text]),'error_type':detail.get('error_type',''),
                 'classification':detail.get('classification','')})
     value['control_jobs']=[]
     for job in run['control_jobs']:
-        public_job={key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','created_graph_version','created_at','updated_at')}
+        public_job={key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','error_detail','created_graph_version','created_at','updated_at')}
         public_job.update(locations[job['id']])
         public_job['display_name']=item_name(job)
         value['control_jobs'].append(public_job)
@@ -184,6 +187,7 @@ def public(store,run):
             title,message=waiting_guidance.get(run['terminal_reason'],('需要你的处理',request.get('question') or request.get('message') or '请确认下面列出的事项后继续。'))
             value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
                 'title':title,'message':message,'decision_id':pending['id'] if pending else None,
+                'details':value['failure_details'] if not pending else [],
                 'required_fields':request.get('required_fields',[]),'examples':request.get('examples',[])}
     value['reviews']=store.query('SELECT id,task_id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
