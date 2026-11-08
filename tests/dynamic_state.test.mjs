@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {canApproveDecision,acceptsFeedback,inputStatus,terminalRun} from '../webapp/static/dynamic_state.js';
+import {settleTool} from '../webapp/static/work_status.js';
 
 test('user approval requires declared review, technical pass and required agent pass',()=>{
  const decision={kind:'quality',request:{task_id:'image'}};
@@ -27,6 +28,20 @@ test('unknown external submission and planning have distinct input waiting messa
  assert.equal(terminalRun('WAITING_USER'),false);
  assert.equal(terminalRun('CANCELLING'),false);
  assert.equal(terminalRun('SUCCEEDED'),true);
+});
+
+test('stale tool activity is visibly interrupted after worker loss or terminal run',()=>{
+ const item={status:'running',execution:{attempt_id:'old'},sequence:1};
+ assert.equal(settleTool({status:'running',activity_attempts:[{id:'old',status:'expired'}]},item).status,'interrupted');
+ assert.equal(settleTool({status:'SUCCEEDED'},item).status,'interrupted');
+ assert.equal(settleTool({status:'running',activity_attempts:[{id:'old',status:'running'}]},item),item);
+});
+
+test('dynamic activity renders an explicit interrupted state',()=>{
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.match(source,/import \{settleTool\} from '\.\/work_status\.js'/);
+ assert.match(source,/执行器中断，未收到结束回执/);
+ assert.match(source,/state==='interrupted'\?'↯'/);
 });
 
 test('accepted artifacts expose reuse controls outside the hidden task audit container',()=>{

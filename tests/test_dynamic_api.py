@@ -45,6 +45,15 @@ class DynamicAPITests(unittest.TestCase):
         self.assertEqual(self.b.get(self.prefix+'/'+first.json()['id']).status_code,404)
         self.assertEqual(self.b.get(self.prefix+'/'+first.json()['id']+'/events').status_code,404)
         self.assertEqual(len(self.app.state.store.query('SELECT id FROM agent_turns')),0)
+
+    def test_run_snapshot_exposes_attempt_status_for_activity_recovery(self):
+        run=self.a.post(self.prefix,json=self.body()).json()
+        self.app.state.store.execute(
+            "INSERT INTO execution_attempts(id,run_id,worker,generation,kind,started,finished,status) VALUES (?,?,?,?,?,?,?,?)",
+            ('expired-attempt',run['id'],'worker-a',0,'agent',self.app.state.store.now()-10,
+             self.app.state.store.now(),'expired'))
+        snapshot=self.a.get(self.prefix+'/'+run['id']).json()
+        self.assertEqual(snapshot['activity_attempts'],[{'id':'expired-attempt','status':'expired','generation':0}])
     def test_stale_content_creates_no_task(self):
         body=self.body();body['authorization']['content_fingerprint']='0'*64
         response=self.a.post(self.prefix,json=body)

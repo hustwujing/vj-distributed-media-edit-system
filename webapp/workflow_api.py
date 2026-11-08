@@ -66,6 +66,11 @@ def public(store,run):
     value={k:run[k] for k in ('id','project_id','session_id','parent_run_id','scope_confirmed','goal','status','graph_version','sealed','authorization',
                              'authorization_version','replan_after','repair_context','created_at','updated_at','terminal_reason','delivery','delivered_at','input_sequence','input_barrier_sequence')}
     value['state']=value.pop('status')
+    # Dynamic pages need authoritative attempt state to settle activity rows
+    # when a worker disappears before it can publish a completion event.
+    value['activity_attempts']=store.query(
+        'SELECT id,status,generation FROM execution_attempts WHERE run_id=? ORDER BY generation DESC LIMIT 1000',
+        (run['id'],))
     from .model_selection import for_run
     value['model_configuration']=for_run(store,run['id'])
     successors=store.query('SELECT id FROM runs WHERE parent_run_id=? ORDER BY created_at DESC LIMIT 1',(run['id'],))
