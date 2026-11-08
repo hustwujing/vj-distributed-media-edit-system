@@ -194,7 +194,7 @@ class Orchestrator:
             elif command['action']=='pause':self.set_status(run,'WAITING_USER','user_paused')
             elif command['action']=='resume':
                 unresolved=store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
-                requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted',
+                requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted','task_requires_resolution','storage_quota_exceeded',
                     'invalid_delivery_manifest','delivery_targets_incomplete','diagnostic_policy_not_authorized',
                     'user_decision','new_run_rejected'}
                 if run['status']!='WAITING_USER':error='resume_requires_safe_paused_state'
@@ -281,6 +281,8 @@ class Orchestrator:
         elif payload.get('action')=='reject':
             if row['kind']=='external_wait':
                 task=next(t for t in graph.work_items(run) if t['id']==request['task_id']);graph.write_work(store,task,"UPDATE run_tasks SET status='paused',error_code='external_wait_timeout',error_detail=? WHERE run_id=? AND id=?",('外部任务等待超时，已放弃等待。',run['id'],task['id']));store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
+                from .task_lifecycle import request_cleanup
+                with store.connect() as db:request_cleanup(db,run['id'],external=True)
                 self.open_repair(run,task['id'],'external_wait',row['id'],'external_wait_timeout');store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],));self.set_status(run,'ACTIVE','external_wait_replan');self.queue_plan(graph.get(store,run['id']),{'external_wait_abandoned':row['id'],'task_id':task['id']});return
             if row['kind']=='external_submission':
                 task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
@@ -1109,7 +1111,8 @@ class Orchestrator:
         artifacts.sort(key=lambda item:(artifact_key(item)[:-1],
             PurePosixPath(item['name']).suffix.lower()!='.png',artifact_key(item)[-1]))
         try:store.check_storage(run['project_id'],sum(a['size'] for a in artifacts),replace_turn=run['id'])
-        except ValueError:
+        except ValueError as exc:
+            self.store.execute('UPDATE runs SET repair_context_json=? WHERE id=?',(encode({'active':False,'error_code':'storage_quota_exceeded','message':str(exc)[:500]}),run['id']))
             self.set_status(run,'WAITING_USER','storage_quota_exceeded');return
         for logical,artifact in publications:store.artifacts.publish(run['project_id'],logical,artifact)
         if store.execute("UPDATE runs SET delivered_at=?,delivery_json=?,status='SUCCEEDED',updated_at=? WHERE id=? AND delivered_at IS NULL AND sealed=1 AND input_barrier_sequence IS NULL",
