@@ -23,6 +23,13 @@ const base='http://updream-lab.bilibili.co/distributed-agent-sandbox-backend',re
   const demo=cases[cursor++],prior=latest.get(demo.id);assert.ok(prior,'No finished own project for '+demo.id);
   const dir=path.join(output,demo.id),record={case:demo.id,project:prior.state.project,release_sha:release.sha256,checks:[],page_errors:[],started_at:Date.now()/1000};
   const context=await browser.newContext({storageState:path.join(prior.dir,'browser-state.json'),viewport:{width:1440,height:1000}}),page=await context.newPage();page.setDefaultTimeout(30000);
+  if(process.env.DEMO_NATIVE_LOCAL_STATIC==='1'){
+   record.local_static_override=true;
+   await page.route('**/static/*.js',route=>{
+    const name=path.basename(new URL(route.request().url()).pathname);
+    return ['tools.js','video_compare.js'].includes(name)?route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(__dirname,'../webapp/static',name))}):route.continue();
+   });
+  }
   page.on('pageerror',error=>record.page_errors.push(error.message));
   const api=async suffix=>{const cookie=(await context.cookies(base+'/')).map(x=>x.name+'='+x.value).join('; ');const response=await context.request.get('http://127.0.0.1/distributed-agent-sandbox/api/projects/'+record.project+suffix,{headers:{Cookie:cookie}});assert.ok(response.ok(),'Native metadata '+response.status());return response.json();};
   try{
@@ -58,7 +65,13 @@ const base='http://updream-lab.bilibili.co/distributed-agent-sandbox-backend',re
      await page.waitForFunction(()=>[...document.querySelectorAll('dialog.video-compare video')].every(x=>!x.paused&&x.currentTime>.2));
      await page.locator('dialog.video-compare [data-play]').click();
      const times=await page.locator('dialog.video-compare video').evaluateAll(v=>v.map(x=>x.currentTime));assert.ok(Math.abs(times[0]-times[1])<.3);
-     await page.locator('dialog.video-compare header button').click();record.checks.push('two_real_video_sources_play_in_sync');
+     const chosen=await page.locator('dialog.video-compare video').nth(1).evaluate(video=>video.currentSrc);
+     const players=await page.locator('dialog.video-compare video').elementHandles();
+     await page.locator('dialog.video-compare [data-play]').click();
+     await page.locator('dialog.video-compare [data-keep]').click();
+     await page.waitForFunction(url=>document.querySelector('#main-preview video')?.currentSrc===url,chosen,{timeout:5000});
+     for(const player of players)assert.ok(await player.evaluate(video=>video.paused&&!video.getAttribute('src')));
+     record.checks.push('two_real_video_sources_play_in_sync','chosen_version_becomes_current_preview','closed_comparison_releases_players');
     }
    }
    assert.deepEqual(record.page_errors,[]);record.passed=true;fs.mkdirSync(dir,{recursive:true,mode:0o700});await page.screenshot({path:path.join(dir,'native.png'),fullPage:true});

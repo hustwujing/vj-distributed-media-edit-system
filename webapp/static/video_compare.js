@@ -17,6 +17,9 @@ export function compareVideos(items){
  left.onplay=()=>right.play().catch(()=>{});right.onplay=()=>left.play().catch(()=>{});left.onpause=()=>right.pause();right.onpause=()=>left.pause();
  $('[data-play]').onclick=()=>{if(left.paused){left.play().catch(()=>{});}else left.pause();};
  $('[data-keep]').onclick=()=>{const item=videos.find(x=>x.url===b.value);dialog.dispatchEvent(new CustomEvent('keep',{detail:item}));dialog.close();};
- dialog.querySelector('header button').onclick=()=>dialog.close();dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+ dialog.querySelector('header button').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{
+  for(const video of [left,right]){video.onplay=video.onpause=video.ontimeupdate=null;video.pause();video.removeAttribute('src');video.load();}
+  dialog.remove();
+ },{once:true});
  return dialog;
 }
