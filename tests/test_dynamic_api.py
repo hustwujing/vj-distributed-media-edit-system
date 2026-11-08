@@ -79,6 +79,18 @@ class DynamicAPITests(unittest.TestCase):
         snapshot=self.a.get(self.prefix+'/'+run['id']).json()
         self.assertEqual(snapshot['terminal_notice'],'规划轮次已耗尽，任务未继续执行。')
 
+    def test_system_contract_failures_are_not_presented_as_missing_user_information(self):
+        run=self.a.post(self.prefix,json=self.body()).json()
+        for code,title in [('planning_contract_exhausted','规划未完成'),('review_contract_exhausted','审查未完成'),
+                           ('invalid_delivery_manifest','交付校验失败')]:
+            with self.subTest(code=code):
+                self.app.state.store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason=? WHERE id=?",(code,run['id']))
+                action=self.a.get(self.prefix+'/'+run['id']).json()['blocking_action']
+                self.assertEqual(action['title'],title)
+                self.assertIn('诊断',action['message'])
+                self.assertNotIn('请确认下面列出的事项',action['message'])
+                self.assertIsNone(action['decision_id'])
+
     def test_budget_exhausted_waiting_run_rejects_new_input_with_recovery_guidance(self):
         import uuid
         run=self.a.post(self.prefix,json=self.body()).json()
