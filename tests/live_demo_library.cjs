@@ -52,9 +52,10 @@ async function runCase(demo){
   await context.storageState({path:path.join(dir,'browser-state.json')});fs.chmodSync(path.join(dir,'browser-state.json'),0o600);
   const project=await(await api('GET',`/api/projects/${state.project}`)).json();save(path.join(dir,'imported-project.json'),project);
   assert.equal(project.assets.length,demo.sources.length,'Imported example sources differ from catalogue');
-  assert.equal((await page.locator('#dynamic-input-content').inputValue()).trim(),demo.prompt.trim(),'Example prompt was lost on import');
   await page.locator('#dynamic-execution-settings').evaluate(node=>node.open=true);
   await page.locator('#dynamic-model-profile').selectOption('claude55');await page.locator('#dynamic-reasoning-effort').selectOption('high');
+  // Model options are populated only after loadProject has restored the draft.
+  assert.equal((await page.locator('#dynamic-input-content').inputValue()).trim(),demo.prompt.trim(),'Example prompt was lost on import');
   await page.locator('[name=delivery-target]').evaluateAll(nodes=>nodes.forEach(node=>node.checked=false));await page.locator('#dynamic-targets-other').fill('');
   await capture('01-imported');
   const started=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/api/projects/${state.project}/runs`));
