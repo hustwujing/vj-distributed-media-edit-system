@@ -52,7 +52,10 @@ async function runCase(demo){
   await context.storageState({path:path.join(dir,'browser-state.json')});fs.chmodSync(path.join(dir,'browser-state.json'),0o600);
   const project=await(await api('GET',`/api/projects/${state.project}`)).json();save(path.join(dir,'imported-project.json'),project);
   // Some examples legitimately include additional declared comparison assets.
-  for(const source of demo.sources)assert.ok(project.assets.some(asset=>asset.name===source.name),'Imported example source missing: '+source.name);
+  for(const source of demo.sources){
+   const imported=project.assets.find(asset=>asset.name===source.name);assert.ok(imported,'Imported example source missing: '+source.name);
+   for(const track of Object.keys(source.transcripts||{}))assert.ok(project.assets.some(asset=>asset.kind==='json'&&asset.source_asset===imported.id&&asset.audio_track===Number(track)),'Declared cached transcript is not available as an input');
+  }
   await page.locator('#dynamic-execution-settings').evaluate(node=>node.open=true);
   await page.locator('#dynamic-model-profile').selectOption('claude55');await page.locator('#dynamic-reasoning-effort').selectOption('high');
   // Model options are populated only after loadProject has restored the draft.

@@ -732,12 +732,19 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         limit=int(os.environ.get('VIDEO_USE_MAX_UPLOAD_MB','2048'))*1024**2
         def copy_source(source,name):
             with source.open('rb') as stream:return stage.copy(stream,name,limit)
-        async def prepare_asset(relative,name):
+        async def prepare_asset(relative,name,*,transcript_for=None):
             source=await api_execution.run('storage',edition.file,relative)
             asset_id=uuid.uuid4().hex;filename=asset_id+source.suffix
             await api_execution.run('storage',copy_source,source,filename)
             path=stage.path/filename
-            if source.suffix.lower() in IMAGE_EXTS:metadata=await api_execution.run('media',inspect_image,path)
+            if transcript_for is not None:
+                def inspect_transcript():
+                    if path.stat().st_size>2*1024**2:raise ValueError('示例转写文件过大')
+                    value=json.loads(path.read_text())
+                    if not isinstance(value,dict) or not isinstance(value.get('words'),list):raise ValueError('示例转写缺少逐词数组')
+                    return {'kind':'json','size':path.stat().st_size,'format':'transcript',**transcript_for}
+                metadata=await api_execution.run('storage',inspect_transcript)
+            elif source.suffix.lower() in IMAGE_EXTS:metadata=await api_execution.run('media',inspect_image,path)
             else:metadata=await api_execution.run('media',inspect_media,path,allow_audio=source.suffix.lower() in AUDIO_EXTS)
             artifact=await api_execution.run('storage',store.artifacts.upload,project_id,path,check=stage.check) if store.shared_files else None
             assets.append({'id':asset_id,'name':name,'filename':filename,'metadata':metadata,'artifact':artifact})
@@ -756,6 +763,8 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
                 for track,transcript in item.get('transcripts',{}).items():
                     suffix=f'.track{track}' if int(track) else ''
                     await prepare_auxiliary(f'edit/transcripts/{asset_id}{suffix}.json','sources/'+transcript)
+                    await prepare_asset('sources/'+transcript,item['name']+f' · 已有转写（音轨 {int(track)+1}）.json',
+                                        transcript_for={'source_asset':asset_id,'audio_track':int(track)})
             if demo_id=='video-version-compare':
                 await prepare_asset(demo_id+'/'+demo['result'],'版本 2 · 暖调成片')
             preset=json.loads(json.dumps(demo['preset']))
