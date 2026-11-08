@@ -1036,10 +1036,7 @@ class Orchestrator:
             if authoritative[0]['review_identity']!=final_identity(store,run):authoritative=[]
         if not authoritative:
             graph.event(store,run,'delivery_blocked',{'reason':'invalid_final_review'})
-            if not store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status IN ('pending','running','staged')",(run['id'],)):
-                self.queue_review(run)
-                self.set_status(run,'ACTIVE','final_review_refresh')
-            else:self.set_status(run,'WAITING_USER','invalid_delivery_manifest')
+            self.set_status(run,'WAITING_USER','invalid_delivery_manifest')
             return
         review=authoritative[0]
         decision=json.loads(review['decision_json']);selected=decision.get('deliverables',[])

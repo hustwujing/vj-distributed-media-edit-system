@@ -616,6 +616,7 @@ class DynamicGraphTests(unittest.TestCase):
         current=graph.get(self.store,run['id'])
         self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','invalid_delivery_manifest'))
         self.assertIsNone(current['delivered_at'])
+        self.assertFalse(self.store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND purpose='final'",(run['id'],)))
 
     def test_passed_final_review_can_be_reused_after_graph_only_change(self):
         from webapp.review_identity import identity
