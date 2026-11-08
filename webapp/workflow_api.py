@@ -350,7 +350,7 @@ def register(app,store,own_project):
             replay_events=not header or '-' not in header;initial=True;heartbeat=time.monotonic();last_snapshot=0.;status=''
             text_signature=None
             while not await request.is_disconnected():
-                if initial or not redis_mode or time.monotonic()-last_snapshot>=2:
+                if initial or replay_events or not redis_mode or time.monotonic()-last_snapshot>=2:
                     try:run,records,messages,active_attempts=await api_execution.run('stream_read',snapshot,db_position,replay_events or not redis_mode,initial or not redis_mode)
                     except APICapacityError:
                         yield 'retry: 2000\nevent: retry\ndata: {"code":"API_STREAM_BUSY"}\n\n';return
@@ -363,6 +363,13 @@ def register(app,store,own_project):
                         db_position=record['seq'];record['payload']=json.loads(record['payload'])
                         event='agent_text' if record['kind']=='note' else 'activity'
                         yield f'id: {db_position}\nevent: {event}\ndata: '+json.dumps(record,ensure_ascii=False)+'\n\n'
+                    # In Redis mode the stream starts at the current tail, so
+                    # every durable database page must be replayed before we
+                    # switch to Redis increments. Otherwise a reopened page
+                    # permanently loses all history after the first 200 rows.
+                    if redis_mode and replay_events and records:
+                        initial=False
+                        continue
                     initial=False;replay_events=False
                 if redis_mode:
                     live=await reader.read(run_id,redis_position,200,200)

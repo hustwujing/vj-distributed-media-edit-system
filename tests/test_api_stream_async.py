@@ -105,3 +105,15 @@ class AsyncSSETests(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(closed,'Redis reader cleanup was cancelled')
         self.assertEqual(await self.clients(),baseline)
         self.assertEqual(self.app.state.api_execution.streams.snapshot()['active'],0)
+
+    async def test_dynamic_redis_reopen_replays_all_durable_history_before_done(self):
+        from webapp import workflow_graph as graph
+        run=graph.create(self.store,self.project,None,{'goal':'long report','allowed_assets':[],
+            'allowed_operations':['script'],'delivery_targets':['report'],
+            'content_fingerprint':graph.content_fingerprint(self.store,self.project)})
+        for index in range(450):agent_store.event(self.store,run['id'],'progress',{'index':index})
+        self.store.execute("UPDATE runs SET status='SUCCEEDED',sealed=1 WHERE id=?",(run['id'],))
+        response=await asyncio.wait_for(self.client.get(f'/api/projects/{self.project}/runs/{run["id"]}/stream'),5)
+        self.assertEqual(response.status_code,200)
+        self.assertGreaterEqual(response.text.count('event: activity'),450)
+        self.assertIn('event: done',response.text)
