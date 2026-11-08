@@ -122,6 +122,9 @@ class RunRecoveryTests(unittest.TestCase):
         self.assertFalse(run['sealed'])
         self.assertEqual((run['tasks'][0]['status'],run['tasks'][0]['error_code']),('paused','external_wait_timeout'))
         self.assertEqual(len(self.store.query("SELECT id FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))),1)
+        self.assertTrue(run['repair_context']['active'])
+        self.assertEqual(run['repair_context']['subject_task'],'render')
+        self.assertEqual(run['repair_context']['error_code'],'external_wait_timeout')
 
     def test_terminal_provider_failure_is_not_polled_again(self):
         self.provider_task()

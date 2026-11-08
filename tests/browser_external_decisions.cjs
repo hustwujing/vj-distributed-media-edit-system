@@ -74,10 +74,10 @@ const server=http.createServer((req,res)=>{
       evidence.push({width,passed:true,checks:['named_wait_actions','single_approve','no_internal_enums','attach_id_payload','rejection_alert','no_success_on_rejection'],page_errors:errors});
       await page.close();
     }
-    const report={passed:true,kind:'isolated_browser_with_mock_command_api',evidence};
+    const report={passed:true,kind:'isolated_browser_with_mock_command_api',browser_version:browser.version(),evidence};
     if(process.argv[2]){
       const target=path.resolve(process.argv[2]);
-      if(!target.startsWith('/data2/wujing03/'))throw Error('Evidence must remain under /data2/wujing03');
+      if(!target.startsWith(path.resolve(__dirname,'../..')+path.sep))throw Error('Evidence must remain under the workspace parent');
       fs.writeFileSync(target,JSON.stringify(report,null,2)+'\n');
     }
     console.log(JSON.stringify(report));

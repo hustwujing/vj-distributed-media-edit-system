@@ -65,6 +65,18 @@ Harness 专属变化，才允许只重建对应单张镜像。
 
 定向排查也使用同一隔离入口：
 
+外部决策卡有独立 Chromium 启动器，不启动应用、数据库或 Worker，也不调用真实模型。Node 绑定与浏览器二进制是两份依赖。本机已将 Playwright 1.62.1 和 playwright-core 1.62.1 放在 `/data2/wujing03/tool-cache/browser-node/node_modules`，工作区忽略的 `node_modules` 链接到该缓存；原共享依赖不删除。新的机器可用 `npm install --prefix <工具缓存> --save-exact playwright@1.62.1` 准备 Node 绑定，并预先安装对应 Chromium。不要把本机缓存路径提交为部署依赖。
+
+```bash
+VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp TMPDIR=/data2/wujing03/t PYTHONDONTWRITEBYTECODE=1 \
+  .venv/bin/python -m tests.run_browser_external_decisions \
+  --node-modules /data2/wujing03/tool-cache/browser-node/node_modules \
+  --browser-cache /data2/wujing03/tool-cache/ms-playwright \
+  --output /data2/wujing03/vu-tmp/external-decisions-browser.json
+```
+
+本机也可省略三个参数，使用工作区 Node 依赖、同级 `tool-cache/ms-playwright` 和独立测试输出目录。启动器清理服务凭据、在 Linux root 下隔离网络，缺依赖时明确失败，不隐式下载。证据注明真实 DOM/点击使用应用代码、命令 API 是替身，不能替代部署后真机 campaign。
+
 ```bash
 .venv/bin/python -m tests.run_distributed_suite tests.test_conversation_routing
 node --test tests/text_stream.test.mjs tests/plan_readiness.test.mjs
