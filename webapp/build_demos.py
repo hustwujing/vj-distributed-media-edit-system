@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import copy
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -27,7 +28,12 @@ def ffmpeg(*args):
 
 
 def cut_transcript(data, start, end):
+    if not all(math.isfinite(value) for value in (start,end)) or start<0 or end<=start:
+        raise ValueError('Invalid transcript clip interval')
     result = copy.deepcopy(data)
+    result['source_clip'] = {'start':start,'end':end,
+                             'audio_duration_secs':data.get('audio_duration_secs')}
+    result['audio_duration_secs'] = end-start
     result['words'] = []
     for word in data['words']:
         a, b = word.get('start'), word.get('end')

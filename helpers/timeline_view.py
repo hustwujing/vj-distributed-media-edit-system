@@ -166,6 +166,14 @@ def find_silences(words: list[dict], start: float, end: float, threshold: float 
     return gaps
 
 
+def gap_legend(transcript_available: bool, gaps: list[tuple[float, float]]) -> str:
+    """Distinguish absent evidence, measured zero, and transcript coverage gaps."""
+    if not transcript_available:
+        return 'No transcript supplied; word/gap annotations unavailable'
+    count = f'{len(gaps)} gap(s), shaded' if gaps else 'none'
+    return f'Transcript gaps >= 400ms: {count}; audio silence not measured'
+
+
 # -------- Font loading -------------------------------------------------------
 
 
@@ -338,10 +346,10 @@ def render_timeline(
             draw.line((xi, ruler_y, xi, ruler_y + 6), fill=DIM, width=1)
             draw.text((xi - 20, ruler_y + 8), f"{t:.2f}s", fill=DIM, font=label_font)
 
-        # Silences legend if any
-        if silences:
-            txt = f"shaded bands = silences ≥ 400ms ({len(silences)} gap(s))"
-            draw.text((strip_x0, label_y + 30), txt, fill=DIM, font=label_font)
+        # A zero result is still evidence. Transcript gaps are not an acoustic
+        # silence measurement: audio-event tokens may cover speech pauses.
+        txt = gap_legend(bool(transcript and transcript.is_file()), silences)
+        draw.text((strip_x0, label_y + 30), txt, fill=DIM, font=label_font)
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         canvas.save(out_path, "PNG", optimize=True)

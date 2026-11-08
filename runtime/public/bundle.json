@@ -22,8 +22,8 @@
     },
     {
       "path": "helpers/edit_media.py",
-      "sha256": "e342738e91e45cfa5ba85e59d3afd8989c26dc28ac1bbc00bcebd9b727ead502",
-      "size": 25628
+      "sha256": "bd8311abda54ab2ca23c589e58c9a0bd74835e5a1a15c0484a7b6be308e2771a",
+      "size": 26598
     },
     {
       "path": "helpers/edit_plan.py",
@@ -57,8 +57,8 @@
     },
     {
       "path": "helpers/timeline_view.py",
-      "sha256": "6c2991cd9dc596442b1b29ac8681c79a51b9a3826c89b4bdbc62dc6b2617dce7",
-      "size": 14939
+      "sha256": "c5f2d4bb7e1ec881c06d39e7ce0610a2f1f5f64cb379a81bc41fcfb194931cd2",
+      "size": 15448
     },
     {
       "path": "helpers/transcribe.py",
@@ -147,6 +147,6 @@
     }
   ],
   "schema_version": 1,
-  "skill_digest": "sha256:ebceec129312fe215f5f79d028c4241e3810cb292e5ea32077990cbee846ef7a",
+  "skill_digest": "sha256:d59c07e73f6901b1a349ab350215a9db66ff5188955d9ff33dcffdccacf7c698",
   "tool_schema_digest": "sha256:f8de293751d181cb05491d32b3b81b55d372489a426935f20c3dbf8b8ffe023b"
 }

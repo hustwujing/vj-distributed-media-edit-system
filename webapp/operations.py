@@ -126,6 +126,7 @@ class Operation:
         if self.id=='media.edit':
             result['output_contract']['subtitle']='When edit_plan.subtitles is configured, the same render exports final.srt with the exact burned caption timing/grouping; use its subtitle role directly for SRT delivery or downstream input. Without subtitles this optional role is absent.'
             result['output_contract']['audio_audit']='For external audio mix/replace, final.report.json includes actual pre-master dialogue/background branch meters from the render, configured gain/duck/loop, and output SHA. Inspect these before requesting extra measurements. Master fade scope is explicitly reported; stem meters do not establish speech intelligibility or semantic sound events.'
+            result['output_contract']['audio_processing']='Every render report records the actually executed per-clip and master audio filters, bound to the final output SHA. Each extracted clip gets30ms edge fades before assembly; master fade settings are additional. loudnorm, when enabled, normalizes the assembled program, not every speaker/window to identical RMS. Inspect this execution evidence before inferring that an absent per-clip parameter means no clip fade.'
         parameter_schema=contract(self).parameters.model_json_schema()
         inputs=contract(self)
         result['input_contract']={'required_roles':sorted(inputs.required_inputs),

@@ -131,6 +131,9 @@ def extract(p,c,index,work):
     target=work/f'clip_{index:03}.mkv'
     args+=['-filter_complex',';'.join(filters)]+(['-map','[v]'] if video else [])+['-map','[a]',*encoding(p,video),'-t',duration,target]
     run_ffmpeg(args,f'clip:{index+1}',work,duration)
+    p.setdefault('_clip_audio_processing',[]).append({'clip_index':index,
+        'duration_seconds':duration,'repeat':c['repeat'],'silent':silent,
+        'filters':af})
     if c['repeat']>1:
         repeated=work/f'repeated_{index:03}.mkv'
         concatenate([target]*c['repeat'],repeated,work,video)
@@ -311,6 +314,7 @@ def finish(p,base,work):
         args+=['-map','[audio]','-vn']
         args+= {'wav':['-c:a','pcm_s16le'],'mp3':['-c:a','libmp3lame','-b:a','192k'],'m4a':['-c:a','aac','-b:a','192k','-movflags','+faststart']}[out['format']]
     run_ffmpeg(args+['-t',duration,target],'final-composite',work,duration)
+    p['_master_audio_filters']=af if not no_audio else []
     if metered:
         signals={name:audio_meter_report(work/f'meter-{name}.txt') for name in metered}
         before=signals['background_input']['rms_dbfs'];after=signals['background_scaled']['rms_dbfs']
@@ -346,6 +350,7 @@ def render_plan(p,output,keep_work=False):
     output.parent.mkdir(parents=True,exist_ok=True)
     work=Path(tempfile.mkdtemp(prefix='.media-edit-',dir=output.parent))
     try:
+        p['_clip_audio_processing']=[]
         clips=[extract(p,c,i,work) for i,c in enumerate(p['clips'])]
         base=assemble(p,clips,work)
         result=finish(p,base,work)
@@ -374,6 +379,12 @@ def render_plan(p,output,keep_work=False):
         if p.get('_audio_audit'):
             with result.open('rb') as stream:output_hash=hashlib.file_digest(stream,'sha256').hexdigest()
             report['audio_audit']={'output_sha256':output_hash,**p['_audio_audit']}
+        with result.open('rb') as stream:output_hash=hashlib.file_digest(stream,'sha256').hexdigest()
+        report['audio_processing']={'origin':'executed_fixed_ffmpeg_pipeline','output_sha256':output_hash,
+            'clip_filters':p['_clip_audio_processing'],'master_filters':p['_master_audio_filters'],
+            'clip_scope':'Each extracted clip has its own30ms edge fades before repeat and assembly.',
+            'normalization_scope':'loudnorm, when present in master_filters, processes the assembled program; it does not promise identical RMS in every window or speaker.',
+            'limitations':'Pipeline execution evidence, not a substitute for measurement of final encoded output.'}
         (work/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
         # Publish only verified files. No replacement of existing renders or sidecars.
         publications=[(result,output),(work/'report.json',output.with_suffix('.report.json'))]

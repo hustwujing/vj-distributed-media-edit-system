@@ -94,6 +94,25 @@ class LocalEditingTests(unittest.TestCase):
         self.assertLess(float(np.max(np.abs(before-after))),.0001)
         self.assertGreater(float(np.corrcoef(before,after)[0,1]),.99999)
 
+    def test_report_exposes_actual_per_clip_fades_separately_from_master(self):
+        raw=self.plan(sources={'a':'sources/music.wav'},
+            clips=[{'source':'a','end':1},{'source':'a','end':1}],
+            output={'audio_only':True,'format':'wav'},audio={'fade_in':.03,'fade_out':.03})
+        out,_=self.render(raw,'cut-fade-audit.wav')
+        # Continuous input tone has a clear dip only because both clip edges
+        # fade. The internal cut is far from either global edge fade.
+        signal=samples(out)
+        def rms(a,b):return float(np.sqrt(np.mean(signal[int(a*48000):int(b*48000)]**2)))
+        self.assertLess(rms(.995,1.005),rms(.90,.94)*.25)
+        audit=json.loads(out.with_suffix('.report.json').read_text())['audio_processing']
+        import hashlib
+        self.assertEqual(audit['output_sha256'],hashlib.sha256(out.read_bytes()).hexdigest())
+        self.assertEqual(len(audit['clip_filters']),2)
+        for clip in audit['clip_filters']:
+            self.assertIn('afade=t=in:d=0.03',clip['filters'])
+            self.assertTrue(any(f.startswith('afade=t=out:st=0.970') for f in clip['filters']))
+        self.assertFalse(any('loudnorm' in f for f in audit['master_filters']))
+
     def test_verification_decodes_actual_final_frame_at_fractional_timestamps(self):
         from PIL import Image
         for fps in (24,30,60):
