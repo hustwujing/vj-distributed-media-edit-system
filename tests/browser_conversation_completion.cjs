@@ -31,6 +31,7 @@ const server=http.createServer(async(req,res)=>{
  const current=match[1]===id?run:other;
  if(match[2]===''){json(current);return;}
  if(match[2]==='/events'){json({events:[]});return;}
+ if(match[2].startsWith('/tasks/')&&match[2].endsWith('/file')){res.setHeader('Content-Type','image/png');res.end(png);return;}
  if(match[2]==='/stream'){
   counts.set(current.id,(counts.get(current.id)||0)+1);res.setHeader('Content-Type','text/event-stream');res.setHeader('Cache-Control','no-cache');res.flushHeaders();
   const text='任务规划师：'+Array.from({length:50},(_,i)=>'公开过程说明 '+i).join('\n');
@@ -52,7 +53,15 @@ const server=http.createServer(async(req,res)=>{
   await page.getByRole('button',{name:'确认方案并执行',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('#dynamic-current').dataset.graphVersion==='1');
   assert.equal(await page.locator('#dynamic-targets-other').inputValue(),'final.png');
+  run.state='WAITING_USER';run.activity='IDLE';run.terminal_reason='review_incomplete';run.updated_at++;
+  task.status='paused';task.candidate_result=['edit/candidate.png'];task.error_detail='需要补充验收证据';task.quality={output_roles:{primary_image:'edit/candidate.png'}};
+  await page.getByRole('heading',{name:'已有候选，尚未交付'}).waitFor();
+  assert.equal(await page.locator('#dynamic-delivery a[download]').count(),0);
+  await page.locator('#dynamic-run-result [data-result-preview="candidate-0"]').click();
+  assert.match(await page.locator('#dynamic-preview img').getAttribute('src'),/\/tasks\/edit\/file/);
+  evidence.push('pending_candidate_visible_without_becoming_delivery');
   run.state='SUCCEEDED';run.activity='IDLE';run.sealed=true;run.delivery=[file];run.updated_at++;task.status='succeeded';
+  task.accepted_result=['edit/candidate.png'];run.terminal_reason='';
   streams.get(id).end('event: done\ndata: {}\n\n');streams.delete(id);
   await page.getByRole('heading',{name:'任务已完成',exact:true}).waitFor();
   assert.match(await page.locator('#dynamic-preview img').getAttribute('src'),/final.png$/);

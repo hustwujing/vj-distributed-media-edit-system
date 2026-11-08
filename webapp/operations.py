@@ -121,6 +121,8 @@ class Operation:
                                    'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':filenames}
         if self.id=='audio.transcribe':
             result['output_contract']['audio_events']={'requested':True,'semantics':'Preserve provider-detected events. An empty detection list is not evidence of an omitted event, nor proof that the source contains no non-speech sounds. Do not infer sound events from video frames or waveform energy.'}
+        if self.id=='media.edit':
+            result['output_contract']['audio_audit']='For external audio mix/replace, final.report.json includes actual pre-master dialogue/background branch meters from the render, configured gain/duck/loop, and output SHA. Inspect these before requesting extra measurements. Master fade scope is explicitly reported; stem meters do not establish speech intelligibility or semantic sound events.'
         parameter_schema=contract(self).parameters.model_json_schema()
         inputs=contract(self)
         result['input_contract']={'required_roles':sorted(inputs.required_inputs),

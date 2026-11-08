@@ -8,6 +8,8 @@ python helpers/edit_media.py render edit/plan.json --workspace /path/to/footage 
 from __future__ import annotations
 
 import argparse
+from collections import deque
+import hashlib
 import json
 import math
 import os
@@ -202,10 +204,46 @@ def title_image(item,width,height,path):
     image.save(path,format='PNG')
 
 
+def audio_meter_report(path):
+    """Summarize actual FFmpeg branch samples; bound the public window list."""
+    head=[];tail=deque(maxlen=64);count=0;energy=samples=0.;peak=None;row={}
+    def consume(value):
+        nonlocal count,energy,samples,peak
+        if 'samples' not in value:return
+        n=value['samples'];rms=value.get('rms_dbfs');level=value.get('peak_dbfs')
+        samples+=n
+        if rms is not None:energy+=n*10**(rms/10)
+        if level is not None:peak=level if peak is None else max(peak,level)
+        count+=1
+        if len(head)<64:head.append(value)
+        else:tail.append(value)
+    keys={'RMS_level':'rms_dbfs','Peak_level':'peak_dbfs','Number_of_samples':'samples'}
+    with path.open() as stream:
+        for line in stream:
+            if line.startswith('frame:'):
+                consume(row);row={'time_seconds':float(line.split('pts_time:',1)[1].strip())}
+            elif line.startswith('lavfi.astats.Overall.'):
+                key,value=line.strip().split('=',1);name=keys.get(key.rsplit('.',1)[1])
+                if name:
+                    number=float(value);row[name]=number if math.isfinite(number) else None
+        consume(row)
+    if not samples:raise RuntimeError('Audio metering produced no sample evidence')
+    return {'rms_dbfs':10*math.log10(energy/samples) if energy else None,'peak_dbfs':peak,
+            'samples':samples,'windows_total':count,'windows_truncated':count>128,'windows':head+list(tail)}
+
+
 def finish(p,base,work):
     video=not p['output']['audio_only'];duration=p['_duration'];out=p['output'];audio=p['audio']
     no_audio=video and 'source' not in audio and all(c['mute'] or (c['reverse'] and not c['reverse_audio']) for c in p['clips'])
     args=['-i',base];filters=[];nextinput=1;current='0:v';audio_label='0:a'
+    metered=[]
+    def meter(label,name):
+        keep='meter_keep_'+name;branch='meter_branch_'+name;metered.append(name)
+        filters.append(f'[{label}]asplit[{keep}][{branch}]')
+        filters.append(f'[{branch}]aresample=48000,asetnsamples=n=12000:p=0,'
+                       'astats=metadata=1:reset=1:measure_perchannel=none:measure_overall=RMS_level+Peak_level+Number_of_samples,'
+                       f'ametadata=print:file=meter-{name}.txt,anullsink')
+        return keep
     if 'source' in audio:
         # First trim the requested music range. Loop this exact range, not the whole file.
         music=work/'music.wav';length=audio['end']-audio['start']
@@ -213,14 +251,17 @@ def finish(p,base,work):
                     '-vn','-ar','48000','-ac','2','-c:a','pcm_s16le',music],'prepare-audio',work,length)
         if audio['loop']:args+=['-stream_loop','-1']
         args+=['-i',music];music_input=nextinput;nextinput+=1
-        filters.append(f'[{music_input}:a]atrim=duration={duration-audio["offset"]:.9f},asetpts=PTS-STARTPTS,volume={audio["volume"]},adelay={round(audio["offset"]*1000)}:all=1,apad=whole_dur={duration:.9f},atrim=duration={duration:.9f}[music]')
-        if audio['mode']=='replace':audio_label='music'
+        filters.append(f'[{music_input}:a]atrim=duration={duration-audio["offset"]:.9f},asetpts=PTS-STARTPTS,adelay={round(audio["offset"]*1000)}:all=1,apad=whole_dur={duration:.9f},atrim=duration={duration:.9f}[music_raw]')
+        raw=meter('music_raw','background_input')
+        filters.append(f'[{raw}]volume={audio["volume"]}[music]')
+        music_label=meter('music','background_scaled')
+        if audio['mode']=='replace':audio_label=music_label
         else:
-            background='music'
+            audio_label=meter(audio_label,'dialogue');background=music_label
             if audio['duck']:
-                filters+=['[0:a]asplit[voice][trigger]',
-                          '[music][trigger]sidechaincompress=threshold=0.025:ratio=8:attack=20:release=250:makeup=1[ducked]']
-                audio_label='voice';background='ducked'
+                filters+=[f'[{audio_label}]asplit[voice][trigger]',
+                          f'[{music_label}][trigger]sidechaincompress=threshold=0.025:ratio=8:attack=20:release=250:makeup=1[ducked]']
+                audio_label='voice';background=meter('ducked','background_ducked')
             filters.append(f'[{audio_label}][{background}]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[mixed]');audio_label='mixed'
     if not no_audio:
         af=[]
@@ -270,6 +311,18 @@ def finish(p,base,work):
         args+=['-map','[audio]','-vn']
         args+= {'wav':['-c:a','pcm_s16le'],'mp3':['-c:a','libmp3lame','-b:a','192k'],'m4a':['-c:a','aac','-b:a','192k','-movflags','+faststart']}[out['format']]
     run_ffmpeg(args+['-t',duration,target],'final-composite',work,duration)
+    if metered:
+        signals={name:audio_meter_report(work/f'meter-{name}.txt') for name in metered}
+        before=signals['background_input']['rms_dbfs'];after=signals['background_scaled']['rms_dbfs']
+        with Path(p['sources'][audio['source']]).open('rb') as stream:source_hash=hashlib.file_digest(stream,'sha256').hexdigest()
+        p['_audio_audit']={'version':1,'origin':'fixed_ffmpeg_filter_branches','window_seconds':.25,
+            'source_sha256':source_hash,
+            'parameters':{key:audio[key] for key in ('source','audio_track','start','end','mode','volume','duck','loop','offset','fade_in','fade_out','normalize','denoise','highpass')},
+            'gain_measurement_db':after-before if after is not None and before is not None else None,
+            'fade_scope':'whole_output_after_mix','measurement_scope':'actual pre-master filter samples in the same render, not reconstructed from the encoded mix',
+            'signals':signals,
+            'limitations':['Pre-master stems do not establish independent speech intelligibility or semantic sound events.',
+                            'Master fades, denoise, normalization and limiter apply after these stems; lossy encoded peaks can differ.']}
     return target
 
 
@@ -317,6 +370,9 @@ def render_plan(p,output,keep_work=False):
         report={'status':'verified','duration_expected':p['_duration'],'media':actual,
                 'checks':['duration','audio_track_present' if audio_expected else 'audio_track_absent']+([] if p['output']['audio_only'] else ['dimensions','frame_rate','decoded_first_middle_last_frames']),
                 'visual_review_required':not p['output']['audio_only']}
+        if p.get('_audio_audit'):
+            with result.open('rb') as stream:output_hash=hashlib.file_digest(stream,'sha256').hexdigest()
+            report['audio_audit']={**p['_audio_audit'],'output_sha256':output_hash}
         (work/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
         # Publish only verified files. No replacement of existing renders or sidecars.
         publications=[(result,output),(work/'report.json',output.with_suffix('.report.json'))]

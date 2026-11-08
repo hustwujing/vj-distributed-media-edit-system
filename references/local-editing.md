@@ -72,7 +72,7 @@ python /opt/video-use/helpers/edit_media.py render edit/plan.json --workspace . 
 以 `edit/final-v1.mp4` 为例，成功后一起生成：
 
 - `final-v1.mp4`：视频；音频模式则按所选格式输出。
-- `final-v1.report.json`：预计/实际时长、输出尺寸、音轨、已完成检查。
+- `final-v1.report.json`：预计/实际时长、输出尺寸、音轨、已完成检查。混音/替换外部音频时还包含 `audio_audit`：同次渲染中实际分支的原声、配乐原始/增益后/duck 后电平、250ms 窗口、来源及输出 SHA。先查看这些程序测量，再决定是否需要补证；长音频的窗口列表会明确截断，汇总仍覆盖全部样本。分轨在 master 处理之前测量，报告明确标注全片淡入淡出、归一化和限幅的适用范围，不能把这些数据当成听感或声音事件语义的证明。
 - `final-v1.verify_0.jpg`、`verify_1.jpg`、`verify_2.jpg`：首、中、尾检查图，仅视频。
 - `final-v1.srt`、`final-v1.ass`：启用字幕时的时间线文本与样式文件。
 

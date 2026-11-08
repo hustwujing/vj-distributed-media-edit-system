@@ -80,10 +80,10 @@ async function runCase(demo){
    }
    if(current.state==='WAITING_USER'){
     const decision=current.decisions[0];state.status='awaiting_review';state.waiting_since??=Date.now()/1000;
-    save(path.join(dir,'attention.json'),{run:current,decision,answer_file:decision?'answer-'+decision.id+'.json':'resolution.json'});await capture('needs-attention');persist();
-    const message=await page.locator('#dynamic-conversation').innerText();
-    if(decision){assert.ok(message.includes(decision.request.question||decision.request.reason||''),'Pending decision is invisible');assert.ok(await page.locator(`[data-decision="${decision.id}"]`).isVisible());}
-    else assert.ok(await page.locator('#dynamic-blocking-action').isVisible(),'Blocked Run has no visible actionable error');
+    save(path.join(dir,'attention.json'),{run:current,decision,answer_file:decision?'answer-'+decision.id+'.json':'resolution.json'});persist();
+    if(decision){const card=page.locator(`[data-decision="${decision.id}"]`);await card.waitFor({state:'visible'});const normalized=text=>text.replace(/\s+/g,' ').trim();assert.ok(normalized(await card.innerText()).includes(normalized(decision.request.question||decision.request.reason||'')),'Pending decision text is missing');}
+    else await page.locator('#dynamic-blocking-action').waitFor({state:'visible'});
+    await capture('needs-attention');
     const answerFile=path.join(dir,decision?'answer-'+decision.id+'.json':'resolution.json');
     if(fs.existsSync(answerFile)){
      const answer=JSON.parse(fs.readFileSync(answerFile));assert.ok(['approve','revise','reject','stop'].includes(answer.action));

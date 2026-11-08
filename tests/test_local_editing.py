@@ -247,6 +247,40 @@ class LocalEditingTests(unittest.TestCase):
             data=samples(out,t,.25);spectrum=np.abs(np.fft.rfft(data))/len(data)
             return spectrum[round(1200*.25)]
         self.assertLess(tone_level(1.5),tone_level(.5)*.65)
+        report=json.loads(out.with_suffix('.report.json').read_text())['audio_audit']
+        self.assertEqual(report['origin'],'fixed_ffmpeg_filter_branches')
+        import hashlib
+        self.assertEqual(report['output_sha256'],hashlib.sha256(out.read_bytes()).hexdigest())
+        signal=report['signals']['background_ducked']
+        during=next(item['rms_dbfs'] for item in signal['windows'] if 1.4<=item['time_seconds']<=1.6)
+        quiet=next(item['rms_dbfs'] for item in signal['windows'] if .4<=item['time_seconds']<=.6)
+        self.assertLess(during,quiet-3)
+        self.assertAlmostEqual(report['gain_measurement_db'],0,delta=.01)
+
+    def test_audio_meter_reports_actual_gain_and_preserves_silence_without_nan(self):
+        for volume in (.3,0):
+            raw=self.plan(output={'audio_only':True},audio={'source':'music','mode':'replace','volume':volume,'loop':True})
+            out,_=self.render(raw,f'meter-{volume}.wav')
+            report=json.loads(out.with_suffix('.report.json').read_text())['audio_audit']
+            self.assertEqual(report['parameters']['volume'],volume)
+            self.assertFalse(report['signals']['background_scaled']['windows_truncated'])
+            if volume:self.assertAlmostEqual(report['gain_measurement_db'],20*np.log10(volume),delta=.01)
+            else:
+                self.assertIsNone(report['signals']['background_scaled']['rms_dbfs'])
+                self.assertEqual(float(np.max(np.abs(samples(out)))),0)
+            json.dumps(report,allow_nan=False)
+
+    def test_audio_meter_bounds_windows_without_losing_global_peaks(self):
+        from edit_media import audio_meter_report
+        path=self.root/'meter-long.txt'
+        with path.open('w') as stream:
+            for i in range(300):
+                level=-1 if i==150 else -20
+                stream.write(f'frame:{i} pts:{i*12000} pts_time:{i/4}\nlavfi.astats.Overall.RMS_level={level}\nlavfi.astats.Overall.Peak_level={level}\nlavfi.astats.Overall.Number_of_samples=12000\n')
+        report=audio_meter_report(path)
+        self.assertEqual(len(report['windows']),128);self.assertTrue(report['windows_truncated'])
+        self.assertEqual(report['windows_total'],300);self.assertEqual(report['peak_dbfs'],-1)
+        self.assertGreater(report['rms_dbfs'],-20)
 
     def test_invalid_plans_fail_before_output(self):
         examples=[]
