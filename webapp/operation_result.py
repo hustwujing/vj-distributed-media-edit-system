@@ -27,7 +27,7 @@ class Result(BaseModel):
 
     @classmethod
     def media(cls,action,names):
-        known={'edit_plan.json':'plan','master.srt':'subtitle','timeline.png':'preview',
+        known={'edit_plan.json':'plan','master.srt':'subtitle','final.srt':'subtitle','timeline.png':'preview',
                'analysis.json':'report','quality-review.json':'report','takes_packed.md':'text',
                'final.report.json':'report','compiler-report.json':'report','audio-process-report.json':'report'}
         outputs=[]
@@ -56,6 +56,7 @@ def validate_contract(operation,report,selected=None):
         if role=='audio':return bool(item.get('audio_track_present'))
         if role in ('primary_image','foreground','mask','preview'):return item.get('kind')=='image'
         if role in ('transcript','report','plan'):return item.get('kind')=='json'
+        if role=='subtitle':return item.get('kind')=='subtitle'
         return True
     failures=[]
     for role,path in (selected or {}).items():

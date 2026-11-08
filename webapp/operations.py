@@ -122,6 +122,7 @@ class Operation:
         if self.id=='audio.transcribe':
             result['output_contract']['audio_events']={'requested':True,'semantics':'Preserve provider-detected events. An empty detection list is not evidence of an omitted event, nor proof that the source contains no non-speech sounds. Do not infer sound events from video frames or waveform energy.'}
         if self.id=='media.edit':
+            result['output_contract']['subtitle']='When edit_plan.subtitles is configured, the same render exports final.srt with the exact burned caption timing/grouping; use its subtitle role directly for SRT delivery or downstream input. Without subtitles this optional role is absent.'
             result['output_contract']['audio_audit']='For external audio mix/replace, final.report.json includes actual pre-master dialogue/background branch meters from the render, configured gain/duck/loop, and output SHA. Inspect these before requesting extra measurements. Master fade scope is explicitly reported; stem meters do not establish speech intelligibility or semantic sound events.'
         parameter_schema=contract(self).parameters.model_json_schema()
         inputs=contract(self)
@@ -212,11 +213,12 @@ for action in _ACTIONS:
                  output_files=_FIXED_OUTPUT_FILES.get(action))
     REGISTRY[op.id]=op
 for action in ('render','edit','timeline','analyze','review','pack','concat_sequence','normalize_clip'):
-    output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',),'concat_sequence':('video','report'),'normalize_clip':('video','report')}[action]
+    output_roles={'render':('video','plan','subtitle'),'edit':('video','audio','plan','report','subtitle'),'timeline':('preview',),'analyze':('report',),'review':('report',),'pack':('text',),'concat_sequence':('video','report'),'normalize_clip':('video','report')}[action]
     input_kinds=('json',) if action=='pack' else ('video','json') if action=='timeline' else ('video',) if action in ('analyze','review','concat_sequence','normalize_clip') else ('video','audio','image','subtitle','json')
     op=Operation('media.'+action,action,'fixed_media',input_kinds,output_roles,memory_mb=4096,timeout=1800,reuse_safe=True,
                  execution_mode='opensandbox_command',
                  output_files=('final.mp4','compiler-report.json') if action in ('concat_sequence','normalize_clip') else None,
+                 role_filenames=(('subtitle','final.srt'),) if action=='edit' else (),
                  required_output_roles=output_roles if action in ('concat_sequence','normalize_clip') else ())
     REGISTRY[op.id]=op
 REGISTRY['media.evidence']=Operation('media.evidence','evidence','fixed_media',('image','video','audio'),('report','preview'),
@@ -350,6 +352,8 @@ def active_output_roles(contract,parameters):
         selected=('audio' if contract['id']=='media.edit' and parameters.get('edit_plan',{}).get('output',{}).get('audio_only')
                   else 'video' if contract['id']=='media.edit' else alternatives[0])
         roles=[role for role in roles if role not in alternatives or role==selected]
+    if contract['id']=='media.edit' and not parameters.get('edit_plan',{}).get('subtitles'):
+        roles=[role for role in roles if role!='subtitle']
     return roles
 
 

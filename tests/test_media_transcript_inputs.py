@@ -49,3 +49,17 @@ class TranscriptInputTests(unittest.TestCase):
         self.assertEqual(resolve('render',{'segments':[{'asset':'source'}],'subtitles':'transcript'},inputs),{('source',0):'transcript'})
         with self.assertRaises(ValueError):resolve('edit',{'edit_plan':{'clips':[{'asset':'source','words':[0,3]}]}},{'source':{}})
         self.assertEqual(resolve('edit',{'edit_plan':{'clips':[{'asset':'source'}]}},{'source':{}}),{})
+
+    def test_rendered_srt_is_a_typed_optional_output_and_not_an_extra_agent_task(self):
+        from webapp.operations import active_output_roles
+        from webapp.operation_result import Result,validate_contract
+        op=get('media.edit');contract=op.public()
+        self.assertEqual(contract['output_contract']['role_filenames']['subtitle'],'final.srt')
+        self.assertIn('subtitle',active_output_roles(contract,self.parameters()))
+        self.assertNotIn('subtitle',active_output_roles(contract,{'edit_plan':{'clips':[{'asset':'source'}]}}))
+        roles={output.role:output.path for output in Result.media('edit',['final.mp4','final.srt','final.ass']).outputs}
+        self.assertEqual(roles['subtitle'],'final.srt')
+        for kind,passed in [('subtitle',True),('json',False)]:
+            report={'files':[{'name':'final.mp4','video':True},{'name':'final.srt','kind':kind}],
+                    'checks':[],'passed':True,'technical_valid':True}
+            self.assertEqual(validate_contract(op,report,{'video':'final.mp4','subtitle':'final.srt'})['passed'],passed)
