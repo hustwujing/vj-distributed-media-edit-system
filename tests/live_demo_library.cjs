@@ -33,9 +33,21 @@ async function runCase(demo){
  console.log(JSON.stringify({event:'started',case:demo.id,title:demo.title}));
  try{
   await page.goto(base+'/');await page.locator(`[data-load="${demo.id}"][data-editor=chat]`).first().waitFor();
-  const loaded=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/api/demos/${demo.id}/load`));
-  await page.locator(`[data-load="${demo.id}"][data-editor=chat]`).first().click();const load=await loaded;
-  assert.equal(load.status(),201,await load.text());state.project=(await load.json()).project.id;
+  await context.storageState({path:path.join(dir,'browser-state.json')});fs.chmodSync(path.join(dir,'browser-state.json'),0o600);
+  for(let attempt=0;attempt<8;attempt++){
+   const loaded=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/api/demos/${demo.id}/load`));
+   await page.locator(`[data-load="${demo.id}"][data-editor=chat]`).first().click();const load=await loaded;
+   if(load.status()===201){
+    // home.js owns the JSON response and immediately navigates. The browser
+    // can discard that body; observe the actual navigation instead of racing it.
+    await page.waitForURL(/\/chat\/[a-f0-9]{32}$/);state.project=new URL(page.url()).pathname.split('/').at(-1);break;
+   }
+   const failure=await load.json();state.events.push({at:Date.now()/1000,action:'import_rejected',...failure});persist();
+   assert.ok(load.status()===503&&['API_QUEUE_FULL','API_QUEUE_TIMEOUT'].includes(failure.code)&&failure.outcome==='not_started',JSON.stringify(failure));
+   await page.locator('#toast.error').waitFor();assert.ok((await page.locator('#toast').innerText()).includes(failure.detail),'Import rejection was not visible');
+   await capture('import-backpressure-'+attempt);await page.waitForTimeout(Math.max(2000,Number(load.headers()['retry-after']||0)*1000)+(attempt*200));
+  }
+  assert.ok(state.project,'Example import remained unavailable after bounded safe retries');persist();
   await page.waitForURL('**/chat/'+state.project);await page.locator('#dynamic-input-form').waitFor();
   await context.storageState({path:path.join(dir,'browser-state.json')});fs.chmodSync(path.join(dir,'browser-state.json'),0o600);
   const project=await(await api('GET',`/api/projects/${state.project}`)).json();save(path.join(dir,'imported-project.json'),project);
