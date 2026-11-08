@@ -67,7 +67,7 @@ def accept(store,identifier,actor,raw,*,context=None):
         if not run:raise ValueError('Unknown Run')
         if run['status'] in ('CANCELLING','FAILED','CANCELLED') or run['status']=='SUCCEEDED' and run['delivered_at'] is None:
             raise ValueError('Run cannot accept business input')
-        if run['terminal_reason'] in ('planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted'):
+        if run['terminal_reason'] in ('planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted'):
             raise ValueError('本轮规划或模型预算已耗尽，请停止本轮并新建一轮后再继续。')
         predecessor_targets=[]
         if request.targets:

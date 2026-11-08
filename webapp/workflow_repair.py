@@ -15,6 +15,8 @@ class Resolution:
 
 
 def resolve(error_code,phase='local',classification='') -> Resolution:
+    if error_code=='daily_model_quota_exhausted':
+        return Resolution('stop','Daily model quota is shared across Runs and must recover before any retry')
     if error_code in ('submission_unknown','result_unavailable'):
         return Resolution('external_reconcile','External side effect state must be reconciled before any replacement call')
     if error_code=='model_token_budget_exhausted':

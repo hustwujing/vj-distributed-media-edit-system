@@ -188,7 +188,7 @@ class Orchestrator:
             elif command['action']=='pause':self.set_status(run,'WAITING_USER','user_paused')
             elif command['action']=='resume':
                 unresolved=store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
-                requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted',
+                requires_replan={'planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted',
                     'invalid_delivery_manifest','delivery_targets_incomplete','diagnostic_policy_not_authorized',
                     'user_decision','new_run_rejected'}
                 if run['status']!='WAITING_USER':error='resume_requires_safe_paused_state'
@@ -576,7 +576,7 @@ class Orchestrator:
             return
         if not retry:
             diagnose=(not task.get('control_kind') and task['spec'].get('on_failure')=='diagnose'
-                      and code not in ('submission_unknown','budget_exhausted','planning_contract_exhausted','model_token_budget_exhausted','result_unavailable'))
+                      and code not in ('submission_unknown','budget_exhausted','daily_model_quota_exhausted','planning_contract_exhausted','model_token_budget_exhausted','result_unavailable'))
             if diagnose:
                 self.open_repair(run,task['id'],'execution_failure',error_code=code)
                 self.queue_review(graph.get(store,run['id']),task['id'],purpose='diagnose')

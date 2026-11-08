@@ -35,7 +35,7 @@ function safeName(task){return task.spec.name;}
 function modelControls(){
  $('dynamic-model-profile').disabled=busy;
  $('dynamic-reasoning-effort').disabled=busy||!modelChoice;
- const inputBlocked=current&&['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted'].includes(current.terminal_reason);
+ const inputBlocked=current&&['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted'].includes(current.terminal_reason);
  $('dynamic-input-content').disabled=Boolean(inputBlocked);
  $('dynamic-input-submit').disabled=busy||uploading>0||Boolean(inputBlocked)||(!current&&!modelChoice);
  $('dynamic-upload').disabled=uploading>0||Boolean(inputBlocked);
