@@ -29,7 +29,17 @@ def final_criteria(run,tasks):
     # Keep bounded clauses so every part can be cited by the review protocol.
     import textwrap
     goal=str(run.get('goal') or '').strip()
-    for part in textwrap.wrap(goal,width=1200,break_long_words=True,break_on_hyphens=False):
+    parts=[];heading=''
+    for line in goal.splitlines():
+        line=line.strip()
+        if not line:continue
+        if line.endswith((':','：')):
+            heading+=line+' ';continue
+        parts.extend(textwrap.wrap(heading+line,width=1200,break_long_words=True,break_on_hyphens=False));heading=''
+    if heading:parts.extend(textwrap.wrap(heading.strip(),width=1200,break_long_words=True,break_on_hyphens=False))
+    if len(criteria)+len(parts)>100:
+        parts=textwrap.wrap(goal,width=1200,break_long_words=True,break_on_hyphens=False)
+    for part in parts:
         criterion='完整用户目标（已应用的 user_changes 对内容/参数的修订优先）：'+part
         if part not in criteria and criterion not in criteria:criteria.append(criterion)
     return criteria or [goal]

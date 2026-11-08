@@ -12,7 +12,7 @@ def conversation_prompt(demo):
     """Preserve the card's visible parameters in the editable imported request."""
     prompt=demo['prompt'].strip()
     options=[item.strip() for item in demo.get('options',[]) if isinstance(item,str) and item.strip()]
-    return prompt+('\n\n示例参数（可修改）：\n'+'\n'.join('- '+item for item in options) if options else '')
+    return prompt+('\n\n以下示例要求按原值执行；如需变更，请修改后提交：\n'+'\n'.join('- '+item for item in options) if options else '')
 
 
 def component(value):

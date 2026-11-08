@@ -19,6 +19,10 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
         bounded=final_criteria({'goal':long_goal,'authorization':{'delivery_targets':['项目文件']}},[])
         self.assertLess(len(bounded),100);self.assertTrue(all(len(item)<=2000 for item in bounded))
         self.assertEqual(''.join(item.split('：',1)[1] for item in bounded[1:]),long_goal)
+        multi=final_criteria({'goal':'生成字幕。\n参数：\n- 使用大写\n- 保留音轨',
+                             'authorization':{'delivery_targets':['MP4','SRT']}},[])
+        self.assertTrue(any('使用大写' in item and '保留音轨' not in item for item in multi))
+        self.assertTrue(any('保留音轨' in item and '使用大写' not in item for item in multi))
 
     def test_applied_user_requirements_create_a_new_final_review_context(self):
         f=fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
