@@ -46,6 +46,13 @@ test('an unavailable control plane is visible to users',()=>{
  assert.match(inputStatus({state:'ACTIVE',control_plane:{available:false}}),/控制服务暂不可用/);
 });
 
+test('switching historical runs resets stream caches and replays completed runs',()=>{
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.doesNotMatch(source,/if\(completedStreams\.has\(runId\)\)\{renderAgentTranscript\(current\);return;\}/);
+ assert.match(source,/if\(!sameRun\|\|completedStreams\.has\(runId\)\)\{liveEvents=\[\];agentTextEvents=\[\];/);
+ assert.match(source,/completedStreams\.delete\(runId\);streamRun=runId/);
+});
+
 test('stale tool activity is visibly interrupted after worker loss or terminal run',()=>{
  const item={status:'running',execution:{attempt_id:'old'},sequence:1};
  assert.equal(settleTool({status:'running',activity_attempts:[{id:'old',status:'expired'}]},item).status,'interrupted');
