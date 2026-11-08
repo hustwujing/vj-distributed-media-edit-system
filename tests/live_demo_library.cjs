@@ -76,10 +76,16 @@ async function runCase(demo){
      const answer=JSON.parse(fs.readFileSync(answerFile));assert.ok(['approve','revise','reject','stop'].includes(answer.action));
      if(answer.action==='stop'){state.status='failed';state.classification=answer.classification||'needs_analysis';state.reason=answer.reason;break;}
      assert.ok(decision,'Resolution requires an actual pending decision');
-     const payload={decision_id:decision.id,snapshot_digest:decision.snapshot_digest,action:answer.action};
-     if(answer.action==='revise')Object.assign(payload,{feedback:answer.feedback,attachments:answer.attachments||[],upstream_tasks:[]});
-     if(answer.authorization)payload.authorization=answer.authorization;
-     await api('POST',`/api/projects/${state.project}/runs/${state.run_id}/commands`,{request_id:uid(),action:'answer',payload});
+     const card=page.locator(`[data-decision="${decision.id}"]`);
+     if(answer.action==='revise'){
+      await card.locator('[data-feedback]').fill(answer.feedback);
+      if(answer.attachments?.length)await card.locator('[data-feedback-assets]').selectOption(answer.attachments);
+     }
+     const sent=page.waitForResponse(response=>response.request().method()==='POST'&&response.url().endsWith('/commands'));
+     await card.locator(`[data-answer="${answer.action}"]`).click();const response=await sent;assert.equal(response.status(),202,await response.text());
+     const submitted=response.request().postDataJSON().payload;assert.equal(submitted.action,answer.action);assert.equal(submitted.decision_id,decision.id);
+     if(answer.action==='revise')assert.equal(submitted.feedback,answer.feedback);
+     state.events.push({at:Date.now()/1000,action:'browser_decision_'+answer.action,decision:decision.id});
      fs.renameSync(answerFile,answerFile+'.consumed');state.status='running';delete state.waiting_since;persist();
     }
     await page.waitForTimeout(2500);continue;
