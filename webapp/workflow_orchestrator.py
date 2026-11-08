@@ -733,11 +733,14 @@ class Orchestrator:
                 SELECT 1 FROM execution_leases l WHERE l.attempt=r.attempt_id AND l.active=1 AND l.expires>?)''',
             (run['id'],store.now()))
         for row in rows:
-            used=row['reserved_tokens']
-            store.execute('''UPDATE workflow_model_reservations SET used_tokens=?,state='interrupted_usage_unknown',
-                input_settled_tokens=NULL,output_settled_tokens=NULL WHERE id=? AND state='reserved' ''',
-                (used,row['id']))
-            graph.event(store,run,'model_reservation_reconciled',{'attempt_id':row['attempt_id'],'outcome':'interrupted_usage_unknown'})
+            if row['input_reserved_tokens'] is not None:
+                used=int(row['input_reserved_tokens'])+int(row['output_reserved_tokens'] or 0);state='interrupted_output_unknown';input_settled=row['input_reserved_tokens']
+            else:
+                used=row['reserved_tokens'];state='interrupted_usage_unknown';input_settled=None
+            store.execute('''UPDATE workflow_model_reservations SET used_tokens=?,state=?,
+                input_settled_tokens=?,output_settled_tokens=NULL WHERE id=? AND state='reserved' ''',
+                (used,state,input_settled,row['id']))
+            graph.event(store,run,'model_reservation_reconciled',{'attempt_id':row['attempt_id'],'outcome':state})
 
     def pending_task_reviews(self,run):
         return {row['subject_task'] for row in self.store.query(
