@@ -114,7 +114,8 @@ class DynamicExecutionTests(unittest.TestCase):
                     inspection=re.findall(r'"inspection_id":"([a-f0-9]{32})"',conversation)[-1]
                     candidate=re.findall(r'"candidate_key":"(delivery_[0-9]+)"',conversation)[-1]
                     return {'action':'result','decision':{'snapshot_digest':frozen['snapshot_digest'],'verdict':'pass',
-                        'evidence':[{'criterion_index':0,'observation':'Read the combined report text','inspection_id':inspection}],
+                        'evidence':[{'criterion_index':index,'observation':'Read the combined report text','inspection_id':inspection}
+                                    for index in range(len(frozen['review_criteria']))],
                         'deliverables':[candidate],'primary':candidate}}
                 from tests.test_dynamic_graph import envelope
                 def bound_model(host,lease,*args,**kwargs):
