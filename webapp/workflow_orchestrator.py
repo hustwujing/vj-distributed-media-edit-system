@@ -535,6 +535,10 @@ class Orchestrator:
                 message='系统执行错误：'+detail[:400]+'。请修复运行环境后重试。'
         if code=='agent_failed' and data.get('transient'):
             message='模型服务出现瞬时故障，系统将自动重试（第 '+str(task.get('recovery_count',0)+1)+' 次）。'
+        if code=='daily_model_quota_exhausted' and data.get('quota_limit') is not None:
+            import time
+            hours=max(1,round((float(data.get('quota_reset_at',time.time()))-time.time())/3600,1))
+            message=f"今日模型调用额度已用完（{data.get('quota_used',0)}/{data.get('quota_limit')}），预计约 {hours} 小时后恢复；新建一轮不会绕过额度。"
         if code=='agent_failed' and data.get('error_detail'):
             message='脚本执行失败：'+str(data['error_detail'])[:400]+'。已保留错误回执，请修正脚本后重试。'
         graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',

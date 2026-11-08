@@ -251,6 +251,9 @@ def register(app,store,own_project):
     @lane('write')
     def start(project_id:str,body:Start,request:Request):
         own_project(project_id,request);owner=request.state.owner
+        from .task_leases import daily_usage
+        quota=daily_usage(store,owner,'model')
+        if quota['blocked']:raise HTTPException(409,f"今日模型调用额度已用完（{quota['used']}/{quota['limit']}），请等待恢复后再新建任务。")
         raw=body.authorization.model_dump();identity=graph.digest({'authorization':raw,'parent_run_id':body.parent_run_id,
             'model_choice':body.model_choice.model_dump() if body.model_choice else None})
         try:

@@ -10,6 +10,7 @@ const names={ACTIVE:'进行中',WAITING_USER:'等待处理',CANCELLING:'正在�
 const labels={input_accepted:'补充要求已接收',input_safe_point:'当前任务已排空，开始重新规划',input_batch_applied:'补充要求已处理',manager_result_applied:'规划结果已应用',review_reused_or_blocked:'候选与证据未变，保留已有审查结论',successor_created:'已创建下一轮执行',proposal_applied:'新一轮计划已确定',planning_requested:'开始下一轮规划',proposal_rejected:'提案未通过校验，正在处理',review_requested:'开始验收',task_result_committed:'步骤结果已记录',state_changed:'工作流状态更新',command_processed:'控制请求已处理',delivered:'正式成果已交付',created:'工作流已创建'};
 let project,capabilities,preview,currentId=null,current=null,newRunMode=false,timer=null,cursorTimer=null,busy=false,lastRender='',lastDecisions='',stopped=false,pendingCommand=null,uploading=0,projectLoad=0,capabilityLoad=0,refreshEpoch=0,lastSnapshot=null,lastRunSignature='',lastDagSignature='',modelChoice=null,eventStream=null,streamRun=null,liveEvents=[],agentTextEvents=[],agentStreamTurn={status:'running',text:'',text_version:[0,0],text_phase:'idle'},graphEvents=[],lockedDagNode=null,dagGraph=null,dagLayoutId='',lastAgentOutputAt=0,followConversation=true;
 const completedStreams=new Set();
+const quotaBlockedReasons=new Set(['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted']);
 let inputDraftRun=null;
 // getRandomValues also works on the HTTP intranet entry, unlike randomUUID.
 const uuid=()=>Array.from(crypto.getRandomValues(new Uint8Array(16)),byte=>byte.toString(16).padStart(2,'0')).join('');
@@ -35,7 +36,7 @@ function safeName(task){return task.spec.name;}
 function modelControls(){
  $('dynamic-model-profile').disabled=busy;
  $('dynamic-reasoning-effort').disabled=busy||!modelChoice;
- const inputBlocked=current&&['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted'].includes(current.terminal_reason);
+ const inputBlocked=current&&quotaBlockedReasons.has(current.terminal_reason);
  $('dynamic-input-content').disabled=Boolean(inputBlocked);
  $('dynamic-input-submit').disabled=busy||uploading>0||Boolean(inputBlocked)||(!current&&!modelChoice);
  $('dynamic-upload').disabled=uploading>0||Boolean(inputBlocked);
@@ -315,7 +316,7 @@ function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.
  $('dynamic-model-current').textContent=configurationText(run.model_configuration);
  const active=!terminalRun(run.state);$('dynamic-workspace-title').textContent='任务对话';$('dynamic-execution-settings').hidden=true;$('dynamic-context-settings').hidden=false;$('dynamic-input-content').placeholder=active?'继续描述修改意见或下一步要求…':'描述下一轮修改要求…';$('dynamic-input-submit').setAttribute('aria-label',active?'发送修改要求':'开始下一轮修改');
  document.querySelector('[data-control=pause]').hidden=!active||['WAITING_USER','CANCELLING'].includes(run.state);
- const inputBlocked=['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted'].includes(run.terminal_reason);document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER'||inputBlocked;document.querySelector('[data-control=resume]').title=run.blocking_action?.action==='retry'?'重试失败步骤':'继续';document.querySelector('[data-control=resume]').setAttribute('aria-label',run.blocking_action?.action==='retry'?'重试失败步骤':'继续');document.querySelector('[data-control=cancel]').hidden=!active;
+ const inputBlocked=quotaBlockedReasons.has(run.terminal_reason);document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER'||inputBlocked;document.querySelector('[data-control=resume]').title=run.blocking_action?.action==='retry'?'重试失败步骤':'继续';document.querySelector('[data-control=resume]').setAttribute('aria-label',run.blocking_action?.action==='retry'?'重试失败步骤':'继续');document.querySelector('[data-control=cancel]').hidden=!active;
  modelControls();
  $('dynamic-input-form').hidden=false;syncAssetOptions($('dynamic-input-assets'));renderAttachmentChips();
  $('dynamic-input-status').textContent=inputStatus(run);
