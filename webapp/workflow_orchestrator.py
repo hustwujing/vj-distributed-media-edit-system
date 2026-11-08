@@ -72,8 +72,9 @@ class Orchestrator:
             run=graph.get(store,identifier)
             if run['status'] in RUN_TERMINAL:return
             wait_budget=float(os.environ.get('VIDEO_USE_EXTERNAL_WAIT_SECONDS','7200'))
-            timed_out=[task for task in graph.work_items(run) if task['status']=='waiting' and task.get('phase') in ('poll','collect') and store.now()-task['updated_at']>wait_budget]
+            timed_out=[task for task in graph.work_items(run) if task['status']=='waiting' and task.get('phase') in ('poll','collect') and task.get('wait_recorded_at') and store.now()-task['wait_recorded_at']>wait_budget]
             if timed_out:
+                self.decision(run,'external_wait',{'task_id':timed_out[0]['id'],'question':'外部任务等待已超时。请选择继续等待，或放弃该任务并保留其他成果后重新规划。','options':['keep_waiting','abandon_task']})
                 self.set_status(run,'WAITING_USER','external_wait_timeout')
                 return
             if run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete' and not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
@@ -278,6 +279,8 @@ class Orchestrator:
                 supersede_inputs(store,run,invalid_inputs,'attachment_replaced_by_user')
             self.set_status(run,'ACTIVE','input_draining')
         elif payload.get('action')=='reject':
+            if row['kind']=='external_wait':
+                task=next(t for t in graph.work_items(run) if t['id']==request['task_id']);graph.write_work(store,task,"UPDATE run_tasks SET status='paused',error_code='external_wait_timeout',error_detail=? WHERE run_id=? AND id=?",('外部任务等待超时，已放弃等待。',run['id'],task['id']));store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']));self.set_status(run,'ACTIVE','external_wait_abandoned');return
             if row['kind']=='external_submission':
                 task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
                 import uuid
@@ -306,6 +309,8 @@ class Orchestrator:
                 store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed',error_detail=? WHERE run_id=? AND id=?",
                     ('用户未通过内容验收，请调整要求后重新规划。',run['id'],subject))
                 self.set_status(run,'WAITING_USER','user_rejected')
+        elif row['kind']=='external_wait' and payload.get('action')=='approve':
+            task=next(t for t in graph.work_items(run) if t['id']==request['task_id']);store.execute("UPDATE run_tasks SET wait_recorded_at=?,next_run_at=? WHERE run_id=? AND id=?",(store.now(),store.now(),run['id'],task['id']));store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']));self.set_status(run,'ACTIVE','external_wait_extended');return
         elif row['kind']=='external_submission' and payload.get('action')=='approve':
             external_id=str(payload.get('external_id') or '').strip()
             if not re_full_handle(external_id):raise ValueError('请填写供应商任务 ID 后再继续')
@@ -426,8 +431,8 @@ class Orchestrator:
                     if not re_full_handle(handle):raise InvalidProviderHandle('Provider submission has no usable handle')
                     backoff=min(60,5*2**min(task.get('poll_count',0),4));suggested=int(data.get('poll_after',backoff))
                     delay=max(1,min(backoff,suggested))
-                    graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,next_run_at=?,wait_reason='provider',poll_count=poll_count+1,error_code='',error_detail='' WHERE run_id=? AND id=?",
-                        (handle,store.now()+delay,run['id'],task['id']))
+                    graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,next_run_at=?,wait_reason='provider',poll_count=poll_count+1,wait_recorded_at=COALESCE(wait_recorded_at,?),error_code='',error_detail='' WHERE run_id=? AND id=?",
+                        (handle,store.now()+delay,store.now(),run['id'],task['id']))
                 elif outcome=='succeeded':
                     self.accept_artifacts(run,task,data,json.loads(result['artifact_manifest']))
                 else:self.task_failure(run,task,data)
