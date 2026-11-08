@@ -224,6 +224,30 @@ Run/Task 契约的变化分类，并在安全点生成唯一的结构化结果�
 5. 改变顶层目标、已交付后追加要求、模型/Runtime/安全策略变化；验证 `NEW_RUN_REQUIRED` 或重新授权。
 6. 每一类都验证页面存在可执行提示；没有可执行决策的 `WAITING_USER`、只有裸错误码或旧范围摘要均为程序错误。
 
+#### 组合契约变更真机矩阵
+
+单点 case 不能证明多个输入同时到达时的版本和授权绑定正确。补充真机测试按以下组合执行；每个组合
+都要求保存 input sequence、旧/新 authorization version、graph version、decision snapshot、受影响
+Task/revision、预算账本、最终交付和清理证据。没有实际变更到对应字段时，不能把 case 计作覆盖。
+
+| Case | 同时变化 | 必须验证 |
+| --- | --- | --- |
+| CC01 | 交付范围收窄 + 新增证据要求 | 旧媒体不重跑；交付授权先确认，证据 Task 绑定新范围，Final Review 重绑定后发布 |
+| CC02 | 交付范围扩大 + 新增素材 | 先完成授权决策；新素材进入新授权版本，旧 Task 继续排空，不能让新下游偷跑 |
+| CC03 | 素材替换 + Task 参数/语义变化 | 旧素材 revision 保留，新 revision 只重跑受影响闭包，未受影响结果复用 |
+| CC04 | Operation/Profile 扩展 + Provider 调用额度增加 | capability/policy/额度一次性确认，旧额度账本保留，不得先发起外部调用 |
+| CC05 | Token/时限预算变化 + 交付范围变化 | 授权版本和预算原子更新；已消耗额度不能归零，发布只使用新交付范围 |
+| CC06 | 验收标准变化 + 输出角色/文件名变化 | 新 revision 和 Final Review 身份同时变化，旧候选不能按新文件名冒充成果 |
+| CC07 | 顶层目标变化 + 新模型/Harness | `NEW_RUN_REQUIRED` 创建 successor；原 Run 不改写，模型和 Runtime 在 successor 冻结 |
+| CC08 | 已交付后追加要求 + 复用旧成果 + 新交付格式 | successor 显式复用不可变旧成果，新格式只执行必要增量，原交付记录不回写 |
+| CC09 | 新输入附件失效 + 用户拒绝 + 同时修改交付范围 | 输入 barrier、`SUPERSEDED`、授权决策和原 Task 排空顺序正确，不能重复提问 |
+| CC10 | 质量 Review 反馈 + 增加证据范围 + 预算不足 | 先创建 evidence Task；预算不足有界停止，不能用新预算偷偷覆盖旧失败 |
+
+组合 case 的调度规则：同一安全点内合并同批输入，只创建一个 PLAN；授权字段先进入决策，决策批准后
+才允许 Proposal 应用。并发输入按 sequence 处理，旧 snapshot、旧 authorization version 或旧 decision
+回答必须拒绝并生成新的可操作提示。组合 case 失败时分别归因每个变化字段，不能用其中一个模型失败
+掩盖另一个程序性版本/授权错误。
+
 - [ ] Manager Proposal 使用现有确定性授权校验：新增素材、operation/Profile、Provider 次数或交付范围时创建 `plan_change`；授权批准后继续同一安全点规划。Orchestrator 不需要在输入到达时判断“相关/不相关”。
 - [ ] 前述质量决策 `revise` 仅负责把 feedback 和候选身份写入同一 `run_inputs` 邮箱并建立 barrier；原质量 Decision 按正常拒绝/暂停语义完成，后续与其他运行中输入一起统一规划，不维护第二套修订入口。
 - [ ] UI 始终允许在活动 Run 中追加业务要求，并显示“已接收，等待当前任务结束后重新规划”；另保留显式“立即停止当前本地任务”控制按钮，但它属于取消/中断命令，不是普通输入的默认行为。对不可取消 Provider 明确提示仍会继续核实结果。
