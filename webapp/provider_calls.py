@@ -48,7 +48,7 @@ def intent(store,w,s,provider,operation,implementation=None):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         row=db.execute('SELECT state FROM workflow_provider_calls WHERE request_key=?',(key,)).fetchone()
-        if row:raise ValueError('此修订已有外部提交记录，不允许重复提交')
+        if row and row['state']!='superseded':raise ValueError('此修订已有外部提交记录，不允许重复提交')
         from .task_leases import CURRENT
         lease=CURRENT.get()
         if w.get('dynamic'):

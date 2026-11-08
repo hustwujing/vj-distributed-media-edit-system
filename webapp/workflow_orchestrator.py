@@ -275,7 +275,8 @@ class Orchestrator:
         elif payload.get('action')=='reject':
             if row['kind']=='external_submission':
                 task_id=request['task_id'];task=next(t for t in graph.work_items(run) if t['id']==task_id)
-                store.execute("UPDATE workflow_provider_calls SET state='superseded',updated=? WHERE workflow=? AND step=? AND state='submission_unknown'",(store.now(),run['id'],task_id))
+                import uuid
+                store.execute("UPDATE workflow_provider_calls SET request_key=request_key||?,state='superseded',updated=? WHERE workflow=? AND step=? AND state='submission_unknown'",(':superseded:'+uuid.uuid4().hex,store.now(),run['id'],task_id))
                 graph.write_work(store,task,"UPDATE run_tasks SET status='ready',phase='submit',external_id='',error_code='',error_detail='',next_run_at=? WHERE run_id=? AND id=?",(store.now(),run['id'],task_id))
                 store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
                 self.set_status(run,'ACTIVE','external_submission_resubmit');return

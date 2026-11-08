@@ -68,7 +68,7 @@ def quota_error(state):
     if state['category'].startswith('provider:'):label='外部服务（'+state['category'].split(':',1)[1]+'）'
     prefix={'task':'本任务','daily':'今日','turn':'本轮'}.get(scope,'当前')
     reset=state.get('reset_at')
-    advice=('额度将于 '+datetime.fromtimestamp(reset,timezone.utc).strftime('%Y-%m-%d %H:%M UTC')+' 恢复，恢复前重复提交无效。') if scope=='daily' and reset else '请等待每日额度恢复或联系管理员。' if scope=='daily' else '已完成成果保留，请确认新的收尾方案。' if scope=='task' else '可在新一轮中继续检查。'
+    advice=('额度预计约 '+str(max(1,round((reset-time.time())/3600,1)))+' 小时后恢复，恢复前重复提交无效。') if scope=='daily' and reset else '请等待每日额度恢复或联系管理员。' if scope=='daily' else '已完成成果保留，请确认新的收尾方案。' if scope=='task' else '可在新一轮中继续检查。'
     return TaskQuotaReached(f"{prefix}{label}调用额度已用完（{state['used']}/{state['limit']}）。{advice}",
                             **{k:state.get(k) for k in ('category','scope','used','limit','reset_at')})
 
