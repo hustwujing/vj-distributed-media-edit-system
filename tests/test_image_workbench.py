@@ -16,6 +16,29 @@ from webapp.image_tasks import execute_image
 from webapp.image_document import Document,export_document
 
 class ImageWorkbenchTests(unittest.TestCase):
+    def test_automatic_adjustment_preserves_flat_color_alpha_and_temperature_intent(self):
+        project=self.app.state.store.project_dir(self.pid);assets=self.app.state.store.assets(self.pid)
+        source=project/'sources'/assets[0]['filename']
+        flat=np.zeros((80,120,4),dtype='uint8');flat[:]=[40,100,60,255]
+        flat[:10]=[250,0,200,0];Image.fromarray(flat,'RGBA').save(source)
+        output=self.root/'auto-flat'
+        execute_image({'action':'local_adjust','asset':self.aid,'parameters':{'auto_levels':True,'auto_white_balance':True}},assets,project,output)
+        with Image.open(output/'image.png') as image:actual=np.asarray(image)
+        np.testing.assert_array_equal(actual[10:,:,:3],flat[10:,:,:3]);np.testing.assert_array_equal(actual[...,3],flat[...,3])
+        output=self.root/'temperature-only'
+        execute_image({'action':'local_adjust','asset':self.aid,'parameters':{'temperature':.2}},assets,project,output)
+        with Image.open(output/'image.png') as image:pixel=image.getpixel((30,30))
+        self.assertEqual(pixel,(49,100,51,255))
+
+    def test_auto_levels_do_not_destroy_colored_subject_on_neutral_background(self):
+        project=self.app.state.store.project_dir(self.pid);assets=self.app.state.store.assets(self.pid)
+        image=Image.new('RGBA',(120,80),(230,230,230,255));ImageDraw.Draw(image).rectangle((30,20,90,60),fill=(40,100,60,255))
+        image.save(project/'sources'/assets[0]['filename']);output=self.root/'auto-subject'
+        execute_image({'action':'local_adjust','asset':self.aid,'parameters':{'auto_levels':True,'auto_white_balance':True,'gamma':1.1}},assets,project,output)
+        with Image.open(output/'image.png') as result:
+            red,green,blue,alpha=result.getpixel((60,40))
+        self.assertGreater(green,70);self.assertGreater(green,red+30);self.assertGreater(green,blue+20);self.assertEqual(alpha,255)
+
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory(dir=isolated_tmp_root());self.root=Path(self.tmp.name)
         self.app=create_app(self.root,run_worker=False);self.a=TestClient(self.app);self.b=TestClient(self.app)

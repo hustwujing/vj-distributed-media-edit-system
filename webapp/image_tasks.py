@@ -66,9 +66,29 @@ def execute_image(raw,assets,project,output,cancel=None,progress=None):
             for key,klass in [('brightness',ImageEnhance.Brightness),('contrast',ImageEnhance.Contrast),('saturation',ImageEnhance.Color),('sharpen',ImageEnhance.Sharpness)]:
                 if key in p:result=klass(result).enhance(float(p[key])+(1 if key=='sharpen' else 0))
             if p.get('auto_white_balance') or p.get('temperature'):
-                array=np.asarray(result).astype('float32');rgb=array[...,:3];means=rgb.reshape(-1,3).mean(0);target=means.mean();rgb*=target/np.maximum(means,1);temp=float(p.get('temperature',0));rgb[...,0]+=45*temp;rgb[...,2]-=45*temp;array[...,:3]=np.clip(rgb,0,255);result=Image.fromarray(array.astype('uint8'),'RGBA')
+                array=np.asarray(result).astype('float32');rgb=array[...,:3]
+                if p.get('auto_white_balance'):
+                    visible=rgb[array[...,3]>0]
+                    if len(visible):
+                        brightness=visible.mean(1);spread=visible.max(1)-visible.min(1)
+                        neutral=visible[(brightness>=np.percentile(brightness,60)) & (brightness>8) &
+                                        (brightness<250) & (spread<=np.maximum(brightness,1)*.2)]
+                        # A colored subject is not a white reference. If no
+                        # neutral highlight exists, leave balance unchanged.
+                        if len(neutral):
+                            means=neutral.mean(0);rgb*=np.clip(means.mean()/np.maximum(means,1),.8,1.25)
+                temp=float(p.get('temperature',0));rgb[...,0]+=45*temp;rgb[...,2]-=45*temp
+                array[...,:3]=np.clip(rgb,0,255);result=Image.fromarray(array.astype('uint8'),'RGBA')
             if p.get('auto_levels'):
-                array=np.asarray(result).copy();rgb=array[...,:3];lo=np.percentile(rgb,1,(0,1));hi=np.percentile(rgb,99,(0,1));array[...,:3]=np.clip((rgb-lo)*255/np.maximum(1,hi-lo),0,255);result=Image.fromarray(array.astype('uint8'),'RGBA')
+                array=np.asarray(result).astype('float32');rgb=array[...,:3];visible=rgb[array[...,3]>0]
+                if len(visible):
+                    luminance=visible@np.array([.2126,.7152,.0722]);lo,hi=np.percentile(luminance,[.5,99.5])
+                    if hi-lo>=1:
+                        # One bounded tonal transform preserves color relations;
+                        # per-channel stretching can turn a uniform subject black.
+                        lo=min(lo,8);gain=min(1.25,255/max(1,hi-lo))
+                        array[...,:3]=np.clip((rgb-lo)*gain,0,255)
+                result=Image.fromarray(array.astype('uint8'),'RGBA')
             black=float(p.get('black_point',0));white=float(p.get('white_point',255));gamma=float(p.get('gamma',1))
             if black or white!=255 or gamma!=1:
                 array=np.asarray(result).copy().astype('float32');rgb=np.clip((array[...,:3]-black)/max(1,white-black),0,1);array[...,:3]=np.power(rgb,1/gamma)*255;result=Image.fromarray(array.astype('uint8'),'RGBA')
