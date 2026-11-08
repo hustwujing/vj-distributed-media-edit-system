@@ -55,6 +55,24 @@ class DynamicAPITests(unittest.TestCase):
         snapshot=self.a.get(self.prefix+'/'+run['id']).json()
         self.assertEqual(snapshot['activity_attempts'],[{'id':'expired-attempt','status':'expired','generation':0}])
 
+    def test_daily_quota_display_and_idempotent_create_replay(self):
+        with patch.dict(os.environ,{'VIDEO_USE_USER_MODEL_DAILY':'37'}):
+            quota=self.a.get(self.prefix+'/capabilities').json()['daily_quota']
+            self.assertEqual((quota['used'],quota['limit'],quota['blocked']),(0,37,False))
+            body=self.body();created=self.a.post(self.prefix,json=body)
+            self.assertEqual(created.status_code,202,created.text)
+            store=self.app.state.store
+            owner=store.query('SELECT owner FROM projects WHERE id=?',(self.project,))[0]['owner']
+            store.execute('INSERT INTO execution_daily_usage VALUES (?,?,?,?)',(owner,int(store.now()//86400),'model',37))
+            quota=self.a.get(self.prefix+'/capabilities').json()['daily_quota']
+            self.assertEqual((quota['used'],quota['limit'],quota['blocked']),(37,37,True))
+            replay=self.a.post(self.prefix,json=body)
+            self.assertEqual(replay.status_code,202,replay.text)
+            self.assertEqual(replay.json()['id'],created.json()['id'])
+            denied=self.a.post(self.prefix,json=self.body())
+            self.assertEqual(denied.status_code,409,denied.text)
+            self.assertEqual(len(store.query('SELECT id FROM runs WHERE project_id=?',(self.project,))),1)
+
     def test_terminal_snapshot_exposes_user_readable_reason(self):
         run=self.a.post(self.prefix,json=self.body()).json()
         self.app.state.store.execute("UPDATE runs SET status='FAILED',terminal_reason='planning_budget_exhausted' WHERE id=?",(run['id'],))
