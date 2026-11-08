@@ -34,6 +34,12 @@ class Sandbox:
 
 
 class OpenSandboxSDKTests(unittest.TestCase):
+    def test_preflight_loads_sdk_entrypoints_before_concurrent_connects(self):
+        sdk=OpenSandboxSDK('http://sandbox.example','key')
+        self.assertIs(sdk.preflight(),sdk)
+        self.assertTrue(callable(sdk.config_factory))
+        self.assertTrue(callable(sdk.sandbox_factory))
+
     def test_files_adapter_preserves_modes_and_atomic_move(self):
         service=FileService();files=OpenSandboxFiles(service,write_entry=Entry,move_entry=Entry)
         files.mkdir('/workspace',0o700);files.write('/run/pending',b'value',0o600)

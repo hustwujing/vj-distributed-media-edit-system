@@ -24,4 +24,7 @@ def command_factory_from_environment(environ=None):
     transport=RequestsTransport(base_url,api_key,timeout=30)
     lifecycle=OpenSandboxClient(transport,network_policy=isolation)
     sdk=OpenSandboxSDK(base_url,api_key)
+    # Fail at executor startup with a clear dependency error, and avoid a
+    # first-use import race when several command tasks start together.
+    sdk.preflight()
     return OpenSandboxCommandFactory(OpenSandboxCommandBackend(lifecycle,sdk))

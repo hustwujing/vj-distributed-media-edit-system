@@ -107,6 +107,14 @@ def public(store,run):
         public_task['display_name']=item_name(task)
         if task.get('type')=='agent':public_task['tool_location']='bwrap_sandbox'
         value['tasks'].append(public_task)
+    value['failure_details']=[]
+    for task in value['tasks']:
+        if task.get('error_code'):
+            records=store.query('SELECT record FROM workflow_diagnostics WHERE workflow=? AND step=? ORDER BY created DESC LIMIT 1',(run['id'],task['id']))
+            detail=json.loads(records[0]['record']) if records else {}
+            value['failure_details'].append({'task_id':task['id'],'name':task['spec'].get('name',''),'code':task['error_code'],
+                'message':task.get('error_detail') or detail.get('message',''),'error_type':detail.get('error_type',''),
+                'classification':detail.get('classification','')})
     value['control_jobs']=[]
     for job in run['control_jobs']:
         public_job={key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','created_graph_version','created_at','updated_at')}
@@ -155,14 +163,27 @@ def public(store,run):
             'created_at':blocked[0]['created_at'] if blocked else run['updated_at'],
         }
     elif run['status']=='WAITING_USER' and run['terminal_reason']:
-        waiting_guidance={
+        if run['terminal_reason']=='execution_failed':
+            failed=[item for item in value['failure_details'] if item['code'] in ('execution_failed','agent_failed')]
+            first=failed[0] if failed else {}
+            message=first.get('message') or ''
+            if first.get('error_type')=='ImportError':
+                message='系统执行错误：OpenSandbox 运行时加载失败（ImportError）。这不是输入问题；修复运行时后可点击“继续”重试失败步骤。'
+            value['blocking_action']={'kind':'execution_failure','code':'execution_failed','title':'系统执行失败',
+                'message':message or '系统执行失败，未能完成当前步骤。请查看失败详情并点击“继续”重试；这不需要补充素材。',
+                'action':'retry','details':failed}
+        else:
+            waiting_guidance={
             'planning_budget_exhausted':('本轮规划轮次已耗尽','请停止本轮并新建一轮；如仍需多轮规划，请提高规划轮次上限。'),
             'model_token_budget_exhausted':('本轮模型预算已耗尽','请停止本轮并新建一轮；如仍需继续，请提高模型 Token 上限。'),
             'budget_exhausted':('本轮执行预算已耗尽','请停止本轮并新建一轮后再继续。'),
-        }
-        title,message=waiting_guidance.get(run['terminal_reason'],('需要你的处理','当前工作流需要你的确认或补充信息。'))
-        value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
-            'title':title,'message':message,'decision_id':value['decisions'][0]['id'] if value['decisions'] else None}
+            }
+            pending=value['decisions'][0] if value['decisions'] else None
+            request=(pending or {}).get('request') or {}
+            title,message=waiting_guidance.get(run['terminal_reason'],('需要你的处理',request.get('question') or request.get('message') or '请确认下面列出的事项后继续。'))
+            value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
+                'title':title,'message':message,'decision_id':pending['id'] if pending else None,
+                'required_fields':request.get('required_fields',[]),'examples':request.get('examples',[])}
     value['reviews']=store.query('SELECT id,task_id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in

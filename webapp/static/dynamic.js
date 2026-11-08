@@ -284,7 +284,9 @@ function renderBlockingAction(run){
  if(!action){root.innerHTML='';root.hidden=true;return;}
  root.hidden=false;
  const details=[...(action.current_targets||[]).map(value=>`当前交付：${value}`),...(action.missing_extensions||[]).map(value=>`缺少格式：${value}`),...(action.missing_names||[]).map(value=>`缺少文件：${value}`),...(action.missing_roles||[]).map(value=>`缺少角色：${value}`)];
- root.innerHTML=`<article class="dynamic-blocking-action" role="alert"><strong>${esc(action.title||'需要你的处理')}</strong><p>${esc(action.message||'当前工作流需要你的确认或补充信息。')}</p>${details.length?`<ul>${details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>`:''}<small>状态：${esc(action.code||'WAITING_USER')}</small></article>`;
+ const examples=action.examples||[],failureDetails=(action.details||[]).map(item=>item.message||item.code).filter(Boolean);
+ const guidance=action.action==='retry'?'操作：点击右上角“继续”重试失败步骤。':(examples.length?`示例：${examples.join('；')}`:'');
+ root.innerHTML=`<article class="dynamic-blocking-action" role="alert"><strong>${esc(action.title||'需要你的处理')}</strong><p>${esc(action.message||'请确认下面列出的事项后继续。')}</p>${details.length?`<ul>${details.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>`:''}${failureDetails.length?`<ul>${failureDetails.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>`:''}${guidance?`<p>${esc(guidance)}</p>`:''}<small>状态：${esc(action.code||'WAITING_USER')}</small></article>`;
 }
 
 function startRunStream(runId){const sameRun=streamRun===runId;if(sameRun&&eventStream)return;if(eventStream)eventStream.close();if(!sameRun||completedStreams.has(runId)){liveEvents=[];agentTextEvents=[];agentStreamTurn={status:'running',text:'',text_version:[0,0],text_phase:'idle'};lastAgentOutputAt=0;}completedStreams.delete(runId);streamRun=runId;const stream=new EventSource(href(path(`/runs/${runId}/stream`)));eventStream=stream;
@@ -312,7 +314,7 @@ function render(run){if(lastSnapshot?.id===run.id&&(run.updated_at<lastSnapshot.
  $('dynamic-model-current').textContent=configurationText(run.model_configuration);
  const active=!terminalRun(run.state);$('dynamic-workspace-title').textContent='任务对话';$('dynamic-execution-settings').hidden=true;$('dynamic-context-settings').hidden=false;$('dynamic-input-content').placeholder=active?'继续描述修改意见或下一步要求…':'描述下一轮修改要求…';$('dynamic-input-submit').setAttribute('aria-label',active?'发送修改要求':'开始下一轮修改');
  document.querySelector('[data-control=pause]').hidden=!active||['WAITING_USER','CANCELLING'].includes(run.state);
- const inputBlocked=['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted'].includes(run.terminal_reason);document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER'||inputBlocked;document.querySelector('[data-control=cancel]').hidden=!active;
+ const inputBlocked=['planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted'].includes(run.terminal_reason);document.querySelector('[data-control=resume]').hidden=run.state!=='WAITING_USER'||inputBlocked;document.querySelector('[data-control=resume]').title=run.blocking_action?.action==='retry'?'重试失败步骤':'继续';document.querySelector('[data-control=resume]').setAttribute('aria-label',run.blocking_action?.action==='retry'?'重试失败步骤':'继续');document.querySelector('[data-control=cancel]').hidden=!active;
  modelControls();
  $('dynamic-input-form').hidden=false;syncAssetOptions($('dynamic-input-assets'));renderAttachmentChips();
  $('dynamic-input-status').textContent=inputStatus(run);

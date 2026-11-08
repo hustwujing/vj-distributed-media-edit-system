@@ -194,6 +194,18 @@ class Orchestrator:
                 if run['status']!='WAITING_USER':error='resume_requires_safe_paused_state'
                 elif unresolved and run['terminal_reason']=='user_paused':self.set_status(run,'WAITING_USER','user_decision_pending')
                 elif unresolved:error='decision_requires_answer'
+                elif run['terminal_reason']=='execution_failed':
+                    failed=[task for task in graph.work_items(run) if task['status']=='paused' and task.get('error_code') in ('execution_failed','agent_failed')]
+                    retryable=bool(failed) and all(
+                        'opensandbox' in (task.get('error_detail') or '').lower()
+                        or 'importerror' in (task.get('error_detail') or '').lower()
+                        for task in failed)
+                    if retryable:
+                        for task in failed:
+                            store.execute("UPDATE run_tasks SET status='ready',phase='local',error_code='',error_detail='',wait_reason='',next_run_at=? WHERE run_id=? AND id=?",
+                                          (store.now(),run['id'],task['id']))
+                        self.set_status(run,'ACTIVE','execution_retry')
+                    else:error='replan_required'
                 elif run['terminal_reason'] in requires_replan:error='replan_required'
                 elif any(t.get('control_kind') and t['spec'].get('profile')=='media_failure_diagnostician' and t['status']=='ready' for t in graph.work_items(run)):
                     self.set_status(run,'ACTIVE')
@@ -484,6 +496,13 @@ class Orchestrator:
             'runtime_profile_changed':'执行环境版本已变化，旧环境绑定不能由当前执行器继续运行。',
             'policy_changed':'专业 Agent 策略已变化，旧控制任务不能由当前策略继续执行。',
         }.get(code,'任务未完成，已保留执行证据。')
+        if code=='execution_failed':
+            detail=str(data.get('error_detail') or '')
+            error_type=str(data.get('error_type') or '')
+            if error_type=='ImportError' or 'opensandbox' in detail.lower():
+                message='系统执行错误：OpenSandbox 运行时加载失败（ImportError）。这不是输入问题；修复运行时后可点击“继续”重试失败步骤。'
+            elif detail:
+                message='系统执行错误：'+detail[:400]+'。请修复运行环境后重试。'
         graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',
             ('retry_wait' if retry else 'paused',phase,code,message,int(retry and phase in ('poll','collect')),store.now()+min(30,2**(task['recovery_count']+1)),run['id'],task['id']))
         if task.get('control_kind') and retry:

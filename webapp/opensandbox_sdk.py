@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import threading
 from urllib.parse import urlsplit,urlunsplit
+
+
+_SDK_IMPORT_LOCK=threading.Lock()
 
 
 class OpenSandboxFiles:
@@ -78,13 +82,24 @@ class OpenSandboxSDK:
         self.base_url=base_url;self.api_key=api_key
         self.config_factory=config_factory;self.sandbox_factory=sandbox_factory
 
+    def preflight(self):
+        """Load SDK entrypoints once before worker threads can connect.
+
+        The SDK package imports a large graph from ``opensandbox.__init__``.
+        Concurrent first-use imports from multiple workflow tasks can observe a
+        partially initialized package and raise a misleading ImportError.
+        """
+        with _SDK_IMPORT_LOCK:
+            if self.config_factory is None:
+                from opensandbox.config.connection_sync import ConnectionConfigSync
+                self.config_factory=ConnectionConfigSync
+            if self.sandbox_factory is None:
+                from opensandbox.sync.sandbox import SandboxSync
+                self.sandbox_factory=SandboxSync
+        return self
+
     def connect(self,sandbox_id):
-        if self.config_factory is None:
-            from opensandbox.config.connection_sync import ConnectionConfigSync
-            self.config_factory=ConnectionConfigSync
-        if self.sandbox_factory is None:
-            from opensandbox.sync.sandbox import SandboxSync
-            self.sandbox_factory=SandboxSync
+        self.preflight()
         parsed=urlsplit(self.base_url)
         if parsed.scheme not in ('http','https') or not parsed.netloc:
             raise ValueError('Invalid OpenSandbox SDK base URL')

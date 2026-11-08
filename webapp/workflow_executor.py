@@ -149,6 +149,8 @@ def _execute(host,lease):
                     'attempt_id':lease.attempt,'generation':lease.generation,
                     'returncode':detail.get('exit_code') if isinstance(detail,dict) else None,
                     'code':detail.get('code','') if isinstance(detail,dict) else ''}
+        from .egress_policy import scrub,secrets
+        diagnostic['message']=scrub(str(exc)[:1000],secrets())
         if isinstance(detail,dict) and type(detail.get('http_status'))==int:diagnostic['http_status']=detail['http_status']
         runtime_tail=detail.get('log_tail') or detail.get('runtime_error') or detail.get('stderr_tail') if isinstance(detail,dict) else None
         if isinstance(runtime_tail,str):
@@ -171,4 +173,5 @@ def _execute(host,lease):
             code=quota_error_code(task,exc)
         else:code=failure_error_code(task,phase,calls,classification)
         stage_result(store,lease,'failed',{'error_code':code,'phase':phase,
-                                         'classification':classification,'transient':transient_model})
+                                         'classification':classification,'transient':transient_model,
+                                         'error_type':diagnostic['error_type'],'error_detail':diagnostic['message']})
