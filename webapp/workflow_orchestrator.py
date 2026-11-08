@@ -71,6 +71,11 @@ class Orchestrator:
             db.execute('BEGIN IMMEDIATE');self.check(db,identifier,generation)
             run=graph.get(store,identifier)
             if run['status'] in RUN_TERMINAL:return
+            wait_budget=float(os.environ.get('VIDEO_USE_EXTERNAL_WAIT_SECONDS','7200'))
+            timed_out=[task for task in graph.work_items(run) if task['status']=='waiting' and task.get('phase') in ('poll','collect') and store.now()-task['updated_at']>wait_budget]
+            if timed_out:
+                self.set_status(run,'WAITING_USER','external_wait_timeout')
+                return
             if run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete' and not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
                 self.decision(run,'delivery_scope_change',{
                     'question':'当前成果未满足全部交付目标。请确认新的交付范围；已有合格成果可以复用。',

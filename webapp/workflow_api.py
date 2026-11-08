@@ -182,6 +182,7 @@ def public(store,run):
                 'budget_exhausted':('本轮执行预算已耗尽','请停止本轮并新建一轮后再继续。'),
                 'daily_model_quota_exhausted':('今日模型调用额度已用完','额度按用户跨任务共享，预计恢复后再继续；新建一轮不会绕过每日额度。'),
                 'review_incomplete':('审查证据不足','自动补证据已达到上限。请查看下方审查反馈，决定是否补充素材/要求，或停止本轮。'),
+                'external_wait_timeout':('外部任务等待超时','上游任务等待已超过上限。请停止当前任务或重新规划，不会继续无限轮询。'),
             }
             pending=value['decisions'][0] if value['decisions'] else None
             request=(pending or {}).get('request') or {}
