@@ -316,6 +316,22 @@ class Orchestrator:
             store.execute("UPDATE workflow_decisions SET status='superseded',updated_at=? WHERE run_id=? AND id<>? AND status='pending'",
                           (store.now(),run['id'],row['id']))
             self.set_status(run,'ACTIVE')
+        elif row['kind']=='delivery_scope_change' and payload.get('action')=='approve':
+            try:authorization=planning.rebind_scope(store,payload.get('authorization'))
+            except ValueError as exc:raise DecisionError('scope_invalid',str(exc)) from exc
+            if authorization.goal!=run['goal']:raise ValueError('Delivery scope change cannot change the top-level goal')
+            old_targets=set(run['authorization'].get('delivery_targets',[]))
+            new_targets=set(authorization.delivery_targets)
+            if not new_targets:raise ValueError('Delivery scope cannot be empty after confirmation')
+            if not new_targets<=old_targets:raise ValueError('Delivery scope expansion requires a new explicit plan change')
+            from .run_authorization import approve
+            approve(store,run,authorization)
+            store.execute("UPDATE workflow_reviews SET status='superseded',updated_at=? WHERE run_id=? AND purpose='final' AND status IN ('passed','rejected')",(store.now(),run['id']))
+            current=graph.get(store,run['id'])
+            self.set_status(current,'ACTIVE','delivery_scope_confirmed')
+            self.queue_review(graph.get(store,run['id']))
+            store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
+            return
         elif row['kind']=='quality' and payload.get('action')=='approve':
             request=json.loads(row['request_json']);task=next(t for t in graph.work_items(run) if t['id']==request['task_id'])
             if not any(item['kind']=='review' for item in task['spec']['acceptance']):raise ValueError('User review was not declared for this Task')
@@ -949,6 +965,11 @@ class Orchestrator:
         if missing_extensions:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':sorted(missing_extensions)})
+            self.decision(run,'delivery_scope_change',{
+                'question':'当前成果未满足全部交付目标。请确认新的交付范围；已有合格成果可以复用。',
+                'current_targets':run['authorization'].get('delivery_targets',[]),
+                'missing_extensions':sorted(missing_extensions),
+                'reason':'已应用的用户要求可能收窄了交付范围，需要确认新的授权版本。'})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         from pathlib import PurePosixPath
         missing_names=required_names-{publication_names.get(name,PurePosixPath(name).name) for name in selected}
