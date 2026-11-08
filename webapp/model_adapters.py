@@ -7,6 +7,7 @@ import base64
 import copy
 import json
 from .usage_protocol import Receipt, number
+from .egress_policy import ModelPolicyViolation
 
 
 class PublicResponseStructureError(ValueError):
@@ -179,11 +180,11 @@ def validate_messages(messages):
         elif isinstance(value, dict):
             kind = value.get('type')
             if kind in ('document', 'file', 'url', 'server_tool_use', 'web_search_tool_result', 'web_fetch_tool_result'):
-                raise ValueError('Remote model content is not enabled')
+                raise ModelPolicyViolation('Remote model content is not enabled')
             if kind == 'image':
                 source = value.get('source') or {}
                 if not isinstance(source, dict) or source.get('type') != 'base64' or source.get('media_type') not in ('image/png', 'image/jpeg', 'image/webp', 'image/gif'):
-                    raise ValueError('Only authorized inline image bytes are enabled')
+                    raise ModelPolicyViolation('Only authorized inline image bytes are enabled')
                 model_input({'input': [{'type': 'input_image', 'image_url':
                                         'data:' + source['media_type'] + ';base64,' + source.get('data', '')}]})
             stack.extend((x, depth + 1) for x in value.values())
@@ -217,7 +218,7 @@ class ChatCompletionsAdapter(ModelAdapter):
         result = {k: v for k, v in value.items() if k in allowed}
         tools = result.get('tools', [])
         if not isinstance(tools, list) or any(not isinstance(t, dict) or t.get('type') != 'function' for t in tools):
-            raise ValueError('Only client function tools are enabled')
+            raise ModelPolicyViolation('Only client function tools are enabled')
         from .egress_policy import model_input
         model_input({'tools': tools})
         result['model'] = model
@@ -263,7 +264,7 @@ class AnthropicAdapter(ModelAdapter):
         result = {k: v for k, v in value.items() if k in allowed}
         tools = result.get('tools', [])
         if not isinstance(tools, list) or any(not isinstance(t, dict) or t.get('type', 'custom') != 'custom' for t in tools):
-            raise ValueError('Provider-executed tools are not enabled')
+            raise ModelPolicyViolation('Provider-executed tools are not enabled')
         from .egress_policy import model_input
         model_input({'input': tools})
         result['model'] = model

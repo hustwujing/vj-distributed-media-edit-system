@@ -12,6 +12,10 @@ from urllib.parse import urlsplit
 _dns_slots=threading.BoundedSemaphore(4)
 
 
+class ModelPolicyViolation(ValueError):
+    """An active model capability violates the gateway's network policy."""
+
+
 def resolve(host,port,timeout):
     # libc DNS resolution has no per-call timeout. Isolate it in a bounded
     # daemon pool so a stuck resolver cannot indefinitely block task cleanup.
@@ -196,21 +200,21 @@ def model_input(body):
         if isinstance(value,list):nodes.extend((item,depth+1) for item in value)
         elif isinstance(value,dict):
             if '$ref' in value and (not isinstance(value['$ref'],str) or not value['$ref'].startswith('#')):
-                raise ValueError('External schema references are not enabled')
+                raise ModelPolicyViolation('External schema references are not enabled')
             kind=value.get('type')
-            if kind=='input_file':raise ValueError('Remote/file-reference model inputs are not enabled')
+            if kind=='input_file':raise ModelPolicyViolation('Remote/file-reference model inputs are not enabled')
             if kind in ('input_image','image_url'):
                 image=value.get('image_url',value.get('url'))
                 if isinstance(image,dict):image=image.get('url')
                 if not isinstance(image,str) or not re.match(r'^data:image/(png|jpeg|webp|gif);base64,',image):
-                    raise ValueError('Images must use authorized inline bytes, not URLs or file IDs')
+                    raise ModelPolicyViolation('Images must use authorized inline bytes, not URLs or file IDs')
                 encoded=image.split(',',1)[1]
                 if len(encoded)>28*1024**2:raise ValueError('Image input is too large')
                 try:raw=base64.b64decode(encoded,validate=True)
                 except ValueError:raise ValueError('Invalid image encoding') from None
                 if not (raw.startswith(b'\x89PNG\r\n\x1a\n') or raw.startswith(b'\xff\xd8\xff') or raw.startswith((b'GIF87a',b'GIF89a')) or raw[:4]==b'RIFF' and raw[8:12]==b'WEBP'):
                     raise ValueError('Unsupported inline image format')
-            if kind in ('input_video','input_audio'):raise ValueError('Active remote media inputs are not enabled')
+            if kind in ('input_video','input_audio'):raise ModelPolicyViolation('Active remote media inputs are not enabled')
             nodes.extend((item,depth+1) for item in value.values())
     body.pop('conversation',None)
     body.pop('previous_response_id',None)

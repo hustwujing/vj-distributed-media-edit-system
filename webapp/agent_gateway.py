@@ -282,14 +282,24 @@ class Gateway:
         if self.dynamic_task:
             from .workflow_gateway import context
             dynamic,_,role=context(self.lease)
-        from .egress_policy import provider_base,session,assert_no_credentials,denial
+        from .egress_policy import provider_base,session,assert_no_credentials,denial,ModelPolicyViolation
+        # The administrator's destination is not caller-controlled. Configuration
+        # errors must not accumulate as security violations by the user.
+        try:provider_base(self.base_url)
+        except ValueError:
+            return encoded(503,{'error':{'code':'model_configuration_invalid','message':'模型服务配置无效，请联系管理员处理。'}})
         try:
             output_limit=min(self.profile.budget['max_output_tokens'],role.max_output_tokens) if role else self.profile.budget['max_output_tokens']
             body=self.model_adapter.prepare(body,self.model,output_limit,self.profile.reasoning_effort)
-            provider_base(self.base_url);assert_no_credentials(json.dumps(body),[self.key])
-        except ValueError:
+        except ModelPolicyViolation:
             denial(self.lease,'model_input_denied')
-            return encoded(403,{'error':'模型输入中的远程地址或外部能力不符合任务网络策略。'})
+            return encoded(403,{'error':{'code':'model_input_denied','message':'模型输入中的远程地址或外部能力不符合任务网络策略。'}})
+        except ValueError:
+            return encoded(422,{'error':{'code':'model_request_invalid','message':'模型请求格式、图片编码、尺寸或复杂度无效，请修正后重试。'}})
+        try:assert_no_credentials(json.dumps(body),[self.key])
+        except ValueError:
+            denial(self.lease,'credential_disclosure_denied')
+            return encoded(403,{'error':{'code':'credential_disclosure_denied','message':'模型请求包含受保护的凭据，已阻止发送。'}})
         if self.broker and self.model_adapter.protocol=='responses':
             body=self.broker.request('normalize',body)
         elif self.lease and self.lease.runtime and self.model_adapter.protocol=='responses':
