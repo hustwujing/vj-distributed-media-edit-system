@@ -302,13 +302,15 @@ class ManagerResult(Contract):
 
 
 def _upgrade_schema(store,db):
+    work_item_additions={'infrastructure_interruptions':'INTEGER NOT NULL DEFAULT 0',
+                        'poll_count':'INTEGER NOT NULL DEFAULT 0','wait_recorded_at':'REAL'}
     additions={
         'runs':{
             'reconcile_error_signature':"TEXT NOT NULL DEFAULT ''",
             'reconcile_error_count':'INTEGER NOT NULL DEFAULT 0',
         },
-        'run_tasks':{'infrastructure_interruptions':'INTEGER NOT NULL DEFAULT 0','poll_count':'INTEGER NOT NULL DEFAULT 0','wait_recorded_at':'REAL'},
-        'control_jobs':{'infrastructure_interruptions':'INTEGER NOT NULL DEFAULT 0','poll_count':'INTEGER NOT NULL DEFAULT 0','wait_recorded_at':'REAL'},
+        'run_tasks':work_item_additions,
+        'control_jobs':work_item_additions,
         'task_results':{'error_json':"TEXT NOT NULL DEFAULT '{}'"},
         'workflow_plan_drafts':{'last_error_json':"TEXT NOT NULL DEFAULT '[]'"},
     }
@@ -479,9 +481,16 @@ def initialize(store):
         # PostgreSQL cannot CREATE OR REPLACE a SELECT-* view when a migrated
         # base table inserts columns before control_kind. Views carry no data,
         # so recreate this projection after the transactional table upgrade.
+        task_fields=[row['name'] for row in db.execute('PRAGMA table_info(run_tasks)')]
+        control_fields={row['name'] for row in db.execute('PRAGMA table_info(control_jobs)')}
+        expected_control_fields=set(task_fields)|{'control_kind','snapshot_json','snapshot_digest'}
+        if control_fields!=expected_control_fields:
+            raise ValueError('run_tasks and control_jobs columns diverged: missing from control_jobs='
+                             +repr(sorted(expected_control_fields-control_fields))
+                             +'; unexpected in control_jobs='+repr(sorted(control_fields-expected_control_fields)))
         db.execute('DROP VIEW IF EXISTS run_work_items')
         view_ddl='CREATE OR REPLACE VIEW ' if store.dsn else 'CREATE VIEW IF NOT EXISTS '
-        fields=','.join(row['name'] for row in db.execute('PRAGMA table_info(run_tasks)'))
+        fields=','.join(task_fields)
         db.execute(view_ddl+"run_work_items AS SELECT "+fields+",'' AS control_kind FROM run_tasks UNION ALL SELECT "+fields+",control_kind FROM control_jobs")
         db.execute(view_ddl+"""execution_subjects AS
             SELECT id,project,status,created,updated,'agent' AS kind FROM agent_turns WHERE id NOT IN (SELECT id FROM runs)
