@@ -38,6 +38,8 @@ def classify_error(detail,phase):
         if phase=='local' and detail.get('error_type')=='ModelResultError':return 'model_result'
         if phase=='local' and detail.get('code')=='output_contract':return 'code'
         if detail.get('error_type') in ('ValueError','ValidationError'):return 'parameters'
+        if phase=='local' and detail.get('error_type') in ('ImportError','ModuleNotFoundError'):
+            return 'environment'
         report=detail.get('report',{})
         issues=report.get('issues',[])
         if issues:return issues[0].get('code','execution')

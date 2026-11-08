@@ -145,7 +145,9 @@ def _execute(host,lease):
         from .execution_contracts import classify_error
         detail=getattr(exc,'diagnostic',{'error_type':type(exc).__name__})
         classification=classify_error(detail,phase)
-        diagnostic={'phase':phase,'error_type':type(exc).__name__,'classification':classification,
+        error_type=detail.get('error_type') if isinstance(detail,dict) else None
+        if not isinstance(error_type,str) or not error_type.isidentifier() or len(error_type)>80:error_type=type(exc).__name__
+        diagnostic={'phase':phase,'error_type':error_type,'classification':classification,
                     'origin':'model_script' if task['type']=='script' else 'agent' if task['type']=='agent' else 'registered_operation',
                     'attempt_id':lease.attempt,'generation':lease.generation,
                     'returncode':detail.get('exit_code') if isinstance(detail,dict) else None,
