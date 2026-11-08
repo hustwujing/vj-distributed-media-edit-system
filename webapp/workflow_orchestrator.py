@@ -418,7 +418,8 @@ class Orchestrator:
                 elif outcome=='waiting':
                     handle=data.get('external_id') or task['external_id']
                     if not re_full_handle(handle):raise InvalidProviderHandle('Provider submission has no usable handle')
-                    delay=max(1,min(60,5*2**min(task.get('poll_count',0),4)))
+                    backoff=min(60,5*2**min(task.get('poll_count',0),4));suggested=int(data.get('poll_after',backoff))
+                    delay=max(1,min(backoff,suggested))
                     graph.write_work(store,task,"UPDATE run_tasks SET status='waiting',phase='poll',external_id=?,next_run_at=?,wait_reason='provider',poll_count=poll_count+1,error_code='',error_detail='' WHERE run_id=? AND id=?",
                         (handle,store.now()+delay,run['id'],task['id']))
                 elif outcome=='succeeded':
