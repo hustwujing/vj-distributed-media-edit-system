@@ -1301,7 +1301,9 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
         # Seeking even to zero can produce no frame for JPEG image2 inputs.
         # Still images have one view; timestamp seeking applies only to video.
         seek=[] if evidence.get('still_image') else ['-copyts','-start_at_zero','-ss',str(evidence['offset_seconds'])]
-        arguments=(['/opt/venv/bin/python','-c',STILL_THUMBNAIL,'/workspace/'+relative,'1024' if verified else '256']
+        # General still images include documents, captions and diagrams. A256px
+        # thumbnail erases their content before the reviewer ever receives it.
+        arguments=(['/opt/venv/bin/python','-c',STILL_THUMBNAIL,'/workspace/'+relative,'1024']
             if evidence.get('still_image') else
             ['/usr/bin/ffmpeg','-v','info','-threads','1','-filter_threads','1',*seek,'-i','/workspace/'+relative,
              '-frames:v','1','-vf','showinfo,scale=256:256:force_original_aspect_ratio=decrease','-q:v','5',
@@ -1322,7 +1324,7 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
         sampled=subprocess.run(agent_sandbox.command(dict(env,workspace_policy='REVIEW_SCRATCH_ONLY'),None,arguments),capture_output=True,timeout=30)
         if not sampled.returncode and not sampled.stdout and not evidence.get('still_image'):
             raise InspectionInputError('No frame at that timestamp; inspect an earlier position, not the exact end of the video')
-        if sampled.returncode or not sampled.stdout or len(sampled.stdout)>(524288 if window is not None or verified else 65536):
+        if sampled.returncode or not sampled.stdout or len(sampled.stdout)>(524288 if window is not None or verified or evidence.get('still_image') else 65536):
             raise MediaInspectionError('inspection_frame_failed' if sampled.returncode else 'inspection_frame_empty' if not sampled.stdout else 'inspection_frame_oversized',sampled.returncode,reference)
         if window is not None:
             import re

@@ -290,8 +290,9 @@ def render_timeline(
         draw.rectangle((strip_x0, wave_y, strip_x1, wave_y + wave_h), fill=(28, 28, 34))
 
         # Silence shading (under the waveform)
-        words = words_in_range(transcript, start, end) if transcript else []
-        silences = find_silences(words, start, end, threshold=0.4) if words else []
+        transcript_available = bool(transcript and transcript.is_file())
+        words = words_in_range(transcript, start, end) if transcript_available else []
+        silences = find_silences(words, start, end, threshold=0.4) if transcript_available else []
         for a, b in silences:
             xa = time_to_x(a)
             xb = time_to_x(b)
@@ -348,7 +349,7 @@ def render_timeline(
 
         # A zero result is still evidence. Transcript gaps are not an acoustic
         # silence measurement: audio-event tokens may cover speech pauses.
-        txt = gap_legend(bool(transcript and transcript.is_file()), silences)
+        txt = gap_legend(transcript_available, silences)
         draw.text((strip_x0, label_y + 30), txt, fill=DIM, font=label_font)
 
         out_path.parent.mkdir(parents=True, exist_ok=True)

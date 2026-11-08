@@ -14,7 +14,7 @@ class TranscriptClipTests(unittest.TestCase):
         before=copy.deepcopy(source)
         clip=cut_transcript(source,9,18)
         self.assertEqual(clip['audio_duration_secs'],9)
-        self.assertEqual(clip['source_clip'],{'start':9,'end':18,'audio_duration_secs':24})
+        self.assertEqual(clip['source_clip'],{'start':9,'end':18,'word_timebase':'relative_to_clip_start','audio_duration_secs':24})
         self.assertEqual([(w['start'],w['end']) for w in clip['words']],[(0,1),(3,4)])
         self.assertEqual(clip['transcription_id'],'original')
         nested=cut_transcript(clip,2,5)
@@ -44,3 +44,5 @@ class TimelineGapEvidenceTests(unittest.TestCase):
         self.assertEqual(gaps,[(0,1),(2,3)])
         self.assertIn('2 gap(s), shaded',gap_legend(True,gaps))
         self.assertIn('audio silence not measured',gap_legend(True,gaps))
+        self.assertEqual(find_silences([],0,3),[(0,3)],
+                         'An available empty transcript has no covered interval')

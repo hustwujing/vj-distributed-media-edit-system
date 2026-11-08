@@ -31,7 +31,7 @@ def cut_transcript(data, start, end):
     if not all(math.isfinite(value) for value in (start,end)) or start<0 or end<=start:
         raise ValueError('Invalid transcript clip interval')
     result = copy.deepcopy(data)
-    result['source_clip'] = {'start':start,'end':end,
+    result['source_clip'] = {'start':start,'end':end,'word_timebase':'relative_to_clip_start',
                              'audio_duration_secs':data.get('audio_duration_secs')}
     result['audio_duration_secs'] = end-start
     result['words'] = []

@@ -27,7 +27,7 @@ class DynamicGatewayTests(unittest.TestCase):
         from types import SimpleNamespace
         from unittest.mock import patch
         from webapp.workflow_agents import inspect_media
-        path=self.store.root/'portrait.jpg';Image.new('RGB',(32,32),'red').save(path)
+        path=self.store.root/'portrait.jpg';Image.new('RGB',(2048,512),'red').save(path)
         env={'assets':[{'id':'asset','filename':'portrait.jpg'}]}
         host=SimpleNamespace(store=self.store,workflow_runner=SimpleNamespace(adapter=SimpleNamespace(environment=lambda _:env)))
         import sys
@@ -36,6 +36,9 @@ class DynamicGatewayTests(unittest.TestCase):
             result=inspect_media(host,self.lease,self.run,self.task,{'ref':'asset','path':path,'still_image':True,'offset_seconds':0})
         self.assertEqual(result['coverage'],'still_image')
         self.assertTrue(result['image'].startswith('data:image/jpeg;base64,'))
+        import base64,io
+        preview=Image.open(io.BytesIO(base64.b64decode(result['image'].split(',')[1])))
+        self.assertEqual(preview.size,(1024,256),'General document views must not collapse to256px wide')
 
     def test_audio_inspection_measures_the_full_stream(self):
         from types import SimpleNamespace

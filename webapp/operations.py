@@ -121,6 +121,7 @@ class Operation:
                                    'alternatives':['audio','video'] if self.id=='media.edit' else [],'integrity':'server_verified','filenames':filenames}
         if self.id=='audio.transcribe':
             result['output_contract']['audio_events']={'requested':True,'semantics':'Preserve provider-detected events. An empty detection list is not evidence of an omitted event, nor proof that the source contains no non-speech sounds. Do not infer sound events from video frames or waveform energy.'}
+            result['input_contract_note']='A new audio.transcribe Task creates a new external transcription request; it does not implicitly reuse project transcript caches or supplied JSON artifacts. To reuse an existing transcript, bind that artifact to an authorized local formatting/copy Task instead. A reuse-only request does not authorize new transcription. Recovery of an existing Task still follows its registered lifecycle.'
         if self.id=='image.local_adjust':
             result['output_contract']['editing_semantics']='Produces adjusted raster pixels only. It does not create editable adjustment layers, a layered document, or a parameter toggle interface. A separate preview cannot satisfy requested editable structure; use an authorized implementation that delivers the actual structure when required.'
         if self.id=='media.edit':
