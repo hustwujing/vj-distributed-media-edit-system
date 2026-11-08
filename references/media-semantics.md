@@ -83,6 +83,20 @@ loudness, text sequence and mask changes. A bounded audio or video sample does
 not establish an unobserved interval. Tone estimates are for stable narrow-band
 signals, not general music or speech identity.
 
+Equal gain values do not establish unified loudness: leaving every clip at
+`volume=1` preserves its original level. A request to normalize/unify loudness
+requires an actual normalization process or measured evidence that the source
+already satisfies the requested target. Read the executed clip/master filters
+and output-bound report; program loudness normalization does not require every
+short window or every spoken word to have identical RMS. Keep per-clip edge
+fades separate from whole-output fades and lossy-encoder peak changes.
+
+An unreadable thumbnail is insufficient evidence, not proof that small text or
+an annotation is absent. Use a bounded `media.evidence` crop when necessary.
+Transcript coverage gaps are not measured acoustic silence: words and detected
+audio events may cover an interval continuously. Distinguish zero gaps from a
+missing transcript or an omitted computation.
+
 For a trimmed audio candidate, `media.evidence` audio_compare can use offset for
 the candidate and reference_offset for the corresponding original-source time.
 Its stable-tone measurements can support a narrow-band frequency comparison;
