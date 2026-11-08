@@ -192,6 +192,15 @@ def public(store,run):
                 'title':title,'message':message,'decision_id':pending['id'] if pending else None,
                 'details':value['failure_details'] if not pending else [],
                 'required_fields':request.get('required_fields',[]),'examples':request.get('examples',[])}
+            if run['terminal_reason']=='review_incomplete' and not pending:
+                latest=store.query("SELECT task_id,subject_task,purpose,decision_json FROM workflow_reviews WHERE run_id=? AND purpose IN ('task','final') AND status='rejected' ORDER BY updated_at DESC,created_at DESC LIMIT 1",(run['id'],))
+                decision=json.loads(latest[0]['decision_json']) if latest else {}
+                feedback=str(decision.get('feedback') or '').strip()
+                value['blocking_action'].update(action='replan',
+                    message=(feedback+'\n自动补证已到上限，现有成果尚未正式交付。你可以说明修改要求后重新规划，或停止本轮。') if feedback else
+                            '审查未返回可用的详细意见，系统已暂停且未交付。可停止本轮；诊断中保留了审查记录。')
+                if feedback:value['blocking_action']['details']=[{'task_id':latest[0]['subject_task'] or latest[0]['task_id'],
+                    'name':'最终审查' if latest[0]['purpose']=='final' else '步骤审查','code':decision.get('verdict','inconclusive'),'message':feedback}]
     value['reviews']=store.query('SELECT id,task_id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in

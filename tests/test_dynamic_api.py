@@ -42,6 +42,20 @@ class DynamicAPITests(unittest.TestCase):
         self.assertEqual(frozen['state'],'WAITING_USER');self.assertEqual(len(frozen['decisions']),1)
         current=self.a.get(self.prefix+'/'+identifier).json()
         self.assertEqual(current['state'],'ACTIVE');self.assertEqual(current['decisions'],[])
+
+    def test_final_review_pause_exposes_actual_feedback_without_task_errors(self):
+        from webapp import workflow_graph as graph
+        identifier=self.a.post(self.prefix,json=self.body()).json()['id'];store=self.app.state.store
+        Orchestrator(store).queue_review(graph.get(store,identifier))
+        feedback='无法确认黑色描边和2.0秒边界，请提供放大后的边界帧证据。'
+        store.execute("UPDATE workflow_reviews SET status='rejected',decision_json=? WHERE run_id=? AND purpose='final'",
+                      (graph.encode({'verdict':'inconclusive','feedback':feedback}),identifier))
+        store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='review_incomplete' WHERE id=?",(identifier,))
+        current=self.a.get(self.prefix+'/'+identifier).json()
+        self.assertEqual(current['failure_details'],[])
+        action=current['blocking_action'];self.assertIn(feedback,action['message'])
+        self.assertEqual(action['details'][0]['message'],feedback);self.assertEqual(action['action'],'replan')
+        self.assertNotIn('查看下方',action['message'])
     def test_owned_explicit_confirmation_and_idempotent_start(self):
         body=self.body()
         self.assertEqual(self.b.post(self.prefix,json=body).status_code,404)

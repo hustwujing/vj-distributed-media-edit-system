@@ -561,6 +561,47 @@ def archive_index(path):
             'limitation':'Only ZIP directory metadata was inspected. Members were not extracted, decoded, or checked for content/CRC correctness; use separate manifests and media evidence for those claims.'}
 
 
+def svg_structure(path):
+    """Read editable SVG structure without rendering, scripting or fetching hrefs."""
+    from xml.etree import ElementTree
+    if path.stat().st_size>2*1024**2:raise InspectionInputError('SVG exceeds the 2MiB inspection limit','inspection_svg_limit')
+    data=path.read_bytes()
+    if b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
+        raise InspectionInputError('SVG declarations/entities are not supported','inspection_svg_invalid')
+    try:root=ElementTree.fromstring(data)
+    except ElementTree.ParseError as exc:raise InspectionInputError('Invalid SVG XML','inspection_svg_invalid') from exc
+    local=lambda name:name.rsplit('}',1)[-1]
+    if local(root.tag)!='svg':raise InspectionInputError('Document root is not SVG','inspection_svg_invalid')
+    nodes=list(root.iter())
+    if len(nodes)>2000:raise InspectionInputError('SVG element limit exceeded','inspection_svg_limit')
+    fields={'id','class','x','y','dx','dy','width','height','viewBox','transform','opacity','display','visibility',
+            'fill','stroke','stroke-width','font-family','font-size','font-weight','text-anchor','style','filter',
+            'stdDeviation','flood-color','flood-opacity','in','in2','result','preserveAspectRatio'}
+    def attributes(node):return {local(key):value for key,value in node.attrib.items() if local(key) in fields}
+    texts=[];images=[];effects=[];active=False
+    for node in nodes:
+        tag=local(node.tag);active|=tag in ('script','foreignObject') or any(local(key).lower().startswith('on') for key in node.attrib)
+        if tag in ('text','tspan'):
+            texts.append({'tag':tag,'attributes':attributes(node),'text':node.text or '','tail':node.tail or ''})
+        elif tag=='image':
+            href=next((value for key,value in node.attrib.items() if local(key)=='href'),'')
+            item={'attributes':attributes(node),'embedded':href.startswith('data:')}
+            if href.startswith('data:') and ';base64,' in href:
+                header,payload=href.split(',',1)
+                try:decoded=base64.b64decode(payload,validate=True)
+                except ValueError as exc:raise InspectionInputError('Invalid SVG image encoding','inspection_svg_invalid') from exc
+                item.update(media_type=header[5:].split(';')[0],bytes=len(decoded),sha256=hashlib.sha256(decoded).hexdigest())
+            else:item.update(href=href[:500] if not item['embedded'] else '[embedded non-base64 data]',resolved=False)
+            images.append(item)
+        elif tag in ('filter','style') or tag.startswith('fe'):
+            effects.append({'tag':tag,'attributes':attributes(node),'text':node.text or ''})
+    report={'coverage':'svg_structure','document':attributes(root),'element_count':len(nodes),'text_nodes':texts,
+            'images':images,'effects':effects,'active_content_present':bool(active),
+            'limitation':'XML structure only; scripts and external references were not executed or fetched. Inspect a separate raster preview for appearance.'}
+    if len(graph.encode(report).encode())>32768:raise InspectionInputError('SVG structure exceeds the 32KiB evidence limit','inspection_svg_limit')
+    return report
+
+
 def inspect(store,run,allowed,reference,offset=0):
     if reference not in allowed:raise ValueError('Reference outside frozen task scope')
     if type(offset) not in (int,float) or not math.isfinite(offset) or offset<0:raise InspectionInputError('offset must be finite and nonnegative')
@@ -572,6 +613,9 @@ def inspect(store,run,allowed,reference,offset=0):
         record=item['record'];metadata={k:record[k] for k in ('sha256','size')}
         path=store.artifacts.materialize(run['project_id'],record['artifact']) if store.shared_files else store.root/record['location']
     suffix=Path(reference).suffix.lower() if 'asset' not in item else Path(item['asset']['filename']).suffix.lower()
+    if suffix=='.svg':
+        if offset!=0:raise InspectionInputError('SVG structure inspection requires offset0')
+        return {'ref':reference,'metadata':metadata,**svg_structure(path)}
     if suffix in ('.txt','.md','.json','.srt','.vtt','.ass','.csv','.py','.log'):
         if type(offset)!=int:raise InspectionInputError('Text offset is an integer byte offset, not a video timestamp')
         if path.stat().st_size and offset>=path.stat().st_size:raise InspectionInputError('Text offset is beyond EOF; use an earlier byte offset')
@@ -666,6 +710,9 @@ def execute(host,lease,run,task):
             frozen['result_contract']+=' Every frozen review_criteria item requires evidence, including the complete user goal, not only the planner-summarized filenames. Structural requirements such as editable layers, retained parameters or separate tracks require inspection of the delivered structure; a flattened preview with a similar appearance is not evidence of editability. Apply user_changes to superseded content/parameters instead of demanding both old and new values.'
             frozen['result_contract']+=' An explicit requirement or parameter in the user goal remains required even when a Task acceptance or planner delivery summary omitted it. Do not waive it as a suggestion on that basis. Editable/default parameters remain in effect until the user actually changes them; a planner omission or an appearance-only preview is not such a change.'
         frozen['result_contract']+=' Respect operation_output_contracts, including what a provider detects versus what is independently proven. Source-input evidence describes the original input, not the candidate output. Video frames and waveform energy cannot establish semantic sound events. For audio.transcribe, preserve detected events; an empty event list alone is not a demonstrated omission. If the user explicitly requires exhaustive independent sound-event verification and the available tools cannot provide it, state that precise limitation rather than repeatedly requesting loudness measurements.'
+        # Native tool context drops legacy result-envelope instructions. Review
+        # scope and evidence policy are semantic constraints, not wire syntax.
+        frozen['review_policy']=frozen.pop('result_contract')
     elif profile.output_schema=='visual-report-v1':
         from .workflow_agent_contracts import VisualReport
         frozen['result_schema']=VisualReport.model_json_schema()
@@ -1258,19 +1305,20 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
                 raise InspectionInputError(f'Video timestamp must be below duration {duration:g} seconds; choose an earlier or fractional timestamp')
         # Seeking even to zero can produce no frame for JPEG image2 inputs.
         # Still images have one view; timestamp seeking applies only to video.
-        seek=[] if evidence.get('still_image') else ['-ss',str(evidence['offset_seconds'])]
+        seek=[] if evidence.get('still_image') else ['-copyts','-start_at_zero','-ss',str(evidence['offset_seconds'])]
         arguments=(['/opt/venv/bin/python','-c',STILL_THUMBNAIL,'/workspace/'+relative,'1024' if verified else '256']
             if evidence.get('still_image') else
-            ['/usr/bin/ffmpeg','-v','error','-threads','1','-filter_threads','1',*seek,'-i','/workspace/'+relative,
-             '-frames:v','1','-vf','scale=256:256:force_original_aspect_ratio=decrease','-q:v','5',
+            ['/usr/bin/ffmpeg','-v','info','-threads','1','-filter_threads','1',*seek,'-i','/workspace/'+relative,
+             '-frames:v','1','-vf','showinfo,scale=256:256:force_original_aspect_ratio=decrease','-q:v','5',
              '-threads','1','-f','image2pipe','-vcodec','mjpeg','pipe:1'])
         window=evidence.get('window_seconds')
         if window is not None:
             if not math.isfinite(duration) or duration<=0:raise InspectionInputError('Video window requires a known duration')
             span=min(window,duration-evidence['offset_seconds']);count=16
             rate=count/span;offset=evidence['offset_seconds'];rows=math.ceil(count/4)
-            filters=(f'fps={rate:g},scale=256:160:force_original_aspect_ratio=decrease,'
-                f'pad=256:160:(ow-iw)/2:(oh-ih)/2,setpts=PTS-STARTPTS+{offset:g}/TB,'
+            from .media_evidence import temporal_select_filter
+            filters=(f'{temporal_select_filter(offset,rate)},scale=256:160:force_original_aspect_ratio=decrease,'
+                'pad=256:160:(ow-iw)/2:(oh-ih)/2,'
                 "drawtext=font='DejaVu Sans':text='%{pts\\:hms}':x=4:y=4:fontsize=14:fontcolor=white:box=1:boxcolor=black@0.7,"
                 f'showinfo,tile=4x{rows}:nb_frames={count}:padding=2:margin=2')
             arguments=['/usr/bin/ffmpeg','-nostdin','-nostats','-v','info','-threads','1','-filter_threads','1',
@@ -1290,14 +1338,23 @@ def inspect_media(host,lease,run,task,evidence,remaining_images=None):
             except (ValueError,ZeroDivisionError):source_fps=0
             return {**evidence,'probe':probe,'coverage':'contact_sheet','duration_seconds':duration,
                 'frame_timestamps':times,'source_frame_interval_seconds':1/source_fps if source_fps>0 else None,
+                'timestamp_basis':'decoded_frame_pts','preview_padding_cells':count-len(times),
                 'image':'data:image/jpeg;base64,'+base64.b64encode(sampled.stdout).decode()}
         from fractions import Fraction
         try:source_fps=float(Fraction(videos[0].get('avg_frame_rate','0/1')))
         except (ValueError,ZeroDivisionError):source_fps=0
+        actual_timestamp=evidence['offset_seconds']
+        if not evidence.get('still_image'):
+            import re
+            timestamps=re.findall(rb'pts_time:([0-9.eE+-]+)',sampled.stderr)
+            if not timestamps:raise InspectionInputError('Decoded frame timestamp is unavailable')
+            actual_timestamp=float(timestamps[0])
+            if not math.isfinite(actual_timestamp):raise InspectionInputError('Invalid decoded frame timestamp')
         return {**evidence,'probe':probe,'coverage':'still_image' if evidence.get('still_image') else 'sampled_frame',
                 'verified_media':verified,'duration_seconds':None if evidence.get('still_image') else duration,
                 'source_frame_interval_seconds':1/source_fps if source_fps>0 else None,
-                'preview_background':'#b8bec8' if evidence.get('still_image') else None,'timestamp_seconds':evidence['offset_seconds'],
+                'preview_background':'#b8bec8' if evidence.get('still_image') else None,'timestamp_seconds':actual_timestamp,
+                'requested_timestamp_seconds':evidence['offset_seconds'],'timestamp_basis':'still_image' if evidence.get('still_image') else 'decoded_frame_pts',
                 'image':'data:image/jpeg;base64,'+base64.b64encode(sampled.stdout).decode()}
     audios=[s for s in probe.get('streams',[]) if s.get('codec_type')=='audio']
     if evidence.get('window_seconds') is not None and not audios:

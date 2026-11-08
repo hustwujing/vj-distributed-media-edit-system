@@ -1,6 +1,7 @@
 """Real ZIP bytes are inspected as bounded metadata, never media or extracted content."""
 import hashlib
 import io
+import json
 from pathlib import Path
 import tempfile
 from types import SimpleNamespace
@@ -21,6 +22,24 @@ class InspectionFormatTests(unittest.TestCase):
         record={'sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'size':path.stat().st_size,'location':path.name}
         return inspect(SimpleNamespace(shared_files=False,root=self.root),{'project_id':'owned'},
                        {reference:{'record':record}},reference)
+
+    def test_svg_exposes_editable_text_and_embedded_source_without_execution(self):
+        import base64
+        png=io.BytesIO();Image.new('RGB',(2,2),'blue').save(png,format='PNG');data=png.getvalue()
+        path=self.root/'editable.svg';path.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="384" height="256">'
+            '<defs><filter id="shadow"><feDropShadow dx="2" dy="2" stdDeviation="2"/></filter></defs>'
+            '<image href="data:image/png;base64,'+base64.b64encode(data).decode()+'"/>'
+            '<text x="192" text-anchor="middle" fill="white" stroke="black" filter="url(#shadow)"><tspan>可编辑标题</tspan></text></svg>')
+        with patch('subprocess.run',side_effect=AssertionError('SVG inspection must not execute a renderer')):
+            result=self.inspect_file(path)
+        self.assertEqual(result['coverage'],'svg_structure');self.assertNotIn('media',result)
+        self.assertEqual(result['images'][0]['sha256'],hashlib.sha256(data).hexdigest())
+        self.assertEqual(result['text_nodes'][1]['text'],'可编辑标题')
+        self.assertEqual(result['text_nodes'][0]['attributes']['text-anchor'],'middle')
+        self.assertEqual(result['effects'][1]['tag'],'feDropShadow')
+        self.assertNotIn(base64.b64encode(data).decode(),json.dumps(result))
+        path.write_text('<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg>&x;</svg>')
+        with self.assertRaises(InspectionInputError):self.inspect_file(path)
 
     def test_real_segment_archive_lists_members_without_extracting_or_claiming_media(self):
         path=self.root/'segments.zip'

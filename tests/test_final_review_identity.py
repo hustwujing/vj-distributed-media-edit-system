@@ -4,6 +4,31 @@ from webapp import workflow_graph as graph,run_inputs
 
 
 class FinalReviewInputIdentityTests(unittest.TestCase):
+    def test_actual_review_model_context_retains_semantic_policy(self):
+        import threading
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from webapp.task_leases import Coordinator
+        from webapp.workflow_agents import execute
+        f=fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
+        store=f.store;run=f.review_fixture()
+        store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json WHERE run_id=?",(run['id'],))
+        f.orchestrator.queue_review(graph.get(store,run['id']))
+        row=store.query("SELECT * FROM workflow_reviews WHERE purpose='final'")[0]
+        lease=Coordinator(store,'review-policy-probe','test').claim(run['id'],'workflow',step_id=row['task_id'])
+        self.assertIsNotNone(lease);self.addCleanup(lease.release)
+        run=graph.get(store,run['id']);task=next(t for t in run['control_jobs'] if t['id']==row['task_id'])
+        class Captured(Exception):pass
+        def capture(*args,**kwargs):
+            context=json.loads(args[4])
+            self.assertIn('An explicit requirement or parameter in the user goal remains required',context['review_policy'])
+            self.assertIn('Source-input evidence describes the original input',context['review_policy'])
+            self.assertNotIn('result_contract',context);self.assertNotIn('result_schema',context)
+            self.assertTrue(context['review_criteria'])
+            raise Captured()
+        with lease.bind(),patch('webapp.workflow_agents.model',side_effect=capture),self.assertRaises(Captured):
+            execute(SimpleNamespace(store=store,stop=threading.Event()),lease,run,task)
+
     def test_planner_summary_cannot_erase_structural_user_requirements(self):
         from webapp.review_identity import final_criteria
         from webapp.workflow_agent_contracts import validate_resolved_review

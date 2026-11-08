@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 from fractions import Fraction
+from .media_evidence import temporal_select_filter
 
 
 def collect(source,kind,output,parameters,*,reference=None):
@@ -46,18 +47,18 @@ def collect(source,kind,output,parameters,*,reference=None):
             x1,y1,x2,y2=params['crop']
             if not (0<=x1<x2<=video['width'] and 0<=y1<y2<=video['height']):raise ValueError('Evidence crop outside video')
             crop=f'crop={x2-x1}:{y2-y1}:{x1}:{y1},'
-        filters=(f'{crop}fps={rate:g},scale=256:160:force_original_aspect_ratio=decrease,pad=256:160:(ow-iw)/2:(oh-ih)/2,'
-            f'setpts=PTS-STARTPTS+{offset:g}/TB,'
+        filters=(f'{crop}{temporal_select_filter(offset,rate)},scale=256:160:force_original_aspect_ratio=decrease,pad=256:160:(ow-iw)/2:(oh-ih)/2,'
             "drawtext=font='DejaVu Sans':text='%{pts\\:hms}':x=4:y=4:fontsize=14:fontcolor=white:box=1:boxcolor=black@0.7,"
             f'showinfo,tile=4x{math.ceil(count/4)}:nb_frames={count}:padding=2:margin=2')
         result=subprocess.run(['ffmpeg','-nostdin','-nostats','-v','info','-y','-threads','1','-filter_threads','1',
-            '-ss',str(offset),'-t',str(span),'-i',str(source),'-an','-sn','-dn','-vf',filters,'-frames:v','1','-q:v','5','-threads','1',str(preview)],
+            '-copyts','-start_at_zero','-ss',str(offset),'-t',str(span),'-i',str(source),'-an','-sn','-dn','-vf',filters,'-frames:v','1','-q:v','5','-threads','1',str(preview)],
             capture_output=True,timeout=30,check=True)
         times=[float(value) for value in re.findall(rb'pts_time:([0-9.eE+-]+)',result.stderr)][:count]
         if len(times)<2:raise ValueError('Insufficient decoded temporal evidence')
         try:fps=float(Fraction(video.get('avg_frame_rate','0/1')))
         except (ValueError,ZeroDivisionError):fps=0
         report.update(coverage='contact_sheet',duration_seconds=duration,frame_timestamps=times,
+                      timestamp_basis='decoded_frame_pts',preview_padding_cells=count-len(times),
                       source_frame_interval_seconds=1/fps if fps>0 else None)
         report['structure']=structure_metrics(source,offset,span,rate,count,crop,reference)
     elif mode in ('audio','audio_envelope','audio_compare'):
@@ -130,9 +131,9 @@ def structure_metrics(source,offset,span,rate,count,crop,reference):
     """Measured pixel/edge changes are evidence, never an identity verdict."""
     import numpy as np
     result=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-filter_threads','1',
-        '-ss',str(offset),'-t',str(span),'-i',str(source),'-an','-sn','-dn','-vf',
-        f'{crop}fps={rate:g},scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2',
-        '-frames:v',str(count),'-threads','1','-pix_fmt','rgb24','-f','rawvideo','pipe:1'],capture_output=True,timeout=30,check=True)
+        '-copyts','-start_at_zero','-ss',str(offset),'-t',str(span),'-i',str(source),'-an','-sn','-dn','-vf',
+        f'{crop}{temporal_select_filter(offset,rate)},scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2',
+        '-frames:v',str(count),'-fps_mode','passthrough','-threads','1','-pix_fmt','rgb24','-f','rawvideo','pipe:1'],capture_output=True,timeout=30,check=True)
     frame_bytes=160*90*3
     if not result.stdout or len(result.stdout)%frame_bytes or len(result.stdout)>16*frame_bytes:raise ValueError('Invalid bounded frame samples')
     frames=np.frombuffer(result.stdout,dtype=np.uint8).reshape(-1,90,160,3).astype(np.float32)/255

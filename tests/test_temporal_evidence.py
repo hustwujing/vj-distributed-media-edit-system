@@ -11,6 +11,30 @@ from webapp.workflow_agents import inspect_media
 
 
 class TemporalEvidenceTests(unittest.TestCase):
+    def test_fractional_seek_reports_real_source_frames_without_fps_duplicates(self):
+        from webapp.media_evidence_operation import collect
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);source=root/'clip.mp4';output=root/'evidence';output.mkdir()
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i','testsrc2=size=160x90:rate=24:duration=3',
+                '-c:v','libx264','-threads','1',str(source)],check=True)
+            collect(source,'video',output,{'mode':'video_window','offset':1.975,'window_seconds':.2})
+            report=json.loads((output/'evidence-report.json').read_text())
+            self.assertEqual(len(report['frame_timestamps']),5)
+            self.assertEqual(report['structure']['frame_count'],5)
+            self.assertAlmostEqual(report['frame_timestamps'][0],2,places=5)
+            self.assertEqual(report['timestamp_basis'],'decoded_frame_pts')
+            env={'assets':[{'id':'asset','filename':'clip.mp4'}]}
+            host=SimpleNamespace(workflow_runner=SimpleNamespace(adapter=SimpleNamespace(environment=lambda _:env)))
+            run={'id':'run','project_id':'project','tasks':[],'control_jobs':[],'goal':'motion','status':'ACTIVE',
+                 'graph_version':1,'sealed':True,'terminal_reason':'','created_at':0,'updated_at':0}
+            command=lambda env,gateway,argv:[str(source) if item=='/workspace/sources/clip.mp4' else item for item in argv]
+            with patch('webapp.agent_sandbox.command',side_effect=command):
+                for window in (None,.2):
+                    evidence=inspect_media(host,SimpleNamespace(runtime=object()),run,{},
+                        {'ref':'asset','path':source,'still_image':False,'offset_seconds':1.975,**({'window_seconds':window} if window else {})},remaining_images=1)
+                    if window:self.assertEqual(evidence['frame_timestamps'],report['frame_timestamps'])
+                    else:self.assertAlmostEqual(evidence['timestamp_seconds'],2,places=5)
+
     def snapshot(self):
         return {'review_scope':'task','tasks':[{'spec':{'semantics':{'temporal':[TemporalSemantics(action='continuous motion').model_dump()]}},
             'candidate_result':['clip.mp4'],'accepted_result':[],

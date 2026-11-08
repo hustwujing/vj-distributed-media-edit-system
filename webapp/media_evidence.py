@@ -8,6 +8,13 @@ import subprocess
 import unicodedata
 
 
+def temporal_select_filter(offset,rate):
+    """Select decoded frames without inventing an fps grid or rewriting PTS."""
+    if not math.isfinite(offset) or offset<0 or not math.isfinite(rate) or rate<=0:
+        raise ValueError('Invalid temporal sampling grid')
+    return f"select='gte(t-{offset:.12g},selected_n/{rate:.12g})'"
+
+
 def normalize_text(value: str) -> str:
     value=unicodedata.normalize('NFC',value).replace('\r\n','\n').replace('\r','\n')
     return '\n'.join(' '.join(line.split()) for line in value.split('\n')).strip()
