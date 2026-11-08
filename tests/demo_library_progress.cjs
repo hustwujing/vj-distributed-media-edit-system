@@ -21,7 +21,7 @@ console.log(JSON.stringify({total:44,started:cases.length,not_started:44-cases.l
  program_failed:count(x=>!passed(x)&&['program_failed','contract_failed'].includes(failure(x))),
  prompt_failed:count(x=>failure(x)==='prompt_failed'),
  nonprogram_failed:count(x=>failure(x)==='nonprogram_failed'),
- pending_review:count(x=>!x.review&&x.status==='passed_pending_review'),
+ pending_review:count(x=>!x.review&&['passed_pending_review','responded_pending_review'].includes(x.status)),
  pending_analysis:count(x=>!x.review&&x.status==='failed'&&!['program_failed','contract_failed','prompt_failed','nonprogram_failed'].includes(failure(x))),
  active:count(x=>!x.finished_at),average_finished_seconds:average(finished),average_business_completed_seconds:average(businessComplete),
  active_cases:cases.filter(x=>!x.finished_at).map(x=>({case:x.case,phase:x.phase,elapsed_seconds:Math.round(Date.now()/1000-x.started_at)}))},null,2));

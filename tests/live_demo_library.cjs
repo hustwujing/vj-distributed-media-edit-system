@@ -124,6 +124,12 @@ async function runCase(demo){
   if(!terminal(current.state)&&state.status!=='failed')throw Error('Required completion timed out');
   if(state.status==='failed')await cancel();
   else if(current.state!=='SUCCEEDED'){state.status='failed';state.classification='needs_analysis';state.reason=current.terminal_reason;await capture('failed');}
+  else if(current.terminal_reason==='conversation_answer'){
+   const {verifyAnswerView}=require('./demo_library_answer_review.cjs');
+   await verifyAnswerView(page,current,capture,()=>streams.get(base+`/api/projects/${state.project}/runs/${state.run_id}/stream`));
+   assert.equal(current.cleanup_pending,0,'Answered run resources have not been cleaned');
+   save(path.join(dir,'final-run.json'),current);state.browser_verified=true;state.status='responded_pending_review';
+  }
   else{
    assert.notEqual(current.terminal_reason,'conversation_answer','A media example was answered without being executed');assert.ok(current.delivery.length,'Completed example has no delivery');
    await page.getByRole('heading',{name:'任务已完成',exact:true}).waitFor();assert.ok(await page.locator('#dynamic-run-result a[download]').count());
