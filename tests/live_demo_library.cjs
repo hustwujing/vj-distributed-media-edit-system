@@ -149,8 +149,8 @@ async function runCase(demo){
  fs.mkdirSync(output,{recursive:true,mode:0o700});
  const catalog=await(await fetch(internal+'/api/demos')).json();assert.equal(catalog.length,44);
  save(path.join(output,'catalog.json'),catalog);fs.copyFileSync(__filename,path.join(output,'driver.cjs'));
- const cases=selected?catalog.filter(item=>selected.has(item.id)):catalog;
- if(selected)assert.equal(cases.length,selected.size,'Unknown example requested');
+ const cases=selected?[...selected].map(id=>catalog.find(item=>item.id===id)):catalog;
+ if(selected)assert.ok(cases.every(Boolean),'Unknown example requested');
  save(path.join(output,'round.json'),{started_at:Date.now()/1000,total:44,selected:cases.map(d=>d.id),concurrency:jobs,release,catalog_sha256:sha(Buffer.from(JSON.stringify(catalog))),driver_sha256:sha(fs.readFileSync(__filename))});
  browser=await chromium.launch({headless:true,args:['--no-sandbox','--host-resolver-rules=MAP updream-lab.bilibili.co 127.0.0.1']});
  try{let cursor=0;const workers=await Promise.allSettled(Array.from({length:Math.min(jobs,cases.length)},async()=>{while(!stop&&cursor<cases.length&&!fs.existsSync(path.join(output,'pause-new-cases'))){const demo=cases[cursor++];await runCase(demo);}}));const errors=workers.filter(item=>item.status==='rejected').map(item=>String(item.reason));if(errors.length){save(path.join(output,'driver-errors.json'),errors);throw Error(errors.join('\n'));}}
