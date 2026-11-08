@@ -475,6 +475,9 @@ class AgentHost:
             while not done.wait(lease.ttl / 3):
                 try:lease.renew()
                 except Exception as exc:
+                    # A renewal already in flight may outlive the bounded join
+                    # below. Teardown owns revocation/cleanup once done is set.
+                    if done.is_set():return
                     from .telemetry import emit
                     emit('executor.renew_failed','WARNING',exc=exc,task_id=lease.run_id,attempt_id=lease.attempt)
                     if isinstance(exc,TaskLimitReached):
@@ -632,8 +635,8 @@ class AgentHost:
                 from .telemetry import emit
                 emit('executor.cleanup_error','WARNING',exc=exc)
         finally:
-            # Keep renewing until cleanup ends. UID reuse is independent of the
-            # database lease and requires successful node-local cleanup.
+            # Stop renewal before revoking the runtime. UID reuse still requires
+            # successful node-local cleanup, independently of the lease timer.
             done.set()
             heartbeat.join(timeout=3)
             reservation=getattr(lease,'gpu_reservation',None)

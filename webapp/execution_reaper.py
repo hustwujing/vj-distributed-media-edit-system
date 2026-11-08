@@ -19,6 +19,8 @@ from .task_leases import initialize
 from .task_lifecycle import administrative
 from .paths import data_root
 
+DATABASE_TIMEOUT=1.0
+
 
 def clean(pool,uid,attempt):
     registry=pool.root/'records'/f'{uid}.json'
@@ -62,7 +64,7 @@ class Reaper:
         # Reaper must remain bounded, but 100 ms is shorter than normal
         # control-plane transactions and turns harmless lock contention into
         # repeated 57014 noise. Local cleanup remains fail-closed on DB outage.
-        self.store.timeout=1.0
+        self.store.timeout=DATABASE_TIMEOUT
         self.children={}
         self.external_children={}
         self.command_cleanup_child=None;self.command_cleanup_started=0
@@ -266,7 +268,7 @@ def main():
     if os.geteuid()!=0:raise SystemExit('The node reaper must run as root')
     pool=IdentityPool(reconcile=False)
     if args.action=='clean':raise SystemExit(clean(pool,args.uid,args.attempt))
-    reaper=Reaper(Store(data_root(),timeout=.1,initialize_schema=False),pool)
+    reaper=Reaper(Store(data_root(),timeout=DATABASE_TIMEOUT,initialize_schema=False),pool)
     while True:
         try:reaper.tick()
         except Exception as exc:emit('reaper.error','ERROR',exc=exc)
