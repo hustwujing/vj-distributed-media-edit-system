@@ -34,7 +34,8 @@ const base='http://updream-lab.bilibili.co/distributed-agent-sandbox-backend',re
     if(await page.locator('#ai-panel').isVisible())assert.ok(await page.locator('#image-action').inputValue(),'Visible image tool has no selected operation');
     const expected={'image-adjustment-layers':'adjustment','image-text-effects':'text','image-layout-guides':'image'}[demo.id];
     if(expected){
-     await page.locator('#save-document').click();
+     const committed=page.waitForResponse(response=>response.request().method()==='PUT'&&response.url().endsWith('/image-document'));
+     await page.locator('#save-document').click();const response=await committed;assert.ok(response.ok(),'Native canvas save failed');
      await page.waitForFunction(()=>/已保存/.test(document.querySelector('#document-status')?.textContent||''));
      const saved=await api('/image-document');record.layer_kinds=saved.document.layers.map(x=>x.kind);
      assert.ok(record.layer_kinds.includes(expected));if(demo.id==='image-layout-guides')assert.equal(record.layer_kinds.filter(x=>x==='image').length,3);
