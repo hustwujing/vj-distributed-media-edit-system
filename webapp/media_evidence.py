@@ -82,14 +82,15 @@ def alpha_evidence(image) -> dict:
             'alpha_edge_fraction':edge/max(1,foreground)}
 
 
-def audio_evidence(path: str | Path, *, sample_seconds: float|None=None,offset_seconds:float=0) -> dict:
+def audio_evidence(path: str | Path, *, sample_seconds: float|None=None,offset_seconds:float=0,audio_track:int=0) -> dict:
     """Measure the complete stream by default, with bounded time and log output."""
     if sample_seconds is not None and (not math.isfinite(sample_seconds) or sample_seconds<=0):
         raise ValueError('Invalid audio sampling duration')
     if not math.isfinite(offset_seconds) or offset_seconds<0:raise ValueError('Invalid audio sampling offset')
+    if type(audio_track) is not int or audio_track<0:raise ValueError('Invalid audio track')
     command=['ffmpeg','-nostdin','-nostats','-hide_banner','-v','info','-threads','1']
     if offset_seconds:command+=['-ss',str(offset_seconds)]
-    command+=['-i',str(path),'-map','0:a:0']
+    command+=['-i',str(path),'-map',f'0:a:{audio_track}']
     if sample_seconds is not None:command+=['-t',str(sample_seconds)]
     command+=['-af','ebur128=peak=true:framelog=verbose,volumedetect','-f','null','-']
     run=subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,
@@ -109,6 +110,7 @@ def audio_evidence(path: str | Path, *, sample_seconds: float|None=None,offset_s
     return {'audio_silent':peak<=-60,'integrated_loudness_lufs':finite(integrated),
             'mean_volume_db':finite(mean),'peak_volume_db':finite(peak),
             'decoded_sample_values':int(sample_values) if sample_values is not None else None,
+            'audio_track':audio_track,
             'measurement_seconds':sample_seconds,'measurement_offset_seconds':offset_seconds,
             'measurement_scope':'full' if sample_seconds is None and not offset_seconds else 'sampled'}
 

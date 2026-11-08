@@ -34,7 +34,7 @@ class Acceptance(BaseModel):
     min_duration:float|None=Field(default=None,ge=0,le=86400)
     max_duration:float|None=Field(default=None,gt=0,le=86400)
     audio_track_present:bool|None=None
-    audio_silent:bool|None=None
+    audio_silent:bool|None=Field(default=None,description='True means no audible sound: no audio tracks, or every audio track measures silent. Require audio_track_present=true separately when a silent track must be retained. Loudness measurements use the first audio track.')
     channel_layout:str|None=Field(default=None,max_length=80)
     min_loudness_lufs:float|None=Field(default=None,ge=-120,le=20)
     max_loudness_lufs:float|None=Field(default=None,ge=-120,le=20)

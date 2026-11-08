@@ -134,12 +134,23 @@ def main():
             if rule.get('max_alpha_hole_fraction') is not None and value.get('alpha_hole_fraction',float('inf'))>rule['max_alpha_hole_fraction']:failed.append('蒙版内部孔洞过多');codes.append('alpha')
             needs_audio=any(rule.get(key) is not None for key in ('audio_silent','min_loudness_lufs','max_loudness_lufs'))
             if needs_audio:
-                if not value.get('audio_track_present'):failed.append('需要测量音频但产物没有音轨');codes.append('audio_track_present')
+                if not value.get('audio_track_present'):
+                    value.update(audio_silent=True,audio_silence_basis='no_audio_tracks')
+                    if rule.get('audio_silent') is False or any(rule.get(key) is not None for key in ('min_loudness_lufs','max_loudness_lufs')):
+                        failed.append('需要非静音或响度测量但产物没有音轨');codes.append('audio_track_present')
                 else:
                     try:
-                        measured=audio_cache.setdefault(value['name'],audio_evidence(value['name']))
+                        def measurement(track):
+                            key=(value['name'],track)
+                            if key not in audio_cache:audio_cache[key]=audio_evidence(value['name'],audio_track=track)
+                            return audio_cache[key]
+                        measured=measurement(0)
                         value.update(measured)
-                        if rule.get('audio_silent') is not None and measured['audio_silent']!=rule['audio_silent']:failed.append('静音状态不符');codes.append('audio_silent')
+                        if rule.get('audio_silent') is not None:
+                            tracks=[measurement(track) for track in range(len(value['audio_tracks']))]
+                            value.update(audio_silent=all(item['audio_silent'] for item in tracks),
+                                         audio_silence_basis='all_audio_tracks',audio_track_measurements=tracks)
+                            if value['audio_silent']!=rule['audio_silent']:failed.append('静音状态不符');codes.append('audio_silent')
                         loudness=measured.get('integrated_loudness_lufs')
                         if rule.get('min_loudness_lufs') is not None and (loudness is None or loudness<rule['min_loudness_lufs']):failed.append('响度低于要求');codes.append('loudness')
                         if rule.get('max_loudness_lufs') is not None and (loudness is None or loudness>rule['max_loudness_lufs']):failed.append('响度高于要求');codes.append('loudness')

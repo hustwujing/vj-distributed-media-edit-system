@@ -107,6 +107,25 @@ class AcceptanceContractTests(unittest.TestCase):
 
 
 class AudioEvidenceTests(unittest.TestCase):
+    def test_silence_acceptance_distinguishes_absent_track_and_all_tracks_silent(self):
+        import json,subprocess,sys
+        checker=Path(__file__).resolve().parents[1]/'webapp/quality_check.py'
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i','color=s=64x48:r=10:d=1',
+                '-c:v','libx264','-threads','1',str(root/'silent.mp4')],check=True)
+            subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-i',str(root/'silent.mp4'),
+                '-f','lavfi','-i','anullsrc=r=48000:cl=mono:d=1','-f','lavfi','-i','sine=frequency=440:duration=1',
+                '-map','0:v','-map','1:a','-map','2:a','-c:v','copy','-c:a','aac',str(root/'two.mp4')],check=True)
+            for name,rule,expected in [('silent.mp4',{'audio_silent':True},True),
+                ('silent.mp4',{'audio_silent':True,'audio_track_present':True},False),
+                ('silent.mp4',{'audio_silent':False},False),('silent.mp4',{'max_loudness_lufs':-10},False),
+                ('two.mp4',{'audio_silent':True},False),('two.mp4',{'audio_silent':False},True)]:
+                with self.subTest(file=name,rule=rule):
+                    result=subprocess.run([sys.executable,str(checker)],cwd=root,
+                        input=json.dumps({'files':[name],'acceptance':[{'kind':'media',**rule}]}),capture_output=True,text=True,check=True)
+                    self.assertEqual(json.loads(result.stdout)['passed'],expected,result.stdout)
+
     def test_plain_pcm_channel_count_satisfies_layout_but_does_not_guess_surround(self):
         import json,subprocess,sys,wave
         from webapp.media_evidence import audio_channel_layout

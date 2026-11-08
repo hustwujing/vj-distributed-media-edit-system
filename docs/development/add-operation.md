@@ -83,6 +83,10 @@ audio_compare 的 offset 定位候选窗口，reference_offset 可独立定位�
 `audio.process` 复用全流测量得到的样本数，并在报告记录 `duration_basis=decoded_samples`；
 回归应包含视频比音轨长的输入，并检查输出末尾样本确实淡至零。
 
+验收的 `audio_silent=true` 表示无声音：没有音轨，或所有音轨均测得静音。
+必须保留静音音轨时同时声明 `audio_track_present=true`；无音轨不能满足非静音、音高或响度测量要求。
+多音轨静音检查不能只检查第一条轨道；响度字段仍明确测量第一条音轨。
+
 ## 5. 确认服务与隔离运行时都能装载
 
 扩展模块可以使用可信服务配置加载：
