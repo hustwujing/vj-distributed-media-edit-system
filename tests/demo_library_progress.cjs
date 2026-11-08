@@ -18,7 +18,8 @@ const finished=cases.filter(x=>Number.isFinite(x.seconds));
 const businessComplete=finished.filter(x=>x.status==='passed_pending_review');
 const average=xs=>xs.length?Math.round(xs.reduce((sum,x)=>sum+x.seconds,0)/xs.length):null;
 console.log(JSON.stringify({total:44,started:cases.length,not_started:44-cases.length,passed:count(passed),
- program_failed:count(x=>!passed(x)&&['program_failed','contract_failed','prompt_failed'].includes(failure(x))),
+ program_failed:count(x=>!passed(x)&&['program_failed','contract_failed'].includes(failure(x))),
+ prompt_failed:count(x=>failure(x)==='prompt_failed'),
  nonprogram_failed:count(x=>failure(x)==='nonprogram_failed'),
  pending_review:count(x=>!x.review&&x.status==='passed_pending_review'),
  pending_analysis:count(x=>!x.review&&x.status==='failed'&&!['program_failed','contract_failed','prompt_failed','nonprogram_failed'].includes(failure(x))),
