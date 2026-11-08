@@ -321,8 +321,10 @@ def verify(source,selection=()):
     shutil.copyfile(source/'runtime/build/manifest.json',directory/'runtime/build/manifest.json')
     log=ROOT/'verification'/f'{source.name}.log';log.parent.mkdir(parents=True,exist_ok=True)
     with log.open('w') as stream:
-        test_tmp=ROOT/'tmp/verification';test_tmp.mkdir(parents=True,exist_ok=True,mode=0o711);test_tmp.chmod(0o711)
-        socket_root=test_tmp/('s-'+source.name);socket_root.mkdir(parents=True,exist_ok=True)
+        # Test fixtures append their own directories and socket names. Keep the
+        # entire scratch root short, including fixtures that bind sockets directly.
+        test_tmp=Path(tempfile.mkdtemp(prefix='v-',dir=REPO.parent/'vu-tmp'));test_tmp.chmod(0o711)
+        socket_root=test_tmp/'s';socket_root.mkdir(mode=0o755)
         test_environment={**os.environ,'TMPDIR':str(test_tmp),'TMP':str(test_tmp),'TEMP':str(test_tmp),
                           'VIDEO_USE_TEST_TMP_ROOT':str(test_tmp),'VIDEO_USE_SOCKET_ROOT':str(socket_root)}
         result=subprocess.run([directory/'.venv/bin/python','-m','tests.run_distributed_suite',*selection],cwd=directory,

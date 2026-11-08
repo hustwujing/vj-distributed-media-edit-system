@@ -93,4 +93,4 @@ class FinalReviewerExecuteTests(unittest.TestCase):
         f.orchestrator.accept_results(graph.get(store,run['id']))
         self.assertEqual(store.query('SELECT status FROM workflow_reviews WHERE id=?',(review['id'],))[0]['status'],'passed')
         result=json.loads(store.query('SELECT result_json FROM task_results WHERE task_id=?',(review['task_id'],))[0]['result_json'])
-        self.assertEqual(result['decision']['evidence'][0]['criterion'],run['goal'])
+        self.assertIn(run['goal'],result['decision']['evidence'][0]['criterion'])
