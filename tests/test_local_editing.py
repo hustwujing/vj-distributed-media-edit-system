@@ -240,7 +240,7 @@ class LocalEditingTests(unittest.TestCase):
         self.assertLess(float(np.max(np.abs(samples(out,1.5,.3)))),.001)
 
     def test_music_ducking_reduces_music_during_voice(self):
-        raw=self.plan(sources={'a':'sources/voice.wav','music':'sources/music.wav'},clips=[{'source':'a','end':3}],
+        raw=self.plan(sources={'a':'sources/voice.wav','music':'sources/music.wav'},clips=[{'source':'a','end':3,'repeat':3}],
                       output={'audio_only':True},audio={'source':'music','volume':1,'loop':True,'duck':True})
         out,_=self.render(raw,'duck.wav')
         def tone_level(t):
@@ -256,6 +256,15 @@ class LocalEditingTests(unittest.TestCase):
         quiet=next(item['rms_dbfs'] for item in signal['windows'] if .4<=item['time_seconds']<=.6)
         self.assertLess(during,quiet-3)
         self.assertAlmostEqual(report['gain_measurement_db'],0,delta=.01)
+        from types import SimpleNamespace
+        from webapp.workflow_agents import inspect
+        report_file=out.with_suffix('.report.json')
+        preview=inspect(SimpleNamespace(root=self.root,shared_files=False),{'project_id':'test'},
+            {'report.json':{'record':{'location':str(report_file.relative_to(self.root)),
+             'sha256':hashlib.sha256(report_file.read_bytes()).hexdigest(),'size':report_file.stat().st_size}}},'report.json')
+        self.assertFalse(preview['complete'])
+        self.assertIn('signal_summary',preview['text']);self.assertIn('background_ducked',preview['text'])
+        self.assertIn(report['output_sha256'],preview['text'])
 
     def test_audio_meter_reports_actual_gain_and_preserves_silence_without_nan(self):
         for volume in (.3,0):

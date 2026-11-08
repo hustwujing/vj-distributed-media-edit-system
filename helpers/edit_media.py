@@ -320,6 +320,7 @@ def finish(p,base,work):
             'parameters':{key:audio[key] for key in ('source','audio_track','start','end','mode','volume','duck','loop','offset','fade_in','fade_out','normalize','denoise','highpass')},
             'gain_measurement_db':after-before if after is not None and before is not None else None,
             'fade_scope':'whole_output_after_mix','measurement_scope':'actual pre-master filter samples in the same render, not reconstructed from the encoded mix',
+            'signal_summary':{name:{key:values[key] for key in ('rms_dbfs','peak_dbfs','samples','windows_total','windows_truncated')} for name,values in signals.items()},
             'signals':signals,
             'limitations':['Pre-master stems do not establish independent speech intelligibility or semantic sound events.',
                             'Master fades, denoise, normalization and limiter apply after these stems; lossy encoded peaks can differ.']}
@@ -372,7 +373,7 @@ def render_plan(p,output,keep_work=False):
                 'visual_review_required':not p['output']['audio_only']}
         if p.get('_audio_audit'):
             with result.open('rb') as stream:output_hash=hashlib.file_digest(stream,'sha256').hexdigest()
-            report['audio_audit']={**p['_audio_audit'],'output_sha256':output_hash}
+            report['audio_audit']={'output_sha256':output_hash,**p['_audio_audit']}
         (work/'report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
         # Publish only verified files. No replacement of existing renders or sidecars.
         publications=[(result,output),(work/'report.json',output.with_suffix('.report.json'))]
