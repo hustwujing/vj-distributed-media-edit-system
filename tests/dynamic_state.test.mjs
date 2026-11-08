@@ -60,6 +60,7 @@ test('execution failures explain system error and retry action',()=>{
  assert.match(source,/action==='retry'/);
 });
 
+
 test('stale tool activity is visibly interrupted after worker loss or terminal run',()=>{
  const item={status:'running',execution:{attempt_id:'old'},sequence:1};
  assert.equal(settleTool({status:'running',activity_attempts:[{id:'old',status:'expired'}]},item).status,'interrupted');

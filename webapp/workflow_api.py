@@ -95,6 +95,9 @@ def public(store,run):
             terminal_notice={'budget':'任务预算已耗尽，系统停止了后续执行。','deadline':'任务时限已到，系统停止了后续执行。','security':'安全策略触发，系统停止了后续执行。'}.get(cause,'任务预算或时限已耗尽，系统停止了后续执行。')
         else:
             terminal_notice={'authorization_rejected':'当前执行方向未获授权，任务已停止。','planning_budget_exhausted':'规划轮次已耗尽，任务未继续执行。','user_cancelled':'你已取消本次任务，已完成成果会保留。','successor_confirmed':'本轮已由新一轮任务取代，请查看后继任务。'}.get(reason,'任务未完成，请查看下方诊断信息。' if run['status']=='FAILED' else '任务已取消。')
+            if reason=='planning_contract_exhausted':terminal_notice='规划师未能形成可执行方案，已保留失败详情；请查看失败步骤后重新规划。'
+            elif reason=='runtime_profile_changed':terminal_notice='执行环境版本在任务期间发生变化，旧任务不能继续复用；请创建新 revision 或新任务。'
+            elif reason=='execution_failed':terminal_notice='系统执行失败，已保留错误详情；修复运行环境后请重试失败步骤。'
     value['terminal_notice']=terminal_notice
     revision_versions={(row['task_id'],row['revision']):row['created_graph_version'] for row in
         store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}
