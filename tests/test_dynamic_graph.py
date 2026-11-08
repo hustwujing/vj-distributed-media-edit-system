@@ -618,6 +618,26 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertIsNone(current['delivered_at'])
         self.assertFalse(self.store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND purpose='final'",(run['id'],)))
 
+    def test_storage_quota_recovery_retries_publication_without_reexecuting_tasks(self):
+        from unittest.mock import patch
+        from webapp.workflow_api import public
+        def block(run,review_id):
+            guard=patch.object(self.store,'check_storage',side_effect=ValueError('存储额度不足，请清理旧项目'))
+            guard.start();self.addCleanup(guard.stop)
+            self.storage_guard=guard
+        self.publish_metadata_fixture(['report.txt'],before_publish=block,expect_success=False)
+        run=graph.get(self.store,self.run['id'])
+        self.assertEqual(run['terminal_reason'],'storage_quota_exceeded')
+        self.assertIn('存储额度',public(self.store,run)['blocking_action']['message'])
+        before=[(t['id'],t['revision'],t['status'],t['attempts']) for t in run['tasks']]
+        self.storage_guard.stop()
+        command=graph.command(self.store,run['id'],'owner','resume')
+        with patch.dict('os.environ',{'VIDEO_USE_OBJECT_BUCKET':'publication-metadata-fixture'}):run=self.tick()
+        self.assertEqual(run['status'],'SUCCEEDED')
+        self.assertEqual(self.store.query('SELECT status FROM workflow_commands WHERE id=?',(command['id'],))[0]['status'],'applied')
+        self.assertEqual([(t['id'],t['revision'],t['status'],t['attempts']) for t in run['tasks']],before)
+        self.assertEqual(len(run['delivery']),1)
+
     def test_passed_final_review_can_be_reused_after_graph_only_change(self):
         from webapp.review_identity import identity
         def reseal(run,review_id):

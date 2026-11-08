@@ -82,6 +82,17 @@ class RunRecoveryTests(unittest.TestCase):
         self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],)))
         self.assertEqual(run['reconcile_owner'],'')
 
+    def test_wait_budget_starts_when_waiting_not_when_task_was_created(self):
+        self.provider_task()
+        self.store.execute("UPDATE run_tasks SET status='waiting',lease_id='',created_at=?,updated_at=?,wait_recorded_at=?,next_run_at=? WHERE run_id=?",
+            (self.store.now()-11000,self.store.now()-11000,self.store.now()-1,self.store.now()+60,self.run['id']))
+        run=self.f.tick()
+        self.assertEqual(run['status'],'ACTIVE')
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND kind='external_wait'",(run['id'],)))
+        self.store.execute('UPDATE run_tasks SET wait_recorded_at=? WHERE run_id=?',(self.store.now()-8000,run['id']))
+        run=self.f.tick()
+        self.assertEqual(run['terminal_reason'],'external_wait_timeout')
+
     def test_wait_timeout_does_not_starve_cancel(self):
         self.timed_external_wait()
         command=graph.command(self.store,self.run['id'],'owner','cancel')
@@ -103,11 +114,14 @@ class RunRecoveryTests(unittest.TestCase):
             (self.run['id']+':sibling:0',self.run['id'],'sibling','https://provider.invalid',now,now,graph.encode({'budget_group':'video.generate_from_image'})))
         command=graph.command(self.store,self.run['id'],'owner','answer',
             {'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':'reject'})
-        self.f.tick()
+        run=self.f.tick()
         self.assertEqual(self.store.query('SELECT status FROM workflow_commands WHERE id=?',(command['id'],))[0]['status'],'applied')
         cleanup={row['attempt']:row['state'] for row in self.store.query('SELECT attempt,state FROM execution_cleanup')}
         self.assertEqual(cleanup,{'render-attempt':'pending','sibling-attempt':'allocated'})
         self.assertEqual([row['id'] for row in self.store.query('SELECT id FROM execution_external_cleanup')],[self.run['id']+':render:0'])
+        self.assertFalse(run['sealed'])
+        self.assertEqual((run['tasks'][0]['status'],run['tasks'][0]['error_code']),('paused','external_wait_timeout'))
+        self.assertEqual(len(self.store.query("SELECT id FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))),1)
 
     def test_terminal_provider_failure_is_not_polled_again(self):
         self.provider_task()
