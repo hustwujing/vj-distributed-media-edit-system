@@ -32,7 +32,7 @@ def verify(docker,manifest):
 test "$(id -u):$(id -g)" = 10001:10001
 touch /workspace/probe /state/probe /run/video-use/probe
 if touch /opt/rootfs-must-be-read-only 2>/dev/null; then exit 41; fi
-python -c 'import cv2,opensandbox,webapp.runtime_bootstrap,webapp.image_tasks,helpers.canvas_render,grade,render,timeline_view,pack_transcripts,transcribe'
+python -c 'import cv2,opensandbox,webapp.runtime_bootstrap,grade,render,timeline_view,pack_transcripts,transcribe'
 python -c 'from edit_captions import caption_font; path,family=caption_font(); assert path and family'
 python -c 'import json; from webapp.runtime_bootstrap import verify_runtime_bundle; verify_runtime_bundle(json.load(open("/opt/video-use/bundle.json")))'
 python -m webapp.runtime_bootstrap --help >/dev/null
@@ -64,6 +64,7 @@ python -c 'import importlib.metadata as m,deepseek_harness,webapp.runtime_bootst
     }
     results={}
     for tag,script in checks.items():
+        script="python -c 'import webapp.image_tasks,helpers.canvas_render'\n"+script
         image=manifest['images'][tag]
         static=(image['user']=='10001:10001' and image['entrypoint']==
             ['/opt/venv/bin/python','-m','webapp.runtime_bootstrap'] and not image['secret_marker_findings'])
