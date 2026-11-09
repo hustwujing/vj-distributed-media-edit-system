@@ -40,6 +40,22 @@ derivation instead of generating a new substitute from original pixels alone.
 If the required method cannot meet the goal or is unavailable, explain the
 specific limitation and request the user's method decision before changing it.
 
+## Alpha channels and layered documents
+
+RGBA describes four stored channels; it does not require a transparent pixel
+in every layer. A full-canvas background in a layered document may legitimately
+have alpha=255 everywhere. Do not turn a request for RGBA layers into an
+acceptance criterion requiring nonzero transparent_fraction in every layer,
+and do not require holes in an opaque background merely to satisfy that
+invented criterion. A cutout, foreground transparency, mask coverage, or a
+specific per-layer transparency requirement remains binding when requested.
+
+Verify the requested layer count, independently editable structure, actual
+per-layer content and composite. Distinguish a legitimate opaque background
+from an empty or nearly transparent placeholder. Do not silently add exact
+semantic layer assignments or pixel identity when the user only requested
+generative layers and explicitly allowed reconstructed or repeated content.
+
 ## Subject scope
 
 `subject_cutout` includes the subject's body, clothing and worn accessories by
