@@ -59,6 +59,43 @@ class RepairInputTests(unittest.TestCase):
             graph.Task.model_validate(fixtures.script(inputs={'source':{'repair_candidate':self.ref}}))
         self.assertEqual(self.run['tasks'][0]['accepted_result'],[])
 
+    def test_repair_revision_preserves_already_bound_candidate_from_retired_producer(self):
+        import copy
+        replacement=fixtures.script('fixed',purpose='repair',inputs={'candidate':{'repair_candidate':self.ref}},
+            outputs=['image.png'],output_roles={'primary_image':'image.png'},argv=['python','-c','print("repair")'])
+        original=next(t['spec'] for t in self.run['tasks'] if t['id']=='first')
+        replacement.update({k:original[k] for k in ('objective','acceptance','semantics','delivery_stage')})
+        self.f.propose({'proposal_id':'replace-candidate','base_graph_version':1,'reason':'Repair the frozen candidate',
+            'add_tasks':[replacement],'replacements':{'first':'fixed'},'replan_after':['fixed']})
+        run=self.f.tick();self.assertFalse(next(t['selected'] for t in run['tasks'] if t['id']=='first'))
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed' WHERE run_id=? AND id='fixed'",(run['id'],))
+        run=graph.get(self.store,run['id']);current=next(t for t in run['tasks'] if t['id']=='fixed')
+        revised=copy.deepcopy(current['spec']);revised['argv']=['python','-c','print("repair again")']
+        proposal={'proposal_id':'revise-with-inherited-input','base_graph_version':run['graph_version'],
+            'reason':'Keep the same immutable input','revise_tasks':[revised],'replan_after':['fixed']}
+        graph.validate_proposal(self.store,run,proposal,repair_scope='fixed')
+        # The same previously authorized bytes can also survive another explicit
+        # implementation replacement without reopening the retired producer.
+        again={**copy.deepcopy(revised),'id':'fixed-again'}
+        graph.validate_proposal(self.store,run,{**proposal,'revise_tasks':[],'add_tasks':[again],
+            'replacements':{'fixed':'fixed-again'},'replan_after':['fixed-again']},repair_scope='fixed')
+        for mutation in ('drop','change_hash','add_source'):
+            bad=copy.deepcopy(revised)
+            if mutation=='drop':bad['inputs']={}
+            elif mutation=='change_hash':bad['inputs']['candidate']['repair_candidate']['sha256']='0'*64
+            else:bad['inputs']['other']={'asset':'asset'}
+            with self.subTest(mutation=mutation),self.assertRaisesRegex(ValueError,'original source inputs'):
+                graph.validate_proposal(self.store,run,{**proposal,'revise_tasks':[bad]},repair_scope='fixed')
+        unrelated=fixtures.script('unrelated-reader',purpose='repair',inputs={'candidate':{'repair_candidate':self.ref}})
+        with self.assertRaisesRegex(ValueError,'outside the frozen repair scope'):
+            graph.validate_proposal(self.store,run,{**proposal,'revise_tasks':[],'add_tasks':[unrelated],
+                'replan_after':['unrelated-reader']},repair_scope='fixed')
+        planning.queue(self.store,run,{'task_id':'fixed','repair_policy':'manager_revision'})
+        self.f.propose(proposal);repaired=self.f.tick();task=next(t for t in repaired['tasks'] if t['id']=='fixed')
+        self.assertEqual((task['revision'],task['repair_count'],task['status']),(1,2,'ready'))
+        self.assertEqual(task['spec']['inputs'],current['spec']['inputs'])
+        self.assertEqual(lookup(self.store,repaired,task['spec']['inputs']['candidate']['repair_candidate'])['path'],self.logical)
+
     def test_source_input_evidence_is_consistent_in_schema_and_authoritative_validation(self):
         from webapp.workflow_model_protocol import repair_options,ToolProtocol
         from webapp.specialist_profiles import get

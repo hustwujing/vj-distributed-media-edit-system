@@ -812,8 +812,10 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                 'outputs','preflight','config_files','timeout_seconds','retry_policy','on_failure','basic_reason')
         mutable=revision_mutable_fields(current.type,user_revision_scope is not None)
         frozen=tuple(name for name in frozen if name not in mutable)
-        ordinary_inputs={name:ref for name,ref in replacement.inputs.items() if not ref.repair_candidate}
-        if user_revision_scope is None and ordinary_inputs!=current.inputs:raise ValueError('Automatic revision cannot change original source inputs')
+        if user_revision_scope is None and (
+                any(replacement.inputs.get(name)!=ref for name,ref in current.inputs.items()) or
+                any(name not in current.inputs and not ref.repair_candidate for name,ref in replacement.inputs.items())):
+            raise ValueError('Automatic revision cannot change original source inputs')
         frozen=tuple(name for name in frozen if name!='inputs')
         changed=[name for name in frozen if getattr(current,name)!=getattr(replacement,name)]
         if changed:
@@ -855,6 +857,8 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
     for call in store.query('SELECT step,revision,implementation FROM workflow_provider_calls WHERE workflow=?',(run['id'],)):
         group=json.loads(call['implementation'])['budget_group'];calls[group]=calls.get(group,0)+1
         submitted.add((call['step'],call['revision']))
+    prior_inputs={identifier:Task.model_validate(row['spec']).inputs for identifier,row in existing.items()}
+    replacement_sources={new:old for old,new in replacements.items()}
     for task in specs.values():
         task_scope=authorization if task.id in added or task.id in revised else Authorization.model_validate(authority_for(store,run,existing[task.id]))
         if task.on_failure=='diagnose' and 'media_failure_diagnostician' not in task_scope.allowed_agent_profiles:
@@ -886,7 +890,11 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         for ref in task.inputs.values():
             if ref.repair_candidate:
                 from .repair_inputs import lookup
-                if task.id in existing and task.id not in revised:
+                # An immutable candidate already bound to this logical Task
+                # remains readable after its producer is retired. A revision
+                # or replacement does not turn that same input into a new grant.
+                inherited=prior_inputs.get(replacement_sources.get(task.id,task.id),{})
+                if ref in inherited.values():
                     lookup(store,run,ref.repair_candidate.model_dump());continue
                 allowed_sources=set(user_revision_scope) if user_revision_scope is not None else set(existing) if repair_scope=='' else {repair_scope} if repair_scope else set()
                 if ref.repair_candidate.logical_task_id not in allowed_sources:raise ValueError('Candidate is outside the frozen repair scope')
