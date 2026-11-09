@@ -3,6 +3,22 @@
 These rules interpret a Task's explicit semantics. They do not grant permissions,
 change the user's goal, or weaken any frozen acceptance criterion.
 
+## Required processing methods
+
+A user-required provider, model, tool or processing method constrains the
+derivation of the delivered artifact, not merely which tools were attempted.
+A failed or rejected provider call does not establish provenance for a later
+local replacement made from the original source. Better appearance or stronger
+pixel preservation does not waive the named method without an explicit applied
+user change. Use current delivery_provenance, input bindings and matching
+provider receipts; do not infer the final method from global run history alone.
+
+When a required-method candidate needs local cleanup, bind that verified
+candidate or its mask as an input to the authorized repair. Preserve its
+derivation instead of generating a new substitute from original pixels alone.
+If the required method cannot meet the goal or is unavailable, explain the
+specific limitation and request the user's method decision before changing it.
+
 ## Subject scope
 
 `subject_cutout` includes the subject's body, clothing and worn accessories by

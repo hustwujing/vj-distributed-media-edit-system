@@ -4,6 +4,18 @@ from webapp import workflow_graph as graph,run_inputs
 
 
 class FinalReviewInputIdentityTests(unittest.TestCase):
+    def test_same_pixels_from_a_different_producer_require_new_review(self):
+        import copy
+        from webapp.review_identity import identity
+        f=fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
+        run=f.review_fixture();tasks=copy.deepcopy(run['tasks'])
+        frozen={'review_scope':'final','goal':run['goal'],'delivery_targets':run['authorization']['delivery_targets'],'tasks':tasks}
+        first=identity(f.store,run,frozen)
+        changed=copy.deepcopy(frozen);changed['tasks'][0]['spec'].update(type='agent',profile='editing_implementer',argv=[])
+        self.assertNotEqual(first,identity(f.store,run,changed))
+        renamed=copy.deepcopy(frozen);renamed['tasks'][0]['spec']['name']='Different display label'
+        self.assertEqual(first,identity(f.store,run,renamed))
+
     def test_confirmed_targets_match_across_snapshot_shapes_and_include_requested_auxiliary_files(self):
         from webapp.workflow_model_protocol import required_delivery_names,required_delivery_extensions
         from webapp.workflow_agent_contracts import approved_delivery_refs,validate_resolved_review
@@ -46,6 +58,7 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
             self.assertIn('An explicit requirement or parameter in the user goal remains required',context['review_policy'])
             self.assertIn('Source-input evidence describes the original input',context['review_policy'])
             self.assertIn('plan_confirmation_evidence',context)
+            self.assertIn('delivery_provenance',context)
             self.assertIn('do not demand a separate plan file',context['review_policy'])
             self.assertNotIn('result_contract',context);self.assertNotIn('result_schema',context)
             self.assertTrue(context['review_criteria'])

@@ -922,11 +922,19 @@ class Orchestrator:
                 'objective':task['spec']['objective'],'output_roles':task.get('quality',{}).get('output_roles',{})}
                 for task in complete_tasks if not task['spec'].get('delivery_stage') and task['spec'].get('purpose')!='evidence']
             frozen['provider_receipts']=[]
-            for call in store.query('''SELECT request_key,provider,operation,state,external_id,implementation
+            for call in store.query('''SELECT request_key,step,revision,provider,operation,state,external_id,implementation
                     FROM workflow_provider_calls WHERE workflow=? ORDER BY created''',(run['id'],)):
                 implementation=json.loads(call.pop('implementation'))
                 frozen['provider_receipts'].append({**call,**{key:implementation.get(key,'') for key in
                     ('provider_identity','route_adapter','model')}})
+            frozen['delivery_provenance']=[{
+                'task_id':task['id'],'revision':task['revision'],
+                'producer':{key:task['spec'].get(key) for key in ('type','operation','implementation','profile')},
+                'input_sources':task['spec'].get('inputs',{}),
+                'current_provider_receipts':[call for call in frozen['provider_receipts']
+                    if call['step']==task['id'] and call['revision']==task['revision']],
+                'scope':'Current artifact producer and declared inputs; unrelated historical calls are not its provenance.'}
+                for task in complete_tasks if task['spec'].get('delivery_stage')]
             from .review_identity import applied_user_changes
             frozen['user_changes'],frozen['user_changes_truncated']=applied_user_changes(store,run)
             from .workflow_history import snapshot as history_snapshot,user_reviews

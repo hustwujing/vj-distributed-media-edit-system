@@ -68,6 +68,7 @@ def identity(store,run,frozen):
                 for role,ref in task['spec'].get('inputs',{}).items()}
         candidates.append({'content':files,'input_content':inputs,
             'objective':task['spec']['objective'],'acceptance':task['spec']['acceptance'],
+            'producer':{key:task['spec'].get(key) for key in ('type','operation','implementation','profile','parameters','argv','config_files')},
             'semantics':task['spec'].get('semantics'),'delivery_stage':task['spec'].get('delivery_stage')})
     context={'scope':frozen['review_scope'],'goal':frozen['goal'],
         'criteria':frozen.get('review_criteria',frozen.get('delivery_targets',[])),
