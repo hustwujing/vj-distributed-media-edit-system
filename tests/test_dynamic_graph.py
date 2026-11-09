@@ -724,6 +724,12 @@ class DynamicGraphTests(unittest.TestCase):
         payload=json.loads(self.store.query("SELECT payload_json FROM workflow_graph_events WHERE kind='delivery_blocked'")[0]['payload_json'])
         self.assertEqual(payload['missing_extensions'],['txt'])
         self.assertEqual(payload['missing_task_ids'],[])
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND kind='delivery_scope_change' AND status='pending'",(self.run['id'],)))
+        from webapp.workflow_api import public
+        shown=public(self.store,graph.get(self.store,self.run['id']))
+        self.assertEqual(shown['blocking_action']['kind'],'delivery_error')
+        self.assertIn('TXT',shown['blocking_action']['message'])
+        self.assertIn('无需缩小需求',shown['blocking_action']['message'])
 
     def test_explicit_delivery_filename_cannot_be_replaced_by_same_format(self):
         authorization={**self.run['authorization'],'delivery_targets':['final.mp4 and cover.png']}

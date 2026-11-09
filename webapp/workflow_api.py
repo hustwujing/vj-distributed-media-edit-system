@@ -141,19 +141,28 @@ def public(store,run):
     answers=store.query("SELECT content FROM session_messages WHERE run_id=? AND role='assistant' ORDER BY created_at DESC LIMIT 1",(run['id'],))
     value['conversation_answer']=answers[0]['content'] if answers else ''
     blocked=store.query("SELECT payload_json,created_at FROM workflow_graph_events WHERE run_id=? AND kind='delivery_blocked' ORDER BY seq DESC LIMIT 1",(run['id'],))
-    if run['terminal_reason']=='delivery_targets_incomplete':
+    if run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete':
         details=json.loads(blocked[0]['payload_json']) if blocked else {}
+        scope_decision=next((item['id'] for item in value['decisions'] if item['kind']=='delivery_scope_change'),None)
+        missing=[]
+        if details.get('missing_names'):missing.append('文件：'+'、'.join(details['missing_names'][:8]))
+        if details.get('missing_extensions'):missing.append('格式：'+'、'.join(str(x).upper() for x in details['missing_extensions'][:8]))
+        if details.get('missing_roles'):missing.append('输出角色：'+'、'.join(details['missing_roles'][:8]))
+        if details.get('missing_task_ids'):missing.append('交付任务：'+'、'.join(details['missing_task_ids'][:8]))
+        missing_text='；'.join(missing) or '已确认的交付项目'
         value['blocking_action']={
-            'kind':'delivery_scope_change',
+            'kind':'delivery_scope_change' if scope_decision else 'delivery_error',
             'code':'delivery_targets_incomplete',
-            'title':'交付范围需要确认',
-            'message':'当前成果未满足冻结的全部交付范围。请确认保留哪些交付内容，或补充缺少的产物。',
+            'title':'交付范围需要确认' if scope_decision else '交付选择不完整',
+            'message':('当前成果未满足冻结的全部交付范围。请确认保留哪些交付内容，或补充缺少的产物。' if scope_decision else
+                       '最终交付选择不完整（'+missing_text+'），尚未发布。这是交付检查问题，无需缩小需求；可以要求按原范围重新检查或补齐缺少的文件。'),
             'current_targets':run['authorization'].get('delivery_targets',[]),
             'missing_task_ids':details.get('missing_task_ids',[]),
             'missing_extensions':details.get('missing_extensions',[]),
             'missing_names':details.get('missing_names',[]),
             'missing_roles':details.get('missing_roles',[]),
-            'decision_id':next((item['id'] for item in value['decisions'] if item['kind']=='delivery_scope_change'),None),
+            'decision_id':scope_decision,
+            **({} if scope_decision else {'action':'replan'}),
             'created_at':blocked[0]['created_at'] if blocked else run['updated_at'],
         }
     elif run['status']=='WAITING_USER' and run['terminal_reason']:

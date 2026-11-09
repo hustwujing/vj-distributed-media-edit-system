@@ -26,13 +26,16 @@ def delivery_candidate_refs(task):
 
 def approved_delivery_refs(snapshot,*,exclude_forbidden=True):
     """Return delivery candidates, including auxiliary roles explicitly requested by the user."""
-    from .workflow_model_protocol import required_delivery_roles,forbidden_delivery_names
-    required_roles=required_delivery_roles(snapshot);approved=set()
+    from .workflow_model_protocol import required_delivery_roles,required_delivery_names,required_delivery_extensions,forbidden_delivery_names
+    required_roles=required_delivery_roles(snapshot);requested_names=required_delivery_names(snapshot)
+    requested_formats=required_delivery_extensions(snapshot);approved=set();aliases={'jpg':'jpeg'}
     for task in snapshot.get('tasks',[]):
         if not task.get('spec',{}).get('delivery_stage'):continue
         accepted=set(task.get('accepted_result',[]));approved.update(delivery_candidate_refs(task))
         approved.update(path for role,path in task.get('quality',{}).get('output_roles',{}).items()
                         if role in required_roles and path in accepted)
+        approved.update(path for path in accepted if path.rsplit('/',1)[-1] in requested_names
+            or aliases.get(path.rsplit('.',1)[-1].lower(),path.rsplit('.',1)[-1].lower()) in requested_formats)
     forbidden=forbidden_delivery_names(snapshot) if exclude_forbidden else set()
     return {path for path in approved if path.rsplit('/',1)[-1] not in forbidden}
 

@@ -71,11 +71,13 @@ class Orchestrator:
             db.execute('BEGIN IMMEDIATE');self.check(db,identifier,generation)
             run=graph.get(store,identifier)
             if run['status'] in RUN_TERMINAL:return
-            if run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete' and not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
+            if (run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete'
+                and store.query("SELECT id FROM run_inputs WHERE run_id=? AND status='APPLIED' LIMIT 1",(run['id'],))
+                and not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))):
                 self.decision(run,'delivery_scope_change',{
                     'question':'当前成果未满足全部交付目标。请确认新的交付范围；已有合格成果可以复用。',
                     'current_targets':run['authorization'].get('delivery_targets',[]),
-                    'reason':'已应用的用户要求可能收窄了交付范围，需要确认新的授权版本。'})
+                    'reason':'已有后续输入，但当前成果仍未覆盖已确认的交付范围。请核对是否需要变更范围；保留原范围时应补齐缺少的交付。'})
             self.commands(run)
             run=graph.get(store,identifier)
             user_paused=run['status']=='WAITING_USER' and run['terminal_reason']=='user_paused'
@@ -1136,11 +1138,12 @@ class Orchestrator:
         if missing_extensions:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':sorted(missing_extensions)})
-            self.decision(run,'delivery_scope_change',{
-                'question':'当前成果未满足全部交付目标。请确认新的交付范围；已有合格成果可以复用。',
-                'current_targets':run['authorization'].get('delivery_targets',[]),
-                'missing_extensions':sorted(missing_extensions),
-                'reason':'已应用的用户要求可能收窄了交付范围，需要确认新的授权版本。'})
+            if store.query("SELECT id FROM run_inputs WHERE run_id=? AND status='APPLIED' LIMIT 1",(run['id'],)):
+                self.decision(run,'delivery_scope_change',{
+                    'question':'当前成果未满足全部交付目标。请核对交付范围；已有合格成果可以复用。',
+                    'current_targets':run['authorization'].get('delivery_targets',[]),
+                    'missing_extensions':sorted(missing_extensions),
+                    'reason':'已有后续输入，但当前成果仍未覆盖已确认的交付范围。保留原范围时应补齐缺少的交付。'})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
         from pathlib import PurePosixPath
         missing_names=required_names-{publication_names.get(name,PurePosixPath(name).name) for name in selected}

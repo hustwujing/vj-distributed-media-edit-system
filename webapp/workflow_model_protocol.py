@@ -89,19 +89,23 @@ def change_fields(task_type,user=False):
 
 
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage')
+DELIVERY_SUFFIXES=('png','jpg','jpeg','webp','tif','tiff','mp4','mov','mkv','webm','wav','mp3','m4a','flac',
+                   'srt','vtt','ass','json','txt','md','csv','pdf','zip','psd','ora','svg','py')
+DELIVERY_EXTENSION_PATTERN='(?:'+'|'.join(DELIVERY_SUFFIXES)+')'
 
 
 def _delivery_request_text(frozen,forbidden_names=None):
     import re
     records=[*frozen.get('user_changes',[]),*((frozen.get('input_batch') or {}).get('inputs') or [])]
     changes=[item.get('content','') for item in records if isinstance(item,dict)]
-    text=' '.join([frozen.get('goal',''),*frozen.get('authorization',{}).get('delivery_targets',[]),*changes])
+    targets=frozen.get('delivery_targets',frozen.get('authorization',{}).get('delivery_targets',[]))
+    text=' '.join([frozen.get('goal',''),*targets,*changes])
     for value in frozen.get('input_asset_names',[]):
         if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
     for asset in frozen.get('assets',[]):
         for value in (asset.get('name'),asset.get('filename')):
             if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
-    extension=r'(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
+    extension=DELIVERY_EXTENSION_PATTERN
     filename=re.compile(r'(?i)(?<![A-Za-z0-9_.-])[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+extension+r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])')
     exclusions={};inclusions={}
     def omit_non_delivery(match):
@@ -128,7 +132,7 @@ def _delivery_request_text(frozen,forbidden_names=None):
     forbidden={name for name,offset in exclusions.items() if inclusions.get(name,-1)<offset}
     if forbidden_names is not None:forbidden_names.update(forbidden)
     text=filename.sub(lambda match:' ' if match.group(0) in forbidden else match.group(0),text)
-    format_token=re.compile(r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])')
+    format_token=re.compile(r'(?i)(?<![A-Za-z0-9])('+ '|'.join(DELIVERY_SUFFIXES)+r')(?![A-Za-z0-9])')
     def omit_intermediate_format(match):
         after=text[match.end():]
         endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
@@ -146,7 +150,7 @@ def required_delivery_names(frozen):
     explicit={match.group(0) for clause in re.finditer(r'(?i)(?:交付|\bdeliver\s+)[^;；。\n]*',text)
               for match in filename.finditer(clause.group(0))}
     if explicit:names=explicit
-    name=r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.(?:png|jpe?g|mp4|wav|mp3|srt|json|txt|pdf|zip|psd)'
+    name=r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+DELIVERY_EXTENSION_PATTERN
     for renamed in re.finditer(rf'(?i)(?P<old>{name})\s*(?:改名为|重命名为|rename(?:d)?\s+to)\s*(?P<new>{name})',text):
         names.discard(renamed.group('old'))
     for renamed in re.finditer(rf'(?i)(?:最终文件|最终产物|交付文件|final\s+(?:file|output))\s*(?:改名为|重命名为|rename(?:d)?\s+to)\s*(?P<new>{name})',text):
@@ -167,7 +171,7 @@ def required_delivery_extensions(frozen):
     text,_=_delivery_request_text(frozen)
     aliases={'jpg':'jpeg'}
     return {aliases.get(value.lower(),value.lower()) for value in re.findall(
-        r'(?i)(?<![A-Za-z0-9])(PNG|JPE?G|MP4|WAV|MP3|SRT|JSON|TXT|PDF|ZIP|PSD)(?![A-Za-z0-9])',text)}
+        r'(?i)(?<![A-Za-z0-9])('+ '|'.join(DELIVERY_SUFFIXES)+r')(?![A-Za-z0-9])',text)}
 
 
 def bind_explicit_delivery_names(raw,filenames,roles,frozen):

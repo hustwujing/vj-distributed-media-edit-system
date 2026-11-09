@@ -4,6 +4,28 @@ from webapp import workflow_graph as graph,run_inputs
 
 
 class FinalReviewInputIdentityTests(unittest.TestCase):
+    def test_confirmed_targets_match_across_snapshot_shapes_and_include_requested_auxiliary_files(self):
+        from webapp.workflow_model_protocol import required_delivery_names,required_delivery_extensions
+        from webapp.workflow_agent_contracts import approved_delivery_refs,validate_resolved_review
+        targets=['subtitle_v2.srt','subtitle_check.json','render.py','editable.svg','layers.ora','notes.md']
+        nested={'goal':'检查现有字幕并交付已确认结果','authorization':{'delivery_targets':targets}}
+        flat={'goal':nested['goal'],'delivery_targets':targets}
+        self.assertEqual(required_delivery_names(nested),set(targets))
+        self.assertEqual(required_delivery_names(flat),set(targets))
+        self.assertEqual(required_delivery_extensions(flat),{'srt','json','py','svg','ora','md'})
+        subtitle='edit/step/subtitle_v2.srt';report='edit/step/subtitle_check.json'
+        snapshot={'review_scope':'final','goal':'检查现有字幕','delivery_targets':targets[:2],
+                  'review_criteria':['已确认的字幕与检查记录'],
+                  'tasks':[{'id':'subtitle','spec':{'delivery_stage':True},'accepted_result':[subtitle,report],
+                            'quality':{'output_roles':{'subtitle':subtitle,'report':report}}}]}
+        self.assertEqual(approved_delivery_refs(snapshot),{subtitle,report})
+        self.assertEqual(approved_delivery_refs({**snapshot,'delivery_targets':[targets[0]]}),{subtitle})
+        decision={'verdict':'pass','evidence':[{'criterion':snapshot['review_criteria'][0],'inspection_id':'a','ref':subtitle}],
+                  'deliverables':[subtitle],'primary':subtitle}
+        with self.assertRaisesRegex(ValueError,'missing required formats'):
+            validate_resolved_review(decision,snapshot,{'a':subtitle,'b':report})
+        validate_resolved_review({**decision,'deliverables':[subtitle,report]},snapshot,{'a':subtitle,'b':report})
+
     def test_actual_review_model_context_retains_semantic_policy(self):
         import threading
         from types import SimpleNamespace
