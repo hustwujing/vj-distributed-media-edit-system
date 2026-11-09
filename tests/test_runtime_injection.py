@@ -65,5 +65,23 @@ class RuntimeInjectionTests(unittest.TestCase):
         self.assertEqual(runtime['gateway_config_file'],GATEWAY_CONFIG)
         self.assertNotIn(gateway.token,files.data[RUNTIME_CONFIG].decode())
 
+    def test_task_output_and_scratch_exist_before_runtime_activation(self):
+        base=self.bundle();output='/workspace/edit/workflows/run/task/attempt'
+        bundle=RuntimeBundle.create(base.identity,base.harness,base.profile,base.binding,
+            {**base.harness_config,'task_workspace':{'output':output,
+                'inputs':{'source':['/workspace/sources/input.mp4']}}},token=base.control_token)
+        files=FakeFiles();RuntimeInjector(files).inject(bundle,lambda _:None)
+        self.assertIn(('mkdir',output,0o700),files.operations)
+        self.assertIn(('mkdir',output+'/.scratch',0o700),files.operations)
+        activation=files.operations.index(('move',RUNTIME_PENDING,RUNTIME_CONFIG))
+        self.assertLess(files.operations.index(('mkdir',output+'/.scratch',0o700)),activation)
+
+    def test_task_scratch_injection_rejects_output_escape(self):
+        base=self.bundle()
+        bundle=RuntimeBundle.create(base.identity,base.harness,base.profile,base.binding,
+            {**base.harness_config,'task_workspace':{'output':'/tmp/work','inputs':{}}},token=base.control_token)
+        with self.assertRaisesRegex(ValueError,'path policy'):
+            RuntimeInjector(FakeFiles()).inject(bundle,lambda _:None)
+
 
 if __name__=='__main__':unittest.main()

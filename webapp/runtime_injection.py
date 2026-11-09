@@ -86,6 +86,14 @@ class RuntimeInjector:
         for path,mode in ((RUNTIME_ROOT,0o700),('/workspace',0o700),('/state',0o700)):
             self.files.mkdir(path,mode)
         restore_workspace(self.files)
+        task_workspace=bundle.harness_config.get('task_workspace')
+        if task_workspace is not None:
+            if not isinstance(task_workspace,dict) or not isinstance(task_workspace.get('output'),str):
+                raise ValueError('Invalid Task workspace injection contract')
+            from .sandbox_path_policy import scratch_directory
+            output=task_workspace['output'];scratch=scratch_directory(output)
+            self.files.mkdir(output,0o700)
+            self.files.mkdir(scratch,0o700)
         for path in ('/state/tmp','/state/codex','/state/claude','/state/dsh'):
             self.files.mkdir(path,0o700)
         if bundle.harness=='codex':
