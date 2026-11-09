@@ -19,9 +19,6 @@ except ImportError:
 
 
 DEEPSEEK_CODE_EDITOR_PATCH = '''
-- id: system-prompt
-  config:
-    personaPrefix: !!js process.env.DSH_SYSTEM_PROMPT
 - id: plan-mode
   disabled: true
 - id: tool-web
@@ -64,7 +61,7 @@ def deepseek_options(config, instructions, patch):
         'base_url':'http://127.0.0.1:18766/v1','api_key':'gateway-placeholder',
         # The outer OpenSandbox already supplies the filesystem, network,
         # process and cgroup boundary. The inner profile only exposes Bash.
-        'env':{'DSH_PERMISSION_MODE':'danger-full-access','DSH_SYSTEM_PROMPT':instructions},
+        'env':{'DSH_PERMISSION_MODE':'danger-full-access'},
         'request_timeout_seconds':30,'shutdown_timeout_seconds':5,
     }
 
@@ -157,7 +154,7 @@ class Bridge:
             else:
                 # No private session decoding. SDK emits public messages and tools.
                 result = self.sdk.start_session(self.session_id).run(
-                    text,
+                    self.instructions + '\n\n' + text,
                     on_notification=lambda value: self.codec.deepseek(value, self.session_id))
                 self.sdk.close()
                 self.sdk = None

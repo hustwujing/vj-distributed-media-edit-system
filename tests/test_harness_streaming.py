@@ -69,7 +69,7 @@ class NativeStreamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             patch=prepare_deepseek_profile(Path(folder))
             text=Path(patch).read_text()
-        self.assertIn('personaPrefix: !!js process.env.DSH_SYSTEM_PROMPT',text)
+        self.assertNotIn('!!js',text)
         for identifier in ('plan-mode','tool-web','tool-subagent','tool-workflow','tool-todo','tool-goal','tool-skill','mcp-resources'):
             self.assertIn('- id: '+identifier,text)
         value=deepseek_options({'model':'deepseek-v4.1-flash','reasoning_effort':'high',
@@ -77,6 +77,5 @@ class NativeStreamTests(unittest.TestCase):
         self.assertEqual(value['profile'],'sdk')
         self.assertEqual(value['patches'],(patch,))
         self.assertEqual(value['max_tokens'],4096)
-        self.assertEqual(value['env'],{
-            'DSH_PERMISSION_MODE':'danger-full-access','DSH_SYSTEM_PROMPT':'trusted task rules'})
+        self.assertEqual(value['env'],{'DSH_PERMISSION_MODE':'danger-full-access'})
         self.assertEqual(value['base_url'],'http://127.0.0.1:18766/v1')
