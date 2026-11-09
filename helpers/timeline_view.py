@@ -199,6 +199,27 @@ def load_font(size: int) -> ImageFont.ImageFont:
 # -------- Composite ----------------------------------------------------------
 
 
+def layout_word_labels(words, time_to_x, left, right, font):
+    """Keep every valid word; place colliding labels on additional bounded lanes."""
+    labels=[];lane_ends=[]
+    for word in sorted(words,key=lambda w:(w.get('start',0),w.get('end',0))):
+        if word.get('type','word')!='word':continue
+        text=str(word.get('text') or '').strip()
+        start,end=word.get('start'),word.get('end')
+        if not text or start is None or end is None or end<=start:continue
+        if len(labels)>=4096:raise ValueError('Too many timeline words; choose a shorter time range')
+        width=max(1,int(np.ceil(font.getlength(text))))
+        if width>right-left:raise ValueError('A timeline word is wider than the canvas')
+        tick=max(left,min(right,(time_to_x(start)+time_to_x(end))//2))
+        x=max(left,min(right-width,tick-width//2))
+        lane=next((i for i,edge in enumerate(lane_ends) if x>=edge+6),len(lane_ends))
+        if lane>=64:raise ValueError('Timeline word labels are too dense; choose a shorter time range')
+        if lane==len(lane_ends):lane_ends.append(x+width)
+        else:lane_ends[lane]=x+width
+        labels.append({'text':text,'x':x,'width':width,'lane':lane,'tick':tick})
+    return labels,len(lane_ends)
+
+
 BG = (18, 18, 22)
 FG = (235, 235, 235)
 DIM = (110, 110, 120)
@@ -226,10 +247,7 @@ def render_timeline(
         frame_h = 180
         filmstrip_y = 50
         filmstrip_h = frame_h
-        wave_y = filmstrip_y + filmstrip_h + 20
         wave_h = 220
-        label_y = wave_y + wave_h + 10
-        canvas_height = label_y + 60
 
         # Load + resize frames to uniform height and compute total width
         imgs: list[Image.Image] = []
@@ -243,12 +261,21 @@ def render_timeline(
         content_w = max(1400, total_frame_w)
         canvas_width = max(canvas_width, content_w + 100)
 
-        canvas = Image.new("RGB", (canvas_width, canvas_height), BG)
-        draw = ImageDraw.Draw(canvas, "RGBA")
-
         header_font = load_font(22)
         label_font = load_font(14)
         small_font = load_font(12)
+        strip_x0=50;strip_span=total_frame_w+4;strip_x1=strip_x0+strip_span
+        def time_to_x(t: float) -> int:
+            return int(strip_x0+(t-start)/max(1e-6,end-start)*strip_span)
+        transcript_available=bool(transcript and transcript.is_file())
+        words=words_in_range(transcript,start,end) if transcript_available else []
+        word_labels,lanes=layout_word_labels(words,time_to_x,strip_x0,strip_x1,small_font)
+        word_y=filmstrip_y+filmstrip_h+4
+        wave_y=word_y+max(16,lanes*20)+8
+        label_y=wave_y+wave_h+10;canvas_height=label_y+60
+        if canvas_width*canvas_height>64_000_000:raise ValueError('Timeline canvas is too large; choose fewer frames or a shorter range')
+        canvas = Image.new("RGB", (canvas_width, canvas_height), BG)
+        draw = ImageDraw.Draw(canvas, "RGBA")
 
         # Header — time range
         draw.text(
@@ -282,16 +309,10 @@ def render_timeline(
         strip_x1 = 50 + draw_width
         strip_span = strip_x1 - strip_x0
 
-        def time_to_x(t: float) -> int:
-            frac = (t - start) / max(1e-6, (end - start))
-            return int(strip_x0 + frac * strip_span)
-
         # Waveform background
         draw.rectangle((strip_x0, wave_y, strip_x1, wave_y + wave_h), fill=(28, 28, 34))
 
         # Silence shading (under the waveform)
-        transcript_available = bool(transcript and transcript.is_file())
-        words = words_in_range(transcript, start, end) if transcript_available else []
         silences = find_silences(words, start, end, threshold=0.4) if transcript_available else []
         for a, b in silences:
             xa = time_to_x(a)
@@ -316,26 +337,9 @@ def render_timeline(
             poly = points_top + list(reversed(points_bot))
             draw.polygon(poly, fill=(*WAVE, 60))
 
-        # Word labels above the waveform (only words lasting ≥ 120ms to avoid clutter)
-        last_label_x = -9999
-        for w in words:
-            if w.get("type") != "word":
-                continue
-            ws = w.get("start")
-            we = w.get("end")
-            text = (w.get("text") or "").strip()
-            if not text or ws is None or we is None:
-                continue
-            if (we - ws) < 0.05:
-                continue
-            cx = (time_to_x(ws) + time_to_x(we)) // 2
-            if cx - last_label_x < 28:
-                continue
-            # Tiny tick on the waveform
-            draw.line((cx, wave_y - 4, cx, wave_y), fill=DIM, width=1)
-            # Text above the waveform
-            draw.text((cx + 2, wave_y - 18), text, fill=FG, font=small_font)
-            last_label_x = cx
+        for label in word_labels:
+            draw.line((label['tick'],wave_y-4,label['tick'],wave_y),fill=DIM,width=1)
+            draw.text((label['x'],word_y+label['lane']*20),label['text'],fill=FG,font=small_font,anchor='lt')
 
         # Time ruler below waveform
         ruler_y = wave_y + wave_h + 2

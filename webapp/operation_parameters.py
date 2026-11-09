@@ -176,6 +176,7 @@ class EditSubtitles(Parameters):
     from_transcripts:bool=False
     clip_to_output:bool=Field(default=True,description='For output-timeline SRT, discard cues after the rendered duration and clip a cue crossing the end. Disable for strict rejection.')
     words_per_line:int=Field(default=6,ge=1,le=20)
+    uppercase:bool=Field(default=False,description='Uppercase displayed captions and exported SRT together, preserving timestamps and source transcript. Set with words_per_line=2 for two-word uppercase captions.')
     size:int|None=Field(default=None,ge=10,le=200)
     color:str=Field(default='#FFFFFF',pattern=r'^#[0-9A-Fa-f]{6}$')
     highlight:str|None=Field(default=None,pattern=r'^#[0-9A-Fa-f]{6}$')

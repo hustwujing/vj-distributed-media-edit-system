@@ -21,12 +21,16 @@ failed/pending operation alone does not prove execution. Do not infer the
 final method from unrelated global run history.
 
 Review and diagnostic feedback identifies defects; it is not authority to
-change the processing method. Step reviewers may not see every Run requirement,
-so describe the property needing correction and keep repair advice within the
-registered method. Any suggested alternative is conditional on the Planner
-checking the user's method requirements and obtaining a method change when
-needed. A downstream Planner must not turn such feedback into an unconditional
-method substitution. Merely borrowing a candidate's color statistics is not
+change a user-required processing method. A registered implementation chosen
+by the Planner is not automatically a user-required method. Within existing
+permissions, an equivalent local implementation may satisfy the same output
+and style requirements without asking for new authorization. A requested
+visual style alone does not require retaining the first renderer selected.
+Step reviewers may not see every Run requirement, so describe the property
+needing correction and make implementation alternatives conditional on the
+Planner preserving explicit user method constraints. Obtain a method change
+only when a user-required method would change, or additional permission is
+actually needed. Merely borrowing a candidate's color statistics is not
 equivalent to compositing that candidate's edited pixels when the latter is
 what the user requested.
 

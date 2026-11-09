@@ -102,7 +102,7 @@ position 为 top、center、bottom；文本最多 500 字，支持换行，超�
 `subtitles` 二选一：
 
 ```json
-{"from_transcripts": true, "words_per_line": 6,
+{"from_transcripts": true, "words_per_line": 6, "uppercase": false,
  "size": 36, "color": "#FFFFFF", "highlight": "#FFE066",
  "position": "bottom", "outline": 2}
 ```
@@ -112,7 +112,8 @@ position 为 top、center、bottom；文本最多 500 字，支持换行，超�
  "position": "bottom", "outline": 2}
 ```
 
-缓存模式自动重排输出时间，按词数、说话人和停顿分组；保留原文大小写。
+缓存模式自动重排输出时间，按词数、说话人和停顿分组；默认保留原文大小写。
+`uppercase: true` 将烧录字幕、逐词高亮文字和导出SRT一起转为大写，不修改源转写或时间戳；也适用于输入SRT。双词大写样式使用`words_per_line: 2, uppercase: true`。
 highlight 是 ASS 卡拉 OK 式逐词填色，当前句已说过的词保留高亮。仅缓存模式可用。
 手工 SRT 必须是 UTF-8，采用成片时间，双语可写成同一条目的两行；超过成片时长将被拒绝。
 字幕最后合成，并一并导出 SRT 和 ASS。倒放与分屏不自动套用缓存字幕，使用成片时间 SRT。

@@ -17,8 +17,8 @@
     },
     {
       "path": "helpers/edit_captions.py",
-      "sha256": "d9703a7f86385511ab9b7433a50c7cdbe9ac5a796336e258acd640507b7d9161",
-      "size": 6632
+      "sha256": "0d02467981d714e44bf81fd747fc78c12c34c703f92b4e06e07634b300e2e72c",
+      "size": 6896
     },
     {
       "path": "helpers/edit_media.py",
@@ -27,8 +27,8 @@
     },
     {
       "path": "helpers/edit_plan.py",
-      "sha256": "6130763df41fe999e8e34656f5886f2e714da140d7c5d257b60700710e449221",
-      "size": 17246
+      "sha256": "0e6f19e5ca8302ef93034cf4fb041a34256ecc14f28f5da635d1d34ba1874234",
+      "size": 17302
     },
     {
       "path": "helpers/grade.py",
@@ -57,8 +57,8 @@
     },
     {
       "path": "helpers/timeline_view.py",
-      "sha256": "896e5e69c19450849b0ccd9e477b48cb668abb3f1c992d5e0b5bf8e21240951e",
-      "size": 15525
+      "sha256": "9163524ca2a6b32fd8a9a15bffc881608e7823e0b9ac05b83b173edce39bc0a8",
+      "size": 16452
     },
     {
       "path": "helpers/transcribe.py",
@@ -102,8 +102,8 @@
     },
     {
       "path": "references/edit-plan.md",
-      "sha256": "9b2a115e0a51d2d9149be1030f496de46371a9cddcc783e109d03e0e96084f05",
-      "size": 8816
+      "sha256": "3fd02fb2c3d7686d5b2b47da5d3f9cc55971084560eb13e41f86d1b39e3cb209",
+      "size": 9050
     },
     {
       "path": "references/image-editing.md",
@@ -122,8 +122,8 @@
     },
     {
       "path": "references/media-semantics.md",
-      "sha256": "83141356c0b0f91aeb49dc162a28f7fc5f3dff08be52b5bbaac0f03fab01283c",
-      "size": 10470
+      "sha256": "357ec60b05af19c68a797141fa4f46d26e3167ec81053903d81e3e9cdd62152a",
+      "size": 10757
     },
     {
       "path": "references/style-previews.md",
@@ -147,6 +147,6 @@
     }
   ],
   "schema_version": 1,
-  "skill_digest": "sha256:8a70719184b794758a8ed8ec82535d736f4eefe0ddff1d81e4f56bbce4f4fa66",
+  "skill_digest": "sha256:936e0014b7c470d29c3d2189512548fb3f66aeeaabee2302c3762ec98c86b1a4",
   "tool_schema_digest": "sha256:f8de293751d181cb05491d32b3b81b55d372489a426935f20c3dbf8b8ffe023b"
 }

@@ -64,6 +64,10 @@ def join_words(words):
 
 def cues_for_plan(p):
     settings = p['subtitles']
+    def format_cues(cues):
+        if not settings.get('uppercase'):return cues
+        return [{**cue,'text':cue['text'].upper(),
+                 'words':[{**word,'text':word['text'].upper()} for word in cue['words']]} for cue in cues]
     if 'file' in settings:
         cues = parse_srt(settings['file'])
         if settings.get('clip_to_output',True):
@@ -72,7 +76,7 @@ def cues_for_plan(p):
             if not cues:raise PlanError('SRT has no cues within the rendered duration')
         elif any(c['end'] > p['_duration']+.05 for c in cues):
             raise PlanError('SRT must use output times and end within the rendered duration')
-        return cues
+        return format_cues(cues)
     cues = []
     for c in p['clips']:
         for repeat in range(c['repeat']):
@@ -89,7 +93,7 @@ def cues_for_plan(p):
                     cues.append({'start':group[0]['start'],'end':group[-1]['end'],'text':join_words(group),'words':group});group=[]
                 group.append(w)
             if group: cues.append({'start':group[0]['start'],'end':group[-1]['end'],'text':join_words(group),'words':group})
-    return sorted(cues,key=lambda c:c['start'])
+    return format_cues(sorted(cues,key=lambda c:c['start']))
 
 
 def ass_escape(text):

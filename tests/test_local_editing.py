@@ -239,6 +239,24 @@ class LocalEditingTests(unittest.TestCase):
         strict=self.plan(clips=[{'source':'a','end':1}],subtitles={'file':'edit/input.srt','clip_to_output':False})
         with self.assertRaisesRegex(Exception,'end within'):cues_for_plan(validate(strict,self.root))
 
+    def test_uppercase_keeps_srt_burned_highlight_and_source_in_sync(self):
+        source=self.root/'sources/words.json';original=source.read_bytes()
+        raw=self.plan(transcripts={'a':'sources/words.json'},clips=[{'source':'a','end':2.4}],
+            subtitles={'from_transcripts':True,'words_per_line':2,'uppercase':True,'highlight':'#FFE066','size':16})
+        out,plan=self.render(raw,'uppercase-captions.mp4')
+        cues=parse_srt(out.with_suffix('.srt'))
+        self.assertEqual(cues[0]['text'],'ONE TWO')
+        self.assertEqual((cues[0]['start'],cues[0]['end']),(.3,1.2))
+        ass=out.with_suffix('.ass').read_text()
+        self.assertIn('}ONE',ass);self.assertIn(' TWO',ass);self.assertNotIn('}One',ass)
+        self.assertEqual(source.read_bytes(),original)
+        srt=self.root/'edit/uppercase-input.srt';srt.write_text('1\n00:00:00,300 --> 00:00:00,700\nMixed 你好!\n')
+        incoming=srt.read_bytes()
+        parsed=cues_for_plan(validate(self.plan(subtitles={'file':'edit/uppercase-input.srt','uppercase':True}),self.root))
+        self.assertEqual(parsed[0]['text'],'MIXED 你好!');self.assertEqual(srt.read_bytes(),incoming)
+        from webapp.operation_parameters import EditSubtitles
+        self.assertTrue(EditSubtitles.model_validate({'from_transcripts':True,'words_per_line':2,'uppercase':True}).uppercase)
+
     def test_selected_font_has_distinct_chinese_glyphs(self):
         from PIL import ImageFont
         font=ImageFont.truetype(caption_font()[0],32)
