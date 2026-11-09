@@ -60,6 +60,18 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertIn('GPU 显存不足',value['blocking_action']['message'])
         self.assertIn('未自动重复提交',value['blocking_action']['message'])
 
+    def test_native_task_timeout_never_replays_same_revision_as_transient_transport(self):
+        self.tick()
+        self.propose({'proposal_id':'native-timeout','reason':'Create report','base_graph_version':0,
+            'add_tasks':[script(on_failure='diagnose')],'replan_after':['first']})
+        run=self.tick();task=run['tasks'][0]
+        self.orchestrator.task_failure(run,task,{'error_code':'agent_timeout','phase':'local',
+            'error_detail':'代码编辑师已达到运行时限','transient':False})
+        current=graph.get(self.store,run['id']);failed=current['tasks'][0]
+        self.assertEqual(failed['status'],'paused');self.assertEqual(failed['error_code'],'agent_timeout')
+        self.assertNotEqual(failed['status'],'retry_wait')
+        self.assertTrue(any(job['spec']['profile']=='media_failure_diagnostician' for job in current['control_jobs']))
+
     def test_initialize_upgrades_legacy_dynamic_schema_without_losing_rows(self):
         with self.store.connect() as db:
             db.execute('DROP VIEW run_work_items')

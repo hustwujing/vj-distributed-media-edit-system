@@ -20,6 +20,8 @@ class ErrorClassificationTests(unittest.TestCase):
         self.assertTrue(transient_model_error(ProtocolError('stream reset')))
         self.assertTrue(transient_model_error(ReadTimeoutError(None,'/messages','timed out')))
         self.assertFalse(transient_model_error(ValueError('invalid model payload')))
+        from webapp.runtime_client import NativeTaskTimeout
+        self.assertFalse(transient_model_error(NativeTaskTimeout('bounded native turn timed out')))
 
     def test_provider_failure_detail_is_actionable_and_redacted(self):
         from webapp.workflow_executor import provider_failure_detail

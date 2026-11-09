@@ -16,6 +16,10 @@ class RuntimeStartupError(RuntimeError):
     pass
 
 
+class NativeTaskTimeout(TimeoutError):
+    """A bounded native turn ended without a candidate; replay is not transport recovery."""
+
+
 def preflight():
     try:
         from websockets.sync.client import connect

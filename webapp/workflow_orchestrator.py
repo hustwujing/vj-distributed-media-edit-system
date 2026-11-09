@@ -590,7 +590,7 @@ class Orchestrator:
         if code not in {'submission_unknown','result_unavailable','technical_validation_failed','quality_failed','execution_failed',
                         'provider_failed','poll_failed','collect_failed','agent_failed','review_incomplete','review_contract_exhausted',
                         'planning_contract_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted','missing_proposal','invalid_result_manifest','model_result','pre_submit',
-                        'provider_cancelled','runtime_profile_changed','policy_changed','agent_runtime_unavailable'}:code='execution_failed'
+                        'provider_cancelled','runtime_profile_changed','policy_changed','agent_runtime_unavailable','agent_timeout'}:code='execution_failed'
         business_attempts=max(0,task['attempts']-task.get('infrastructure_interruptions',0))
         retry=(not task.get('control_kind') and graph.Task.model_validate(task['spec']).retry_policy=='safe_once'
                and business_attempts<2 and phase=='local' and code=='execution_failed'
@@ -612,6 +612,7 @@ class Orchestrator:
             'review_contract_exhausted':'Reviewer 未能在限定纠错轮次内提交合法选择；已保留候选、检查和字段错误。',
             'planning_contract_exhausted':'Manager 未能在限定纠错轮次内提交合法计划；已保留草稿和精确校验错误。',
             'agent_failed':'专业 Agent 未能提交有效结果。已保留诊断，请检查后重试或重新规划。',
+            'agent_timeout':'代码编辑师在限定时间内未完成，未发布候选成果，也不会自动重放同一轮；请根据诊断拆小任务或调整方案。',
             'review_incomplete':'本轮审查未获得充分证据或有效结论，正在交回规划补充证据。',
             'submission_unknown':'外部请求结果尚未确认，已暂停以避免重复调用。',
             'pre_submit':'提交前检查未通过，尚未发起外部请求。请检查输入或配置后重新规划。',

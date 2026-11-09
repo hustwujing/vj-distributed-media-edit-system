@@ -90,7 +90,9 @@ def execute(host,lease,run,task):
         while ended is None:
             lease.check()
             if host.stop.is_set():raise LeaseLost('Executor is stopping')
-            if time.monotonic()>=deadline:raise TimeoutError('代码编辑师已达到运行时限，未发布候选成果。')
+            if time.monotonic()>=deadline:
+                from .runtime_client import NativeTaskTimeout
+                raise NativeTaskTimeout('代码编辑师已达到运行时限，未发布候选成果。')
             try:runtime.client.receive_once()
             except TimeoutError:continue
             except RuntimeTransportError:

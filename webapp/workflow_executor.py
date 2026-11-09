@@ -8,7 +8,8 @@ from .task_lifecycle import TaskLimitReached
 
 
 def transient_model_error(exc):
-    from .runtime_client import RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError
+    from .runtime_client import RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError,NativeTaskTimeout
+    if isinstance(exc,NativeTaskTimeout):return False
     if isinstance(exc,(RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError)):return False
     try:
         import requests
@@ -184,9 +185,11 @@ def _execute(host,lease):
             except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.run_id,step_id=lease.step_id)
         calls=store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(run['id']+':'+task['id']+':'+str(task['revision']),))
         transient_model=bool(task['type']=='agent' and transient_model_error(exc))
-        from .runtime_client import RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError
+        from .runtime_client import RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError,NativeTaskTimeout
         from .sandbox_backends import BackendConfigurationError,BackendNotReady
-        if task['type']=='agent' and isinstance(exc,(RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError,BackendConfigurationError,BackendNotReady)):
+        if task['type']=='agent' and isinstance(exc,NativeTaskTimeout):
+            code='agent_timeout'
+        elif task['type']=='agent' and isinstance(exc,(RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError,BackendConfigurationError,BackendNotReady)):
             code='agent_runtime_unavailable'
         elif isinstance(exc,TaskQuotaReached):
             code=quota_error_code(task,exc)
