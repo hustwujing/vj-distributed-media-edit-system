@@ -32,7 +32,7 @@ def for_run(store,run):
                 location=tool='opensandbox_unconfirmed'
             elif attempt['runtime'] and attempt['uid'] is not None:
                 location=tool='bwrap_sandbox'
-            if agent and attempt['kind']=='workflow':
+            if agent and attempt['kind']=='workflow' and (item.get('profile') or {}).get('harness')!='native-implementer-v1':
                 # Structured experts execute on the worker; only their tools
                 # enter the allocated runtime (including remote command tools).
                 location='agent_worker'

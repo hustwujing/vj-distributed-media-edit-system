@@ -27,7 +27,20 @@ class StructuredProfileHarness:
         return execute(host,lease,workflow,task)
 
 
-REGISTRY={StructuredProfileHarness.id:StructuredProfileHarness()}
+class NativeImplementerHarness(StructuredProfileHarness):
+    id='native-implementer-v1'
+
+    def fingerprint(self):
+        import json,os
+        profiles=json.loads(os.environ.get('VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON','{}'))
+        return hashlib.sha256((super().fingerprint()+json.dumps(profiles,sort_keys=True,separators=(',',':'))).encode()).hexdigest()
+
+    def run(self,host,lease,workflow,task):
+        from .native_implementer import execute
+        return execute(host,lease,workflow,task)
+
+
+REGISTRY={runner.id:runner for runner in (StructuredProfileHarness(),NativeImplementerHarness())}
 
 
 def register(harness):

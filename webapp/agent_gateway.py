@@ -315,7 +315,7 @@ class Gateway:
             check_plan(self.lease)
             from .planning_budget import reserve_model
             reserve_model(self.lease)
-            if self.lease:self.lease.consume('model',model_call_limit())
+            if self.lease and not dynamic:self.lease.consume('model',model_call_limit())
             self.calls += 1
         # The sandbox may only call the administrator-selected model and API path.
         body['model'] = self.model
@@ -326,8 +326,19 @@ class Gateway:
         from .task_usage import model_call
         from .workflow_agents import model_budget
         observer=self.model_adapter.receipt()
-        budget=model_budget(self.lease,dynamic,len(json.dumps(body).encode())+output_limit,observer) if dynamic else contextlib.nullcontext()
+        if dynamic:
+            from .workflow_agents import input_token_reservation
+            from .model_input_images import images as input_images
+            with session() as counter:
+                input_tokens,method=input_token_reservation(self.model_adapter,body,counter,self.base_url,self.key,
+                    self.lease,time.monotonic()+min(60,role.timeout_seconds),input_images(body),
+                    self.profile.vision_tokenizer,self.profile.input_token_policy)
+            budget=model_budget(self.lease,dynamic,input_tokens+output_limit,observer,
+                input_reserved_tokens=input_tokens,output_reserved_tokens=output_limit,method=method,
+                model_call_limit=self.profile.budget['task_models'])
+        else:budget=contextlib.nullcontext()
         stack=contextlib.ExitStack()
+        owner_thread=threading.get_ident()
         try:
             stack.enter_context(budget)
             receipt=stack.enter_context(model_call(self.lease,self.model,actor='sandbox_agent',observer=observer))
@@ -353,7 +364,12 @@ class Gateway:
                             yield from guard.feed(chunk)
                     yield from guard.finish()
                 finally:stack.close()
-            return GatewayResult(200,{'Content-Type':response.headers.get('Content-Type','text/event-stream')},stream(),stack.close)
+            def close_result():
+                # A grant reaper may interrupt HTTP from another thread. Only
+                # the request owner may unwind ContextVar-backed usage scopes.
+                if threading.get_ident()==owner_thread:stack.close()
+                else:response.close()
+            return GatewayResult(200,{'Content-Type':response.headers.get('Content-Type','text/event-stream')},stream(),close_result)
         except Exception:
             stack.close();raise
 

@@ -29,6 +29,7 @@ class WebSocketTransport:
 
     def receive(self,timeout):
         try:return decode_frame(self.socket.recv(timeout=timeout))
+        except TimeoutError:raise
         except Exception as exc:raise RuntimeTransportError('Runtime WebSocket receive failed') from exc
 
     def close(self):

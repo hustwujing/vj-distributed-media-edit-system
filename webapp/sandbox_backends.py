@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import json
 import os
 import re
 from urllib.parse import quote, urlencode
@@ -77,6 +78,21 @@ def select_backend(resources, *, environ=None, local_profile=''):
     if kind not in ('agent_runtime','command_runtime'):
         raise BackendConfigurationError('CPU task is not eligible for OpenSandbox')
     prefix='VIDEO_USE_OPEN_SANDBOX_AGENT_' if kind=='agent_runtime' else 'VIDEO_USE_OPEN_SANDBOX_COMMAND_'
+    if kind=='agent_runtime' and resources.get('harness'):
+        # Reuse the release Runtime Profile fields; model presets own only the
+        # Harness selection. Never send a Claude task to a default Codex image.
+        try:
+            profiles=json.loads(environ.get(prefix+'PROFILES_JSON','{}'))
+            selected=profiles[resources['harness']]
+            if set(selected)!={'runtime_profile','image_digest','skill_digest'}:
+                raise ValueError('Unexpected Runtime Profile fields')
+            if not all(isinstance(value,str) and value for value in selected.values()):
+                raise ValueError('Invalid Runtime Profile values')
+            if not _immutable_image(selected['image_digest']):raise ValueError('Mutable runtime image')
+            if not re.fullmatch(r'sha256:[0-9a-f]{64}',selected['skill_digest']):raise ValueError('Invalid Bundle digest')
+            return BackendBinding(OPEN_SANDBOX,**selected,runtime_kind=kind)
+        except (ValueError,KeyError,TypeError) as exc:
+            raise BackendConfigurationError('No valid frozen OpenSandbox Runtime Profile for '+str(resources['harness'])) from exc
     profile = environ.get(prefix+'RUNTIME_PROFILE', '')
     image = environ.get(prefix+'IMAGE_DIGEST', '')
     skills = environ.get(prefix+('SKILL_DIGEST' if kind=='agent_runtime' else 'BUNDLE_DIGEST'), '')

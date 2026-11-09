@@ -1,5 +1,6 @@
 """Server-owned delegation policies; objectives are data, never authority."""
-from dataclasses import dataclass,asdict
+from dataclasses import dataclass,asdict,replace
+import os
 from pathlib import Path
 import hashlib
 from enum import StrEnum
@@ -142,6 +143,12 @@ PROFILES={p.id:p for p in (
 def get(identifier):
     try:value=PROFILES[identifier]
     except KeyError:raise ValueError('Unknown specialist profile') from None
+    # The existing deployment backend selects the execution strategy, while
+    # the Run's frozen AgentProfile selects Claude/Codex/DeepSeek and its model.
+    # Other specialists never inherit the Implementer's native tool access.
+    if identifier=='editing_implementer' and os.environ.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND',
+            os.environ.get('VIDEO_USE_CPU_SANDBOX_BACKEND','local_bwrap'))=='opensandbox':
+        value=replace(value,harness='native-implementer-v1')
     validate(value)
     return value
 
@@ -179,7 +186,8 @@ def result_model(profile):
 
 def catalogue():
     result=[]
-    for value in PROFILES.values():
+    for identifier in PROFILES:
+        value=get(identifier)
         item=asdict(value);model=result_model(value)
         if model:item['result_schema']=model.model_json_schema()
         result.append(item)

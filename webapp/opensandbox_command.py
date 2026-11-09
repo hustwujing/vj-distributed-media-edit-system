@@ -275,10 +275,12 @@ class OpenSandboxCommandRuntime:
 
 
 class OpenSandboxCommandBackend:
-    def __init__(self,lifecycle,sdk,cleanup_registry=None):
+    def __init__(self,lifecycle,sdk,cleanup_registry=None,*,runtime_type=OpenSandboxCommandRuntime):
         self.lifecycle=lifecycle;self.sdk=sdk;self.cleanup_registry=cleanup_registry or OpenSandboxCleanupRegistry()
+        self.runtime_type=runtime_type
     def start(self,lease,binding,resources,*,timeout=3600):
-        if binding.backend!=OPEN_SANDBOX or binding.runtime_kind!='command_runtime':
+        expected='agent_runtime' if getattr(self.runtime_type,'is_native',False) else 'command_runtime'
+        if binding.backend!=OPEN_SANDBOX or binding.runtime_kind!=expected:
             raise BackendConfigurationError('Command backend requires command_runtime binding')
         lease.start_compute()
         self.cleanup_registry.reserve(lease)
@@ -291,7 +293,7 @@ class OpenSandboxCommandBackend:
             self.lifecycle.delete_confirmed(sandbox_id,expected_attempt=lease.attempt)
             self.cleanup_registry.complete(lease.store,lease.attempt)
             raise
-        return OpenSandboxCommandRuntime(self.lifecycle,session,sandbox_id,lease.attempt,lease,self.cleanup_registry)
+        return self.runtime_type(self.lifecycle,session,sandbox_id,lease.attempt,lease,self.cleanup_registry)
 
 
 class OpenSandboxCommandFactory:

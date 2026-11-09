@@ -86,6 +86,17 @@ class RuntimeInjector:
         for path,mode in ((RUNTIME_ROOT,0o700),('/workspace',0o700),('/state',0o700)):
             self.files.mkdir(path,mode)
         restore_workspace(self.files)
+        for path in ('/state/tmp','/state/codex','/state/claude','/state/dsh'):
+            self.files.mkdir(path,0o700)
+        if bundle.harness=='codex':
+            config=('model = '+json.dumps(bundle.profile['model'])+'\n'
+                'model_provider = "video_use"\napproval_policy = "never"\nsandbox_mode = "danger-full-access"\n'
+                'model_reasoning_effort = '+json.dumps(bundle.profile['reasoning_effort'])+'\n'
+                'web_search = "disabled"\n[model_providers.video_use]\nname = "Isolated model gateway"\n'
+                'base_url = "http://127.0.0.1:18766"\nwire_api = "responses"\nrequires_openai_auth = false\n'
+                'request_max_retries = 0\nstream_max_retries = 0\n[features]\nmulti_agent = false\n'
+                '[shell_environment_policy]\ninherit = "all"\n')
+            self._write_verified('/state/codex/config.toml',config.encode(),0o600)
         harness=self._encoded(bundle.harness_config)
         token=bundle.control_token.encode()
         if not 32<=len(token)<=512:raise ValueError('Invalid Runtime control token')

@@ -156,7 +156,9 @@ def main():
     if not 1<=args.wait_seconds<=900:parser.error('wait-seconds must be between 1 and 900')
     app=create_runtime(wait_for_config(args.config,args.wait_seconds))
     import uvicorn
-    uvicorn.run(app,host='127.0.0.1',port=CONTROL_PORT,ws_max_size=1024*1024,
+    # Reachable only through the private sandbox network/proxy. Every control
+    # frame still requires the Attempt-bound token and generation.
+    uvicorn.run(app,host='0.0.0.0',port=CONTROL_PORT,ws_max_size=1024*1024,
                 access_log=False,server_header=False)
 
 

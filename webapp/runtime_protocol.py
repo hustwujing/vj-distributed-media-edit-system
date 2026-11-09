@@ -108,7 +108,7 @@ class EventBuffer:
 
 class DaemonProtocol:
     """Authenticated server-side state for one Runtime Daemon process."""
-    METHODS={'runtime.initialize','session.open','turn.start','turn.interrupt','session.export'}
+    METHODS={'runtime.initialize','session.open','turn.start','turn.interrupt','session.export','session.freeze'}
 
     def __init__(self,identity,token,*,max_events=256,max_bytes=4*1024*1024,max_responses=128):
         if not token:raise AuthenticationError('Runtime control token is required')

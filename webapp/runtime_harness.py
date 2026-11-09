@@ -24,7 +24,8 @@ class StdioHarnessBridge:
 
     def start(self,on_event):
         if self.process is not None:raise HarnessStateError('Harness process is already started')
-        env={'PATH':'/usr/bin:/bin','LANG':'C.UTF-8',**self.environment}
+        env={'PATH':'/opt/venv/bin:/usr/bin:/bin','LANG':'C.UTF-8','HOME':'/state',
+             'CODEX_HOME':'/state/codex','TMPDIR':'/state/tmp',**self.environment}
         self.process=self.process_factory(self.command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,text=True,bufsize=1,start_new_session=True,env=env)
         self.on_event=on_event
@@ -139,8 +140,12 @@ class HarnessController:
         if method=='turn.interrupt':
             if self.state!='running':return {'status':'not_running'}
             return self.adapter.interrupt(self.bridge.rpc,self.session_id)
+        if method=='session.freeze':
+            if self.state not in ('session','frozen'):raise HarnessStateError('Cannot freeze a running Harness session')
+            self.bridge.close();self.state='frozen'
+            return {'state':self.state}
         if method=='session.export':
-            if self.state!='session':raise HarnessStateError('Cannot export a running Harness session')
+            if self.state not in ('session','frozen'):raise HarnessStateError('Cannot export a running Harness session')
             return {'session_id':self.session_id,'native_state':'owned_by_harness',
                     'manifest_ref':self.exporter.export_descriptor() if self.exporter else None}
         raise HarnessStateError('Unsupported Runtime method')

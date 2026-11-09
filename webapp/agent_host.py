@@ -79,6 +79,9 @@ class AgentHost:
         if opensandbox_command_factory is None:
             from .opensandbox_runtime import command_factory_from_environment
             opensandbox_command_factory=command_factory_from_environment()
+        if opensandbox_factory is None:
+            from .native_implementer_runtime import factory_from_environment
+            opensandbox_factory=factory_from_environment()
         self.runtime_backends = RuntimeBackends(
             lambda lease:TaskRuntime(lease,self.identities),opensandbox_factory,
             opensandbox_command_factory)
@@ -95,7 +98,14 @@ class AgentHost:
             if lease.kind=='workflow' and lease.step_id:
                 workflow=workflows.get(self.store,lease.run_id)
                 step=next((item for item in workflow['steps'] if item['id']==lease.step_id),None) if workflow else None
-                if step and step['spec'].get('kind')=='script' and not resources.get('gpu'):
+                from .workflow_graph import get as graph_get,work_item
+                run=graph_get(self.store,lease.run_id) if workflow and workflow.get('dynamic') else None
+                delegated=work_item(run,lease.step_id) if run else None
+                if delegated and delegated['profile'].get('harness')=='native-implementer-v1':
+                    from .agent_profiles import for_specialist
+                    sandbox_kind='agent_runtime'
+                    resources={**resources,'harness':for_specialist(self.store,lease.run_id,delegated['spec']['profile']).harness}
+                elif step and step['spec'].get('kind')=='script' and not resources.get('gpu'):
                     sandbox_kind='command_runtime'
                 elif step and step['spec'].get('kind')=='operation' and not resources.get('gpu'):
                     from .operations import for_step
