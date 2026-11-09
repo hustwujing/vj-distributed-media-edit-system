@@ -116,3 +116,31 @@ bwrap_gpu能力中。Runtime Bundle、Skill和能力摘要随之变化，后续�
 - 明确哪些变更必须重建镜像、如何只构建被测镜像、如何从干净源码部署，以及回滚配置的配对要求。
 
 关联文档：[接入方案](native-implementer-rollout.md)、[真机矩阵](../real-case-campaign/native-implementer-cases.md)。
+
+## ff472b9至448f0cc定向真机结论
+
+- 四层镜像从干净ff472b9源码构建；Debian使用阿里云镜像，Python基础镜像使用DaoCloud，Python依赖
+  全部来自本地wheel。Claude/Codex/DeepSeek控制探针均完成真实OpenSandbox创建、session.open、freeze
+  和删除，模型请求为0；三镜像非GPU能力核对均无缺项。
+- 首次部署后`/runs/capabilities`返回EACCES。冻结源码保留了私有`runtime/`目录权限，而API服务账号
+  需要在请求期读取公共能力目录。cc36c7b为API与Orchestrator身份授予`runtime/public`只读ACL，
+  103项会话/部署回归通过；没有把完整release改为全局可读。
+- Claude NH01-004成功：Run `3e910538375b4385849b0ef8176babbb`，315.188秒；真实
+  `claude_code / claude-sonnet-5-5 / opensandbox`，3次编辑师模型调用。frame_schedule.csv独立内容、
+  SHA256、执行中页面重进、完成提示和cleanup=0通过。
+- DeepSeek原生NH01在high/low及4096/1024输出上限下均失败。真实流持续分析至Task边界，返回
+  `STREAM_CLOSED`且没有Messages `message_stop`；4096/low的一次Attempt在约7分钟后成功执行bash，
+  但工具返回后的模型调用仍未结束。不能补造终止帧，也不能归因给用户输入。
+- `sdk-minimal`及外部Profile Patch均做过无付费启动探测，但DeepSeek 0.2.1rc2单文件Runtime在完整
+  host preparation时缺`node-addon-require-builtin`原生绑定；这些镜像未发布、代码已完整撤回。
+- 9bf73ee让原生代码编辑师读取`specialist_output_tokens`，缺终止事件明确归类运行时协议失败并停止
+  Manager脚本修订；b11a968进一步按已登记不可变镜像能力冻结执行策略。未登记DeepSeek原生镜像时，
+  代码编辑师冻结`structured-profile-v4 + bwrap_cpu`，Claude/Codex仍可使用OpenSandbox，执行时不回退。
+- 448f0cc增加模型与专家角色维度的`specialist_minimum_seconds`。低于冻结最小时限的方案在用户确认前
+  精确拒绝，不能执行时静默延时。DeepSeek代码编辑师配置为4096输出Token、至少600秒。
+- DeepSeek fallback NH01最终成功：Run `81cbdd6c45f041e6ac6a4c0d6923247b`，365.109秒；真实
+  `deepseek-v4.1-flash / structured-profile-v4 / agent_worker`，工具执行地`bwrap_sandbox`，3次编辑师
+  模型调用。CSV内容与Claude案例SHA256一致，页面重进、交付和cleanup=0通过；该Run未创建OpenSandbox。
+- 跨Harness恢复继续以静止边界为前提：活动Attempt先回收，旧私有session不跨Harness恢复，只继承
+  已提交workspace/checkpoint、公开上下文和预算。未知外部副作用阻断切换，旧generation事件拒绝；
+  相关Harness切换/会话专项113项通过，真机故障注入仍按NH06单独留证。

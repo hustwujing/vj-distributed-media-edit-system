@@ -6,7 +6,7 @@
 
 | Case | 内容 | 独立检查与状态边界 |
 |---|---|---|
-| NH01 | 生成小型代码/数据处理交付 | Claude、Codex、DS分别选择对应镜像；输入归属、真实文件内容、模型回执与清理；页面不能把原生进程写成宿主 |
+| NH01 | 生成小型代码/数据处理交付 | Claude/Codex按已验证镜像走OpenSandbox；当前DS SDK不满足终止契约，按冻结能力走structured+bwrap；输入归属、真实文件内容、模型回执与清理；页面显示控制循环及工具实际位置 |
 | NH02 | 复杂媒体代码编辑 | 与structured-profile-v4使用相同目标/素材/模型对比；实际像素/时长/音轨和可复放文件，不以系统成功代替质量 |
 | NH03 | 规划确认后组合修改契约 | 文件名、规格和附属文件同时变更；安全点/新确认/新revision，审查与发布同一契约；旧成果不复活 |
 | NH04 | 运行中关闭页面再进入 | 流式/完成消息、真实位置和耗时、等待决策、终态交付可见；DS按实际能力显示完整消息而非虚构token delta |
@@ -28,3 +28,17 @@
 usage.harness_runs完成核对，无业务重跑。证据：.sandbox-cluster/campaigns/native-implementer/baseline-NH02-001/。
 先前native-baseline-001的agent-portrait实际走media.edit Operation，仅作媒体参考，不计Harness基线。
 原生Harness业务案例尚未执行；真实网络/TLS探测另列，不计业务成功。
+
+## 迁移后NH01结果
+
+| 配置 | Run | 结果 | 秒 | 实际执行 | 结论 |
+|---|---|---:|---:|---|---|
+| Claude 5.5 / high | `3e910538375b4385849b0ef8176babbb` | 成功 | 315.188 | `claude_code`，OpenSandbox | CSV内容/SHA256、页面重进、终态交付、cleanup通过 |
+| DeepSeek 4.1 / high | `32c81fd768e14297abf14ba1e23964cc` | 程序失败 | 323.408 | `deepseek_harness`，OpenSandbox | 4096 Token；无`message_stop`，明确`agent_runtime_unavailable`，无反复修订 |
+| DeepSeek 4.1 / low | `80d45af5c9b446609d53f08f2e911584` | 程序失败 | 622.703 | `deepseek_harness`，OpenSandbox | bash成功后第二次模型流仍不结束；cleanup通过 |
+| DeepSeek 4.1 / low fallback | `81cbdd6c45f041e6ac6a4c0d6923247b` | 成功 | 365.109 | `structured-profile-v4`，工具为bwrap | 4096 Token、最小600秒；产物与Claude案例SHA256相同，cleanup通过 |
+
+DeepSeek原生失败属于当前SDK/模型Messages终止契约，不是业务输入或普通质量失败。当前发布配置不登记
+DeepSeek原生Runtime Profile；模型仍可选择，但代码编辑Task在计划时冻结structured+bwrap，不能在执行时
+静默改变。Codex已完成真实OpenSandbox控制探针，当前用户模型注册表没有Codex模型Profile，因此未伪造
+真实付费业务案例。
