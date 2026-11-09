@@ -102,6 +102,10 @@ class DynamicAPITests(unittest.TestCase):
             json.dumps({'operation':'media.edit','name':'Mix music'}),'ready',store.now(),store.now(),
             json.dumps({'_backend':'local_bwrap'})))
         self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unallocated')
+        self.assertIs(snapshot()['tasks'][0]['selected'],True)
+        store.execute("UPDATE run_tasks SET selected=0 WHERE run_id=? AND id='mix'",(run['id'],))
+        self.assertIs(snapshot()['tasks'][0]['selected'],False)
+        store.execute("UPDATE run_tasks SET selected=1 WHERE run_id=? AND id='mix'",(run['id'],))
         def attempt(identifier,step,generation,revision=0,runtime='',uid=None):
             store.execute('''INSERT INTO execution_attempts
                 (id,run_id,worker,generation,kind,started,status,step_id,task_revision,runtime,uid)
@@ -136,6 +140,12 @@ class DynamicAPITests(unittest.TestCase):
         store.execute("UPDATE run_tasks SET attempts=1 WHERE run_id=? AND id='mix'",(run['id'],))
         self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unrecorded')
         attempt('revision-one','mix',4,revision=1)
+        store.execute('''INSERT INTO workflow_provider_calls
+            (request_key,workflow,step,revision,attempt,provider,operation,state,inputs,created,updated)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)''',('old-provider',run['id'],'mix',0,1,'provider','image.edit_region','succeeded','{}',store.now(),store.now()))
+        self.assertNotIn('provider_execution_state',snapshot()['tasks'][0],'Old revision provider receipt is not current execution')
+        store.execute("UPDATE workflow_provider_calls SET revision=1,state='unknown' WHERE request_key='old-provider'")
+        self.assertEqual(snapshot()['tasks'][0]['provider_execution_state'],'unknown')
         # Even a matching receipt ID must belong to this Run.
         store.execute('''INSERT INTO execution_external_cleanup
             (id,task_id,provider,external_id,state,phase,error) VALUES (?,?,?,?,?,?,?)''',

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {layoutDag} from '../webapp/static/dynamic_dag.js';
+import {layoutDag,dagEdgePath} from '../webapp/static/dynamic_dag.js';
 
 const task=id=>({id,selected:true,spec:{name:id}});
 
@@ -57,5 +57,39 @@ test('replanning control edges return to manager and connect applied revisions',
  assert.ok(controlEdges.includes('review->plan-2'));
  assert.ok(controlEdges.includes('plan-2->result'));
  const nodes=Object.fromEntries(graph.nodes.map(node=>[node.id,node]));
- for(const edge of graph.edges)assert.ok(nodes[edge.downstream].x>nodes[edge.upstream].x,`${edge.upstream} must precede ${edge.downstream}`);
+ for(const edge of graph.edges)assert.ok(nodes[edge.downstream].level>nodes[edge.upstream].level,`${edge.upstream} must precede ${edge.downstream}`);
+});
+
+test('long dependency chains turn right to left, then left to right at viewport boundaries',()=>{
+ const tasks=Array.from({length:11},(_,i)=>task(`t${i}`)),edges=tasks.slice(1).map((t,i)=>({upstream_task_id:tasks[i].id,downstream_task_id:t.id}));
+ const graph=layoutDag(tasks,edges,[],{viewportWidth:900}),n=graph.nodes;
+ assert.equal(graph.columns,4);
+ assert.ok(n[0].x<n[1].x&&n[1].x<n[2].x&&n[2].x<n[3].x);
+ assert.equal(n[3].x,n[4].x);assert.ok(n[4].y>n[3].y);
+ assert.ok(n[4].x>n[5].x&&n[5].x>n[6].x&&n[6].x>n[7].x);
+ assert.equal(n[7].x,n[8].x);assert.ok(n[8].y>n[7].y);assert.ok(n[8].x<n[9].x);
+ for(const node of n)assert.ok(node.x>=0&&node.x+node.width<=900);
+ assert.match(dagEdgePath(n[4],n[5]),new RegExp(`^M ${n[4].x} `),'RTL edge exits the left port');
+ assert.match(dagEdgePath(n[3],n[4]),new RegExp(`^M ${n[3].x+n[3].width/2} ${n[3].y+n[3].height} `),'row turn exits the bottom port');
+});
+
+test('parallel branches do not overlap and narrow screens fit a single column',()=>{
+ const tasks=Array.from({length:16},(_,i)=>task(`t${i}`)),edges=tasks.slice(4).map((t,i)=>({upstream_task_id:tasks[i].id,downstream_task_id:t.id}));
+ for(const viewportWidth of [375,760,1180]){
+  const graph=layoutDag(tasks,edges,[],{viewportWidth});
+  assert.equal(graph.width,viewportWidth);if(viewportWidth===375)assert.equal(graph.columns,1);
+  for(const a of graph.nodes){
+   assert.ok(a.x>=0&&a.x+a.width<=viewportWidth);
+   for(const b of graph.nodes)if(a.id!==b.id)assert.ok(a.x+a.width<=b.x||b.x+b.width<=a.x||a.y+a.height<=b.y||b.y+b.height<=a.y,`${a.id} overlaps ${b.id}`);
+  }
+ }
+});
+
+test('historic control calls do not depend on replacement or newer task revisions',()=>{
+ const tasks=[{...task('old'),selected:false,revision_graph_version:1},{...task('revised'),revision_graph_version:3}];
+ const jobs=[{id:'old-review',control_kind:'REVIEW'},{id:'final-review',control_kind:'REVIEW'},{id:'repair-plan',control_kind:'PLAN'}];
+ const graph=layoutDag(tasks,[],jobs,{reviews:[{task_id:'old-review',subject_task:'old',graph_version:1},
+  {task_id:'final-review',subject_task:'',graph_version:2}],planners:[{task_id:'repair-plan',base_graph_version:2,applied_graph_version:3,trigger_task_ids:['revised']}]});
+ assert.ok(graph.edges.some(edge=>edge.upstream==='repair-plan'&&edge.downstream==='revised'));
+ assert.ok(!graph.edges.some(edge=>edge.upstream==='revised'),'A new revision cannot cause an older review or the plan that created itself');
 });

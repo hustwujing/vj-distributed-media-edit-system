@@ -33,6 +33,7 @@ const server=http.createServer((req,res)=>{
       await page.addScriptTag({type:'module',content:`
         import {$,esc,markdown,href} from '/common.js';
         import {terminalRun} from '/dynamic_state.js';
+        import {executionLocation,executionPlace,providerExecution} from '/dynamic_locations.js';
         const names={running:'执行中'},liveEvents=[],safeName=item=>item.spec.name;
         ${activity}\n${detail}
         const now=Date.now()/1000,item={id:'mix',type:'operation',spec:{name:'混音',operation:'media.edit'},status:'running',revision:0,attempts:1,created_at:now,updated_at:now};
@@ -43,14 +44,18 @@ const server=http.createServer((req,res)=>{
         window.ready=true;
       `});
       await page.waitForFunction(()=>window.ready);
-      for(const [location,label] of [['unallocated','待分配'],['opensandbox_unconfirmed','实例未确认'],['opensandbox','OpenSandbox 沙盒'],['bwrap_sandbox','bwrap 沙盒'],['unrecorded','执行位置未记录'],[null,'执行位置未记录']]){
+      for(const [location,label] of [['unallocated','待分配'],['opensandbox_unconfirmed','实例未确认'],['opensandbox','OpenSandbox 沙箱'],['bwrap_sandbox','bwrap 沙箱'],['unrecorded','执行位置未记录'],[null,'执行位置未记录']]){
         await page.evaluate(value=>window.mount(value),location);
         assert.ok((await page.locator('#dynamic-role-items').innerText()).includes(label));
         assert.ok((await page.locator('#dag-detail').innerText()).includes(label));
       }
+      assert.equal(await page.locator('#dynamic-activity-bundle').evaluate(node=>node.open),false);
+      await page.locator('#dynamic-activity-bundle summary').click();
+      await page.evaluate(()=>window.mount('opensandbox'));
+      assert.equal(await page.locator('#dynamic-activity-bundle').evaluate(node=>node.open),true,'Live updates preserve manual expansion');
       await page.evaluate(()=>window.expert());
       const expert=await page.locator('#dag-detail').innerText();
-      assert.match(expert,/Agent Worker 宿主/);assert.match(expert,/工具位置\nbwrap 沙盒/);
+      assert.match(expert,/Agent Worker 宿主/);assert.match(expert,/工具位置\nbwrap 沙箱/);
       const layout=await page.evaluate(()=>{
         const text=getComputedStyle(document.querySelector('#output')),p=getComputedStyle(document.querySelector('#output p'));
         const step=getComputedStyle(document.querySelector('.plan-step'));

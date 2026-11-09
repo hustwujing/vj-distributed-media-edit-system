@@ -14,6 +14,8 @@ def for_run(store,run):
         ON c.id=? || a.id AND c.task_id=?
       WHERE a.position=1''',(run['id'],'opensandbox:',run['id']))
     attempts={(row['step_id'],row['task_revision']):row for row in records}
+    providers={(row['step'],row['revision']):row['state'] for row in store.query(
+        'SELECT step,revision,state FROM workflow_provider_calls WHERE workflow=?',(run['id'],))}
     locations={}
     for item in [*run['tasks'],*run['control_jobs']]:
         attempt=attempts.get((item['id'],item['revision']))
@@ -43,5 +45,7 @@ def for_run(store,run):
                         location='executor_host'
         value={'execution_location':location,'execution_attempt_id':attempt['id'] if attempt else None}
         if agent:value['tool_location']=tool if attempt else location
+        provider=providers.get((item['id'],item['revision']))
+        if provider:value['provider_execution_state']=provider
         locations[item['id']]=value
     return locations

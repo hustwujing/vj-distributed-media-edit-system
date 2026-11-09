@@ -90,6 +90,7 @@ def public(store,run):
     for task in run['tasks']:
         public_task={k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','recovery_count','infrastructure_interruptions','user_revision_count','attempts',
             'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
+        public_task['selected']=bool(task['selected'])
         public_task['revision_graph_version']=revision_versions.get((task['id'],task['revision']),task['created_graph_version'])
         public_task.update(locations[task['id']])
         public_task['display_name']=item_name(task)
