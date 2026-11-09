@@ -19,6 +19,18 @@ CURRENT_WORK=contextvars.ContextVar('api_work',default=None)
 REQUEST_WORK=contextvars.ContextVar('api_request_work',default=None)
 
 
+def mark_request_reversible():
+    """Declare that completed dependency work is private staging until publication."""
+    progress=REQUEST_WORK.get()
+    if progress is None:raise RuntimeError('No bounded API request is active')
+    progress['reversible']=True
+
+
+def prior_work_is_uncertain(progress=None):
+    progress=REQUEST_WORK.get() if progress is None else progress
+    return bool(progress and progress['submitted'] and not progress.get('reversible',False))
+
+
 class APICapacityError(RuntimeError):
     def __init__(self,pool,reason,started=False,prior_work=False):
         self.pool=pool;self.reason=reason;self.started=started;self.prior_work=prior_work
@@ -229,7 +241,7 @@ class BoundedExecutor:
 
     async def run(self,function,*args,**kwargs):
         loop=asyncio.get_running_loop()
-        progress=REQUEST_WORK.get();prior_work=bool(progress and progress['submitted'])
+        progress=REQUEST_WORK.get();prior_work=prior_work_is_uncertain(progress)
         work=Work(loop,loop.create_future(),loop.create_future(),contextvars.copy_context(),functools.partial(function,*args,**kwargs),prior_work=prior_work)
         with self.lock:
             if self.closed or (self.active>=self.workers and len(self.waiting)>=self.queue_limit):
@@ -370,7 +382,7 @@ def route_class(executors):
                     request._body=bytes(body)
                 return await handle(request)
             async def admitted(request):
-                token=REQUEST_WORK.set({'submitted':0});permit=None
+                token=REQUEST_WORK.set({'submitted':0,'reversible':False});permit=None
                 try:
                     if name is None:return await bounded_handle(request)
                     permit=await executors.admissions[name].acquire()

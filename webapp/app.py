@@ -705,6 +705,8 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     @app.post('/api/demos/{demo_id}/load', status_code=201)
     @admission('demo')
     async def load_demo(demo_id: str, request: Request):
+        from .api_execution import mark_request_reversible
+        mark_request_reversible()
         from .api_staging import Staging
         edition=await api_execution.run('storage',demo_library.snapshot)
         demo=next((d for d in edition.catalog if d['id']==demo_id),None)

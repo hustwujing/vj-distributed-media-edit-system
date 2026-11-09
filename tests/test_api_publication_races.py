@@ -12,6 +12,7 @@ from PIL import Image
 
 from webapp.app import create_app
 from webapp.api_maintenance import sweep_once
+from webapp.api_execution import APICapacityError,prior_work_is_uncertain
 from webapp.demo_library import DemoLibrary
 from tests.test_demo_library import source_library
 
@@ -79,7 +80,8 @@ class APIPublicationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code,409,response.text)
         self.assertEqual(self.store.draft(pid)['prompt'],'user changed this while importing')
         self.assertEqual(self.store.assets(pid),[])
-        self.assertEqual(list((self.store.root/'api-incoming').iterdir()),[])
+        incoming=self.store.root/'api-incoming'
+        self.assertTrue(not incoming.exists() or not list(incoming.iterdir()))
 
     async def test_demo_rejected_for_quota_or_invalid_media_does_not_leave_empty_projects(self):
         source=self.root/'library';source_library(source);DemoLibrary(self.store).publish(source)
@@ -95,6 +97,24 @@ class APIPublicationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code,422,response.text)
         self.assertEqual(self.store.query('SELECT id FROM projects ORDER BY id'),before)
         self.assertEqual(list((self.store.root/'api-incoming').iterdir()),[])
+
+    async def test_demo_staging_queue_rejection_is_not_an_unknown_outcome(self):
+        source=self.root/'library';source_library(source);DemoLibrary(self.store).publish(source)
+        before=self.store.query('SELECT id FROM projects ORDER BY id');calls=0
+        original=self.app.state.api_execution.run
+        async def reject_after_project(pool,function,*args,**kwargs):
+            nonlocal calls
+            calls+=1
+            if calls==3:
+                raise APICapacityError('storage','queue_full',prior_work=prior_work_is_uncertain())
+            return await original(pool,function,*args,**kwargs)
+        with patch.object(self.app.state.api_execution,'run',side_effect=reject_after_project):
+            response=await self.client.post('/api/demos/tiny/load')
+        self.assertEqual(response.status_code,503,response.text)
+        self.assertEqual(response.json()['outcome'],'not_started')
+        self.assertEqual(self.store.query('SELECT id FROM projects ORDER BY id'),before)
+        incoming=self.store.root/'api-incoming'
+        self.assertTrue(not incoming.exists() or not list(incoming.iterdir()))
 
     async def test_demo_cancel_during_inspection_removes_only_its_empty_project(self):
         source=self.root/'library';source_library(source);DemoLibrary(self.store).publish(source)

@@ -3,7 +3,10 @@ import contextvars
 import threading
 import time
 import unittest
-from webapp.api_execution import BoundedExecutor,APICapacityError,AsyncAdmission
+from webapp.api_execution import (
+    BoundedExecutor,APICapacityError,AsyncAdmission,REQUEST_WORK,
+    mark_request_reversible,prior_work_is_uncertain,
+)
 
 
 async def until(predicate):
@@ -86,6 +89,30 @@ class APIExecutorTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(TimeoutError):await pool.run(fail)
         self.assertEqual(pool.snapshot()['execution_timeout'],0)
         self.assertEqual(pool.snapshot()['failed'],1)
+
+    async def test_reversible_staging_does_not_turn_a_queue_rejection_into_unknown_outcome(self):
+        pool=self.pool(queue=0);event=self.blocker()
+        token=REQUEST_WORK.set({'submitted':0,'reversible':False})
+        try:
+            mark_request_reversible()
+            first=asyncio.create_task(pool.run(event.wait));await until(lambda:pool.snapshot()['active']==1)
+            with self.assertRaises(APICapacityError) as rejected:await pool.run(lambda:None)
+            self.assertFalse(rejected.exception.started)
+            self.assertFalse(rejected.exception.prior_work)
+            self.assertFalse(prior_work_is_uncertain())
+            event.set();await first
+        finally:REQUEST_WORK.reset(token)
+
+    async def test_non_staged_prior_dependency_work_remains_an_unknown_outcome(self):
+        pool=self.pool(queue=0);event=self.blocker()
+        token=REQUEST_WORK.set({'submitted':1,'reversible':False})
+        try:
+            first=asyncio.create_task(pool.run(event.wait));await until(lambda:pool.snapshot()['active']==1)
+            with self.assertRaises(APICapacityError) as rejected:await pool.run(lambda:None)
+            self.assertTrue(rejected.exception.prior_work)
+            self.assertTrue(prior_work_is_uncertain())
+            event.set();await first
+        finally:REQUEST_WORK.reset(token)
 
     async def test_disconnect_before_headers_is_not_a_server_error(self):
         from unittest.mock import patch

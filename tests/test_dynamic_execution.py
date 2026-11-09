@@ -16,12 +16,15 @@ from tests.test_dynamic_graph import script
 class ErrorClassificationTests(unittest.TestCase):
     def test_stream_protocol_resets_are_transient_model_errors(self):
         from urllib3.exceptions import ProtocolError,ReadTimeoutError
-        from webapp.workflow_executor import transient_model_error
+        from webapp.workflow_executor import transient_model_error,agent_runtime_error
         self.assertTrue(transient_model_error(ProtocolError('stream reset')))
         self.assertTrue(transient_model_error(ReadTimeoutError(None,'/messages','timed out')))
         self.assertFalse(transient_model_error(ValueError('invalid model payload')))
         from webapp.runtime_client import NativeTaskTimeout
         self.assertFalse(transient_model_error(NativeTaskTimeout('bounded native turn timed out')))
+        from webapp.runtime_client import RemoteRuntimeError
+        remote=RemoteRuntimeError({'code':'runtime_request_failed','message':'Runtime request failed (HarnessStateError)'})
+        self.assertFalse(transient_model_error(remote));self.assertTrue(agent_runtime_error(remote))
 
     def test_provider_failure_detail_is_actionable_and_redacted(self):
         from webapp.workflow_executor import provider_failure_detail
