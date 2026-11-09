@@ -47,6 +47,8 @@ Manager 不能将业务 Agent 伪装成控制角色，质量批准也不能授�
 
 模型提交最终验收时，evidence使用本次检查返回的`inspection_id`；`ReviewDecision.deliverables`和`primary`优先使用同一回执中`eligible_for_delivery=true`的短`candidate_key`。worker将key绑定当前attempt、冻结快照和inspection，再解析为完整不可变引用后提交控制器。当前候选的精确ref、唯一basename和权威output role可以规范化为同一key；只有一个已检查可交付候选且verdict=pass时，宿主可自动补齐deliverables/primary。任意路径、旧attempt或歧义引用仍拒绝。`primary`必须属于已检查的`deliverables`；多文件通过时必填。中间步骤验收不得声明最终主交付。主成果由用户目标和验收决定，不由列表首项或`final.mp4`等文件名跨候选猜测；解析、worker验证、控制器验证和发布阶段须一致。
 
+每条审查证据必须填写`method_use`：无指定产物处理方法的条款为`not_applicable`，指定方法的实际产物/蒙版/图层参与最终内容为`output_content`，仅取统计、颜色或用于范围检查为`reference_only`，无法核实为`unverified`。后两者不能伴随pass，worker和controller独立校验且解析为完整引用时保留该字段；缺失字段不默认为通过。该字段约束审查声明与结论的一致性，不声称程序可以自动理解全部自然语言或证明任意脚本的数据流；仍需检查真实来源与产物。不能为满足验证只改标记而不补事实。
+
 Reviewer和Diagnostician的JSON报告只用于放行、拒绝和诊断，不得设置`delivery_stage=true`。实际媒体或用户要求的业务文件Task拥有交付资格；Reviewer Task使用current-stage验收并可阻断上游。Manager提示应给出实际产物/审查报告的正反例，服务端Task与sealed-plan校验仍是权威边界，不能依靠模型自觉。
 
 Manager命令不暴露`delivery_stage`字段。业务Task通过`source=user, stage=final`的验收声明最终需求，宿主据此派生交付资格；Reviewer或Diagnostician报告被引用为交付输入时，Proposal校验必须拒绝。

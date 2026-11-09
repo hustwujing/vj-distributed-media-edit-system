@@ -38,8 +38,8 @@ class OperationOutputFilenameTests(unittest.TestCase):
               'quality':{'output_roles':{'video':video,'report':report}}}
         decision={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':'delivery_1',
                   'deliverables':['delivery_1'],'evidence':[
-                      {'criterion_index':0,'observation':'Video checked','inspection_id':video_id},
-                      {'criterion_index':0,'observation':'Report checked','inspection_id':report_id}]}
+                      {'criterion_index':0,'method_use':'not_applicable','observation':'Video checked','inspection_id':video_id},
+                      {'criterion_index':0,'method_use':'not_applicable','observation':'Report checked','inspection_id':report_id}]}
         resolved=resolve_review(decision,self.review_snapshot([task]),{video_id:video,report_id:report},
                                 {'delivery_1':video_id,'delivery_2':report_id})
         self.assertEqual(resolved['deliverables'],[video,report])
@@ -57,14 +57,14 @@ class OperationOutputFilenameTests(unittest.TestCase):
         base={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':'delivery_1',
               'deliverables':['delivery_1']}
         snapshot=self.review_snapshot([task(video,{'video':video}),task(report_a,{'report':report_a})])
-        uncited={**base,'evidence':[{'criterion_index':0,'observation':'Video checked','inspection_id':video_id}]}
+        uncited={**base,'evidence':[{'criterion_index':0,'method_use':'not_applicable','observation':'Video checked','inspection_id':video_id}]}
         self.assertEqual(resolve_review(uncited,snapshot,inspections,keys)['deliverables'],[video])
         snapshot=self.review_snapshot([task(video,{'video':video}),task(report_a,{'report':report_a}),
                                        task(report_b,{'report':report_b})])
         ambiguous={**base,'evidence':[
-            {'criterion_index':0,'observation':'Video checked','inspection_id':video_id},
-            {'criterion_index':0,'observation':'First report checked','inspection_id':report_a_id},
-            {'criterion_index':0,'observation':'Second report checked','inspection_id':report_b_id}]}
+            {'criterion_index':0,'method_use':'not_applicable','observation':'Video checked','inspection_id':video_id},
+            {'criterion_index':0,'method_use':'not_applicable','observation':'First report checked','inspection_id':report_a_id},
+            {'criterion_index':0,'method_use':'not_applicable','observation':'Second report checked','inspection_id':report_b_id}]}
         self.assertEqual(resolve_review(ambiguous,snapshot,inspections,keys)['deliverables'],[video])
 
     def test_final_review_rejects_reports_without_requested_audio_formats(self):
@@ -79,15 +79,15 @@ class OperationOutputFilenameTests(unittest.TestCase):
         keys={'delivery_1':wav_id,'delivery_2':mp3_id,'delivery_3':report_id}
         reports_only={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':'delivery_3',
                       'deliverables':['delivery_3'],'evidence':[
-                          {'criterion_index':0,'observation':'Report checked','inspection_id':report_id}]}
+                          {'criterion_index':0,'method_use':'not_applicable','observation':'Report checked','inspection_id':report_id}]}
         resolved=resolve_review(reports_only,snapshot,inspections,keys)
         with self.assertRaisesRegex(ValueError,'required formats: mp3, wav'):
             validate_resolved_review(resolved,snapshot,inspections)
         complete={**reports_only,'primary':'delivery_1','deliverables':['delivery_1','delivery_2','delivery_3'],
                   'evidence':[
-                      {'criterion_index':0,'observation':'WAV checked','inspection_id':wav_id},
-                      {'criterion_index':0,'observation':'MP3 checked','inspection_id':mp3_id},
-                      {'criterion_index':0,'observation':'Report checked','inspection_id':report_id}]}
+                      {'criterion_index':0,'method_use':'not_applicable','observation':'WAV checked','inspection_id':wav_id},
+                      {'criterion_index':0,'method_use':'not_applicable','observation':'MP3 checked','inspection_id':mp3_id},
+                      {'criterion_index':0,'method_use':'not_applicable','observation':'Report checked','inspection_id':report_id}]}
         validate_resolved_review(resolve_review(complete,snapshot,inspections,keys),snapshot,inspections)
 
     def test_final_review_must_select_each_delivery_leaf_even_when_target_text_omits_its_format(self):
@@ -100,11 +100,11 @@ class OperationOutputFilenameTests(unittest.TestCase):
         snapshot.update(goal='Deliver the final video',delivery_targets=['成片 MP4'],authorization={'delivery_targets':['成片 MP4']},dependencies=[])
         inspections={video_id:video,subtitle_id:subtitle}
         video_only={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':video,'deliverables':[video],
-                    'evidence':[{'criterion':'成片 MP4','observation':'Video checked','inspection_id':video_id,'ref':video}]}
+                    'evidence':[{'criterion':'成片 MP4','method_use':'not_applicable','observation':'Video checked','inspection_id':video_id,'ref':video}]}
         with self.assertRaisesRegex(ValueError,'export_srt'):
             validate_resolved_review(video_only,snapshot,inspections)
         complete={**video_only,'deliverables':[video,subtitle],
-                  'evidence':[video_only['evidence'][0],{'criterion':'成片 MP4','observation':'Subtitle checked','inspection_id':subtitle_id,'ref':subtitle}]}
+                  'evidence':[video_only['evidence'][0],{'criterion':'成片 MP4','method_use':'not_applicable','observation':'Subtitle checked','inspection_id':subtitle_id,'ref':subtitle}]}
         validate_resolved_review(complete,snapshot,inspections)
     def test_registered_output_role_is_bound_to_the_attempt_file_before_quality_check(self):
         from webapp.workflow_runtime import resolve_acceptance_output_roles

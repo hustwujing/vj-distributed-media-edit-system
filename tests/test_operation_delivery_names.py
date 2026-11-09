@@ -29,7 +29,7 @@ class OperationDeliveryNameTests(unittest.TestCase):
         run=graph.get(store,run['id']);fixture.orchestrator.queue_review(run)
         review=store.query("SELECT * FROM workflow_reviews WHERE purpose='final'")[0];snapshot=json.loads(review['snapshot_json'])
         decision={'verdict':'pass','deliverables':[ref],'primary':ref,'feedback':'Valid output',
-            'snapshot_digest':review['snapshot_digest'],'evidence':[{'criterion':criterion,'inspection_id':'a'*32,'ref':ref,'observation':'Actual64x64 PNG satisfies requested delivery'}
+            'snapshot_digest':review['snapshot_digest'],'evidence':[{'criterion':criterion,'inspection_id':'a'*32,'ref':ref,'method_use':'not_applicable','observation':'Actual64x64 PNG satisfies requested delivery'}
                 for criterion in snapshot['review_criteria']]}
         validate_resolved_review(decision,snapshot,{'a'*32:ref})
         store.execute("UPDATE workflow_reviews SET status='passed',decision_json=? WHERE id=?",(graph.encode(decision),review['id']))

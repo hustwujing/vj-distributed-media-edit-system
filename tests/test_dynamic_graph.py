@@ -796,7 +796,7 @@ class DynamicGraphTests(unittest.TestCase):
         selected=['edit/master.mp4','edit/final.mp4']
         ids=['a'*32,'b'*32];inspections=dict(zip(ids,selected));keys={'delivery_1':ids[0],'delivery_2':ids[1]}
         decision={'snapshot_digest':row['snapshot_digest'],'verdict':'pass','deliverables':list(keys),
-                  'evidence':[{'criterion_index':index,'observation':'Checked both variants against this requirement','inspection_id':ids[0]}
+                  'evidence':[{'criterion_index':index,'method_use':'not_applicable','observation':'Checked both variants against this requirement','inspection_id':ids[0]}
                               for index in range(len(frozen['review_criteria']))]}
         with self.assertRaisesRegex(ValueError,'[Pp]rimary'):
             validated_internal_result(run,task,get('delivery_reviewer'),{'decision':decision},frozen,inspections,keys)
@@ -850,12 +850,12 @@ class DynamicGraphTests(unittest.TestCase):
         from webapp.specialist_profiles import get
         inspection='c'*32
         invalid={'snapshot_digest':row['snapshot_digest'],'verdict':'reject','evidence':[
-            {'criterion_index':99,'observation':'Final subtitles are missing','inspection_id':inspection}]}
+            {'criterion_index':99,'method_use':'not_applicable','observation':'Final subtitles are missing','inspection_id':inspection}]}
         with self.assertRaisesRegex(ValueError,'Step review evidence'):
             validated_internal_result(run,task,get('visual_quality_reviewer'),{'decision':invalid},
                 {**frozen,'snapshot_digest':row['snapshot_digest']},{inspection:'edit/report.txt'})
         self.assertEqual(self.store.query('SELECT status FROM workflow_reviews')[0]['status'],'pending')
-        valid={**invalid,'verdict':'pass','evidence':[{'criterion_index':index,'observation':'Inspected this step','inspection_id':inspection} for index in range(len(criteria))]}
+        valid={**invalid,'verdict':'pass','evidence':[{'criterion_index':index,'method_use':'not_applicable','observation':'Inspected this step','inspection_id':inspection} for index in range(len(criteria))]}
         with self.assertRaisesRegex(ValueError,'every frozen'):
             validated_internal_result(run,task,get('visual_quality_reviewer'),{'decision':{**valid,'evidence':valid['evidence'][:1]}},
                 {**frozen,'snapshot_digest':row['snapshot_digest']},{inspection:'edit/report.txt'})
@@ -881,7 +881,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',
             (inspection,run['id'],task['id'],task['lease_id'],'edit/report.txt',row['snapshot_digest'],'{}',self.store.now()))
         decision={'snapshot_digest':row['snapshot_digest'],'verdict':'pass','evidence':[
-            {'criterion':'满足当前步骤目标及输出契约','observation':'Content appears acceptable','ref':'edit/report.txt','inspection_id':inspection}],
+            {'criterion':'满足当前步骤目标及输出契约','method_use':'not_applicable','observation':'Content appears acceptable','ref':'edit/report.txt','inspection_id':inspection}],
             'deliverables':[],'primary':'','feedback':''}
         with self.assertRaisesRegex(ValueError,'program acceptance'):
             self.orchestrator.accept_review(graph.get(self.store,run['id']),task,{'decision':decision})
@@ -1151,7 +1151,7 @@ class DynamicGraphTests(unittest.TestCase):
         current=graph.get(self.store,run['id']);review=next(t for t in graph.work_items(current) if t.get('control_kind') and t['spec'].get('profile')=='visual_quality_reviewer')
         self.store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',('d'*32,run['id'],review['id'],review['lease_id'],'edit/report.txt',review['spec']['snapshot_digest'],'{}',self.store.now()))
         self.orchestrator.accept_review(current,review,{'decision':{'snapshot_digest':review['spec']['snapshot_digest'],'verdict':'pass',
-            'evidence':[{'criterion':'满足当前步骤目标及输出契约','observation':'Checked actual candidate','ref':'edit/report.txt','inspection_id':'d'*32}]}})
+            'evidence':[{'criterion':'满足当前步骤目标及输出契约','method_use':'not_applicable','observation':'Checked actual candidate','ref':'edit/report.txt','inspection_id':'d'*32}]}})
         subject=next(t for t in graph.work_items(graph.get(self.store,run['id'])) if t['id']=='first')
         self.assertEqual(subject['status'],'reviewing');self.assertFalse(subject['accepted_result'])
         decision=self.store.query("SELECT * FROM workflow_decisions WHERE status='pending'")[0]

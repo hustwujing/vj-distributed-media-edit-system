@@ -1003,7 +1003,7 @@ class DynamicGatewayTests(unittest.TestCase):
             found=re.findall(r'"inspection_id":"([a-f0-9]{32})"',args[4]);actual=found[-1] if found else '0'*32
             inspection='0'*32 if calls==2 else actual
             return {'action':'result','report':{'verdict':'pass',
-                'evidence':[{'criterion_index':0,'observation':'Read actual input','inspection_id':inspection}]}}
+                'evidence':[{'criterion_index':0,'method_use':'not_applicable','observation':'Read actual input','inspection_id':inspection}]}}
         host=SimpleNamespace(store=self.store,stop=threading.Event())
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=response), \
              patch('webapp.workflow_agents.inspect',return_value={'ref':'asset','text':'actual input'}), \

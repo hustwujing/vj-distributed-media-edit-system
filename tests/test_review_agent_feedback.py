@@ -62,6 +62,43 @@ class DraftAndOutputFeedbackTests(unittest.TestCase):
 
 
 class FinalReviewerExecuteTests(unittest.TestCase):
+    def test_reference_only_method_pass_is_corrected_and_controller_rejects_forgery(self):
+        f=graph_fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
+        store=f.store;run=f.review_fixture()
+        store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json WHERE run_id=?",(run['id'],))
+        store.execute('INSERT INTO execution_step_checkpoints VALUES (?,?,?,?,?,?,?)',
+            (run['id'],'first',0,f.f.project,'completed',graph.encode({'edit/report.txt':{'sha256':'a'*64,'size':6}}),store.now()))
+        f.orchestrator.queue_review(graph.get(store,run['id']))
+        review=store.query("SELECT * FROM workflow_reviews WHERE purpose='final'")[0]
+        lease=Coordinator(store,'method-review-loop','test').claim(run['id'],'workflow',step_id=review['task_id'])
+        self.assertIsNotNone(lease);current=graph.get(store,run['id']);task=graph.work_item(current,review['task_id']);calls=[]
+        def respond(*args,**kwargs):
+            calls.append(args[4])
+            if len(calls)==1:return {'action':'inspect','ref':'edit/report.txt'}
+            if len(calls)==3:self.assertIn('方法契约未满足',args[4])
+            inspection=store.query('SELECT id FROM workflow_inspections WHERE attempt_id=?',(lease.attempt,))[0]['id']
+            return {'action':'result','decision':{'snapshot_digest':review['snapshot_digest'],
+                'verdict':'pass' if len(calls)==2 else 'reject',
+                'evidence':[{'criterion_index':0,'inspection_id':inspection,'method_use':'reference_only',
+                             'observation':'The method output was used only to verify the extent, not as output content.'}],
+                'deliverables':[],'primary':'','feedback':'Required method output was not used.'}}
+        try:
+            with lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond), \
+                 patch('webapp.workflow_agents.inspect',return_value={'ref':'edit/report.txt','text':'report'}):
+                execute(SimpleNamespace(store=store,stop=threading.Event()),lease,current,task)
+            result=json.loads(store.query('SELECT result_json FROM task_results WHERE task_id=?',(task['id'],))[0]['result_json'])
+            forged={**result['decision'],'verdict':'pass','deliverables':['edit/report.txt'],'primary':'edit/report.txt'}
+            with self.assertRaisesRegex(ValueError,'方法契约未满足'):
+                f.orchestrator.accept_review(graph.get(store,run['id']),task,{'decision':forged})
+            self.assertNotEqual(store.query('SELECT status FROM workflow_reviews WHERE id=?',(review['id'],))[0]['status'],'passed')
+        finally:lease.release()
+        self.assertEqual(len(calls),3)
+        f.orchestrator.accept_results(graph.get(store,run['id']))
+        saved=store.query('SELECT status,decision_json FROM workflow_reviews WHERE id=?',(review['id'],))[0]
+        self.assertEqual(saved['status'],'rejected')
+        self.assertEqual(json.loads(saved['decision_json'])['evidence'][0]['method_use'],'reference_only')
+        self.assertFalse(graph.get(store,run['id'])['delivery'])
+
     def test_empty_delivery_targets_pass_via_real_agent_loop_and_controller(self):
         f=graph_fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
         store=f.store;run=f.review_fixture()
@@ -82,7 +119,7 @@ class FinalReviewerExecuteTests(unittest.TestCase):
             if len(calls)==1:return {'action':'inspect','ref':'edit/report.txt'}
             inspection=store.query('SELECT id FROM workflow_inspections WHERE attempt_id=?',(lease.attempt,))[0]['id']
             return {'action':'result','decision':{'snapshot_digest':review['snapshot_digest'],'verdict':'pass',
-                'evidence':[{'criterion_index':0,'inspection_id':inspection,'observation':'The report meets the goal'}],
+                'evidence':[{'criterion_index':0,'inspection_id':inspection,'method_use':'not_applicable','observation':'The report meets the goal'}],
                 'deliverables':['delivery_1'],'primary':'delivery_1','feedback':''}}
         try:
             with lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond), \

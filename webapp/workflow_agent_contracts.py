@@ -4,6 +4,22 @@ from pydantic import Field,model_validator
 from .workflow_graph import Contract
 
 AUXILIARY_DELIVERY_ROLES=frozenset({'report','plan','manifest','evidence','preview'})
+MethodUse=Literal['not_applicable','output_content','reference_only','unverified']
+METHOD_USE_DESCRIPTION=('For this criterion, classify how the reviewed artifact uses a USER-REQUIRED processing method. '
+    'not_applicable: this criterion does not require deriving the artifact from a named method. '
+    'output_content: the method output, mask or layers actually contribute content to the artifact. '
+    'reference_only: the method was merely attempted, or its output was used only for statistics, color selection, extent checks or verification. '
+    'unverified: the required derivation cannot be established. Classify the artifact derivation, not the format of this inspection receipt. '
+    'A pass cannot contain reference_only or unverified; return reject/inconclusive when that is what the facts establish.')
+
+
+def validate_method_use(verdict,evidence):
+    if verdict!='pass':return
+    for item in evidence:
+        use=item.get('method_use') if isinstance(item,dict) else item.method_use
+        if use not in ('not_applicable','output_content'):
+            raise ValueError('方法契约未满足：仅参考统计、检查范围或尚未核实，不能证明产物使用了指定方法的输出。'
+                             '请核验实际内容来源，或返回reject/inconclusive；不要仅修改method_use标记以通过校验。')
 
 
 def review_criteria(snapshot):
@@ -100,6 +116,7 @@ class Evidence(Contract):
     criterion_index:int=Field(ge=0,le=99,description='Zero-based index in the frozen review_criteria/delivery_targets list.')
     observation:str=Field(min_length=1,max_length=4000)
     inspection_id:str=Field(pattern=r'^[a-f0-9]{32}$',description='Copy the short inspection_id returned by inspect. The server resolves its immutable ref.')
+    method_use:MethodUse=Field(description=METHOD_USE_DESCRIPTION)
 
 
 class ResolvedEvidence(Contract):
@@ -107,6 +124,7 @@ class ResolvedEvidence(Contract):
     observation:str=Field(min_length=1,max_length=4000)
     ref:str=Field(min_length=1,max_length=500)
     inspection_id:str=Field(pattern=r'^[a-f0-9]{32}$')
+    method_use:MethodUse=Field(description=METHOD_USE_DESCRIPTION)
 
 
 class ReviewDecision(Contract):
@@ -120,6 +138,7 @@ class ReviewDecision(Contract):
     @model_validator(mode='after')
     def supported(self):
         if self.verdict=='pass' and not self.evidence:raise ValueError('Passing review requires evidence')
+        validate_method_use(self.verdict,self.evidence)
         return self
 
 
@@ -134,6 +153,7 @@ class ResolvedReviewDecision(Contract):
     def supported(self):
         if self.verdict=='pass' and not self.evidence:raise ValueError('Passing review requires evidence')
         if self.primary and self.primary not in self.deliverables:raise ValueError('Primary must be selected')
+        validate_method_use(self.verdict,self.evidence)
         return self
 
 
@@ -209,13 +229,15 @@ def resolve_review(decision,snapshot,inspections,candidate_keys=None):
     if primary and primary not in selected:raise ValueError('Primary candidate_key must be selected')
     return ResolvedReviewDecision.model_validate({**decision,
         'evidence':[{'criterion':criteria[item['criterion_index']],'observation':item['observation'],
-                     'ref':inspections[item['inspection_id']],'inspection_id':item['inspection_id']} for item in decision['evidence']],
+                     'ref':inspections[item['inspection_id']],'inspection_id':item['inspection_id'],
+                     'method_use':item['method_use']} for item in decision['evidence']],
         'deliverables':[inspections[item] for item in selected],
         'primary':inspections[primary] if primary else ''}).model_dump()
 
 
 def validate_resolved_review(decision, snapshot, inspections):
     """Controller-side check; worker-resolved refs are still untrusted input."""
+    validate_method_use(decision['verdict'],decision['evidence'])
     criteria=set(review_criteria(snapshot))
     actual={item['criterion'] for item in decision['evidence']}
     if not actual<=criteria:
@@ -324,4 +346,5 @@ class VisualReport(Contract):
     @model_validator(mode='after')
     def supported(self):
         if self.verdict=='pass' and not self.evidence:raise ValueError('Passing visual report requires evidence')
+        validate_method_use(self.verdict,self.evidence)
         return self

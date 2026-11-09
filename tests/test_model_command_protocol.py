@@ -1015,12 +1015,40 @@ class ModelCommandTests(unittest.TestCase):
         from webapp.workflow_agent_contracts import ReviewDecision
         f=frozen();f.update(result_schema=ReviewDecision.model_json_schema(),review_scope='task')
         p=ToolProtocol(profile('delivery_reviewer'),f,{'control_kind':'REVIEW'},inspections={'b'*32:'immutable.png'})
-        value={'verdict':'pass','evidence':[{'criterion_index':0,'observation':'Checked','inspection_id':'b'*32}]}
+        value={'verdict':'pass','evidence':[{'criterion_index':0,'method_use':'not_applicable','observation':'Checked','inspection_id':'b'*32}]}
         wire=transform(value,p.schemas['submit_result'],encode=True)
         result=p.decode('submit_result',wire)
         self.assertEqual(result['decision']['snapshot_digest'],'a'*64)
         wire['evidence'][0]['inspection_id']='c'*32
         with self.assertRaises(ValidationError):p.decode('submit_result',wire)
+
+    def test_review_method_facts_are_required_and_cannot_support_a_false_pass(self):
+        from webapp.workflow_agent_contracts import ReviewDecision,resolve_review,validate_resolved_review
+        snapshot={'snapshot_digest':'a'*64,'review_scope':'task','review_criteria':['Use the required method output'],
+                  'result_schema':ReviewDecision.model_json_schema()}
+        inspection='b'*32;refs={inspection:'edit/result.png'}
+        protocol=ToolProtocol(profile('delivery_reviewer'),snapshot,{'control_kind':'REVIEW'},inspections=refs)
+        evidence={'criterion_index':0,'inspection_id':inspection,'observation':'Only checked the candidate extent'}
+        for use in ('reference_only','unverified'):
+            with self.subTest(method_use=use):
+                value={'verdict':'pass','evidence':[{**evidence,'method_use':use}]}
+                # The wire schema permits honest facts. Domain validation rejects
+                # the incompatible passing conclusion, not the facts themselves.
+                decoded=protocol.decode('submit_result',transform(value,protocol.schemas['submit_result'],encode=True))['decision']
+                with self.assertRaisesRegex(ValueError,'方法契约未满足'):ReviewDecision.model_validate(decoded)
+                rejected=ReviewDecision.model_validate({**decoded,'verdict':'reject'}).model_dump()
+                resolved=resolve_review(rejected,snapshot,refs)
+                self.assertEqual(resolved['evidence'][0]['method_use'],use)
+                with self.assertRaisesRegex(ValueError,'方法契约未满足'):
+                    validate_resolved_review({**resolved,'verdict':'pass'},snapshot,refs)
+        for use in ('not_applicable','output_content'):
+            accepted=ReviewDecision.model_validate({'snapshot_digest':'a'*64,'verdict':'pass',
+                'evidence':[{**evidence,'method_use':use}]}).model_dump()
+            resolved=resolve_review(accepted,snapshot,refs)
+            validate_resolved_review(resolved,snapshot,refs)
+            self.assertEqual(resolved['evidence'][0]['method_use'],use)
+        with self.assertRaises(ValidationError):
+            transform({'verdict':'pass','evidence':[evidence]},protocol.schemas['submit_result'],encode=True)
 
     def test_final_review_selects_short_candidate_keys_not_internal_ids_or_paths(self):
         from webapp.workflow_agent_contracts import ReviewDecision
@@ -1028,7 +1056,7 @@ class ModelCommandTests(unittest.TestCase):
         inspections={'b'*32:'edit/final.png'};keys={'delivery_1':'b'*32}
         f['tasks'][0].update(accepted_result=['edit/final.png'],quality={'output_roles':{'primary_image':'edit/final.png'}})
         p=ToolProtocol(profile('delivery_reviewer'),f,{'control_kind':'REVIEW'},inspections=inspections,candidate_keys=keys)
-        value={'verdict':'pass','evidence':[{'criterion_index':0,'observation':'Checked','inspection_id':'b'*32}],
+        value={'verdict':'pass','evidence':[{'criterion_index':0,'method_use':'not_applicable','observation':'Checked','inspection_id':'b'*32}],
                'deliverables':['delivery_1'],'primary':'delivery_1'}
         wire=transform(value,p.schemas['submit_result'],encode=True)
         self.assertEqual(p.decode('submit_result',wire)['decision']['primary'],'delivery_1')
@@ -1046,12 +1074,12 @@ class ModelCommandTests(unittest.TestCase):
                   'review_criteria':['交付符合要求的最终视频'],'tasks':[{'id':'render','spec':{'delivery_stage':True},
                   'accepted_result':['edit/final.mp4'],'quality':{'output_roles':{'video':'edit/final.mp4'}}}]}
         inspection='b'*32;decision={'snapshot_digest':'a'*64,'verdict':'pass',
-            'evidence':[{'criterion_index':0,'observation':'已检查成片','inspection_id':inspection}],
+            'evidence':[{'criterion_index':0,'method_use':'not_applicable','observation':'已检查成片','inspection_id':inspection}],
             'deliverables':['delivery_1'],'primary':'delivery_1','feedback':''}
         resolved=resolve_review(decision,snapshot,{inspection:'edit/final.mp4'},{'delivery_1':inspection})
         self.assertEqual(resolved['evidence'][0]['criterion'],snapshot['review_criteria'][0])
         self.assertEqual(resolved['primary'],'edit/final.mp4')
-        bad={**decision,'evidence':[{'criterion_index':1,'observation':'越界','inspection_id':inspection}]}
+        bad={**decision,'evidence':[{'criterion_index':1,'method_use':'not_applicable','observation':'越界','inspection_id':inspection}]}
         with self.assertRaisesRegex(ValueError,'0..0'):
             resolve_review(bad,snapshot,{inspection:'edit/final.mp4'},{'delivery_1':inspection})
 
