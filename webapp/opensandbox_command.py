@@ -220,6 +220,8 @@ class OpenSandboxCommandRuntime:
                 remote.relative_to(output)
                 name=remote.relative_to('/workspace')
             except ValueError:raise ValueError('Command output escaped workspace') from None
+            from .sandbox_path_policy import is_reserved_scratch_path
+            if is_reserved_scratch_path(name):continue
             if kind in ('directory','dir'):continue
             if kind not in ('file','regular') or not name.parts:raise ValueError('Command output is not a regular file')
             if name in seen:raise ValueError('Duplicate command output path')

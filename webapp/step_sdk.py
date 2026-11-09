@@ -18,6 +18,12 @@ def output_file(name):
     return Path(os.environ['VIDEO_USE_STEP_OUTPUT'])/name
 
 
+def scratch_directory():
+    path=Path(os.environ['VIDEO_USE_STEP_SCRATCH'])
+    path.mkdir(mode=0o700,parents=True,exist_ok=True)
+    return path
+
+
 def progress(text,current=None,total=None):
     if not isinstance(text,str) or not text.strip():raise ValueError('进度说明不能为空')
     if current is not None or total is not None:

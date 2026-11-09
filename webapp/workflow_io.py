@@ -69,10 +69,16 @@ def execute(request):
         # concat manifest's directory). These remain paths inside the sandbox.
         inputs={role:[str((root/name).resolve()) for name in names]
                 for role,names in request.get('inputs',{}).items()}
-        env = dict(os.environ, VIDEO_USE_STEP_OUTPUT=str(folder),
+        scratch=folder/'.scratch';scratch.mkdir(mode=0o700,exist_ok=True)
+        env = dict(os.environ, VIDEO_USE_STEP_OUTPUT=str(folder), VIDEO_USE_STEP_SCRATCH=str(scratch),
                    VIDEO_USE_STEP_INPUTS=json.dumps(inputs, ensure_ascii=False))
-        with (folder/'execution.log').open('w') as log:
-            result = subprocess.run(argv, env=env, stdout=log, stderr=subprocess.STDOUT)
+        try:
+            with (folder/'execution.log').open('w') as log:
+                result = subprocess.run(argv, env=env, stdout=log, stderr=subprocess.STDOUT)
+        finally:
+            import shutil
+            shutil.rmtree(scratch,ignore_errors=True)
+            if scratch.exists():raise RuntimeError('Task scratch cleanup failed')
         if result.returncode:
             error=RuntimeError('本地处理命令执行失败');error.exit_code=result.returncode;raise error
         for name in request['outputs']:

@@ -23,10 +23,15 @@ class WorkspaceExporter:
             if not root.exists():manifest[group]=records;continue
             for base,dirs,names in os.walk(root,followlinks=False):
                 base=Path(base)
+                if group=='workspace':
+                    from .sandbox_path_policy import is_reserved_scratch_path
+                    dirs[:]=[name for name in dirs
+                        if not is_reserved_scratch_path((base/name).relative_to(root).as_posix())]
                 if any((base/name).is_symlink() for name in dirs):raise RuntimeWorkspaceError('Workspace contains a linked directory')
                 for name in names:
                     path=base/name;relative=path.relative_to(root).as_posix()
                     if group=='workspace' and not relative.startswith('edit/'):continue
+                    if group=='workspace' and is_reserved_scratch_path(relative):continue
                     if group=='state':
                         from .session_checkpoint import persistent
                         if not persistent(relative):continue

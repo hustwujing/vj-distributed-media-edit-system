@@ -129,7 +129,9 @@ def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
                 or not isinstance(workspace['inputs'],dict) or any(not isinstance(paths,list) or not paths
                     or any(not scoped(path) for path in paths) for paths in workspace['inputs'].values())):
             raise ValueError('Invalid frozen Task workspace contract')
+        from .sandbox_path_policy import scratch_directory
         environment.update(VIDEO_USE_STEP_OUTPUT=workspace['output'],
+            VIDEO_USE_STEP_SCRATCH=scratch_directory(workspace['output']),
             VIDEO_USE_STEP_INPUTS=json.dumps(workspace['inputs'],sort_keys=True))
     bridge=StdioHarnessBridge(config['adapter'],
         config['adapter'].runtime_launch(config['harness_config']),environment=environment)

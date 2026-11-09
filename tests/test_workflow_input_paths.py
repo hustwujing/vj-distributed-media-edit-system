@@ -59,6 +59,7 @@ class WorkflowInputPathTests(unittest.TestCase):
                 'os.chdir(os.environ["VIDEO_USE_STEP_OUTPUT"])\n'
                 'raw=Path(json.loads(os.environ["VIDEO_USE_STEP_INPUTS"])["image"][0])\n'
                 'sdk=input_file("image")\nassert raw.is_absolute() and sdk==raw\n'
+                'scratch=Path(os.environ["VIDEO_USE_STEP_SCRATCH"]);(scratch/"temporary.bin").write_bytes(b"discard")\n'
                 'shutil.copyfile(sdk,"copy.png")\n'
                 'Path("paths.json").write_text(json.dumps({"raw":str(raw),"sdk":str(sdk)}))\n')
             for index,binding in enumerate(['sources/input.png',str(source)]):
@@ -71,3 +72,4 @@ class WorkflowInputPathTests(unittest.TestCase):
                     self.assertEqual(result.returncode,0,result.stdout+result.stderr)
                     self.assertEqual((root/output/'copy.png').read_bytes(),source.read_bytes())
                     self.assertEqual(json.loads((root/output/'paths.json').read_text())['raw'],str(source))
+                    self.assertFalse((root/output/'.scratch').exists())

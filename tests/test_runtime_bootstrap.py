@@ -58,6 +58,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
         app=create_runtime(self.config,bundle_root=self.bundle_root)
         environment=app.state.harness_controller.bridge.environment
         self.assertEqual(environment['VIDEO_USE_STEP_OUTPUT'],workspace['output'])
+        self.assertEqual(environment['VIDEO_USE_STEP_SCRATCH'],workspace['output']+'/.scratch')
         self.assertEqual(json.loads(environment['VIDEO_USE_STEP_INPUTS']),workspace['inputs'])
         self.assertIn('/opt/video-use/helpers',environment['PYTHONPATH'])
         self.assertIn('/opt/harness',environment['PYTHONPATH'].split(':'))

@@ -139,6 +139,14 @@ class NativeSelectionTests(unittest.TestCase):
         limited=replace(profile,specialist_output_tokens={'editing_implementer':4096})
         self.assertEqual(output_token_limit(limited),4096)
 
+    def test_native_instructions_apply_the_shared_path_contract(self):
+        from webapp.native_implementer import instructions
+        from webapp.specialist_profiles import get
+        text=instructions(get('editing_implementer'))
+        self.assertIn('/workspace 是稳定Shell工作目录',text)
+        self.assertIn('临时工作文件只能放在VIDEO_USE_STEP_SCRATCH',text)
+        self.assertIn('不得删除、移动或改名VIDEO_USE_STEP_OUTPUT本身',text)
+
 
 class NativeRunnerTests(unittest.TestCase):
     def run_case(self,status='completed',stop=False,error=None):
@@ -190,7 +198,13 @@ class NativeRunnerTests(unittest.TestCase):
         publisher.message.assert_called();publisher.flush.assert_called_with(complete=True)
         self.assertTrue(publisher.message.call_args.args[1].startswith('代码编辑师：'))
         prompt=next(args[1]['text'] for args,kwargs in runtime.client.call.call_args_list if args[0]=='turn.start')
-        self.assertEqual(json.loads(prompt)['inputs']['source']['path'],'/workspace/sources/a.txt')
+        context=json.loads(prompt)
+        self.assertEqual(context['inputs']['source']['path'],'/workspace/sources/a.txt')
+        self.assertEqual(context['scratch_directory'],context['output_directory']+'/.scratch')
+        self.assertEqual(context['path_policy']['rules'],[
+            'inputs_are_read_only','writes_stay_under_output_root','temporary_files_stay_under_scratch_root',
+            'shell_cwd_is_stable','cleanup_is_scratch_descendants_only','output_root_is_never_deleted',
+            'scratch_is_not_checkpointed'])
 
     def test_harness_failure_does_not_collect_or_stage_success_and_flushes_public_text(self):
         run,runtime,publisher,finish=self.run_case(status='failed')

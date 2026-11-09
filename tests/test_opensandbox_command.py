@@ -73,6 +73,21 @@ class FlakyCleanup(NoopCleanup):
 
 
 class OpenSandboxCommandTests(unittest.TestCase):
+    def test_task_scratch_is_never_downloaded_to_the_host(self):
+        with tempfile.TemporaryDirectory() as folder:
+            workspace=Path(folder)/'workspace';workspace.mkdir()
+            session=Session();runtime=OpenSandboxCommandRuntime(Lifecycle(),session,'s','a',SimpleNamespace(check=lambda:None))
+            session.files.data={
+                '/workspace/edit/workflows/run/task/attempt/result.txt':b'result',
+                '/workspace/edit/workflows/run/task/attempt/.scratch/large.tmp':b'temporary'}
+            session.files.entries=[
+                {'path':'/workspace/edit/workflows/run/task/attempt/.scratch','type':'directory'},
+                {'path':'/workspace/edit/workflows/run/task/attempt/.scratch/large.tmp','type':'file'},
+                {'path':'/workspace/edit/workflows/run/task/attempt/result.txt','type':'file'}]
+            runtime._download_output({'workspace':workspace},'edit/workflows/run/task/attempt')
+            self.assertEqual((workspace/'edit/workflows/run/task/attempt/result.txt').read_bytes(),b'result')
+            self.assertFalse((workspace/'edit/workflows/run/task/attempt/.scratch').exists())
+
     def test_output_rejects_remote_traversal_and_sibling_paths_before_read(self):
         with tempfile.TemporaryDirectory() as folder:
             workspace=Path(folder)/'workspace';workspace.mkdir()

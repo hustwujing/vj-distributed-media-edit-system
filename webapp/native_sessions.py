@@ -51,6 +51,7 @@ def restore(runtime,saved,files):
 def save(runtime,run,task,configuration_digest,input_digest,session_id,output,manifest):
     """Commit after native children stop; session completion is not publication."""
     from .runtime_workspace import WorkspaceCollector
+    from .sandbox_path_policy import is_scratch_path
     store=runtime.store;lease=runtime.lease
     if not runtime.frozen:raise ValueError('Cannot checkpoint a running native session')
     folder=store.project_dir(run['project_id'])/'native-sessions'/run['id']/task['id']/str(task['revision'])/(lease.attempt+'-'+uuid.uuid4().hex)
@@ -61,7 +62,9 @@ def save(runtime,run,task,configuration_digest,input_digest,session_id,output,ma
         for name,record in items.items():
             path=PurePosixPath(name)
             if path.is_absolute() or '..' in path.parts:raise ValueError('Invalid exported session path')
-            if group=='state' and persistent(name) or group=='workspace' and path.is_relative_to(PurePosixPath(output)):
+            if (group=='state' and persistent(name) or
+                    group=='workspace' and path.is_relative_to(PurePosixPath(output))
+                    and not is_scratch_path(path,output)):
                 selected[group][name]=record
     records={'workspace':{},'state':{}}
     def sink(group,name,data,record):

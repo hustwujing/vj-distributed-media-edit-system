@@ -17,6 +17,7 @@ class NativeSessionTests(unittest.TestCase):
         self.output=f'edit/workflows/{self.run["id"]}/code/output'
         self.files=Mock();self.data={};self.manifest={'workspace':{},'state':{}}
         for group,name,data in [('workspace',self.output+'/result.txt',b'approved scoped output'),
+                                ('workspace',self.output+'/.scratch/intermediate.bin',b'discarded scratch'),
                                 ('workspace','edit/other-task.txt',b'must not restore'),
                                 ('state','codex/sessions/thread.jsonl',b'conversation'),
                                 ('state','codex/state_5.sqlite-wal',b'wal'),

@@ -16,11 +16,14 @@ class RuntimeWorkspaceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);workspace=root/'workspace';state=root/'state';workspace.mkdir();state.mkdir()
             (workspace/'edit').mkdir();(workspace/'edit/same.txt').write_text('same');(workspace/'edit/new.txt').write_text('new')
+            scratch=workspace/'edit/workflows/run/task/attempt/.scratch';scratch.mkdir(parents=True)
+            (scratch/'temporary.bin').write_bytes(b'must not persist')
             (workspace/'sources').mkdir();(workspace/'sources/input.bin').write_bytes(b'input')
             (state/'cache').mkdir();(state/'cache/ignored').write_bytes(b'cache')
             (state/'session.bin').write_bytes(b'session')
             manifest=WorkspaceExporter(workspace,state).export()
             self.assertIn('edit/same.txt',manifest['workspace']);self.assertIn('edit/new.txt',manifest['workspace'])
+            self.assertNotIn('edit/workflows/run/task/attempt/.scratch/temporary.bin',manifest['workspace'])
             self.assertNotIn('sources/input.bin',manifest['workspace']);self.assertNotIn('cache/ignored',manifest['state'])
             remote={
                 '/workspace/edit/same.txt':b'same','/workspace/edit/new.txt':b'new','/state/session.bin':b'session'}
