@@ -23,6 +23,12 @@ class ModelOutputBudgetTests(unittest.TestCase):
         for limits in ({'unknown_role':600},{'editing_implementer':True},{'editing_implementer':9},
                        {'editing_implementer':timed.budget['run_seconds']+1}):
             with self.assertRaises(ValueError):replace(timed,specialist_minimum_seconds=limits)
+        reasoned=replace(full,specialist_reasoning_effort={'editing_implementer':'medium'})
+        self.assertEqual(AgentProfile(**reasoned.snapshot()).specialist_reasoning_effort,
+            {'editing_implementer':'medium'})
+        for efforts in ({'unknown_role':'medium'},{'editing_implementer':'unbounded'},
+                        {'editing_implementer':True}):
+            with self.assertRaises(ValueError):replace(reasoned,specialist_reasoning_effort=efforts)
 
     def test_role_phase_and_model_caps_remain_independent(self):
         planner=get('media_planner');draft=SimpleNamespace(schemas={'submit_typed_plan':{}},correction_mode=False)

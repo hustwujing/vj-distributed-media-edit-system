@@ -16,6 +16,9 @@ HARNESS_PROTOCOLS = {
     # The pinned DeepSeek SDK uses the Messages wire protocol for V4 models.
     'deepseek_harness': {'anthropic'},
 }
+HARNESS_EFFORTS = {'codex': {'minimal','low','medium','high','xhigh'},
+                   'claude_code': {'low','medium','high','max'},
+                   'deepseek_harness': {'none','low','medium','high','max'}}
 
 
 def integer(name, default, maximum=10_000_000):
@@ -52,6 +55,7 @@ class AgentProfile:
     output_token_policy: str = 'phase'
     specialist_output_tokens: dict = field(default_factory=dict)
     specialist_minimum_seconds: dict = field(default_factory=dict)
+    specialist_reasoning_effort: dict = field(default_factory=dict)
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     response_transport: str = 'stream'
@@ -75,6 +79,10 @@ class AgentProfile:
         if (not isinstance(self.specialist_minimum_seconds,dict) or set(self.specialist_minimum_seconds)-set(PROFILES)
                 or any(type(v) is not int or not 10<=v<=3600 for v in self.specialist_minimum_seconds.values())):
             raise ValueError('Invalid specialist minimum runtime limits')
+        if (not isinstance(self.specialist_reasoning_effort,dict) or set(self.specialist_reasoning_effort)-set(PROFILES)
+                or any(not isinstance(v,str) or v not in HARNESS_EFFORTS[self.harness]
+                       for v in self.specialist_reasoning_effort.values())):
+            raise ValueError('Invalid specialist reasoning effort')
         if not self.model or len(self.model) > 200 or any(ord(c) < 32 for c in self.model):
             raise ValueError('Invalid model identifier')
         if not re.fullmatch(r'(?:VIDEO_USE_|ANTHROPIC_|DEEPSEEK_|OPENAI_)[A-Z0-9_]*(?:KEY|TOKEN)', self.credential_env):
@@ -82,10 +90,7 @@ class AgentProfile:
         if self.base_url:
             from .egress_policy import provider_base
             provider_base(self.base_url)
-        efforts = {'codex': {'minimal', 'low', 'medium', 'high', 'xhigh'},
-                   'claude_code': {'low', 'medium', 'high', 'max'},
-                   'deepseek_harness': {'none', 'low', 'medium', 'high', 'max'}}
-        if self.reasoning_effort not in efforts[self.harness]:
+        if self.reasoning_effort not in HARNESS_EFFORTS[self.harness]:
             raise ValueError('Reasoning setting is not supported by the selected harness')
         if self.vision_tokenizer not in ('unconfigured','native','patch32_1_2','conservative_tiles512'):
             raise ValueError('Unsupported vision token policy')
@@ -218,7 +223,8 @@ def freeze(db, task, project, created, parent=None,*,configuration=None,role_pro
         from .specialist_profiles import PROFILES
         configured={**configured,**{identifier:configuration or selected() for identifier,value in PROFILES.items() if str(value.role)=='IMPLEMENTER'}}
         for identifier,value in configured.items():
-            value=replace(value,response_transport=PROFILES[identifier].response_transport)
+            value=replace(value,response_transport=PROFILES[identifier].response_transport,
+                reasoning_effort=value.specialist_reasoning_effort.get(identifier,value.reasoning_effort))
             db.execute('INSERT INTO agent_run_role_profiles VALUES (?,?,?,?,?)',
                        (task,identifier,json.dumps(value.snapshot(),sort_keys=True),value.digest,created))
     return profile

@@ -17,7 +17,8 @@ class ModelSelectionTests(unittest.TestCase):
             'claude':{'harness':'claude_code','model':'claude-4.6-sonnet','protocol':'anthropic',
                 'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'claude_bpe_estimate_v1'},
             'claude55':{'harness':'claude_code','model':'claude-sonnet-5-5','protocol':'anthropic',
-                'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'claude_bpe_estimate_v1'},
+                'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'claude_bpe_estimate_v1',
+                'specialist_reasoning_effort':{'editing_implementer':'medium'}},
             'deepseek41':{'harness':'deepseek_harness','model':'deepseek-v4.1-flash','protocol':'anthropic',
                 'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'deepseek_bpe_estimate_v1'}}
         active=patch.dict(os.environ,{'VIDEO_USE_AGENT_PROFILES_JSON':json.dumps(self.registry),'VIDEO_USE_AGENT_PROFILE':'claude',
@@ -37,6 +38,8 @@ class ModelSelectionTests(unittest.TestCase):
         run=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('claude55')}).json()
         self.assertEqual((run['model_configuration']['model'],run['model_configuration']['reasoning_effort']),('claude-sonnet-5-5','high'))
         self.assertIn('editing_implementer',run['model_configuration']['roles'])
+        self.assertEqual(run['model_configuration']['roles']['editing_implementer']['reasoning_effort'],'medium')
+        self.assertEqual(run['model_configuration']['roles']['media_planner']['reasoning_effort'],'high')
 
     def test_sandbox_choice_and_system_expert_models_are_frozen_separately(self):
         response=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('deepseek41','low')})
