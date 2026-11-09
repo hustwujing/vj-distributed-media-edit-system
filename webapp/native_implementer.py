@@ -39,6 +39,11 @@ def execute(host,lease,run,task):
     from .workflow_inputs import resolve
     view=graph.execution_view(run);step=next(s for s in view['steps'] if s['id']==task['id'])
     bound=resolve(host.store,view,step,env)
+    from . import native_sessions
+    configuration_digest=native_sessions.identity(task,configuration,lease.backend_binding)
+    input_digest=graph.digest(bound)
+    saved=native_sessions.load(host.store,run,task,configuration_digest,input_digest)
+    if saved:output=saved['output_directory']
     context={'task':task['spec'],'repair_context':task['repair_context'],
         'inputs':{name:{**item,'path':'/workspace/'+item['path']} for name,item in bound.items()},
         'output_directory':'/workspace/'+output,'declared_files':sorted(set(task['spec']['output_roles'].values()))}
@@ -65,10 +70,11 @@ def execute(host,lease,run,task):
         elif event.kind=='turn.ended':ended=event.data
     deadline=time.monotonic()+min(profile.timeout_seconds,task['spec']['timeout_seconds'],configuration.budget['run_seconds'])
     try:
-        runtime.start_harness(configuration,lease.backend_binding,event)
-        session=runtime.client.call('session.open',{'instructions':instructions(profile),'session_id':None})['session_id']
+        runtime.start_harness(configuration,lease.backend_binding,event,restore=saved)
+        session=runtime.client.call('session.open',{'instructions':instructions(profile),
+            'session_id':saved['session_id'] if saved else None})['session_id']
         host.store.execute('UPDATE agent_attempt_profiles SET native_session_id=?,restore_mode=? WHERE attempt_id=?',
-            (session,'fresh_task_scope',lease.attempt))
+            (session,'native_resume' if saved else 'fresh_task_scope',lease.attempt))
         runtime.client.call('turn.start',{'session_id':session,'text':graph.encode(context)})
         while ended is None:
             lease.check()
@@ -81,6 +87,7 @@ def execute(host,lease,run,task):
             raise RuntimeError('原生代码编辑师执行失败：'+str(ended.get('error') or ended.get('status'))[:1600])
         runtime.freeze_harness()
         runtime.begin_cleanup()  # No more model calls after the native turn.
+        native_sessions.save(runtime,run,task,configuration_digest,input_digest,session,output,runtime.export_native_session())
         lease.check();runtime._download_output(env,output)
         # Native text and exit status do not approve outputs. Reuse the same
         # file checks, technical validation, checkpoint and staging path.

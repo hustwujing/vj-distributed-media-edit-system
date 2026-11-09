@@ -90,5 +90,15 @@ class RuntimeHarnessTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'turn input'):
             self.controller.dispatch('turn.start',{'session_id':'session-1','text':'x'*(1024*1024+1)})
 
+    def test_export_freeze_reaps_native_process_and_cannot_launch_more_tools(self):
+        self.controller.dispatch('runtime.initialize',{'profile':'profile-1','skill':'skill-1'})
+        self.controller.dispatch('session.open',{'instructions':'ok'})
+        self.process.returncode=0
+        self.assertEqual(self.controller.dispatch('session.freeze',{}),{'state':'frozen'})
+        self.assertIsNone(self.bridge.process)
+        self.assertEqual(self.controller.dispatch('session.export',{})['session_id'],'session-1')
+        with self.assertRaises(HarnessStateError):self.controller.dispatch('turn.start',{'session_id':'session-1','text':'more'})
+        self.assertEqual(self.controller.dispatch('session.freeze',{}),{'state':'frozen'})
+
 
 if __name__=='__main__':unittest.main()

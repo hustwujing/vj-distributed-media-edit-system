@@ -32,7 +32,7 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
             return value['data']
         finally:self.session.files.delete(name,missing_ok=True)
 
-    def start_harness(self,profile,binding,on_event):
+    def start_harness(self,profile,binding,on_event,*,restore=None):
         from .native_gateway import NativeAttemptGateway
         from .runtime_bootstrap import CONTROL_PORT
         from opensandbox.models.execd import RunCommandOpts
@@ -51,7 +51,12 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort},frozen,
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort,
              'max_output_tokens':profile.budget['max_output_tokens']},gateway=self.gateway.material)
-        RuntimeInjector(self.session.files).inject(bundle,lambda files:self._upload_tree(self.env))
+        def workspace(files):
+            self._upload_tree(self.env)
+            if restore:
+                from .native_sessions import restore as restore_session
+                restore_session(self,restore,files)
+        RuntimeInjector(self.session.files).inject(bundle,workspace)
         opts=RunCommandOpts(background=True,uid=10001,gid=10001,working_directory='/workspace',
             timeout=timedelta(seconds=min(profile.budget['run_seconds'],3600)+60),
             envs={'PATH':'/opt/venv/bin:/usr/bin:/bin','HOME':'/state','TMPDIR':'/state/tmp','LANG':'C.UTF-8'})
@@ -67,6 +72,17 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
                 time.sleep(.2)
         self.client.timeout=30;self.client.call('runtime.initialize',frozen)
         self.client.timeout=2
+
+    def export_native_session(self):
+        if not self.frozen:raise ValueError('Native children must stop before session export')
+        result=self.client.call('session.export',{})
+        reference=result['manifest_ref']
+        if reference['path']!='/run/video-use/export-manifest.json' or not 0<reference['size']<=8*1024**2:
+            raise ValueError('Invalid native export descriptor')
+        data=self.session.files.read(reference['path'])
+        if len(data)!=reference['size'] or hashlib.sha256(data).hexdigest()!=reference['sha256']:
+            raise ValueError('Native export manifest integrity mismatch')
+        return json.loads(data)
 
     def freeze_harness(self):
         if self.client and not self.frozen:

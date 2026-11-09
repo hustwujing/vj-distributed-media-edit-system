@@ -86,7 +86,7 @@ class NativeRunnerTests(unittest.TestCase):
         if stop:host.stop.set()
         lease=Mock(runtime=runtime,run_id='run',attempt='attempt',generation=4,step_id='edit')
         lease.lost=threading.Event()
-        callback=[];runtime.start_harness.side_effect=lambda c,b,e:callback.append(e)
+        callback=[];runtime.start_harness.side_effect=lambda c,b,e,**kwargs:callback.append(e)
         runtime.client.call.side_effect=lambda method,args: {'session_id':'native-session'} if method=='session.open' else {}
         def receive():
             callback[0](AgentEvent('message.delta','m',{'delta':'处理输出'}))
@@ -95,6 +95,9 @@ class NativeRunnerTests(unittest.TestCase):
         runtime.client.receive_once.side_effect=receive
         stack.enter_context(patch('webapp.agent_profiles.for_specialist',return_value=configuration))
         stack.enter_context(patch('webapp.agent_profiles.record_attempt'))
+        stack.enter_context(patch('webapp.native_sessions.identity',return_value='config'))
+        stack.enter_context(patch('webapp.native_sessions.load',return_value=None))
+        stack.enter_context(patch('webapp.native_sessions.save'))
         stack.enter_context(patch('webapp.workflow_agents.output_directory',return_value=('edit/workflows/run/edit/out',{'assets':[]})))
         stack.enter_context(patch('webapp.workflow_graph.execution_view',return_value={'steps':[{'id':'edit'}]}))
         stack.enter_context(patch('webapp.workflow_inputs.resolve',return_value={'source':{'path':'sources/a.txt','sha256':'a'*64}}))

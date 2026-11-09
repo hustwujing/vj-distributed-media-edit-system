@@ -452,6 +452,11 @@ def initialize(store):
           seq INTEGER PRIMARY KEY AUTOINCREMENT,run_id TEXT NOT NULL,kind TEXT NOT NULL,
           graph_version INTEGER NOT NULL,payload_json TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS specialist_attempt_profiles(attempt_id TEXT PRIMARY KEY,run_id TEXT NOT NULL,work_id TEXT NOT NULL,profile_id TEXT NOT NULL,harness_id TEXT NOT NULL,policy_digest TEXT NOT NULL,model TEXT NOT NULL,protocol TEXT NOT NULL,model_config_digest TEXT NOT NULL,created_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS native_task_sessions(
+          run_id TEXT NOT NULL,task_id TEXT NOT NULL,revision INTEGER NOT NULL,
+          attempt_id TEXT NOT NULL,configuration_digest TEXT NOT NULL,input_digest TEXT NOT NULL,
+          session_id TEXT NOT NULL,output_directory TEXT NOT NULL,manifest_json TEXT NOT NULL,updated REAL NOT NULL,
+          PRIMARY KEY(run_id,task_id,revision));
         CREATE TABLE IF NOT EXISTS workflow_model_reservations(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
           reserved_tokens INTEGER NOT NULL,used_tokens INTEGER,state TEXT NOT NULL,created_at REAL NOT NULL,

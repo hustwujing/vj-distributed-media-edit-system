@@ -242,7 +242,7 @@ class Store:
             if sum(r['owner']==owner for r in open_runs)+count>int(os.environ.get('VIDEO_USE_USER_OPEN_RUN_LIMIT','50')):
                 raise ValueError('你的待确认任务过多，请先处理或取消已有任务。')
 
-    def check_storage(self,project,extra=0,replace_checkpoint=False,replace_turn=None,replace_step=None):
+    def check_storage(self,project,extra=0,replace_checkpoint=False,replace_turn=None,replace_step=None,replace_native_session=None):
         """Application retention quota; caller commits metadata in this transaction."""
         owner=self.query('SELECT owner FROM projects WHERE id=?',(project,))[0]['owner']
         total=sum(json.loads(r['metadata']).get('size',0) for r in self.query(
@@ -258,6 +258,10 @@ class Store:
         for row in self.query('SELECT c.workflow,c.step,c.revision,c.manifest FROM execution_step_checkpoints c JOIN projects p ON p.id=c.project WHERE p.owner=?',(owner,)):
             if replace_step==(row['workflow'],row['step'],row['revision']):continue
             total+=sum(item['size'] for item in json.loads(row['manifest']).values())
+        if self.query("SELECT name FROM sqlite_master WHERE name='native_task_sessions'"):
+            for row in self.query('SELECT c.* FROM native_task_sessions c JOIN runs r ON r.id=c.run_id JOIN projects p ON p.id=r.project_id WHERE p.owner=?',(owner,)):
+                if replace_native_session==(row['run_id'],row['task_id'],row['revision']):continue
+                total+=sum(record['size'] for items in json.loads(row['manifest_json']).values() for record in items.values())
         total+=self.query('SELECT COALESCE(SUM(r.bytes),0) AS n FROM execution_job_results r JOIN jobs j ON j.id=r.job_id JOIN projects p ON p.id=j.project WHERE p.owner=?',(owner,))[0]['n']
         if total+extra>int(os.environ.get('VIDEO_USE_USER_STORAGE_BYTES',str(20*1024**3))):
             raise ValueError('你的存储额度不足，请清理旧项目或增加额度。')
