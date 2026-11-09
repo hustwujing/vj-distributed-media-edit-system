@@ -15,7 +15,7 @@ const assertModelConfiguration=value=>{
  assert.equal(value.roles.visual_quality_reviewer.model,'claude-sonnet-5-5');
  assert.equal(value.roles.editing_implementer.model,'deepseek-v4.1-flash');
  assert.equal(value.roles.editing_implementer.harness,'deepseek_harness');
- assert.equal(value.roles.editing_implementer.reasoning_effort,'medium');
+ assert.equal(value.roles.editing_implementer.reasoning_effort,'low');
 };
 const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
 const release=JSON.parse(fs.readFileSync(path.join(root,'.sandbox-cluster/release.json')));
