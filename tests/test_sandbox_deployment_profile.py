@@ -62,5 +62,18 @@ class SandboxDeploymentProfileTests(unittest.TestCase):
                     'OBJECT_PREFIX','STREAM_PREFIX','GPU_LEASE_ROOT','MEDIA_RUNTIME_PREFIX','CONTROL_LOCK'):
             self.assertIn('DAS_DEPLOY_'+key+'=',text)
 
+    def test_native_unit_installation_generates_guard_before_executor_without_host_mutation(self):
+        cluster.CONF.mkdir(parents=True)
+        (cluster.CONF/'opensandbox-runtime.env').write_text('fixture')
+        values={'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox','VIDEO_USE_NODE_GATEWAY_DOCKER':'/opt/tools/docker'}
+        with patch.object(cluster,'env_file',return_value=values),patch.object(cluster,'run') as run, \
+             patch.object(Path,'mkdir'),patch.object(Path,'write_text',autospec=True) as write:
+            cluster.install_units(cluster.REPO)
+        units={str(call.args[0]):call.args[1] for call in write.call_args_list}
+        guard=units['/etc/systemd/system/sandbox-agent-native-network.service']
+        self.assertIn('-m webapp.native_network --docker /opt/tools/docker',guard)
+        self.assertIn('Requires=sandbox-agent-native-network.service',units['/etc/systemd/system/sandbox-agent-executor@.service'])
+        run.assert_called_once_with(['systemctl','daemon-reload'])
+
 
 if __name__=='__main__':unittest.main()
