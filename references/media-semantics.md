@@ -20,6 +20,16 @@ For external operations use matching provider receipts. A declaration or a
 failed/pending operation alone does not prove execution. Do not infer the
 final method from unrelated global run history.
 
+Review and diagnostic feedback identifies defects; it is not authority to
+change the processing method. Step reviewers may not see every Run requirement,
+so describe the property needing correction and keep repair advice within the
+registered method. Any suggested alternative is conditional on the Planner
+checking the user's method requirements and obtaining a method change when
+needed. A downstream Planner must not turn such feedback into an unconditional
+method substitution. Merely borrowing a candidate's color statistics is not
+equivalent to compositing that candidate's edited pixels when the latter is
+what the user requested.
+
 When a required-method candidate needs local cleanup, bind that verified
 candidate or its mask as an input to the authorized repair. Preserve its
 derivation instead of generating a new substitute from original pixels alone.
