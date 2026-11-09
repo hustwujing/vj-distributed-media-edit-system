@@ -51,6 +51,7 @@ class AgentProfile:
     input_token_policy: str = 'native'
     output_token_policy: str = 'phase'
     specialist_output_tokens: dict = field(default_factory=dict)
+    specialist_minimum_seconds: dict = field(default_factory=dict)
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     response_transport: str = 'stream'
@@ -71,6 +72,9 @@ class AgentProfile:
         if (not isinstance(self.specialist_output_tokens,dict) or set(self.specialist_output_tokens)-set(PROFILES)
                 or any(type(v) is not int or not 1<=v<=128000 for v in self.specialist_output_tokens.values())):
             raise ValueError('Invalid specialist output token limits')
+        if (not isinstance(self.specialist_minimum_seconds,dict) or set(self.specialist_minimum_seconds)-set(PROFILES)
+                or any(type(v) is not int or not 10<=v<=3600 for v in self.specialist_minimum_seconds.values())):
+            raise ValueError('Invalid specialist minimum runtime limits')
         if not self.model or len(self.model) > 200 or any(ord(c) < 32 for c in self.model):
             raise ValueError('Invalid model identifier')
         if not re.fullmatch(r'(?:VIDEO_USE_|ANTHROPIC_|DEEPSEEK_|OPENAI_)[A-Z0-9_]*(?:KEY|TOKEN)', self.credential_env):
@@ -90,6 +94,8 @@ class AgentProfile:
         expected = {'plan_seconds','plan_models','plan_tools','plan_inspections','run_seconds','run_models','task_models','max_output_tokens'}
         if set(self.budget) != expected or any(type(v) is not int or not 1 <= v <= 10_000_000 for v in self.budget.values()):
             raise ValueError('Invalid Agent budget policy')
+        if any(value>self.budget['run_seconds'] for value in self.specialist_minimum_seconds.values()):
+            raise ValueError('Specialist minimum runtime exceeds the model run budget')
 
     def snapshot(self):
         return asdict(self)

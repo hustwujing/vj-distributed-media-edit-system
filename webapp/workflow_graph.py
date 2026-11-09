@@ -909,6 +909,16 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                 raise AuthorizationRequired('Agent policy changed and requires renewed authorization')
             from .agent_runtime_capabilities import validate as validate_runtime
             validate_runtime(task.runtime_requirements.model_dump())
+            if task.id in added or task.id in revised:
+                from .agent_profiles import for_specialist
+                configuration=for_specialist(store,run['id'],task.profile)
+                minimum=configuration.specialist_minimum_seconds.get(task.profile,10)
+                if task.timeout_seconds<minimum:
+                    collection='add_tasks' if task.id in added else 'revise_tasks'
+                    source=proposal.add_tasks if task.id in added else proposal.revise_tasks
+                    index=next(i for i,item in enumerate(source) if item.id==task.id)
+                    raise ProposalFieldError(f'{collection}.{index}.timeout_seconds',
+                        f'The frozen {configuration.model} profile requires at least {minimum} seconds for {task.profile}; increase the declared Task timeout before confirmation.')
             if not set(task.runtime_requirements.network_urls)<=set(task_scope.allowed_network_urls):
                 raise AuthorizationRequired('Public HTTPS URL requires explicit authorization')
         else:

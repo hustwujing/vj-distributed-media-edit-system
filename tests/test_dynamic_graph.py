@@ -170,6 +170,27 @@ class DynamicGraphTests(unittest.TestCase):
         _,tasks,_,_=graph.validate_proposal(self.store,allowed,proposal)
         self.assertEqual(tasks[0].runtime_requirements.network_urls,[url])
 
+    def test_frozen_model_profile_rejects_too_short_code_editor_task_before_confirmation(self):
+        import uuid
+        from dataclasses import replace
+        from webapp.agent_profiles import AgentProfile
+        configuration=replace(AgentProfile(),specialist_minimum_seconds={'editing_implementer':600})
+        authorization=graph.bind_authorization({**self.authorization,
+            'allowed_agent_profiles':['editing_implementer']})
+        run=graph.create(self.store,self.f.project,uuid.uuid4().hex,authorization,
+            model_configuration=configuration)
+        task=script(type='agent',profile='editing_implementer',argv=[],inputs={},
+            outputs=['report.txt'],output_roles={'report':'report.txt'},timeout_seconds=300,
+            runtime_requirements={'requires_gpu':False,'python_modules':[],
+                                  'system_tools':['python'],'network_urls':[]})
+        proposal={'proposal_id':'model-timeout','base_graph_version':0,'reason':'Create report',
+                  'add_tasks':[task],'sealed':True}
+        with self.assertRaisesRegex(graph.ProposalFieldError,'at least 600 seconds'):
+            graph.validate_proposal(self.store,run,proposal)
+        proposal['add_tasks'][0]['timeout_seconds']=600
+        _,tasks,_,_=graph.validate_proposal(self.store,run,proposal)
+        self.assertEqual(tasks[0].timeout_seconds,600)
+
     def test_planning_snapshot_freezes_both_task_revision_budgets(self):
         from webapp.workflow_model_protocol import available_changes,automatic_replacement_tasks
         self.tick()

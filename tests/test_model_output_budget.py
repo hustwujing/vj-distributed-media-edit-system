@@ -18,6 +18,11 @@ class ModelOutputBudgetTests(unittest.TestCase):
         self.assertEqual(AgentProfile(**overridden.snapshot()).specialist_output_tokens,{'media_planner':16000})
         for limits in ({'unknown_role':16000},{'media_planner':True},{'media_planner':0}):
             with self.assertRaises(ValueError):replace(full,specialist_output_tokens=limits)
+        timed=replace(full,specialist_minimum_seconds={'editing_implementer':600})
+        self.assertEqual(AgentProfile(**timed.snapshot()).specialist_minimum_seconds,{'editing_implementer':600})
+        for limits in ({'unknown_role':600},{'editing_implementer':True},{'editing_implementer':9},
+                       {'editing_implementer':timed.budget['run_seconds']+1}):
+            with self.assertRaises(ValueError):replace(timed,specialist_minimum_seconds=limits)
 
     def test_role_phase_and_model_caps_remain_independent(self):
         planner=get('media_planner');draft=SimpleNamespace(schemas={'submit_typed_plan':{}},correction_mode=False)
