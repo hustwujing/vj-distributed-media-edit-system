@@ -54,6 +54,8 @@ class Authorization(Contract):
     allowed_asset_digests:dict[str,str]=Field(default_factory=dict,max_length=100)
     allowed_operations:list[str]=Field(max_length=100)
     allowed_agent_profiles:list[str]=Field(default_factory=list,max_length=20)
+    allowed_network_urls:list[str]=Field(default_factory=list,max_length=16,
+        description='Exact public HTTPS URLs that delegated code may read through the host Gateway.')
     operation_implementations:dict[str,str]=Field(default_factory=dict,max_length=100)
     operation_policy_digests:dict[str,str]=Field(default_factory=dict,max_length=100)
     agent_profile_digests:dict[str,str]=Field(default_factory=dict,max_length=20)
@@ -76,6 +78,9 @@ class Authorization(Contract):
         for op in self.allowed_operations:
             if op!='script':get(op)
         for name in self.allowed_agent_profiles:profile(name)
+        from .agent_runtime_capabilities import validate_public_url
+        if len(set(self.allowed_network_urls))!=len(self.allowed_network_urls):raise ValueError('Duplicate authorized network URL')
+        for value in self.allowed_network_urls:validate_public_url(value)
         from .operations import REGISTRY,_IMPLEMENTATION_BINDINGS
         definitions=[*REGISTRY.values(),*[item for variants in _IMPLEMENTATION_BINDINGS.values() for item in variants.values()]]
         groups={item.budget_group for item in definitions if item.external_side_effects}
@@ -152,6 +157,25 @@ class TaskSemantics(Contract):
     temporal:list[TemporalSemantics]=Field(default_factory=list,max_length=20)
 
 
+class AgentRuntimeRequirements(Contract):
+    requires_gpu:bool=Field(default=False,description='True only when generated code must directly use a GPU or a host-mounted GPU model. GPU tasks use the bwrap code editor; portable CPU tasks prefer the configured OpenSandbox Harness.')
+    python_modules:list[str]=Field(default_factory=list,max_length=64,description='Import module names required by the generated code. Select only modules advertised by the chosen code-editor runtime.')
+    system_tools:list[str]=Field(default_factory=list,max_length=64,description='Executable names required by generated code, selected from the code-editor runtime capability catalogue.')
+    network_urls:list[str]=Field(default_factory=list,max_length=16,description='Exact public HTTPS URLs the generated code may read through the host Gateway. Empty means no public network access.')
+
+    @model_validator(mode='after')
+    def valid(self):
+        token=re.compile(r'^[A-Za-z_][A-Za-z0-9_.-]{0,79}$')
+        if (len(set(self.python_modules))!=len(self.python_modules)
+                or len(set(self.system_tools))!=len(self.system_tools)
+                or len(set(self.network_urls))!=len(self.network_urls)
+                or any(not token.fullmatch(value) for value in (*self.python_modules,*self.system_tools))):
+            raise ValueError('Agent runtime requirements must be unique registered capability names')
+        from .agent_runtime_capabilities import validate_public_url
+        for value in self.network_urls:validate_public_url(value)
+        return self
+
+
 class Task(Contract):
     id:str=Field(pattern=r'^[a-z][a-z0-9_-]{0,39}$')
     type:Literal['operation','script','agent']
@@ -179,6 +203,8 @@ class Task(Contract):
     on_failure:Literal['pause','diagnose']=Field(default='pause',description='Use diagnose for model-authored implementations when media_failure_diagnostician is authorized, so bounded repair can resume the original goal.')
     basic_reason:str=Field(default='',max_length=1000)
     semantics:TaskSemantics=Field(default_factory=TaskSemantics)
+    runtime_requirements:AgentRuntimeRequirements=Field(default_factory=AgentRuntimeRequirements,
+        description='Code-editor execution requirements. Portable CPU is the default; declare GPU, dependencies and exact public URLs explicitly.')
     delivery_stage:bool=Field(default=False,description='True for Tasks whose accepted outputs are eligible for final delivery. A sealed graph requires at least one.')
 
     @model_validator(mode='after')
@@ -190,6 +216,8 @@ class Task(Contract):
                 raise ValueError('Control profiles cannot be delegated as business tasks')
             if self.operation or self.implementation or self.argv or self.parameters or self.preflight or self.config_files:
                 raise ValueError('Agent profiles do not accept executable policy overrides')
+            if self.profile!='editing_implementer' and self.runtime_requirements!=AgentRuntimeRequirements():
+                raise ValueError('Only the code editor accepts runtime requirements')
             if not self.output_roles:raise ValueError('Agent task must declare output roles')
             if self.timeout_seconds>profile.timeout_seconds:raise ValueError('Agent timeout exceeds profile')
             for role,name in self.output_roles.items():
@@ -211,6 +239,7 @@ class Task(Contract):
                     raise ValueError('Acceptance requires fields outside the fixed Agent result schema')
         else:
             if self.profile:raise ValueError('Only agent tasks accept a profile')
+            if self.runtime_requirements!=AgentRuntimeRequirements():raise ValueError('Only agent tasks accept runtime requirements')
             if self.type=='script' and self.argv and self.argv[0].startswith('-'):
                 raise ValueError('script argv must start with an executable such as python, not an option; no implicit implementation exists')
             from .workflows import Step
@@ -236,7 +265,7 @@ class Task(Contract):
         return self
 
     def execution_spec(self,dependencies=()):
-        return {'id':self.id,'kind':self.type,'name':self.name,'goal':self.objective,
+        result={'id':self.id,'kind':self.type,'name':self.name,'goal':self.objective,
                 'operation':self.operation,'implementation':self.implementation,
                 'inputs':{k:v.model_dump() for k,v in self.inputs.items()},'parameters':self.parameters,
                 'output_roles':self.output_roles,'outputs':self.outputs or (list(self.output_roles.values()) if self.type=='agent' else []),
@@ -244,6 +273,8 @@ class Task(Contract):
                 'timeout':self.timeout_seconds,'retry_safe':self.retry_policy=='safe_once',
                 'acceptance':[a.model_dump() for a in self.acceptance],'repairs':[],
                 'on_failure':self.on_failure,'basic_reason':self.basic_reason,'depends_on':list(dependencies)}
+        if self.type=='agent':result['runtime_requirements']=self.runtime_requirements.model_dump()
+        return result
 
 
 class Dependency(Contract):
@@ -615,13 +646,13 @@ def bind_authorization(raw,*,implementations=None,policies=None):
     authorization=Authorization.model_validate(raw)
     from .operations import get as operation
     from .operation_lifecycle import for_operation
-    from .specialist_profiles import get as profile
+    from .specialist_profiles import authorization_snapshot
     if implementations is None:
         implementations={name:for_operation(operation(name)).id for name in authorization.allowed_operations if name!='script'}
     else:
         implementations={name:for_operation(operation(name,implementations[name])).id
                          for name in authorization.allowed_operations if name!='script'}
-    profiles={name:digest(profile(name).snapshot()) for name in authorization.allowed_agent_profiles}
+    profiles={name:digest(authorization_snapshot(name)) for name in authorization.allowed_agent_profiles}
     if any(implementations.get(name)!=value for name,value in authorization.operation_implementations.items()):
         raise ValueError('Requested operation implementation is no longer current')
     if any(profiles.get(name)!=value for name,value in authorization.agent_profile_digests.items()):
@@ -757,7 +788,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
         current=Task.model_validate(existing[old]['spec']);replacement=added[new]
         row=existing[old]
         if user_revision_scope is not None and old not in user_revision_scope:raise ValueError('Replacement outside user revision scope')
-        if any(getattr(current,key)!=getattr(replacement,key) for key in ('objective','acceptance','semantics','delivery_stage')):
+        if any(getattr(current,key)!=getattr(replacement,key) for key in ('objective','acceptance','semantics','delivery_stage','runtime_requirements')):
             raise ValueError('Replacement cannot remove or weaken the original requirement')
         if user_revision_scope is None:
             if repair_scope not in ('',old):raise ValueError('Automatic replacement outside failed Task')
@@ -813,7 +844,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             cleaning=store.query("SELECT attempt FROM execution_cleanup WHERE attempt=? AND state<>'complete'",(row['lease_id'],))
             if active or cleaning:raise ValueError('Task revision must wait for execution and cleanup to finish')
         if not revision_budget_remaining(row,user_revision_scope is not None):raise ValueError('Task revision budget exhausted')
-        frozen=('id','type','name','objective','profile','operation','implementation','inputs','output_roles','acceptance','semantics','delivery_stage',
+        frozen=('id','type','name','objective','profile','operation','implementation','inputs','output_roles','acceptance','semantics','delivery_stage','runtime_requirements',
                 'outputs','preflight','config_files','timeout_seconds','retry_policy','on_failure','basic_reason')
         mutable=revision_mutable_fields(current.type,user_revision_scope is not None)
         frozen=tuple(name for name in frozen if name not in mutable)
@@ -873,9 +904,13 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             Step.model_validate(task.execution_spec([parent for parent,child in edges if child==task.id]))
         if task.type=='agent':
             if task.profile not in task_scope.allowed_agent_profiles:raise AuthorizationRequired('Agent profile requires additional authorization')
-            from .specialist_profiles import get as profile
-            if task_scope.agent_profile_digests.get(task.profile)!=digest(profile(task.profile).snapshot()):
+            from .specialist_profiles import authorization_snapshot
+            if task_scope.agent_profile_digests.get(task.profile)!=digest(authorization_snapshot(task.profile)):
                 raise AuthorizationRequired('Agent policy changed and requires renewed authorization')
+            from .agent_runtime_capabilities import validate as validate_runtime
+            validate_runtime(task.runtime_requirements.model_dump())
+            if not set(task.runtime_requirements.network_urls)<=set(task_scope.allowed_network_urls):
+                raise AuthorizationRequired('Public HTTPS URL requires explicit authorization')
         else:
             name=task.operation if task.type=='operation' else 'script'
             if name not in task_scope.allowed_operations:raise AuthorizationRequired('Operation requires additional authorization')

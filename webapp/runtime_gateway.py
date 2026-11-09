@@ -68,13 +68,14 @@ class GatewayClientServer:
             def do_POST(self):
                 response=None
                 try:
-                    if self.path!=urlsplit(self.path).path:
+                    parsed=urlsplit(self.path)
+                    if parsed.fragment or parsed.query not in ('','beta=true') or (parsed.query and parsed.path not in ('/messages','/v1/messages')):
                         raise GatewayClientError('Gateway query parameters are not granted')
                     try:size=int(self.headers.get('Content-Length',''))
                     except ValueError:raise GatewayClientError('Invalid Gateway request length') from None
                     if not 0<size<=32*1024*1024:
                         raise GatewayClientError('Invalid Gateway request length')
-                    response=outer.client.forward('POST',self.path,dict(self.headers),self.rfile.read(size))
+                    response=outer.client.forward('POST',parsed.path,dict(self.headers),self.rfile.read(size))
                     if 300<=response.status_code<400:
                         self.reply(502,{'error':'gateway_redirect_rejected'});return
                     self.send_response(response.status_code)

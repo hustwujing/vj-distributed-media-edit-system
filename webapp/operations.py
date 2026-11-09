@@ -113,6 +113,10 @@ class Operation:
         result['permissions']={'read_declared_inputs':True,'write_attempt_outputs':True,
             'network':'registered_provider' if self.external_side_effects else 'none','external_side_effects':self.external_side_effects,
             'arbitrary_commands':False,'model_profile':self.model_profile}
+        result['execution_requirements']={'requires_gpu':self.gpu,
+            'execution_mode':self.execution_mode,
+            'cpu':self.cpu,'memory_mb':self.memory_mb,
+            'network':'registered_provider' if self.external_side_effects else 'none'}
         filenames=list(self.output_files) if self.output_files is not None else None
         role_filenames=dict(zip(self.outputs,filenames or []));role_filenames.update(self.role_filenames)
         result['output_contract']={'roles':list(self.outputs),'primary':self.outputs[0] if self.outputs else None,

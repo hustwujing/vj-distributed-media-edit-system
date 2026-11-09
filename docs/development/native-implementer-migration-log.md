@@ -69,7 +69,7 @@
 - 短暂控制断连按已确认事件游标有界重连，不再次调用turn.start；恢复失败保留明确运行时错误。
   该逻辑的单测和之后的真实故障注入分开记录。
 
-当前线上仍为83801ee定向版本，失败案例已清理；上述后续修复待重新构建和部署，不能写成已真机通过。
+失败案例已清理；后续修复按新版本重新构建和部署，不能把旧失败改写成真机通过。
 
 不调用模型的真实OpenSandbox初始化探测进一步发现：Dockerfile把Claude/DS SDK装在/opt/harness，
 镜像默认环境可import，但Runtime清洗子进程环境后丢掉了该PYTHONPATH，session.open失败。
@@ -81,6 +81,31 @@ a629c6a镜像的native-control-claude-002通过：真实控制连接、session.o
 模型请求为0。部署preflight随后正确拦截了另一个准备顺序问题：服务账号读取webapp的ACL尚未授予，
 就执行了包内preflight。将代码读取ACL准备提前到该检查之前；旧服务保持active，未进入停服阶段。
 这是部署脚本变更，不改变镜像输入，无需为此重建已核实的a629c6a镜像。
+
+claude-NH01-002越过控制连接和SDK初始化，但真实SDK请求`/v1/messages?beta=true`，沙箱Gateway原先
+拒绝全部query，公开结果被SDK表达为403/ECONNRESET。该例67.928秒，正常取消、cleanup=0；程序错误，
+不是脚本或业务信息问题。离线SDK wire探测确认固定query。修复只允许Messages路径的精确`beta=true`，
+校验后剥离再交宿主模型适配器；其他路径或query继续拒绝。需要通过新镜像真实复测后才能关闭此项。
+
+用户随后确认路由目标：普通CPU代码优先OpenSandbox Harness；GPU/宿主设备代码使用bwrap原代码编辑师。
+Operation索引与Agent Task分别增加显式GPU及依赖字段，宿主冻结/复核路由，页面方案确认展示执行环境。
+非GPU依赖对照发现OpenSandbox缺`networkx/PyYAML/sympy/xmltodict`及`file/ps/socat`，按业务能力补齐；
+不复制测试、AWS或宿主管理依赖。受控联网采用精确公开HTTPS URL的只读Gateway，不开放直接网络或安装。
+
+实现细节：Operation公开`execution_requirements.requires_gpu`，规划快照不再丢弃该字段；Agent Task新增
+`runtime_requirements`，CPU冻结native-implementer-v1，GPU冻结structured-profile-v4并取得GPU租约。
+bwrap只映射调度器分配的NVIDIA设备、对应只读驱动库和GPU UUID，不映射其他卡；OpenSandbox仍无GPU。
+依赖名称必须属于目标运行时目录，CPU缺依赖直接拒绝方案，不允许静默回退bwrap或假报GPU。
+
+公网读取增加独立`allowed_network_urls`授权字段。Task只能使用其中子集，自动replacement继承原网络范围，
+普通修订不能改运行时契约。Gateway仅支持精确HTTPS URL的GET、无重定向、无凭据、32MiB上限；
+DNS解析后继续拒绝私网、metadata、link-local和地址漂移。bwrap与OpenSandbox共用
+`/opt/video-use/network_fetch.py`，直接网络继续关闭。方案确认显示执行地、依赖和URL；授权扩大单独确认。
+
+为缩小非GPU能力差异，镜像补齐上述Python包和系统工具，并增加
+`deploy/verify_agent_runtime_capabilities.py`同时检查bwrap与OCI镜像的承诺清单。`nvidia-smi`只列在
+bwrap_gpu能力中。Runtime Bundle、Skill和能力摘要随之变化，后续必须重建foundation/base及四Harness镜像；
+定向真机可先构建被测Harness，仍只能标记targeted_only。
 
 ## 待验证和最终规范提炼
 

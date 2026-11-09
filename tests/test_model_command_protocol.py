@@ -1011,6 +1011,23 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(result['outputs'],['final.png','final.jpg'])
         self.assertEqual(result['output_roles'],{'primary_image':'final.png','alternate_image':'final.jpg'})
 
+    def test_manager_declares_code_runtime_gpu_dependencies_and_exact_network_grants(self):
+        f=frozen(False);schema=manager_schema(f)
+        task={'id':'coded','type':'agent','profile':'editing_implementer','name':'Code edit',
+            'objective':'Use the approved public data to generate the result',
+            'input_bindings':[{'role':'source','ref':{'asset':'asset'}}],
+            'files':[{'path':'result.json','roles':['report']}],
+            'acceptance':[{'kind':'json','required_keys':['value'],'stage':'final'}],
+            'basic_reason':'Requires generated local implementation',
+            'runtime_requirements':{'requires_gpu':False,'python_modules':['numpy'],
+                'system_tools':['ffmpeg'],'network_urls':['https://example.com/data.json']}}
+        command={'kind':'COMPLETE','reason':'Run the portable code editor','plan':{'new_tasks':[task]}}
+        result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['add_tasks'][0]
+        self.assertEqual(result['runtime_requirements'],task['runtime_requirements'])
+        task['runtime_requirements']['requires_gpu']=True
+        result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['add_tasks'][0]
+        self.assertTrue(result['runtime_requirements']['requires_gpu'])
+
     def test_review_uses_only_actual_inspection_ids_and_host_snapshot(self):
         from webapp.workflow_agent_contracts import ReviewDecision
         f=frozen();f.update(result_schema=ReviewDecision.model_json_schema(),review_scope='task')

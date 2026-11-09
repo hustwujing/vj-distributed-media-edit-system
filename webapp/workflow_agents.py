@@ -698,7 +698,11 @@ def inspect(store,run,allowed,reference,offset=0):
 
 
 def execute(host,lease,run,task):
-    store=host.store;profile=get_profile(task['spec']['profile'])
+    store=host.store
+    if task.get('control_kind'):profile=get_profile(task['spec']['profile'])
+    else:
+        from .specialist_profiles import for_task
+        profile=for_task(task['spec'])
     if graph.digest(profile.snapshot())!=graph.digest(task['profile']):raise ValueError('Frozen Agent profile is unavailable; replan is required')
     lease.start_compute()
     from .agent_profiles import for_specialist

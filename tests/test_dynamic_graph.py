@@ -145,6 +145,30 @@ class DynamicGraphTests(unittest.TestCase):
         frozen=planning.snapshot(self.store,self.run)
         edit=next(item for item in frozen['operations'] if item['id']=='media.edit')
         self.assertEqual(edit['output_contract']['alternatives'],['audio','video'])
+        self.assertIn('requires_gpu',edit['execution_requirements'])
+        gpu=[item for item in frozen['operations'] if item['execution_requirements']['requires_gpu']]
+        self.assertTrue(gpu);self.assertTrue(all(item['execution_requirements']['execution_mode'] for item in gpu))
+
+    def test_public_https_agent_task_requires_exact_authorization(self):
+        import uuid
+        url='https://example.com/data.json?version=1'
+        raw={**self.authorization,'allowed_agent_profiles':['editing_implementer'],
+            'allowed_network_urls':[]}
+        task={'id':'networked','type':'agent','name':'Networked code','objective':'Read approved data',
+            'profile':'editing_implementer','inputs':{},'output_roles':{'report':'result.json'},
+            'acceptance':[{'kind':'json','required_keys':['value']}],
+            'basic_reason':'Requires a generated local implementation','delivery_stage':True,
+            'runtime_requirements':{'requires_gpu':False,'python_modules':['jsonschema'],
+                'system_tools':['python'],'network_urls':[url]}}
+        proposal={'proposal_id':'network-scope','base_graph_version':0,'reason':'Read approved data',
+            'add_tasks':[task],'sealed':True}
+        denied=graph.create(self.store,self.f.project,uuid.uuid4().hex,graph.bind_authorization(raw))
+        with self.assertRaisesRegex(graph.AuthorizationRequired,'HTTPS URL'):
+            graph.validate_proposal(self.store,denied,proposal)
+        allowed=graph.create(self.store,self.f.project,uuid.uuid4().hex,
+            graph.bind_authorization({**raw,'allowed_network_urls':[url]}))
+        _,tasks,_,_=graph.validate_proposal(self.store,allowed,proposal)
+        self.assertEqual(tasks[0].runtime_requirements.network_urls,[url])
 
     def test_planning_snapshot_freezes_both_task_revision_budgets(self):
         from webapp.workflow_model_protocol import available_changes,automatic_replacement_tasks

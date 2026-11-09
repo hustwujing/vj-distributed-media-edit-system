@@ -210,6 +210,7 @@ def command(env, gateway_socket, executable=None):
             '--ro-bind', str(agent/'passwd'), '/etc/passwd',
             '--ro-bind', str(agent/'group'), '/etc/group']
     args += ['--ro-bind', str(REPO/'runtime/public/SKILL.md'), '/opt/video-use/SKILL.md',
+             '--ro-bind', str(REPO/'runtime/public/network_fetch.py'), '/opt/video-use/network_fetch.py',
              '--ro-bind', str(REPO/'references'), '/opt/video-use/references']
     for name,target in MOUNTED_MODULES:
         args += ['--ro-bind',str(REPO/'webapp'/name),target]
@@ -248,6 +249,12 @@ def command(env, gateway_socket, executable=None):
              '/usr/bin/setpriv', '--reuid='+str(env['uid']), '--regid='+str(env['gid']),
              '--groups='+str(env['runtime'].read_gid) if env.get('runtime') else '--clear-groups',
              '--no-new-privs', '--bounding-set=-all']
+    gpu=getattr(env.get('runtime'),'gpu_index',None)
+    if gpu is not None:
+        from .gpu_sandbox_mounts import arguments
+        mounts,gpu_uuid=arguments(gpu);position=args.index('--chdir');args[position:position]=mounts
+        position=args.index('--cap-add');args[position:position]=['--setenv','CUDA_VISIBLE_DEVICES',gpu_uuid,
+            '--setenv','VIDEO_USE_GPU_ASSIGNED','1']
     capabilities=json.loads((REPO/'runtime/public/capabilities.json').read_text())
     if env.get('repair_dir'):
         if policy and policy!=WorkspacePolicy.REVIEW_SCRATCH_ONLY:

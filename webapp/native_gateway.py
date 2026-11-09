@@ -56,7 +56,7 @@ class NativeModelGateway:
 
 
 class NativeAttemptGateway:
-    def __init__(self,lease,identity,profile,source_ip,normalize,*,environ=None):
+    def __init__(self,lease,identity,profile,source_ip,normalize,*,public_urls=(),environ=None):
         env=os.environ if environ is None else environ
         address=env.get('VIDEO_USE_NODE_GATEWAY_BIND','')
         parsed=ipaddress.ip_address(address)
@@ -76,6 +76,9 @@ class NativeAttemptGateway:
         routes=({'/responses','/v1/responses'} if profile.protocol=='responses' else
                 {'/messages','/v1/messages'})
         handlers={route:(lambda body,permit:business.model(business.decode(body))) for route in routes}
+        if public_urls:
+            from .public_http_gateway import PublicHTTPGateway,ROUTE
+            routes.add(ROUTE);handlers[ROUTE]=PublicHTTPGateway(lease,public_urls).handle
         self.core=NodeGatewayCore(NodeGatewayAuthorizer(self.grants),handlers)
         self.issued=authority.issue(task_id=lease.run_id,attempt_id=identity.attempt_id,
             generation=identity.generation,sandbox_id=identity.sandbox_id,source_ip=source_ip,

@@ -62,8 +62,14 @@ class RuntimeGatewayTests(unittest.TestCase):
         self.assertTrue(response.closed);self.assertEqual(calls[0][1],'/v1/responses')
 
         connection=http.client.HTTPConnection(*server.address,timeout=2)
-        connection.request('POST','/context?target=other',body=b'{}')
-        denied=connection.getresponse();self.assertEqual(denied.status,403);denied.read()
+        connection.request('POST','/v1/messages?beta=true',body=b'{}',headers={'Content-Type':'application/json'})
+        accepted=connection.getresponse();self.assertEqual(accepted.status,200);accepted.read()
+        self.assertEqual(calls[-1][1],'/v1/messages')
+
+        for target in ('/context?target=other','/v1/messages?beta=false','/v1/responses?beta=true'):
+            connection=http.client.HTTPConnection(*server.address,timeout=2)
+            connection.request('POST',target,body=b'{}')
+            denied=connection.getresponse();self.assertEqual(denied.status,403);denied.read()
 
 
 if __name__=='__main__':unittest.main()

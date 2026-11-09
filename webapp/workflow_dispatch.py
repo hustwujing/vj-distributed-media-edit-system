@@ -58,9 +58,14 @@ def requirements(store,run,step_id):
     task=next((t for t in graph.work_items(run) if t['id']==step_id),None)
     if not task:raise ValueError('Unknown dynamic task')
     result={'cpu':1,'memory_mb':512,'gpu':False,'provider':'','step_id':step_id}
-    if task.get('control_kind')=='MESSAGE':return result
+    if task.get('control_kind'):return result
     if task['type']=='agent':
-        result.update(cpu=2,memory_mb=2048);return result
+        spec=graph.Task.model_validate(task['spec'])
+        from .agent_runtime_capabilities import validate as validate_runtime
+        runtime=validate_runtime(spec.runtime_requirements.model_dump())
+        result.update(cpu=2,memory_mb=4096 if runtime=='bwrap_gpu' else 2048,
+            gpu=spec.runtime_requirements.requires_gpu,runtime_target=runtime)
+        return result
     spec=graph.Task.model_validate(task['spec'])
     if spec.type=='script':result.update(cpu=2,memory_mb=2048)
     else:

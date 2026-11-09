@@ -82,6 +82,8 @@ class TaskRuntime:
         self.uid, self.gid = self.identity.uid, self.identity.gid
         self.env = None
         self.groups = None
+        reservation=getattr(lease,'gpu_reservation',None)
+        self.gpu_index=reservation.gpu_index if reservation is not None else None
         self.closed=False
         self.cancel_call=None
         lease.runtime=self
@@ -96,6 +98,7 @@ class TaskRuntime:
                     generation=lease.generation,worker=lease.worker,boot_id=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
                     permit_until=time.monotonic()+permit_seconds,
                     mount_owner=os.getpid(),mount_owner_start=Path('/proc/self/stat').read_text().rsplit(')',1)[1].split()[19])
+            if self.gpu_index is not None:self.identity.save(gpus=[self.gpu_index])
             with self.store.connect() as db:
                 timestamp=self.store.now()
                 db.execute("INSERT INTO execution_cleanup(attempt,task_id,node,state,updated) VALUES (?,?,?,'allocated',?)",

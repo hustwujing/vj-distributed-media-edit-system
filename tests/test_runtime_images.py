@@ -12,10 +12,14 @@ class RuntimeImageDefinitionTests(unittest.TestCase):
         foundation=(folder/'foundation.Dockerfile').read_text()
         self.assertIn('PYTHON_IMAGE must be immutable',foundation)
         self.assertIn('ffmpeg',foundation)
+        for package in ('file','procps','socat'):
+            self.assertIn(package,foundation)
         self.assertIn('fonts-wqy-zenhei',foundation)
         base=(folder/'base.Dockerfile').read_text()
         self.assertIn('BASE_IMAGE must be immutable',base)
         self.assertIn('pip install --no-index',base)
+        for dependency in ('networkx','PyYAML','sympy','xmltodict'):
+            self.assertIn(dependency,(ROOT/'pyproject.toml').read_text())
         self.assertIn('FROM ${BASE_IMAGE} AS runtime-builder',base)
         self.assertIn('COPY --from=runtime-builder /opt/venv',base)
         self.assertIn('COPY references /opt/video-use/references',base)

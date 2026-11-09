@@ -57,6 +57,9 @@ class GatewayBusinessCore:
             '/workflow/inspect':self.workflow_inspect})
         if self.gateway.workflow_callback:routes['/workflow']=self.workflow
         if self.gateway.canvas_callback:routes['/canvas-edit']=self.gateway.canvas_result
+        from .public_http_gateway import urls_for_lease,PublicHTTPGateway,ROUTE
+        public_urls=urls_for_lease(self.gateway.lease)
+        if public_urls:routes[ROUTE]=PublicHTTPGateway(self.gateway.lease,public_urls).handle
         routes['/transcribe']=self.gateway.transcribe_result
         routes['/image-edit']=self.gateway.image_result
         routes['/image-tools']=self.gateway.image_result

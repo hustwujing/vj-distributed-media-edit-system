@@ -14,7 +14,7 @@ MANIFEST=Path(os.environ.get('VIDEO_USE_RUNTIME_BUILD',str(REPO/'runtime/build')
 TOOLS=('bash','sh','env','cat','ls','find','sed','awk','sort','uniq','wc','head','tail','cut',
        'date','mkdir','cp','mv','rm','touch','printf','timeout','nice','ps','kill','pwd',
        'basename','dirname','readlink','realpath','stat','du','df','grep','xargs','tee',
-       'ffmpeg','ffprobe','socat','setpriv','ldconfig','fc-match','fc-list','file','rg','uname','sleep','tr','true','false')
+       'ffmpeg','ffprobe','socat','setpriv','ldconfig','fc-match','fc-list','file','rg','nvidia-smi','uname','sleep','tr','true','false')
 CODEX_DEFAULT='/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex'
 TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','media_plan_compiler.py','media_evidence.py','media_evidence_operation.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
               'image_providers.py','image_models.py','image_replace.py','sam3_zim.py','models.py','edit_tools.py','quality_review.py')
@@ -77,7 +77,7 @@ def fingerprint():
         for name in ('harness_adapters.py','harness_bridge.py','harness_sdk_events.py')}
     value['execution_contract']={name:hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()
         for name in ('workflow_runtime.py','workflow_executor.py','execution_runtime.py','agent_sandbox.py',
-                     'workflow_inputs.py','operation_lifecycle.py','workflow_io.py','quality_check.py','media_evidence.py')}
+                     'gpu_sandbox_mounts.py','workflow_inputs.py','operation_lifecycle.py','workflow_io.py','quality_check.py','media_evidence.py')}
     value['mounted_modules']={target:{'source':name,'sha256':hashlib.sha256((REPO/'webapp'/name).read_bytes()).hexdigest()}
                               for name,target in MOUNTED_MODULES}
     return hashlib.sha256(json.dumps(value,sort_keys=True).encode()).hexdigest()

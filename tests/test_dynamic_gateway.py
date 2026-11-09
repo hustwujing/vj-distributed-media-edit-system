@@ -601,7 +601,7 @@ class DynamicGatewayTests(unittest.TestCase):
         task={**self.task,'control_kind':'','profile':policy.snapshot(),'spec':{'profile':policy.id,
             'inputs':{'source':{'asset':'asset'}},'output_roles':{'report':'report.txt'},'timeout_seconds':900}}
         replies=[{'action':'script','code':'write output'},{'action':'script','code':'must not execute in finalize'},{'action':'result','files':{}}]
-        with self.lease.bind(),patch('webapp.workflow_agents.get_profile',return_value=policy), \
+        with self.lease.bind(),patch('webapp.specialist_profiles.for_task',return_value=policy), \
              patch('webapp.workflow_agents.model',side_effect=replies) as model, \
              patch('webapp.workflow_agents.run_script',return_value=('edit/workflows/output',{'returncode':0,'outputs':[{'name':'report.txt','state':'present'}]})) as script, \
              patch('webapp.workflow_agents.finish_files',return_value='candidate') as finish:

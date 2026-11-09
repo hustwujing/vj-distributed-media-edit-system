@@ -48,7 +48,8 @@ def build():
                 if any(v.get('used',0)>0 for v in f.get('budget_state',{}).get('provider_calls',{}).values()):continue
                 # Adapt archived policies to this isolated evaluator, identically for every arm.
                 f['snapshot_digest']=graph.digest(f)
-                auth=f['authorization'];auth['agent_profile_digests']={name:graph.digest(policy(name).snapshot()) for name in auth['allowed_agent_profiles']}
+                from webapp.specialist_profiles import authorization_snapshot
+                auth=f['authorization'];auth['agent_profile_digests']={name:graph.digest(authorization_snapshot(name)) for name in auth['allowed_agent_profiles']}
                 for item in f.get('profiles',[]):
                     if item['id'] in auth['agent_profile_digests']:item['harness']=policy(item['id']).harness
                 previous=json.loads(req['proposal_json'] or '{}').get('proposal') or {}
@@ -92,9 +93,10 @@ def rebind():
     if (EVAL/'dataset.json').exists():raise ValueError('Dataset already frozen; choose a new evaluation directory')
     source=Path(os.environ['MODEL_EVAL_SOURCE_DATASET']);dataset=json.loads(source.read_text())
     from tests.campaign_model_fixture import rebind as bind,validate
-    rebound=bind(dataset,lambda name:graph.digest(policy(name).snapshot()))
+    from webapp.specialist_profiles import authorization_snapshot
+    rebound=bind(dataset,lambda name:graph.digest(authorization_snapshot(name)))
     rebound['rebound_at']=time.time();rebound['rebound_from']=str(source)
-    validate(rebound,lambda name:graph.digest(policy(name).snapshot()))
+    validate(rebound,lambda name:graph.digest(authorization_snapshot(name)))
     save(EVAL/'dataset.json',rebound)
     print(json.dumps({'cases':len(rebound['cases']),'source':str(source),'facts_preserved':True}))
 
@@ -136,7 +138,8 @@ class FrozenStore:
         for item in archive['audit']['plan_selections']:
             if item['graph_version']<=f['graph_version']:self.db.execute('INSERT INTO workflow_plan_tasks VALUES (?,?,?,?)',(f['run_id'],item['graph_version'],item['task_id'],item['task_revision']))
         for item in archive['audit']['authorizations']:
-            auth=json.loads(item['authorization_json']);auth['agent_profile_digests']={name:graph.digest(policy(name).snapshot()) for name in auth['allowed_agent_profiles']}
+            from webapp.specialist_profiles import authorization_snapshot
+            auth=json.loads(item['authorization_json']);auth['agent_profile_digests']={name:graph.digest(authorization_snapshot(name)) for name in auth['allowed_agent_profiles']}
             self.db.execute('INSERT INTO run_authorizations VALUES (?,?,?)',(f['run_id'],item['version'],json.dumps(auth)))
         self.objects={}
         for manifest, in self.db.execute('SELECT manifest FROM execution_step_checkpoints'):
@@ -301,7 +304,8 @@ def run_trial(case,model_name,variant,repeat,configs,max_corrections=2):
 def run(args):
     from tests.campaign_model_fixture import validate as validate_fixture
     dataset=json.loads((EVAL/'dataset.json').read_text())
-    validate_fixture(dataset,lambda name:graph.digest(policy(name).snapshot()))
+    from webapp.specialist_profiles import authorization_snapshot
+    validate_fixture(dataset,lambda name:graph.digest(authorization_snapshot(name)))
     configs=config_list();cases=dataset['cases']
     if args.cases:cases=[c for c in cases if c['id'] in args.cases.split(',')]
     jobs=[(case,model,variant,n) for case in cases for n in range(args.repeat) for variant in args.variants.split(',') for model in args.models.split(',')]

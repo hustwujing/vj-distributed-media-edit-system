@@ -26,6 +26,7 @@
     "durable-workflows"
   ],
   "arbitrary_network": false,
+  "approved_public_https_gateway": true,
   "shared_runtime_installation": false,
   "skill_visibility": "public",
   "quality": [
@@ -42,5 +43,47 @@
   "step_kinds": [
     "script",
     "operation"
-  ]
+  ],
+  "agent_execution": {
+    "opensandbox_cpu": {
+      "execution_location": "opensandbox",
+      "requires_gpu": false,
+      "network_modes": ["none", "approved_public_https"],
+      "python_modules": [
+        "cv2", "jsonschema", "librosa", "matplotlib", "networkx", "numpy",
+        "PIL", "psd_tools", "scipy", "sklearn", "soundfile", "sympy",
+        "xmltodict", "yaml"
+      ],
+      "system_tools": [
+        "bash", "file", "ffmpeg", "ffprobe", "fc-list", "git", "jq",
+        "python", "rg", "socat"
+      ]
+    },
+    "bwrap_cpu": {
+      "execution_location": "bwrap_sandbox",
+      "requires_gpu": false,
+      "network_modes": ["none", "approved_public_https"],
+      "python_modules": [
+        "cv2", "jsonschema", "librosa", "matplotlib", "networkx", "numpy",
+        "PIL", "psd_tools", "scipy", "sklearn", "soundfile", "sympy",
+        "xmltodict", "yaml"
+      ],
+      "system_tools": [
+        "bash", "file", "ffmpeg", "ffprobe", "fc-list", "nvidia-smi", "python", "rg", "socat"
+      ]
+    },
+    "bwrap_gpu": {
+      "execution_location": "bwrap_sandbox",
+      "requires_gpu": true,
+      "network_modes": ["none", "approved_public_https"],
+      "python_modules": [
+        "cv2", "jsonschema", "librosa", "matplotlib", "networkx", "numpy",
+        "PIL", "psd_tools", "scipy", "sklearn", "soundfile", "sympy",
+        "xmltodict", "yaml"
+      ],
+      "system_tools": [
+        "bash", "file", "ffmpeg", "ffprobe", "fc-list", "python", "rg", "socat"
+      ]
+    }
+  }
 }

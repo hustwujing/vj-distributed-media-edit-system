@@ -111,7 +111,7 @@ function renderDecisions(run){
    }
   }
   const scope=element.querySelector('.scope-diff');
-  if(['plan_change','successor_authorization','new_run'].includes(d.kind))scope.textContent=`目标：${proposed.goal}；交付目标：${proposed.delivery_targets.join("、")}；模型 Token 上限：${proposed.model_token_budget}；时限：${proposed.wall_time_budget/60} 分钟；任务/规划上限：${proposed.max_tasks}/${proposed.max_planning_rounds}；素材：${proposed.allowed_assets.map(id=>project.assets.find(asset=>asset.id===id)?.name||id).join('、')||'无'}；允许能力：${proposed.allowed_operations.join('、')}；专业 Agent：${proposed.allowed_agent_profiles.join('、')}；外部调用总上限：${JSON.stringify(proposed.provider_call_budget)}；素材版本：${proposed.content_fingerprint.slice(0,12)}`;
+  if(['plan_change','successor_authorization','new_run'].includes(d.kind))scope.textContent=`目标：${proposed.goal}；交付目标：${proposed.delivery_targets.join("、")}；模型 Token 上限：${proposed.model_token_budget}；时限：${proposed.wall_time_budget/60} 分钟；任务/规划上限：${proposed.max_tasks}/${proposed.max_planning_rounds}；素材：${proposed.allowed_assets.map(id=>project.assets.find(asset=>asset.id===id)?.name||id).join('、')||'无'}；允许能力：${proposed.allowed_operations.join('、')}；专业 Agent：${proposed.allowed_agent_profiles.join('、')}；公网只读授权：${(proposed.allowed_network_urls||[]).join('、')||'无'}；外部调用总上限：${JSON.stringify(proposed.provider_call_budget)}；素材版本：${proposed.content_fingerprint.slice(0,12)}`;
   if(acceptsFeedback(d)){
    const draft=drafts.get(d.id)||readDraft(run.id,d.id);const select=element.querySelector('[data-feedback-assets]');syncAssetOptions(select);
    if(draft){element.querySelector('textarea').value=draft.text;for(const option of select.options)option.selected=draft.assets.includes(option.value);}

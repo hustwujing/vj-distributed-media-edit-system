@@ -88,7 +88,7 @@ def change_fields(task_type,user=False):
     return graph.revision_mutable_fields(task_type,user)
 
 
-REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage')
+REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage','runtime_requirements')
 DELIVERY_SUFFIXES=('png','jpg','jpeg','webp','tif','tiff','mp4','mov','mkv','webm','wav','mp3','m4a','flac',
                    'srt','vtt','ass','json','txt','md','csv','pdf','zip','psd','ora','svg','py')
 DELIVERY_EXTENSION_PATTERN='(?:'+'|'.join(DELIVERY_SUFFIXES)+')'
@@ -410,8 +410,8 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         'role':{'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'},'ref':{'$ref':'#/$defs/InputRef'}}),
         'description':'Declare each input role once. The host derives the authoritative inputs map.'}
     task_variants=[]
-    irrelevant={'script':{'operation','implementation','parameters','profile'},
-                'operation':{'argv','outputs','output_roles','profile','preflight','config_files'},
+    irrelevant={'script':{'operation','implementation','parameters','profile','runtime_requirements'},
+                'operation':{'argv','outputs','output_roles','profile','preflight','config_files','runtime_requirements'},
                 'agent':{'argv','operation','implementation','parameters','preflight','config_files'}}
     for kind,removed in irrelevant.items():
         if kind=='script' and not allow_script:continue

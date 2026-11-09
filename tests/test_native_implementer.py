@@ -10,6 +10,13 @@ from webapp.sandbox_backends import select_backend,BackendConfigurationError
 
 
 class NativeSelectionTests(unittest.TestCase):
+    @staticmethod
+    def agent_spec(**runtime):
+        return {'id':'edit','type':'agent','name':'Edit','objective':'Generate authorized output',
+            'profile':'editing_implementer','output_roles':{'report':'result.txt'},
+            'acceptance':[{'kind':'file'}],'basic_reason':'Delegated local implementation',
+            'runtime_requirements':runtime}
+
     def test_user_harness_selects_exact_immutable_runtime_and_missing_never_falls_back(self):
         mapping={name:{'runtime_profile':name+'-v1','image_digest':name+'@sha256:'+char*64,
                        'skill_digest':'sha256:'+'d'*64}
@@ -29,18 +36,25 @@ class NativeSelectionTests(unittest.TestCase):
         self.assertEqual(select_backend({'gpu':True,'harness':'codex'},environ=env).backend,'local_bwrap')
 
     def test_only_code_editor_switches_strategy_and_runtime_changes_invalidate_its_snapshot(self):
-        from webapp.specialist_profiles import get,catalogue
+        from webapp.specialist_profiles import get,for_task,authorization_snapshot,catalogue
+        spec={'profile':'editing_implementer','runtime_requirements':{'requires_gpu':False}}
         with patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'local_bwrap'}):
-            old=get('editing_implementer').snapshot()
+            old=for_task(spec).snapshot()
         with patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox',
                                    'VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON':'{}'}):
-            current=get('editing_implementer').snapshot()
+            current=for_task(spec).snapshot()
             self.assertEqual(current['harness'],'native-implementer-v1')
             self.assertNotEqual(old,current)
+            self.assertEqual(for_task({'profile':'editing_implementer','runtime_requirements':{'requires_gpu':True}}).harness,'structured-profile-v4')
+            self.assertEqual(get('editing_implementer').harness,'structured-profile-v4')
             for item in catalogue():
-                if item['id']!='editing_implementer':self.assertEqual(item['harness'],'structured-profile-v4')
+                if item['id']=='editing_implementer':
+                    self.assertFalse(item['runtime_options']['opensandbox_cpu']['requires_gpu'])
+                    self.assertTrue(item['runtime_options']['bwrap_gpu']['requires_gpu'])
+                else:self.assertEqual(item['harness'],'structured-profile-v4')
+            authorized=authorization_snapshot('editing_implementer')
             with patch.dict(os.environ,{'VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON':'{"version":2}'}):
-                self.assertNotEqual(get('editing_implementer').snapshot()['harness_digest'],current['harness_digest'])
+                self.assertNotEqual(authorization_snapshot('editing_implementer'),authorized)
 
     def test_attempt_selection_uses_frozen_role_not_current_default(self):
         from webapp.agent_host import AgentHost
@@ -67,18 +81,50 @@ class NativeSelectionTests(unittest.TestCase):
               'tools':[{'parameters':{'example':image}}]}
         self.assertEqual(images(body),[image['image_url']])
 
+    def test_declared_gpu_requirement_routes_only_gpu_agent_to_bwrap(self):
+        from webapp import workflow_graph as graph
+        from webapp.specialist_profiles import for_task
+        from webapp.workflow_dispatch import requirements
+        environment={'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox'}
+        with patch.dict(os.environ,environment):
+            cpu=graph.Task.model_validate(self.agent_spec(requires_gpu=False,
+                python_modules=['numpy'],system_tools=['ffmpeg'],network_urls=[]))
+            gpu=graph.Task.model_validate(self.agent_spec(requires_gpu=True,
+                python_modules=['numpy'],system_tools=['ffmpeg'],network_urls=[]))
+            self.assertEqual(for_task(cpu).harness,'native-implementer-v1')
+            self.assertEqual(for_task(gpu).harness,'structured-profile-v4')
+            for spec,expected in ((cpu,False),(gpu,True)):
+                run={'tasks':[{'id':'edit','type':'agent','spec':spec.model_dump(),'selected':1}],'control_jobs':[]}
+                resource=requirements(Mock(),run,'edit')
+                self.assertEqual(resource['gpu'],expected)
+                self.assertEqual(resource['runtime_target'],'bwrap_gpu' if expected else 'opensandbox_cpu')
+
+    def test_missing_cpu_dependency_is_rejected_instead_of_falling_back_to_bwrap(self):
+        from webapp.agent_runtime_capabilities import validate
+        with patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox'}):
+            with self.assertRaisesRegex(ValueError,'Python modules: torch'):
+                validate({'requires_gpu':False,'python_modules':['torch'],'system_tools':[],'network_urls':[]})
+
+    def test_operation_catalogue_exposes_authoritative_gpu_requirement(self):
+        from webapp.operations import catalog
+        operations=catalog()['operations']
+        self.assertTrue(all(item['execution_requirements']['requires_gpu']==item['gpu'] for item in operations))
+        self.assertTrue(any(item['execution_requirements']['requires_gpu'] for item in operations))
+
 
 class NativeRunnerTests(unittest.TestCase):
     def run_case(self,status='completed',stop=False):
         from webapp.native_implementer import execute
-        from webapp.specialist_profiles import get
+        from webapp.specialist_profiles import for_task
         from webapp.harness_events import AgentEvent
         from contextlib import ExitStack
         stack=ExitStack();self.addCleanup(stack.close)
         stack.enter_context(patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox'}))
-        profile=get('editing_implementer')
+        spec={'profile':'editing_implementer','timeout_seconds':60,'output_roles':{'report':'result.txt'},
+              'runtime_requirements':{'requires_gpu':False,'python_modules':[],'system_tools':[],'network_urls':[]}}
+        profile=for_task(spec)
         task={'id':'edit','revision':2,'profile':profile.snapshot(),'repair_context':{},
-              'spec':{'profile':'editing_implementer','timeout_seconds':60,'output_roles':{'report':'result.txt'}}}
+              'spec':spec}
         run={'id':'run','project_id':'project'}
         runtime=Mock(is_native=True);runtime.gateway.last_error=None
         configuration=AgentProfile(harness='codex',model='gpt-6-astra')

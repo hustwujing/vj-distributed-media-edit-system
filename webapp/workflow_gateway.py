@@ -1,7 +1,7 @@
 """Lease-scoped proposal and untrusted Agent-result submission for harness adapters."""
 import json
 from . import workflow_graph as graph,workflow_planning as planning
-from .specialist_profiles import get as profile
+from .specialist_profiles import get as profile,for_task as task_profile
 
 MODEL_PATHS={'/responses','/v1/responses','/messages','/v1/messages','/chat/completions','/v1/chat/completions'}
 
@@ -12,7 +12,7 @@ def context(lease):
     if not run or run['status'] in ('CANCELLING',*graph.RUN_TERMINAL):raise ValueError('Workflow no longer accepts Agent submissions')
     task=next((t for t in graph.work_items(run) if t['id']==lease.step_id and t['type']=='agent'),None)
     if not task:raise ValueError('Agent task outside lease scope')
-    policy=profile(task['spec']['profile'])
+    policy=profile(task['spec']['profile']) if task.get('control_kind') else task_profile(task['spec'])
     if graph.digest(policy.snapshot())!=graph.digest(task['profile']):raise ValueError('Agent policy changed')
     attempt=lease.store.query('SELECT started FROM execution_attempts WHERE id=?',(lease.attempt,))[0]
     seconds=min(policy.timeout_seconds,task['spec'].get('timeout_seconds',policy.timeout_seconds))
@@ -28,6 +28,8 @@ def allowed(lease):
     if 'proposal' in policy.tools:paths.add('/workflow/proposal')
     if 'result' in policy.tools:paths.add('/workflow/agent-result')
     if 'inspect' in policy.tools:paths.add('/workflow/inspect')
+    from .public_http_gateway import urls_for_lease,ROUTE
+    if urls_for_lease(lease):paths.add(ROUTE)
     return paths
 
 

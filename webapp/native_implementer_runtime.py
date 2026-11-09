@@ -43,7 +43,8 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
         source=self._run(['/opt/venv/bin/python','-c',
             'import socket; print(socket.gethostbyname(socket.gethostname()))'],10,lambda:False)
         source_ip=self._stdout(source).strip()
-        self.gateway=NativeAttemptGateway(self.lease,identity,profile,source_ip,self.normalize_image)
+        public_urls=tuple(((task_context or {}).get('task',{}).get('runtime_requirements') or {}).get('network_urls') or ())
+        self.gateway=NativeAttemptGateway(self.lease,identity,profile,source_ip,self.normalize_image,public_urls=public_urls)
         tools=Path(__file__).resolve().parents[1]/'runtime/public/capabilities.json'
         frozen={'harness':profile.harness,'runtime_profile':binding.runtime_profile,
             'image_digest':binding.image_digest,'skill_digest':binding.skill_digest,

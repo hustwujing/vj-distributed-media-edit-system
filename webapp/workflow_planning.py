@@ -106,7 +106,7 @@ def snapshot(store,run):
     operation_index=[{'id':op['id'],'authorized':op['id'] in run['authorization']['allowed_operations'],
         'available':op.get('available',False),**{key:op[key] for key in ('external_side_effects','budget_group','concurrency_group','route_adapter','provider_identity','cleanup_category')},'implementation':op.get('implementation'),
         'outputs':op.get('output_contract',{}).get('roles',[]),'output_contract':op.get('output_contract',{}),
-        'constraints':op.get('constraints'),
+        'constraints':op.get('constraints'),'execution_requirements':op.get('execution_requirements'),
         'contract_digest':digest(op)} for op in operations]
     media_constraints=[]
     for task in active_tasks(run):
@@ -265,8 +265,8 @@ def apply(store,run,request,*,confirmed_plan=False):
 
     version=run['graph_version']+1;now=store.now()
     for task in tasks:
-        from .specialist_profiles import get as profile
-        frozen=profile(task.profile).snapshot() if task.type=='agent' else {}
+        from .specialist_profiles import for_task as task_profile
+        frozen=task_profile(task).snapshot() if task.type=='agent' else {}
         store.execute('''INSERT INTO run_tasks(run_id,id,type,purpose,authorization_version,spec_json,profile_json,status,phase,created_graph_version,created_at,updated_at)
             VALUES (?,?,?,?,?,?,?,'blocked',?,?,?,?)''',(run['id'],task.id,task.type,task.purpose,run['authorization_version'],encode(task.model_dump()),encode(frozen),initial_phase(task),version,now,now))
         store.execute('''INSERT INTO workflow_task_revisions(run_id,task_id,revision,spec_json,created_graph_version,created_at)

@@ -772,8 +772,10 @@ class Orchestrator:
             if task.get('control_kind'):
                 staged=store.query("SELECT id FROM planner_runs WHERE run_id=? AND task_id=? AND status='staged'",(run['id'],task['id']))
                 if staged:continue
-                from .specialist_profiles import get as current_profile
-                try:compatible=digest(task['profile'])==digest(current_profile(task['spec']['profile']).snapshot())
+                from .specialist_profiles import get as current_profile,for_task as current_task_profile
+                try:
+                    policy=current_profile(task['spec']['profile']) if task.get('control_kind') else current_task_profile(task['spec'])
+                    compatible=digest(task['profile'])==digest(policy.snapshot())
                 except (KeyError,ValueError):compatible=False
                 if not compatible:
                     self.task_failure(run,task,{'error_code':'policy_changed','phase':task['phase']})
@@ -913,7 +915,8 @@ class Orchestrator:
         store=self.store;purpose=purpose or ('task' if subject else 'final')
         from .specialist_profiles import get as profile
         policy='media_failure_diagnostician' if purpose=='diagnose' else 'visual_quality_reviewer' if subject else 'delivery_reviewer'
-        if purpose=='diagnose' and run['authorization']['agent_profile_digests'].get(policy)!=digest(profile(policy).snapshot()):
+        from .specialist_profiles import authorization_snapshot
+        if purpose=='diagnose' and run['authorization']['agent_profile_digests'].get(policy)!=digest(authorization_snapshot(policy)):
             self.set_status(run,'WAITING_USER','diagnostic_policy_not_authorized');return
         existing=store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND purpose=? AND subject_task=? AND status IN ('pending','running','staged')",(run['id'],purpose,subject))
         if existing:return

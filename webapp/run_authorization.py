@@ -7,7 +7,7 @@ def approve(store,run,authorization):
     if run['scope_confirmed'] and old['delivery_targets'] and not new['delivery_targets']:raise ValueError('A confirmed delivery list cannot be cleared; stop the task instead')
     new['require_plan_confirmation']=old.get('require_plan_confirmation',False) or not run['scope_confirmed']
     if run['scope_confirmed']:
-        for key in ('allowed_assets','allowed_operations','allowed_agent_profiles'):
+        for key in ('allowed_assets','allowed_operations','allowed_agent_profiles','allowed_network_urls'):
             if not set(old[key])<=set(new[key]):raise ValueError('Scope expansion cannot revoke previously granted capabilities; stop the Run to revoke them')
     for row in store.query("SELECT category,used FROM execution_budgets WHERE run_id=? AND category LIKE 'provider:%'",(run['id'],)):
         group=row['category'].split(':',1)[1]
