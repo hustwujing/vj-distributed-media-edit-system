@@ -18,6 +18,20 @@ except ImportError:
     from harness_sdk_events import SDKEvents
 
 
+def deepseek_options(config, instructions):
+    """Use the SDK's small, shell-capable profile for one scoped code Task."""
+    return {
+        'dsh_home':'/state/dsh','cwd':'/workspace','profile':'sdk-minimal',
+        'provider':'deepseek-official','model':config['model'],
+        'reasoning_effort':config['reasoning_effort'],'max_tokens':config['max_output_tokens'],
+        'base_url':'http://127.0.0.1:18766/v1','api_key':'gateway-placeholder',
+        # The outer OpenSandbox already supplies the filesystem, network,
+        # process and cgroup boundary. The inner profile only exposes Bash.
+        'env':{'DSH_PERMISSION_MODE':'danger-full-access','DSH_SYSTEM_PROMPT':instructions},
+        'request_timeout_seconds':30,'shutdown_timeout_seconds':5,
+    }
+
+
 class Bridge:
     def __init__(self, harness, config, output):
         self.harness, self.config, self.output = harness, config, output
@@ -52,16 +66,7 @@ class Bridge:
             from deepseek_harness import DeepSeekHarness
             if self.sdk:
                 self.sdk.close()
-            self.sdk = DeepSeekHarness(dsh_home='/state/dsh', cwd='/workspace',
-                                      provider='deepseek-official', model=self.config['model'],
-                                      reasoning_effort=self.config['reasoning_effort'],
-                                      max_tokens=self.config['max_output_tokens'],
-                                      base_url='http://127.0.0.1:18766/v1', api_key='gateway-placeholder',
-                                      # This bridge already runs after UID drop in
-                                      # the application filesystem/network/cgroup
-                                      # sandbox. Native nesting is unavailable.
-                                      env={'DSH_PERMISSION_MODE':'danger-full-access'},
-                                      request_timeout_seconds=30, shutdown_timeout_seconds=5)
+            self.sdk = DeepSeekHarness(**deepseek_options(self.config,self.instructions))
             self.sdk.start()
             if self.resume:
                 self.sdk.resume_session(self.session_id)
@@ -114,7 +119,7 @@ class Bridge:
             else:
                 # No private session decoding. SDK emits public messages and tools.
                 result = self.sdk.start_session(self.session_id).run(
-                    self.instructions + '\n\n' + text,
+                    text,
                     on_notification=lambda value: self.codec.deepseek(value, self.session_id))
                 self.sdk.close()
                 self.sdk = None

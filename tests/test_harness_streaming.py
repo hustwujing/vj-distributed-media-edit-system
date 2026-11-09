@@ -61,3 +61,13 @@ class NativeStreamTests(unittest.TestCase):
         codec.finish('公开结果','completed')
         self.assertNotIn('PRIVATE',json.dumps(events));self.assertEqual(events[0][2]['text'],'公开结果')
         self.assertEqual(events[0][1],events[1][1])
+
+    def test_deepseek_code_editor_uses_minimal_shell_profile_and_system_rules(self):
+        from webapp.harness_bridge import deepseek_options
+        value=deepseek_options({'model':'deepseek-v4.1-flash','reasoning_effort':'high',
+                                'max_output_tokens':4096},'trusted task rules')
+        self.assertEqual(value['profile'],'sdk-minimal')
+        self.assertEqual(value['max_tokens'],4096)
+        self.assertEqual(value['env'],{
+            'DSH_PERMISSION_MODE':'danger-full-access','DSH_SYSTEM_PROMPT':'trusted task rules'})
+        self.assertEqual(value['base_url'],'http://127.0.0.1:18766/v1')
