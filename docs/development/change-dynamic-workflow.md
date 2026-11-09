@@ -50,6 +50,7 @@
 - execution lease 同时绑定 attempt、generation、step 和 task revision；检查、写入和发布均复核。
 - reconcile lease 使用 owner、期限和独立 generation。旧控制器不能在失权后提交。
 - 普通追加只影响新节点。受控修复通过 `revise_tasks` 创建不可变 revision；不得改目标、权限、输入输出、验收或策略。旧 revision 保留，修复根计数，依赖后代换 revision，无关分支复用。
+- 自动原地修订的重试安全条件由 `automatic_revision_retry_safe` 同时供权威图校验、模型可改字段和修复选项使用。`retry_safe=false` 的操作不提供原地修订选项，按既有授权/预算走 `repair_replacements` 新任务；显式用户输入修订仍单独校验本轮授权，不能因隐藏非法自动动作而扩大或缩小用户权限。
 - 方案能力、操作实现、专业 Agent 策略、素材及累计预算必须在已确认授权包络内。
 - 沙盒只装载声明的素材、输入角色及本任务可恢复输出；不能因同属项目就暴露全部历史文件。
 - 上游调用意图先于副作用，提交未知不得重提；poll/collect 恢复只能使用已有句柄。

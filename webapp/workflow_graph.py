@@ -663,6 +663,13 @@ def revision_mutable_fields(task_type,user=False):
     return fields+(user_fields if user else [])
 
 
+def automatic_revision_retry_safe(task_type,operation_id=None,implementation=None):
+    """Retry-safety gate only; scope, frozen fields and budgets remain separate."""
+    if task_type!='operation':return True
+    from .operations import get as operation
+    return operation(operation_id,implementation).retry_safe
+
+
 def validate_operation_input_constraints(task,specs,assets):
     if task.type!='operation':return
     from .operations import get as operation
@@ -815,7 +822,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             if replacement.parameters!=current.parameters:raise ValueError('Script repair changes argv only')
         elif current.type=='operation':
             if replacement.argv!=current.argv:raise ValueError('Operation repair changes parameters only')
-            if user_revision_scope is None and not operation(current.operation,current.implementation).retry_safe:
+            if user_revision_scope is None and not automatic_revision_retry_safe(current.type,current.operation,current.implementation):
                 raise ValueError('An external or non-idempotent operation requires a new authorized task')
         else:
             if replacement.argv!=current.argv or replacement.parameters!=current.parameters:raise ValueError('Agent revision cannot change action permissions')

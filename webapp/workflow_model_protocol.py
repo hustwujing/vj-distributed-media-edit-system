@@ -298,7 +298,16 @@ def available_changes(frozen):
             if expanded==allowed:break
             allowed=expanded
     return {name:change_fields(row['spec']['type'],user is not None) for name,row in tasks.items()
-            if name in allowed and row['status'] in (('paused','succeeded','ready','blocked','failed') if user is not None else ('paused','succeeded'))}
+            if name in allowed and row['status'] in (('paused','succeeded','ready','blocked','failed') if user is not None else ('paused','succeeded'))
+            and (user is not None or graph.automatic_revision_retry_safe(row['spec']['type'],
+                 row['spec'].get('operation'),row['spec'].get('implementation')))}
+
+
+def automatic_replacement_tasks(frozen):
+    automatic,user=scopes(frozen)
+    if automatic is None or user is not None:return []
+    return [task for task in frozen.get('tasks',[]) if automatic in ('',task['id'])
+            and task['status'] in ('paused','failed','succeeded')]
 
 
 def repair_options(frozen):
@@ -311,6 +320,12 @@ def repair_options(frozen):
             options.append({'action':'rerun_agent_revision','task_id':identifier,'changes_set':{},
                             'meaning':'Create a new immutable revision with the same Agent contract and current repair context.'})
         else:options.append({'action':'revise_task','task_id':identifier,'allowed_set_fields':fields})
+    for task in automatic_replacement_tasks(frozen):
+        spec=task['spec']
+        if not graph.automatic_revision_retry_safe(spec['type'],spec.get('operation'),spec.get('implementation')):
+            options.append({'action':'repair_replacement','task_id':task['id'],'plan_field':'repair_replacements',
+                'meaning':'This operation is not safe for automatic in-place revision. Query its contract and use repair_replacements '
+                    'to create a new authorized Task; the host preserves requirements and enforces the existing provider and repair budgets.'})
     for subject,row in tasks.items():
         if row.get('review_again_count',0)>=graph.CANDIDATE_REVIEW_LIMIT:continue
         if (not row.get('quality',{}).get('technical_valid') or not row.get('quality',{}).get('passed')
@@ -447,7 +462,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         # A replacement changes implementation, never asks the model to rewrite
         # the exact requirement text/criteria that must remain immutable.
         if not evidence_collection_available(frozen):plan['properties']['new_tasks']['maxItems']=0
-        ids=[t['id'] for t in frozen.get('tasks',[]) if automatic in ('',t['id']) and t['status'] in ('paused','failed','succeeded')]
+        ids=[task['id'] for task in automatic_replacement_tasks(frozen)]
         replacement_variants=[]
         for variant in task_variants:
             original_name=variant['$ref'][8:];original=deepcopy(defs[original_name])

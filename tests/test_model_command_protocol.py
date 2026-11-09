@@ -23,6 +23,42 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_non_idempotent_repair_offers_replacement_not_illegal_in_place_revision(self):
+        from webapp.operations import get as operation
+        from webapp.workflow_model_protocol import available_changes
+        for name,params in [('image.edit_region',{'box':[1,1,10,10],'prompt':'Make the subject blue'}),
+                            ('image.decompose',{'layer_count':3,'prompt':'Preserve the composition'})]:
+            with self.subTest(operation=name):
+                op=operation(name).public()
+                spec={'id':'render','type':'operation','name':'Edit','objective':'Preserve required model and content',
+                    'operation':name,'implementation':op['implementation'],'inputs':{'source':{'asset':'asset'}},
+                    'parameters':params,'acceptance':[{'kind':'image','width':64,'stage':'final'}],'delivery_stage':True}
+                f=frozen(spec);f['operations']=[{**op,'authorized':True}]
+                self.assertNotIn('render',available_changes(f))
+                option=next(x for x in repair_options(f) if x['task_id']=='render')
+                self.assertEqual(option['action'],'repair_replacement')
+                self.assertEqual(option['plan_field'],'repair_replacements')
+                protocol=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},
+                    contracts={name:op},draft={'status':'OPEN'})
+                self.assertEqual(protocol.schemas['submit_typed_plan']['properties']['changes']['maxItems'],0)
+                self.assertIn(option,protocol.context()['model_command_contract']['repair_options'])
+                bad={'kind':'APPLY_PLAN','reason':'Repair','plan':{'changes':[{'task_id':'render','set':{'parameters':params}}]}}
+                with self.assertRaises(CommandError):compile_manager(bad,f)
+                implementation={'type':'operation','name':'Repair via new attempt','operation':name,
+                    'inputs':{'source':{'asset':'asset'}},'parameters':params}
+                command={'kind':'APPLY_PLAN','reason':'Repair within authorization','plan':{
+                    'repair_replacements':[{'task_id':'render','implementation':implementation}]}}
+                schema=manager_schema(f,{name:op})
+                result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']
+                self.assertNotEqual(result['replacements']['render'],'render')
+                self.assertFalse(result['revise_tasks'])
+                for field in ('objective','acceptance','semantics','delivery_stage'):
+                    self.assertEqual(result['add_tasks'][0][field],f['tasks'][0]['spec'][field])
+                user=frozen(spec,user=True)
+                self.assertIn('render',available_changes(user),'Explicit user revision retains its separately validated authority')
+        local=copy.deepcopy(spec);local.update(operation='image.segment',implementation='fixed_image@1',parameters={'box':[1,1,10,10]})
+        self.assertIn('render',available_changes(frozen(local)))
+
     def test_delivery_format_binding_preserves_type_and_multi_file_wildcards(self):
         from webapp.workflow_model_protocol import bind_explicit_delivery_formats
         raw={'acceptance':[{'kind':'media','video':True,'width':854,'file':'*','source':'user','stage':'current'},
