@@ -7,6 +7,7 @@ assert.ok(process.argv[2]&&output.startsWith('/data2/wujing03/'),'Evidence must 
 const base='http://updream-lab.bilibili.co/distributed-agent-sandbox-backend',internal='http://127.0.0.1/distributed-agent-sandbox';
 const selected=process.argv[3]&&process.argv[3]!=='all'?new Set(process.argv[3].split(',')):null;
 const jobs=8,uid=()=>crypto.randomBytes(16).toString('hex'),sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
+const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
 const release=JSON.parse(fs.readFileSync(path.join(root,'.sandbox-cluster/release.json')));
@@ -63,7 +64,8 @@ async function runCase(demo){
   assert.equal(importedPrompt,project.draft.prompt.trim(),'Restored draft differs from the visible request');
   assert.ok(importedPrompt.includes(demo.prompt.trim()),'Example prompt was lost on import');
   for(const option of demo.options||[])assert.ok(importedPrompt.includes(option.trim()),'Visible example parameters were lost on import');
-  await page.locator('[name=delivery-target]').evaluateAll(nodes=>nodes.forEach(node=>node.checked=false));await page.locator('#dynamic-targets-other').fill('');
+  await page.locator('[name=delivery-target]').evaluateAll(nodes=>nodes.forEach(node=>node.checked=false));await page.locator('#dynamic-targets-other').fill(extraDeliveryTargets);
+  if(extraDeliveryTargets){state.contract_variant={extra_delivery_targets:extraDeliveryTargets};persist();}
   await capture('01-imported');
   const started=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/api/projects/${state.project}/runs`));
   await page.locator('#dynamic-input-submit').click();const start=await started;assert.equal(start.status(),202,await start.text());current=await start.json();state.run_id=current.id;state.run_ids.push(current.id);
