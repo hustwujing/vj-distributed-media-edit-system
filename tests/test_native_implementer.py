@@ -146,6 +146,8 @@ class NativeSelectionTests(unittest.TestCase):
         self.assertIn('/workspace 是稳定Shell工作目录',text)
         self.assertIn('临时工作文件只能放在VIDEO_USE_STEP_SCRATCH',text)
         self.assertIn('不得删除、移动或改名VIDEO_USE_STEP_OUTPUT本身',text)
+        self.assertIn('完成全部声明文件和必要验收后立即结束并提交',text)
+        self.assertIn('不得为可选解释重复读取未变化的输入或成果',text)
 
 
 class NativeRunnerTests(unittest.TestCase):
