@@ -577,6 +577,20 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual((claimed['error_code'],claimed['error_detail'],claimed['wait_reason']),('','',''))
         lease.release()
 
+    def test_model_transport_failure_is_not_presented_as_a_script_error(self):
+        self.tick();self.propose({'proposal_id':'model-reset','reason':'Create report','base_graph_version':0,
+            'add_tasks':[script(on_failure='pause')],'replan_after':['first']})
+        run=self.tick();task=run['tasks'][0]
+        self.store.execute("UPDATE run_tasks SET status='running',attempts=3 WHERE run_id=? AND id=?",(run['id'],task['id']))
+        task=graph.get(self.store,run['id'])['tasks'][0]
+        self.orchestrator.task_failure(graph.get(self.store,run['id']),task,
+            {'error_code':'agent_model_transport_failed','phase':'local','classification':'execution',
+             'error_detail':"Connection reset by peer",'error_type':'ProtocolError','transient':True})
+        failed=graph.get(self.store,run['id'])['tasks'][0]
+        self.assertEqual(failed['error_code'],'agent_model_transport_failed')
+        self.assertIn('模型连接中断',failed['error_detail'])
+        self.assertNotIn('脚本执行失败',failed['error_detail'])
+
     def test_sealed_failure_keeps_ready_diagnosis_dispatchable(self):
         self.tick();task=script(retry_policy='never');task['on_failure']='diagnose'
         self.propose({'proposal_id':'diagnose-failure','base_graph_version':0,'reason':'diagnose a known failure',

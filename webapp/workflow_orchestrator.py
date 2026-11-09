@@ -601,7 +601,8 @@ class Orchestrator:
                 retry=retry or bool(operation and operation.retry_safe and not operation.external_side_effects and infrastructure)
             except (KeyError,ValueError):pass
         retry=retry or bool(not task.get('control_kind') and task['external_id'] and phase in ('poll','collect') and code in ('poll_failed','collect_failed') and task['recovery_count']<3)
-        retry=retry or bool(task.get('type')=='agent' and code=='agent_failed' and data.get('transient') and business_attempts<3)
+        retry=retry or bool(task.get('type')=='agent' and code in ('agent_failed','agent_model_transport_failed')
+                            and data.get('transient') and business_attempts<3)
         message=failure_message(code,data.get('error_detail'))
         if code=='execution_failed':
             detail=str(data.get('error_detail') or '')
@@ -614,6 +615,8 @@ class Orchestrator:
                 message='系统执行错误：'+detail[:400]+'。请修复运行环境后重试。'
         if code=='agent_failed' and data.get('transient'):
             message='模型服务出现瞬时故障，系统将自动重试（第 '+str(task.get('recovery_count',0)+1)+' 次）。'
+        if code=='agent_model_transport_failed':
+            message='模型连接中断：'+str(data.get('error_detail') or '响应流被对端关闭')[:600]+'。系统仅有界重试同一冻结请求，不会把它误报为脚本错误。'
         if code=='daily_model_quota_exhausted' and data.get('quota_limit') is not None:
             import time
             hours=max(1,round((float(data.get('quota_reset_at',time.time()))-time.time())/3600,1))

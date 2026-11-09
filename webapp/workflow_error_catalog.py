@@ -33,6 +33,7 @@ CATALOG={
     'planning_contract_exhausted':failure('contract','规划未完成','规划师在限定纠错次数内未提交合法计划；草稿和精确校验错误均已保留。请查看诊断；这不是缺少用户确认或素材。','never_same_revision','inspect_or_stop','user_decision','The Manager exhausted its bounded contract-correction attempts'),
     'model_result':failure('model_result','模型未产生合格结果','模型未找到符合条件的结果，请调整输入或要求后重新规划。','after_revision','replan','manager_revision','The model result did not satisfy the frozen task contract'),
     'agent_failed':failure('agent','代码编辑执行失败','代码编辑师未提交有效结果，工具与模型错误回执已保留。','safe_transient_only','inspect_or_replan','manager_revision','An Agent failure requires diagnosis and a new immutable revision'),
+    'agent_model_transport_failed':failure('model_transport','模型连接中断','模型响应流被对端中断，尚未取得可提交结果。系统只会有界重试同一冻结请求，不会改变任务契约。','safe_transient_only','retry_or_replan','manager_revision','A bounded retry or revised task is required after repeated model transport failures'),
     'agent_timeout':failure('timeout','代码编辑师运行超时','代码编辑师达到本 Task 的墙钟运行时限，未发布候选成果，也不会自动重放同一 revision。','never_same_revision','replan','manager_revision','The Agent wall-clock limit requires a smaller or revised task'),
     'agent_turn_budget_exhausted':failure('quota','代码编辑师轮次已用完','代码编辑师已用完本 Task 的模型/工具轮次，尚未提交有效结果。','never_same_revision','replan','manager_revision','The Agent turn budget requires a smaller or revised task'),
     'agent_finalize_budget_exhausted':failure('quota','代码编辑师提交次数已用完','代码编辑师已用完最终提交纠错次数，已有输出和校验错误均已保留。','never_same_revision','inspect_or_replan','manager_revision','The Agent finalization budget requires a corrected task revision'),

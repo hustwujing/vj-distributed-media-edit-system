@@ -10,7 +10,7 @@ class WorkflowErrorCatalogTests(unittest.TestCase):
             'submission_unknown','result_unavailable','poll_failed','collect_failed','provider_failed',
             'provider_cancelled','pre_submit','technical_validation_failed','quality_failed',
             'review_incomplete','review_contract_exhausted','planning_contract_exhausted','model_result',
-            'agent_failed','agent_timeout','agent_turn_budget_exhausted',
+            'agent_failed','agent_model_transport_failed','agent_timeout','agent_turn_budget_exhausted',
             'agent_finalize_budget_exhausted','agent_contract_exhausted',
             'agent_runtime_unavailable','runtime_profile_changed',
             'policy_changed','execution_failed','invalid_result_manifest','missing_proposal',

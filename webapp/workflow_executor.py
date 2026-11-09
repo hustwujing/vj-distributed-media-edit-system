@@ -205,6 +205,8 @@ def _execute(host,lease):
             code='agent_timeout'
         elif task['type']=='agent' and agent_runtime_error(exc):
             code='agent_runtime_unavailable'
+        elif task['type']=='agent' and transient_model:
+            code='agent_model_transport_failed'
         elif isinstance(exc,TaskQuotaReached):
             code=quota_error_code(task,exc)
         else:code=failure_error_code(task,phase,calls,classification)

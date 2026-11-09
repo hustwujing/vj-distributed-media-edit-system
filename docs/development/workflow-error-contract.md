@@ -9,7 +9,7 @@
 | 超时 | `agent_timeout` | 到墙钟上限立即终止，不重放同 revision，清理沙箱，建议拆小或修订任务 |
 | 配额 | `model_token_budget_exhausted`、`agent_turn_budget_exhausted`、`agent_finalize_budget_exhausted`、`budget_exhausted`、`daily_model_quota_exhausted` | 发起下一请求前拒绝；说明具体是哪类额度、已用/上限以及恢复方式 |
 | 沙箱基础设施 | `agent_runtime_unavailable`、`runtime_profile_changed`、`policy_changed` | 明确不是业务输入问题；修复 Runtime 或创建新 revision |
-| Agent/脚本 | `agent_failed`、`execution_failed` | 展示脱敏后的工具/运行时错误、异常类型和分类；仅安全瞬时错误可自动重试 |
+| Agent/脚本 | `agent_failed`、`agent_model_transport_failed`、`execution_failed` | 区分脚本错误与模型流中断，展示脱敏后的错误类型和分类；仅安全瞬时错误可自动重试 |
 | 外部 Provider | `pre_submit`、`provider_failed`、`poll_failed`、`collect_failed`、`submission_unknown` | 区分尚未提交、已失败、查询/收取失败和提交结果未知；禁止因错误而重复收费请求 |
 | 合同 | `planning_contract_exhausted`、`review_contract_exhausted`、`invalid_result_manifest` | 展示精确字段/校验错误，不伪装成缺少用户确认或素材 |
 | 验收 | `technical_validation_failed`、`quality_failed`、`review_incomplete`、`model_result` | 保留候选和证据，说明未发布原因以及需要修订的范围 |
