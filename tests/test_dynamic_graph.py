@@ -577,7 +577,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(len(self.store.query('SELECT id FROM artifact_objects')),1)
 
     def publish_metadata_fixture(self,names,primary_index=0,expect_success=True,selected_indices=None,
-                                 dependencies=None,delivery_indices=None,before_publish=None):
+                                 dependencies=None,delivery_indices=None,before_publish=None,review_current_scope=True,expect_rereview=False):
         """Exercise publication of previously accepted metadata, not decoding."""
         from unittest.mock import patch
         delivery_indices=set(range(len(names))) if delivery_indices is None else set(delivery_indices)
@@ -607,10 +607,14 @@ class DynamicGraphTests(unittest.TestCase):
                 VALUES (?,?,'final-review','final','',?,'fixture','{}',?,'passed',?,?,?)''',
                 (review_id,run['id'],run['graph_version'],'f'*64,graph.encode(decision),now,now))
             if before_publish:before_publish(run,review_id)
+            if review_current_scope:
+                from webapp.review_identity import final_identity
+                self.store.execute('UPDATE workflow_reviews SET review_identity=? WHERE id=?',
+                    (final_identity(self.store,graph.get(self.store,run['id'])),review_id))
             self.orchestrator.publish(run,{'id':review_id,'decision_json':'{}'})
             if not expect_success:
                 result=graph.get(self.store,run['id'])
-                self.assertEqual(result['status'],'WAITING_USER');self.assertIsNone(result['delivered_at']);return result['delivery'],hashes
+                self.assertEqual(result['status'],'ACTIVE' if expect_rereview else 'WAITING_USER');self.assertIsNone(result['delivered_at']);return result['delivery'],hashes
             if primary_index is None:
                 result=graph.get(self.store,run['id'])
                 self.assertEqual(result['status'],'WAITING_USER');self.assertIsNone(result['delivered_at'])
@@ -673,8 +677,10 @@ class DynamicGraphTests(unittest.TestCase):
                     'tasks':graph.active_tasks(run)}
             self.store.execute('UPDATE workflow_reviews SET review_identity=? WHERE id=?',(identity(self.store,run,frozen),review_id))
             self.store.execute("UPDATE runs SET graph_version=graph_version+1,goal='Different required contents' WHERE id=?",(run['id'],))
-        delivered,_=self.publish_metadata_fixture(['report.txt'],before_publish=change_goal,expect_success=False)
+        delivered,_=self.publish_metadata_fixture(['report.txt'],before_publish=change_goal,expect_success=False,
+                                                 review_current_scope=False,expect_rereview=True)
         self.assertEqual(delivered,[])
+        self.assertTrue(self.store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status='pending'",(self.run['id'],)))
 
     def test_publisher_rejects_explicitly_excluded_files_even_if_review_passed(self):
         def scope(run,review_id):
@@ -700,6 +706,8 @@ class DynamicGraphTests(unittest.TestCase):
             snapshot_json,snapshot_digest,status,decision_json,created_at,updated_at)
             VALUES ('preview-review',?,'final-review','final','',?,'preview-only','{}',?,'passed',?,?,?)''',
             (run['id'],run['graph_version'],'f'*64,graph.encode({'deliverables':['edit/thumb.png'],'primary':'edit/thumb.png'}),now,now))
+        from webapp.review_identity import final_identity
+        self.store.execute("UPDATE workflow_reviews SET review_identity=? WHERE id='preview-review'",(final_identity(self.store,run),))
         self.orchestrator.publish(run,{'id':'preview-review'})
         current=graph.get(self.store,run['id'])
         self.assertEqual(current['terminal_reason'],'invalid_delivery_manifest')

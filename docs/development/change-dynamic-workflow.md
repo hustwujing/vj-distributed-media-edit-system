@@ -101,6 +101,7 @@ Planner 首轮只接收冻结能力摘要；完整 operation 契约通过 `contr
 真实分布式用例必须使用独立 PostgreSQL、对象协议服务、节点目录、UID 与真实沙盒。
 
 完整发布必须绑定冻结源码摘要，完成 Python、JavaScript、实际浏览器及对应真机 case。
+工作区有并行未提交修改时，可使用`./deploy/sandbox_cluster.sh deploy --source-from /data2/wujing03/干净工作树`冻结已提交源码；仅更换代码来源，命名空间、私有配置、端口和数据根仍由当前sandbox wrapper固定。该来源必须是干净Git checkout，未提交修改会在冻结前拒绝；不得临时移动、覆盖或清理他人的工作区文件来制造干净目录。
 修改 case 时维护[审查矩阵](../real-case-campaign/dynamic-case-review.md)；报告区分业务成功、
 模型失败已正确处理、依赖阻塞、程序缺陷、未触发边界和未执行，不把采样缺口计为通过。
 

@@ -30,16 +30,6 @@ def delivery_scope(store,run):
     return {**run,'input_asset_names':input_names,'user_changes':changes,'effective_delivery_scope':confirmed_scope(store,run)}
 
 
-def delivery_requirements(store,run):
-    from .workflow_model_protocol import required_delivery_extensions,required_delivery_names
-    frozen=delivery_scope(store,run)
-    return required_delivery_extensions(frozen),required_delivery_names(frozen)
-
-
-def required_delivery_extensions(store,run):
-    return delivery_requirements(store,run)[0]
-
-
 class Orchestrator:
     def __init__(self,store,owner=None,ttl=15):
         self.store=store;self.owner=owner or uuid.uuid4().hex;self.ttl=ttl
@@ -1159,9 +1149,14 @@ class Orchestrator:
             self.set_status(run,'WAITING_USER','user_decision_pending');return
         authoritative=store.query("""SELECT * FROM workflow_reviews WHERE id=? AND run_id=? AND purpose='final'
             AND subject_task='' AND status='passed'""",(review.get('id'),run['id']))
-        if authoritative and authoritative[0]['graph_version']!=run['graph_version']:
+        if authoritative:
             from .review_identity import final_identity
-            if authoritative[0]['review_identity']!=final_identity(store,run):authoritative=[]
+            if authoritative[0]['review_identity']!=final_identity(store,run):
+                # User requirements or scope can change without changing the
+                # DAG counter. Never publish an older content approval.
+                graph.event(store,run,'delivery_review_outdated',{'review_id':authoritative[0]['id']})
+                self.queue_review(run)
+                return
         if not authoritative:
             graph.event(store,run,'delivery_blocked',{'reason':'invalid_final_review'})
             self.set_status(run,'WAITING_USER','invalid_delivery_manifest')
@@ -1169,7 +1164,9 @@ class Orchestrator:
         review=authoritative[0]
         decision=json.loads(review['decision_json']);selected=decision.get('deliverables',[])
         from .workflow_agent_contracts import approved_delivery_refs,delivery_leaf_refs,delivery_publication_names
+        from .workflow_model_protocol import required_delivery_extensions,required_delivery_names,required_delivery_roles
         scope={**delivery_scope(store,run),'tasks':graph.active_tasks(run)}
+        required=required_delivery_extensions(scope);required_names=required_delivery_names(scope);required_roles=required_delivery_roles(scope)
         eligible=approved_delivery_refs(scope)
         publication_names=delivery_publication_names(scope)
         accepted={name:t for t in graph.active_tasks(run) if t['spec']['delivery_stage'] for name in t['accepted_result'] if name in eligible}
@@ -1183,7 +1180,7 @@ class Orchestrator:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':sorted(missing_tasks),'missing_extensions':[]})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
-        aliases={'jpg':'jpeg'};required,required_names=delivery_requirements(store,run)
+        aliases={'jpg':'jpeg'}
         delivered={aliases.get(name.rsplit('.',1)[-1].lower(),name.rsplit('.',1)[-1].lower()) for name in selected if '.' in name}
         missing_extensions=required-delivered
         if missing_extensions:
@@ -1202,9 +1199,8 @@ class Orchestrator:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':[],'missing_names':sorted(missing_names)})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
-        from .workflow_model_protocol import required_delivery_roles
         delivered_roles={role for name in selected for role,path in accepted[name].get('quality',{}).get('output_roles',{}).items() if path==name}
-        missing_roles=required_delivery_roles(run)-delivered_roles
+        missing_roles=required_roles-delivered_roles
         if missing_roles:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':[],'missing_roles':sorted(missing_roles)})

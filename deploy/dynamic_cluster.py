@@ -285,16 +285,21 @@ def prepare_runtime(source):
     run(['setfacl','-m','u:'+NAMESPACE+'-orch:rx',source])
 
 
-def freeze():
-    from tests.run_workflow_suite import source_digest
-    original=source_digest();target=ROOT/'releases'/original[:12]
+def freeze(source_root=None):
+    source_root=Path(source_root or REPO).resolve()
+    if source_root!=REPO.resolve():
+        if not source_root.is_dir():raise ValueError('Source checkout does not exist')
+        if run(['git','-C',source_root,'status','--porcelain']).stdout.strip():
+            raise ValueError('A separate deployment source must be a clean committed checkout')
+        run(['git','-C',source_root,'rev-parse','--verify','HEAD'])
+    original=common.digest(source_root,runner=run);target=ROOT/'releases'/original[:12]
     if not target.exists():
         target.mkdir(parents=True,mode=0o755)
         for name in ('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs'):
-            shutil.copytree(REPO/name,target/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
+            shutil.copytree(source_root/name,target/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         for name in ('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore','README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md'):
-            shutil.copyfile(REPO/name,target/name)
-        dependency=ROOT/'venvs'/hashlib.sha256((REPO/'uv.lock').read_bytes()).hexdigest()[:16]
+            shutil.copyfile(source_root/name,target/name)
+        dependency=ROOT/'venvs'/hashlib.sha256((source_root/'uv.lock').read_bytes()).hexdigest()[:16]
         if not dependency.exists():
             dependency.parent.mkdir(parents=True,exist_ok=True)
             run(['cp','-a','--reflink=auto',REPO/'.venv',dependency],timeout=180)
@@ -502,9 +507,9 @@ def reset_database():
          '-h',PG_SOCKET,'-p',str(PG_PORT),'-d',DATABASE],input=sql)
 
 
-def deploy(seed,*,reset=False,targeted_unverified=False):
+def deploy(seed,*,reset=False,targeted_unverified=False,source_root=None):
     configure(seed);prepare_database()
-    source,sha=freeze();prepare_runtime(source)
+    source,sha=freeze(source_root) if source_root else freeze();prepare_runtime(source)
     if targeted_unverified:validate_isolation(environment(source=source))
     else:
         try:gate(source)
@@ -547,12 +552,13 @@ def main():
     parser.add_argument('--seed-from',type=Path,default=Path('/data2/wujing03/video-use'))
     parser.add_argument('--reset-database',action='store_true',help='After stopping dedicated services and backing up, replace only the dedicated schema; unresolved calls block reset')
     parser.add_argument('--targeted-unverified',action='store_true',help='Isolated targeted retest only: deploy without a full gate and mark the release ineligible for a full campaign')
+    parser.add_argument('--source-from',type=Path,help='Freeze code from a clean checkout; keep this deployment namespace, configuration and data roots')
     args=parser.parse_args();os.chdir(REPO)
-    if (args.reset_database or args.targeted_unverified) and args.action!='deploy':parser.error('--reset-database and --targeted-unverified require deploy')
+    if (args.reset_database or args.targeted_unverified or args.source_from) and args.action!='deploy':parser.error('--reset-database, --targeted-unverified and --source-from require deploy')
     if os.geteuid()!=0:raise SystemExit('Deployment requires root')
     with CONTROL_LOCK.open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        if args.action=='deploy':deploy(args.seed_from,reset=args.reset_database,targeted_unverified=args.targeted_unverified)
+        if args.action=='deploy':deploy(args.seed_from,reset=args.reset_database,targeted_unverified=args.targeted_unverified,source_root=args.source_from)
         elif args.action=='configure':configure(args.seed_from);prepare_database()
         elif args.action=='restart':restart_release()
         elif args.action=='check':gate(release());health()

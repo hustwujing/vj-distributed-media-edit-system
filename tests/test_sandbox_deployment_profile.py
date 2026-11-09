@@ -35,6 +35,16 @@ class SandboxDeploymentProfileTests(unittest.TestCase):
         self.assertIn('127.0.0.1:20766',cluster.nginx_config())
         self.assertIn('127.0.0.1:20767',cluster.nginx_config())
 
+    def test_separate_dirty_checkout_is_rejected_before_freezing_or_touching_deployment_data(self):
+        import subprocess
+        source=cluster.ROOT.parent/'source';source.mkdir()
+        subprocess.run(['git','init','-q',str(source)],check=True)
+        (source/'uncommitted.py').write_text('unreviewed = True\n')
+        with self.assertRaisesRegex(ValueError,'clean committed checkout'):cluster.freeze(source)
+        self.assertFalse(cluster.ROOT.exists())
+        self.assertEqual(cluster.NAMESPACE,'sandbox-agent')
+        self.assertEqual(cluster.DATABASE,'distributed_agent_sandbox')
+
     def test_reusing_any_source_identity_is_rejected(self):
         cases=(('DATABASE','distributed_agent_system'),
                ('OBJECT_PREFIX','distributed-agent-system'),
