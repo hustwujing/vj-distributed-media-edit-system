@@ -1,4 +1,5 @@
 import json,unittest,uuid
+from tests.run_input_fixture import accept_change
 from tests import test_dynamic_graph as fixtures
 from webapp import workflow_graph as graph,run_inputs
 
@@ -125,7 +126,7 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
         store.execute("UPDATE workflow_reviews SET status='passed',decision_json=? WHERE id=?",
             (graph.encode({'deliverables':['edit/report.txt'],'primary':'edit/report.txt'}),old['id']))
         store.execute("UPDATE control_jobs SET status='succeeded' WHERE id=?",(old['task_id'],))
-        received=run_inputs.accept(store,run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'Keep the same file, and verify the newly clarified contents.'})
+        received=accept_change(store,run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'Keep the same file, and verify the newly clarified contents.'})
         store.execute("UPDATE run_inputs SET status='APPLIED' WHERE id=?",(received['id'],))
         store.execute("UPDATE runs SET input_barrier_sequence=NULL,sealed=1,graph_version=graph_version+1,status='ACTIVE' WHERE id=?",(run['id'],))
         f.orchestrator.queue_review(graph.get(store,run['id']))

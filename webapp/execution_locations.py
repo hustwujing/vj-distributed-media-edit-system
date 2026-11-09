@@ -44,7 +44,7 @@ def for_run(store,run):
                     if operation.external_side_effects or operation.execution_mode=='host_control':
                         location='executor_host'
         value={'execution_location':location,'execution_attempt_id':attempt['id'] if attempt else None}
-        if agent:value['tool_location']=tool if attempt else location
+        if agent and item.get('control_kind')!='MESSAGE':value['tool_location']=tool if attempt else location
         provider=providers.get((item['id'],item['revision']))
         if provider:value['provider_execution_state']=provider
         locations[item['id']]=value

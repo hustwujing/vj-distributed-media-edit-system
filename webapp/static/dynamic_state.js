@@ -45,6 +45,7 @@ export function canApproveDecision(decision, run) {
 export const acceptsFeedback = decision => ['quality', 'quality_feedback', 'input_question','plan_confirmation'].includes(decision.kind);
 
 export function inputStatus(run) {
+  if(run.message_pending)return '正在由任务规划师处理消息；原任务状态不变，明确修改后才会进入重新规划。';
   if(run.terminal_reason==='conversation_answer')return '本轮已答复，没有重新处理素材；可以继续提问或提出修改要求。';
   if(run.terminal_reason==='plan_confirmation')return '方案已生成，确认后才会执行；也可以直接在聊天框修改方案。';
   if(run.terminal_reason==='user_rejected')return '已停止当前方向。收到新的要求前不会重新规划。';

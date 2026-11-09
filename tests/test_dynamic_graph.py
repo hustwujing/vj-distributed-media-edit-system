@@ -1,5 +1,6 @@
 """State protocol tests; no model or paid provider calls."""
 import json
+from tests.run_input_fixture import accept_change
 import unittest
 from tests import test_workflows as fixtures
 from webapp import workflow_graph as graph,workflow_planning as planning
@@ -84,7 +85,7 @@ class DynamicGraphTests(unittest.TestCase):
         command=graph.command(self.store,self.run['id'],'owner','resume',request_id=uuid.uuid4().hex)
         self.tick()
         self.assertEqual(self.store.query('SELECT error_code FROM workflow_commands WHERE id=?',(command['id'],))[0]['error_code'],'replan_required')
-        request=run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'请根据失败反馈修改报告'})
+        request=accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'请根据失败反馈修改报告'})
         self.tick()
         row=self.store.query('SELECT status FROM run_inputs WHERE id=?',(request['id'],))[0]
         self.assertEqual(row['status'],'PLANNING')
@@ -372,7 +373,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(set(revisions),{'first'})
 
     def test_dependency_can_be_removed_and_readded_as_a_new_graph_generation(self):
-        from webapp.run_inputs import accept
+        from tests.run_input_fixture import accept_change as accept
         self.tick();self.propose({'proposal_id':'initial-edge','base_graph_version':0,'reason':'Initial dependency',
             'add_tasks':[script('first'),script('child',inputs={'source':{'step':'first','role':'report'}})],
             'add_dependencies':[{'upstream':'first','downstream':'child'}],'sealed':True})
@@ -1079,7 +1080,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual((subject['revision'],subject['status']),(0,'succeeded'))
 
     def test_successor_applies_consumed_inputs_and_keeps_late_inputs_pending(self):
-        from webapp.run_inputs import accept
+        from tests.run_input_fixture import accept_change as accept
         first=accept(self.store,self.run['id'],'owner',{'request_id':'1'*32,'content':'New overall goal'})
         second=accept(self.store,self.run['id'],'owner',{'request_id':'2'*32,'content':'Late planning detail'})
         authorization={**self.authorization,'goal':'New overall goal'}

@@ -1,6 +1,7 @@
 """Two independent database clients compete on real PostgreSQL transactions."""
 from concurrent.futures import ThreadPoolExecutor
 import json
+from tests.run_input_fixture import accept_change
 from pathlib import Path
 import tempfile
 import threading
@@ -51,7 +52,7 @@ class RunInputRaceTests(unittest.TestCase):
     def test_claim_and_input_commit_have_one_consistent_order(self):
         coordinator=Coordinator(self.a,'race-'+uuid.uuid4().hex,'test')
         lease,accepted=self.race(lambda:coordinator.claim(self.run['id'],'workflow',step_id='report'),
-            lambda:run_inputs.accept(self.b,self.run['id'],'owner',self.message()))
+            lambda:accept_change(self.b,self.run['id'],'owner',self.message()))
         run=graph.get(self.b,self.run['id'])
         self.assertEqual(run['input_barrier_sequence'],accepted['sequence'])
         if lease:
@@ -63,8 +64,8 @@ class RunInputRaceTests(unittest.TestCase):
 
     def test_duplicate_input_across_nodes_creates_one_sequence(self):
         request=self.message()
-        first,second=self.race(lambda:run_inputs.accept(self.a,self.run['id'],'owner',request),
-            lambda:run_inputs.accept(self.b,self.run['id'],'owner',request))
+        first,second=self.race(lambda:accept_change(self.a,self.run['id'],'owner',request),
+            lambda:accept_change(self.b,self.run['id'],'owner',request))
         self.assertEqual(first['id'],second['id'])
         self.assertEqual(graph.get(self.a,self.run['id'])['input_sequence'],1)
 
@@ -88,8 +89,8 @@ class RunInputRaceTests(unittest.TestCase):
         run=graph.get(self.a,self.run['id']);request=self.message()
         with patch.dict('os.environ',{'VIDEO_USE_OBJECT_BUCKET':'metadata-race-fixture'}):
             _,accepted=self.race(lambda:Orchestrator(self.a).publish(run,review),
-                lambda:run_inputs.accept(self.b,run['id'],'owner',request))
-            again=run_inputs.accept(self.a,run['id'],'owner',request)
+                lambda:accept_change(self.b,run['id'],'owner',request))
+            again=accept_change(self.a,run['id'],'owner',request)
         self.assertEqual(accepted['id'],again['id'])
         original=graph.get(self.a,run['id'])
         if accepted['run_id']==run['id']:

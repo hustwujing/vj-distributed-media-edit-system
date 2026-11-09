@@ -269,3 +269,13 @@ Reviewer JSON 或空转复制节点作为字幕交付。
 ## 后续轮次模型配置（2026-11-04确认）
 
 126条清单保持暂停，历史结果不重标为新配置通过。后续正式执行统一显式选择服务端claude预设、Claude 4.6 Sonnet、high；专业 Manager/Reviewer/Diagnosis 由系统配置为 Claude Sonnet 5.5。执行引擎为structured-profile-v4 PlanDraft命令协议，strict优先、明确不支持时可回退。浏览器驱动在提交前选择模型及强度，提交后从Run的冻结model_configuration核对实际型号、强度和`plan_draft_v1_strict_preferred`策略；逐个PLAN审计草稿绑定和终态，并将源码与配置摘要纳入每次尝试证据。仅修改环境默认值不能替代逐Run验证。模型预算边界case仍保留原有低额度，不能为了通过而放宽边界。
+# Manager 消息分流与预览专项（2026-11-09）
+
+本专项为用户新增要求的定向验证，不重跑44项示例库，不并入旧轮次成功率。入口`tests/live_manager_messages.cjs`，仅操作独立sandbox-agent部署，新建测试项目、保留首败和当前版本证据。
+
+| ID | 场景与验收 |
+|---|---|
+| MC01 | 初始纯闲聊：真实Manager回复，无业务Task、无媒体成果；页面及重进均显示答复 |
+| MC02 | 同一真实视频任务依次覆盖规划中闲聊、待确认方案解释、重进恢复答复、混合消息明确改文件名、重新展示方案并确认、执行中询问进度、结束后答复可见；只读消息不建立屏障、不增加业务输入版本、不撤销方案、不改Task revision。最终真实MP4在桌面/窄屏点击按钮弹出可见播放器、实际播放、关闭后暂停，cleanup=0 |
+
+恢复/失败与竞争定向回归在`tests.test_workflow_messages`、`tests.test_run_input_races`：有限重试、快照伪造拒绝、失败只影响消息、终态与回复竞态、明确修改转新Run、消息顺序、原业务租约不受影响。未在真机触发的故障边界单列，不将开发回归称为真机覆盖。

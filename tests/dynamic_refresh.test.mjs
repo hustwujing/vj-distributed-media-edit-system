@@ -25,6 +25,13 @@ function fixture(){
  const listing={runs:[{id:'run',state:'ACTIVE',goal:'Current task',graph_version:0}]};
  return {context,requests,timers,renders,listing};
 }
+test('completed business run keeps polling until its pending message is answered',async()=>{
+ const f=fixture();let pending=1;
+ f.context.api=url=>Promise.resolve(url==='/runs'?{runs:[{id:'run',state:'SUCCEEDED',goal:'done',graph_version:1}]}:
+  url.includes('/events')?{events:[]}:{id:'run',state:'SUCCEEDED',message_pending:pending});
+ await f.context.refresh();assert.equal(f.timers.size,1);
+ pending=0;await f.context.refresh();assert.equal(f.timers.size,0);
+});
 for(const failure of [false,true])test(`stale ${failure?'failed':'successful'} refresh cannot cancel current polling`,async()=>{
  const f=fixture(),older=f.context.refresh(),newer=f.context.refresh();
  f.requests[1].resolve(f.listing);await newer;assert.equal(f.timers.size,1);

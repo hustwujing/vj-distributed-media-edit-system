@@ -1,5 +1,6 @@
 """Inbox ordering and barriers; no model or provider substitutions in production."""
 import json
+from tests.run_input_fixture import accept_change
 import unittest
 import uuid
 from tests import test_dynamic_graph as fixtures
@@ -16,7 +17,7 @@ class RunInputTests(unittest.TestCase):
         self.run=self.f.tick();self.coordinator=Coordinator(self.store,'input-test','test')
 
     def send(self,text='Use a simpler layout',key=None):
-        return run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':key or uuid.uuid4().hex,'content':text})
+        return accept_change(self.store,self.run['id'],'owner',{'request_id':key or uuid.uuid4().hex,'content':text})
 
     def reply(self,kind='CONTINUE',**extra):
         request=self.store.query("SELECT * FROM planner_runs WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
@@ -159,7 +160,7 @@ class RunInputTests(unittest.TestCase):
     def test_changed_attachment_can_be_rejected_without_a_barrier_loop(self):
         asset_id='old-reference'
         self.store.add_asset(self.run['project_id'],asset_id,'old.png','old.png',{'kind':'image','width':8,'height':8})
-        accepted=run_inputs.accept(self.store,self.run['id'],'owner',{
+        accepted=accept_change(self.store,self.run['id'],'owner',{
             'request_id':uuid.uuid4().hex,'content':'Use this reference','attachments':[asset_id]})
         self.store.execute('DELETE FROM assets WHERE id=?',(asset_id,))
         run=self.f.tick();decision=self.store.query("SELECT * FROM workflow_decisions WHERE status='pending'")[0]
@@ -174,7 +175,7 @@ class RunInputTests(unittest.TestCase):
     def test_changed_attachment_replacement_advances_barrier_to_new_input(self):
         old_id='old-reference'
         self.store.add_asset(self.run['project_id'],old_id,'old.png','old.png',{'kind':'image','width':8,'height':8})
-        original=run_inputs.accept(self.store,self.run['id'],'owner',{
+        original=accept_change(self.store,self.run['id'],'owner',{
             'request_id':uuid.uuid4().hex,'content':'Use this reference','attachments':[old_id]})
         self.store.execute('DELETE FROM assets WHERE id=?',(old_id,))
         run=self.f.tick();decision=self.store.query("SELECT * FROM workflow_decisions WHERE status='pending'")[0]
@@ -196,7 +197,7 @@ class RunInputTests(unittest.TestCase):
     def test_targeted_input_freezes_descendant_scope_and_cannot_revise_sibling(self):
         self.store.execute('INSERT INTO workflow_dependencies(run_id,upstream_task_id,downstream_task_id,created_graph_version) VALUES (?,?,?,1)',
                            (self.run['id'],'left','right'))
-        result=run_inputs.accept(self.store,self.run['id'],'owner',{
+        result=accept_change(self.store,self.run['id'],'owner',{
             'request_id':uuid.uuid4().hex,'content':'Change only the final report','targets':['right']})
         self.assertEqual(result['context']['allowed_revision_tasks'],['right'])
         self.assertEqual(result['context']['base_task_revisions'],{'left':0,'right':0})
@@ -212,9 +213,9 @@ class RunInputTests(unittest.TestCase):
     def test_successor_input_deduplicates_and_requires_a_fresh_scope_confirmation(self):
         original=self.run
         self.store.execute("UPDATE runs SET status='SUCCEEDED',delivered_at=? WHERE id=?",(self.store.now(),original['id']))
-        first=run_inputs.accept(self.store,original['id'],'owner',{
+        first=accept_change(self.store,original['id'],'owner',{
             'request_id':uuid.uuid4().hex,'content':'Make a second report','targets':['left']})
-        second=run_inputs.accept(self.store,original['id'],'owner',{
+        second=accept_change(self.store,original['id'],'owner',{
             'request_id':uuid.uuid4().hex,'content':'Keep it concise'})
         self.assertEqual(first['run_id'],second['run_id'])
         self.assertNotEqual(first['run_id'],original['id'])

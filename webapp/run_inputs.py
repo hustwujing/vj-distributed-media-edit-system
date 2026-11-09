@@ -65,6 +65,7 @@ def accept(store,identifier,actor,raw,*,context=None):
             return public(previous)
         run=graph.get(store,identifier)
         if not run:raise ValueError('Unknown Run')
+        route_message=request.source=='user' and not context.get('decision_id') and context.get('message_disposition')!='replan' and run['delivered_at'] is None
         if run['status'] in ('CANCELLING','FAILED','CANCELLED') or run['status']=='SUCCEEDED' and run['delivered_at'] is None:
             raise ValueError('Run cannot accept business input')
         if run['terminal_reason'] in ('planning_budget_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted'):
@@ -88,7 +89,7 @@ def accept(store,identifier,actor,raw,*,context=None):
             else:
                 successor=graph.create(store,run['project_id'],None,authorization,parent_run_id=run['id'],scope_confirmed=False,record_message=False)
             run=graph.get(store,successor['id'])
-        pending=db.execute("SELECT content FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],)).fetchall()
+        pending=db.execute("SELECT content FROM run_inputs WHERE run_id=? AND status IN ('ROUTING','ACCEPTED','PLANNING')",(run['id'],)).fetchall()
         if len(pending)>=100 or sum(len(item['content'].encode()) for item in pending)+len(request.content.encode())>64000:raise ValueError('Run input queue is full')
         if 'allowed_revision_tasks' not in context:
             affected=set()
@@ -96,43 +97,59 @@ def accept(store,identifier,actor,raw,*,context=None):
             for target in targets:affected.update(revision_closure(run,target))
             context={**context,'targets':targets,'predecessor_targets':predecessor_targets,'allowed_revision_tasks':sorted(affected) if targets else [task['id'] for task in graph.active_tasks(run)],
                 'base_task_revisions':{task['id']:task['revision'] for task in graph.active_tasks(run)}}
-        if run['terminal_reason'] in ('user_rejected','clarification_exhausted') and request.source=='user':
-            db.execute("UPDATE runs SET status='ACTIVE',terminal_reason='input_draining' WHERE id=?",(run['id'],))
-        # Ordinary chat can answer an information question or revise an
-        # unexecuted plan. It never approves scope or a quality decision.
-        if request.source=='user' and not context.get('decision_id'):
-            pending_questions=store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending' AND kind IN ('input_question','plan_confirmation')",(run['id'],))
-            for decision in pending_questions:
-                question=json.loads(decision['request_json'])
-                if question.get('invalid_input_ids'):continue
-                context={**context,'responding_to':{'decision_id':decision['id'],'question':question.get('question','')}}
-                if decision['kind']=='plan_confirmation':
-                    from .workflow_conversation import invalidate_plan
-                    context['superseded_plan']={key:question[key] for key in ('reason','delivery_targets','steps','dependencies')}
-                    invalidate_plan(store,run,decision)
-                else:
-                    store.execute("UPDATE workflow_decisions SET status='superseded',answer_json=?,updated_at=? WHERE id=?",
-                                  (graph.encode({'action':'revise','feedback':request.content}),store.now(),decision['id']))
-                store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='input_draining' WHERE id=?",(run['id'],))
-        sequence=run['input_sequence']+1;input_id=uuid.uuid4().hex;now=store.now()
+        sequence=db.execute('SELECT COALESCE(MAX(sequence),0)+1 AS next_sequence FROM run_inputs WHERE run_id=?',(run['id'],)).fetchone()['next_sequence'];input_id=uuid.uuid4().hex;now=store.now()
         attachments=[{'id':name,'authorized':name in run['authorization']['allowed_assets'] and run['authorization']['allowed_asset_digests'].get(name)==graph.asset_digest(owned[name]),
                       'name':owned[name]['name'],'metadata':{key:owned[name]['metadata'][key] for key in ('kind','width','height','duration','size') if key in owned[name]['metadata']},
                       'metadata_digest':graph.digest(owned[name])} for name in request.attachments]
         db.execute('''INSERT INTO run_inputs(id,run_id,submitted_run_id,sequence,idempotency_key,identity_digest,
             actor,content,attachments_json,source,context_json,base_graph_version,base_authorization_version,status,accepted_at)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'ACCEPTED',?)''',
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)''',
             (input_id,run['id'],identifier,sequence,request.request_id,identity,actor,request.content,
-             graph.encode(attachments),request.source,graph.encode(context),run['graph_version'],run['authorization_version'],now))
-        if run['input_barrier_sequence'] is None:
-            db.execute('''INSERT INTO run_input_drain(run_id,task_id,revision,barrier_sequence)
-                SELECT run_id,id,revision,? FROM run_tasks WHERE run_id=? AND
-                (attempts>0 OR lease_id<>'' OR external_id<>'')''',(sequence,run['id']))
-        db.execute('''UPDATE runs SET input_sequence=?,input_barrier_was_sealed=CASE WHEN input_barrier_sequence IS NULL THEN sealed ELSE input_barrier_was_sealed END,input_barrier_sequence=COALESCE(input_barrier_sequence,?),
-            next_reconcile_at=?,updated_at=? WHERE id=?''',(sequence,sequence,now,now,run['id']))
+             graph.encode(attachments),request.source,graph.encode(context),run['graph_version'],run['authorization_version'],'ROUTING' if route_message else 'ACCEPTED',now))
         db.execute('INSERT INTO session_messages(id,session_id,run_id,role,content,created_at) VALUES (?,?,?,?,?,?)',
             (input_id,run['session_id'],run['id'],'user',request.content,now))
-        graph.event(store,run,'input_accepted',{'input_id':input_id,'input_sequence':sequence,'source':request.source})
+        if not route_message:activate(store,run,dict(db.execute('SELECT * FROM run_inputs WHERE id=?',(input_id,)).fetchone()))
+        else:store.execute('UPDATE runs SET next_reconcile_at=?,updated_at=? WHERE id=?',(now,now,run['id']))
+        graph.event(store,run,'message_received' if route_message else 'input_accepted',{'input_id':input_id,'input_sequence':sequence,'source':request.source})
         return public(db.execute('SELECT * FROM run_inputs WHERE id=?',(input_id,)).fetchone())
+
+
+def activate(store,run,message):
+    """Promote an explicit decision/Manager change, never mere message arrival."""
+    context=json.loads(message['context_json']);now=store.now();sequence=message['sequence']
+    context['message_disposition']='replan'
+    targets=context.get('targets',[]);active={t['id'] for t in graph.active_tasks(run)}
+    if not set(targets)<=active:raise ValueError('The targeted task changed before the message could be applied')
+    affected=set()
+    for target in targets:affected.update(revision_closure(run,target))
+    if not context.get('decision_id'):
+        context.update(allowed_revision_tasks=sorted(affected) if targets else sorted(active),
+                       base_task_revisions={t['id']:t['revision'] for t in graph.active_tasks(run)})
+    if message['source']=='user' and not context.get('decision_id'):
+        for decision in store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending' AND kind IN ('input_question','plan_confirmation')",(run['id'],)):
+            question=json.loads(decision['request_json'])
+            if question.get('invalid_input_ids'):continue
+            context['responding_to']={'decision_id':decision['id'],'question':question.get('question','')}
+            if decision['kind']=='plan_confirmation':
+                from .workflow_conversation import invalidate_plan
+                context['superseded_plan']={key:question[key] for key in ('reason','delivery_targets','steps','dependencies')}
+                invalidate_plan(store,run,decision)
+            else:store.execute("UPDATE workflow_decisions SET status='superseded',answer_json=?,updated_at=? WHERE id=?",
+                               (graph.encode({'action':'revise','feedback':message['content']}),now,decision['id']))
+            store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='input_draining' WHERE id=?",(run['id'],))
+    if run['terminal_reason'] in ('user_rejected','clarification_exhausted') and message['source']=='user':
+        store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='input_draining' WHERE id=?",(run['id'],))
+    current=graph.get(store,run['id'])
+    if current['input_barrier_sequence'] is None:
+        store.execute('''INSERT INTO run_input_drain(run_id,task_id,revision,barrier_sequence)
+            SELECT run_id,id,revision,? FROM run_tasks WHERE run_id=? AND
+            (attempts>0 OR lease_id<>'' OR external_id<>'')''',(sequence,run['id']))
+    store.execute("UPDATE run_inputs SET status='ACCEPTED',context_json=?,base_graph_version=?,base_authorization_version=? WHERE id=?",
+                  (graph.encode(context),current['graph_version'],current['authorization_version'],message['id']))
+    store.execute('''UPDATE runs SET input_sequence=CASE WHEN input_sequence<? THEN ? ELSE input_sequence END,
+        input_barrier_was_sealed=CASE WHEN input_barrier_sequence IS NULL THEN sealed ELSE input_barrier_was_sealed END,
+        input_barrier_sequence=COALESCE(input_barrier_sequence,?),next_reconcile_at=?,updated_at=? WHERE id=?''',
+        (sequence,sequence,sequence,now,now,run['id']))
 
 
 def can_dispatch(run,item):
@@ -141,13 +158,15 @@ def can_dispatch(run,item):
 
 
 def safe_point_reason(store,run):
-    if store.query('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(run['id'],store.now())):return 'draining_attempts'
-    if store.query("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],)):return 'draining_cleanup'
-    if store.query("SELECT id FROM task_results WHERE run_id=? AND status='staged'",(run['id'],)):return 'draining_results'
+    from .workflow_messages import business_inflight
+    leases,cleanup=business_inflight(store,run['id'])
+    if leases:return 'draining_attempts'
+    if cleanup:return 'draining_cleanup'
+    if store.query("SELECT id FROM task_results WHERE run_id=? AND status='staged' AND task_id NOT IN (SELECT id FROM control_jobs WHERE run_id=? AND control_kind='MESSAGE')",(run['id'],run['id'])):return 'draining_results'
     if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):return 'input_waiting_user_decision'
     calls=store.query("SELECT state FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(run['id'],))
     if calls:return 'input_waiting_external_unknown' if any(row['state'] in ('submitting','submission_unknown') for row in calls) else 'draining_provider'
-    if any(job['status'] not in ('succeeded','failed','cancelled','paused') for job in run['control_jobs']):return 'draining_control_jobs'
+    if any(job['control_kind']!='MESSAGE' and job['status'] not in ('succeeded','failed','cancelled','paused') for job in run['control_jobs']):return 'draining_control_jobs'
     if any(task['status'] in ('ready','running','waiting','retry_wait','reviewing') and can_dispatch(run,task) for task in run['tasks']):return 'draining_tasks'
     return ''
 

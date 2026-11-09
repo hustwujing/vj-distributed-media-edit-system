@@ -48,7 +48,8 @@ class Orchestrator:
         limit=max(1,min(100,int(limit)))
         with self.store.connect() as db:
             now=self.store.now()
-            sql="""SELECT id,reconcile_generation FROM runs WHERE status NOT IN ('SUCCEEDED','FAILED','CANCELLED')
+            sql="""SELECT id,reconcile_generation FROM runs WHERE (status NOT IN ('SUCCEEDED','FAILED','CANCELLED')
+                OR EXISTS(SELECT 1 FROM run_inputs i WHERE i.run_id=runs.id AND i.status='ROUTING'))
                 AND next_reconcile_at<=? AND reconcile_until<=? ORDER BY next_reconcile_at,id LIMIT ?"""
             if self.store.dsn:sql+=' FOR UPDATE SKIP LOCKED'
             rows=db.execute(sql,(now,now,limit)).fetchall();claims=[]
@@ -70,7 +71,18 @@ class Orchestrator:
         with store.connect() as db:
             db.execute('BEGIN IMMEDIATE');self.check(db,identifier,generation)
             run=graph.get(store,identifier)
-            if run['status'] in RUN_TERMINAL:return
+            from . import workflow_messages as messages
+            if run['status'] in RUN_TERMINAL:
+                if run['status']=='SUCCEEDED':
+                    self.reconcile_model_reservations(run)
+                    self.accept_results(run)
+                    messages.recover(store,graph.get(store,identifier))
+                    messages.queue(store,graph.get(store,identifier))
+                else:
+                    for message in messages.pending(store,run['id']):
+                        messages.fail(store,run,{'id':'message_'+message['id'],'spec':{'message_input_id':message['id']}},'task_stopped_before_message_reply')
+                db.execute("UPDATE runs SET next_reconcile_at=?,reconcile_until=0,reconcile_owner='' WHERE id=? AND reconcile_owner=? AND reconcile_generation=?",(store.now()+1,identifier,self.owner,generation))
+                return
             if (run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete'
                 and store.query("SELECT id FROM run_inputs WHERE run_id=? AND status='APPLIED' LIMIT 1",(run['id'],))
                 and not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))):
@@ -82,6 +94,9 @@ class Orchestrator:
             run=graph.get(store,identifier)
             user_paused=run['status']=='WAITING_USER' and run['terminal_reason']=='user_paused'
             self.accept_results(run)
+            run=graph.get(store,identifier)
+            messages.recover(store,run)
+            messages.queue(store,graph.get(store,identifier))
             run=graph.get(store,identifier)
             self.recover(run)
             run=graph.get(store,identifier)
@@ -394,10 +409,11 @@ class Orchestrator:
             store.execute("UPDATE run_tasks SET status='cancelled' WHERE run_id=? AND selected=1 AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
             successor=graph.create(store,run['project_id'],None,{**authorization.model_dump(),'require_plan_confirmation':True},parent_run_id=run['id'])
             cutoff=int(request.get('input_through_sequence',0))
-            for item in store.query("SELECT * FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING') ORDER BY sequence",(run['id'],)):
+            for item in store.query("SELECT * FROM run_inputs WHERE run_id=? AND status IN ('ROUTING','ACCEPTED','PLANNING') ORDER BY sequence",(run['id'],)):
                 carried=accept(store,successor['id'],actor,{'request_id':item['id'],'content':item['content'],
-                    'attachments':[a['id'] for a in json.loads(item['attachments_json'])]},context={'predecessor_input_id':item['id']})
-                if item['sequence']<=cutoff:
+                    'attachments':[a['id'] for a in json.loads(item['attachments_json'])]},context={'predecessor_input_id':item['id'],
+                        **({'message_disposition':'replan'} if item['status']!='ROUTING' else {})})
+                if item['status']!='ROUTING' and item['sequence']<=cutoff:
                     now=store.now()
                     store.execute("UPDATE run_inputs SET status='APPLIED',applied_at=?,applied_graph_version=? WHERE id=?",
                                   (now,successor['graph_version'],carried['id']))
@@ -407,6 +423,7 @@ class Orchestrator:
             from .run_inputs import finish_batch
             finish_batch(store,graph.get(store,successor['id']),cutoff)
             store.execute('UPDATE runs SET input_barrier_sequence=NULL WHERE id=?',(run['id'],))
+            store.execute("UPDATE control_jobs SET status='cancelled',updated_at=? WHERE run_id=? AND control_kind='MESSAGE' AND status NOT IN ('succeeded','failed','cancelled')",(store.now(),run['id']))
             store.execute("UPDATE workflow_decisions SET status='superseded' WHERE run_id=? AND status='pending' AND id<>?",(run['id'],row['id']))
             store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode({**payload,'successor_run_id':successor['id']}),store.now(),row['id']))
             graph.event(store,run,'successor_created',{'successor_run_id':successor['id']})
@@ -477,7 +494,7 @@ class Orchestrator:
             leases=store.query('SELECT * FROM execution_leases WHERE attempt=?',(result['lease_id'],))
             accepted=bool(task and leases and task['revision']==result['task_revision'] and task['lease_id']==result['lease_id']
                           and task['lease_generation']==result['lease_generation'] and leases[0]['generation']==result['lease_generation']
-                          and run['status'] not in ('CANCELLING',*RUN_TERMINAL) and task['status'] not in TERMINAL)
+                          and (run['status'] not in ('CANCELLING',*RUN_TERMINAL) or run['status']=='SUCCEEDED' and task.get('control_kind')=='MESSAGE') and task['status'] not in TERMINAL)
             if not accepted:
                 store.execute("UPDATE task_results SET status='late',committed_at=? WHERE id=?",(store.now(),result['id']));continue
             outcome=result['outcome'];result_status='committed'
@@ -489,7 +506,10 @@ class Orchestrator:
                         (store.now()+5,run['id'],task['id']))
                 elif task.get('control_kind'):
                     if outcome=='succeeded':
-                        if task['spec']['profile']=='media_planner':
+                        if task.get('control_kind')=='MESSAGE':
+                            from .workflow_messages import apply as apply_message
+                            apply_message(store,run,task,data)
+                        elif task['spec']['profile']=='media_planner':
                             # The proposal itself is independently immutable and staged.
                             planner=store.query("SELECT status FROM planner_runs WHERE task_id=? AND run_id=?",(task['id'],run['id']))
                             if not planner or planner[0]['status']!='staged':outcome='failed';data={'error_code':'missing_proposal'}
@@ -569,6 +589,9 @@ class Orchestrator:
 
     def task_failure(self,run,task,data):
         store=self.store;code=data.get('error_code','execution_failed');phase=data.get('phase',task['phase'])
+        if task.get('control_kind')=='MESSAGE':
+            from .workflow_messages import fail
+            fail(store,run,task,code);return
         if phase not in ('local','sync','submit','poll','collect','validate'):phase=task['phase']
         if code not in {'submission_unknown','result_unavailable','technical_validation_failed','quality_failed','execution_failed',
                         'provider_failed','poll_failed','collect_failed','agent_failed','review_incomplete','review_contract_exhausted',
@@ -724,6 +747,7 @@ class Orchestrator:
             self.set_status(run,'CANCELLING','deadline_or_budget')
             return
         for task in graph.work_items(run):
+            if task.get('control_kind')=='MESSAGE':continue
             if task['status'] not in ('ready','leased','running') or not task['lease_id']:continue
             leases=store.query('SELECT * FROM execution_leases WHERE attempt=?',(task['lease_id'],))
             if leases and leases[0]['active'] and leases[0]['expires']>now:
@@ -880,8 +904,8 @@ class Orchestrator:
                 try:self.queue_plan(run,{'completed':sorted(done)})
                 except planning.PlanningBudgetExceeded:self.set_status(run,'WAITING_USER','planning_budget_exhausted')
         if run['sealed'] and business and all(t['status']=='succeeded' for t in business) and not active_planners:
-            busy=store.query("SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?",(run['id'],now))
-            cleanup=store.query("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],))
+            from .workflow_messages import business_inflight
+            busy,cleanup=business_inflight(store,run['id'])
             external=store.query("SELECT request_key FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(run['id'],))
             decisions=store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
             if not busy and not cleanup and not external and not decisions:
@@ -1215,6 +1239,9 @@ class Orchestrator:
 
     def cancel(self,run):
         store=self.store
+        from .workflow_messages import pending,fail
+        for message in pending(store,run['id']):
+            fail(store,run,{'id':'message_'+message['id'],'spec':{'message_input_id':message['id']}},'run_cancelled')
         from .task_lifecycle import request_cleanup
         with store.connect() as db:request_cleanup(db,run['id'])
         store.execute("UPDATE run_inputs SET status='FAILED',error_code='run_cancelled' WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],))

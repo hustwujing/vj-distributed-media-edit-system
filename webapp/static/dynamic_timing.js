@@ -24,7 +24,7 @@ export function timingMarkup(record,prefix=''){
 export function executionHistory(item,run){
  return (run.activity_attempts||[]).filter(a=>a.step_id===item.id&&a.task_revision===(item.revision??0))
   .sort((a,b)=>a.generation-b.generation||a.started-b.started||a.id.localeCompare(b.id))
-  .map(a=>({...a,status:terminal(run.state)&&a.finished==null?'unconfirmed':a.status}));
+  .map(a=>({...a,status:terminal(run.state)&&item.control_kind!=='MESSAGE'&&a.finished==null?'unconfirmed':a.status}));
 }
 export function executionTimes(item,run){
  const history=executionHistory(item,run);

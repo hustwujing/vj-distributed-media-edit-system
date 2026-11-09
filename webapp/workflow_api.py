@@ -122,6 +122,13 @@ def public(store,run):
         value['control_jobs'].append(public_job)
     from .run_inputs import public as public_input
     value['inputs']=[public_input(row) for row in store.query('SELECT * FROM run_inputs WHERE run_id=? ORDER BY sequence',(run['id'],))]
+    replies={row['id'][8:]:row['content'] for row in store.query("SELECT id,content FROM session_messages WHERE run_id=? AND id LIKE 'message:%'",(run['id'],))}
+    reply_times={job['spec']['message_input_id']:json.loads(job['snapshot_json']).get('snapshot_at')
+                 for job in run['control_jobs'] if job['control_kind']=='MESSAGE'}
+    for item in value['inputs']:
+        item['reply']=replies.get(item['id'],'')
+        item['reply_snapshot_at']=reply_times.get(item['id'])
+    value['message_pending']=sum(item['status']=='ROUTING' for item in value['inputs'])
     value['drain_set']=run['drain_set']
     value['dependencies']=run['dependencies']
     value['replacements']=store.query('SELECT old_task_id,new_task_id,graph_version,source FROM run_task_replacements WHERE run_id=? ORDER BY graph_version,old_task_id',(run['id'],))
@@ -147,7 +154,7 @@ def public(store,run):
     question_cutoff=max((item['request'].get('input_through_sequence',0) for item in value['decisions'] if item['kind']=='input_question'),default=0)
     for item in value['inputs']:
         item['waiting_for_answer']=bool(item['status']=='ACCEPTED' and item['sequence']<=question_cutoff)
-    answers=store.query("SELECT content FROM session_messages WHERE run_id=? AND role='assistant' ORDER BY created_at DESC LIMIT 1",(run['id'],))
+    answers=store.query("SELECT content FROM session_messages WHERE run_id=? AND role='assistant' AND id LIKE 'answer:%' ORDER BY created_at DESC LIMIT 1",(run['id'],))
     value['conversation_answer']=answers[0]['content'] if answers else ''
     blocked=store.query("SELECT payload_json,created_at FROM workflow_graph_events WHERE run_id=? AND kind='delivery_blocked' ORDER BY seq DESC LIMIT 1",(run['id'],))
     if run['status']=='WAITING_USER' and run['terminal_reason']=='delivery_targets_incomplete':

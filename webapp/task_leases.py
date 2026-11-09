@@ -327,7 +327,8 @@ class Coordinator:
             turn = db.execute(f'SELECT t.*,p.owner FROM {table} t JOIN projects p ON p.id=t.project WHERE t.id=?', (run_id,)).fetchone()
             waiting=db.execute('SELECT next_retry FROM execution_waits WHERE task_id=?',(run_id,)).fetchone()
             if waiting and waiting['next_retry']>timestamp and turn and turn['status']!='cancelling':return None
-            if not turn or turn['status'] in ('succeeded', 'failed', 'cancelled', 'paused'):
+            message=bool(dynamic and step_id and any(t['id']==step_id and t.get('control_kind')=='MESSAGE' for t in dynamic['control_jobs']))
+            if not turn or turn['status'] in ('failed','cancelled','paused') or turn['status']=='succeeded' and not message:
                 return None
             if kind=='agent' and turn['status']!='cancelling':
                 from .harness_switching import pending
@@ -416,7 +417,7 @@ class Coordinator:
                 return None
             if kind == 'workflow':
                 w = dynamic or db.execute('SELECT status FROM agent_workflows WHERE run_id=?', (run_id,)).fetchone()
-                if not w or w['status'] not in (('ACTIVE','WAITING_USER') if dynamic else ('ready', 'staged', 'cancelling', 'resuming')):
+                if not w or w['status'] not in (('ACTIVE','WAITING_USER','SUCCEEDED') if dynamic and message else ('ACTIVE','WAITING_USER') if dynamic else ('ready', 'staged', 'cancelling', 'resuming')):
                     return None
             recovered = bool(prior and (prior['active'] or prior['interrupted'])) or bool(not prior and turn['status']=='running')
             generation = db.execute('SELECT COALESCE(MAX(generation),0)+1 AS next FROM execution_attempts WHERE run_id=?',(run_id,)).fetchone()['next']

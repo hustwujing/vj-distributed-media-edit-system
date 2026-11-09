@@ -7,7 +7,7 @@ ACTORS={
     'light_agent':'需求助手',
 }
 
-CONTROL={'PLAN':'任务规划师','REVIEW':'质量审查员','DIAGNOSE':'故障诊断师'}
+CONTROL={'PLAN':'任务规划师','MESSAGE':'任务规划师 · 对话','REVIEW':'质量审查员','DIAGNOSE':'故障诊断师'}
 
 def actor_name(actor,backend=''):
     if actor=='sandbox_agent' and backend in ('opensandbox','agent_runtime','command_runtime'):

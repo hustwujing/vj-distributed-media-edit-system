@@ -1,5 +1,6 @@
 """Recovery budgets count interruptions, not normal poll dispatches."""
 import unittest
+from tests.run_input_fixture import accept_change
 from tests import test_dynamic_graph as fixtures
 from webapp import workflow_graph as graph
 from webapp.task_leases import Coordinator
@@ -280,7 +281,7 @@ class RunRecoveryTests(unittest.TestCase):
         self.store.execute("UPDATE run_tasks SET status='reviewing',candidate_result_json='[\"edit/report.txt\"]',quality_json=? WHERE run_id=?",
                            (graph.encode({'technical_valid':True}),self.run['id']))
         self.f.orchestrator.queue_review(graph.get(self.store,self.run['id']),'render')
-        accepted=run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'Preserve the report content and gather sufficient evidence'})
+        accepted=accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'Preserve the report content and gather sufficient evidence'})
         run=graph.get(self.store,self.run['id']);job=next(item for item in run['control_jobs'] if item['control_kind']=='REVIEW')
         self.f.orchestrator.task_failure(run,job,{'error_code':'review_incomplete','phase':'local'})
         self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE status='pending'"))

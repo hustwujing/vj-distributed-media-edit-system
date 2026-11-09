@@ -454,6 +454,9 @@ def result_instruction(profile,control_kind=None):
 
 
 def model_instructions(profile,*,control_kind=None,native_tools=False):
+    if control_kind=='MESSAGE':
+        from .workflow_messages import INSTRUCTIONS
+        return INSTRUCTIONS
     from .specialist_profiles import skill_materials
     if native_tools:
         return profile.prompt+'\nUse exactly one available native tool per turn. Tool schemas define the wire protocol. Do not return a JSON action in prose. '+\
@@ -702,6 +705,9 @@ def execute(host,lease,run,task):
     configuration=for_specialist(store,run['id'],profile.id)
     store.execute('INSERT OR IGNORE INTO specialist_attempt_profiles VALUES (?,?,?,?,?,?,?,?,?,?)',
         (lease.attempt,run['id'],task['id'],profile.id,profile.harness,graph.digest(task['profile']),configuration.model,configuration.protocol,configuration.digest,store.now()))
+    if task.get('control_kind')=='MESSAGE':
+        from .workflow_messages import execute as execute_message
+        return execute_message(host,lease,run,task,profile)
     if task.get('control_kind'):
         table='planner_runs' if profile.id=='media_planner' else 'workflow_reviews'
         row=store.query(f'SELECT snapshot_json,snapshot_digest FROM {table} WHERE id=?',(task['spec']['request_id'],))[0]

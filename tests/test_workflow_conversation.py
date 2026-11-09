@@ -1,4 +1,5 @@
 import json
+from tests.run_input_fixture import accept_change
 import uuid
 import unittest
 from tests import test_dynamic_graph as fixtures
@@ -59,7 +60,7 @@ class ConversationTests(unittest.TestCase):
 
     def test_chat_revision_invalidates_confirmation_and_preserves_both_inputs(self):
         self.stage();old=self.decision()
-        run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'先改变报告的标题，不要执行旧方案'})
+        accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'先改变报告的标题，不要执行旧方案'})
         self.assertEqual(self.store.query('SELECT status FROM workflow_decisions WHERE id=?',(old['id'],))[0]['status'],'superseded')
         with self.assertRaises(ValueError):self.answer(old,'approve')
         run=self.f.tick();self.assertEqual(run['tasks'],[])
@@ -111,7 +112,7 @@ class ConversationTests(unittest.TestCase):
 
     def test_new_input_during_replanning_is_included_before_confirmation(self):
         self.stage()
-        run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'先修改标题'})
+        accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'先修改标题'})
         self.f.tick()
         request=self.store.query("SELECT * FROM planner_runs WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
         lease=Coordinator(self.store,'race-test','test').claim(self.run['id'],'workflow',step_id=request['task_id'])
@@ -119,7 +120,7 @@ class ConversationTests(unittest.TestCase):
         try:
             with lease.bind():planning.stage(self.store,lease,request['id'],fixtures.envelope(self.store,request['id'],proposal,delivery_targets=['report.txt']))
         finally:lease.release()
-        run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'还要增加结论'})
+        accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'还要增加结论'})
         run=self.f.tick();self.assertEqual(run['tasks'],[])
         self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)))
         pending=self.store.query("SELECT snapshot_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))[0]
@@ -130,7 +131,7 @@ class ConversationTests(unittest.TestCase):
         run=self.stage('RESPOND',targets=[])
         self.assertEqual((run['status'],run['terminal_reason']),('SUCCEEDED','conversation_answer'))
         self.assertEqual(run['tasks'],[]);self.assertEqual(run['delivery'],[])
-        result=run_inputs.accept(self.store,run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'你刚才说了什么？'})
+        result=accept_change(self.store,run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'你刚才说了什么？'})
         successor=graph.get(self.store,result['run_id']);self.assertFalse(successor['scope_confirmed'])
         from webapp.workflow_conversation import context
         facts=context(self.store,successor)
@@ -158,13 +159,13 @@ class ConversationTests(unittest.TestCase):
     def test_plain_chat_answers_question_without_granting_permissions(self):
         self.f.orchestrator.decision(graph.get(self.store,self.run['id']),'input_question',{'question':'需要怎样的报告？','input_through_sequence':0})
         old=self.decision()
-        accepted=run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'只是问上一轮的结果在哪里'})
+        accepted=accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'只是问上一轮的结果在哪里'})
         self.assertEqual(self.store.query('SELECT status FROM workflow_decisions WHERE id=?',(old['id'],))[0]['status'],'superseded')
         self.assertEqual(accepted['context']['responding_to']['decision_id'],old['id'])
         self.assertEqual(graph.get(self.store,self.run['id'])['authorization_version'],1)
 
     def test_reject_empty_clarification_does_not_generate_same_question(self):
-        run_inputs.accept(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'停止这个方向'})
+        accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'停止这个方向'})
         self.f.orchestrator.decision(graph.get(self.store,self.run['id']),'input_question',{'question':'想做什么？','input_through_sequence':1})
         self.answer(self.decision(),'reject')
         run=self.f.tick();self.assertEqual(run['terminal_reason'],'user_rejected')
