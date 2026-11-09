@@ -9,6 +9,14 @@ const selected=process.argv[3]&&process.argv[3]!=='all'?new Set(process.argv[3].
 const jobs=8,uid=()=>crypto.randomBytes(16).toString('hex'),sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
+const assertModelConfiguration=value=>{
+ assert.equal(value.model,'claude-sonnet-5-5');
+ assert.equal(value.roles.media_planner.model,'claude-sonnet-5-5');
+ assert.equal(value.roles.visual_quality_reviewer.model,'claude-sonnet-5-5');
+ assert.equal(value.roles.editing_implementer.model,'deepseek-v4.1-flash');
+ assert.equal(value.roles.editing_implementer.harness,'deepseek_harness');
+ assert.equal(value.roles.editing_implementer.reasoning_effort,'medium');
+};
 const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
 const release=JSON.parse(fs.readFileSync(path.join(root,'.sandbox-cluster/release.json')));
 assert.equal(release.namespace,'sandbox-agent');assert.equal(release.state,'ready');
@@ -69,7 +77,7 @@ async function runCase(demo){
   await capture('01-imported');
   const started=page.waitForResponse(r=>r.request().method()==='POST'&&r.url().endsWith(`/api/projects/${state.project}/runs`));
   await page.locator('#dynamic-input-submit').click();const start=await started;assert.equal(start.status(),202,await start.text());current=await start.json();state.run_id=current.id;state.run_ids.push(current.id);
-  assert.equal(current.model_configuration.model,'claude-sonnet-5-5');assert.equal(current.model_configuration.roles.editing_implementer.model,'claude-sonnet-5-5');
+  assertModelConfiguration(current.model_configuration);
   state.model_configuration=current.model_configuration;persist();
   const deadline=Date.now()+Number(process.env.DEMO_CASE_TIMEOUT_SECONDS||1800)*1000;
   while(Date.now()<deadline&&!stop){
