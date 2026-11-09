@@ -65,7 +65,9 @@ python -c 'import importlib.metadata as m,deepseek_harness,webapp.runtime_bootst
 """,
     }
     results={}
+    if not manifest['images'] or set(manifest['images'])-set(checks):raise ValueError('Invalid runtime image selection')
     for tag,script in checks.items():
+        if tag not in manifest['images']:continue
         script="python -c 'import webapp.image_tasks,helpers.canvas_render'\n"+script
         image=manifest['images'][tag]
         static=(image['user']=='10001:10001' and image['entrypoint']==
@@ -75,6 +77,7 @@ python -c 'import importlib.metadata as m,deepseek_harness,webapp.runtime_bootst
             'exit_code':result.returncode,'stdout':result.stdout[-4000:],'stderr':result.stderr[-4000:]}
     return {'schema_version':1,'generated_at':datetime.now(timezone.utc).isoformat(),
         'is_live_sandbox_test':False,'network':'none','read_only_root':True,
+        'verification_scope':manifest.get('verification_scope','complete_image_set'),
         'passed':all(value['passed'] for value in results.values()),'images':results}
 
 

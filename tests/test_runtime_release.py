@@ -23,6 +23,20 @@ class RuntimeReleaseTests(unittest.TestCase):
             {'command-v1','agent-codex-v1','agent-claude-v1','agent-deepseek-v1'})
         self.assertEqual(value['profiles']['agent-claude-v1']['model_routes'],
             ['/messages','/v1/messages'])
+        self.assertEqual(value['profiles']['agent-deepseek-v1']['model_routes'],
+            ['/messages','/v1/messages'])
+
+    def test_targeted_selection_never_runs_or_claims_omitted_images(self):
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        from deploy.verify_runtime_images import verify
+        manifest={'verification_scope':'targeted_only','images':{'agent-runtime-claude:build':{
+            'user':'10001:10001','entrypoint':['/opt/venv/bin/python','-m','webapp.runtime_bootstrap'],
+            'secret_marker_findings':[]}}}
+        with patch('deploy.verify_runtime_images.subprocess.run',return_value=SimpleNamespace(returncode=0,stdout='',stderr='')) as run:
+            report=verify('docker',manifest)
+        self.assertEqual(run.call_count,1);self.assertEqual(set(report['images']),{'agent-runtime-claude:build'})
+        self.assertEqual(report['verification_scope'],'targeted_only')
 
     def test_capacity_is_bounded_by_each_resource_and_configured_limit(self):
         gib=1024**3

@@ -19,7 +19,7 @@ PUBLIC=ROOT/'runtime/public'
 DEFAULT_OUTPUT=ROOT/'runtime/build/opensandbox-release.json'
 MODEL_ROUTES={'codex':{'/responses','/v1/responses'},
     'claude_code':{'/messages','/v1/messages'},
-    'deepseek_harness':{'/chat/completions','/v1/chat/completions'}}
+    'deepseek_harness':{'/messages','/v1/messages'}}
 GATEWAY_CAPABILITIES={'model','context','workflow','media_tools'}
 
 
@@ -107,8 +107,14 @@ def git_state():
     return {'commit':commit,'dirty':dirty}
 
 
-def manifest(docker,spec_path=SPEC):
-    spec=load_spec(spec_path);skills=bundle_record(ROOT,spec['skill_bundle'])
+def manifest(docker,spec_path=SPEC,*,profiles=None):
+    spec=load_spec(spec_path)
+    omitted=[]
+    if profiles is not None:
+        if not profiles or not set(profiles)<=set(spec['profiles']):raise ValueError('Unknown or empty targeted Runtime Profile selection')
+        omitted=sorted(set(spec['profiles'])-set(profiles))
+        spec={**spec,'profiles':{name:value for name,value in spec['profiles'].items() if name in profiles}}
+    skills=bundle_record(ROOT,spec['skill_bundle'])
     frozen=json.loads((PUBLIC/'bundle.json').read_text())
     if (frozen.get('skill_digest')!=skills['digest'] or
             frozen.get('tool_schema_digest')!='sha256:'+sha256(PUBLIC/'capabilities.json') or
@@ -135,6 +141,7 @@ def manifest(docker,spec_path=SPEC):
             'grant_policy':'attempt grants must be a subset of model_routes plus authorized business capabilities'}
         for name,profile in spec['profiles'].items()}
     return {'schema_version':1,'generated_at':datetime.now(timezone.utc).isoformat(),
+        'verification_scope':'targeted_only' if omitted else 'complete_image_set','omitted_profiles':omitted,
         'source':git_state(),'inputs':{'foundation':{**spec['foundation'],'image':foundation},
             'os_packages':os_package_lock(docker,'operation-runtime:build'),
             'wheels':wheels,'vendor':vendor},
@@ -179,13 +186,14 @@ def main():
     parser.add_argument('--max-resident',type=int,default=30)
     parser.add_argument('--agent-share',type=float,default=.5)
     parser.add_argument('--freeze-bundle',action='store_true')
+    parser.add_argument('--profile',action='append',help='Generate explicitly targeted evidence only for these Runtime Profiles')
     args=parser.parse_args()
     if args.freeze_bundle:
         spec=load_spec(args.spec);bundle=bundle_record(ROOT,spec['skill_bundle'])
         value={'schema_version':1,'skill_digest':bundle['digest'],
             'tool_schema_digest':'sha256:'+sha256(PUBLIC/'capabilities.json'),'files':bundle['files']}
         print(write_json(PUBLIC/'bundle.json',value));return
-    value=manifest(args.docker,args.spec)
+    value=manifest(args.docker,args.spec,profiles=args.profile)
     value['capacity']=host_capacity(args.max_resident,args.agent_share)
     value['capacity_scenarios']={name:host_capacity(args.max_resident,share)
         for name,share in (('all_command',0),('mixed_50_percent_agent',.5),('all_agent',1))}
