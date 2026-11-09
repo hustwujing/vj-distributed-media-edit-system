@@ -77,6 +77,11 @@
 只回传经限制的模块名，不返回任意SDK原文或凭据。首败证据native-control-claude-001.json，
 model_requests=0，探测Sandbox已删除；后续新镜像复测单独记录。
 
+a629c6a镜像的native-control-claude-002通过：真实控制连接、session.open、session.freeze及删除，
+模型请求为0。部署preflight随后正确拦截了另一个准备顺序问题：服务账号读取webapp的ACL尚未授予，
+就执行了包内preflight。将代码读取ACL准备提前到该检查之前；旧服务保持active，未进入停服阶段。
+这是部署脚本变更，不改变镜像输入，无需为此重建已核实的a629c6a镜像。
+
 ## 待验证和最终规范提炼
 
 - 三Harness真实模型调用、工具后续轮次、输入输出协议与实际用量；不能只验证SDK import。
