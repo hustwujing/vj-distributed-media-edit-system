@@ -299,6 +299,7 @@ def available_changes(frozen):
             allowed=expanded
     return {name:change_fields(row['spec']['type'],user is not None) for name,row in tasks.items()
             if name in allowed and row['status'] in (('paused','succeeded','ready','blocked','failed') if user is not None else ('paused','succeeded'))
+            and graph.revision_budget_remaining(row,user is not None)
             and (user is not None or graph.automatic_revision_retry_safe(row['spec']['type'],
                  row['spec'].get('operation'),row['spec'].get('implementation')))}
 
@@ -307,7 +308,7 @@ def automatic_replacement_tasks(frozen):
     automatic,user=scopes(frozen)
     if automatic is None or user is not None:return []
     return [task for task in frozen.get('tasks',[]) if automatic in ('',task['id'])
-            and task['status'] in ('paused','failed','succeeded')]
+            and task['status'] in ('paused','failed','succeeded') and graph.revision_budget_remaining(task)]
 
 
 def repair_options(frozen):
@@ -503,8 +504,8 @@ def compile_manager(command,frozen):
         automatic,user=scopes(frozen);current={t['id']:t for t in frozen.get('tasks',[])}
         for item in plan.pop('repair_replacements',[]):
             identifier=item['task_id']
-            if user is not None or automatic not in ('',identifier) or identifier not in current:
-                raise CommandError('replacement_not_available','plan.repair_replacements','Replacement is outside the frozen automatic repair scope')
+            if identifier not in {task['id'] for task in automatic_replacement_tasks(frozen)}:
+                raise CommandError('replacement_not_available','plan.repair_replacements','Replacement is outside the frozen automatic repair scope or its repair budget is exhausted')
             implementation=deepcopy(item['implementation'])
             if any(key in implementation for key in REPLACEMENT_REQUIREMENT_FIELDS):
                 raise CommandError('frozen_requirement','plan.repair_replacements.implementation','Requirement fields are inherited by the host')
@@ -868,9 +869,12 @@ class ToolProtocol:
                 'Use submit_typed_plan once with the state-allowed typed changes. The host derives continuation and atomically validates a server-owned draft. If validation reports a specific error, use only the offered replace/remove tool and then commit_plan. Draft commands never execute business work.',
                 draft_state=summary(self._draft.get('draft',self._draft)))
         if 'complete_run' in self.schemas:
-            context['model_command_contract']['planning']+=' All declared Tasks succeeded, which does not prove the entire user goal is complete. Add any remaining authorized work with submit_typed_plan; use complete_run only when all requested deliverables are fulfilled.'
+            context['model_command_contract']['planning']+=' All declared Tasks succeeded, which does not prove the entire user goal is complete. Add only remaining authorized work with submit_typed_plan; use complete_run to submit current deliverables for final review. A new Task is an addition, never an implicit replacement: all earlier delivery Tasks remain mandatory. Do not add another rendition to evade a missing repair grant or exhausted repair budget.'
         if 'submit_typed_plan' in self.schemas:
             context['model_command_contract']['repair_options']=repair_options(self.frozen)
+            context['model_command_contract']['task_repair_budgets']={task['id']:{
+                'automatic_remaining':graph.revision_budget_remaining(task),
+                'user_revision_remaining':graph.revision_budget_remaining(task,True)} for task in self.frozen.get('tasks',[])}
             delivery=[item['id'] for item in self.frozen.get('tasks',[]) if item['status'] not in ('failed','cancelled') and item['spec'].get('delivery_stage')]
             context['model_command_contract']['completion_requirements']={'current_delivery_stage_tasks':delivery,
                 'complete_requires_delivery_stage':True,

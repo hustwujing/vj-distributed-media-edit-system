@@ -122,7 +122,7 @@ def snapshot(store,run):
         'repair_context':run.get('repair_context',{}),'repair_candidates':descriptors(store,run),
         'history':history_snapshot(store,run),'user_reviews':user_reviews(store,run),
         'user_changes':list(reversed(applied_inputs[:100])),'user_changes_truncated':len(applied_inputs)>100,
-        'tasks':[{**{k:task[k] for k in ('id','spec','status','revision','review_again_count','created_graph_version','authorization_version','accepted_result','quality','error_code','error_detail')},
+        'tasks':[{**{k:task[k] for k in ('id','spec','status','revision','repair_count','user_revision_count','review_again_count','created_graph_version','authorization_version','accepted_result','quality','error_code','error_detail')},
                   'bindings':{role:{key:binding[key] for key in ('asset','sha256','step','revision') if key in binding}
                               for role,binding in task.get('bindings',{}).items() if role in task['spec'].get('inputs',{}) and isinstance(binding,dict)}}
                  for task in active_tasks(run)],

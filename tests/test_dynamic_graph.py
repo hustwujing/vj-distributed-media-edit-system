@@ -127,6 +127,20 @@ class DynamicGraphTests(unittest.TestCase):
         edit=next(item for item in frozen['operations'] if item['id']=='media.edit')
         self.assertEqual(edit['output_contract']['alternatives'],['audio','video'])
 
+    def test_planning_snapshot_freezes_both_task_revision_budgets(self):
+        from webapp.workflow_model_protocol import available_changes,automatic_replacement_tasks
+        self.tick()
+        self.propose({'proposal_id':'budget-projection','reason':'Create report','base_graph_version':0,
+            'add_tasks':[script()],'replan_after':['first']})
+        self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',repair_count=2,user_revision_count=4 WHERE run_id=? AND id='first'",(self.run['id'],))
+        run=graph.get(self.store,self.run['id']);frozen=planning.snapshot(self.store,run)
+        self.assertEqual((frozen['tasks'][0]['repair_count'],frozen['tasks'][0]['user_revision_count']),(2,4))
+        frozen['trigger']={'task_id':'first'}
+        self.assertFalse(available_changes(frozen));self.assertFalse(automatic_replacement_tasks(frozen))
+        frozen['input_batch']={'inputs':[{'context':{'allowed_revision_tasks':['first']}}]}
+        self.assertIn('first',available_changes(frozen))
+
     def test_invalid_or_conflicting_catalogue_defers_planning_and_recovers(self):
         from webapp.operations import catalog
         from unittest.mock import patch

@@ -670,6 +670,11 @@ def automatic_revision_retry_safe(task_type,operation_id=None,implementation=Non
     return operation(operation_id,implementation).retry_safe
 
 
+def revision_budget_remaining(task,user=False):
+    """One budget rule for immutable revisions, replacements and model tools."""
+    return max(0,(5 if user else 2)-task.get('user_revision_count' if user else 'repair_count',0))
+
+
 def validate_operation_input_constraints(task,specs,assets):
     if task.type!='operation':return
     from .operations import get as operation
@@ -760,8 +765,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             roles=lambda item:set(active_output_roles(operation(item.operation,item.implementation).public(),item.parameters)) if item.type=='operation' else set(item.output_roles)
             missing=roles(current)-roles(replacement)
             if missing:raise ValueError('Replacement lost a required output role: '+', '.join(sorted(missing)))
-        counter='user_revision_count' if user_revision_scope is not None else 'repair_count'
-        if row[counter]>=(5 if user_revision_scope is not None else 2):raise ValueError('Replacement cannot reset the repair budget')
+        if not revision_budget_remaining(row,user_revision_scope is not None):raise ValueError('Replacement cannot reset the repair budget')
         if user_revision_scope is None and all(getattr(current,key)==getattr(replacement,key) for key in
                 ('type','profile','operation','implementation','inputs','parameters','argv','outputs','output_roles')):
             raise ValueError('Automatic replacement must change the failed implementation or use new evidence')
@@ -803,8 +807,7 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             active=store.query('SELECT attempt FROM execution_leases WHERE attempt=? AND active=1 AND expires>?',(row['lease_id'],store.now()))
             cleaning=store.query("SELECT attempt FROM execution_cleanup WHERE attempt=? AND state<>'complete'",(row['lease_id'],))
             if active or cleaning:raise ValueError('Task revision must wait for execution and cleanup to finish')
-        counter='user_revision_count' if user_revision_scope is not None else 'repair_count'
-        if row[counter]>=(5 if user_revision_scope is not None else 2):raise ValueError('Task revision budget exhausted')
+        if not revision_budget_remaining(row,user_revision_scope is not None):raise ValueError('Task revision budget exhausted')
         frozen=('id','type','name','objective','profile','operation','implementation','inputs','output_roles','acceptance','semantics','delivery_stage',
                 'outputs','preflight','config_files','timeout_seconds','retry_policy','on_failure','basic_reason')
         mutable=revision_mutable_fields(current.type,user_revision_scope is not None)

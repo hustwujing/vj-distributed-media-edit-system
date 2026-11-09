@@ -23,6 +23,43 @@ def frozen(task=None,user=False):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_exhausted_repair_is_not_offered_as_revision_or_replacement(self):
+        from webapp.workflow_model_protocol import available_changes,automatic_replacement_tasks
+        for count,remaining in ((1,1),(2,0),(3,0)):
+            with self.subTest(repair_count=count):
+                value=frozen();value['tasks'][0].update(repair_count=count,user_revision_count=0)
+                self.assertEqual(bool(available_changes(value)),bool(remaining))
+                self.assertEqual(bool(automatic_replacement_tasks(value)),bool(remaining))
+                schema=manager_schema(value)['properties']['plan']['anyOf'][0]['properties']
+                self.assertEqual(bool(schema['changes']['maxItems']),bool(remaining))
+                self.assertEqual(bool(schema['repair_replacements']['maxItems']),bool(remaining))
+                protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+                self.assertEqual(protocol.context()['model_command_contract']['task_repair_budgets']['render'],
+                    {'automatic_remaining':remaining,'user_revision_remaining':5})
+                if remaining:continue
+                self.assertFalse(repair_options(value))
+                with self.assertRaisesRegex(CommandError,'outside.*scope'):
+                    compile_manager({'kind':'APPLY_PLAN','reason':'Retry','plan':{
+                        'repair_replacements':[{'task_id':'render','implementation':{}}]}},value)
+                with self.assertRaises(CommandError):
+                    compile_manager({'kind':'APPLY_PLAN','reason':'Retry','plan':{
+                        'changes':[{'task_id':'render','set':{}}]}},value)
+
+    def test_user_revision_budget_is_independent_of_automatic_repairs(self):
+        from webapp.workflow_model_protocol import available_changes
+        value=frozen(user=True);value['tasks'][0].update(repair_count=2,user_revision_count=4)
+        self.assertIn('render',available_changes(value))
+        value['tasks'][0]['user_revision_count']=5
+        self.assertNotIn('render',available_changes(value))
+        self.assertEqual(manager_schema(value)['properties']['plan']['anyOf'][0]['properties']['changes']['maxItems'],0)
+
+    def test_completion_guidance_does_not_treat_appending_as_replacement(self):
+        value=frozen();value['trigger']={'completed':['render']};value['tasks'][0]['status']='succeeded'
+        value['tasks'][0].update(repair_count=2,user_revision_count=0)
+        protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertIn('complete_run',protocol.schemas)
+        self.assertIn('all earlier delivery Tasks remain mandatory',protocol.context()['model_command_contract']['planning'])
+
     def test_non_idempotent_repair_offers_replacement_not_illegal_in_place_revision(self):
         from webapp.operations import get as operation
         from webapp.workflow_model_protocol import available_changes
