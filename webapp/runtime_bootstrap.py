@@ -118,7 +118,7 @@ def load_gateway(path,identity):
 def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
     config=load_config(path,bundle_root=bundle_root);holder={}
     harness_config=json.loads(Path(config['harness_config']).read_text())
-    environment={'PYTHONPATH':'/opt/video-use:/opt/video-use/helpers'}
+    environment={'PYTHONPATH':'/opt/harness:/opt/video-use:/opt/video-use/helpers'}
     workspace=harness_config.get('task_workspace')
     if workspace is not None:
         from pathlib import PurePosixPath

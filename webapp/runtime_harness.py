@@ -33,8 +33,9 @@ class StdioHarnessBridge:
         threading.Thread(target=self._read_errors,daemon=True).start()
 
     def _read(self):
+        process=self.process
         try:
-            for line in iter(lambda:self.process.stdout.readline(8*1024**2+1),''):
+            for line in iter(lambda:process.stdout.readline(8*1024**2+1),''):
                 if len(line.encode())>8*1024**2:raise ValueError('Harness message exceeds limit')
                 try:message=json.loads(line)
                 except ValueError:continue
@@ -52,7 +53,8 @@ class StdioHarnessBridge:
             with self.condition:self.ended=True;self.condition.notify_all()
 
     def _read_errors(self):
-        for line in iter(lambda:self.process.stderr.readline(4096),''):
+        process=self.process
+        for line in iter(lambda:process.stderr.readline(4096),''):
             self.diagnostics.append(line[:1500])
 
     def write(self,message):

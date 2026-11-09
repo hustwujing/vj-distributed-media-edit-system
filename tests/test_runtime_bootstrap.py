@@ -60,6 +60,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
         self.assertEqual(environment['VIDEO_USE_STEP_OUTPUT'],workspace['output'])
         self.assertEqual(json.loads(environment['VIDEO_USE_STEP_INPUTS']),workspace['inputs'])
         self.assertIn('/opt/video-use/helpers',environment['PYTHONPATH'])
+        self.assertIn('/opt/harness',environment['PYTHONPATH'].split(':'))
         for value in ('/etc/passwd','/workspace/../outside'):
             self.harness.write_text(json.dumps({'task_workspace':{**workspace,'inputs':{'source':[value]}}}))
             with self.assertRaisesRegex(ValueError,'workspace contract'):create_runtime(self.config,bundle_root=self.bundle_root)

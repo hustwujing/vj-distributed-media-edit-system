@@ -156,9 +156,12 @@ class DaemonProtocol:
             response={**self.identity.envelope(),'type':'response','id':request_id,
                       'result':dispatch(method,params)}
         except Exception as exc:
+            # Preserve actionable dependency evidence without reflecting an
+            # arbitrary SDK exception body, prompt, path or credential.
+            missing=re.search(r"ModuleNotFoundError: No module named '([A-Za-z_][A-Za-z0-9_.]*)'",str(exc))
             response={**self.identity.envelope(),'type':'response','id':request_id,
-                      'error':{'code':'runtime_request_failed',
-                               'message':'Runtime request failed ('+type(exc).__name__+')'}}
+                      'error':{'code':'runtime_dependency_unavailable' if missing else 'runtime_request_failed',
+                               'message':'Runtime dependency unavailable: '+missing.group(1) if missing else 'Runtime request failed ('+type(exc).__name__+')'}}
         encode_frame(response);self.responses[request_id]=(fingerprint,response)
         while len(self.responses)>self.max_responses:self.responses.popitem(last=False)
         return [response]

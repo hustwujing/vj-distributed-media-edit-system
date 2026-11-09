@@ -71,6 +71,12 @@
 
 当前线上仍为83801ee定向版本，失败案例已清理；上述后续修复待重新构建和部署，不能写成已真机通过。
 
+不调用模型的真实OpenSandbox初始化探测进一步发现：Dockerfile把Claude/DS SDK装在/opt/harness，
+镜像默认环境可import，但Runtime清洗子进程环境后丢掉了该PYTHONPATH，session.open失败。
+修复固定白名单PYTHONPATH，覆盖真实子进程环境而非只检查镜像顶层import。RPC对ModuleNotFoundError
+只回传经限制的模块名，不返回任意SDK原文或凭据。首败证据native-control-claude-001.json，
+model_requests=0，探测Sandbox已删除；后续新镜像复测单独记录。
+
 ## 待验证和最终规范提炼
 
 - 三Harness真实模型调用、工具后续轮次、输入输出协议与实际用量；不能只验证SDK import。
