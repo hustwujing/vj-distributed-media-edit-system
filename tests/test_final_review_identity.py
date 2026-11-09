@@ -4,6 +4,33 @@ from webapp import workflow_graph as graph,run_inputs
 
 
 class FinalReviewInputIdentityTests(unittest.TestCase):
+    def test_native_and_external_method_provenance_survives_upstream_projection(self):
+        import copy
+        for operation,profile,external in [('image.segment','sam2',False),('image.remove_background','birefnet',False),
+                                            ('media.edit','none',False),('image.edit_region','none',True)]:
+            with self.subTest(operation=operation):
+                f=fixtures.DynamicGraphTests();f.setUp()
+                try:
+                    run=f.review_fixture();producer=run['tasks'][0]
+                    producer.update(type='operation',status='succeeded',accepted_result=['edit/model.png'])
+                    producer['spec'].update(type='operation',operation=operation,implementation=None,delivery_stage=False)
+                    repaired=copy.deepcopy(producer);repaired.update(id='repair',type='agent',accepted_result=['edit/final.png'])
+                    repaired['spec'].update(id='repair',type='agent',operation=None,profile='editing_implementer',
+                        delivery_stage=True,inputs={'candidate':{'step':producer['id'],'role':'foreground'}})
+                    run['tasks'].append(repaired)
+                    f.orchestrator.queue_review(run)
+                    snapshot=json.loads(f.store.query("SELECT snapshot_json FROM workflow_reviews WHERE purpose='final'")[0]['snapshot_json'])
+                    record=next(p for p in snapshot['delivery_provenance'] if p['task_id']==producer['id'])
+                    self.assertFalse(record['delivery_stage']);self.assertEqual(record['status'],'succeeded')
+                    self.assertEqual(record['accepted_outputs'],['edit/model.png'])
+                    self.assertEqual(record['operation_execution']['model_profile'],profile)
+                    self.assertEqual(record['operation_execution']['external_side_effects'],external)
+                    self.assertEqual(record['current_provider_receipts'],[])
+                    repair=next(p for p in snapshot['delivery_provenance'] if p['task_id']=='repair')
+                    self.assertEqual(repair['input_sources']['candidate']['step'],producer['id'])
+                    self.assertIsNone(repair['operation_execution'])
+                finally:f.tearDown()
+
     def test_same_pixels_from_a_different_producer_require_new_review(self):
         import copy
         from webapp.review_identity import identity
@@ -59,6 +86,8 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
             self.assertIn('Source-input evidence describes the original input',context['review_policy'])
             self.assertIn('plan_confirmation_evidence',context)
             self.assertIn('delivery_provenance',context)
+            self.assertIn('operation_execution_contracts',context)
+            self.assertIn('not for local operations',context['review_policy'])
             self.assertIn('do not demand a separate plan file',context['review_policy'])
             self.assertNotIn('result_contract',context);self.assertNotIn('result_schema',context)
             self.assertTrue(context['review_criteria'])

@@ -913,8 +913,12 @@ class Orchestrator:
             from .workflow_history import plan_confirmation_evidence
             frozen['plan_confirmation_evidence']=plan_confirmation_evidence(store,run)
         from .operations import get as get_operation
-        frozen['operation_output_contracts']={item['id']:get_operation(item['spec']['operation'],item['spec'].get('implementation')).public()['output_contract']
+        operation_contracts={item['id']:get_operation(item['spec']['operation'],item['spec'].get('implementation')).public()
             for item in frozen['tasks'] if item['type']=='operation'}
+        frozen['operation_output_contracts']={key:value['output_contract'] for key,value in operation_contracts.items()}
+        frozen['operation_execution_contracts']={key:{field:value[field] for field in
+            ('implementation','lifecycle','executor','model_profile','external_side_effects','provider_identity','execution_mode')}
+            for key,value in operation_contracts.items()}
         if purpose=='final':
             complete_tasks=frozen['tasks']
             frozen['dependencies']=run['dependencies']
@@ -928,13 +932,18 @@ class Orchestrator:
                 frozen['provider_receipts'].append({**call,**{key:implementation.get(key,'') for key in
                     ('provider_identity','route_adapter','model')}})
             frozen['delivery_provenance']=[{
-                'task_id':task['id'],'revision':task['revision'],
+                'task_id':task['id'],'revision':task['revision'],'status':task['status'],
+                'delivery_stage':task['spec'].get('delivery_stage',False),
+                'accepted_outputs':task['accepted_result'],
                 'producer':{key:task['spec'].get(key) for key in ('type','operation','implementation','profile')},
+                'operation_execution':frozen['operation_execution_contracts'].get(task['id']),
                 'input_sources':task['spec'].get('inputs',{}),
                 'current_provider_receipts':[call for call in frozen['provider_receipts']
                     if call['step']==task['id'] and call['revision']==task['revision']],
-                'scope':'Current artifact producer and declared inputs; unrelated historical calls are not its provenance.'}
-                for task in complete_tasks if task['spec'].get('delivery_stage')]
+                'scope':'Current selected producer and declared inputs, including upstream processing. '
+                    'Succeeded registered local operations use their model_profile and accepted outputs as execution evidence; '
+                    'they do not create external provider receipts. Unrelated historical calls are not provenance.'}
+                for task in complete_tasks if task['spec'].get('purpose')!='evidence']
             from .review_identity import applied_user_changes
             frozen['user_changes'],frozen['user_changes_truncated']=applied_user_changes(store,run)
             from .workflow_history import snapshot as history_snapshot,user_reviews

@@ -10,8 +10,15 @@ derivation of the delivered artifact, not merely which tools were attempted.
 A failed or rejected provider call does not establish provenance for a later
 local replacement made from the original source. Better appearance or stronger
 pixel preservation does not waive the named method without an explicit applied
-user change. Use current delivery_provenance, input bindings and matching
-provider receipts; do not infer the final method from global run history alone.
+user change. Use current delivery_provenance and input bindings; follow the
+bound upstream producers for local cleanup. A succeeded registered local
+operation's operation_execution_contracts (implementation, lifecycle and
+model_profile) and accepted outputs establish its local processing method.
+Local model operations do not create external provider receipts: an empty
+receipt list is expected, not evidence that the local model was skipped.
+For external operations use matching provider receipts. A declaration or a
+failed/pending operation alone does not prove execution. Do not infer the
+final method from unrelated global run history.
 
 When a required-method candidate needs local cleanup, bind that verified
 candidate or its mask as an input to the authorized repair. Preserve its
