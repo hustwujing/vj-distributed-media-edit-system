@@ -62,5 +62,18 @@ class RuntimeReleaseTests(unittest.TestCase):
         self.assertEqual(licenses['declared_licenses'],{'MIT':1})
         self.assertEqual(licenses['components_without_declared_license'],1)
 
+    def test_security_summary_binds_only_selected_built_images(self):
+        from deploy.runtime_security_report import build
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);manifest=root/'manifest.json'
+            manifest.write_text(json.dumps({'verification_scope':'targeted_only',
+                'images':{'agent-runtime-claude:build':{'local_image_id':'sha256:fixture'}}}))
+            for suffix,value in [('cdx.json',{'components':[]}),('spdx.json',{}),('grype.json',{'matches':[]})]:
+                (root/('agent-runtime-claude.'+suffix)).write_text(json.dumps(value))
+            report=build(root,root,manifest=manifest)
+            self.assertEqual(set(report['images']),{'agent-runtime-claude'})
+            self.assertEqual(report['verification_scope'],'targeted_only')
+            self.assertEqual(report['images']['agent-runtime-claude']['local_image_id'],'sha256:fixture')
+
 
 if __name__=='__main__':unittest.main()

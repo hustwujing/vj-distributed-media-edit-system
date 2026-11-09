@@ -58,9 +58,9 @@ def license_summary(value):
         'declared_licenses':dict(licenses.most_common()),'copyleft_observations':copyleft}
 
 
-def build(sbom=SBOM,vulnerability=VULN):
-    names=('operation-runtime','agent-runtime-codex','agent-runtime-claude','agent-runtime-deepseek')
-    release=json.loads(DEFAULT_OUTPUT.read_text())
+def build(sbom=SBOM,vulnerability=VULN,*,manifest=None):
+    release=json.loads((manifest or DEFAULT_OUTPUT).read_text())
+    names=[tag.removesuffix(':build') for tag in release['images']]
     images={}
     for name in names:
         tag=name+':build';cyclonedx=sbom/(name+'.cdx.json');spdx=sbom/(name+'.spdx.json')
@@ -72,13 +72,17 @@ def build(sbom=SBOM,vulnerability=VULN):
                 'spdx':{'path':str(spdx),'sha256':sha256(spdx)},
                 'grype':{'path':str(grype),'sha256':sha256(grype)}}}
     return {'schema_version':1,'generated_at':datetime.now(timezone.utc).isoformat(),
+        'verification_scope':release.get('verification_scope','complete_image_set'),
         'policy_note':'Raw matches are retained. Fixable findings require review before publication; copyleft observations are not automatic violations.',
         'images':images}
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=REPORT);args=parser.parse_args()
-    print(write_json(args.output,build()))
+    parser=argparse.ArgumentParser();parser.add_argument('--output',type=Path,default=REPORT)
+    parser.add_argument('--manifest',type=Path,default=DEFAULT_OUTPUT)
+    parser.add_argument('--sbom',type=Path,default=SBOM);parser.add_argument('--vulnerability',type=Path,default=VULN)
+    args=parser.parse_args()
+    print(write_json(args.output,build(args.sbom,args.vulnerability,manifest=args.manifest)))
 
 
 if __name__=='__main__':main()
