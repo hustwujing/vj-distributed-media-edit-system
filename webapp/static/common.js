@@ -1,4 +1,5 @@
 import {processArtifact,orderedArtifacts,collectResults,resultSections} from './artifact_order.js';
+import {previewType} from './preview_type.js';
 export {orderedArtifacts};
 export const $=id=>document.getElementById(id);
 export const base=new URL(document.querySelector('base').href);
@@ -70,16 +71,18 @@ export function resultItems(project,turns=[]){return collectResults(project,turn
 export class Preview{
  constructor(container,{modal=false}={}){this.container=container;this.current=null;this.token=0;this.modal=modal;container.innerHTML=`<div class="preview-top"><div><span class="eyebrow">PREVIEW</span><h3 class="preview-name">作品预览</h3></div><button class="icon-button preview-expand" title="放大预览">${icon('expand')}</button></div><div class="preview-stage"><div class="preview-empty">${icon('film',38)}<h3>在这里，先看效果</h3><p>选择素材或生成结果即可预览</p></div></div><div class="preview-bottom"><span class="preview-info">音视频、图片和文本都可以直接预览</span><a class="button subtle preview-download" hidden> ${icon('download',15)}下载</a></div>`;container.querySelector('.preview-expand').onclick=()=>{if(this.current)openMedia(this.current);};if(modal)container.querySelector('.preview-expand').hidden=true;}
  async show(item,{autoplay=false}={}){
-  if(!item)return;if(this.current?.url===item.url){if(autoplay)this.container.querySelector('video')?.play().catch(()=>{});return;}
+  if(!item)return;item={...item,type:previewType(item)};
+  if(this.current?.url===item.url&&this.current.type===item.type){if(autoplay)this.container.querySelector('video,audio')?.play().catch(()=>{});return;}
   this.current=item;const token=++this.token;const stage=this.container.querySelector('.preview-stage');stage.querySelectorAll('video,audio').forEach(v=>v.pause());
   this.container.querySelector('.preview-name').textContent=item.name;this.container.querySelector('.preview-info').textContent=item.subtitle||'预览完成后可下载原文件';
   const download=this.container.querySelector('.preview-download');download.href=href(item.url+(item.url.includes('?')?'&':'?')+'download=true');download.download=item.name;download.hidden=false;
+  const failed=message=>{if(token!==this.token)return;let error=stage.querySelector('.preview-error');if(!error){error=document.createElement('p');error.className='inline-error preview-error';error.setAttribute('role','alert');stage.append(error);}error.textContent=message;};
   if(item.type?.startsWith('video/')){
-   stage.innerHTML=`<video controls playsinline preload="metadata" ${item.poster_url?`poster="${href(item.poster_url)}"`:''} src="${href(item.url)}"></video>`;const video=stage.querySelector('video');video.onloadedmetadata=()=>{if(this.current?.url===item.url)this.container.querySelector('.preview-info').textContent=`${duration(video.duration)} · ${video.videoWidth} × ${video.videoHeight}`;};video.onerror=()=>toast('浏览器无法播放此编码，可下载原文件查看。',true);if(autoplay)video.play().catch(()=>{});
-  }else if(isPreviewImage(item))stage.innerHTML=`<img class="preview-image" src="${href(item.url)}" alt="${esc(item.name)}">`;
+   stage.innerHTML=`<video controls playsinline preload="metadata" ${item.poster_url?`poster="${esc(href(item.poster_url))}"`:''} src="${esc(href(item.url))}"></video>`;const video=stage.querySelector('video');video.onloadedmetadata=()=>{if(token===this.token)this.container.querySelector('.preview-info').textContent=`${duration(video.duration)} · ${video.videoWidth} × ${video.videoHeight}`;};video.onerror=()=>failed('视频加载或解码失败，请重试或下载原文件查看。');if(autoplay)video.play().catch(()=>{});
+  }else if(isPreviewImage(item)){stage.innerHTML=`<img class="preview-image" src="${esc(href(item.url))}" alt="${esc(item.name)}">`;stage.querySelector('img').onerror=()=>failed('图片加载失败，请重试或下载原文件。');}
   else if(item.type==='application/pdf')stage.innerHTML=`<iframe class="preview-document" src="${href(item.url)}" title="预览 ${esc(item.name)}"></iframe>`;
-  else if(item.type?.startsWith('audio/'))stage.innerHTML=`<audio controls src="${href(item.url)}"></audio>`;
-  else if(/\.(psd|ora|zip|tiff|docx|xlsx|pptx)$/i.test(item.name))stage.innerHTML='<div class="preview-empty"><h3>文件已就绪</h3><p>可下载后在兼容的应用中查看。</p></div>';
+  else if(item.type?.startsWith('audio/')){stage.innerHTML=`<audio controls src="${esc(href(item.url))}"></audio>`;const audio=stage.querySelector('audio');audio.onerror=()=>failed('音频加载或解码失败，请重试或下载原文件。');if(autoplay)audio.play().catch(()=>{});}
+  else if(item.type==='application/octet-stream'||/\.(psd|ora|zip|tiff?|docx|xlsx|pptx)$/i.test(item.name))stage.innerHTML='<div class="preview-empty"><h3>暂不支持此格式的在线预览</h3><p>文件可下载后在兼容的应用中查看。</p></div>';
   else{stage.innerHTML='<div class="loading-state"><span class="spinner"></span>正在读取内容…</div>';try{const response=await fetch(href(item.url));if(!response.ok)throw new Error('无法读取文件');let text=await response.text();if(item.type==='application/json'){try{text=JSON.stringify(JSON.parse(text),null,2);}catch{}}if(token===this.token)stage.innerHTML=`<pre class="text-preview">${esc(text.slice(0,180000))}</pre>`;}catch(error){if(token===this.token)stage.innerHTML=`<p class="inline-error">${esc(error.message)}</p>`;}}
  }
 }
