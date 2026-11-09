@@ -304,6 +304,11 @@ def prepare_runtime(source):
         for parent in [source,*source.parents,*(source/'.venv').resolve().parents]:
             if parent==Path('/'):break
             run(['setfacl','-m','u:'+account+':--x',parent])
+        # Runtime capability and Bundle metadata are server-owned inputs read
+        # after startup.  A frozen checkout may preserve a private runtime/
+        # mode, so grant the service identities explicit read-only traversal.
+        run(['setfacl','-m','u:'+account+':--x',source/'runtime'])
+        run(['setfacl','-R','-m','u:'+account+':rX',source/'runtime/public'])
     run(['bash',source/'deploy/prepare-executor.sh','--models'],env=env,cwd=source,timeout=300)
     run([source/'.venv/bin/python','-c',f'from pathlib import Path; from deploy.runtime_access import grant; grant(Path(".venv"),users=({NAMESPACE+"-orch"!r},))'],env=env,cwd=source,timeout=180)
     for directory in (source/'webapp',source/'helpers',source/'references',source/'.venv'):

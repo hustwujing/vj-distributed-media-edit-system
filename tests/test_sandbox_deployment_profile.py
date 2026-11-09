@@ -75,5 +75,16 @@ class SandboxDeploymentProfileTests(unittest.TestCase):
         self.assertIn('Requires=sandbox-agent-native-network.service',units['/etc/systemd/system/sandbox-agent-executor@.service'])
         run.assert_called_once_with(['systemctl','daemon-reload'])
 
+    def test_runtime_public_metadata_is_readable_by_both_service_identities(self):
+        source=cluster.ROOT.parent/'release'
+        (source/'runtime/public').mkdir(parents=True)
+        (source/'.venv').mkdir()
+        commands=[]
+        with patch.object(cluster,'run',side_effect=lambda command,**kwargs:commands.append(command)):
+            cluster.prepare_runtime(source)
+        for account in ('sandbox-agent','sandbox-agent-orch'):
+            self.assertIn(['setfacl','-m','u:'+account+':--x',source/'runtime'],commands)
+            self.assertIn(['setfacl','-R','-m','u:'+account+':rX',source/'runtime/public'],commands)
+
 
 if __name__=='__main__':unittest.main()
