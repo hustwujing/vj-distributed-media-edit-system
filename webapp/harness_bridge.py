@@ -18,10 +18,47 @@ except ImportError:
     from harness_sdk_events import SDKEvents
 
 
-def deepseek_options(config, instructions):
-    """Use the SDK's small, shell-capable profile for one scoped code Task."""
+DEEPSEEK_CODE_EDITOR_PATCH = '''
+- id: system-prompt
+  config:
+    personaPrefix: !!js process.env.DSH_SYSTEM_PROMPT
+- id: plan-mode
+  disabled: true
+- id: tool-web
+  disabled: true
+- id: tool-subagent-control
+  disabled: true
+- id: tool-subagent-list-agents
+  disabled: true
+- id: tool-subagent
+  disabled: true
+- id: tool-subagent-fork
+  disabled: true
+- id: tool-workflow
+  disabled: true
+- id: tool-todo
+  disabled: true
+- id: tool-goal
+  disabled: true
+- id: tool-skill
+  disabled: true
+- id: mcp-resources
+  disabled: true
+'''.lstrip()
+
+
+def prepare_deepseek_profile(root=Path('/state/dsh')):
+    root.mkdir(parents=True,exist_ok=True)
+    target=root/'code-editor.patch.yml'
+    if not target.exists() or target.read_text()!=DEEPSEEK_CODE_EDITOR_PATCH:
+        target.write_text(DEEPSEEK_CODE_EDITOR_PATCH);target.chmod(0o600)
+    return str(target)
+
+
+def deepseek_options(config, instructions, patch):
+    """Reduce the full SDK profile to the tools allowed for one code Task."""
     return {
-        'dsh_home':'/state/dsh','cwd':'/workspace','profile':'sdk-minimal',
+        'dsh_home':'/state/dsh','cwd':'/workspace','profile':'sdk','patches':(patch,),
         'provider':'deepseek-official','model':config['model'],
         'reasoning_effort':config['reasoning_effort'],'max_tokens':config['max_output_tokens'],
         'base_url':'http://127.0.0.1:18766/v1','api_key':'gateway-placeholder',
@@ -66,7 +103,8 @@ class Bridge:
             from deepseek_harness import DeepSeekHarness
             if self.sdk:
                 self.sdk.close()
-            self.sdk = DeepSeekHarness(**deepseek_options(self.config,self.instructions))
+            patch=prepare_deepseek_profile()
+            self.sdk = DeepSeekHarness(**deepseek_options(self.config,self.instructions,patch))
             self.sdk.start()
             if self.resume:
                 self.sdk.resume_session(self.session_id)
