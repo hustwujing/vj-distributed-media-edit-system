@@ -33,6 +33,9 @@
 | 扩展路由破坏旧测试夹具 | 新逻辑对非动态workflow也读取Run表，旧隔离夹具无该Store | 仅dynamic工作流读取动态Task；首轮64项中2错误，修复后90项通过，首败保留日志 |
 | 恢复清单含宿主location字段 | SandboxWorkspaceRestorer仅接受portable字段 | 恢复前投影artifact/size/hash/executable，先核对全部哈希再写沙箱；恢复正例和篡改拒绝通过 |
 | 会话文件可能不计存储或漏清理 | 新表若只做保存不接通Store/project delete，会形成生命周期缺口 | 补存储额度、项目目录、对象引用发布及项目删除；存储额度及旧租约回滚通过，真实项目删除待验收 |
+| API与Worker策略摘要不一致 | 旧OpenSandbox配置只注入node env，API/Orchestrator无法冻结相同native策略 | 只把backend及无密钥镜像注册表同步到三个角色；URL、API key和TLS私钥仍不进入Orchestrator |
+| Docker internal不阻止访问宿主或同网沙箱 | internal只限制对外路由；任意原生代码仍可探测宿主监听端口和同网execd | 为专用bridge补仅模型TLS端口可达与跨沙箱隔离规则；不修改其他网络；真实探测待执行 |
+| DS镜像发布元数据协议已漂移 | 实际固定SDK走Anthropic Messages，release-spec仍登记Chat Completions | 校正为/messages、/v1/messages；实际SDK模型交互待真机 |
 
 ## 待验证和最终规范提炼
 

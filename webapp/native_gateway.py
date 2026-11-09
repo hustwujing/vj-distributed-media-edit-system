@@ -5,6 +5,7 @@ resumed after executor death; a new generation gets a new port, token and grant.
 Business budgets and usage remain in the shared database, not this transport.
 """
 import ipaddress
+import errno
 import json
 import os
 from pathlib import Path
@@ -123,7 +124,14 @@ class NativeAttemptGateway:
             def process_request_thread(self,*args):
                 try:super().process_request_thread(*args)
                 finally:self.slots.release()
-        self.server=Server((address,0),Handler)
+        # A fixed small range lets deployment firewall this bridge without
+        # granting arbitrary access to the host's other listening services.
+        self.server=None
+        for port in range(18880,18950):
+            try:self.server=Server((address,port),Handler);break
+            except OSError as exc:
+                if exc.errno!=errno.EADDRINUSE:raise
+        if self.server is None:raise RuntimeError('Native Gateway listener capacity exhausted')
         try:self.server.socket=context.wrap_socket(self.server.socket,server_side=True)
         except BaseException:self.server.server_close();raise
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True,name='attempt-model-gateway')

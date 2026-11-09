@@ -72,7 +72,7 @@
       "runtime_kind": "agent_runtime",
       "harness": "deepseek_harness",
       "harness_version": "0.2.1rc2",
-      "model_routes": ["/chat/completions", "/v1/chat/completions"],
+      "model_routes": ["/messages", "/v1/messages"],
       "gateway_capabilities": ["model", "context", "workflow", "media_tools"]
     }
   }

@@ -171,8 +171,12 @@ def configure(seed):
         'VIDEO_USE_OPEN_SANDBOX_URL','VIDEO_USE_OPEN_SANDBOX_API_KEY',
         'VIDEO_USE_OPEN_SANDBOX_NETWORK_ISOLATION','VIDEO_USE_OPEN_SANDBOX_INTERNAL_BRIDGE_CONFIRMED',
         'VIDEO_USE_OPEN_SANDBOX_COMMAND_RUNTIME_PROFILE','VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST',
-        'VIDEO_USE_OPEN_SANDBOX_COMMAND_BUNDLE_DIGEST'}
+        'VIDEO_USE_OPEN_SANDBOX_COMMAND_BUNDLE_DIGEST','VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON',
+        'VIDEO_USE_NODE_GATEWAY_BIND','VIDEO_USE_NODE_GATEWAY_SUBNET','VIDEO_USE_NODE_GATEWAY_CERT',
+        'VIDEO_USE_NODE_GATEWAY_KEY','VIDEO_USE_NODE_GATEWAY_CA'}
     if set(sandbox_values)-allowed_sandbox:raise ValueError('Unknown OpenSandbox runtime deployment setting')
+    native_policy={key:value for key,value in sandbox_values.items() if key in (
+        'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND','VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON')}
     for node,port in PORTS.items():
         for role in ('api','node','media'):
             path=data(role,node);path.mkdir(mode=0o700,exist_ok=True)
@@ -181,7 +185,7 @@ def configure(seed):
                 os.chown(path,service.pw_uid,service.pw_gid);os.chown(path/'tmp',service.pw_uid,service.pw_gid)
         registry(node).mkdir(mode=0o700,parents=True,exist_ok=True)
         private_env(CONF/f'api-{node}.env',{'VIDEO_USE_DATA_DIR':data('api',node),'TMPDIR':data('api',node)/'tmp',
-            'VIDEO_USE_API_PORT':port,'VIDEO_USE_MEDIA_SOCKET':f'/run/{MEDIA_RUNTIME_PREFIX}{node}/decoder.sock'})
+            'VIDEO_USE_API_PORT':port,'VIDEO_USE_MEDIA_SOCKET':f'/run/{MEDIA_RUNTIME_PREFIX}{node}/decoder.sock',**native_policy})
         private_env(CONF/f'node-{node}.env',{'VIDEO_USE_DATA_DIR':data('node',node),'TMPDIR':data('node',node)/'tmp',
             'VIDEO_USE_NODE_INSTANCE':node,
             'VIDEO_USE_EXECUTOR_ROOT':registry(node),'VIDEO_USE_UID_START':UIDS[node],'VIDEO_USE_UID_COUNT':64,
@@ -199,7 +203,7 @@ def configure(seed):
         'VIDEO_USE_DEPLOYMENT','VIDEO_USE_DISTRIBUTED','VIDEO_USE_DATABASE_URL','VIDEO_USE_OBJECT_BUCKET',
         'VIDEO_USE_AGENT_STREAM_PREFIX','VIDEO_USE_TELEMETRY_ENABLED')}|{
         'VIDEO_USE_DATA_DIR':ROOT/'orchestrator','TMPDIR':ROOT/'orchestrator/tmp','VIDEO_USE_STORAGE_METADATA_ONLY':'1',
-        'AWS_EC2_METADATA_DISABLED':'true','PYTHONDONTWRITEBYTECODE':'1'}|env_file(CONF/'orchestrator-database.env'))
+        'AWS_EC2_METADATA_DISABLED':'true','PYTHONDONTWRITEBYTECODE':'1'}|native_policy|env_file(CONF/'orchestrator-database.env'))
     Path('/etc/systemd/journald@'+NAMESPACE+'.conf').write_text('[Journal]\nStorage=persistent\nSystemMaxUse=512M\nRuntimeMaxUse=64M\nSystemKeepFree=1G\nMaxRetentionSec=7day\n')
 
 

@@ -37,6 +37,8 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
         from .runtime_bootstrap import CONTROL_PORT
         from opensandbox.models.execd import RunCommandOpts
         identity=RuntimeIdentity(self.attempt,self.lease.generation,self.sandbox_id)
+        from .native_network import verify
+        verify(os.environ['VIDEO_USE_NODE_GATEWAY_BIND'],os.environ['VIDEO_USE_NODE_GATEWAY_SUBNET'])
         # Read the sandbox's actual bridge source before starting untrusted code.
         source=self._run(['/opt/venv/bin/python','-c',
             'import socket; print(socket.gethostbyname(socket.gethostname()))'],10,lambda:False)
