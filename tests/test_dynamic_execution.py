@@ -48,6 +48,9 @@ class DynamicExecutionTests(unittest.TestCase):
         self.assertEqual(quota_error_code(review,invalid),'review_contract_exhausted')
         self.assertEqual(quota_error_code(review,tokens),'model_token_budget_exhausted')
         self.assertEqual(quota_error_code({},contract),'budget_exhausted')
+        seconds=TaskQuotaReached('time',category='agent_seconds',scope='turn',used=900,limit=900)
+        self.assertEqual(quota_error_code({'type':'agent'},seconds),'agent_timeout')
+        self.assertEqual(quota_error_code({'type':'script'},seconds),'budget_exhausted')
 
     def test_rolling_graph_executes_on_two_nodes_and_publishes_only_after_frozen_review(self):
         from webapp import agent_store,workflow_graph as graph
