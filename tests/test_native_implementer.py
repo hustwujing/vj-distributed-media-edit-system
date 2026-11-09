@@ -41,7 +41,7 @@ class NativeSelectionTests(unittest.TestCase):
         with patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'local_bwrap'}):
             old=for_task(spec).snapshot()
         with patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox',
-                                   'VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON':'{}'}):
+                                   'VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON':'{"codex":{}}'}):
             current=for_task(spec).snapshot()
             self.assertEqual(current['harness'],'native-implementer-v1')
             self.assertNotEqual(old,current)
@@ -94,10 +94,28 @@ class NativeSelectionTests(unittest.TestCase):
             self.assertEqual(for_task(cpu).harness,'native-implementer-v1')
             self.assertEqual(for_task(gpu).harness,'structured-profile-v4')
             for spec,expected in ((cpu,False),(gpu,True)):
-                run={'tasks':[{'id':'edit','type':'agent','spec':spec.model_dump(),'selected':1}],'control_jobs':[]}
+                policy=for_task(spec)
+                run={'tasks':[{'id':'edit','type':'agent','spec':spec.model_dump(),
+                               'profile':policy.snapshot(),'selected':1}],'control_jobs':[]}
                 resource=requirements(Mock(),run,'edit')
                 self.assertEqual(resource['gpu'],expected)
                 self.assertEqual(resource['runtime_target'],'bwrap_gpu' if expected else 'opensandbox_cpu')
+
+    def test_model_harness_without_native_image_freezes_structured_cpu_fallback(self):
+        from webapp.specialist_profiles import for_task
+        from webapp.workflow_dispatch import requirements
+        spec=self.agent_spec(requires_gpu=False,python_modules=['numpy'],system_tools=['python'],network_urls=[])
+        env={'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox',
+             'VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON':'{"claude_code":{}}'}
+        with patch.dict(os.environ,env,clear=False):
+            native=for_task(spec,model_harness='claude_code')
+            fallback=for_task(spec,model_harness='deepseek_harness')
+            self.assertEqual(native.harness,'native-implementer-v1')
+            self.assertEqual(fallback.harness,'structured-profile-v4')
+            run={'tasks':[{'id':'edit','type':'agent','spec':spec,
+                           'profile':fallback.snapshot(),'selected':1}],'control_jobs':[]}
+            resource=requirements(Mock(),run,'edit')
+            self.assertFalse(resource['gpu']);self.assertEqual(resource['runtime_target'],'bwrap_cpu')
 
     def test_missing_cpu_dependency_is_rejected_instead_of_falling_back_to_bwrap(self):
         from webapp.agent_runtime_capabilities import validate

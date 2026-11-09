@@ -35,6 +35,22 @@ def native_enabled(environ=None):
     return env.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND',env.get('VIDEO_USE_CPU_SANDBOX_BACKEND','local_bwrap'))=='opensandbox'
 
 
+def native_harnesses(environ=None):
+    env=os.environ if environ is None else environ
+    raw=env.get('VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON','')
+    if not raw:return {'codex','claude_code','deepseek_harness'}
+    try:value=json.loads(raw)
+    except ValueError:raise ValueError('Invalid native Harness Runtime Profile registry') from None
+    if not isinstance(value,dict):raise ValueError('Invalid native Harness Runtime Profile registry')
+    allowed={'codex','claude_code','deepseek_harness'}
+    if set(value)-allowed:raise ValueError('Unknown native Harness Runtime Profile')
+    return set(value)
+
+
+def native_harness_enabled(harness,environ=None):
+    return harness in native_harnesses(environ)
+
+
 def target(requirements,environ=None):
     if requirements.get('requires_gpu'):return 'bwrap_gpu'
     return 'opensandbox_cpu' if native_enabled(environ) else 'bwrap_cpu'
@@ -55,8 +71,8 @@ def validate_public_url(value):
     return value
 
 
-def validate(requirements,environ=None):
-    selected=target(requirements,environ);available=catalogue()[selected]
+def validate(requirements,environ=None,selected=None):
+    selected=selected or target(requirements,environ);available=catalogue()[selected]
     missing_modules=sorted(set(requirements.get('python_modules',()))-set(available['python_modules']))
     missing_tools=sorted(set(requirements.get('system_tools',()))-set(available['system_tools']))
     network_urls=requirements.get('network_urls',())

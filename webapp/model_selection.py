@@ -14,6 +14,8 @@ def efforts(profile):
 
 def runtime_available(profile):
     if os.environ.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND',os.environ.get('VIDEO_USE_CPU_SANDBOX_BACKEND','local_bwrap'))!='opensandbox':return True
+    from .agent_runtime_capabilities import native_harness_enabled
+    if not native_harness_enabled(profile.harness):return True
     from .sandbox_backends import select_backend,BackendConfigurationError
     try:select_backend({'gpu':False,'sandbox_kind':'agent_runtime','harness':profile.harness})
     except BackendConfigurationError:return False

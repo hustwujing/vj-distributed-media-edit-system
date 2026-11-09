@@ -772,9 +772,9 @@ class Orchestrator:
             if task.get('control_kind'):
                 staged=store.query("SELECT id FROM planner_runs WHERE run_id=? AND task_id=? AND status='staged'",(run['id'],task['id']))
                 if staged:continue
-                from .specialist_profiles import get as current_profile,for_task as current_task_profile
+                from .specialist_profiles import get as current_profile,for_run_task as current_task_profile
                 try:
-                    policy=current_profile(task['spec']['profile']) if task.get('control_kind') else current_task_profile(task['spec'])
+                    policy=current_profile(task['spec']['profile']) if task.get('control_kind') else current_task_profile(store,run['id'],task['spec'])
                     compatible=digest(task['profile'])==digest(policy.snapshot())
                 except (KeyError,ValueError):compatible=False
                 if not compatible:

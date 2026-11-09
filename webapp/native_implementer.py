@@ -23,8 +23,8 @@ def instructions(profile):
 
 
 def execute(host,lease,run,task):
-    from .specialist_profiles import for_task
-    profile=for_task(task['spec'])
+    from .specialist_profiles import for_run_task
+    profile=for_run_task(host.store,run['id'],task['spec'])
     if profile.id!='editing_implementer' or task.get('control_kind'):
         raise ValueError('Native Harness is restricted to the delegated Implementer')
     if graph.digest(profile.snapshot())!=graph.digest(task['profile']):

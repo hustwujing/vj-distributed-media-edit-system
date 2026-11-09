@@ -148,15 +148,25 @@ def get(identifier):
     return value
 
 
-def for_task(spec,environ=None):
+def for_task(spec,environ=None,model_harness=None):
     spec=spec.model_dump() if hasattr(spec,'model_dump') else spec
     value=get(spec['profile'])
     if value.id!='editing_implementer':return value
     requirements=spec.get('runtime_requirements') or {}
-    from .agent_runtime_capabilities import validate as validate_runtime,target
+    from .agent_runtime_capabilities import validate as validate_runtime,target,native_harness_enabled
     selected=validate_runtime(requirements,environ)
-    if selected=='opensandbox_cpu':value=replace(value,harness='native-implementer-v1')
+    if model_harness is None:
+        from .agent_profiles import selected as selected_model
+        model_harness=selected_model().harness
+    if selected=='opensandbox_cpu' and native_harness_enabled(model_harness,environ):
+        value=replace(value,harness='native-implementer-v1')
     validate(value);return value
+
+
+def for_run_task(store,run_id,spec):
+    from .agent_profiles import for_specialist
+    configuration=for_specialist(store,run_id,spec['profile'] if isinstance(spec,dict) else spec.profile)
+    return for_task(spec,model_harness=configuration.harness)
 
 
 def authorization_snapshot(identifier):
@@ -207,9 +217,11 @@ def catalogue():
         value=get(identifier)
         item=asdict(value);model=result_model(value)
         if identifier=='editing_implementer':
-            from .agent_runtime_capabilities import catalogue as runtime_catalogue
+            from .agent_runtime_capabilities import catalogue as runtime_catalogue,native_harnesses
             item['execution_strategy']='opensandbox_cpu_preferred_bwrap_gpu'
             item['runtime_options']=runtime_catalogue()
+            item['native_model_harnesses']=sorted(native_harnesses())
+            item['non_native_model_execution']='bwrap_cpu_structured_profile'
         if model:item['result_schema']=model.model_json_schema()
         result.append(item)
     return result

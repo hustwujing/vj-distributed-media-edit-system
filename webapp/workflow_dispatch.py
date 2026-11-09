@@ -62,7 +62,9 @@ def requirements(store,run,step_id):
     if task['type']=='agent':
         spec=graph.Task.model_validate(task['spec'])
         from .agent_runtime_capabilities import validate as validate_runtime
-        runtime=validate_runtime(spec.runtime_requirements.model_dump())
+        runtime=('bwrap_gpu' if spec.runtime_requirements.requires_gpu else
+                 'opensandbox_cpu' if task['profile'].get('harness')=='native-implementer-v1' else 'bwrap_cpu')
+        validate_runtime(spec.runtime_requirements.model_dump(),selected=runtime)
         result.update(cpu=2,memory_mb=4096 if runtime=='bwrap_gpu' else 2048,
             gpu=spec.runtime_requirements.requires_gpu,runtime_target=runtime)
         return result

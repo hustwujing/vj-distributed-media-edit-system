@@ -265,8 +265,8 @@ def apply(store,run,request,*,confirmed_plan=False):
 
     version=run['graph_version']+1;now=store.now()
     for task in tasks:
-        from .specialist_profiles import for_task as task_profile
-        frozen=task_profile(task).snapshot() if task.type=='agent' else {}
+        from .specialist_profiles import for_run_task as task_profile
+        frozen=task_profile(store,run['id'],task).snapshot() if task.type=='agent' else {}
         store.execute('''INSERT INTO run_tasks(run_id,id,type,purpose,authorization_version,spec_json,profile_json,status,phase,created_graph_version,created_at,updated_at)
             VALUES (?,?,?,?,?,?,?,'blocked',?,?,?,?)''',(run['id'],task.id,task.type,task.purpose,run['authorization_version'],encode(task.model_dump()),encode(frozen),initial_phase(task),version,now,now))
         store.execute('''INSERT INTO workflow_task_revisions(run_id,task_id,revision,spec_json,created_graph_version,created_at)
