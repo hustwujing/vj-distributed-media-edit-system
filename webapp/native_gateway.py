@@ -110,6 +110,10 @@ class NativeAttemptGateway:
                         self.send_header('Connection','close');self.end_headers();started=True
                         for chunk in result:self.wfile.write(chunk);self.wfile.flush()
                 except (GatewayAuthorizationError,GatewayBudgetError,ValueError) as exc:
+                    if isinstance(exc,ValueError):
+                        outer.last_error=exc
+                        from .telemetry import emit
+                        emit('native.gateway_business_rejected','ERROR',exc=exc,attempt_id=lease.attempt)
                     if not started:self.send_error(403 if isinstance(exc,GatewayAuthorizationError) else 429 if isinstance(exc,GatewayBudgetError) else 422)
                 except (BrokenPipeError,ConnectionResetError):pass
                 except Exception as exc:

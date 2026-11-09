@@ -206,6 +206,12 @@ class NativeRunnerTests(unittest.TestCase):
         finish.assert_not_called();runtime._download_output.assert_not_called()
         publisher.flush.assert_called_with(complete=True)
 
+    def test_gateway_business_rejection_is_reported_as_host_error(self):
+        run,runtime,publisher,finish=self.run_case(status='failed',error='SDK received HTTP 422')
+        runtime.gateway.last_error=ValueError('Messages request field is unsupported')
+        with self.assertRaisesRegex(ValueError,'request field is unsupported'):run()
+        finish.assert_not_called();runtime._download_output.assert_not_called()
+
     def test_executor_stop_propagates_fencing_without_staging(self):
         from webapp.task_leases import LeaseLost
         run,runtime,publisher,finish=self.run_case(stop=True)
