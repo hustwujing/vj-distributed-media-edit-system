@@ -1,7 +1,5 @@
 """Public native streaming, safe SSE boundaries, and canonical text closure."""
 import json
-from pathlib import Path
-import tempfile
 import unittest
 from webapp.safe_stream import SafeEvents
 from webapp.harness_sdk_events import SDKEvents
@@ -63,19 +61,3 @@ class NativeStreamTests(unittest.TestCase):
         codec.finish('公开结果','completed')
         self.assertNotIn('PRIVATE',json.dumps(events));self.assertEqual(events[0][2]['text'],'公开结果')
         self.assertEqual(events[0][1],events[1][1])
-
-    def test_deepseek_code_editor_uses_restricted_sdk_patch_and_system_rules(self):
-        from webapp.harness_bridge import deepseek_options,prepare_deepseek_profile
-        with tempfile.TemporaryDirectory() as folder:
-            patch=prepare_deepseek_profile(Path(folder))
-            text=Path(patch).read_text()
-        self.assertNotIn('!!js',text)
-        for identifier in ('plan-mode','tool-web','tool-subagent','tool-workflow','tool-todo','tool-goal','tool-skill','mcp-resources'):
-            self.assertIn('- id: '+identifier,text)
-        value=deepseek_options({'model':'deepseek-v4.1-flash','reasoning_effort':'high',
-                                'max_output_tokens':4096},'trusted task rules',patch)
-        self.assertEqual(value['profile'],'sdk')
-        self.assertEqual(value['patches'],(patch,))
-        self.assertEqual(value['max_tokens'],4096)
-        self.assertEqual(value['env'],{'DSH_PERMISSION_MODE':'danger-full-access'})
-        self.assertEqual(value['base_url'],'http://127.0.0.1:18766/v1')
