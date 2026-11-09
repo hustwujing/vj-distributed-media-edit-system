@@ -587,10 +587,8 @@ class Orchestrator:
             from .workflow_messages import fail
             fail(store,run,task,code);return
         if phase not in ('local','sync','submit','poll','collect','validate'):phase=task['phase']
-        if code not in {'submission_unknown','result_unavailable','technical_validation_failed','quality_failed','execution_failed',
-                        'provider_failed','poll_failed','collect_failed','agent_failed','review_incomplete','review_contract_exhausted',
-                        'planning_contract_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted','missing_proposal','invalid_result_manifest','model_result','pre_submit',
-                        'provider_cancelled','runtime_profile_changed','policy_changed','agent_runtime_unavailable','agent_timeout'}:code='execution_failed'
+        from .workflow_error_catalog import TASK_FAILURE_CODES,message as failure_message
+        if code not in TASK_FAILURE_CODES:code='execution_failed'
         business_attempts=max(0,task['attempts']-task.get('infrastructure_interruptions',0))
         retry=(not task.get('control_kind') and graph.Task.model_validate(task['spec']).retry_policy=='safe_once'
                and business_attempts<2 and phase=='local' and code=='execution_failed'
@@ -604,27 +602,7 @@ class Orchestrator:
             except (KeyError,ValueError):pass
         retry=retry or bool(not task.get('control_kind') and task['external_id'] and phase in ('poll','collect') and code in ('poll_failed','collect_failed') and task['recovery_count']<3)
         retry=retry or bool(task.get('type')=='agent' and code=='agent_failed' and data.get('transient') and business_attempts<3)
-        message={
-            'model_result':'模型未找到符合条件的结果，请调整输入或要求后重新规划。',
-            'budget_exhausted':'本轮操作次数或模型预算已达上限。请调整执行范围或预算后重新发起。',
-            'daily_model_quota_exhausted':'今日模型调用额度已用完。额度按用户跨 Run 共享，请等待恢复后再继续；新建一轮不会绕过每日额度。',
-            'model_token_budget_exhausted':'本轮模型 Token 预算已耗尽，未继续发起模型请求。请调整范围或预算。',
-            'review_contract_exhausted':'Reviewer 未能在限定纠错轮次内提交合法选择；已保留候选、检查和字段错误。',
-            'planning_contract_exhausted':'Manager 未能在限定纠错轮次内提交合法计划；已保留草稿和精确校验错误。',
-            'agent_failed':'专业 Agent 未能提交有效结果。已保留诊断，请检查后重试或重新规划。',
-            'agent_timeout':'代码编辑师在限定时间内未完成，未发布候选成果，也不会自动重放同一轮；请根据诊断拆小任务或调整方案。',
-            'review_incomplete':'本轮审查未获得充分证据或有效结论，正在交回规划补充证据。',
-            'submission_unknown':'外部请求结果尚未确认，已暂停以避免重复调用。',
-            'pre_submit':'提交前检查未通过，尚未发起外部请求。请检查输入或配置后重新规划。',
-            'result_unavailable':'执行已中断，缺少可安全恢复的结果。请先核实已有请求与产物。',
-            'quality_failed':'候选成果未通过验收，已暂停，尚未正式交付。',
-            'technical_validation_failed':'候选文件未通过技术检查，已暂停，尚未正式交付。',
-            'poll_failed':'查询外部任务状态失败，可以重试查询已有任务。',
-            'collect_failed':'获取已有任务结果失败，可以重试收取结果。',
-            'provider_cancelled':'外部任务已终止，未产生可验收结果。',
-            'runtime_profile_changed':'执行环境版本已变化，旧环境绑定不能由当前执行器继续运行。',
-            'policy_changed':'专业 Agent 策略已变化，旧控制任务不能由当前策略继续执行。',
-        }.get(code,'任务未完成，已保留执行证据。')
+        message=failure_message(code,data.get('error_detail'))
         if code=='execution_failed':
             detail=str(data.get('error_detail') or '')
             error_type=str(data.get('error_type') or '')
@@ -640,6 +618,12 @@ class Orchestrator:
             import time
             hours=max(1,round((float(data.get('quota_reset_at',time.time()))-time.time())/3600,1))
             message=f"今日模型调用额度已用完（{data.get('quota_used',0)}/{data.get('quota_limit')}），预计约 {hours} 小时后恢复；新建一轮不会绕过额度。"
+        if code=='agent_timeout' and data.get('quota_limit') is not None:
+            message=f"代码编辑师达到 {data['quota_limit']} 秒墙钟运行时限，未发布候选成果，也不会自动重放同一 revision。"
+        if code in ('agent_turn_budget_exhausted','agent_finalize_budget_exhausted','agent_contract_exhausted') and data.get('quota_limit') is not None:
+            item=f"{data.get('quota_used',0)}/{data['quota_limit']}"
+            from .workflow_error_catalog import get as failure_definition
+            message=failure_definition(code).message+'（已用/上限：'+item+'）'
         if code=='agent_failed' and data.get('error_detail'):
             message='脚本执行失败：'+str(data['error_detail'])[:400]+'。已保留错误回执，请修正脚本后重试。'
         if code=='provider_failed' and data.get('error_detail'):

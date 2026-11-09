@@ -51,6 +51,12 @@ class DynamicExecutionTests(unittest.TestCase):
         seconds=TaskQuotaReached('time',category='agent_seconds',scope='turn',used=900,limit=900)
         self.assertEqual(quota_error_code({'type':'agent'},seconds),'agent_timeout')
         self.assertEqual(quota_error_code({'type':'script'},seconds),'budget_exhausted')
+        for category,code in (('agent_turns','agent_turn_budget_exhausted'),
+                              ('agent_finalize','agent_finalize_budget_exhausted'),
+                              ('agent_contract','agent_contract_exhausted')):
+            with self.subTest(category=category):
+                quota=TaskQuotaReached('quota',category=category,scope='turn',used=3,limit=3)
+                self.assertEqual(quota_error_code({'type':'agent'},quota),code)
 
     def test_rolling_graph_executes_on_two_nodes_and_publishes_only_after_frozen_review(self):
         from webapp import agent_store,workflow_graph as graph

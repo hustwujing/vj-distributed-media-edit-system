@@ -71,6 +71,14 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(failed['status'],'paused');self.assertEqual(failed['error_code'],'agent_timeout')
         self.assertNotEqual(failed['status'],'retry_wait')
         self.assertTrue(any(job['spec']['profile']=='media_failure_diagnostician' for job in current['control_jobs']))
+        self.store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='agent_timeout' WHERE id=?",(run['id'],))
+        from webapp.workflow_api import public
+        shown=public(self.store,graph.get(self.store,run['id']))
+        self.assertEqual(shown['blocking_action']['title'],'代码编辑师运行超时')
+        self.assertEqual(shown['blocking_action']['failure_kind'],'timeout')
+        self.assertEqual(shown['blocking_action']['retry_policy'],'never_same_revision')
+        self.assertIn('达到运行时限',shown['blocking_action']['message'])
+        self.assertNotIn('补充信息',shown['blocking_action']['message'])
 
     def test_initialize_upgrades_legacy_dynamic_schema_without_losing_rows(self):
         with self.store.connect() as db:

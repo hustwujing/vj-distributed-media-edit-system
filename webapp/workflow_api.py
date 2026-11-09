@@ -88,10 +88,8 @@ def public(store,run):
             terminal_notice={'budget':'任务预算已耗尽，系统停止了后续执行。','deadline':'任务时限已到，系统停止了后续执行。','security':'安全策略触发，系统停止了后续执行。'}.get(cause,'任务预算或时限已耗尽，系统停止了后续执行。')
         else:
             terminal_notice={'authorization_rejected':'当前执行方向未获授权，任务已停止。','planning_budget_exhausted':'规划轮次已耗尽，任务未继续执行。','user_cancelled':'你已取消本次任务，已完成成果会保留。','successor_confirmed':'本轮已由新一轮任务取代，请查看后继任务。'}.get(reason,'任务未完成，请查看下方诊断信息。' if run['status']=='FAILED' else '任务已取消。')
-            if reason=='planning_contract_exhausted':terminal_notice='规划师未能形成可执行方案，已保留失败详情；请查看失败步骤后重新规划。'
-            elif reason=='runtime_profile_changed':terminal_notice='执行环境版本在任务期间发生变化，旧任务不能继续复用；请创建新 revision 或新任务。'
-            elif reason=='execution_failed':terminal_notice='系统执行失败，已保留错误详情；修复运行环境后请重试失败步骤。'
-            elif reason=='agent_runtime_unavailable':terminal_notice='沙箱运行环境故障，任务已停止。无需补充业务信息；请根据下方错误修复运行环境后重新执行。'
+            from .workflow_error_catalog import CATALOG,get as failure_definition
+            if reason in CATALOG:terminal_notice=failure_definition(reason).message
     value['terminal_notice']=terminal_notice
     revision_versions={(row['task_id'],row['revision']):row['created_graph_version'] for row in
         store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}
@@ -112,9 +110,10 @@ def public(store,run):
             errors=list(dict.fromkeys((str(item.get('path',''))+': '+str(item.get('message','')))[:1000]
                 for record in records for item in record.get('validation_errors',[]) if isinstance(item,dict)))[:6]
             message=task.get('error_detail') or detail.get('message','')
+            from .workflow_error_catalog import public_metadata
             value['failure_details'].append({'task_id':task['id'],'name':item_name(task),'code':task['error_code'],
                 'message':'；'.join([text for text in [message,*errors] if text]),'error_type':detail.get('error_type',''),
-                'classification':detail.get('classification','')})
+                'classification':detail.get('classification',''),**public_metadata(task['error_code'])})
     value['control_jobs']=[]
     for job in run['control_jobs']:
         public_job={key:job[key] for key in ('id','control_kind','status','phase','attempts','error_code','error_detail','created_graph_version','created_at','updated_at')}
@@ -200,26 +199,24 @@ def public(store,run):
                 'clarification_exhausted':('已停止重复追问','系统连续澄清仍未确定下一步，已停止自动追问，也没有重新处理素材。上一轮成果仍可使用；你可以提出明确的修改要求，或停止本轮。'),
                 'user_rejected':('当前方向已停止','已按你的选择停止这个方向，不会自动重新规划；已有成果仍会保留。'),
                 'planning_budget_exhausted':('本轮规划轮次已耗尽','请停止本轮并新建一轮；如仍需多轮规划，请提高规划轮次上限。'),
-                'model_token_budget_exhausted':('本轮模型预算已耗尽','请停止本轮并新建一轮；如仍需继续，请提高模型 Token 上限。'),
-                'budget_exhausted':('本轮执行预算已耗尽','请停止本轮并新建一轮后再继续。'),
-                'daily_model_quota_exhausted':('今日模型调用额度已用完','额度按用户跨任务共享，预计恢复后再继续；新建一轮不会绕过每日额度。'),
-                'review_incomplete':('审查证据不足','自动补证据已达到上限。请查看下方审查反馈，决定是否补充素材/要求，或停止本轮。'),
-                'planning_contract_exhausted':('规划未完成','规划师在限定纠错次数内未能提交合法计划，已保留草稿和校验错误。请查看诊断；这不是缺少用户确认或素材。可停止本轮后重新发起。'),
-                'review_contract_exhausted':('审查未完成','审查师在限定纠错次数内未能提交合法结论，候选成果和检查证据已保留，尚未正式交付。请查看诊断；这不是缺少用户确认或素材。'),
-                'invalid_delivery_manifest':('交付校验失败','系统未取得有效的最终审查或交付清单，已阻止发布。请查看诊断，待问题处理后再恢复；不需要补充素材。可停止本轮，已有结果会保留。'),
                 'external_wait_timeout':('外部任务等待超时','上游任务等待已超过上限。请在下方选择继续等待，或放弃该任务并重新规划；已有成果会保留。'),
                 'storage_quota_exceeded':('存储额度不足','请清理旧项目或增加存储额度，然后点击“继续”重新检查发布。'),
                 'task_requires_resolution':('任务需要处理','请提交补充要求，系统会在当前执行安全收尾后重新规划；也可以停止本轮。“继续”仅尝试恢复可安全重试的步骤，不会自动重新规划。'),
             }
             pending=value['decisions'][0] if value['decisions'] else None
             request=(pending or {}).get('request') or {}
-            title,message=waiting_guidance.get(run['terminal_reason'],('需要你的处理',request.get('question') or request.get('message') or '请确认下面列出的事项后继续。'))
-            if run['terminal_reason']=='provider_failed' and not pending:
-                first=next((item for item in value['failure_details'] if item['code']=='provider_failed'),{})
-                title='上游处理失败';message=first.get('message') or '上游任务失败且未返回具体原因，系统没有自动重复提交收费请求。'
+            from .workflow_error_catalog import CATALOG,get as failure_definition,public_metadata
+            if run['terminal_reason'] in waiting_guidance:
+                title,message=waiting_guidance[run['terminal_reason']]
+            elif run['terminal_reason'] in CATALOG:
+                definition=failure_definition(run['terminal_reason']);title,message=definition.title,definition.message
+            else:
+                title,message='需要你的处理',request.get('question') or request.get('message') or '系统未登记该错误类型；请查看下方真实错误详情，不需要猜测应补充什么信息。'
+            first=next((item for item in value['failure_details'] if item['code']==run['terminal_reason']),{})
+            if not pending and first.get('message'):message=first['message']
             value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
                 'title':title,'message':message,'decision_id':pending['id'] if pending else None,
-                'details':value['failure_details'] if not pending else [],
+                'details':value['failure_details'] if not pending else [],**public_metadata(run['terminal_reason']),
                 'required_fields':request.get('required_fields',[]),'examples':request.get('examples',[])}
             if run['terminal_reason']=='review_incomplete' and not pending:
                 latest=store.query("SELECT task_id,subject_task,purpose,decision_json FROM workflow_reviews WHERE run_id=? AND purpose IN ('task','final') AND status='rejected' ORDER BY updated_at DESC,created_at DESC LIMIT 1",(run['id'],))

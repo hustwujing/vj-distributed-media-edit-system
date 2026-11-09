@@ -37,6 +37,12 @@ def quota_error_code(task,exc):
         return 'review_contract_exhausted'
     if task.get('type')=='agent' and not task.get('control_kind') and category=='agent_seconds':
         return 'agent_timeout'
+    if task.get('type')=='agent' and not task.get('control_kind') and category=='agent_turns':
+        return 'agent_turn_budget_exhausted'
+    if task.get('type')=='agent' and not task.get('control_kind') and category=='agent_finalize':
+        return 'agent_finalize_budget_exhausted'
+    if task.get('type')=='agent' and not task.get('control_kind') and category=='agent_contract':
+        return 'agent_contract_exhausted'
     return 'budget_exhausted'
 
 

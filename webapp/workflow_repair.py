@@ -15,25 +15,9 @@ class Resolution:
 
 
 def resolve(error_code,phase='local',classification='') -> Resolution:
-    if error_code=='daily_model_quota_exhausted':
-        return Resolution('stop','Daily model quota is shared across Runs and must recover before any retry')
-    if error_code in ('submission_unknown','result_unavailable'):
-        return Resolution('external_reconcile','External side effect state must be reconciled before any replacement call')
-    if error_code=='model_token_budget_exhausted':
-        return Resolution('user_decision','The frozen workflow model-token budget is exhausted')
-    if error_code=='review_contract_exhausted':
-        return Resolution('user_decision','The Reviewer exhausted its bounded contract-correction attempts')
-    if error_code=='planning_contract_exhausted':
-        return Resolution('user_decision','The Manager exhausted its bounded contract-correction attempts')
-    if error_code=='budget_exhausted':
-        return Resolution('user_decision','The frozen workflow operation budget is exhausted')
-    if error_code in ('poll_failed','collect_failed'):
-        return Resolution('retry_same_revision','The existing external handle can be queried or collected again')
-    if error_code in ('technical_validation_failed','quality_failed','model_result','pre_submit','execution_failed',
-                      'provider_failed','provider_cancelled','agent_failed','agent_timeout','review_incomplete','invalid_result_manifest','missing_proposal',
-                      'runtime_profile_changed','policy_changed'):
-        return Resolution('manager_revision','A new plan or immutable task revision is required within the frozen authorization')
-    return Resolution('stop','No automatic recovery policy is registered for this error')
+    from .workflow_error_catalog import get
+    item=get(error_code)
+    return Resolution(item.recovery_action,item.recovery_reason)
 
 
 def descendants(root,edges):
