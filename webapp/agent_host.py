@@ -74,7 +74,10 @@ class AgentHost:
         self.workflow_runner = workflows.Runner(self.store, Adapter(self.store, self.model, self.socket_dir), self.stop)
         from .agent_profiles import profiles
         from .harness_adapters import get as harness_adapter
-        self.available_profiles=[p for p in profiles().values() if p.base_url and os.environ.get(p.credential_env) and harness_adapter(p.harness).available()]
+        from .model_selection import runtime_available
+        native=os.environ.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND',os.environ.get('VIDEO_USE_CPU_SANDBOX_BACKEND','local_bwrap'))=='opensandbox'
+        self.available_profiles=[p for p in profiles().values() if p.base_url and os.environ.get(p.credential_env)
+            and (runtime_available(p) if native else harness_adapter(p.harness).available())]
         self.identities = IdentityPool()
         if opensandbox_command_factory is None:
             from .opensandbox_runtime import command_factory_from_environment

@@ -590,7 +590,7 @@ class Orchestrator:
         if code not in {'submission_unknown','result_unavailable','technical_validation_failed','quality_failed','execution_failed',
                         'provider_failed','poll_failed','collect_failed','agent_failed','review_incomplete','review_contract_exhausted',
                         'planning_contract_exhausted','model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted','missing_proposal','invalid_result_manifest','model_result','pre_submit',
-                        'provider_cancelled','runtime_profile_changed','policy_changed'}:code='execution_failed'
+                        'provider_cancelled','runtime_profile_changed','policy_changed','agent_runtime_unavailable'}:code='execution_failed'
         business_attempts=max(0,task['attempts']-task.get('infrastructure_interruptions',0))
         retry=(not task.get('control_kind') and graph.Task.model_validate(task['spec']).retry_policy=='safe_once'
                and business_attempts<2 and phase=='local' and code=='execution_failed'
@@ -641,6 +641,8 @@ class Orchestrator:
             message=f"今日模型调用额度已用完（{data.get('quota_used',0)}/{data.get('quota_limit')}），预计约 {hours} 小时后恢复；新建一轮不会绕过额度。"
         if code=='agent_failed' and data.get('error_detail'):
             message='脚本执行失败：'+str(data['error_detail'])[:400]+'。已保留错误回执，请修正脚本后重试。'
+        if code=='agent_runtime_unavailable':
+            message='系统沙箱运行环境故障：'+str(data.get('error_detail') or '原生 Harness 无法启动')[:600]+'。不需要补充任务信息，需修复运行环境后重新执行。'
         graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',
             ('retry_wait' if retry else 'paused',phase,code,message,int(retry and phase in ('poll','collect')),store.now()+min(30,2**(task['recovery_count']+1)),run['id'],task['id']))
         if task.get('control_kind') and retry:
@@ -678,13 +680,13 @@ class Orchestrator:
             return
         if not retry:
             diagnose=(not task.get('control_kind') and task['spec'].get('on_failure')=='diagnose'
-                      and code not in ('submission_unknown','budget_exhausted','daily_model_quota_exhausted','planning_contract_exhausted','model_token_budget_exhausted','result_unavailable'))
+                      and code not in ('submission_unknown','budget_exhausted','daily_model_quota_exhausted','planning_contract_exhausted','model_token_budget_exhausted','result_unavailable','agent_runtime_unavailable'))
             if diagnose:
                 self.open_repair(run,task['id'],'execution_failure',error_code=code)
                 self.queue_review(graph.get(store,run['id']),task['id'],purpose='diagnose')
                 self.set_status(graph.get(store,run['id']),'ACTIVE','failure_diagnosis')
             else:
-                fatal=(code=='result_unavailable' or task.get('control_kind') and code in {
+                fatal=(code in ('result_unavailable','agent_runtime_unavailable') or task.get('control_kind') and code in {
                     'agent_failed','missing_proposal','policy_changed'})
                 if fatal:
                     graph.write_work(store,task,"UPDATE run_tasks SET status='failed' WHERE run_id=? AND id=?",(run['id'],task['id']))

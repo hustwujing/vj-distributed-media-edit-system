@@ -341,7 +341,8 @@ class Gateway:
         owner_thread=threading.get_ident()
         try:
             stack.enter_context(budget)
-            receipt=stack.enter_context(model_call(self.lease,self.model,actor='sandbox_agent',observer=observer))
+            from .workflow_agents import actor as specialist_actor
+            receipt=stack.enter_context(model_call(self.lease,self.model,actor=specialist_actor(role) if role else 'sandbox_agent',observer=observer))
             client=stack.enter_context(session())
             response=stack.enter_context(client.post(self.base_url + self.model_adapter.path, json=body,
                 headers=self.model_adapter.headers(self.key),stream=True,

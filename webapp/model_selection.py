@@ -12,19 +12,27 @@ def efforts(profile):
     return list(dict.fromkeys(['low','medium','high',profile.reasoning_effort]))
 
 
+def runtime_available(profile):
+    if os.environ.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND',os.environ.get('VIDEO_USE_CPU_SANDBOX_BACKEND','local_bwrap'))!='opensandbox':return True
+    from .sandbox_backends import select_backend,BackendConfigurationError
+    try:select_backend({'gpu':False,'sandbox_kind':'agent_runtime','harness':profile.harness})
+    except BackendConfigurationError:return False
+    return True
+
+
 def options(store,project):
     registry=profiles()
     preferred=store.query('SELECT name FROM agent_project_profiles WHERE project=?',(project,))
     configured=os.environ.get('VIDEO_USE_USER_AGENT_PROFILE','claude55')
     candidates=[preferred[0]['name'] if preferred else '',configured,selected().name,*registry]
-    available=lambda name:name in registry and bool(registry[name].base_url and os.environ.get(registry[name].credential_env))
+    available=lambda name:name in registry and bool(registry[name].base_url and os.environ.get(registry[name].credential_env)) and runtime_available(registry[name])
     default=next((name for name in candidates if available(name)),next(name for name in candidates if name in registry))
     default_effort=lambda p:p.reasoning_effort if p.reasoning_effort in efforts(p) else 'high'
     from .agent_profiles import role_defaults
     defaults=role_defaults()
     return {'default_profile':default,'default_effort':default_effort(registry[default]),
         'profiles':[{'id':name,'model':p.model,'reasoning_efforts':efforts(p),'default_effort':default_effort(p),
-            'profile_digest':p.digest,'harness':p.harness,'available':bool(p.base_url and os.environ.get(p.credential_env))}
+            'profile_digest':p.digest,'harness':p.harness,'available':available(name)}
             for name,p in registry.items()]}
 
 
@@ -33,6 +41,7 @@ def resolve(choice):
     except KeyError:raise ValueError('所选模型配置不存在，请刷新后重新选择') from None
     if profile.digest!=choice.profile_digest:raise ValueError('模型配置已更新，请核对后再次确认')
     if choice.reasoning_effort not in efforts(profile):raise ValueError('该模型不支持所选推理强度')
+    if not runtime_available(profile):raise ValueError('所选 Harness 的沙箱镜像尚未配置，请选择可用配置或联系管理员完成部署')
     profile.credentials()
     return replace(profile,reasoning_effort=choice.reasoning_effort)
 

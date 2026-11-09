@@ -28,9 +28,6 @@ def execute(host,lease,run,task):
     from .agent_profiles import for_specialist,record_attempt
     configuration=for_specialist(host.store,run['id'],profile.id)
     record_attempt(host.store,lease,configuration)
-    host.store.execute('INSERT OR IGNORE INTO specialist_attempt_profiles VALUES (?,?,?,?,?,?,?,?,?,?)',
-        (lease.attempt,run['id'],task['id'],profile.id,configuration.harness,graph.digest(task['profile']),
-         configuration.model,configuration.protocol,configuration.digest,host.store.now()))
     lease.start_compute()
     from .workflow_agents import output_directory,finish_files
     output,env=output_directory(host,lease,run,task)
@@ -70,7 +67,14 @@ def execute(host,lease,run,task):
         elif event.kind=='turn.ended':ended=event.data
     deadline=time.monotonic()+min(profile.timeout_seconds,task['spec']['timeout_seconds'],configuration.budget['run_seconds'])
     try:
-        runtime.start_harness(configuration,lease.backend_binding,event,restore=saved)
+        from .runtime_client import RuntimeStartupError,RuntimeTransportError
+        from .task_lifecycle import TaskLimitReached
+        try:runtime.start_harness(configuration,lease.backend_binding,event,restore=saved,task_context=context)
+        except (LeaseLost,TaskLimitReached):raise
+        except Exception as exc:raise RuntimeStartupError('沙箱执行环境启动失败：'+str(exc)[:800]) from exc
+        host.store.execute('INSERT OR IGNORE INTO specialist_attempt_profiles VALUES (?,?,?,?,?,?,?,?,?,?)',
+            (lease.attempt,run['id'],task['id'],profile.id,configuration.harness,graph.digest(task['profile']),
+             configuration.model,configuration.protocol,configuration.digest,host.store.now()))
         runtime.client.timeout=30
         session=runtime.client.call('session.open',{'instructions':instructions(profile),
             'session_id':saved['session_id'] if saved else None})['session_id']
@@ -78,12 +82,20 @@ def execute(host,lease,run,task):
             (session,'native_resume' if saved else 'fresh_task_scope',lease.attempt))
         runtime.client.call('turn.start',{'session_id':session,'text':graph.encode(context)})
         runtime.client.timeout=2
+        reconnects=0
         while ended is None:
             lease.check()
             if host.stop.is_set():raise LeaseLost('Executor is stopping')
             if time.monotonic()>=deadline:raise TimeoutError('代码编辑师已达到运行时限，未发布候选成果。')
             try:runtime.client.receive_once()
             except TimeoutError:continue
+            except RuntimeTransportError:
+                # Resume the acknowledged event cursor, never restart the SDK
+                # turn or replay a model/tool request after a transport break.
+                reconnects+=1
+                if reconnects>3:raise
+                lease.check();runtime.client.close()
+                runtime.client.connect()
         if ended.get('status')!='completed':
             if runtime.gateway and runtime.gateway.last_error:raise runtime.gateway.last_error
             raise RuntimeError('原生代码编辑师执行失败：'+str(ended.get('error') or ended.get('status'))[:1600])

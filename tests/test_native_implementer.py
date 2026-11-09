@@ -129,5 +129,19 @@ class NativeRunnerTests(unittest.TestCase):
         with self.assertRaises(LeaseLost):run()
         finish.assert_not_called();publisher.flush.assert_called_with(complete=True)
 
+    def test_control_stream_reconnect_does_not_restart_native_turn(self):
+        from webapp.runtime_client import RuntimeTransportError
+        run,runtime,publisher,finish=self.run_case()
+        successful=runtime.client.receive_once.side_effect;calls=[]
+        def receive():
+            calls.append(True)
+            if len(calls)==1:raise RuntimeTransportError('injected disconnect')
+            successful()
+        runtime.client.receive_once.side_effect=receive
+        self.assertEqual(run(),'candidate-staged')
+        runtime.client.connect.assert_called_once()
+        starts=[call for call in runtime.client.call.call_args_list if call.args[0]=='turn.start']
+        self.assertEqual(len(starts),1);finish.assert_called_once()
+
 
 if __name__=='__main__':unittest.main()

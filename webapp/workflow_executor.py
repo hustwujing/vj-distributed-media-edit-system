@@ -8,6 +8,8 @@ from .task_lifecycle import TaskLimitReached
 
 
 def transient_model_error(exc):
+    from .runtime_client import RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError
+    if isinstance(exc,(RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError)):return False
     try:
         import requests
         if isinstance(exc,(requests.ConnectionError,requests.Timeout,TimeoutError)):return True
@@ -166,13 +168,18 @@ def _execute(host,lease):
             diagnostic.update(request_sent=False,cause_type=detail.get('cause_type',''))
         store.execute('INSERT INTO workflow_diagnostics VALUES (?,?,?,?,?,?,?)',
                       (uuid.uuid4().hex,run['id'],task['id'],task['revision'],task['attempts'],graph.encode(diagnostic),store.now()))
-        if lease.runtime and lease.runtime.env is not None and not task.get('control_kind'):
+        if (lease.runtime and lease.runtime.env is not None and not task.get('control_kind')
+                and (not getattr(lease.runtime,'is_native',False) or lease.runtime.frozen)):
             try:lease.runtime.checkpoint()
             except (LeaseLost,TaskLimitReached):raise
             except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.run_id,step_id=lease.step_id)
         calls=store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(run['id']+':'+task['id']+':'+str(task['revision']),))
         transient_model=bool(task['type']=='agent' and transient_model_error(exc))
-        if isinstance(exc,TaskQuotaReached):
+        from .runtime_client import RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError
+        from .sandbox_backends import BackendConfigurationError,BackendNotReady
+        if task['type']=='agent' and isinstance(exc,(RuntimeTransportError,RuntimeDependencyError,RuntimeStartupError,BackendConfigurationError,BackendNotReady)):
+            code='agent_runtime_unavailable'
+        elif isinstance(exc,TaskQuotaReached):
             code=quota_error_code(task,exc)
         else:code=failure_error_code(task,phase,calls,classification)
         stage_result(store,lease,'failed',{'error_code':code,'phase':phase,

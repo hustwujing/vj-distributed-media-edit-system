@@ -36,6 +36,8 @@ save('driver-binding.json',{sha256:crypto.createHash('sha256').update(fs.readFil
    current=await read();const now=JSON.stringify([current.state,current.activity,current.graph_version,current.tasks.map(t=>[t.id,t.status,t.error_code])]);
    if(now!==signature){signature=now;state.events.push({at:Date.now()/1000,state:current.state,activity:current.activity});save('snapshot-'+state.events.length+'.json',current);save('state.json',state);console.log(JSON.stringify(state.events.at(-1)));}
    assert.deepEqual(state.page_errors,[]);
+   const programFailure=current.tasks.find(t=>t.error_detail&&/Runtime WebSocket|执行器缺少|运行环境故障|沙箱执行环境启动失败/.test(t.error_detail));
+   if(programFailure)throw Error('Runtime program failure: '+programFailure.error_detail);
    const plan=current.decisions.find(d=>d.kind==='plan_confirmation');
    if(plan){assert.ok(plan.request.steps.length&&plan.request.delivery_targets.length);if(current.graph_version===0)assert.equal(current.tasks.length,0);const card=page.locator(`[data-decision="${plan.id}"]`);await card.locator('[data-answer=approve]').waitFor();await page.screenshot({path:path.join(out,'plan-'+plan.id+'.png'),fullPage:true});await card.locator('[data-answer=approve]').click();await page.waitForTimeout(500);continue;}
    if(!reentered&&current.tasks.some(t=>t.type==='agent'&&t.status==='running')){await page.reload();await page.locator('#dynamic-input-form').waitFor();reentered=true;state.reentered_during_execution=true;}
@@ -47,7 +49,7 @@ save('driver-binding.json',{sha256:crypto.createHash('sha256').update(fs.readFil
   const tasks=current.tasks.filter(t=>t.type==='agent'&&t.spec.profile==='editing_implementer');assert.ok(tasks.length,'Case did not execute a code editor');
   const usage=await(await api('GET',`/api/projects/${state.project}/runs/${state.run_id}/usage`)).json();save('usage.json',usage);
   const actual=usage.harness_runs.filter(row=>row.profile_name==='editing_implementer');assert.ok(actual.length,'Missing actual specialist execution receipt');
-  const expected=engine==='native-implementer-v1'?current.model_configuration.harness:engine;
+  const expected=engine==='native-implementer-v1'?current.model_configuration.roles.editing_implementer.harness:engine;
   assert.ok(actual.every(row=>row.harness===expected),JSON.stringify(actual));
   for(const task of tasks){if(engine==='native-implementer-v1')assert.equal(task.execution_location,'opensandbox');}
   await page.getByRole('heading',{name:'任务已完成',exact:true}).waitFor();await page.reload();await page.getByRole('heading',{name:'任务已完成',exact:true}).waitFor();

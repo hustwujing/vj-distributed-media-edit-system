@@ -51,6 +51,19 @@ class RuntimeBootstrapTests(unittest.TestCase):
         self.assertEqual(command[:4],['/opt/venv/bin/python','-m','webapp.harness_bridge','claude_code'])
         self.assertEqual(command[-1],str(self.harness))
 
+    def test_native_task_gets_the_same_declared_script_environment(self):
+        self.write('claude_code')
+        workspace={'output':'/workspace/edit/workflows/run/task/attempt','inputs':{'source':['/workspace/sources/a.mp4']}}
+        self.harness.write_text(json.dumps({'task_workspace':workspace}))
+        app=create_runtime(self.config,bundle_root=self.bundle_root)
+        environment=app.state.harness_controller.bridge.environment
+        self.assertEqual(environment['VIDEO_USE_STEP_OUTPUT'],workspace['output'])
+        self.assertEqual(json.loads(environment['VIDEO_USE_STEP_INPUTS']),workspace['inputs'])
+        self.assertIn('/opt/video-use/helpers',environment['PYTHONPATH'])
+        for value in ('/etc/passwd','/workspace/../outside'):
+            self.harness.write_text(json.dumps({'task_workspace':{**workspace,'inputs':{'source':[value]}}}))
+            with self.assertRaisesRegex(ValueError,'workspace contract'):create_runtime(self.config,bundle_root=self.bundle_root)
+
     def test_gateway_grant_starts_only_a_loopback_client(self):
         value=self.write();gateway_token=self.root/'gateway.token';gateway_ca=self.root/'gateway-ca.pem'
         gateway_config=self.root/'gateway.json'

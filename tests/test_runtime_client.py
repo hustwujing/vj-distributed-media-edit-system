@@ -36,6 +36,32 @@ class InMemoryConnection:
 
 
 class RuntimeClientTests(unittest.TestCase):
+    def test_missing_dependency_is_not_a_retryable_network_error(self):
+        from unittest.mock import patch
+        from webapp.runtime_client import WebSocketTransport,RuntimeDependencyError
+        from webapp.workflow_executor import transient_model_error
+        with patch.dict('sys.modules',{'websockets.sync.client':None}):
+            with self.assertRaises(RuntimeDependencyError) as raised:WebSocketTransport('ws://127.0.0.1:1')
+        self.assertFalse(transient_model_error(raised.exception))
+        self.assertFalse(transient_model_error(RuntimeTransportError('control channel unavailable')))
+
+    def test_real_websocket_dependency_handshake_rpc_and_idle_timeout(self):
+        import threading,json
+        from websockets.sync.server import serve
+        daemon=DaemonProtocol(self.identity,'secret')
+        def handler(socket):
+            for message in socket:
+                for response in daemon.receive(json.loads(message),lambda method,params:{'echo':params}):
+                    socket.send(json.dumps(response))
+        with serve(handler,'127.0.0.1',0) as server:
+            thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+            client=RuntimeClient(f'ws://127.0.0.1:{server.socket.getsockname()[1]}',self.identity,'secret',lambda event:None,timeout=.1)
+            try:
+                client.connect();self.assertEqual(client.call('runtime.initialize',{'a':1}),{'echo':{'a':1}})
+                with self.assertRaises(TimeoutError):client.receive_once()
+                self.assertEqual(client.call('runtime.initialize',{'a':2}),{'echo':{'a':2}})
+            finally:client.close();server.shutdown();thread.join(timeout=2)
+
     def setUp(self):
         self.identity=RuntimeIdentity('attempt-1',1,'sandbox-1')
         self.server=InMemoryServer(self.identity);self.events=[]

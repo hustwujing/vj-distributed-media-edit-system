@@ -52,6 +52,25 @@
 公开API有意不暴露完整内部Profile，驱动应读取实际usage.harness_runs及execution_location，而非访问不存在的task.profile。
 原生Attempt同时记录用户配置和专家执行身份时，usage汇总须去重，不能把同一次模型调用显示成两套Harness执行。
 
+## 首条原生业务首败（保留）
+
+- 83801ee部署时网络unit校验漏导入re，首次部署在启动服务前失败。7bc9a64补实际unit生成回归后
+  用同一干净源码重试部署，API/worker/orchestrator/network unit全部active。来源环境未改动。
+- claude-NH01-001：Run72ff700e73db4096912ac66aa2f3776d，152.686秒，程序失败。
+  sandbox创建与workspace恢复成功，但宿主冻结venv没有websockets，控制通道未建立，原生模型没有正常开始。
+  ModuleNotFoundError被包装为RuntimeTransportError；笼统agent_failed又让诊断/Manager反复修订脚本。
+  驱动在WAITING_USER时按正常取消流程收尾，CANCELLED、cleanup=0；不是需要用户补充业务信息。
+- 修复：从本地wheel把websockets15.0.1安装到本仓库独立开发venv；冻结venv按lock及已安装包清单区分，
+  不修改旧release共享venv。部署在停服务前以实际服务UID进行WebSocket preflight；依赖错误单独分类。
+  agent_runtime_unavailable直接进入明确失败，不发起付费诊断或要求用户改脚本。原生Harness记录移到实际初始化之后。
+- 加入真实loopback WebSocket握手/RPC/空闲超时测试，避免全部传输替身掩盖运行依赖缺失。
+- 技能契约审查另发现原生进程缺VIDEO_USE_STEP_INPUTS/OUTPUT及helper PYTHONPATH。通过受控配置传入
+  同一dict[str,list[str]]输入契约，拒绝越界路径；不能要求模型自行猜路径或通过重试弥补环境缺口。
+- 短暂控制断连按已确认事件游标有界重连，不再次调用turn.start；恢复失败保留明确运行时错误。
+  该逻辑的单测和之后的真实故障注入分开记录。
+
+当前线上仍为83801ee定向版本，失败案例已清理；上述后续修复待重新构建和部署，不能写成已真机通过。
+
 ## 待验证和最终规范提炼
 
 - 三Harness真实模型调用、工具后续轮次、输入输出协议与实际用量；不能只验证SDK import。

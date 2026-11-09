@@ -91,6 +91,7 @@ def public(store,run):
             if reason=='planning_contract_exhausted':terminal_notice='规划师未能形成可执行方案，已保留失败详情；请查看失败步骤后重新规划。'
             elif reason=='runtime_profile_changed':terminal_notice='执行环境版本在任务期间发生变化，旧任务不能继续复用；请创建新 revision 或新任务。'
             elif reason=='execution_failed':terminal_notice='系统执行失败，已保留错误详情；修复运行环境后请重试失败步骤。'
+            elif reason=='agent_runtime_unavailable':terminal_notice='沙箱运行环境故障，任务已停止。无需补充业务信息；请根据下方错误修复运行环境后重新执行。'
     value['terminal_notice']=terminal_notice
     revision_versions={(row['task_id'],row['revision']):row['created_graph_version'] for row in
         store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}

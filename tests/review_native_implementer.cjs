@@ -12,7 +12,7 @@ const save=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(val
   const run=await(await api(`/api/projects/${state.project}/runs/${state.run_id}`)).json(),usage=await(await api(`/api/projects/${state.project}/runs/${state.run_id}/usage`)).json();save('reviewed-run.json',run);save('usage.json',usage);
   assert.equal(run.state,'SUCCEEDED');assert.equal(run.cleanup_pending,0);
   const actual=usage.harness_runs.filter(row=>row.profile_name==='editing_implementer');assert.ok(actual.length);
-  const expected=state.expected_engine==='native-implementer-v1'?run.model_configuration.harness:state.expected_engine;assert.ok(actual.every(row=>row.harness===expected));
+  const expected=state.expected_engine==='native-implementer-v1'?run.model_configuration.roles.editing_implementer.harness:state.expected_engine;assert.ok(actual.every(row=>row.harness===expected));
   const artifacts=path.join(out,'artifacts');fs.mkdirSync(artifacts,{recursive:true});
   for(const item of run.delivery){const suffix=new URL(item.url,base+'/').pathname.replace('/distributed-agent-sandbox-backend','');const bytes=await(await api(suffix)).body();assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),item.sha256);fs.writeFileSync(path.join(artifacts,path.basename(item.name||item.file)),bytes);}
   let media=null;

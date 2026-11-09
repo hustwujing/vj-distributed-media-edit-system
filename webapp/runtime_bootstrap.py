@@ -117,8 +117,22 @@ def load_gateway(path,identity):
 
 def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
     config=load_config(path,bundle_root=bundle_root);holder={}
+    harness_config=json.loads(Path(config['harness_config']).read_text())
+    environment={'PYTHONPATH':'/opt/video-use:/opt/video-use/helpers'}
+    workspace=harness_config.get('task_workspace')
+    if workspace is not None:
+        from pathlib import PurePosixPath
+        def scoped(value):
+            return isinstance(value,str) and value.startswith('/workspace/') and '..' not in PurePosixPath(value).parts
+        if (not isinstance(workspace,dict) or set(workspace)!={'output','inputs'}
+                or not scoped(workspace['output']) or not workspace['output'].startswith('/workspace/edit/workflows/')
+                or not isinstance(workspace['inputs'],dict) or any(not isinstance(paths,list) or not paths
+                    or any(not scoped(path) for path in paths) for paths in workspace['inputs'].values())):
+            raise ValueError('Invalid frozen Task workspace contract')
+        environment.update(VIDEO_USE_STEP_OUTPUT=workspace['output'],
+            VIDEO_USE_STEP_INPUTS=json.dumps(workspace['inputs'],sort_keys=True))
     bridge=StdioHarnessBridge(config['adapter'],
-        config['adapter'].runtime_launch(config['harness_config']))
+        config['adapter'].runtime_launch(config['harness_config']),environment=environment)
     from .runtime_workspace import WorkspaceExporter
     controller=HarnessController(config['adapter'],config['profile'],bridge,
         lambda event:holder['service'].publish(event),config['binding'],

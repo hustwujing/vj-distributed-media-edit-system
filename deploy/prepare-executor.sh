@@ -20,6 +20,7 @@ setfacl -R -m u:"$deployment_user":rX,g:"$deployment_group":rX helpers reference
 # listing permission afterwards so that parent traversal cannot replace it.
 setfacl -m u:"$deployment_user":rx . webapp helpers
 runuser -u "$deployment_user" -- "$runtime_venv/bin/python" -c 'import fastapi, psycopg, redis; assert callable(redis.Redis)'
+runuser -u "$deployment_user" -- env PYTHONPATH="$PWD" "$runtime_venv/bin/python" -c 'from webapp.runtime_client import preflight; preflight()'
 setfacl -m g:"$deployment_group":r SKILL.md webapp/*.py
 setfacl -m u:"$deployment_user":r webapp/*.py
 runuser -u "$deployment_user" -- "$runtime_venv/bin/python" -c 'from webapp.model_token_estimate import tokenizer; assert tokenizer().encode_ordinary("budget probe")'

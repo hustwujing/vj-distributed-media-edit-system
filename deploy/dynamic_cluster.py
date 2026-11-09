@@ -318,14 +318,20 @@ def freeze(source_root=None):
         if run(['git','-C',source_root,'status','--porcelain']).stdout.strip():
             raise ValueError('A separate deployment source must be a clean committed checkout')
         run(['git','-C',source_root,'rev-parse','--verify','HEAD'])
-    original=common.digest(source_root,runner=run);target=ROOT/'releases'/original[:12]
+    # A copied venv is not proven complete by uv.lock alone. Bind its installed
+    # inventory too, so adding a missing dependency never silently reuses the
+    # old incomplete environment or mutates another frozen release's venv.
+    inventory=run([REPO/'.venv/bin/python','-c',
+        'import importlib.metadata as m,json,sys; print(json.dumps([sys.version,sorted((d.metadata["Name"],d.version) for d in m.distributions())]))']).stdout
+    dependency_id=hashlib.sha256((source_root/'uv.lock').read_bytes()+inventory.encode()).hexdigest()[:16]
+    original=common.digest(source_root,runner=run);target=ROOT/'releases'/(original[:12]+'-'+dependency_id[:8])
     if not target.exists():
         target.mkdir(parents=True,mode=0o755)
         for name in ('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs'):
             shutil.copytree(source_root/name,target/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
         for name in ('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore','README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md'):
             shutil.copyfile(source_root/name,target/name)
-        dependency=ROOT/'venvs'/hashlib.sha256((source_root/'uv.lock').read_bytes()).hexdigest()[:16]
+        dependency=ROOT/'venvs'/dependency_id
         if not dependency.exists():
             dependency.parent.mkdir(parents=True,exist_ok=True)
             run(['cp','-a','--reflink=auto',REPO/'.venv',dependency],timeout=180)

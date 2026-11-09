@@ -8,6 +8,24 @@ class RuntimeTransportError(ConnectionError):
     pass
 
 
+class RuntimeDependencyError(RuntimeError):
+    pass
+
+
+class RuntimeStartupError(RuntimeError):
+    pass
+
+
+def preflight():
+    try:
+        from websockets.sync.client import connect
+        from importlib.metadata import version
+        if version('websockets').split('.')[0]!='15':raise ImportError('Unsupported websockets version')
+    except ImportError as exc:
+        raise RuntimeDependencyError('执行器缺少兼容的 websockets 15 依赖，尚未启动原生 Harness；请修复部署环境。') from exc
+    return connect
+
+
 class RemoteRuntimeError(RuntimeError):
     def __init__(self,error):
         self.error=error
@@ -17,8 +35,8 @@ class RemoteRuntimeError(RuntimeError):
 class WebSocketTransport:
     """Production transport, imported lazily so protocol tests need no socket."""
     def __init__(self,url,*,headers=None,timeout=10):
+        connect=preflight()
         try:
-            from websockets.sync.client import connect
             self.socket=connect(url,additional_headers=headers or {},open_timeout=timeout,
                 close_timeout=timeout,max_size=1024*1024,proxy=None)
         except Exception as exc:raise RuntimeTransportError('Runtime WebSocket connection failed') from exc

@@ -27,6 +27,24 @@ def envelope(store,request_id,proposal=None,kind='APPLY_PLAN',**extra):
 
 
 class DynamicGraphTests(unittest.TestCase):
+    def test_native_runtime_failure_is_visible_fatal_and_never_asks_a_model_to_repair_the_script(self):
+        self.tick()
+        self.propose({'proposal_id':'runtime-failure','reason':'Create report','base_graph_version':0,
+            'add_tasks':[script(on_failure='diagnose')],'replan_after':['first']})
+        run=self.tick();task=run['tasks'][0]
+        before=len(run['control_jobs'])
+        self.orchestrator.task_failure(run,task,{'error_code':'agent_runtime_unavailable','phase':'local',
+            'error_detail':'执行器缺少 websockets 15','transient':False})
+        current=graph.get(self.store,run['id'])
+        self.assertEqual(current['tasks'][0]['status'],'failed')
+        self.assertEqual(len(current['control_jobs']),before)
+        from webapp.workflow_api import public
+        value=public(self.store,current)
+        self.assertFalse(value['decisions'])
+        self.assertIn('不需要补充任务信息',value['failure_details'][0]['message'])
+        self.assertIn('websockets',value['failure_details'][0]['message'])
+        self.assertEqual(current['terminal_reason'],'agent_runtime_unavailable')
+
     def test_initialize_upgrades_legacy_dynamic_schema_without_losing_rows(self):
         with self.store.connect() as db:
             db.execute('DROP VIEW run_work_items')

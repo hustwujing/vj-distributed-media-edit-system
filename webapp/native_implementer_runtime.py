@@ -32,7 +32,7 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
             return value['data']
         finally:self.session.files.delete(name,missing_ok=True)
 
-    def start_harness(self,profile,binding,on_event,*,restore=None):
+    def start_harness(self,profile,binding,on_event,*,restore=None,task_context=None):
         from .native_gateway import NativeAttemptGateway
         from .runtime_bootstrap import CONTROL_PORT
         from opensandbox.models.execd import RunCommandOpts
@@ -52,7 +52,9 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
         bundle=RuntimeBundle.create(identity,profile.harness,
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort},frozen,
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort,
-             'max_output_tokens':profile.budget['max_output_tokens']},gateway=self.gateway.material)
+             'max_output_tokens':profile.budget['max_output_tokens'],
+             'task_workspace':{'output':task_context['output_directory'],
+                 'inputs':{name:[item['path']] for name,item in task_context['inputs'].items()}}},gateway=self.gateway.material)
         def workspace(files):
             self._upload_tree(self.env)
             if restore:
@@ -113,6 +115,8 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
 def factory_from_environment(environ=None):
     env=os.environ if environ is None else environ
     if env.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND',env.get('VIDEO_USE_CPU_SANDBOX_BACKEND','local_bwrap'))!='opensandbox':return None
+    from .runtime_client import preflight
+    preflight()
     from .opensandbox_sdk import OpenSandboxSDK
     from .sandbox_backends import OpenSandboxClient,RequestsTransport,BackendConfigurationError
     base=env.get('VIDEO_USE_OPEN_SANDBOX_URL','');key=env.get('VIDEO_USE_OPEN_SANDBOX_API_KEY','')
