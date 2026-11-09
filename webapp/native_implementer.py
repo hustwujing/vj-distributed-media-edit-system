@@ -11,6 +11,7 @@ def instructions(profile):
     # Keep role/skill semantics; native SDKs have their own local file/shell
     # tools, not the structured loop's script/submit_result wire protocol.
     return (profile.prompt+'\n你在独立OpenSandbox中执行当前唯一Task。使用原生本地工具读取冻结输入、编写和运行代码。'
+        '工具优先：先执行满足契约所需的最小操作并自检，再做简短说明；不要用长篇分析替代实际工具调用。'
         '不能规划或发布，不调用外部生成/媒体服务，不更改验收条件。只把声明的成果写入指定output_directory，'
         '可在其中创建自检或中间文件；结束前检查每个声明文件真实存在且符合契约。'
         '最终消息说明已生成的文件及实际检查，不代表最终发布或审查通过。'
@@ -100,8 +101,13 @@ def execute(host,lease,run,task):
                 lease.check();runtime.client.close()
                 runtime.client.connect()
         if ended.get('status')!='completed':
+            error=ended.get('error')
+            if isinstance(error,dict) and error.get('code')=='STREAM_CLOSED':
+                from .runtime_client import RuntimeDependencyError
+                raise RuntimeDependencyError(
+                    '模型流未返回标准完成事件，无法确认原生 Harness 执行成功；请检查该模型与 Harness 的协议兼容性。')
             if runtime.gateway and runtime.gateway.last_error:raise runtime.gateway.last_error
-            raise RuntimeError('原生代码编辑师执行失败：'+str(ended.get('error') or ended.get('status'))[:1600])
+            raise RuntimeError('原生代码编辑师执行失败：'+str(error or ended.get('status'))[:1600])
         runtime.freeze_harness()
         runtime.begin_cleanup()  # No more model calls after the native turn.
         native_sessions.save(runtime,run,task,configuration_digest,input_digest,session,output,runtime.export_native_session())

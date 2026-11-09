@@ -13,6 +13,16 @@ from .runtime_injection import RuntimeBundle,RuntimeInjector
 from .runtime_protocol import RuntimeIdentity
 
 
+def output_token_limit(profile):
+    """Apply the same per-specialist model budget used by structured Agents."""
+    from .specialist_profiles import get
+    from .workflow_agents import model_output_limit
+    specialist=get('editing_implementer')
+    return model_output_limit(specialist,None,policy=profile.output_token_policy,
+        maximum=profile.budget['max_output_tokens'],
+        role_maximum=profile.specialist_output_tokens.get(specialist.id))
+
+
 class NativeImplementerRuntime(OpenSandboxCommandRuntime):
     is_native=True
 
@@ -53,7 +63,7 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
         bundle=RuntimeBundle.create(identity,profile.harness,
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort},frozen,
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort,
-             'max_output_tokens':profile.budget['max_output_tokens'],
+             'max_output_tokens':output_token_limit(profile),
              'task_workspace':{'output':task_context['output_directory'],
                  'inputs':{name:[item['path']] for name,item in task_context['inputs'].items()}}},gateway=self.gateway.material)
         def workspace(files):

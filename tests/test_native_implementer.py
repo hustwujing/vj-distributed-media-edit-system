@@ -111,9 +111,19 @@ class NativeSelectionTests(unittest.TestCase):
         self.assertTrue(all(item['execution_requirements']['requires_gpu']==item['gpu'] for item in operations))
         self.assertTrue(any(item['execution_requirements']['requires_gpu'] for item in operations))
 
+    def test_native_runtime_honors_model_specific_code_editor_output_limit(self):
+        from dataclasses import replace
+        from webapp.native_implementer_runtime import output_token_limit
+        profile=AgentProfile(budget={
+            'plan_seconds':240,'plan_models':14,'plan_tools':24,'plan_inspections':8,
+            'run_seconds':900,'run_models':160,'task_models':40,'max_output_tokens':16000})
+        self.assertEqual(output_token_limit(profile),12000)
+        limited=replace(profile,specialist_output_tokens={'editing_implementer':4096})
+        self.assertEqual(output_token_limit(limited),4096)
+
 
 class NativeRunnerTests(unittest.TestCase):
-    def run_case(self,status='completed',stop=False):
+    def run_case(self,status='completed',stop=False,error=None):
         from webapp.native_implementer import execute
         from webapp.specialist_profiles import for_task
         from webapp.harness_events import AgentEvent
@@ -137,7 +147,8 @@ class NativeRunnerTests(unittest.TestCase):
         def receive():
             callback[0](AgentEvent('message.delta','m',{'delta':'处理输出'}))
             callback[0](AgentEvent('message.completed','m',{'text':'结果已生成','phase':'final_answer'}))
-            callback[0](AgentEvent('turn.ended','t',{'status':status,'error':'fixture failure' if status!='completed' else None}))
+            callback[0](AgentEvent('turn.ended','t',{'status':status,
+                'error':error if error is not None else 'fixture failure' if status!='completed' else None}))
         runtime.client.receive_once.side_effect=receive
         stack.enter_context(patch('webapp.agent_profiles.for_specialist',return_value=configuration))
         stack.enter_context(patch('webapp.agent_profiles.record_attempt'))
@@ -166,6 +177,14 @@ class NativeRunnerTests(unittest.TestCase):
     def test_harness_failure_does_not_collect_or_stage_success_and_flushes_public_text(self):
         run,runtime,publisher,finish=self.run_case(status='failed')
         with self.assertRaisesRegex(RuntimeError,'fixture failure'):run()
+        finish.assert_not_called();runtime._download_output.assert_not_called()
+        publisher.flush.assert_called_with(complete=True)
+
+    def test_incomplete_model_stream_is_runtime_failure_not_script_repair(self):
+        from webapp.runtime_client import RuntimeDependencyError
+        run,runtime,publisher,finish=self.run_case(status='failed',
+            error={'code':'STREAM_CLOSED','message':'stream ended before message_stop'})
+        with self.assertRaisesRegex(RuntimeDependencyError,'协议兼容性'):run()
         finish.assert_not_called();runtime._download_output.assert_not_called()
         publisher.flush.assert_called_with(complete=True)
 
