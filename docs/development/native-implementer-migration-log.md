@@ -36,6 +36,21 @@
 | API与Worker策略摘要不一致 | 旧OpenSandbox配置只注入node env，API/Orchestrator无法冻结相同native策略 | 只把backend及无密钥镜像注册表同步到三个角色；URL、API key和TLS私钥仍不进入Orchestrator |
 | Docker internal不阻止访问宿主或同网沙箱 | internal只限制对外路由；任意原生代码仍可探测宿主监听端口和同网execd | 为专用bridge补仅模型TLS端口可达与跨沙箱隔离规则；不修改其他网络；真实探测待执行 |
 | DS镜像发布元数据协议已漂移 | 实际固定SDK走Anthropic Messages，release-spec仍登记Chat Completions | 校正为/messages、/v1/messages；实际SDK模型交互待真机 |
+| 精简网关误初始化完整媒体路由 | GatewayBusinessCore.handlers枚举媒体handler，精简模型适配对象没有这些方法 | 仅注册当前模型协议端点，保留同一forward_result业务实现；真实gVisor/TLS探测首败后修复，通过合法/错误token、错误Attempt、未授权路由和撤销检查 |
+| 宿主未加载br_netfilter | 不能假定iptables的FORWARD能检查同桥二层流量 | 使用原生nft bridge hook隔离同网sandbox，不加载模块、不改全局sysctl、不重启机器；真实同网探测通过 |
+| TLS accept可被半握手阻塞 | 在监听socket同步握手，会阻塞该Attempt的新连接 | 握手移到有界请求线程并设置5秒超时；连接名额最多4个 |
+
+真实网络探测证据：/data2/wujing03/vu-tmp/native-network-probe-004.json（002初次通过后，
+004增加邻近沙箱可服务的正向对照及已监听的宿主测试端口；003因夹具服务未就绪而失败，增加有界就绪检查）。
+该探测运行真实gVisor容器、TLS和NodeGateway授权，模型业务handler为明确的无付费替身，不能算模型案例。
+临时探测容器均已删除，原有服务未重启。专用bridge规则由独立network unit在Executor启动前恢复，
+每次原生分配前只读校验规则存在；缺失时拒绝启动，不自动放宽网络。
+
+对照测试不能只按示例名称筛选。首次agent-portrait在1139d01耗时180.536秒，产物和页面通过，
+但实际执行的是media.edit Operation，不作为Harness基线。后续NH02明确要求代码编辑师编写代码，
+确认出现editing_implementer Task后才纳入对比；两次来源/目标与运行记录分别保留。
+公开API有意不暴露完整内部Profile，驱动应读取实际usage.harness_runs及execution_location，而非访问不存在的task.profile。
+原生Attempt同时记录用户配置和专家执行身份时，usage汇总须去重，不能把同一次模型调用显示成两套Harness执行。
 
 ## 待验证和最终规范提炼
 

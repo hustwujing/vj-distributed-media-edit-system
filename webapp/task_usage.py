@@ -250,6 +250,7 @@ def _snapshot(store,task,scope,after,limit,provider_after):
         profiles=store.query(f'''SELECT p.digest,p.configuration,COUNT(DISTINCT p.attempt_id) AS attempts,
           COUNT(c.call_id) AS model_calls FROM agent_attempt_profiles p LEFT JOIN usage_calls c
           ON c.attempt_id=p.attempt_id AND c.category='llm' WHERE p.task_id IN ({marks})
+          AND NOT EXISTS(SELECT 1 FROM specialist_attempt_profiles s WHERE s.attempt_id=p.attempt_id)
           GROUP BY p.digest,p.configuration''',ids)
         for entry in profiles:
             config=json.loads(entry['configuration'])

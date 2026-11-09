@@ -9,9 +9,10 @@ def for_run(store,run):
                ROW_NUMBER() OVER (PARTITION BY step_id,task_revision
                                   ORDER BY generation DESC,started DESC,id DESC) AS position
         FROM execution_attempts WHERE run_id=?
-    ) SELECT a.*,c.id AS cleanup_id,c.external_id AS sandbox_id
+    ) SELECT a.*,c.id AS cleanup_id,c.external_id AS sandbox_id,p.harness_id AS actual_harness
       FROM ranked a LEFT JOIN execution_external_cleanup c
         ON c.id=? || a.id AND c.task_id=?
+      LEFT JOIN specialist_attempt_profiles p ON p.attempt_id=a.id
       WHERE a.position=1''',(run['id'],'opensandbox:',run['id']))
     attempts={(row['step_id'],row['task_revision']):row for row in records}
     providers={(row['step'],row['revision']):row['state'] for row in store.query(
@@ -44,6 +45,7 @@ def for_run(store,run):
                     if operation.external_side_effects or operation.execution_mode=='host_control':
                         location='executor_host'
         value={'execution_location':location,'execution_attempt_id':attempt['id'] if attempt else None}
+        if attempt and attempt.get('actual_harness'):value['execution_harness']=attempt['actual_harness']
         if agent and item.get('control_kind')!='MESSAGE':value['tool_location']=tool if attempt else location
         provider=providers.get((item['id'],item['revision']))
         if provider:value['provider_execution_state']=provider

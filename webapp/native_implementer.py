@@ -71,11 +71,13 @@ def execute(host,lease,run,task):
     deadline=time.monotonic()+min(profile.timeout_seconds,task['spec']['timeout_seconds'],configuration.budget['run_seconds'])
     try:
         runtime.start_harness(configuration,lease.backend_binding,event,restore=saved)
+        runtime.client.timeout=30
         session=runtime.client.call('session.open',{'instructions':instructions(profile),
             'session_id':saved['session_id'] if saved else None})['session_id']
         host.store.execute('UPDATE agent_attempt_profiles SET native_session_id=?,restore_mode=? WHERE attempt_id=?',
             (session,'native_resume' if saved else 'fresh_task_scope',lease.attempt))
         runtime.client.call('turn.start',{'session_id':session,'text':graph.encode(context)})
+        runtime.client.timeout=2
         while ended is None:
             lease.check()
             if host.stop.is_set():raise LeaseLost('Executor is stopping')

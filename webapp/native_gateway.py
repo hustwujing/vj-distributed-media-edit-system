@@ -75,7 +75,7 @@ class NativeAttemptGateway:
         business=GatewayBusinessCore(NativeModelGateway(lease,profile,normalize))
         routes=({'/responses','/v1/responses'} if profile.protocol=='responses' else
                 {'/messages','/v1/messages'})
-        handlers={route:handler for route,handler in business.handlers().items() if route in routes}
+        handlers={route:(lambda body,permit:business.model(business.decode(body))) for route in routes}
         self.core=NodeGatewayCore(NodeGatewayAuthorizer(self.grants),handlers)
         self.issued=authority.issue(task_id=lease.run_id,attempt_id=identity.attempt_id,
             generation=identity.generation,sandbox_id=identity.sandbox_id,source_ip=source_ip,
@@ -86,6 +86,10 @@ class NativeAttemptGateway:
         class Handler(BaseHTTPRequestHandler):
             protocol_version='HTTP/1.1'
             def log_message(self,*args):pass
+            def setup(self):
+                self.request.settimeout(5)
+                self.request.do_handshake()
+                super().setup()
             def do_GET(self):self.send_error(405)
             def do_POST(self):
                 result=None;started=False
@@ -132,7 +136,7 @@ class NativeAttemptGateway:
             except OSError as exc:
                 if exc.errno!=errno.EADDRINUSE:raise
         if self.server is None:raise RuntimeError('Native Gateway listener capacity exhausted')
-        try:self.server.socket=context.wrap_socket(self.server.socket,server_side=True)
+        try:self.server.socket=context.wrap_socket(self.server.socket,server_side=True,do_handshake_on_connect=False)
         except BaseException:self.server.server_close();raise
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True,name='attempt-model-gateway')
         self.thread.start()

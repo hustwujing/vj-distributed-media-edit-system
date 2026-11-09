@@ -173,7 +173,7 @@ def configure(seed):
         'VIDEO_USE_OPEN_SANDBOX_COMMAND_RUNTIME_PROFILE','VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST',
         'VIDEO_USE_OPEN_SANDBOX_COMMAND_BUNDLE_DIGEST','VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON',
         'VIDEO_USE_NODE_GATEWAY_BIND','VIDEO_USE_NODE_GATEWAY_SUBNET','VIDEO_USE_NODE_GATEWAY_CERT',
-        'VIDEO_USE_NODE_GATEWAY_KEY','VIDEO_USE_NODE_GATEWAY_CA'}
+        'VIDEO_USE_NODE_GATEWAY_KEY','VIDEO_USE_NODE_GATEWAY_CA','VIDEO_USE_NODE_GATEWAY_DOCKER'}
     if set(sandbox_values)-allowed_sandbox:raise ValueError('Unknown OpenSandbox runtime deployment setting')
     native_policy={key:value for key,value in sandbox_values.items() if key in (
         'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND','VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON')}
@@ -234,6 +234,27 @@ def install_units(source,config_root=None):
            NAMESPACE+'-watchdog@.service':systemd_templates.reaper_unit(config),
            NAMESPACE+'-media@.service':systemd_templates.media_unit(config),
            OBSERVER:systemd_templates.observer_unit(config)}
+    sandbox_values=env_file(CONF/'opensandbox-runtime.env') if (CONF/'opensandbox-runtime.env').exists() else {}
+    if sandbox_values.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND')=='opensandbox':
+        docker=sandbox_values.get('VIDEO_USE_NODE_GATEWAY_DOCKER','')
+        if NAMESPACE!='sandbox-agent' or not re.fullmatch(r'/[A-Za-z0-9_./-]+',docker):
+            raise ValueError('Native network guard requires the isolated namespace and absolute Docker path')
+        guard=NAMESPACE+'-native-network.service'
+        units[guard]=f'''[Unit]
+Description=Private native sandbox network guard
+After=opensandbox-docker.service
+Wants=opensandbox-docker.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory={source}
+ExecStart={source}/.venv/bin/python -m webapp.native_network --docker {docker}
+TimeoutStartSec=30
+[Install]
+WantedBy=multi-user.target
+'''
+        worker=NAMESPACE+'-executor@.service'
+        units[worker]=units[worker].replace('[Service]',f'Requires={guard}\nAfter={guard}\n[Service]',1)
     units[ORCHESTRATOR]=f'''[Unit]
 Description=Dynamic workflow deterministic orchestrator
 After=network.target video-use-db.service
