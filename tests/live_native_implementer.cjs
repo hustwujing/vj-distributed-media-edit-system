@@ -1,7 +1,7 @@
 // Actual public UI, frozen configuration, native Task and delivery acceptance.
 const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto'),assert=require('node:assert/strict');
 const {chromium}=require('playwright');
-const repo=path.resolve(__dirname,'..'),out=path.resolve(process.argv[2]||''),caseId=process.argv[3]||'NH01',profile=process.argv[4]||'claude55',engine=process.argv[5]||'native-implementer-v1';
+const repo=path.resolve(__dirname,'..'),out=path.resolve(process.argv[2]||''),caseId=process.argv[3]||'NH01',profile=process.argv[4]||'claude55',engine=process.argv[5]||'native-implementer-v1',reasoning=process.argv[6]||'high';
 assert.ok(process.argv[2]&&out.startsWith('/data2/wujing03/'));
 assert.ok(!fs.existsSync(path.join(out,'state.json')),'Never overwrite live evidence');
 const base='http://updream-lab.bilibili.co/distributed-agent-sandbox-backend',internal='http://127.0.0.1/distributed-agent-sandbox',uid=()=>crypto.randomBytes(16).toString('hex');
@@ -13,7 +13,7 @@ const goals={
 };
 assert.ok(goals[caseId],'Unknown case');
 let stop=false;process.on('SIGINT',()=>stop=true);process.on('SIGTERM',()=>stop=true);
-const state={case:caseId,profile,expected_engine:engine,status:'running',started_at:Date.now()/1000,events:[],page_errors:[]};
+const state={case:caseId,profile,reasoning_effort:reasoning,expected_engine:engine,status:'running',started_at:Date.now()/1000,events:[],page_errors:[]};
 save('state.json',state);save('release.json',JSON.parse(fs.readFileSync(path.join(repo,'.sandbox-cluster/release.json'))));
 save('driver-binding.json',{sha256:crypto.createHash('sha256').update(fs.readFileSync(__filename)).digest('hex'),goal:goals[caseId]});fs.copyFileSync(__filename,path.join(out,'driver.cjs'));
 (async()=>{
@@ -26,11 +26,11 @@ save('driver-binding.json',{sha256:crypto.createHash('sha256').update(fs.readFil
   await page.goto(base+'/');const loaded=page.waitForResponse(r=>r.request().method()==='POST'&&/\/api\/demos\/agent-portrait\/load$/.test(r.url()));await page.locator('[data-load="agent-portrait"][data-editor=chat]').first().click();assert.equal((await loaded).status(),201);await page.waitForURL('**/chat/**');state.project=new URL(page.url()).pathname.split('/').at(-1);
   await page.locator('#dynamic-input-form').waitFor();await page.locator('#dynamic-execution-settings').evaluate(n=>n.open=true);
   const choices=await(await api('GET',`/api/projects/${state.project}/runs/capabilities`)).json();save('capabilities.json',choices);
-  await page.locator('#dynamic-model-profile').selectOption(profile);await page.locator('#dynamic-reasoning-effort').selectOption('high');
+  await page.locator('#dynamic-model-profile').selectOption(profile);await page.locator('#dynamic-reasoning-effort').selectOption(reasoning);
   await page.locator('[name=delivery-target]').evaluateAll(ns=>ns.forEach(n=>n.checked=false));await page.locator('#dynamic-targets-other').fill('');await page.locator('#dynamic-input-content').fill(goals[caseId]);
   const started=page.waitForResponse(r=>r.request().method()==='POST'&&/\/runs$/.test(r.url()));await page.locator('#dynamic-input-submit').click();const response=await started;assert.equal(response.status(),202,await response.text());let current=await response.json();state.run_id=current.id;state.model_configuration=current.model_configuration;
   await context.storageState({path:path.join(out,'browser-state.json')});fs.chmodSync(path.join(out,'browser-state.json'),0o600);save('state.json',state);
-  console.log(JSON.stringify({event:'started',case:caseId,profile,project:state.project,run:state.run_id}));
+  console.log(JSON.stringify({event:'started',case:caseId,profile,reasoning,project:state.project,run:state.run_id}));
   const deadline=Date.now()+900000;let signature='',reentered=false;
   while(Date.now()<deadline&&!stop){
    current=await read();const now=JSON.stringify([current.state,current.activity,current.graph_version,current.tasks.map(t=>[t.id,t.status,t.error_code])]);
