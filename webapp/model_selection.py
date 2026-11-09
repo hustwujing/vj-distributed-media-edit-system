@@ -53,7 +53,8 @@ def resolve_roles(sandbox_configuration=None):
     from .agent_profiles import role_defaults
     registry=profiles();defaults=role_defaults();result={}
     for identifier,profile in PROFILES.items():
-        result[identifier]=(sandbox_configuration or selected()) if str(profile.role)=='IMPLEMENTER' else registry[defaults[identifier]]
+        result[identifier]=(registry[defaults[identifier]] if identifier in defaults else
+                            sandbox_configuration or selected())
     return result
 
 

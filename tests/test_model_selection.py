@@ -57,13 +57,16 @@ class ModelSelectionTests(unittest.TestCase):
 
     def test_expert_models_are_system_config_only(self):
         configured=json.dumps({'media_planner':'deepseek41','visual_quality_reviewer':'claude',
-            'media_failure_diagnostician':'deepseek41','delivery_reviewer':'claude'})
+            'media_failure_diagnostician':'deepseek41','delivery_reviewer':'claude',
+            'editing_implementer':'deepseek41'})
         with patch.dict(os.environ,{'VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON':configured}):
             run=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('claude','low')}).json()
         roles=run['model_configuration']['roles']
         self.assertEqual(roles['media_planner']['model'],'deepseek-v4.1-flash')
         self.assertEqual(roles['media_failure_diagnostician']['model'],'deepseek-v4.1-flash')
-        self.assertEqual(roles['editing_implementer']['model'],'claude-4.6-sonnet')
+        self.assertEqual(roles['editing_implementer']['model'],'deepseek-v4.1-flash')
+        self.assertEqual(agent_profiles.for_specialist(
+            self.app.state.store,run['id'],'editing_implementer').harness,'deepseek_harness')
         forged={**self.body(),'role_model_choices':{'media_planner':self.choice('claude')}}
         self.assertEqual(self.a.post(self.prefix,json=forged).status_code,422)
 

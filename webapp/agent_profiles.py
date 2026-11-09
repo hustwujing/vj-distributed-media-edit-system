@@ -161,11 +161,13 @@ def role_defaults():
     raw=os.environ.get('VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON','{}')
     if len(raw)>16384:raise ValueError('Specialist model defaults exceed limit')
     value=json.loads(raw)
-    allowed={identifier for identifier,profile in PROFILES.items() if str(profile.role)!='IMPLEMENTER'}
+    allowed=set(PROFILES)
     if not isinstance(value,dict) or not set(value)<=allowed or any(not isinstance(v,str) for v in value.values()):
         raise ValueError('Invalid specialist model defaults')
     registry=profiles();fallback=selected().name
-    result={identifier:value.get(identifier,fallback) for identifier in allowed}
+    result={identifier:value.get(identifier,fallback) for identifier,profile in PROFILES.items()
+            if str(profile.role)!='IMPLEMENTER'}
+    if 'editing_implementer' in value:result['editing_implementer']=value['editing_implementer']
     if any(name not in registry for name in result.values()):raise ValueError('Specialist model default is not registered')
     return result
 
@@ -219,9 +221,10 @@ def freeze(db, task, project, created, parent=None,*,configuration=None,role_pro
         inherited=db.execute('SELECT specialist_profile,configuration,digest FROM agent_run_role_profiles WHERE task_id=?',(parent,)).fetchall()
         for row in inherited:db.execute('INSERT INTO agent_run_role_profiles VALUES (?,?,?,?,?)',(task,row['specialist_profile'],row['configuration'],row['digest'],created))
     else:
-        configured=role_profiles or {identifier:profiles()[name] for identifier,name in role_defaults().items()}
+        configured=dict(role_profiles or {identifier:profiles()[name] for identifier,name in role_defaults().items()})
         from .specialist_profiles import PROFILES
-        configured={**configured,**{identifier:configuration or selected() for identifier,value in PROFILES.items() if str(value.role)=='IMPLEMENTER'}}
+        for identifier,value in PROFILES.items():
+            if str(value.role)=='IMPLEMENTER':configured.setdefault(identifier,configuration or selected())
         for identifier,value in configured.items():
             value=replace(value,response_transport=PROFILES[identifier].response_transport,
                 reasoning_effort=value.specialist_reasoning_effort.get(identifier,value.reasoning_effort))
