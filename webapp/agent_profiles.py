@@ -18,7 +18,9 @@ HARNESS_PROTOCOLS = {
 }
 HARNESS_EFFORTS = {'codex': {'minimal','low','medium','high','xhigh'},
                    'claude_code': {'low','medium','high','max'},
-                   'deepseek_harness': {'none','low','medium','high','max'}}
+                   # DeepSeek treats "medium" as an alias for high. Reject the
+                   # ambiguous value so role-specific latency policy is real.
+                   'deepseek_harness': {'none','low','high','max'}}
 
 
 def integer(name, default, maximum=10_000_000):

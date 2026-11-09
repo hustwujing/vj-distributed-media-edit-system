@@ -29,6 +29,8 @@ class ModelOutputBudgetTests(unittest.TestCase):
         for efforts in ({'unknown_role':'medium'},{'editing_implementer':'unbounded'},
                         {'editing_implementer':True}):
             with self.assertRaises(ValueError):replace(reasoned,specialist_reasoning_effort=efforts)
+        deepseek=AgentProfile(harness='deepseek_harness',protocol='anthropic',reasoning_effort='high')
+        with self.assertRaises(ValueError):replace(deepseek,specialist_reasoning_effort={'editing_implementer':'medium'})
 
     def test_role_phase_and_model_caps_remain_independent(self):
         planner=get('media_planner');draft=SimpleNamespace(schemas={'submit_typed_plan':{}},correction_mode=False)
