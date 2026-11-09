@@ -56,3 +56,29 @@ class OperationDeliveryNameTests(unittest.TestCase):
             elif change=='agent':altered['tasks'][0]['spec']['type']='agent'
             else:altered['goal']='Deliver final.png; image.png not for delivery'
             with self.subTest(change=change):self.assertEqual(delivery_publication_names(altered),{})
+
+    def test_applied_final_filename_change_replaces_original_name_without_losing_other_outputs(self):
+        from webapp.workflow_model_protocol import required_delivery_names
+        from webapp.workflow_agent_contracts import delivery_publication_names
+        for subject in ('最终视频文件名','最终音频名称','交付图片文件名','最终文档名称','final video filename'):
+            frozen={'goal':'最终视频命名为 original.mp4。另交付 captions.srt。',
+                    'authorization':{'delivery_targets':['renamed.mp4','captions.srt']},
+                    'user_changes':[{'sequence':1,'content':subject+' 改为 renamed.mp4，其他要求保持不变。'}]}
+            # Use the same explicit delivery vocabulary in the initial scope;
+            # unrelated subtitle delivery must survive the filename change.
+            frozen['goal']='交付 original.mp4 和 captions.srt。'
+            self.assertEqual(required_delivery_names(frozen),{'renamed.mp4','captions.srt'})
+        frozen={'goal':'最终视频命名为 original.mp4。先给方案。','authorization':{'delivery_targets':['renamed.mp4']},
+                'user_changes':[{'sequence':1,'content':'谢谢，另外请把最终视频文件名改为 renamed.mp4，其他要求保持不变。'}],
+                'tasks':[{'id':'speed','spec':{'type':'operation','delivery_stage':True},'accepted_result':['edit/final.mp4'],
+                          'quality':{'output_roles':{'video':'edit/final.mp4'}}}]}
+        self.assertEqual(required_delivery_names(frozen),{'renamed.mp4'})
+        self.assertEqual(delivery_publication_names(frozen),{'edit/final.mp4':'renamed.mp4'})
+        frozen['user_changes'].append({'sequence':2,'content':'最终视频文件名改成 latest.mp4。'})
+        frozen['authorization']['delivery_targets']=['latest.mp4']
+        self.assertEqual(required_delivery_names(frozen),{'latest.mp4'})
+        frozen['goal']='交付 main.mp4 和 trailer.mp4。'
+        frozen['user_changes']=[{'content':'最终视频文件名改为 latest.mp4。'}]
+        self.assertTrue({'main.mp4','trailer.mp4'}<=required_delivery_names(frozen),'Ambiguous rename cannot remove a sibling delivery')
+        frozen['user_changes']=[{'content':'main.mp4 改为 latest.mp4。'}]
+        self.assertEqual(required_delivery_names(frozen),{'latest.mp4','trailer.mp4'})

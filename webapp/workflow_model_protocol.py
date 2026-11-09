@@ -151,12 +151,23 @@ def required_delivery_names(frozen):
               for match in filename.finditer(clause.group(0))}
     if explicit:names=explicit
     name=r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+DELIVERY_EXTENSION_PATTERN
-    for renamed in re.finditer(rf'(?i)(?P<old>{name})\s*(?:改名为|重命名为|rename(?:d)?\s+to)\s*(?P<new>{name})',text):
-        names.discard(renamed.group('old'))
-    for renamed in re.finditer(rf'(?i)(?:最终文件|最终产物|交付文件|final\s+(?:file|output))\s*(?:改名为|重命名为|rename(?:d)?\s+to)\s*(?P<new>{name})',text):
+    verb=r'(?:改名为|重命名为|改为|改成|rename(?:d)?\s+to)'
+    subject=r'(?:(?:最终|交付)(?:的)?(?:(?:视频|音频|图片|文档|报告)(?:文件)?|文件|产物)(?:名(?:称|字)?)?|final\s+(?:(?:video|audio|image)\s+)?(?:file(?:name)?|output)(?:\s+name)?)'
+    renames=[*re.finditer(rf'(?i)(?P<old>{name})\s*{verb}\s*(?P<new>{name})',text),
+             *re.finditer(rf'(?i){subject}\s*{verb}\s*(?P<new>{name})',text)]
+    renames.sort(key=lambda match:match.start())
+    for index,renamed in enumerate(renames):
         target=renamed.group('new');extension=target.rsplit('.',1)[-1].lower()
-        for match in matches:
-            if match.start()<renamed.start() and match.group(0).rsplit('.',1)[-1].lower()==extension:names.discard(match.group(0))
+        if renamed.groupdict().get('old'):names.discard(renamed.group('old'))
+        else:
+            # Confirmed targets are concatenated before chronological changes.
+            # Do not mistake a later rename's destination for an older output.
+            future={item.group('new') for item in renames[index+1:]}
+            prior={match.group(0) for match in matches if match.start()<renamed.start()
+                   and match.group(0) in names and match.group(0).rsplit('.',1)[-1].lower()==extension}-{target}-future
+            # Multiple existing files of the same format require an explicit
+            # old name; a generic rename must not erase unrelated deliverables.
+            if len(prior)==1:names.difference_update(prior)
         names.add(target)
     return names
 
