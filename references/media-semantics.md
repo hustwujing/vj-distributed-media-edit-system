@@ -133,6 +133,15 @@ all adjustments restores the base, and changing or disabling each requested
 adjustment changes the output. A self-check claiming these properties without a
 usable reader/renderer is insufficient evidence.
 
+Replay a runnable deliverable in a clean directory containing only the files
+selected for delivery. A check in the production workspace can accidentally
+depend on staged inputs or scratch files that the recipient never receives.
+Include necessary source assets, or make the renderer actually load them from
+the delivered document/archive. A relative source filename in parameter JSON
+is a dependency, not proof that the source was delivered. Reviewers must check
+that dependency against the selected delivery set; an embedded archive member
+only satisfies it if the delivered renderer can read that member.
+
 OpenRaster baseline image layers expose position, opacity, visibility and blend
 modes; they do not by themselves implement contrast/saturation/temperature
 parameters. Custom XML attributes or an `adjustments.json` member require an
