@@ -13,6 +13,7 @@ class ProfileSkillTests(unittest.TestCase):
   manager=profiles.get('media_planner').prompt
   implementer=profiles.get('editing_implementer').prompt
   self.assertIn('audio_envelope',manager);self.assertIn('review_again',manager)
+  self.assertIn('不是用户契约',manager);self.assertIn('不要为放弃自己选择的实现再次询问用户',manager)
   self.assertIn('textbbox',implementer);self.assertIn('可见内容bbox',implementer)
 
  def test_every_script_author_and_diagnostician_receives_the_executable_runtime_contract(self):

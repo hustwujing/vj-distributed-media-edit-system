@@ -214,6 +214,9 @@ def public(store,run):
             pending=value['decisions'][0] if value['decisions'] else None
             request=(pending or {}).get('request') or {}
             title,message=waiting_guidance.get(run['terminal_reason'],('需要你的处理',request.get('question') or request.get('message') or '请确认下面列出的事项后继续。'))
+            if run['terminal_reason']=='provider_failed' and not pending:
+                first=next((item for item in value['failure_details'] if item['code']=='provider_failed'),{})
+                title='上游处理失败';message=first.get('message') or '上游任务失败且未返回具体原因，系统没有自动重复提交收费请求。'
             value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
                 'title':title,'message':message,'decision_id':pending['id'] if pending else None,
                 'details':value['failure_details'] if not pending else [],

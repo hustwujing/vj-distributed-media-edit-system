@@ -641,6 +641,8 @@ class Orchestrator:
             message=f"今日模型调用额度已用完（{data.get('quota_used',0)}/{data.get('quota_limit')}），预计约 {hours} 小时后恢复；新建一轮不会绕过额度。"
         if code=='agent_failed' and data.get('error_detail'):
             message='脚本执行失败：'+str(data['error_detail'])[:400]+'。已保留错误回执，请修正脚本后重试。'
+        if code=='provider_failed' and data.get('error_detail'):
+            message=str(data['error_detail'])[:600]+'。系统未自动重复提交收费请求；请按上游建议调整参数，或稍后重新规划。'
         if code=='agent_runtime_unavailable':
             message='系统沙箱运行环境故障：'+str(data.get('error_detail') or '原生 Harness 无法启动')[:600]+'。不需要补充任务信息，需修复运行环境后重新执行。'
         graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',

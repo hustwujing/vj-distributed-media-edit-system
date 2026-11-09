@@ -48,6 +48,14 @@ def failure_error_code(task,phase,calls,classification):
     return 'execution_failed'
 
 
+def provider_failure_detail(record):
+    from .generation_errors import failure_info
+    info=failure_info(record)
+    message=info.get('provider_message','')
+    return ('上游返回的错误：'+message if message else
+            '上游任务已取消。' if info.get('provider_status')=='cancelled' else '上游任务失败，未返回具体原因。')
+
+
 def bind_output_roles(step,files):
     from .workflow_inputs import roles
     role_map=roles(step['spec'],files,getattr(files,'roles',None))
@@ -110,7 +118,8 @@ def _execute(host,lease):
             record=implementation.invoke(adapter,'poll',view,step)
             lease.check()
             if record['status'] in ('failed','cancelled'):
-                return stage_result(store,lease,'failed',{'error_code':'provider_failed','phase':'poll'})
+                return stage_result(store,lease,'failed',{'error_code':'provider_failed','phase':'poll',
+                    'error_detail':provider_failure_detail(record)})
             if record['status']!='succeeded':
                 return stage_result(store,lease,'waiting',{'external_id':task['external_id'],'poll_after':5})
             phase='collect'

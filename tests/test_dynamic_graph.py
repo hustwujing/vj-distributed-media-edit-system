@@ -45,6 +45,21 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertIn('websockets',value['failure_details'][0]['message'])
         self.assertEqual(current['terminal_reason'],'agent_runtime_unavailable')
 
+    def test_provider_failure_shows_saved_actionable_reason_without_resubmission_prompt(self):
+        self.tick()
+        self.propose({'proposal_id':'provider-failure','reason':'Create report','base_graph_version':0,
+            'add_tasks':[script(on_failure='pause')],'replan_after':['first']})
+        run=self.tick();task=run['tasks'][0]
+        self.orchestrator.task_failure(run,task,{'error_code':'provider_failed','phase':'poll',
+            'error_detail':'上游返回的错误：GPU 显存不足，请降低质量后重试'})
+        current=graph.get(self.store,run['id'])
+        self.assertEqual(current['status'],'WAITING_USER')
+        from webapp.workflow_api import public
+        value=public(self.store,current)
+        self.assertEqual(value['blocking_action']['title'],'上游处理失败')
+        self.assertIn('GPU 显存不足',value['blocking_action']['message'])
+        self.assertIn('未自动重复提交',value['blocking_action']['message'])
+
     def test_initialize_upgrades_legacy_dynamic_schema_without_losing_rows(self):
         with self.store.connect() as db:
             db.execute('DROP VIEW run_work_items')

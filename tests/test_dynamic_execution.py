@@ -21,6 +21,14 @@ class ErrorClassificationTests(unittest.TestCase):
         self.assertTrue(transient_model_error(ReadTimeoutError(None,'/messages','timed out')))
         self.assertFalse(transient_model_error(ValueError('invalid model payload')))
 
+    def test_provider_failure_detail_is_actionable_and_redacted(self):
+        from webapp.workflow_executor import provider_failure_detail
+        message=provider_failure_detail({'status':'failed','message':'GPU 显存不足，请降低质量后重试'})
+        self.assertIn('GPU 显存不足',message);self.assertIn('降低质量',message)
+        secret='provider-secret-value-123456'
+        with patch.dict(os.environ,{'VIDEO_USE_GENERATION_KEY':secret}):
+            self.assertNotIn(secret,provider_failure_detail({'status':'failed','message':'token='+secret}))
+
 
 @unittest.skipUnless(os.geteuid()==0 and shutil.which('bwrap'),'Requires privileged sandbox')
 class DynamicExecutionTests(unittest.TestCase):
