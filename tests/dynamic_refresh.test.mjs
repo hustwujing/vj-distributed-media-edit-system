@@ -18,6 +18,7 @@ function fixture(){
   api:url=>url==='/runs'?new Promise((resolve,reject)=>requests.push({resolve,reject})):
    Promise.resolve(url.includes('/events')?{events:[]}:{id:'run',state:'ACTIVE'}),
   render:run=>{context.current=run;renders.push(run);},
+  setInterval:()=>-1,clearInterval:()=>{},
   setTimeout:fn=>{const id=++nextTimer;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id)
  });
  vm.runInContext('let inputDraftRun=null;\n'+restore+'\n'+body,context);

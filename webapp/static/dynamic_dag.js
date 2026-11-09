@@ -1,6 +1,6 @@
-const CONTROL_HEIGHT=70;
+const CONTROL_HEIGHT=122;
 const TASK_WIDTH=174;
-const TASK_HEIGHT=70;
+const TASK_HEIGHT=122;
 
 export function dagEdgePath(upstream,downstream){
  const down=downstream.y>=upstream.y+upstream.height;
@@ -67,19 +67,15 @@ export function layoutDag(tasks=[],dependencies=[],controlJobs=[],relations={}){
  const width=Math.max(TASK_WIDTH+48,Math.floor(Number(relations.viewportWidth)||760));
  const columns=Math.max(1,Math.floor((width-48+46)/(TASK_WIDTH+46)));
  const pitch=columns>1?(width-48-TASK_WIDTH)/(columns-1):0;
- const maxLevel=Math.max(0,...levels.values()),bandRows=[];
- for(const [level,group] of groups){
-  group.sort((a,b)=>(a.kind==='control'?-1:a.kind==='run'?-2:0)-(b.kind==='control'?-1:b.kind==='run'?-2:0));
-  const band=Math.floor(level/columns);bandRows[band]=Math.max(bandRows[band]||1,group.length);
- }
- let top=62;
- for(let band=0;band<=Math.floor(maxLevel/columns);band++){
-  for(let column=0;column<columns;column++){
-   const level=band*columns+column,group=groups.get(level)||[],direction=band%2?-1:1;
-   const x=columns===1?(width-TASK_WIDTH)/2:24+(direction===1?column:columns-1-column)*pitch;
-   group.forEach((node,row)=>Object.assign(node,{x,y:top+row*112,level,band,direction}));
-  }
-  top+=(bandRows[band]||1)*112+48;
- }
- return {nodes,edges,width,height:Math.max(520,top),columns};
+ // A topology level may contain many reviews/parallel Tasks. Giving that
+ // entire level one column made the right edge grow vertically forever.
+ // Place every node in the next snake cell; edges retain real dependencies.
+ const ordered=[...groups].sort(([a],[b])=>a-b).flatMap(([,group])=>group.sort((a,b)=>
+  (a.kind==='run'?-2:a.kind==='control'?-1:0)-(b.kind==='run'?-2:b.kind==='control'?-1:0)));
+ ordered.forEach((node,index)=>{
+  const band=Math.floor(index/columns),column=index%columns,direction=band%2?-1:1;
+  const x=columns===1?(width-TASK_WIDTH)/2:24+(direction===1?column:columns-1-column)*pitch;
+  Object.assign(node,{x,y:62+band*164,level:levels.get(node.id),band,direction});
+ });
+ return {nodes,edges,width,height:Math.max(520,62+Math.ceil(nodes.length/columns)*164),columns};
 }

@@ -64,8 +64,16 @@ def public(store,run):
     # Dynamic pages need authoritative attempt state to settle activity rows
     # when a worker disappears before it can publish a completion event.
     value['activity_attempts']=store.query(
-        'SELECT id,status,generation FROM execution_attempts WHERE run_id=? ORDER BY generation DESC LIMIT 1000',
+        'SELECT id,status,generation,step_id,task_revision,started,finished FROM execution_attempts WHERE run_id=? ORDER BY generation DESC LIMIT 1000',
         (run['id'],))
+    # Offsets refer to the exact joined public transcript (JS UTF-16 units).
+    # Never guess the owner of a streamed paragraph from its role or timestamp.
+    value['agent_text_spans']=[]
+    offset=0
+    for message in store.query('SELECT text,attempt FROM agent_messages WHERE task_id=? ORDER BY generation,position',(run['id'],)):
+        length=len(message['text'].encode('utf-16-le'))//2
+        value['agent_text_spans'].append({'start':offset,'end':offset+length,'attempt_id':message['attempt']})
+        offset+=length+2
     from .model_selection import for_run
     value['model_configuration']=for_run(store,run['id'])
     successors=store.query('SELECT id FROM runs WHERE parent_run_id=? ORDER BY created_at DESC LIMIT 1',(run['id'],))

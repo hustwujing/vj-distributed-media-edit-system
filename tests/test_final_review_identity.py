@@ -59,7 +59,7 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
                             'quality':{'output_roles':{'subtitle':subtitle,'report':report}}}]}
         self.assertEqual(approved_delivery_refs(snapshot),{subtitle,report})
         self.assertEqual(approved_delivery_refs({**snapshot,'delivery_targets':[targets[0]]}),{subtitle})
-        decision={'verdict':'pass','evidence':[{'criterion':snapshot['review_criteria'][0],'inspection_id':'a','ref':subtitle}],
+        decision={'verdict':'pass','evidence':[{'criterion':snapshot['review_criteria'][0],'inspection_id':'a','ref':subtitle,'method_use':'not_applicable'}],
                   'deliverables':[subtitle],'primary':subtitle}
         with self.assertRaisesRegex(ValueError,'missing required formats'):
             validate_resolved_review(decision,snapshot,{'a':subtitle,'b':report})
@@ -102,7 +102,7 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
         criteria=final_criteria({'goal':goal,'authorization':{'delivery_targets':['调整后的 PNG']}},[])
         self.assertEqual(criteria[0],'调整后的 PNG');self.assertTrue(any(goal in item for item in criteria))
         identifier='a'*32
-        decision={'verdict':'pass','evidence':[{'criterion':criteria[0],'inspection_id':identifier,'ref':'image.png'}],
+        decision={'verdict':'pass','evidence':[{'criterion':criteria[0],'inspection_id':identifier,'ref':'image.png','method_use':'not_applicable'}],
                   'deliverables':['image.png'],'primary':'image.png'}
         with self.assertRaisesRegex(ValueError,'every frozen criterion'):
             validate_resolved_review(decision,{'review_scope':'final','review_criteria':criteria},{identifier:'image.png'})

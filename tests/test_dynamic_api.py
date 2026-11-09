@@ -86,7 +86,8 @@ class DynamicAPITests(unittest.TestCase):
             ('expired-attempt',run['id'],'worker-a',0,'agent',self.app.state.store.now()-10,
              self.app.state.store.now(),'expired'))
         snapshot=self.a.get(self.prefix+'/'+run['id']).json()
-        self.assertEqual(snapshot['activity_attempts'],[{'id':'expired-attempt','status':'expired','generation':0}])
+        self.assertEqual([{k:a[k] for k in ('id','status','generation')} for a in snapshot['activity_attempts']],
+                         [{'id':'expired-attempt','status':'expired','generation':0}])
 
     def test_execution_locations_follow_actual_attempts_and_not_declared_bindings(self):
         import json
@@ -151,6 +152,26 @@ class DynamicAPITests(unittest.TestCase):
             (id,task_id,provider,external_id,state,phase,error) VALUES (?,?,?,?,?,?,?)''',
             ('opensandbox:revision-one','foreign-run','opensandbox:revision-one','foreign-sandbox','complete','deleted',''))
         self.assertEqual(snapshot()['tasks'][0]['execution_location'],'unrecorded')
+
+    def test_public_execution_clocks_and_unicode_transcript_owner_survive_reentry(self):
+        from webapp.public_messages import save
+        run=self.a.post(self.prefix,json=self.body()).json();store=self.app.state.store
+        store.execute('''INSERT INTO execution_attempts
+            (id,run_id,worker,generation,kind,started,finished,status,step_id,task_revision,runtime,uid)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?)''',
+            ('clock',run['id'],'private-worker',1,'workflow',100.,125.,'finished','step',0,'/private/runtime',720001))
+        texts=['代码编辑师：🙂第一段','代码编辑师：第二段']
+        with store.connect() as db:
+            save(db,run['id'],1,'clock',{str(i):{'text':text,'phase':'commentary','status':'completed'} for i,text in enumerate(texts)},1,125.)
+        for _ in range(2):
+            value=self.a.get(self.prefix+'/'+run['id']).json()
+            attempt=value['activity_attempts'][0]
+            self.assertEqual((attempt['started'],attempt['finished'],attempt['step_id'],attempt['task_revision']),(100.,125.,'step',0))
+            self.assertNotIn('runtime',attempt);self.assertNotIn('worker',attempt)
+            spans=value['agent_text_spans'];length=len(texts[0].encode('utf-16-le'))//2
+            self.assertEqual(spans[0],{'start':0,'end':length,'attempt_id':'clock'})
+            self.assertEqual(spans[1]['start'],length+2)
+        self.assertEqual(self.b.get(self.prefix+'/'+run['id']).status_code,404)
 
     def test_daily_quota_display_and_idempotent_create_replay(self):
         with patch.dict(os.environ,{'VIDEO_USE_USER_MODEL_DAILY':'37'}):

@@ -20,6 +20,7 @@ const server=http.createServer((req,res)=>{
    import {$,esc,href} from '/common.js';
    import {layoutDag,dagEdgePath} from '/dynamic_dag.js';
    import {executionLocation,executionPlace} from '/dynamic_locations.js';
+   import {timingMarkup,executionTimes,runTiming,updateExecutionClocks} from '/dynamic_timing.js';
    import {configurationText} from '/dynamic_models.js';
    const projectId='isolated-graph',project={assets:[]},path=suffix=>'/unused'+suffix,names={succeeded:'已完成',running:'执行中'};
    const safeName=item=>item.spec.name,activityRole=item=>item.control_kind||'代码编辑师',activityLocation=item=>executionLocation(item.execution_location).label,activityAction=item=>item.status;
@@ -31,6 +32,9 @@ const server=http.createServer((req,res)=>{
    $('dag-dialog').showModal();renderDag(current);
    window.graph=()=>({nodes:dagGraph.nodes.map(n=>({id:n.id,band:n.band,direction:n.direction,x:n.x,y:n.y})),width:dagGraph.width});
    window.updateLocation=()=>{current.tasks[0].execution_location='agent_worker';current.tasks[0].tool_location='bwrap_sandbox';renderDag(current);};
+   window.startClock=()=>{const now=Date.now()/1000;current.tasks[0].status='running';current.activity_attempts=Array.from({length:4},(_,i)=>({id:'a'+i,step_id:'task-0',task_revision:0,generation:i,started:now-40+i*5,finished:i<3?now-36+i*5:null,status:i<3?'finished':'running'}));renderDag(current);window.clockNode=document.querySelector('[data-dag-node="task-0"]');};
+   window.tick=()=>updateExecutionClocks();
+   window.stopClock=()=>{current.activity_attempts[3].finished=Date.now()/1000;current.activity_attempts[3].status='finished';current.tasks[0].status='succeeded';renderDag(current);};
    window.rerender=()=>renderDag(current);window.ready=true;
   `});
   await page.waitForFunction(()=>window.ready);
@@ -50,6 +54,14 @@ const server=http.createServer((req,res)=>{
   assert.notDeepEqual(await page.locator('[data-edge-upstream]').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('d'))),edges);
   await page.evaluate(()=>window.rerender());assert.deepEqual(await node.evaluate(n=>[n.offsetLeft,n.offsetTop]),moved);
   await page.locator('#dag-reset').click();assert.deepEqual(await node.evaluate(n=>[n.offsetLeft,n.offsetTop]),before);
+  await page.evaluate(()=>window.startClock());
+  const clocks=node.locator('.execution-time');assert.equal(await clocks.count(),3);
+  assert.doesNotMatch(await node.innerText(),/第1次/);assert.match(await node.innerText(),/第4次/);
+  const first=await clocks.last().innerText();await page.waitForTimeout(1100);await page.evaluate(()=>window.tick());
+  assert.notEqual(await clocks.last().innerText(),first);assert.equal(await node.evaluate(n=>n===window.clockNode),true,'Clock ticks must not replace the graph or move scroll');
+  const sizing=await node.evaluate(n=>({height:n.clientHeight,overflow:n.scrollHeight>n.clientHeight,rows:n.querySelector('.execution-times').scrollHeight}));
+  assert.equal(sizing.overflow,false);assert.ok(sizing.rows<=39);
+  await page.evaluate(()=>window.stopClock());const stopped=await clocks.last().innerText();await page.waitForTimeout(1100);await page.evaluate(()=>window.tick());assert.equal(await clocks.last().innerText(),stopped);
   assert.deepEqual(errors,[]);const report={passed:true,kind:'isolated_browser_actual_graph_renderer',records,location_cache_update:true,drag_edges_and_restore:true,page_errors:errors};
   if(process.argv[2])fs.writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}

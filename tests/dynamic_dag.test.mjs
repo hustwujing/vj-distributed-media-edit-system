@@ -93,3 +93,16 @@ test('historic control calls do not depend on replacement or newer task revision
  assert.ok(graph.edges.some(edge=>edge.upstream==='repair-plan'&&edge.downstream==='revised'));
  assert.ok(!graph.edges.some(edge=>edge.upstream==='revised'),'A new revision cannot cause an older review or the plan that created itself');
 });
+
+test('wide parallel and review groups fill snake rows instead of piling down one edge',()=>{
+ const tasks=Array.from({length:21},(_,i)=>task(`parallel-${i}`));
+ const graph=layoutDag(tasks,[],[],{viewportWidth:900});
+ const rows=new Map();for(const node of graph.nodes){if(!rows.has(node.y))rows.set(node.y,[]);rows.get(node.y).push(node);}
+ assert.equal(rows.size,Math.ceil(tasks.length/graph.columns));
+ const bands=[...rows.values()];
+ for(let i=0;i<bands.length;i++){
+  if(i<bands.length-1)assert.equal(bands[i].length,4);
+  for(let j=1;j<bands[i].length;j++)assert.equal(Math.sign(bands[i][j].x-bands[i][j-1].x),i%2?-1:1);
+  if(i)assert.equal(bands[i][0].x,bands[i-1].at(-1).x,'Turn straight down at the same edge');
+ }
+});

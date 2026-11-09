@@ -25,7 +25,7 @@ class DeliveryCandidateTests(unittest.TestCase):
         self.assertEqual(approved_delivery_refs(snapshot),{'movie.mp4'})
         self.assertEqual(delivery_leaf_refs(snapshot),{'render':{'movie.mp4'}})
         decision={'verdict':'pass','deliverables':['thumb.png'],'primary':'thumb.png',
-                  'evidence':[{'criterion':'成片和预览图','inspection_id':'a'*32,'ref':'thumb.png'}]}
+                  'evidence':[{'criterion':'成片和预览图','inspection_id':'a'*32,'ref':'thumb.png','method_use':'not_applicable'}]}
         with self.assertRaisesRegex(ValueError,'approved candidates'):
             validate_resolved_review(decision,snapshot,{'a'*32:'thumb.png'})
         decision.update(deliverables=['movie.mp4'],primary='movie.mp4')
