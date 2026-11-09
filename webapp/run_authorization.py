@@ -4,6 +4,7 @@ from .workflow_graph import encode
 
 def approve(store,run,authorization):
     old=run['authorization'];new=authorization.model_dump()
+    if run['scope_confirmed'] and old['delivery_targets'] and not new['delivery_targets']:raise ValueError('A confirmed delivery list cannot be cleared; stop the task instead')
     new['require_plan_confirmation']=old.get('require_plan_confirmation',False) or not run['scope_confirmed']
     if run['scope_confirmed']:
         for key in ('allowed_assets','allowed_operations','allowed_agent_profiles'):

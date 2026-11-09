@@ -14,7 +14,8 @@ def final_identity(store,run):
     from .workflow_history import plan_confirmation_evidence
     changes,truncated=applied_user_changes(store,run)
     tasks=[task for task in work_items(run) if not task.get('control_kind')]
-    return identity(store,run,{'review_scope':'final','goal':run['goal'],
+    from .effective_delivery import confirmed_scope
+    return identity(store,run,{'review_scope':'final','goal':run['goal'],'effective_delivery_scope':confirmed_scope(store,run),
         'delivery_targets':run['authorization']['delivery_targets'],
         'review_criteria':final_criteria(run,tasks),'tasks':tasks,
         'user_changes':changes,'user_changes_truncated':truncated,
@@ -77,6 +78,7 @@ def identity(store,run,frozen):
     context['plan_confirmations']={'approved_plans':process.get('approved_plans',[]),
                                  'history_truncated':bool(process.get('history_truncated'))}
     if frozen['review_scope']=='final':
+        context['effective_delivery_scope']=frozen.get('effective_delivery_scope')
         # Applied user requirements are final-review criteria, unlike bare graph
         # counters or task labels. Never reuse a verdict that predates them.
         context['user_changes']=[{'content':item.get('content',''),'source':item.get('source',''),

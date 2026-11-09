@@ -110,6 +110,10 @@ Final Reviewer的检查回执同时提供内部inspection_id、短candidate_key�
 
 ## 输入、修订与冻结授权
 
+交付清单修改必须显式确认：后续plan_confirmation优先展示本批Manager提出的完整delivery_targets，展示原/新清单及被移除的文件名、格式和角色；确认后才写新授权版本，不能因为旧清单非空而忽略新清单。自动修复不得修改交付目标。plan_change改变交付清单需绑定待处理用户输入，顶层goal改变仍创建新Run；清空已有清单拒绝，不能以空目标跳过交付。
+
+`effective_delivery.confirmed_scope`从授权历史及已批准方案回执派生最新交付变更证明；Planner、Final Reviewer、发布器共用同一证明。确认后的完整清单覆盖旧的交付名称、格式、附属角色和文件数量，不覆盖内容/方法/内部图层轨道数及技术质量要求。旧授权下已完成的交付叶节点不再强制逐个交付，但可复用合格候选；新授权下声明的交付任务仍必需，失败任务不被隐藏或当作成功。Final Review身份包含该证明，预算等无关授权变动不改变交付证明身份。
+
 普通聊天先由`workflow_messages`创建MESSAGE Control Job，复用media_planner和原模型预算，不创建业务Task、不提供媒体/规划写工具、不计规划轮次。输入先为ROUTING；reply转REPLIED并保存逐条答复，既不增加业务input_sequence也不建立屏障。只有Manager明确选择replan，或用户通过既有决策按钮提交修改时，才调用`run_inputs.activate`建立屏障及作废受影响确认。此规则替代下文历史“所有运行中输入一入队即建立屏障”的默认行为。
 
 消息按sequence串行判断，后续消息包含此前问题与答复；到安全点后才生成实际新方案。纯聊天不进入APPLIED user_changes。消息失败只更新自己的状态及可见错误，不暂停业务Run；回复中的状态标明快照时间。MESSAGE沿用Attempt/generation、账本与有界恢复，但不阻塞业务最终发布；发布先发生时，晚到的明确修改创建scope_confirmed=false的successor，不回写原交付。SUCCEEDED Run可收尾已经接收的MESSAGE，失败/取消则明确收尾未回复消息。服务端和前端都须区分业务终态与消息是否仍待回复。

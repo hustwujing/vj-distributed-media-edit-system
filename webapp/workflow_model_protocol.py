@@ -100,6 +100,11 @@ def _delivery_request_text(frozen,forbidden_names=None):
     changes=[item.get('content','') for item in records if isinstance(item,dict)]
     targets=frozen.get('delivery_targets',frozen.get('authorization',{}).get('delivery_targets',[]))
     text=' '.join([frozen.get('goal',''),*targets,*changes])
+    scope=frozen.get('effective_delivery_scope')
+    if scope and (scope.get('confirmed') or scope.get('proposed')):
+        # A confirmed complete delivery list replaces earlier delivery-list
+        # requirements only. The full goal remains in content review criteria.
+        text='；'.join('交付 '+value for value in scope['targets'])
     for value in frozen.get('input_asset_names',[]):
         if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
     for asset in frozen.get('assets',[]):
@@ -510,6 +515,8 @@ def compile_manager(command,frozen):
                   authorization_version=frozen['authorization_version'],
                   input_through_sequence=(frozen.get('input_batch') or {}).get('through_sequence',0))
     plan=command.get('plan')
+    if command.get('delivery_targets') and (frozen.get('input_batch') or {}).get('inputs'):
+        frozen={**frozen,'effective_delivery_scope':{'proposed':True,'targets':command['delivery_targets']}}
     if plan is not None:
         plan=deepcopy(plan)
         automatic,user=scopes(frozen);current={t['id']:t for t in frozen.get('tasks',[])}
@@ -879,6 +886,7 @@ class ToolProtocol:
             context['model_command_contract'].update(version='plan-draft-v1',planning=
                 'Use submit_typed_plan once with the state-allowed typed changes. The host derives continuation and atomically validates a server-owned draft. If validation reports a specific error, use only the offered replace/remove tool and then commit_plan. Draft commands never execute business work.',
                 draft_state=summary(self._draft.get('draft',self._draft)))
+            context['model_command_contract']['delivery_amendment']='For explicit user input that changes deliverables, provide delivery_targets as the complete proposed new list, preserving all unrelated outputs. The UI shows removed/added requirements and requires confirmation before it replaces the prior delivery list. Do not change it in automatic repair. Content parameters and required methods remain in the Task revision and independent review.'
         if 'complete_run' in self.schemas:
             context['model_command_contract']['planning']+=' All declared Tasks succeeded, which does not prove the entire user goal is complete. Add only remaining authorized work with submit_typed_plan; use complete_run to submit current deliverables for final review. A new Task is an addition, never an implicit replacement: all earlier delivery Tasks remain mandatory. Do not add another rendition to evade a missing repair grant or exhausted repair budget.'
         if 'submit_typed_plan' in self.schemas:

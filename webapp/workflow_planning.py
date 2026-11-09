@@ -80,6 +80,7 @@ def rebind_scope(store,raw):
 
 
 def snapshot(store,run):
+    from .effective_delivery import confirmed_scope
     from .workflow_conversation import context as conversation_context,can_respond
     from .specialist_profiles import catalogue as profiles
     from .repair_inputs import descriptors
@@ -116,6 +117,7 @@ def snapshot(store,run):
                 'roles':[role for role,path in roles.items() if path==item['name']],
                 **{key:item.get(key) for key in ('duration','width','height','fps','video','audio_track_present')}})
     return {'run_id':run['id'],'goal':run['goal'],'graph_version':run['graph_version'],
+        'effective_delivery_scope':confirmed_scope(store,run),
         'conversation_context':conversation_context(store,run),'can_respond':can_respond(run),
         'scope_confirmation_required':not run['scope_confirmed'],
         'sealed':run['sealed'],'authorization':run['authorization'],'authorization_version':run['authorization_version'],
@@ -205,6 +207,9 @@ def stage(store,lease,request_id,raw,*,draft_revision=None,draft_digest=None):
         if result.proposal and run['authorization'].get('require_plan_confirmation') and not run['authorization']['delivery_targets'] and not result.delivery_targets:
             raise PlanningScopeRequired('Supply delivery_targets with the proposed concrete outputs before asking the user to confirm the plan')
         cutoff=(frozen.get('input_batch') or {}).get('through_sequence',0)
+        if (result.delivery_targets and run['authorization']['delivery_targets']
+                and set(result.delivery_targets)!=set(run['authorization']['delivery_targets']) and not cutoff):
+            raise PlanningScopeRequired('A delivery-list change requires a frozen explicit user input and plan confirmation')
         expected={'snapshot_digest':request['snapshot_digest'],'base_graph_version':request['base_graph_version'],
                   'authorization_version':request['authorization_version'],'input_through_sequence':cutoff}
         mismatched=[name for name,value in expected.items() if getattr(result,name)!=value]
@@ -247,9 +252,10 @@ def apply(store,run,request,*,confirmed_plan=False):
     repair_scope,user_scope=scopes(frozen)
     batch=frozen.get('input_batch') or {};input_records=batch.get('inputs',[])
     from .workflow_conversation import needs_confirmation,hold_plan
-    if confirmed_plan and not run['authorization']['delivery_targets']:
+    if confirmed_plan and (not run['authorization']['delivery_targets'] or result.delivery_targets and set(result.delivery_targets)!=set(run['authorization']['delivery_targets'])):
         from .run_authorization import approve
         if not result.delivery_targets:raise ValueError('Confirmed plan has no delivery targets')
+        if run['authorization']['delivery_targets'] and not input_records:raise ValueError('Delivery amendment lacks explicit user input')
         approve(store,run,Authorization.model_validate({**run['authorization'],'delivery_targets':result.delivery_targets}))
         run=get(store,run['id'])
     proposal,tasks,revisions,edges=validate_proposal(store,run,result.proposal.model_dump(),repair_scope=repair_scope,user_revision_scope=user_scope)
@@ -360,6 +366,11 @@ def apply_control_result(store,run,request,result,frozen):
         data={'reason':result.reason,'question':result.question,'options':result.options,
               'input_through_sequence':result.input_through_sequence,'new_goal':result.new_goal}
         if result.authorization:data['authorization']=result.authorization.model_dump()
+        if result.authorization and set(result.authorization.delivery_targets)!=set(run['authorization']['delivery_targets']):
+            from .effective_delivery import change_details
+            data.update(previous_delivery_targets=run['authorization']['delivery_targets'],delivery_scope_changed=True,
+                        delivery_targets=result.authorization.delivery_targets,
+                        delivery_changes=change_details(frozen,result.authorization.delivery_targets))
         Orchestrator(store).decision(run,request_kind,data)
         if result.input_through_sequence:defer_batch(store,run,result.input_through_sequence)
     store.execute("UPDATE planner_runs SET status='applied',applied_graph_version=?,updated_at=? WHERE id=?",(run['graph_version'],now,request['id']))

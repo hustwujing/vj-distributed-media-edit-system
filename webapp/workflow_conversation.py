@@ -56,6 +56,7 @@ def needs_confirmation(run,frozen):
 
 def hold_plan(store,run,request,result,tasks):
     from .workflow_orchestrator import Orchestrator
+    frozen=json.loads(request['snapshot_json'])
     if run['input_sequence']>result.input_through_sequence:
         from .run_inputs import defer_batch
         defer_batch(store,run,result.input_through_sequence)
@@ -63,15 +64,24 @@ def hold_plan(store,run,request,result,tasks):
         store.execute("UPDATE workflow_plan_drafts SET status='EXPIRED',updated_at=? WHERE planning_request_id=?",(store.now(),request['id']))
         store.execute("UPDATE control_jobs SET status='cancelled',updated_at=? WHERE run_id=? AND id=?",(store.now(),run['id'],request['task_id']))
         return
-    targets=run['authorization']['delivery_targets'] or result.delivery_targets
+    batch=frozen.get('input_batch') or {};inputs=batch.get('inputs',[])
+    previous=run['authorization']['delivery_targets']
+    if not previous:
+        previous=next(((item.get('context') or {}).get('superseded_plan',{}).get('delivery_targets',[]) for item in reversed(inputs)
+                       if (item.get('context') or {}).get('superseded_plan')),[])
+    targets=(result.delivery_targets if inputs and result.delivery_targets else run['authorization']['delivery_targets']) or result.delivery_targets
     if not targets or any(not value.strip() or len(value)>500 for value in targets):
         raise ValueError('Plan confirmation requires nonempty delivery_targets; propose concrete outputs for the user')
+    changed=bool(inputs and previous and set(previous)!=set(targets))
+    from .effective_delivery import change_details
     Orchestrator(store).decision(run,'plan_confirmation',{
         'planning_request_id':request['id'],'proposal_digest':graph.digest(json.loads(request['proposal_json'])),
         'input_sequence':run['input_sequence'],'input_through_sequence':result.input_through_sequence,
         'content_fingerprint':graph.content_fingerprint(store,run['project_id']),
         'reason':result.reason,'question':'请核对方案、关键参数和交付内容。确认后才会执行。',
-        'delivery_targets':targets,'steps':[task.model_dump() for task in [*tasks,*result.proposal.revise_tasks]],
+        'delivery_targets':targets,'previous_delivery_targets':previous,'delivery_scope_changed':changed,
+        'delivery_changes':change_details(frozen,targets) if changed else {},
+        'steps':[task.model_dump() for task in [*tasks,*result.proposal.revise_tasks]],
         'dependencies':[edge.model_dump() for edge in result.proposal.add_dependencies]})
     store.execute("UPDATE planner_runs SET status='awaiting_confirmation' WHERE id=?",(request['id'],))
     store.execute("UPDATE control_jobs SET status='succeeded',updated_at=? WHERE run_id=? AND id=?",(store.now(),run['id'],request['task_id']))

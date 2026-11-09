@@ -53,7 +53,10 @@ def approved_delivery_refs(snapshot,*,exclude_forbidden=True):
         approved.update(path for path in accepted if path.rsplit('/',1)[-1] in requested_names
             or aliases.get(path.rsplit('.',1)[-1].lower(),path.rsplit('.',1)[-1].lower()) in requested_formats)
     forbidden=forbidden_delivery_names(snapshot) if exclude_forbidden else set()
-    return {path for path in approved if path.rsplit('/',1)[-1] not in forbidden}
+    approved={path for path in approved if path.rsplit('/',1)[-1] not in forbidden}
+    if (snapshot.get('effective_delivery_scope') or {}).get('confirmed') and requested_formats:
+        approved={path for path in approved if aliases.get(path.rsplit('.',1)[-1].lower(),path.rsplit('.',1)[-1].lower()) in requested_formats}
+    return approved
 
 
 def delivery_leaf_refs(snapshot):
@@ -62,6 +65,14 @@ def delivery_leaf_refs(snapshot):
     refs={identifier:approved_delivery_refs({**snapshot,'tasks':[task]}) for identifier,task in indexed if task.get('spec',{}).get('delivery_stage')}
     tasks={identifier:task for identifier,task in indexed if identifier in refs and
         (refs[identifier] or not approved_delivery_refs({**snapshot,'tasks':[task]},exclude_forbidden=False))}
+    scope=snapshot.get('effective_delivery_scope') or {}
+    if scope.get('confirmed'):
+        # Outputs from older grants remain available for reuse, but an explicit
+        # new complete delivery list need not include every former output leaf.
+        # Work declared under the new scope is still mandatory; failed business
+        # Tasks are never made successful or deselected by this projection.
+        tasks={identifier:task for identifier,task in tasks.items()
+               if task.get('authorization_version',scope['authorization_version'])>=scope['authorization_version']}
     graph_downstream={identifier:set() for identifier,_ in indexed}
     for edge in snapshot.get('dependencies',[]):
         upstream=edge.get('upstream_task_id') or edge.get('upstream')

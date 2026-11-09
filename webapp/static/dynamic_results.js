@@ -13,11 +13,19 @@ export function renderPlanSummary(root,run){
  return true;
 }
 
+function deliveryAmendment(request){
+ if(!request.delivery_scope_changed)return '';
+ const labels={filenames:'文件名',formats:'文件格式',roles:'交付角色'};
+ const changes=Object.entries(request.delivery_changes||{}).flatMap(([key,value])=>[
+  value.removed?.length?`移除${labels[key]||key}：${value.removed.join('、')}`:'',
+  value.added?.length?`新增${labels[key]||key}：${value.added.join('、')}`:''].filter(Boolean));
+ return `<section class="delivery-amendment"><strong>请确认交付清单变更</strong><p>原清单：${esc((request.previous_delivery_targets||[]).join('、'))}</p><p>新清单：${esc((request.delivery_targets||[]).join('、'))}</p>${changes.length?`<ul>${changes.map(text=>`<li>${esc(text)}</li>`).join('')}</ul>`:''}<p>确认后以新清单交付；未修改的内容要求及验收标准继续保留。</p></section>`;
+}
 export function confirmationDetails(decision,assets=[]){
- if(decision.kind!=='plan_confirmation')return '';
+ if(decision.kind!=='plan_confirmation')return deliveryAmendment(decision.request||{});
  const request=decision.request;
  const inputs=step=>Object.entries(step.inputs||{}).map(([role,ref])=>`${role}：${ref.asset?(assets.find(asset=>asset.id===ref.asset)?.name||ref.asset):ref.step?`${ref.step} / ${ref.role}`:ref.repair_candidate?'当前修复候选':'未指定'}`).join('；');
- return `<section class="plan-confirmation-details"><p><strong>交付内容：</strong>${esc((request.delivery_targets||[]).join('、'))}</p><ol>${(request.steps||[]).map(step=>`<li><strong>${esc(step.name)}</strong><p>${esc(step.objective)}</p>${inputs(step)?`<p>使用素材：${esc(inputs(step))}</p>`:''}${step.parameters&&Object.keys(step.parameters).length?`<details><summary>关键参数</summary><pre>${esc(JSON.stringify(step.parameters,null,2))}</pre></details>`:''}</li>`).join('')}</ol></section>`;
+ return `<section class="plan-confirmation-details">${deliveryAmendment(request)}<p><strong>交付内容：</strong>${esc((request.delivery_targets||[]).join('、'))}</p><ol>${(request.steps||[]).map(step=>`<li><strong>${esc(step.name)}</strong><p>${esc(step.objective)}</p>${inputs(step)?`<p>使用素材：${esc(inputs(step))}</p>`:''}${step.parameters&&Object.keys(step.parameters).length?`<details><summary>关键参数</summary><pre>${esc(JSON.stringify(step.parameters,null,2))}</pre></details>`:''}</li>`).join('')}</ol></section>`;
 }
 
 export function candidateItems(run){

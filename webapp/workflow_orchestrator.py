@@ -26,7 +26,8 @@ def delivery_scope(store,run):
             for value in (asset.get('name'),asset.get('filename')):
                 if value:input_names.append(value)
     changes=store.query("SELECT content FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence",(run['id'],))
-    return {**run,'input_asset_names':input_names,'user_changes':changes}
+    from .effective_delivery import confirmed_scope
+    return {**run,'input_asset_names':input_names,'user_changes':changes,'effective_delivery_scope':confirmed_scope(store,run)}
 
 
 def delivery_requirements(store,run):
@@ -434,8 +435,11 @@ class Orchestrator:
             try:authorization=planning.rebind_scope(store,payload.get('authorization'))
             except ValueError as exc:raise DecisionError('scope_invalid',str(exc)) from exc
             filling_initial_targets=not run['tasks'] and run['graph_version']==0 and not run['authorization']['delivery_targets']
-            if authorization.goal!=run['goal'] or run['scope_confirmed'] and not filling_initial_targets and authorization.delivery_targets!=run['authorization']['delivery_targets']:
-                raise ValueError('Changing the top-level goal or delivery contract requires a new Run')
+            if authorization.goal!=run['goal']:raise ValueError('Changing the top-level goal requires a new Run')
+            if run['scope_confirmed'] and not filling_initial_targets and set(authorization.delivery_targets)!=set(run['authorization']['delivery_targets']):
+                cutoff=int(request.get('input_through_sequence',0))
+                if not cutoff or not store.query("SELECT id FROM run_inputs WHERE run_id=? AND sequence<=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],cutoff)):
+                    raise ValueError('Delivery contract change requires explicit pending user input')
             owned={asset['id'] for asset in store.assets(run['project_id'])}
             if not set(authorization.allowed_assets)<=owned:raise ValueError('Foreign asset')
             if authorization.content_fingerprint!=graph.content_fingerprint(store,run['project_id']):raise DecisionError('content_changed')
@@ -462,10 +466,10 @@ class Orchestrator:
                     db.execute("UPDATE control_jobs SET status='cancelled',lease_id='',lease_generation=0,updated_at=? WHERE run_id=? AND id=? AND status NOT IN ('succeeded','failed','cancelled')",
                                (store.now(),run['id'],old['task_id']))
                     request_cleanup(db,run['id'],external=False,step_id=old['task_id'])
+            store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
             current=graph.get(store,run['id'])
             self.set_status(current,'ACTIVE','delivery_scope_confirmed')
             self.queue_review(graph.get(store,run['id']))
-            store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
             return
         elif row['kind']=='quality' and payload.get('action')=='approve':
             request=json.loads(row['request_json']);task=next(t for t in graph.work_items(run) if t['id']==request['task_id'])
@@ -933,6 +937,9 @@ class Orchestrator:
                 frozen['input_asset_names'].extend(value for value in (asset.get('name'),asset.get('filename')) if value)
         frozen['input_asset_names']=list(dict.fromkeys(frozen['input_asset_names']))
         frozen['review_scope']=purpose
+        if purpose=='final':
+            from .effective_delivery import confirmed_scope
+            frozen['effective_delivery_scope']=confirmed_scope(store,run)
         if purpose!='diagnose':
             from .workflow_history import plan_confirmation_evidence
             frozen['plan_confirmation_evidence']=plan_confirmation_evidence(store,run)
@@ -1013,12 +1020,15 @@ class Orchestrator:
                 approved={name for task in run['tasks'] for name in task['accepted_result']}
                 if set(json.loads(prior[0]['decision_json']).get('deliverables',[]))<=approved:
                     self.publish(run,prior[0]);return
+            previous=json.loads(prior[0]['decision_json'])
+            feedback=(previous.get('feedback') or '上次审查尚未证明当前结果满足已确认要求。')[:1600]
+            if previous.get('verdict')=='pass':feedback='当前产物引用与先前通过的交付选择不一致，无法沿用旧交付。'
             if subject:
                 selected=next(task for task in run['tasks'] if task['id']==subject)
                 self.decision(run,'quality_feedback',{'task_id':subject,'revision':selected['revision'],
-                    'reason':'候选和证据未变化，不能重复审查；请补充修改意见。','previous_review_id':prior[0]['id']})
+                    'reason':'候选和证据未变化，不能原样重复审查。上次反馈：'+feedback,'previous_review_id':prior[0]['id']})
             else:self.decision(run,'input_question',{'reason':'相同候选、标准和证据已有审查结论，不能重复请求内容判断。',
-                'question':'请补充需要修改的内容或新的验收证据。','previous_review_id':prior[0]['id']})
+                'question':'当前阻塞原因：'+feedback+'\n如果要继续，请针对上述问题说明修改要求或补充可验证的证据；也可以停止本次任务。原样重复提交不会改变审查结果。','previous_review_id':prior[0]['id']})
             graph.event(store,run,'review_reused_or_blocked',{'review_identity':review_identity,'previous_review_id':prior[0]['id']})
             return
         spec={'profile':policy,'request_id':identifier,
