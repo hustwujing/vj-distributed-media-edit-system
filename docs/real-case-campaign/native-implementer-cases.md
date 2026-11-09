@@ -15,4 +15,16 @@
 
 每个Harness必须有真实启动和工具后续轮次证据；只有镜像可启动不代表业务接入完成。
 阶段报告分别列业务成功、程序失败、提示词/契约失败、非程序失败、未执行与平均总耗时。
-当前未开始真机执行；本文件先登记审查矩阵，再编写驱动。
+## 迁移前基线
+
+1139d01上的NH02已完成：Run c365632c1a6446fa8011ce2e83dca4f3，248.230秒，
+实际editing_implementer使用structured-profile-v4、claude-sonnet-5-5，1次Attempt/4次模型调用。
+交付portrait.mp4为720×1280、24fps、9秒；完整解码、桌面/窄屏播放、重进及cleanup=0通过。
+独立抽帧与原素材比较确认人物完整保留、同步模糊背景和底部中文标题；中间黑场原素材也存在。
+音频包SHA256与输入完全一致：a3488e7babe8ec73e280c2f12be83b772c3d534068bef4c1854bb967ceaccdf1。
+视频215帧（源216帧），容器/音频9秒；保留这个帧数差异，不宣称逐帧字节等价。
+
+驱动首轮业务完成后误读未公开的task.profile，结果保留needs_analysis；只读review脚本随后使用实际
+usage.harness_runs完成核对，无业务重跑。证据：.sandbox-cluster/campaigns/native-implementer/baseline-NH02-001/。
+先前native-baseline-001的agent-portrait实际走media.edit Operation，仅作媒体参考，不计Harness基线。
+原生Harness业务案例尚未执行；真实网络/TLS探测另列，不计业务成功。
