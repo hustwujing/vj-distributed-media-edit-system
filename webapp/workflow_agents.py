@@ -851,7 +851,7 @@ def execute(host,lease,run,task):
             respond_reviewed=True
             conversation+='\nCandidate information-only response (not executed):'+graph.encode({
                 'reason':proposal.get('reason','')})
-            conversation+='\nRe-evaluate the complete user request before committing. If any requested artifact or state change remains, submit the executable plan instead. Call respond again only when factual information fully satisfies every requested outcome.'
+            conversation+='\nRe-evaluate the complete user request before committing. Cached or accepted data may reduce work but does not turn a requested durable result into chat text. If any requested artifact, reusable output or state change remains, submit the executable reuse/export plan instead. Call respond again only when factual information fully satisfies every requested outcome.'
             if finalize_started:finalize_calls-=1
             continue
         if finalize_started and action not in protocol.execution_actions():

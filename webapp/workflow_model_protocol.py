@@ -803,7 +803,7 @@ class ToolProtocol:
             'complete_run':'Seal only when the entire user goal and all requested deliverables are fulfilled, for independent final review. A successful partial batch may still need new Tasks. No Task or dependency changes are accepted by this tool.',
             'continue_run':'Finish this planning round without changing the graph.',
             'request_user_input':'Request information that is required before planning can continue.',
-            'respond':'Use only when every part of the request is fully satisfied by factual information and no new artifact or state change remains. A pre-execution analysis or plan does not complete a requested creation/edit; if the answer would say work is not executed, submit a plan instead. Never claim new artifacts or finish business Tasks.',
+            'respond':'Use only when every part of the request is fully satisfied by factual information and no durable result, artifact or state change remains. Reusing cached or accepted data changes implementation cost, not a requested output: plan a controlled reuse/export when the user asks the system to perform processing and produce a reusable result. A pre-execution analysis or plan does not complete requested work; if the answer would say work is not executed, submit a plan instead. Never claim new artifacts or finish business Tasks.',
             'request_authorization':'Request a complete expanded authorization.',
             'new_run_required':'Request a successor Run for a changed top-level goal.'}
         result=[{'name':name,'description':descriptions.get(name,'Append Tasks for one queried Operation to the server-owned draft.'),

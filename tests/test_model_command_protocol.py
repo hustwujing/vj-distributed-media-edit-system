@@ -880,6 +880,7 @@ class ModelCommandTests(unittest.TestCase):
         definition=next(item for item in protocol.definitions() if item['name']=='respond')
         self.assertIn('every part of the request',definition['description'])
         self.assertIn('work is not executed',definition['description'])
+        self.assertIn('Reusing cached or accepted data',definition['description'])
 
     def test_transcript_subtitles_cannot_also_claim_an_uploaded_srt_role(self):
         from webapp.operation_parameters import EditSubtitles

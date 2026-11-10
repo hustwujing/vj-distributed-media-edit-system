@@ -784,6 +784,7 @@ class DynamicGatewayTests(unittest.TestCase):
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
         self.assertEqual(len(calls),2);self.assertIn('Candidate information-only response',calls[1])
+        self.assertIn('Cached or accepted data may reduce work',calls[1])
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['kind'],'RESPOND')
 
