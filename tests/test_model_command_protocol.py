@@ -826,6 +826,13 @@ class ModelCommandTests(unittest.TestCase):
         commit=protocol.schemas['commit_plan']
         self.assertIn('delivery_contract',commit['required']);self.assertIn('DeliveryContract',commit['$defs'])
 
+    def test_respond_tool_cannot_be_described_as_pre_execution_planning(self):
+        value={**frozen(False),'graph_version':0,'can_respond':True}
+        protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN','draft':{}})
+        definition=next(item for item in protocol.definitions() if item['name']=='respond')
+        self.assertIn('every part of the request',definition['description'])
+        self.assertIn('work is not executed',definition['description'])
+
     def test_transcript_subtitles_cannot_also_claim_an_uploaded_srt_role(self):
         from webapp.operation_parameters import EditSubtitles
         with self.assertRaisesRegex(ValueError,'uploaded SRT'):
