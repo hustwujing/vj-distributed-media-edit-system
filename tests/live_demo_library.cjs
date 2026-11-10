@@ -11,11 +11,11 @@ const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const assertModelConfiguration=value=>{
  assert.equal(value.model,'claude-sonnet-5-5');
- assert.equal(value.roles.media_planner.model,'deepseek-v4.1-flash');
- assert.equal(value.roles.visual_quality_reviewer.model,'deepseek-v4.1-flash');
- assert.equal(value.roles.editing_implementer.model,'gpt-6-luna');
- assert.equal(value.roles.editing_implementer.harness,'codex');
- assert.equal(value.roles.editing_implementer.reasoning_effort,'low');
+ assert.equal(value.roles.media_planner.model,'claude-sonnet-5-5');
+ assert.equal(value.roles.visual_quality_reviewer.model,'claude-sonnet-5-5');
+ assert.equal(value.roles.editing_implementer.model,'claude-sonnet-5-5');
+ assert.equal(value.roles.editing_implementer.harness,'claude_code');
+ assert.equal(value.roles.editing_implementer.reasoning_effort,'medium');
 };
 const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
 const release=JSON.parse(fs.readFileSync(path.join(root,'.sandbox-cluster/release.json')));
