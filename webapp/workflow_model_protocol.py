@@ -408,7 +408,8 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         if kind=='text':fields['contains']['minItems']=1;required.append('contains')
         name='CommandAcceptance'+kind.title();defs[name]=obj(fields,required);variants.append({'$ref':'#/$defs/'+name})
     defs['Acceptance']={'anyOf':variants}
-    files={'type':'array','minItems':1,'maxItems':64,'items':obj({'path':{'type':'string','pattern':'^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$'},
+    files={'type':'array','minItems':1,'maxItems':64,'items':obj({'path':{'type':'string','pattern':'^[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}$',
+               'description':'A regular output file, never a directory. Put non-delivered check frames in scratch, or declare every delivered .jpg/.png file separately.'},
            'roles':{'type':'array','minItems':1,'items':{'type':'string','pattern':'^[a-z][a-z0-9_-]{0,39}$'},'maxItems':32}}),
            'description':'Declare each local output file once and its roles. The server derives outputs/output_roles.'}
     input_bindings={'type':'array','maxItems':100,'uniqueItems':True,'items':obj({

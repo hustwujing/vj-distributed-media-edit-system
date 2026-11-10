@@ -794,6 +794,8 @@ class ModelCommandTests(unittest.TestCase):
         schema=manager_schema(frozen(False))
         self.assertEqual(schema['$defs']['AgentCommandTask']['properties']['timeout_seconds']['maximum'],
                          get('editing_implementer').timeout_seconds)
+        path=schema['$defs']['AgentCommandTask']['properties']['files']['items']['properties']['path']
+        self.assertIn('never a directory',path['description'])
 
     def test_schema_feedback_names_the_actual_wrong_variant_field_without_values(self):
         from webapp.strict_schema import validation_feedback

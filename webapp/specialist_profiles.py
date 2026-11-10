@@ -113,7 +113,7 @@ PROFILES={p.id:p for p in (
         'python_modules、node_modules和system_tools只声明代码真实需要且runtime_options已登记的依赖；需要读取公网内容时列出精确HTTPS network_urls，由宿主Gateway只读访问。不得把缺库、想联网安装依赖或模型偏好伪装成GPU需求。'
         '使用image.segment_sam3时先检查图像；文本提示用简短英文主体类别，仅在区分多个候选时添加必要修饰词，不把整段外观、服装或排除条件堆进标签。合法英文也可能低匹配；no_selection后优先改用图中核实的box或points，不反复重放同一描述或全局降低阈值。只选正确主体，仍须检查蒙版，不能把文字命中当作精修验收。'
         'operation 的输出角色与技术acceptance由宿主绑定；acceptance只声明用户业务条件，文件目标由宿主统一绑定，不猜输出文件名；不填写argv或files。固定角色operation.inputs使用contract字段，动态角色使用input_bindings。'
-        'agent声明profile、input_bindings与files；每个输入包含唯一role和ref，ref只使用asset或同时使用step+role；每个文件包含path和roles，程序生成inputs、outputs与output_roles；不填写operation、implementation、argv或parameters。'
+        'agent声明profile、input_bindings与files；每个输入包含唯一role和ref，ref只使用asset或同时使用step+role；每个files.path必须是普通文件而非目录，非交付抽帧放scratch，需交付的抽帧逐个声明.jpg/.png；每个文件包含path和roles，程序生成inputs、outputs与output_roles；不填写operation、implementation、argv或parameters。'
         'agent的timeout_seconds不得超过工具Schema给出的maximum；不确定时省略并使用宿主默认值，不得自行扩大执行时限。'
         '程序验收 image/media/text/json/file 不接受 criterion；criterion 仅用于 agent/review 内容验收。'
         '专业 Agent 的结构化报告必须符合目录中的 result_schema，不能要求该 Schema 之外的字段；额外业务数据由独立脚本任务生成。'
@@ -137,6 +137,7 @@ PROFILES={p.id:p for p in (
     SpecialistProfile('editing_implementer','生成满足任务契约的本地处理实现',AgentRole.IMPLEMENTER,('INSPECT','RUN_SCRIPT','SUBMIT_RESULT'),
         '只在任务输出目录完成已授权的本地实现；使用已声明输入，不调用收费供应商，不发布最终成果。'
         '一次性检查实现所必需的输入后立即调用script；不要重复复述任务或输出长篇实现方案。script成功且输出齐全后，下一轮立即调用result；失败时只修正已返回的具体错误。'
+        '声明输出只能是普通文件，不能用同名目录代替；临时抽帧放VIDEO_USE_STEP_SCRATCH，只有逐个声明的图片文件才写入输出目录。'
         '用户要求可编辑文字/图层或保留参数时，交付实际可编辑结构及必要源素材；PNG预览和记录参数的说明文字不能独自代替可修改或开关的结构。'
         '分析报告要区分技术规格和内容质量；细节或观感改善须有实际像素/内容证据，不能仅凭分辨率、码率或音轨存在推断。抽样检查明确覆盖范围。'
         '文字替换必须从源图测量目标区域的字体字重、textbbox字高、基线和相邻间距，选择已安装的匹配字体并在提交前复测。'
