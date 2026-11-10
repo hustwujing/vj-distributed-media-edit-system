@@ -778,7 +778,7 @@ def execute(host,lease,run,task):
     text_stream=TextPublisher(store,run['id'])
     from .agent_profiles import for_specialist
     transport={'strict':for_specialist(store,run['id'],profile.id).strict_tools};contracts={}
-    output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={};script_failures={};inspection_failures={}
+    output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={};script_failures={};inspection_failures={};respond_reviewed=False
     for turn in range(profile.max_turns):
         lease.check()
         if host.stop.is_set() or time.monotonic()>deadline:raise LeaseLost('Agent stopped or timed out')
@@ -845,6 +845,15 @@ def execute(host,lease,run,task):
         if reply.get('_normalizations'):
             emit('workflow.model_command_normalized','WARNING',task_id=lease.run_id,step_id=lease.step_id,
                  normalizations=reply['_normalizations'])
+        proposal=reply.get('proposal') if action=='proposal' else None
+        if (profile.id=='media_planner' and isinstance(proposal,dict)
+                and proposal.get('kind')=='RESPOND' and not respond_reviewed):
+            respond_reviewed=True
+            conversation+='\nCandidate information-only response (not executed):'+graph.encode({
+                'reason':proposal.get('reason','')})
+            conversation+='\nRe-evaluate the complete user request before committing. If any requested artifact or state change remains, submit the executable plan instead. Call respond again only when factual information fully satisfies every requested outcome.'
+            if finalize_started:finalize_calls-=1
+            continue
         if finalize_started and action not in protocol.execution_actions():
             conversation+='\nFinalize phase: use the available submission or draft-correction tools. No script, inspect or contract action was executed. Submit the completed declared outputs or an explicit bounded result.'
             correction_rounds+=1

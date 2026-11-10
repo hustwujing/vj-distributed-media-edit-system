@@ -772,6 +772,21 @@ class DynamicGatewayTests(unittest.TestCase):
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['kind'],'REQUEST_USER_INPUT')
 
+    def test_information_response_requires_a_second_semantic_manager_confirmation(self):
+        from types import SimpleNamespace
+        import threading
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        calls=[]
+        def respond(*args,**kwargs):
+            calls.append(args[4]);protocol=kwargs['protocol']
+            return protocol.decode('respond',{'reason':'Only factual information is requested.'})
+        with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
+            execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
+        self.assertEqual(len(calls),2);self.assertIn('Candidate information-only response',calls[1])
+        staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
+        self.assertEqual(staged['kind'],'RESPOND')
+
     def test_expired_manager_lease_cannot_increment_draft_error_count(self):
         from webapp.workflow_plan_draft import record_error
         from webapp.task_leases import LeaseLost
