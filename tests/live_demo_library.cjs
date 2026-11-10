@@ -141,7 +141,8 @@ async function runCase(demo){
    const {verifyAnswerView}=require('./demo_library_answer_review.cjs');
    await verifyAnswerView(page,current,capture,()=>streams.get(base+`/api/projects/${state.project}/runs/${state.run_id}/stream`));
    assert.equal(current.cleanup_pending,0,'Answered run resources have not been cleaned');
-   save(path.join(dir,'final-run.json'),current);state.browser_verified=true;state.status='responded_pending_review';
+   save(path.join(dir,'final-run.json'),current);state.browser_verified=true;state.status='failed';state.classification='prompt_contract';
+   state.reason='A media example with declared deliverables was answered without an executable plan or artifact';throw Error(state.reason);
   }
   else{
    assert.notEqual(current.terminal_reason,'conversation_answer','A media example was answered without being executed');assert.ok(current.delivery.length,'Completed example has no delivery');
@@ -160,7 +161,7 @@ async function runCase(demo){
    assert.equal(current.cleanup_pending,0,'Terminal resources have not been cleaned');
    save(path.join(dir,'final-run.json'),current);state.browser_verified=true;state.status='passed_pending_review';
   }
- }catch(error){state.status='failed';state.classification='needs_analysis';state.reason=error.stack||error.message;await cancel();console.log(JSON.stringify({event:'failure',case:demo.id,reason:error.message}));}
+ }catch(error){state.status='failed';state.classification=state.classification||'needs_analysis';state.reason=state.reason||error.stack||error.message;await cancel();console.log(JSON.stringify({event:'failure',case:demo.id,reason:error.message}));}
  finally{state.finished_at=Date.now()/1000;state.seconds=state.finished_at-state.started_at;persist();active.delete(cancel);await context.close();results.push(state);console.log(JSON.stringify({event:'finished',case:demo.id,status:state.status,seconds:state.seconds}));}
 }
 
