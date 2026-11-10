@@ -738,6 +738,12 @@ class ToolProtocol:
             source=deepcopy(frozen.get('result_schema') or {})
             if task.get('control_kind')=='REVIEW':
                 source['properties'].pop('snapshot_digest',None);source['required']=[x for x in source.get('required',[]) if x!='snapshot_digest']
+                from .workflow_agent_contracts import review_criteria
+                criteria=review_criteria(frozen)
+                if criteria:
+                    source['properties']['evidence'].update(minItems=len(criteria),maxItems=len(criteria))
+                    source['$defs']['Evidence']['properties']['criterion_index']={'type':'integer','enum':list(range(len(criteria))),
+                        'description':'Use every frozen review criterion index exactly once.'}
                 identifiers=list(inspections or {})
                 from .workflow_agent_contracts import review_candidate_aliases
                 selections=list(review_candidate_aliases(frozen,inspections or {},candidate_keys or {}))

@@ -1058,6 +1058,15 @@ class ModelCommandTests(unittest.TestCase):
         wire['evidence'][0]['inspection_id']='c'*32
         with self.assertRaises(ValidationError):p.decode('submit_result',wire)
 
+    def test_review_tool_schema_requires_the_exact_frozen_criterion_count(self):
+        from webapp.workflow_agent_contracts import ReviewDecision
+        f=frozen();f.update(result_schema=ReviewDecision.model_json_schema(),review_scope='final',
+                            review_criteria=['first','second','third'])
+        p=ToolProtocol(profile('delivery_reviewer'),f,{'control_kind':'REVIEW'},inspections={'b'*32:'immutable.png'})
+        evidence=p.schemas['submit_result']['properties']['evidence']
+        self.assertEqual((evidence['minItems'],evidence['maxItems']),(3,3))
+        self.assertEqual(p.schemas['submit_result']['$defs']['Evidence']['properties']['criterion_index']['enum'],[0,1,2])
+
     def test_review_method_facts_are_required_and_cannot_support_a_false_pass(self):
         from webapp.workflow_agent_contracts import ReviewDecision,resolve_review,validate_resolved_review
         snapshot={'snapshot_digest':'a'*64,'review_scope':'task','review_criteria':['Use the required method output'],
