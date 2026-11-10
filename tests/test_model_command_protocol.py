@@ -776,6 +776,12 @@ class ModelCommandTests(unittest.TestCase):
         self.assertNotIn('target',image);self.assertNotIn('reviewer',image)
         self.assertIn('criterion',schema['$defs']['CommandAcceptanceAgent']['required'])
 
+    def test_agent_timeout_schema_matches_the_implementer_profile_limit(self):
+        from webapp.specialist_profiles import get
+        schema=manager_schema(frozen(False))
+        self.assertEqual(schema['$defs']['AgentCommandTask']['properties']['timeout_seconds']['maximum'],
+                         get('editing_implementer').timeout_seconds)
+
     def test_schema_feedback_names_the_actual_wrong_variant_field_without_values(self):
         from webapp.strict_schema import validation_feedback
         schema=manager_schema(frozen(False));command={'kind':'COMPLETE','reason':'Plan','plan':{'new_tasks':[{

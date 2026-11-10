@@ -421,6 +421,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
             from .specialist_profiles import PROFILES
             fields['purpose']={'type':'string','enum':['business','repair']}
             fields['profile']={'type':'string','enum':sorted(p.id for p in PROFILES.values() if p.role=='IMPLEMENTER')}
+            fields['timeout_seconds']['maximum']=min(p.timeout_seconds for p in PROFILES.values() if p.role=='IMPLEMENTER')
         if kind!='operation':
             fields.pop('inputs',None);fields['input_bindings']=deepcopy(input_bindings);fields['files']=files
         required=[key for key in task.get('required',[]) if key in fields]
