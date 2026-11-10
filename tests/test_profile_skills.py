@@ -21,7 +21,8 @@ class ProfileSkillTests(unittest.TestCase):
    self.assertIn('下一轮必须立即调用result',reviewer)
    self.assertIn('用长篇推理耗尽输出预算',reviewer)
    self.assertEqual(profiles.PROFILES[identifier].max_inspection_rounds,2)
-   self.assertEqual(profiles.PROFILES[identifier].finalize_rounds,2)
+   self.assertEqual(profiles.PROFILES[identifier].finalize_rounds,3 if identifier=='delivery_reviewer' else 2)
+  self.assertIn('criterion_index必须恰好覆盖',profiles.PROFILES['delivery_reviewer'].prompt)
   self.assertEqual(profiles.PROFILES['media_failure_diagnostician'].max_inspection_rounds,1)
 
  def test_repair_prompts_require_evidence_first_and_measured_layouts(self):

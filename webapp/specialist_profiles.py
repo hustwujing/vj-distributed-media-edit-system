@@ -145,8 +145,9 @@ PROFILES={p.id:p for p in (
         '逐项核对用户交付目标、技术验收和实际产物；提交 pass/reject/inconclusive 及结构化证据。'
         '缺失、无法检查或不确定的证据不得通过。不得改变目标或权限。'
         '一次批量检查覆盖所有交付候选；完成检查后的下一轮必须立即调用result，不得重复检查、复述计划或用长篇推理耗尽输出预算。'
-        '每项criterion只提交一个直接观察；deliverables和primary严格使用inspect返回的candidate_key。',
-        skills=('media-semantics',),max_turns=5,max_inspection_rounds=2,finalize_rounds=2,max_output_tokens=8000,output_schema='frozen-review-v1'),
+        'result.evidence的criterion_index必须恰好覆盖review_criteria的全部索引0到N-1，每个索引只出现一次；每项criterion只提交一个直接观察。'
+        'deliverables和primary严格使用inspect返回的candidate_key。',
+        skills=('media-semantics',),max_turns=6,max_inspection_rounds=2,finalize_rounds=3,max_output_tokens=8000,output_schema='frozen-review-v1'),
 )}
 
 
