@@ -43,6 +43,19 @@ def configured_budget():
     }
 
 
+def model_routes():
+    raw=os.environ.get('VIDEO_USE_MODEL_ROUTES_JSON','{}')
+    if len(raw)>16384:raise ValueError('Model route overrides exceed limit')
+    value=json.loads(raw)
+    if not isinstance(value,dict) or len(value)>32:raise ValueError('Invalid model route overrides')
+    for model,route in value.items():
+        if (not isinstance(model,str) or not model or len(model)>200 or not isinstance(route,dict)
+                or set(route)!= {'base_url','credential_env'}
+                or not all(isinstance(route[key],str) and route[key] for key in ('base_url','credential_env'))):
+            raise ValueError('Invalid model route override')
+    return value
+
+
 @dataclass(frozen=True)
 class AgentProfile:
     name: str = 'default'
@@ -140,7 +153,9 @@ def profiles():
         if not isinstance(value, dict) or 'name' in value:
             raise ValueError('Invalid Agent profile declaration')
         result[name] = AgentProfile(name=name, **value)
-    return result
+    routes=model_routes();configured_models={profile.model for profile in result.values()}
+    if set(routes)-configured_models:raise ValueError('Model route override has no registered profile')
+    return {name:replace(profile,**routes.get(profile.model,{})) for name,profile in result.items()}
 
 
 def selected(name=None):

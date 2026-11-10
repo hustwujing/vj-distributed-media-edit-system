@@ -53,6 +53,24 @@ class ModelSelectionTests(unittest.TestCase):
         self.assertNotIn('models.example',public);self.assertNotIn('responses.example',public)
         self.assertNotIn('test-model-selection-secret',public);self.assertNotIn('test-codex-route-secret',public)
 
+    def test_model_route_override_precedes_profile_default_without_becoming_public(self):
+        routes={'gpt-6-luna':{'base_url':'https://dedicated.example/v1',
+            'credential_env':'VIDEO_USE_DEDICATED_MODEL_API_KEY'}}
+        with patch.dict(os.environ,{'VIDEO_USE_MODEL_ROUTES_JSON':json.dumps(routes),
+                'VIDEO_USE_DEDICATED_MODEL_API_KEY':'dedicated-secret'}):
+            claude=agent_profiles.selected('claude55');codex=agent_profiles.selected('codex_remote')
+            self.assertEqual(claude.credentials(),('https://models.example/v1','test-model-selection-secret'))
+            self.assertEqual(codex.credentials(),('https://dedicated.example/v1','dedicated-secret'))
+        public=json.dumps(codex.public())
+        self.assertNotIn('dedicated.example',public);self.assertNotIn('dedicated-secret',public)
+
+    def test_model_route_override_rejects_unknown_models_and_inline_keys(self):
+        invalid=({'unknown':{'base_url':'https://dedicated.example/v1','credential_env':'VIDEO_USE_UNKNOWN_API_KEY'}},
+            {'gpt-6-luna':{'base_url':'https://dedicated.example/v1','api_key':'inline-secret'}})
+        for routes in invalid:
+            with self.subTest(routes=routes),patch.dict(os.environ,{'VIDEO_USE_MODEL_ROUTES_JSON':json.dumps(routes)}),self.assertRaises(ValueError):
+                agent_profiles.profiles()
+
     def test_sandbox_choice_and_system_expert_models_are_frozen_separately(self):
         response=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('deepseek41','low')})
         self.assertEqual(response.status_code,202,response.text);run=response.json();frozen=run['model_configuration']['roles']
