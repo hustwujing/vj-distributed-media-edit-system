@@ -264,10 +264,25 @@ class ModelCommandTests(unittest.TestCase):
         normalized,changes=normalize_planner_arguments('submit_typed_plan',value)
         self.assertEqual(normalized['tasks'][0]['acceptance'],[{'kind':'media','video':True}])
         self.assertNotIn('acceptance',normalized['tasks'][0]['parameters'])
-        self.assertEqual(changes,['tasks.0.parameters.acceptance->acceptance'])
+        self.assertEqual(changes,['kind_defaulted_to_apply_plan','tasks.0.parameters.acceptance->acceptance'])
         conflicting=copy.deepcopy(value);conflicting['tasks'][0]['acceptance']=[{'kind':'file'}]
         normalized,_=normalize_planner_arguments('submit_typed_plan',conflicting)
         self.assertIn('acceptance',normalized['tasks'][0]['parameters'])
+
+    def test_registered_operation_drops_only_host_owned_task_fields(self):
+        value={'tasks':[{'type':'operation','operation':'media.edit','files':[{'path':'invented.mp4'}],
+            'implementation':'invented','profile':'editing_implementer','on_failure':'pause',
+            'parameters':{'edit_plan':{'clips':[{'asset':'source'}]}},'acceptance':[{'kind':'media'}]}]}
+        normalized,changes=normalize_planner_arguments('submit_typed_plan',value)
+        task=normalized['tasks'][0]
+        for key in ('files','implementation','profile','on_failure'):self.assertNotIn(key,task)
+        self.assertIn('parameters',task);self.assertIn('acceptance',task)
+        self.assertEqual(changes,[
+            'kind_defaulted_to_apply_plan',
+            'tasks.0.files_removed_for_registered_operation',
+            'tasks.0.profile_removed_for_registered_operation',
+            'tasks.0.implementation_removed_for_registered_operation',
+            'tasks.0.on_failure_removed_for_registered_operation'])
 
     def test_structured_delivery_contract_adds_exact_names_but_not_inputs(self):
         value={'goal':'Edit source.mp4','authorization':{'delivery_targets':['video and cover']},

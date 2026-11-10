@@ -55,6 +55,10 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
         if not isinstance(task,dict):continue
         kind=task.get('type')
         if kind=='operation':
+            for key in ('files','profile','implementation','argv','outputs','output_roles','preflight','config_files',
+                        'runtime_requirements','on_failure','delivery_stage'):
+                if key in task:
+                    task.pop(key);changes.append(f'tasks.{index}.{key}_removed_for_registered_operation')
             parameters=task.get('parameters')
             if isinstance(parameters,dict) and 'acceptance' in parameters and 'acceptance' not in task:
                 task['acceptance']=parameters.pop('acceptance')
