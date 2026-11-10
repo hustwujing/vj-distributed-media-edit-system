@@ -51,6 +51,10 @@ OBSERVER=NAMESPACE+'-observer.service'
 SERVICES=APIS+WORKERS+REAPERS+MEDIA+[ORCHESTRATOR,OBSERVER]
 CAPACITY_ENV={'VIDEO_USE_CONCURRENCY':'4','VIDEO_USE_NODE_CONCURRENCY':'4','VIDEO_USE_USER_CONCURRENCY':'8',
               'VIDEO_USE_NODE_CPU_SLOTS':'12','VIDEO_USE_NODE_MEMORY_MB':'49152'}
+FROZEN_TREES=('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs')
+FROZEN_FILES=('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore',
+              'README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md',
+              'runtime/assets-manifest.json')
 run=common.run
 env_file=common.env_file
 private_env=common.private_env
@@ -332,9 +336,9 @@ def freeze(source_root=None):
     original=common.digest(source_root,runner=run);target=ROOT/'releases'/(original[:12]+'-'+dependency_id[:8])
     if not target.exists():
         target.mkdir(parents=True,mode=0o755)
-        for name in ('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs'):
+        for name in FROZEN_TREES:
             shutil.copytree(source_root/name,target/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
-        for name in ('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore','README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md'):
+        for name in FROZEN_FILES:
             shutil.copyfile(source_root/name,target/name)
         dependency=ROOT/'venvs'/dependency_id
         if not dependency.exists():
@@ -349,9 +353,9 @@ def verify(source,selection=()):
     """A readable source-only copy keeps test service identities out of deployment data."""
     import tempfile
     directory=Path(tempfile.mkdtemp(prefix='das-verify-',dir=REPO.parent/'vu-tmp'));directory.chmod(0o755)
-    for name in ('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs'):
+    for name in FROZEN_TREES:
         shutil.copytree(source/name,directory/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
-    for name in ('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore','README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md'):
+    for name in FROZEN_FILES:
         shutil.copyfile(source/name,directory/name)
     for path in directory.rglob('*'):
         if not path.is_symlink():path.chmod(0o755 if path.is_dir() or path.stat().st_mode&0o111 else 0o644)

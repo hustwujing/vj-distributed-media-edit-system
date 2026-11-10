@@ -86,5 +86,8 @@ class SandboxDeploymentProfileTests(unittest.TestCase):
             self.assertIn(['setfacl','-m','u:'+account+':--x',source/'runtime'],commands)
             self.assertIn(['setfacl','-R','-m','u:'+account+':rX',source/'runtime/public'],commands)
 
+    def test_frozen_release_includes_runtime_asset_manifest(self):
+        self.assertIn('runtime/assets-manifest.json',cluster.FROZEN_FILES)
+
 
 if __name__=='__main__':unittest.main()

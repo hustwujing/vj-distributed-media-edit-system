@@ -10,7 +10,7 @@ from tests.suite_lock import serialized
 
 
 def source_digest():
-    paths=sorted([*Path('webapp').rglob('*.py'),*Path('helpers').glob('*.py'),*Path('runtime/public').glob('*'),*Path('runtime/opensandbox').glob('*'),*Path('references').glob('*.md'),*Path('tests').glob('*.py'),*Path('tests').glob('*.mjs'),*Path('tests').glob('*.cjs'),*Path('webapp/static').glob('*.js'),*Path('webapp/static').glob('*.css'),*Path('webapp/static').glob('*.html'),*Path('deploy').glob('*.sh'),*Path('deploy').glob('*.py'),*Path('deploy').glob('*.service'),Path('pyproject.toml'),Path('uv.lock')])
+    paths=sorted([*Path('webapp').rglob('*.py'),*Path('helpers').glob('*.py'),*Path('runtime/public').glob('*'),*Path('runtime/opensandbox').glob('*'),Path('runtime/assets-manifest.json'),*Path('references').glob('*.md'),*Path('tests').glob('*.py'),*Path('tests').glob('*.mjs'),*Path('tests').glob('*.cjs'),*Path('webapp/static').glob('*.js'),*Path('webapp/static').glob('*.css'),*Path('webapp/static').glob('*.html'),*Path('deploy').glob('*.sh'),*Path('deploy').glob('*.py'),*Path('deploy').glob('*.service'),Path('pyproject.toml'),Path('uv.lock')])
     value=hashlib.sha256()
     paths+= [Path('pyproject.toml'),Path('uv.lock'),Path('deploy.sh'),*sorted(Path('deploy').glob('*.py'))]
     for path in paths:
