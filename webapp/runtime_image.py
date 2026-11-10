@@ -96,6 +96,7 @@ def build():
             raise RuntimeError('Runtime asset checksum mismatch: '+relative)
     codex=Path(os.environ.get('VIDEO_USE_CODEX_BIN',CODEX_DEFAULT)).resolve()
     executables={name:Path(shutil.which(name) or '/missing/'+name).resolve() for name in TOOLS}
+    executables['node']=(assets/'bin/node').resolve()
     executables['esbuild']=(assets/'node_modules/esbuild/bin/esbuild').resolve()
     executables['chromium']=(REPO/'runtime/public/chromium').resolve()
     missing=[name for name,path in executables.items() if not path.is_file()]
@@ -197,6 +198,7 @@ def mounts():
            '--ro-bind',str(MANIFEST.parent/'pyvenv.cfg' if (MANIFEST.parent/'pyvenv.cfg').is_file() else REPO/'runtime/public/pyvenv.cfg'),'/opt/venv/pyvenv.cfg',
            '--setenv','PYTHONHOME','/opt/python',
            '--setenv','PYTHONPYCACHEPREFIX','/tmp/pycache',
+           '--setenv','NUMBA_CACHE_DIR','/tmp/numba-cache',
            '--ro-bind',data['runtime_assets']+'/node_modules','/opt/runtime-assets/node_modules',
            '--ro-bind',data['runtime_assets']+'/ms-playwright','/opt/runtime-assets/ms-playwright',
            '--ro-bind',data['runtime_assets']+'/rembg','/opt/runtime-assets/rembg',

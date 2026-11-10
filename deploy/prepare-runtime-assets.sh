@@ -8,6 +8,7 @@ manifest="$repo/runtime/assets-manifest.json"
 
 test -d "$source_root/node_modules"
 test -d "$source_root/ms-playwright"
+test -x "$source_root/bin/node"
 test -f "$source_root/rembg/u2net.onnx"
 
 node - "$source_root" "$manifest" <<'JS'
@@ -24,6 +25,7 @@ while IFS=$'\t' read -r relative digest; do
 done < <(jq -r '.files|to_entries[]|[.key,.value]|@tsv' "$manifest")
 
 mkdir -p "$target"
+rsync -a --delete "$source_root/bin/" "$target/bin/"
 rsync -a --delete "$source_root/node_modules/" "$target/node_modules/"
 rsync -a --delete "$source_root/ms-playwright/" "$target/ms-playwright/"
 rsync -a --delete "$source_root/rembg/" "$target/rembg/"
