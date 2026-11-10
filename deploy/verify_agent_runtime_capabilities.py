@@ -34,7 +34,7 @@ def image(docker,reference,capabilities):
     result=json.loads(output)
     node_script='const r={};for(const n of '+json.dumps(capabilities['node_modules'])+'){try{require.resolve(n);r[n]=true}catch{r[n]=false}};console.log(JSON.stringify(r))'
     node_output=subprocess.check_output([docker,'run','--rm','--network','none','--read-only','--cap-drop','ALL',
-        '--security-opt','no-new-privileges','--entrypoint','/usr/bin/node',reference,'-e',node_script],text=True,timeout=120)
+        '--security-opt','no-new-privileges','--entrypoint','/usr/local/bin/node',reference,'-e',node_script],text=True,timeout=120)
     result['node_modules']=json.loads(node_output);return result
 
 
