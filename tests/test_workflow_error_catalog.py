@@ -12,7 +12,8 @@ class WorkflowErrorCatalogTests(unittest.TestCase):
             'review_incomplete','review_contract_exhausted','planning_contract_exhausted','model_result',
             'agent_failed','agent_model_transport_failed','agent_timeout','agent_turn_budget_exhausted',
             'agent_finalize_budget_exhausted','agent_contract_exhausted',
-            'agent_runtime_unavailable','runtime_profile_changed',
+            'agent_runtime_unavailable','model_provider_unauthorized','model_provider_rejected',
+            'model_rate_limited','model_service_unavailable','model_response_invalid','runtime_profile_changed',
             'policy_changed','execution_failed','invalid_result_manifest','missing_proposal',
             'model_token_budget_exhausted','budget_exhausted','daily_model_quota_exhausted'}
         self.assertEqual(TASK_FAILURE_CODES,expected)

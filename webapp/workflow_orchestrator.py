@@ -603,6 +603,8 @@ class Orchestrator:
         retry=retry or bool(not task.get('control_kind') and task['external_id'] and phase in ('poll','collect') and code in ('poll_failed','collect_failed') and task['recovery_count']<3)
         retry=retry or bool(task.get('type')=='agent' and code in ('agent_failed','agent_model_transport_failed')
                             and data.get('transient') and business_attempts<3)
+        retry=retry or bool(task.get('type')=='agent' and code in ('model_rate_limited','model_service_unavailable')
+                            and data.get('transient') and business_attempts<3)
         message=failure_message(code,data.get('error_detail'))
         if code=='execution_failed':
             detail=str(data.get('error_detail') or '')
@@ -617,6 +619,11 @@ class Orchestrator:
             message='模型服务出现瞬时故障，系统将自动重试（第 '+str(task.get('recovery_count',0)+1)+' 次）。'
         if code=='agent_model_transport_failed':
             message='模型连接中断：'+str(data.get('error_detail') or '响应流被对端关闭')[:600]+'。系统仅有界重试同一冻结请求，不会把它误报为脚本错误。'
+        if code in ('model_provider_unauthorized','model_provider_rejected','model_rate_limited',
+                    'model_service_unavailable','model_response_invalid'):
+            from .workflow_error_catalog import get as failure_definition
+            status='（HTTP '+str(data['http_status'])+'）' if data.get('http_status') else ''
+            message=failure_definition(code).message+status
         if code=='daily_model_quota_exhausted' and data.get('quota_limit') is not None:
             import time
             hours=max(1,round((float(data.get('quota_reset_at',time.time()))-time.time())/3600,1))
@@ -676,7 +683,8 @@ class Orchestrator:
                 self.queue_review(graph.get(store,run['id']),task['id'],purpose='diagnose')
                 self.set_status(graph.get(store,run['id']),'ACTIVE','failure_diagnosis')
             else:
-                fatal=(code in ('result_unavailable','agent_runtime_unavailable') or task.get('control_kind') and code in {
+                fatal=(code in ('result_unavailable','agent_runtime_unavailable','model_provider_unauthorized',
+                                'model_provider_rejected','model_response_invalid') or task.get('control_kind') and code in {
                     'agent_failed','missing_proposal','policy_changed'})
                 if fatal:
                     graph.write_work(store,task,"UPDATE run_tasks SET status='failed' WHERE run_id=? AND id=?",(run['id'],task['id']))

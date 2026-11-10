@@ -14,6 +14,19 @@ def agent_runtime_error(exc):
                            RemoteRuntimeError,BackendConfigurationError,BackendNotReady))
 
 
+def model_service_error_code(exc):
+    from .workflow_agents import ModelServiceError
+    if not isinstance(exc,ModelServiceError):return None
+    status=exc.diagnostic.get('http_status');detail=exc.diagnostic.get('code','')
+    if status in (401,403):return 'model_provider_unauthorized'
+    if status==429:return 'model_rate_limited'
+    if isinstance(status,int) and 400<=status<500:return 'model_provider_rejected'
+    if not status or isinstance(status,int) and status>=500:return 'model_service_unavailable'
+    if detail in ('model_response_incomplete','model_provider_invalid_response','model_input_count_invalid'):
+        return 'model_response_invalid'
+    return 'model_response_invalid'
+
+
 def transient_model_error(exc):
     from .runtime_client import NativeTaskTimeout
     if isinstance(exc,NativeTaskTimeout):return False
@@ -205,6 +218,8 @@ def _execute(host,lease):
             code='agent_timeout'
         elif task['type']=='agent' and agent_runtime_error(exc):
             code='agent_runtime_unavailable'
+        elif task['type']=='agent' and model_service_error_code(exc):
+            code=model_service_error_code(exc)
         elif task['type']=='agent' and transient_model:
             code='agent_model_transport_failed'
         elif isinstance(exc,TaskQuotaReached):
@@ -216,4 +231,5 @@ def _execute(host,lease):
                                          'quota_scope':getattr(exc,'diagnostic',{}).get('scope'),
                                          'quota_used':getattr(exc,'diagnostic',{}).get('used'),
                                          'quota_limit':getattr(exc,'diagnostic',{}).get('limit'),
-                                         'quota_reset_at':getattr(exc,'diagnostic',{}).get('reset_at')})
+                                         'quota_reset_at':getattr(exc,'diagnostic',{}).get('reset_at'),
+                                         'http_status':diagnostic.get('http_status')})

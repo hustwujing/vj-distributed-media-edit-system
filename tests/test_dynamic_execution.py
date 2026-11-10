@@ -34,6 +34,17 @@ class ErrorClassificationTests(unittest.TestCase):
         with patch.dict(os.environ,{'VIDEO_USE_GENERATION_KEY':secret}):
             self.assertNotIn(secret,provider_failure_detail({'status':'failed','message':'token='+secret}))
 
+    def test_model_service_failures_have_stable_non_script_categories(self):
+        from webapp.workflow_agents import ModelServiceError
+        from webapp.workflow_executor import model_service_error_code
+        expected={401:'model_provider_unauthorized',403:'model_provider_unauthorized',
+            422:'model_provider_rejected',429:'model_rate_limited',500:'model_service_unavailable',
+            0:'model_service_unavailable'}
+        for status,code in expected.items():
+            with self.subTest(status=status):self.assertEqual(model_service_error_code(ModelServiceError(status)),code)
+        self.assertEqual(model_service_error_code(ModelServiceError(200,'model_response_incomplete')),
+            'model_response_invalid')
+
 
 @unittest.skipUnless(os.geteuid()==0 and shutil.which('bwrap'),'Requires privileged sandbox')
 class DynamicExecutionTests(unittest.TestCase):
