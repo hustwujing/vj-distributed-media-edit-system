@@ -1,6 +1,7 @@
 import unittest
 from webapp.operations import get
 from webapp.workflows import Step
+from webapp.workflow_graph import DeliveryContract
 
 class OperationOutputFilenameTests(unittest.TestCase):
     def test_delivery_candidates_use_real_output_roles_over_reports_and_verify_files(self):
@@ -27,7 +28,8 @@ class OperationOutputFilenameTests(unittest.TestCase):
         return {'review_scope':'final','snapshot_digest':'f'*64,
                 'goal':'Deliver the final MP4 and include the inspection report',
                 'authorization':{'delivery_targets':[]},'assets':[],
-                'delivery_targets':['final output'],'tasks':tasks}
+                'delivery_targets':['final output'],
+                'delivery_contract':DeliveryContract(formats=['mp4'],roles=['report']).model_dump(),'tasks':tasks}
 
     def test_final_review_adds_unique_cited_required_report(self):
         from webapp.workflow_agent_contracts import resolve_review
@@ -75,6 +77,7 @@ class OperationOutputFilenameTests(unittest.TestCase):
               'accepted_result':[wav,mp3,report],
               'quality':{'output_roles':{'audio':wav,'alternate_audio':mp3,'report':report}}}
         snapshot=self.review_snapshot([task]);snapshot['goal']='Deliver WAV and MP3 plus the inspection report'
+        snapshot['delivery_contract']=DeliveryContract(formats=['wav','mp3'],roles=['report']).model_dump()
         inspections={wav_id:wav,mp3_id:mp3,report_id:report}
         keys={'delivery_1':wav_id,'delivery_2':mp3_id,'delivery_3':report_id}
         reports_only={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':'delivery_3',
@@ -97,7 +100,8 @@ class OperationOutputFilenameTests(unittest.TestCase):
             return {'id':identifier,'spec':{'delivery_stage':True,'acceptance':[{'source':'user','stage':'final','file':'*'}]},
                     'accepted_result':[reference],'quality':{'output_roles':{role:reference}}}
         snapshot=self.review_snapshot([task('burn_subs',video,'video'),task('export_srt',subtitle,'subtitle')])
-        snapshot.update(goal='Deliver the final video',delivery_targets=['成片 MP4'],authorization={'delivery_targets':['成片 MP4']},dependencies=[])
+        snapshot.update(goal='Deliver the final video',delivery_targets=['成片 MP4'],authorization={'delivery_targets':['成片 MP4']},
+                        delivery_contract=DeliveryContract(formats=['mp4']).model_dump(),dependencies=[])
         inspections={video_id:video,subtitle_id:subtitle}
         video_only={'snapshot_digest':'f'*64,'verdict':'pass','feedback':'','primary':video,'deliverables':[video],
                     'evidence':[{'criterion':'成片 MP4','method_use':'not_applicable','observation':'Video checked','inspection_id':video_id,'ref':video}]}
