@@ -7,7 +7,7 @@ from webapp import workflow_graph as graph
 from webapp.workflow_model_protocol import (manager_schema,compile_manager,ToolProtocol,CommandError,
     schema_complexity,repair_options,required_delivery_extensions,required_delivery_names,scopes,targeted_user_inputs,
     normalize_planner_arguments)
-from webapp.strict_schema import obj,schema_for,transform
+from webapp.strict_schema import obj,schema_for,transform,validation_feedback
 from webapp.model_tool_protocol import request,response,strict_unsupported
 from webapp.model_adapters import get,PublicResponseStructureError
 from webapp.specialist_profiles import get as profile
@@ -745,6 +745,19 @@ class ModelCommandTests(unittest.TestCase):
         schema=obj({'required':{'type':'string'},'optional':{'type':'integer'}},['required'])
         self.assertEqual(transform({'required':'ok'},schema),{'required':'ok'})
         with self.assertRaises(ValidationError):transform({},schema)
+
+    def test_non_strict_union_keeps_nullable_defaults_on_the_matching_invalid_branch(self):
+        schema={'anyOf':[{'type':'null'},obj({'kind':{'type':'string','enum':['media']},
+            'name':{'type':'string'},'checker':{'type':'string'}},['kind','name'])]}
+        with self.assertRaises(ValidationError) as raised:transform({'kind':'media'},schema)
+        missing={item['path'] for item in validation_feedback(raised.exception)}
+        self.assertEqual(missing,{'name'})
+
+    def test_planner_asset_reference_is_bound_to_frozen_authorized_ids(self):
+        value=frozen(False);value['assets']=[{'id':'asset-a'},{'id':'asset-b'}]
+        branch=manager_schema(value)['$defs']['InputRef']['properties']['asset']['anyOf'][0]
+        self.assertEqual(branch['enum'],['asset-a','asset-b'])
+        self.assertIn('exact authorized asset ID',branch['description'])
 
     def test_image_operation_options_are_typed_and_reject_duplicate_parameter_wrappers(self):
         from webapp.operations import catalog

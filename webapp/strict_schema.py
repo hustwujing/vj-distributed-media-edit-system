@@ -84,11 +84,26 @@ def _wire_defaults(value,node,definitions,wire_definitions,depth=0):
         return _wire_defaults(value,definitions[node['$ref'][len(prefix):]],definitions,wire_definitions,depth+1)
     for union in ('anyOf','oneOf'):
         if union in node:
+            candidates=[]
             for child in node[union]:
                 candidate=_wire_defaults(deepcopy(value),child,definitions,wire_definitions,depth+1)
                 rule=convert(child);rule['$defs']=wire_definitions
-                if Draft202012Validator(rule).is_valid(candidate):return candidate
-            return value
+                errors=list(Draft202012Validator(rule).iter_errors(candidate))
+                if not errors:return candidate
+                resolved=child
+                while '$ref' in resolved and resolved['$ref'].startswith('#/$defs/'):
+                    resolved=definitions[resolved['$ref'][8:]]
+                mismatch=0
+                expected=resolved.get('type')
+                actual='object' if isinstance(value,dict) else 'array' if isinstance(value,list) else 'null' if value is None else None
+                if expected and actual and expected!=actual:mismatch=1000
+                if isinstance(value,dict):
+                    for key in ('type','kind','mode','task_id','operation'):
+                        field=resolved.get('properties',{}).get(key,{})
+                        allowed=field.get('enum',[field['const']] if 'const' in field else [])
+                        if key in value and allowed and value[key] not in allowed:mismatch+=1000
+                candidates.append((mismatch+len(errors),candidate))
+            return min(candidates,key=lambda item:item[0])[1] if candidates else value
     if _map(node):
         if not isinstance(value,list):return value
         child=node.get('additionalProperties',{});child=child if isinstance(child,dict) else {}

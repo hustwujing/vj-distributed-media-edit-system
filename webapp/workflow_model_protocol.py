@@ -393,6 +393,11 @@ def completion_candidate(frozen):
 def manager_schema(frozen,contracts=None,*,allow_script=True):
     contracts=contracts or {}
     domain=graph.ManagerResult.model_json_schema();defs=deepcopy(domain['$defs']);task=defs['Task'];props=task['properties']
+    if 'assets' in frozen:
+        asset_ids=sorted(item['id'] for item in frozen['assets'] if isinstance(item,dict) and isinstance(item.get('id'),str))
+        asset_branch=defs['InputRef']['properties']['asset']['anyOf'][0]
+        asset_branch['enum']=asset_ids or ['__no_authorized_assets__']
+        asset_branch['description']='Use one exact authorized asset ID from this enum; never use a filename, display name or guessed ID.'
     from .quality_policy import Acceptance
     acceptance=defs['Acceptance']['properties'];variants=[]
     for kind in ('file','image','media','text','json','subtitle','agent','review'):

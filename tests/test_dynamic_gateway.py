@@ -885,12 +885,12 @@ class DynamicGatewayTests(unittest.TestCase):
         from types import SimpleNamespace
         import threading
         from unittest.mock import patch
-        from webapp.workflow_agents import execute,model_output_limit
-        from webapp.strict_schema import transform
+        from webapp.workflow_agents import execute,model_output_limit,AgentReplyError
+        from webapp.strict_schema import transform,validation_feedback
+        from jsonschema import ValidationError as SchemaError
         base={'id':'draft_report','type':'agent','profile':'editing_implementer','name':'draft report','objective':'Write the approved report',
               'files':[{'path':'report.txt','roles':['report']}],
               'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'Local deterministic report'}
-        invalid={**base,'input_bindings':[{'role':'source','ref':{'asset':'invented'}}]}
         valid={**base,'input_bindings':[{'role':'source','ref':{'asset':'asset'}}]}
         step=0;conversations=[]
         def respond(*args,**kwargs):
@@ -901,12 +901,18 @@ class DynamicGatewayTests(unittest.TestCase):
             if step==2:
                 row=self.store.query('SELECT revision,draft_json FROM workflow_plan_drafts')[0]
                 self.assertEqual(row['revision'],0);self.assertEqual(json.loads(row['draft_json'])['new_tasks'],[])
-            name='submit_typed_plan';payload={'tasks':[invalid if step==1 else valid],
+            name='submit_typed_plan';payload={'tasks':[valid],
                 'kind':'COMPLETE','reason':'Ready' if step==1 else 'Corrected'}
-            wire=transform(payload,protocol.schemas[name],encode=True);return protocol.decode(name,wire)
+            wire=transform(payload,protocol.schemas[name],encode=True)
+            if step==1:wire['tasks'][0]['input_bindings'][0]['ref']['asset']='invented'
+            try:return protocol.decode(name,wire)
+            except SchemaError as exc:
+                error=AgentReplyError('',code='invalid_tool_arguments');error.details=validation_feedback(exc)
+                raise error from None
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
-        self.assertEqual(step,2);self.assertIn('Correct only these fields',conversations[1])
+        self.assertEqual(step,2);self.assertIn('Latest tool response rejected',conversations[1])
+        self.assertIn('tasks.0.input_bindings.0.ref.asset',conversations[1])
         draft=json.loads(self.store.query('SELECT draft_json FROM workflow_plan_drafts')[0]['draft_json'])
         self.assertEqual(draft['new_tasks'][0]['input_bindings'],[{'role':'source','ref':{'asset':'asset'}}])
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
