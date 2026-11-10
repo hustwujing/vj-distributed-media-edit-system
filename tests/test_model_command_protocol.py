@@ -123,6 +123,7 @@ class ModelCommandTests(unittest.TestCase):
             'acceptance':[{'kind':'media','video':True,'width':854,'stage':'final'},{'kind':'subtitle','stage':'final'}]}
         compiled=compile_manager({'kind':'COMPLETE','reason':'Deliver both',**delivery(formats=('mp4','srt')),
                                   'plan':{'new_tasks':[task]}},value)['proposal']['add_tasks'][0]
+        self.assertEqual(compiled['on_failure'],'diagnose')
         self.assertTrue(any(check['kind']=='subtitle' and check['file']=='final.srt' for check in compiled['acceptance']))
         self.assertTrue(all(check['file']!='final.srt' for check in compiled['acceptance'] if check['kind']=='media'))
 
@@ -528,7 +529,9 @@ class ModelCommandTests(unittest.TestCase):
         f=frozen();command={'kind':'COMPLETE','reason':'Repair script','plan':{'changes':[{'task_id':'render','set':{'argv':['python','-c','print(1)']}}]}}
         schema=manager_schema(f);wire=transform(command,schema,encode=True);result=compile_manager(transform(wire,schema),f)
         revised=result['proposal']['revise_tasks'][0]
-        self.assertEqual(revised,{**f['tasks'][0]['spec'],'argv':['python','-c','print(1)']})
+        expected=graph.Task.model_validate({**f['tasks'][0]['spec'],'argv':['python','-c','print(1)'],
+                                            'on_failure':'diagnose'}).model_dump()
+        self.assertEqual(revised,expected)
         self.assertEqual(result['snapshot_digest'],'a'*64);self.assertEqual(result['base_graph_version'],3)
         self.assertEqual(result['proposal']['proposal_id'],'request-a');self.assertEqual(result['input_through_sequence'],0)
         self.assertNotIn('snapshot_digest',schema['properties'])
@@ -821,6 +824,7 @@ class ModelCommandTests(unittest.TestCase):
         schema=protocol.schemas['submit_typed_plan']
         self.assertIn('delivery_contract',schema['required'])
         self.assertNotIn('review',str(schema['$defs']['Acceptance']['anyOf']))
+        self.assertNotIn('on_failure',schema['$defs']['AgentCommandTask']['properties'])
         protocol=ToolProtocol(profile('media_planner'),first,{'control_kind':'PLAN'},
                               draft={'status':'OPEN','draft':{'new_tasks':[{'id':'existing'}]}})
         commit=protocol.schemas['commit_plan']

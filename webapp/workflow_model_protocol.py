@@ -333,8 +333,8 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         'description':'Declare each input role once. The host derives the authoritative inputs map.'}
     task_variants=[]
     irrelevant={'script':{'operation','implementation','parameters','profile','runtime_requirements'},
-                'operation':{'argv','outputs','output_roles','profile','preflight','config_files','runtime_requirements'},
-                'agent':{'argv','operation','implementation','parameters','preflight','config_files'}}
+                'operation':{'argv','outputs','output_roles','profile','preflight','config_files','runtime_requirements','on_failure'},
+                'agent':{'argv','operation','implementation','parameters','preflight','config_files','on_failure'}}
     for kind,removed in irrelevant.items():
         if kind=='script' and not allow_script:continue
         fields={key:deepcopy(value) for key,value in props.items() if key not in removed|{'outputs','output_roles','delivery_stage'}}
@@ -375,7 +375,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     patches=[]
     for index,(identifier,allowed) in enumerate(available_changes(frozen).items()):
         name='TaskChange'+str(index)
-        patch_fields={key:deepcopy(props[key]) for key in allowed if key not in ('outputs','output_roles','inputs')}
+        patch_fields={key:deepcopy(props[key]) for key in allowed if key not in ('outputs','output_roles','inputs','on_failure')}
         if 'inputs' in allowed:patch_fields['input_bindings']=deepcopy(input_bindings)
         if 'outputs' in allowed or 'output_roles' in allowed:patch_fields['files']=deepcopy(files)
         defs[name]=obj({'task_id':{'type':'string','enum':[identifier]},
@@ -481,6 +481,7 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==raw['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
+                raw['on_failure']='pause' if binding.get('external_side_effects') else 'diagnose'
                 contract=(binding.get('output_contract') or {})
                 role_filenames=contract.get('role_filenames',{})
                 contract_filenames=[name for role,name in contract.get('role_filenames',{}).items() if role!='preview']
@@ -517,6 +518,7 @@ def compile_manager(command,frozen):
                     if role in roles:raise CommandError('duplicate_output_role','plan.new_tasks.files.roles','Each role identifies exactly one file')
                     roles[role]=item['path']
             if task['type']!='operation':
+                raw['on_failure']='diagnose'
                 if 'report' in required_delivery_roles(frozen) and 'report' not in roles:
                     reports={path for role,path in roles.items() if role.endswith('_report')}
                     if len(reports)==1:roles['report']=reports.pop()
@@ -558,6 +560,11 @@ def compile_manager(command,frozen):
             invalid=set(patch)-set(allowed[identifier])
             if invalid:raise CommandError('frozen_field_change','plan.changes.set.'+sorted(invalid)[0],'This field is frozen; use an authorized replacement if its contract must change')
             revised={**deepcopy(current[identifier]['spec']),**patch}
+            if revised['type']=='operation':
+                binding=next((op for op in frozen.get('operations',[]) if op['id']==revised['operation']),None)
+                if not binding:raise CommandError('operation_unavailable','plan.changes.task_id','Operation is outside the frozen capability index')
+                revised['on_failure']='pause' if binding.get('external_side_effects') else 'diagnose'
+            else:revised['on_failure']='diagnose'
             if revised['type']=='agent':
                 outputs=list(revised.get('outputs',[]));roles=dict(revised.get('output_roles',{}))
                 bind_explicit_delivery_names(revised,outputs,roles,frozen)

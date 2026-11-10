@@ -72,7 +72,8 @@ IMAGE_OPTION_MODELS={'segment_sam3':SegmentOptions,'refine_mask':RefineMaskOptio
 
 class Render(Parameters):
     segments:list[Segment]=Field(min_length=1,max_length=100)
-    overlays:list[Overlay]=Field(default_factory=list,max_length=8)
+    overlays:list[Overlay]=Field(default_factory=list,max_length=8,
+        description='Timed picture-in-picture overlays composited over the segment timeline. Use this for an inset that appears at a requested output time; media.edit clips never provide timed overlay semantics.')
     grade:Literal['none','auto','subtle','neutral_punch','warm_cinematic']='none'
     quality:Literal['draft','preview','final']=Field(default='draft',description='Resolution preset: draft scales the long edge to 1280; preview/final to 1920. Does NOT preserve input size. Use media.edit with explicit output geometry for other dimensions.')
     fps:str=Field(default='',pattern=r'^(|24|25|30|50|60|24000/1001|30000/1001|60000/1001)$')
@@ -192,10 +193,12 @@ class EditSubtitles(Parameters):
 
 class EditPlan(Parameters):
     version:Literal[1]|None=None
-    clips:list[EditClip]=Field(min_length=1,max_length=100)
+    clips:list[EditClip]=Field(min_length=1,max_length=100,
+        description='Timeline clips assembled by layout. sequence concatenates durations; horizontal/vertical/grid place clips in a persistent multi-panel layout. A second clip is never a timed picture-in-picture overlay; use media.render.overlays for that.')
     output:EditOutput=Field(default_factory=EditOutput)
     transition:EditTransition=Field(default_factory=EditTransition)
-    layout:Literal['sequence','horizontal','vertical','grid']='sequence'
+    layout:Literal['sequence','horizontal','vertical','grid']=Field(default='sequence',
+        description='Assembly mode for every declared clip, not a timed overlay mode.')
     split_audio:int=Field(default=0,ge=0,le=99)
     audio:EditAudio=Field(default_factory=EditAudio)
     masks:list[EditMask]=Field(default_factory=list,max_length=30)
