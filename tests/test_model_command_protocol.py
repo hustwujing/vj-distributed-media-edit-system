@@ -185,7 +185,6 @@ class ModelCommandTests(unittest.TestCase):
         value['trigger']={'completed':['render']};value['input_batch']=None
         protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
         self.assertIn('complete_run',protocol.schemas)
-        self.assertNotIn('submit_typed_plan',protocol.schemas)
         self.assertIn('submit_typed_plan',protocol.schemas)
         result=protocol.decode('complete_run',{'reason':'All declared work completed'})['proposal']
         self.assertEqual(result['kind'],'COMPLETE')
@@ -232,6 +231,7 @@ class ModelCommandTests(unittest.TestCase):
         value['tasks'].append(evidence)
         protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
         self.assertIn('complete_run',protocol.schemas)
+        self.assertNotIn('submit_typed_plan',protocol.schemas)
         result=protocol.decode('complete_run',{'reason':'New evidence is accepted; request independent final review'})['proposal']
         self.assertEqual(result['kind'],'COMPLETE');self.assertTrue(result['proposal']['sealed'])
         with self.assertRaises(CommandError) as error:
@@ -1110,6 +1110,9 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(result['decision']['snapshot_digest'],'a'*64)
         wire['evidence'][0]['inspection_id']='c'*32
         with self.assertRaises(ValidationError):p.decode('submit_result',wire)
+        supporting=copy.deepcopy(value);supporting['evidence'][0]['supporting_inspection_ids']=['b'*32]
+        decoded=p.decode('submit_result',supporting)
+        self.assertEqual(decoded['decision']['evidence'][0]['supporting_inspection_ids'],['b'*32])
 
     def test_review_tool_schema_requires_the_exact_frozen_criterion_count(self):
         from webapp.workflow_agent_contracts import ReviewDecision

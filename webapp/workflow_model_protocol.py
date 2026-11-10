@@ -681,6 +681,8 @@ class ToolProtocol:
                 selections=list(review_candidate_aliases(frozen,inspections or {},candidate_keys or {}))
                 if 'Evidence' in source.get('$defs',{}):
                     source['$defs']['Evidence']['properties']['inspection_id']={'type':'string','enum':identifiers or ['__no_completed_inspections__']}
+                    source['$defs']['Evidence']['properties']['supporting_inspection_ids']['items']={
+                        'type':'string','enum':identifiers or ['__no_completed_inspections__']}
                 source['properties']['deliverables']['items']={'type':'string','enum':selections or ['__no_eligible_delivery_candidates__']}
                 source['properties']['primary']={'type':'string','enum':['',*selections]}
                 if frozen.get('review_scope')=='task':source['properties']['deliverables']['maxItems']=0;source['properties']['primary']['enum']=['']

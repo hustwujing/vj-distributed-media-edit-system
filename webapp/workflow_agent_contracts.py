@@ -127,7 +127,14 @@ class Evidence(Contract):
     criterion_index:int=Field(ge=0,le=99,description='Zero-based index in the frozen review_criteria/delivery_targets list.')
     observation:str=Field(min_length=1,max_length=4000)
     inspection_id:str=Field(pattern=r'^[a-f0-9]{32}$',description='Copy the short inspection_id returned by inspect. The server resolves its immutable ref.')
+    supporting_inspection_ids:list[str]=Field(default_factory=list,max_length=8,
+        description='Additional inspection IDs supporting the same criterion, such as middle and ending temporal windows.')
     method_use:MethodUse=Field(description=METHOD_USE_DESCRIPTION)
+    @model_validator(mode='after')
+    def distinct_inspections(self):
+        if self.inspection_id in self.supporting_inspection_ids or len(set(self.supporting_inspection_ids))!=len(self.supporting_inspection_ids):
+            raise ValueError('Evidence inspection IDs must be distinct')
+        return self
 
 
 class ResolvedEvidence(Contract):
@@ -135,6 +142,8 @@ class ResolvedEvidence(Contract):
     observation:str=Field(min_length=1,max_length=4000)
     ref:str=Field(min_length=1,max_length=500)
     inspection_id:str=Field(pattern=r'^[a-f0-9]{32}$')
+    supporting_refs:list[str]=Field(default_factory=list,max_length=8)
+    supporting_inspection_ids:list[str]=Field(default_factory=list,max_length=8)
     method_use:MethodUse=Field(description=METHOD_USE_DESCRIPTION)
 
 
@@ -194,7 +203,8 @@ def required_reviewed_deliverables(snapshot,decision,inspections,candidate_keys)
     required_extensions=required_delivery_extensions(snapshot)
     required_roles=required_delivery_roles(snapshot)
     if not required_extensions and not required_roles:return []
-    cited={inspections[item['inspection_id']] for item in decision.get('evidence',[]) if item['inspection_id'] in inspections}
+    cited={inspections[identifier] for item in decision.get('evidence',[])
+           for identifier in [item['inspection_id'],*item.get('supporting_inspection_ids',[])] if identifier in inspections}
     inspected={inspections[identifier]:identifier for identifier in (candidate_keys or {}).values() if identifier in inspections}
     candidates=[]
     for task in snapshot.get('tasks',[]):
@@ -220,7 +230,8 @@ def resolve_review(decision,snapshot,inspections,candidate_keys=None):
     if any(item['criterion_index']>=len(criteria) for item in decision['evidence']):
         upper=max(0,len(criteria)-1)
         raise ValueError(f'criterion_index 超出冻结范围；可用索引为 0..{upper}')
-    evidence_ids={item['inspection_id'] for item in decision['evidence']}
+    evidence_ids={identifier for item in decision['evidence']
+                  for identifier in [item['inspection_id'],*item.get('supporting_inspection_ids',[])]}
     if not evidence_ids<=set(inspections):raise ValueError('Review evidence must use completed inspection_id values from this attempt')
     candidate_keys=candidate_keys or {};aliases=review_candidate_aliases(snapshot,inspections,candidate_keys)
     def select(value):
@@ -241,6 +252,8 @@ def resolve_review(decision,snapshot,inspections,candidate_keys=None):
     return ResolvedReviewDecision.model_validate({**decision,
         'evidence':[{'criterion':criteria[item['criterion_index']],'observation':item['observation'],
                      'ref':inspections[item['inspection_id']],'inspection_id':item['inspection_id'],
+                     'supporting_refs':[inspections[identifier] for identifier in item.get('supporting_inspection_ids',[])],
+                     'supporting_inspection_ids':item.get('supporting_inspection_ids',[]),
                      'method_use':item['method_use']} for item in decision['evidence']],
         'deliverables':[inspections[item] for item in selected],
         'primary':inspections[primary] if primary else ''}).model_dump()
@@ -256,6 +269,10 @@ def validate_resolved_review(decision, snapshot, inspections):
     for item in decision['evidence']:
         if inspections.get(item['inspection_id']) != item['ref']:
             raise ValueError('Inspection identity does not match this attempt and reference')
+        if len(item.get('supporting_refs',[]))!=len(item.get('supporting_inspection_ids',[])) or any(
+                inspections.get(identifier)!=reference for identifier,reference in zip(
+                    item.get('supporting_inspection_ids',[]),item.get('supporting_refs',[]))):
+            raise ValueError('Supporting inspection identity does not match this attempt and reference')
     if decision['verdict']=='pass' and not criteria<=actual:
         raise ValueError('Review must cover every frozen criterion')
     if snapshot['review_scope']=='task':
@@ -296,7 +313,8 @@ def validate_temporal_evidence(decision,snapshot,records):
     """Verify sampling coverage, not the semantic truth of a model observation."""
     if decision['verdict']!='pass':return
     import json,math
-    cited={item['inspection_id'] for item in decision['evidence']}
+    cited={identifier for item in decision['evidence']
+           for identifier in [item['inspection_id'],*item.get('supporting_inspection_ids',[])]}
     records=[row for row in records if row['id'] in cited]
     for task in snapshot.get('tasks',[]):
         semantics=task['spec'].get('semantics',{}).get('temporal',[])
@@ -329,15 +347,16 @@ def validate_temporal_evidence(decision,snapshot,records):
                 if not all(type(value) in (int,float) and math.isfinite(value) and 0<=value<duration for value in times):continue
                 samples.extend(times);durations.append(duration);source_intervals.append(interval)
             samples=sorted(set(samples))
-            if len(samples)<2 or not durations:raise ValueError('Temporal review requires timestamped video evidence')
+            if len(samples)<8 or not durations:raise ValueError('Temporal review requires timestamped video evidence; evidence is too sparse')
             duration=max(durations)
             for rule in semantics:
                 deadline=min(rule['start_by_seconds'],duration*rule['start_by_fraction'])
-                gap=rule['max_interruption_seconds']
                 if samples[0]>deadline or (samples[-1]-samples[0])/duration<rule['required_coverage']:
                     raise ValueError('Temporal evidence does not cover onset and required duration')
-                if max(source_intervals)>gap or max(b-a for a,b in zip(samples,samples[1:]))>gap+1e-6:
-                    raise ValueError('Temporal evidence is too sparse to assess interruptions')
+                middle=duration/2
+                if not any(duration*.3<=sample<=duration*.7 for sample in samples):
+                    raise ValueError('Temporal evidence does not cover a middle window')
+                if max(source_intervals)>max(1,duration/8):raise ValueError('Temporal evidence is too sparse to assess continuity')
 
 
 
