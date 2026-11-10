@@ -33,12 +33,15 @@ def main():
     sdk=OpenSandboxSDK(env['VIDEO_USE_OPEN_SANDBOX_URL'],env['VIDEO_USE_OPEN_SANDBOX_API_KEY'])
     attempt=uuid.uuid4().hex;lease=SimpleNamespace(attempt=attempt,run_id=attempt,generation=1,
         store=None,start_compute=lambda:None,check=lambda:None,lost=__import__('threading').Event())
-    binding=BackendBinding('opensandbox','probe-'+args.harness,args.image,
-        env['VIDEO_USE_OPEN_SANDBOX_COMMAND_BUNDLE_DIGEST'],'agent_runtime')
+    agent_profiles=json.loads(env['VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON'])
+    agent_profile=agent_profiles[args.harness]
+    if agent_profile['image_digest']!=args.image:raise ValueError('Probe image does not match the deployed Agent profile')
+    binding=BackendBinding('opensandbox',agent_profile['runtime_profile'],args.image,
+        agent_profile['skill_digest'],'agent_runtime')
     profile=AgentProfile(harness=args.harness,protocol='responses' if args.harness=='codex' else 'anthropic',
         model='gpt-6-astra' if args.harness=='codex' else 'claude-sonnet-5-5' if args.harness=='claude_code' else 'deepseek-v4.1-flash',
         base_url='https://provider.invalid',reasoning_effort='high')
-    runtime=None;result={'passed':False,'harness':args.harness,'image':args.image,'model_requests':0}
+    runtime=None;background=[];result={'passed':False,'harness':args.harness,'image':args.image,'model_requests':0}
     try:
         with tempfile.TemporaryDirectory(prefix='native-control-',dir='/data2/wujing03/vu-tmp') as folder:
             root=Path(folder);workspace=root/'workspace';sources=root/'sources'
@@ -46,6 +49,12 @@ def main():
             runtime=OpenSandboxCommandBackend(lifecycle,sdk,ProbeCleanup(),runtime_type=NativeImplementerRuntime).start(
                 lease,binding,{'cpu':2,'memory_mb':2048},timeout=180)
             result['sandbox_id']=runtime.sandbox_id
+            command_run=runtime.session.commands.run
+            def record_background(*command_args,**command_kwargs):
+                execution=command_run(*command_args,**command_kwargs)
+                if command_kwargs.get('opts') and command_kwargs['opts'].background:background.append(execution.id)
+                return execution
+            runtime.session.commands.run=record_background
             runtime.env={'workspace':workspace,'sources':sources}
             runtime.start_harness(profile,binding,lambda event:None,task_context={
                 'output_directory':'/workspace/edit/workflows/probe/task/out','inputs':{}})
@@ -56,6 +65,16 @@ def main():
             result['passed']=result['session_opened']
     except Exception as exc:
         result['error_type']=type(exc).__name__;result['error']=str(exc)[:1500]
+        if runtime:
+            for execution_id in background:
+                try:
+                    status=runtime.session.commands.get_command_status(execution_id)
+                    logs=runtime.session.commands.get_background_command_logs(execution_id)
+                    result.setdefault('background',[]).append({'id':execution_id,
+                        'status':getattr(status,'status',None),'exit_code':getattr(status,'exit_code',None),
+                        'logs':logs.content[-4000:]})
+                except Exception as diagnostic:
+                    result.setdefault('diagnostic_errors',[]).append(type(diagnostic).__name__)
         raise
     finally:
         if runtime:
