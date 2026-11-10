@@ -33,6 +33,8 @@ class ModelTokenEstimateTests(unittest.TestCase):
         with self.assertRaises(ValueError):AgentProfile(input_token_policy=policy)
         newer=self.body('claude-sonnet-5-5')
         self.assertEqual(estimate(newer,policy)['estimate_multiplier'],2.4)
+        opus55=self.body('claude-opus-5-5')
+        self.assertEqual(estimate(opus55,policy)['estimate_multiplier'],2.6)
 
     def test_images_are_counted_by_pixels_not_compressed_bytes(self):
         values=[]

@@ -12,10 +12,10 @@ import sys
 VOCAB_SHA256='223921b76ee99bde995b7ff738513eef100fb51d18c93597a113bcffe865b2a7'
 VOCAB_URL='https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken'
 POLICIES={
-    'claude_bpe_estimate_v1':frozenset(('claude-4.6-sonnet','claude-sonnet-5-5','claude-opus-5')),
+    'claude_bpe_estimate_v1':frozenset(('claude-4.6-sonnet','claude-sonnet-5-5','claude-opus-5','claude-opus-5-5')),
     'deepseek_bpe_estimate_v1':frozenset(('deepseek-v4-flash','deepseek-v4.1-flash')),
 }
-MULTIPLIERS={'claude-4.6-sonnet':1.7,'claude-sonnet-5-5':2.4,'claude-opus-5':2.6,
+MULTIPLIERS={'claude-4.6-sonnet':1.7,'claude-sonnet-5-5':2.4,'claude-opus-5':2.6,'claude-opus-5-5':2.6,
              'deepseek-v4-flash':1.5,'deepseek-v4.1-flash':1.5}
 PATTERN=r"'(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?+\p{L}++|\p{N}{1,3}+| ?[^\s\p{L}\p{N}]++[\r\n]*+|\s++$|\s*[\r\n]|\s+(?!\S)|\s"
 
