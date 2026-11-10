@@ -79,7 +79,9 @@ async function runCase(demo){
   await page.locator('#dynamic-input-submit').click();const start=await started;assert.equal(start.status(),202,await start.text());current=await start.json();state.run_id=current.id;state.run_ids.push(current.id);
   assertModelConfiguration(current.model_configuration);
   state.model_configuration=current.model_configuration;persist();
-  const deadline=Date.now()+Number(process.env.DEMO_CASE_TIMEOUT_SECONDS||1800)*1000;
+  // Three bounded 900-second Agent attempts plus diagnosis, repair, review and cleanup
+  // can legitimately exceed 30 minutes without exceeding any production limit.
+  const deadline=Date.now()+Number(process.env.DEMO_CASE_TIMEOUT_SECONDS||3600)*1000;
   while(Date.now()<deadline&&!stop){
    await read();const signature=JSON.stringify([current.state,current.graph_version,current.decisions.map(d=>d.id),current.tasks.map(t=>[t.id,t.status,t.error_code])]);
    if(signature!==lastSignature){lastSignature=signature;save(path.join(dir,'snapshot-'+state.events.length+'.json'),current);state.events.push({at:Date.now()/1000,...state.phase});persist();console.log(JSON.stringify({event:'progress',case:demo.id,...state.phase}));}
