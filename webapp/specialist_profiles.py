@@ -123,12 +123,14 @@ PROFILES={p.id:p for p in (
         max_inspection_rounds=9,max_correction_rounds=3,finalize_rounds=4),
     SpecialistProfile('media_failure_diagnostician','基于受控证据分析失败',AgentRole.DIAGNOSTICIAN,('INSPECT','SUBMIT_RESULT'),
         '分析冻结的失败诊断与回执；区分事实、推断、缺失证据和可执行建议。不得发起外部请求。'
-        '输出结构化diagnosis对象，包含facts、uncertainties、recommendations三个字符串数组。',skills=('script-runtime','media-semantics'),output_schema='diagnosis-v1'),
+        '只检查定位失败所必需的证据；完成检查后的下一轮必须立即调用result，不得重复检查、复述上下文或用长篇推理耗尽输出预算。'
+        '输出简洁的结构化diagnosis对象，包含facts、uncertainties、recommendations三个字符串数组，每个数组最多5项、每项只写一个可验证事实或动作。',skills=('script-runtime','media-semantics'),output_schema='diagnosis-v1'),
     SpecialistProfile('visual_quality_reviewer','检查候选结果与目标是否一致',AgentRole.REVIEWER,('INSPECT','SUBMIT_DECISION'),
         '依据冻结的输入、候选产物和验收标准给出结构化结论及证据；不能修改产物或降低标准。',
         skills=('media-semantics',),max_output_tokens=8000,output_schema='visual-report-v1'),
     SpecialistProfile('editing_implementer','生成满足任务契约的本地处理实现',AgentRole.IMPLEMENTER,('INSPECT','RUN_SCRIPT','SUBMIT_RESULT'),
         '只在任务输出目录完成已授权的本地实现；使用已声明输入，不调用收费供应商，不发布最终成果。'
+        '一次性检查实现所必需的输入后立即调用script；不要重复复述任务或输出长篇实现方案。script成功且输出齐全后，下一轮立即调用result；失败时只修正已返回的具体错误。'
         '用户要求可编辑文字/图层或保留参数时，交付实际可编辑结构及必要源素材；PNG预览和记录参数的说明文字不能独自代替可修改或开关的结构。'
         '分析报告要区分技术规格和内容质量；细节或观感改善须有实际像素/内容证据，不能仅凭分辨率、码率或音轨存在推断。抽样检查明确覆盖范围。'
         '文字替换必须从源图测量目标区域的字体字重、textbbox字高、基线和相邻间距，选择已安装的匹配字体并在提交前复测。'

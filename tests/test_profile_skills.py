@@ -9,6 +9,14 @@ from webapp import specialist_profiles as profiles
 from webapp.workflow_agents import model_instructions
 
 class ProfileSkillTests(unittest.TestCase):
+ def test_latency_sensitive_profiles_require_bounded_action_progression(self):
+  diagnostician=profiles.PROFILES['media_failure_diagnostician'].prompt
+  implementer=profiles.PROFILES['editing_implementer'].prompt
+  self.assertIn('下一轮必须立即调用result',diagnostician)
+  self.assertIn('每个数组最多5项',diagnostician)
+  self.assertIn('检查实现所必需的输入后立即调用script',implementer)
+  self.assertIn('下一轮立即调用result',implementer)
+
  def test_repair_prompts_require_evidence_first_and_measured_layouts(self):
   manager=profiles.get('media_planner').prompt
   implementer=profiles.get('editing_implementer').prompt
