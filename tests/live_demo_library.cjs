@@ -11,7 +11,7 @@ const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const assertModelConfiguration=value=>{
  assert.equal(value.model,'claude-sonnet-5-5');
- assert.equal(value.roles.media_planner.model,'claude-sonnet-5-5');
+ assert.equal(value.roles.media_planner.model,'claude-4.6-sonnet');
  assert.equal(value.roles.visual_quality_reviewer.model,'claude-sonnet-5-5');
  assert.equal(value.roles.editing_implementer.model,'claude-4.6-sonnet');
  assert.equal(value.roles.editing_implementer.harness,'claude_code');
