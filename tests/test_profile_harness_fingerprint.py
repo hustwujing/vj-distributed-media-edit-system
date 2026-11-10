@@ -49,9 +49,9 @@ class ProfileHarnessFingerprintTests(unittest.TestCase):
             root=Path(directory);(root/'profile_harnesses.py').write_text('# entry\n')
             dependency=root/'safe_stream.py';dependency.write_text('# initial policy\n')
             with patch.object(profile_harnesses,'__file__',str(root/'profile_harnesses.py')):
-                profile=get('media_planner');task={'spec':{'profile':profile.id},'profile':profile.snapshot()}
+                profile=get('media_planner');task={'spec':{'profile':profile.id},'profile':profile.snapshot(),'control_kind':'PLAN'}
                 dependency.write_text('# changed policy\n');lease=Mock()
                 with patch('webapp.workflow_agents.model') as model:
                     with self.assertRaisesRegex(ValueError,'replan is required'):
-                        execute(SimpleNamespace(store=Mock()),lease,{},task)
+                        execute(SimpleNamespace(store=Mock()),lease,{'id':'run-1'},task)
                     lease.start_compute.assert_not_called();model.assert_not_called()

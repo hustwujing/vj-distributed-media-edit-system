@@ -11,7 +11,7 @@ const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const assertModelConfiguration=value=>{
  assert.equal(value.model,'claude-sonnet-5-5');
- assert.equal(value.roles.media_planner.model,'gpt-5.6');
+ assert.equal(value.roles.media_planner.model,'claude-sonnet-5-5');
  assert.equal(value.roles.visual_quality_reviewer.model,'claude-sonnet-5-5');
  assert.equal(value.roles.editing_implementer.model,'gpt-5.6');
  assert.equal(value.roles.editing_implementer.harness,'codex');
