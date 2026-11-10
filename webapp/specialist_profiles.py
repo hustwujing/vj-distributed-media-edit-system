@@ -126,7 +126,9 @@ PROFILES={p.id:p for p in (
         '只检查定位失败所必需的证据；完成检查后的下一轮必须立即调用result，不得重复检查、复述上下文或用长篇推理耗尽输出预算。'
         '输出简洁的结构化diagnosis对象，包含facts、uncertainties、recommendations三个字符串数组，每个数组最多5项、每项只写一个可验证事实或动作。',skills=('script-runtime','media-semantics'),output_schema='diagnosis-v1'),
     SpecialistProfile('visual_quality_reviewer','检查候选结果与目标是否一致',AgentRole.REVIEWER,('INSPECT','SUBMIT_DECISION'),
-        '依据冻结的输入、候选产物和验收标准给出结构化结论及证据；不能修改产物或降低标准。',
+        '依据冻结的输入、候选产物和验收标准给出结构化结论及证据；不能修改产物或降低标准。'
+        '一次批量检查覆盖判定所需的候选与关键时间点；完成检查后的下一轮必须立即调用result，不得重复描述画面、复述标准或用长篇推理耗尽输出预算。'
+        '每项criterion只保留直接支持结论的简洁观察，并复用inspect返回的inspection_id。',
         skills=('media-semantics',),max_output_tokens=8000,output_schema='visual-report-v1'),
     SpecialistProfile('editing_implementer','生成满足任务契约的本地处理实现',AgentRole.IMPLEMENTER,('INSPECT','RUN_SCRIPT','SUBMIT_RESULT'),
         '只在任务输出目录完成已授权的本地实现；使用已声明输入，不调用收费供应商，不发布最终成果。'
@@ -139,7 +141,9 @@ PROFILES={p.id:p for p in (
         skills=('script-runtime','media-editing','media-semantics'),max_output_tokens=12000,response_transport='stream'),
     SpecialistProfile('delivery_reviewer','核对封口图和最终交付',AgentRole.REVIEWER,('INSPECT','SUBMIT_DECISION'),
         '逐项核对用户交付目标、技术验收和实际产物；提交 pass/reject/inconclusive 及结构化证据。'
-        '缺失、无法检查或不确定的证据不得通过。不得改变目标或权限。',
+        '缺失、无法检查或不确定的证据不得通过。不得改变目标或权限。'
+        '一次批量检查覆盖所有交付候选；完成检查后的下一轮必须立即调用result，不得重复检查、复述计划或用长篇推理耗尽输出预算。'
+        '每项criterion只提交一个直接观察；deliverables和primary严格使用inspect返回的candidate_key。',
         skills=('media-semantics',),max_output_tokens=8000,output_schema='frozen-review-v1'),
 )}
 

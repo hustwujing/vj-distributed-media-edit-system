@@ -16,6 +16,10 @@ class ProfileSkillTests(unittest.TestCase):
   self.assertIn('每个数组最多5项',diagnostician)
   self.assertIn('检查实现所必需的输入后立即调用script',implementer)
   self.assertIn('下一轮立即调用result',implementer)
+  for identifier in ('visual_quality_reviewer','delivery_reviewer'):
+   reviewer=profiles.PROFILES[identifier].prompt
+   self.assertIn('下一轮必须立即调用result',reviewer)
+   self.assertIn('用长篇推理耗尽输出预算',reviewer)
 
  def test_repair_prompts_require_evidence_first_and_measured_layouts(self):
   manager=profiles.get('media_planner').prompt
