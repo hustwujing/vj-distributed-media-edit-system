@@ -867,7 +867,8 @@ def execute(host,lease,run,task):
             if action=='draft_batch_commit':
                 if profile.id!='media_planner':raise ValueError('Only Manager can submit a planning draft batch')
                 from .workflow_plan_draft import prepare_batch
-                command=reply['command'];commit={key:command[key] for key in ('kind','reason','delivery_targets') if key in command}
+                command=reply['command'];commit={key:command[key] for key in
+                    ('kind','reason','delivery_targets','delivery_contract','review_policy') if key in command}
                 fields={key:value for key,value in command.items() if key not in commit}
                 try:proposal,base_revision,base_digest,candidate,candidate_digest=prepare_batch(
                     store,task['spec']['request_id'],frozen,fields,commit)

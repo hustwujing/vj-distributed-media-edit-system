@@ -10,14 +10,21 @@ from webapp.task_leases import Coordinator,TaskQuotaReached
 
 
 def typed_plan(payload):
-    return {**payload,'delivery_contract':graph.DeliveryContract().model_dump()}
+    return {**payload,
+        'delivery_contract':graph.DeliveryContract(formats=['txt'],roles=['report']).model_dump(),
+        'review_policy':graph.ReviewPolicy().model_dump()}
 
 
 class DynamicGatewayTests(unittest.TestCase):
     def setUp(self):
         self.fixture=fixtures.DynamicGraphTests();self.fixture.setUp()
         self.addCleanup(self.fixture.tearDown)
-        self.store=self.fixture.store;self.run=self.fixture.tick()
+        self.store=self.fixture.store
+        authorization={**self.fixture.run['authorization'],
+            'delivery_contract':graph.DeliveryContract(formats=['txt'],roles=['report']).model_dump()}
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(authorization),self.fixture.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(graph.encode(authorization),self.fixture.run['id']))
+        self.fixture.run=graph.get(self.store,self.fixture.run['id']);self.run=self.fixture.tick()
         self.task=next(t for t in graph.work_items(self.run) if t.get('control_kind'))
         self.lease=Coordinator(self.store,'gateway-protocol','test').claim(self.run['id'],'workflow',step_id=self.task['id'])
         self.assertIsNotNone(self.lease);self.addCleanup(self.lease.release)
@@ -743,6 +750,8 @@ class DynamicGatewayTests(unittest.TestCase):
         draft=json.loads(row['draft_json']);self.assertEqual(draft['new_tasks'][0]['id'],'draft_report')
         staged=json.loads(self.store.query("SELECT proposal_json FROM planner_runs WHERE status='staged'")[0]['proposal_json'])
         self.assertEqual(staged['proposal']['add_tasks'][0]['id'],'draft_report')
+        self.assertEqual(staged['delivery_contract'],graph.DeliveryContract(formats=['txt'],roles=['report']).model_dump())
+        self.assertEqual(staged['review_policy'],graph.ReviewPolicy().model_dump())
         self.assertEqual(calls,[['inspect','contract','submit_typed_plan','request_user_input','respond','request_authorization','new_run_required']])
 
     def test_manager_control_result_closes_its_bound_plan_draft(self):

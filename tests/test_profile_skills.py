@@ -38,6 +38,7 @@ class ProfileSkillTests(unittest.TestCase):
   self.assertIn('无消费者的中间产物',manager)
   self.assertIn('指定执行者、实现工具或实现方法',manager);self.assertIn('真实执行该方法',manager)
   self.assertIn('review_policy.user_checkpoint',manager);self.assertIn('不得用Task acceptance制造用户阻塞',manager)
+  self.assertIn('不能四项全空',manager)
   self.assertIn('on_failure=diagnose',manager)
   self.assertIn('textbbox',implementer);self.assertIn('可见内容bbox',implementer)
   self.assertIn('实际覆盖所需字符的字体文件',implementer);self.assertIn('方框、缺字',implementer)

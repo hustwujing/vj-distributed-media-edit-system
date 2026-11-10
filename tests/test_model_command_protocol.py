@@ -825,6 +825,10 @@ class ModelCommandTests(unittest.TestCase):
                               draft={'status':'OPEN','draft':{'new_tasks':[{'id':'existing'}]}})
         commit=protocol.schemas['commit_plan']
         self.assertIn('delivery_contract',commit['required']);self.assertIn('DeliveryContract',commit['$defs'])
+        with self.assertRaises(CommandError) as rejected:
+            compile_manager({'kind':'COMPLETE','reason':'Incomplete semantics','delivery_contract':graph.DeliveryContract().model_dump(),
+                             'plan':{'new_tasks':[]}},first)
+        self.assertEqual((rejected.exception.code,rejected.exception.path),('delivery_contract_required','delivery_contract'))
 
     def test_respond_tool_cannot_be_described_as_pre_execution_planning(self):
         value={**frozen(False),'graph_version':0,'can_respond':True}

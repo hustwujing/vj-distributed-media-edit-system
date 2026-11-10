@@ -440,6 +440,12 @@ def compile_manager(command,frozen):
     plan=command.get('plan')
     if command.get('delivery_contract') is not None:
         frozen={**frozen,'delivery_contract':command['delivery_contract']}
+    if (plan is not None and frozen.get('graph_version')==0
+            and not any((command.get('delivery_contract') or {}).get(key) for key in
+                        ('filenames','formats','roles','excluded_filenames'))):
+        raise CommandError('delivery_contract_required','delivery_contract',
+            'Initial executable plans must declare at least one final filename, format, role, or explicit excluded filename. '
+            'Use semantic judgment over the complete request; the host will not extract these fields from user prose.')
     if command.get('delivery_targets') and (frozen.get('input_batch') or {}).get('inputs'):
         frozen={**frozen,'effective_delivery_scope':{'proposed':True,'targets':command['delivery_targets']}}
     if plan is not None:
