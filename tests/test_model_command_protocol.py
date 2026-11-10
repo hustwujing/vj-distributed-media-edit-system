@@ -821,6 +821,10 @@ class ModelCommandTests(unittest.TestCase):
         schema=protocol.schemas['submit_typed_plan']
         self.assertIn('delivery_contract',schema['required'])
         self.assertNotIn('review',str(schema['$defs']['Acceptance']['anyOf']))
+        protocol=ToolProtocol(profile('media_planner'),first,{'control_kind':'PLAN'},
+                              draft={'status':'OPEN','draft':{'new_tasks':[{'id':'existing'}]}})
+        commit=protocol.schemas['commit_plan']
+        self.assertIn('delivery_contract',commit['required']);self.assertIn('DeliveryContract',commit['$defs'])
 
     def test_transcript_subtitles_cannot_also_claim_an_uploaded_srt_role(self):
         from webapp.operation_parameters import EditSubtitles

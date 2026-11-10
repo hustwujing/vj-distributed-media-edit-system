@@ -723,7 +723,7 @@ class ToolProtocol:
         if can_correct and identifiers:self.add('remove_draft_tasks','draft_remove_tasks',obj({'task_ids':{'type':'array','minItems':1,'maxItems':16,'uniqueItems':True,'items':{'type':'string','enum':identifiers}}}))
         if existing or finalize or can_correct:
             required=['kind','reason']+(['delivery_contract'] if self.frozen.get('graph_version')==0 else [])
-            self.add('commit_plan','draft_commit',obj(commit_fields,required))
+            self.add('commit_plan','draft_commit',referenced_schema(obj(commit_fields,required),defs))
         if (self.frozen.get('input_batch') or {}).get('through_sequence',0):
             self.add('continue_run','draft_control',obj({'reason':command['properties']['reason']}))
         self.add('request_user_input','draft_control',obj({'reason':command['properties']['reason'],

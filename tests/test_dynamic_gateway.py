@@ -9,6 +9,10 @@ from webapp import workflow_graph as graph
 from webapp.task_leases import Coordinator,TaskQuotaReached
 
 
+def typed_plan(payload):
+    return {**payload,'delivery_contract':graph.DeliveryContract().model_dump()}
+
+
 class DynamicGatewayTests(unittest.TestCase):
     def setUp(self):
         self.fixture=fixtures.DynamicGraphTests();self.fixture.setUp()
@@ -315,7 +319,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertGreater(len(image),100000)
         self.run['authorization']['model_token_budget']=100000
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(self.run['authorization']),self.run['id']))
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',strict_tools=True,
             output_token_policy='phase',specialist_output_tokens={},budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'))
         calls=[]
         def post(url,**kwargs):
@@ -357,7 +361,7 @@ class DynamicGatewayTests(unittest.TestCase):
             protocol=ToolProtocol(profile,frozen,self.task,finalize=True)
             tool_name='submit_plan';arguments={'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output?'}
         wire=transform(arguments,protocol.schemas[tool_name],encode=True)
-        configuration=SimpleNamespace(protocol='anthropic',model='claude-4.6-sonnet',reasoning_effort='high',response_transport=profile.response_transport,
+        configuration=SimpleNamespace(protocol='anthropic',model='claude-4.6-sonnet',reasoning_effort='high',response_transport=profile.response_transport,strict_tools=True,
             vision_tokenizer='unconfigured',input_token_policy='claude_bpe_estimate_v1',
             output_token_policy=output_policy,specialist_output_tokens={profile.id:role_maximum} if role_maximum else {},
             budget={'task_models':40,'max_output_tokens':model_maximum},credentials=lambda:('https://model.example/v1','test'))
@@ -469,7 +473,7 @@ class DynamicGatewayTests(unittest.TestCase):
         frozen={**json.loads(request['snapshot_json']),'snapshot_digest':request['snapshot_digest']}
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,finalize=True)
         wire=transform({'kind':'REQUEST_USER_INPUT','reason':'Missing detail','question':'Which output is required?'},protocol.schemas['submit_plan'],encode=True)
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',strict_tools=True,
             output_token_policy='phase',specialist_output_tokens={},budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'))
         sent=[]
         def post(url,**kwargs):
@@ -509,7 +513,7 @@ class DynamicGatewayTests(unittest.TestCase):
         from webapp.workflow_plan_draft import get as get_draft
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,draft=get_draft(self.store,self.task['spec']['request_id']),store=self.store)
         wire=transform({'reason':'Missing detail','question':'Which output?'},protocol.schemas['request_user_input'],encode=True)
-        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',
+        configuration=SimpleNamespace(protocol='responses',model='frozen-model',reasoning_effort='high',response_transport='buffered',vision_tokenizer='patch32_1_2',input_token_policy='native',strict_tools=True,
             output_token_policy='phase',specialist_output_tokens={},budget={'task_models':40,'max_output_tokens':16000},credentials=lambda:('https://model.example/v1','test'),digest='frozen')
         sent=[]
         def post(url,**kwargs):
@@ -729,7 +733,7 @@ class DynamicGatewayTests(unittest.TestCase):
               'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'Local deterministic report'}
         def respond(*args,**kwargs):
             protocol=kwargs['protocol'];calls.append(list(protocol.schemas))
-            wire=transform({'tasks':[task],'kind':'COMPLETE','reason':'Draft is complete'},
+            wire=transform(typed_plan({'tasks':[task],'kind':'COMPLETE','reason':'Draft is complete'}),
                            protocol.schemas['submit_typed_plan'],encode=True)
             return protocol.decode('submit_typed_plan',wire)
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
@@ -790,7 +794,7 @@ class DynamicGatewayTests(unittest.TestCase):
             payload={'tasks':[{'id':'report','type':'agent','profile':'editing_implementer','name':'report','objective':'Write report',
                 'files':[{'path':'report.txt','roles':['report']}],'acceptance':[{'kind':'file','stage':'final'}],
                 'basic_reason':'Local report'}],'kind':'COMPLETE','reason':'Corrected tool envelope'}
-            return protocol.decode('submit_typed_plan',transform(payload,protocol.schemas['submit_typed_plan'],encode=True))
+            return protocol.decode('submit_typed_plan',transform(typed_plan(payload),protocol.schemas['submit_typed_plan'],encode=True))
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
         self.assertEqual(len(calls),3)
@@ -825,7 +829,7 @@ class DynamicGatewayTests(unittest.TestCase):
               'basic_reason':'Local report'}
         def respond(*args,**kwargs):
             protocol=kwargs['protocol'];payload={'tasks':[task],'kind':'COMPLETE','reason':'Complete typed batch'}
-            wire=transform(payload,protocol.schemas['submit_typed_plan'],encode=True)
+            wire=transform(typed_plan(payload),protocol.schemas['submit_typed_plan'],encode=True)
             return protocol.decode('submit_typed_plan',wire)
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond) as model:
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
@@ -851,7 +855,7 @@ class DynamicGatewayTests(unittest.TestCase):
             self.assertIn('Finalize now',args[4]);self.assertIn('submit_typed_plan',protocol.schemas)
             self.assertNotIn('inspect',protocol.schemas)
             payload={'tasks':[task],'kind':'COMPLETE','reason':'Use the inspected evidence'}
-            return protocol.decode('submit_typed_plan',transform(payload,protocol.schemas['submit_typed_plan'],encode=True))
+            return protocol.decode('submit_typed_plan',transform(typed_plan(payload),protocol.schemas['submit_typed_plan'],encode=True))
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond), \
              patch('webapp.workflow_agents.inspect',side_effect=lambda store,run,allowed,ref,offset=0:{'ref':ref,'text':'evidence '+str(offset)}):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
@@ -903,7 +907,7 @@ class DynamicGatewayTests(unittest.TestCase):
                 self.assertEqual(row['revision'],0);self.assertEqual(json.loads(row['draft_json'])['new_tasks'],[])
             name='submit_typed_plan';payload={'tasks':[valid],
                 'kind':'COMPLETE','reason':'Ready' if step==1 else 'Corrected'}
-            wire=transform(payload,protocol.schemas[name],encode=True)
+            wire=transform(typed_plan(payload),protocol.schemas[name],encode=True)
             if step==1:wire['tasks'][0]['input_bindings'][0]['ref']['asset']='invented'
             try:return protocol.decode(name,wire)
             except SchemaError as exc:
@@ -935,7 +939,7 @@ class DynamicGatewayTests(unittest.TestCase):
                 self.assertEqual(row['revision'],0);self.assertEqual(json.loads(row['draft_json'])['new_tasks'],[])
             task={**base,**({'basic_reason':'Local report'} if step==2 else {})}
             payload={'tasks':[task],'kind':'COMPLETE','reason':'Compile batch'}
-            wire=transform(payload,protocol.schemas['submit_typed_plan'],encode=True)
+            wire=transform(typed_plan(payload),protocol.schemas['submit_typed_plan'],encode=True)
             return protocol.decode('submit_typed_plan',wire)
         with self.lease.bind(),patch('webapp.workflow_agents.model',side_effect=respond):
             execute(SimpleNamespace(store=self.store,stop=threading.Event()),self.lease,self.run,self.task)
@@ -960,7 +964,7 @@ class DynamicGatewayTests(unittest.TestCase):
               'acceptance':[{'kind':'file','stage':'final'}],'basic_reason':'Local report'}
         mutate(self.store,self.lease,request['id'],'draft_add_tasks',{'tasks':[task]})
         protocol=ToolProtocol(get('media_planner'),frozen,self.task,draft=get_draft(self.store,request['id']),store=self.store,finalize=True)
-        wire=transform({'kind':'COMPLETE','reason':'Ready'},protocol.schemas['commit_plan'],encode=True)
+        wire=transform(typed_plan({'kind':'COMPLETE','reason':'Ready'}),protocol.schemas['commit_plan'],encode=True)
         reply=protocol.decode('commit_plan',wire)
         mutate(self.store,self.lease,request['id'],'draft_remove_tasks',{'task_ids':['draft_report']})
         with self.assertRaises(planning.ProposalSnapshotError):
