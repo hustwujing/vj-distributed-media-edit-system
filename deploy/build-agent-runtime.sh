@@ -29,7 +29,7 @@ case "${1:-}" in
     ;;
   codex|claude|deepseek)
     harness="$1"
-    test "$harness" != codex || test -x vendor/codex
+    test "$harness" != codex || { test -x vendor/codex && test -x vendor/codex-code-mode-host; }
     test "$harness" = codex || test -d wheels
     require_digest RUNTIME_BASE "${RUNTIME_BASE:-}"
     "$docker_bin" build --network=none -f "runtime/opensandbox/$harness.Dockerfile" \
@@ -39,6 +39,7 @@ case "${1:-}" in
     test -d wheels
     require_digest RUNTIME_BASE "${RUNTIME_BASE:-}"
     test -x vendor/codex
+    test -x vendor/codex-code-mode-host
     for harness in codex claude deepseek; do
       "$docker_bin" build --network=none -f "runtime/opensandbox/$harness.Dockerfile" \
         --build-arg "RUNTIME_BASE=$RUNTIME_BASE" -t "agent-runtime-$harness:build" .

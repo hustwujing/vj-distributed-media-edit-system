@@ -52,6 +52,7 @@ test "$(ffprobe -v error -select_streams v:0 -show_entries stream=nb_frames -of 
 test "$(id -u):$(id -g)" = 10001:10001
 if touch /opt/rootfs-must-be-read-only 2>/dev/null; then exit 41; fi
 /opt/codex --version
+test -x /opt/codex-code-mode-host
 python -c 'import webapp.runtime_bootstrap'
 """,
         'agent-runtime-claude:build':"""
