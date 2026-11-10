@@ -707,6 +707,8 @@ class ToolProtocol:
                        'review_policy':command['properties']['review_policy']}
         automatic,user=scopes(self.frozen);targeted=targeted_user_inputs(self.frozen)
         evidence_repair=automatic is not None and user is None and evidence_collection_available(self.frozen)
+        final_evidence_ready=(completion_candidate(self.frozen)
+            and (self.frozen.get('repair_context') or {}).get('source')=='review_evidence')
         allow_new_tasks=((automatic is None or user is not None) and not targeted) or evidence_repair
         task_variants=[]
         if 'AgentCommandTask' in defs and not evidence_repair:
@@ -724,7 +726,7 @@ class ToolProtocol:
         # An empty Draft has nothing that local replace/remove tools can repair.
         # Keep the bounded typed-plan entry available even in finalize mode so a
         # rejected first submission can be corrected instead of forcing input.
-        if not existing or not finalize and not can_correct:
+        if (not existing or not finalize and not can_correct) and not final_evidence_ready:
             submit={**config_fields,**commit_fields}
             if task_variants and allow_new_tasks:submit['tasks']={'type':'array','minItems':1,'maxItems':16,'items':{'anyOf':task_variants}}
             required=['kind','reason']+(['delivery_contract'] if self.frozen.get('graph_version')==0 else [])

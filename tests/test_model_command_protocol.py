@@ -63,6 +63,7 @@ class ModelCommandTests(unittest.TestCase):
         value['tasks'][0].update(repair_count=2,user_revision_count=0)
         protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
         self.assertIn('complete_run',protocol.schemas)
+        self.assertIn('submit_typed_plan',protocol.schemas)
         self.assertIn('all earlier delivery Tasks remain mandatory',protocol.context()['model_command_contract']['planning'])
 
     def test_non_idempotent_repair_offers_replacement_not_illegal_in_place_revision(self):
@@ -184,6 +185,7 @@ class ModelCommandTests(unittest.TestCase):
         value['trigger']={'completed':['render']};value['input_batch']=None
         protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
         self.assertIn('complete_run',protocol.schemas)
+        self.assertNotIn('submit_typed_plan',protocol.schemas)
         self.assertIn('submit_typed_plan',protocol.schemas)
         result=protocol.decode('complete_run',{'reason':'All declared work completed'})['proposal']
         self.assertEqual(result['kind'],'COMPLETE')
