@@ -88,6 +88,15 @@ def change_fields(task_type,user=False):
     return graph.revision_mutable_fields(task_type,user)
 
 
+def required_change_contracts(frozen,contracts):
+    available=available_changes(frozen);result=[]
+    for task in frozen.get('tasks',[]):
+        operation=task.get('spec',{}).get('operation')
+        if (operation and 'parameters' in available.get(task.get('id'),()) and operation not in contracts
+                and operation not in result):result.append(operation)
+    return result
+
+
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage','runtime_requirements')
 def delivery_contract(frozen):
     """Read Manager-structured delivery semantics; never interpret user prose."""
@@ -723,6 +732,7 @@ class ToolProtocol:
         evidence_repair=automatic is not None and user is None and evidence_collection_available(self.frozen)
         final_evidence_ready=(completion_candidate(self.frozen)
             and (self.frozen.get('repair_context') or {}).get('source')=='review_evidence')
+        required_contracts=required_change_contracts(self.frozen,contracts)
         allow_new_tasks=((automatic is None or user is not None) and not targeted) or evidence_repair
         task_variants=[]
         if 'AgentCommandTask' in defs and not evidence_repair:
@@ -740,7 +750,8 @@ class ToolProtocol:
         # An empty Draft has nothing that local replace/remove tools can repair.
         # Keep the bounded typed-plan entry available even in finalize mode so a
         # rejected first submission can be corrected instead of forcing input.
-        if (not existing or not finalize and not can_correct) and not final_evidence_ready:
+        if ((not existing or not finalize and not can_correct) and not final_evidence_ready
+                and not required_contracts):
             submit={**config_fields,**commit_fields}
             if task_variants and allow_new_tasks:submit['tasks']={'type':'array','minItems':1,'maxItems':16,'items':{'anyOf':task_variants}}
             required=['kind','reason']+(['delivery_contract'] if self.frozen.get('graph_version')==0 else [])
@@ -852,6 +863,10 @@ class ToolProtocol:
                 'Use submit_typed_plan once with the state-allowed typed changes. The host derives continuation and atomically validates a server-owned draft. If validation reports a specific error, use only the offered replace/remove tool and then commit_plan. Draft commands never execute business work.',
                 draft_state=summary(self._draft.get('draft',self._draft)))
             context['model_command_contract']['delivery_amendment']='For explicit user input that changes deliverables, provide delivery_targets as the complete proposed new list, preserving all unrelated outputs. The UI shows removed/added requirements and requires confirmation before it replaces the prior delivery list. Do not change it in automatic repair. Content parameters and required methods remain in the Task revision and independent review.'
+        pending_contracts=required_change_contracts(self.frozen,self.contracts)
+        if pending_contracts:
+            context['model_command_contract']['required_contract_queries']=pending_contracts
+            context['model_command_contract']['planning']='Query every required_contract_queries operation with contract first. Parameter revision tools remain unavailable until their exact registered schemas are loaded.'
         if 'complete_run' in self.schemas:
             context['model_command_contract']['planning']+=' All declared Tasks succeeded, which does not prove the entire user goal is complete. Add only remaining authorized work with submit_typed_plan; use complete_run to submit current deliverables for final review. A new Task is an addition, never an implicit replacement: all earlier delivery Tasks remain mandatory. Do not add another rendition to evade a missing repair grant or exhausted repair budget.'
         if 'submit_typed_plan' in self.schemas:

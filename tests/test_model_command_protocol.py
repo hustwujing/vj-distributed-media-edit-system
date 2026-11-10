@@ -552,11 +552,17 @@ class ModelCommandTests(unittest.TestCase):
         unqueried=manager_schema(value)
         change=next(item for item in unqueried['properties']['plan']['anyOf'][0]['properties']['changes']['items']['anyOf'])
         self.assertNotIn('parameters',unqueried['$defs'][change['$ref'][8:]]['properties']['set']['properties'])
+        protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
+        self.assertNotIn('submit_typed_plan',protocol.schemas);self.assertIn('contract',protocol.schemas)
+        self.assertEqual(protocol.context()['model_command_contract']['required_contract_queries'],['media.edit'])
         contract=operation('media.edit').public()
         queried=manager_schema(value,{'media.edit':contract})
         change=queried['properties']['plan']['anyOf'][0]['properties']['changes']['items']['anyOf'][0]
         parameters=queried['$defs'][change['$ref'][8:]]['properties']['set']['properties']['parameters']
         self.assertIn('edit_plan',parameters['properties'])
+        protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'},
+                              contracts={'media.edit':contract})
+        self.assertIn('submit_typed_plan',protocol.schemas)
         command={'kind':'APPLY_PLAN','reason':'Enable registered normalization','plan':{'changes':[{
             'task_id':'render','set':{'parameters':{'edit_plan':{'clips':[{'asset':'source','start':0,'end':2}],
                 'audio':{'normalize':True}}}}}]}}
