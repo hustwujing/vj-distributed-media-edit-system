@@ -252,6 +252,17 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(normalized['tasks'][0]['acceptance'][0],{'kind':'image','height':64,'max_participation':.5})
         self.assertEqual(changes,['tasks.0.acceptance.0.height_->height'])
 
+    def test_unambiguous_operation_acceptance_is_lifted_out_of_parameters(self):
+        value={'tasks':[{'type':'operation','operation':'media.edit','parameters':{
+            'edit_plan':{'clips':[{'asset':'source'}]},'acceptance':[{'kind':'media','video':True}]}}]}
+        normalized,changes=normalize_planner_arguments('submit_typed_plan',value)
+        self.assertEqual(normalized['tasks'][0]['acceptance'],[{'kind':'media','video':True}])
+        self.assertNotIn('acceptance',normalized['tasks'][0]['parameters'])
+        self.assertEqual(changes,['tasks.0.parameters.acceptance->acceptance'])
+        conflicting=copy.deepcopy(value);conflicting['tasks'][0]['acceptance']=[{'kind':'file'}]
+        normalized,_=normalize_planner_arguments('submit_typed_plan',conflicting)
+        self.assertIn('acceptance',normalized['tasks'][0]['parameters'])
+
     def test_structured_delivery_contract_adds_exact_names_but_not_inputs(self):
         value={'goal':'Edit source.mp4','authorization':{'delivery_targets':['video and cover']},
                'input_asset_names':['source.mp4'],**delivery(filenames=('final.mp4','cover.png'))}

@@ -53,6 +53,10 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
         if not isinstance(task,dict):continue
         kind=task.get('type')
         if kind=='operation':
+            parameters=task.get('parameters')
+            if isinstance(parameters,dict) and 'acceptance' in parameters and 'acceptance' not in task:
+                task['acceptance']=parameters.pop('acceptance')
+                changes.append(f'tasks.{index}.parameters.acceptance->acceptance')
             bindings=task.get('inputs')
             if task.get('operation') in dynamic_operation_inputs and isinstance(bindings,(dict,list)):
                 mapped=bindings if isinstance(bindings,dict) else binding_map(bindings)
@@ -371,6 +375,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
                     return value
                 for key,value in parameters.pop('$defs',{}).items():defs[prefix+key]=rename(value)
                 bound['parameters']=rename(parameters)
+                bound['parameters']['description']='Only the registered operation parameters declared here. Task acceptance is the sibling acceptance field; never nest acceptance, files, outputs or task policy inside parameters.'
                 inputs=contract['input_contract'];roles=inputs.get('allowed_roles');input_field='inputs'
                 if roles is not None:bound['inputs']=obj({role:{'$ref':'#/$defs/InputRef'} for role in sorted(roles)},inputs.get('required_roles',[]))
                 else:bound.pop('inputs',None);bound['input_bindings']=deepcopy(input_bindings);input_field='input_bindings'
