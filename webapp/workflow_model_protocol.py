@@ -56,7 +56,7 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
         kind=task.get('type')
         if kind=='operation':
             for key in ('files','profile','implementation','argv','outputs','output_roles','preflight','config_files',
-                        'runtime_requirements','on_failure','delivery_stage'):
+                        'runtime_requirements','on_failure','retry_policy','delivery_stage'):
                 if key in task:
                     task.pop(key);changes.append(f'tasks.{index}.{key}_removed_for_registered_operation')
             parameters=task.get('parameters')
@@ -64,6 +64,13 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
                 task['acceptance']=parameters.pop('acceptance')
                 changes.append(f'tasks.{index}.parameters.acceptance->acceptance')
             bindings=task.get('inputs')
+            supplied_bindings=task.get('input_bindings')
+            if (bindings is None and task.get('operation') not in dynamic_operation_inputs
+                    and isinstance(supplied_bindings,list)):
+                mapped=binding_map(supplied_bindings)
+                if mapped is not None:
+                    task.pop('input_bindings');task['inputs']=mapped;bindings=mapped
+                    changes.append(f'tasks.{index}.fixed_operation_inputs_mapped')
             if task.get('operation') in dynamic_operation_inputs and isinstance(bindings,(dict,list)):
                 mapped=bindings if isinstance(bindings,dict) else binding_map(bindings)
                 if mapped is not None:
@@ -72,6 +79,10 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
             elif isinstance(bindings,list):
                 mapped=binding_map(bindings)
                 if mapped is not None:task['inputs']=mapped;changes.append(f'tasks.{index}.operation_inputs_mapped')
+            if isinstance(task.get('inputs'),dict):
+                for role,ref in task['inputs'].items():
+                    if isinstance(ref,dict) and ref.get('asset') and not ref.get('step') and 'role' in ref:
+                        ref.pop('role');changes.append(f'tasks.{index}.inputs.{role}.asset_role_removed')
         elif kind in ('agent','script') and 'input_bindings' not in task and isinstance(task.get('inputs'),dict):
             task['input_bindings']=[{'role':role,'ref':ref} for role,ref in task.pop('inputs').items()]
             changes.append(f'tasks.{index}.inputs_mapped')
@@ -352,7 +363,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         'description':'Declare each input role once. The host derives the authoritative inputs map.'}
     task_variants=[]
     irrelevant={'script':{'operation','implementation','parameters','profile','runtime_requirements'},
-                'operation':{'argv','outputs','output_roles','profile','preflight','config_files','runtime_requirements','on_failure'},
+                'operation':{'argv','outputs','output_roles','profile','preflight','config_files','runtime_requirements','on_failure','retry_policy'},
                 'agent':{'argv','operation','implementation','parameters','preflight','config_files','on_failure'}}
     for kind,removed in irrelevant.items():
         if kind=='script' and not allow_script:continue
@@ -514,6 +525,7 @@ def compile_manager(command,frozen):
                 if not binding:raise CommandError('operation_unavailable','plan.new_tasks.operation','Operation is outside the frozen capability index')
                 raw['implementation']=binding['implementation']
                 raw['on_failure']='pause' if binding.get('external_side_effects') else 'diagnose'
+                raw['retry_policy']='safe_once' if binding.get('retry_safe') and not binding.get('external_side_effects') else 'never'
                 contract=(binding.get('output_contract') or {})
                 role_filenames=contract.get('role_filenames',{})
                 contract_filenames=[name for role,name in contract.get('role_filenames',{}).items() if role!='preview']
@@ -596,6 +608,7 @@ def compile_manager(command,frozen):
                 binding=next((op for op in frozen.get('operations',[]) if op['id']==revised['operation']),None)
                 if not binding:raise CommandError('operation_unavailable','plan.changes.task_id','Operation is outside the frozen capability index')
                 revised['on_failure']='pause' if binding.get('external_side_effects') else 'diagnose'
+                revised['retry_policy']='safe_once' if binding.get('retry_safe') and not binding.get('external_side_effects') else 'never'
             else:revised['on_failure']='diagnose'
             if revised['type']=='agent':
                 outputs=list(revised.get('outputs',[]));roles=dict(revised.get('output_roles',{}))
