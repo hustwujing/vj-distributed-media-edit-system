@@ -22,7 +22,10 @@ class ProfileSkillTests(unittest.TestCase):
    self.assertIn('用长篇推理耗尽输出预算',reviewer)
    self.assertEqual(profiles.PROFILES[identifier].max_inspection_rounds,2)
    self.assertEqual(profiles.PROFILES[identifier].finalize_rounds,3 if identifier=='delivery_reviewer' else 2)
+   self.assertIn('近结尾时间窗口',reviewer)
   self.assertIn('criterion_index必须恰好覆盖',profiles.PROFILES['delivery_reviewer'].prompt)
+  self.assertIn('deliverables必须为空',profiles.PROFILES['visual_quality_reviewer'].prompt)
+  self.assertEqual(profiles.PROFILES['visual_quality_reviewer'].max_turns,6)
   self.assertEqual(profiles.PROFILES['media_failure_diagnostician'].max_inspection_rounds,1)
 
  def test_repair_prompts_require_evidence_first_and_measured_layouts(self):
