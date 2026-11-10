@@ -329,7 +329,7 @@ def validate_temporal_evidence(decision,snapshot,records):
         if not video_paths:raise ValueError('Temporal review requires verified video candidates')
         hashes={item['name']:item.get('sha256') for item in task['quality'].get('files',[]) if item['name'] in files}
         for reference in video_paths:
-            samples=[];durations=[];source_intervals=[]
+            samples=[];durations=[];source_intervals=[];sampling_steps=[]
             expected=hashes.get(reference)
             for row in records:
                 evidence=json.loads(row['evidence_json'])
@@ -345,13 +345,16 @@ def validate_temporal_evidence(decision,snapshot,records):
                 if not isinstance(interval,(int,float)) or not math.isfinite(interval) or interval<=0:continue
                 times=evidence.get('frame_timestamps',[evidence.get('timestamp_seconds')])
                 if not all(type(value) in (int,float) and math.isfinite(value) and 0<=value<duration for value in times):continue
+                ordered=sorted(set(times))
+                sampling_steps.extend(b-a for a,b in zip(ordered,ordered[1:]) if b>a)
                 samples.extend(times);durations.append(duration);source_intervals.append(interval)
             samples=sorted(set(samples))
             if len(samples)<8 or not durations:raise ValueError('Temporal review requires timestamped video evidence; evidence is too sparse')
             duration=max(durations)
             for rule in semantics:
                 deadline=min(rule['start_by_seconds'],duration*rule['start_by_fraction'])
-                if samples[0]>deadline or (samples[-1]-samples[0])/duration<rule['required_coverage']:
+                covered_end=min(duration,samples[-1]+(max(sampling_steps) if sampling_steps else 0))
+                if samples[0]>deadline or (covered_end-samples[0])/duration<rule['required_coverage']:
                     raise ValueError('Temporal evidence does not cover onset and required duration')
                 middle=duration/2
                 if not any(duration*.3<=sample<=duration*.7 for sample in samples):

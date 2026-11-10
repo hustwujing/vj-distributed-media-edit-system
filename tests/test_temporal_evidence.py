@@ -53,13 +53,20 @@ class TemporalEvidenceTests(unittest.TestCase):
             validate_temporal_evidence(decision,self.snapshot(),[{**self.record([0,7.5]),'id':'b'*32}])
 
     def test_one_criterion_can_cite_opening_middle_and_ending_windows(self):
+        snapshot=self.snapshot();snapshot['tasks'][0]['spec']['semantics']['temporal'][0]['required_coverage']=1
         records=[]
         for identifier,start in zip(('a','b','c'),(0,3,6)):
             record=self.record([start+i*.125 for i in range(16)])
             records.append({**record,'id':identifier*32})
         decision={'verdict':'pass','evidence':[{'inspection_id':'a'*32,
             'supporting_inspection_ids':['b'*32,'c'*32]}]}
-        validate_temporal_evidence(decision,self.snapshot(),records)
+        validate_temporal_evidence(decision,snapshot,records)
+
+    def test_full_contact_sheet_can_prove_one_hundred_percent_sampled_coverage(self):
+        snapshot=self.snapshot();snapshot['tasks'][0]['spec']['semantics']['temporal'][0]['required_coverage']=1
+        times=[index*.5 for index in range(16)]
+        validate_temporal_evidence({'verdict':'pass','evidence':[{'inspection_id':'a'*32}]},
+                                   snapshot,[self.record(times)])
 
     def test_final_review_only_requires_evidence_for_selected_delivery_tasks(self):
         snapshot=self.snapshot();snapshot['review_scope']='final'
