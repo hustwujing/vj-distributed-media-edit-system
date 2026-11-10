@@ -10,6 +10,7 @@ const jobs=8,uid=()=>crypto.randomBytes(16).toString('hex'),sha=bytes=>crypto.cr
 const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const assertModelConfiguration=value=>{
+ assert.equal(value.profile,'codex_gpt6_luna');
  assert.equal(value.model,'gpt-6-luna');
  assert.equal(value.roles.media_planner.model,'gpt-6-luna');
  assert.equal(value.roles.visual_quality_reviewer.model,'gpt-6-luna');
@@ -66,7 +67,7 @@ async function runCase(demo){
    for(const track of Object.keys(source.transcripts||{}))assert.ok(project.assets.some(asset=>asset.kind==='json'&&asset.source_asset===imported.id&&asset.audio_track===Number(track)),'Declared cached transcript is not available as an input');
   }
   await page.locator('#dynamic-execution-settings').evaluate(node=>node.open=true);
-  await page.locator('#dynamic-model-profile').selectOption('default');await page.locator('#dynamic-reasoning-effort').selectOption('low');
+  await page.locator('#dynamic-model-profile').selectOption('codex_gpt6_luna');await page.locator('#dynamic-reasoning-effort').selectOption('low');
   // Model options are populated only after loadProject has restored the draft.
   const importedPrompt=(await page.locator('#dynamic-input-content').inputValue()).trim();
   assert.equal(importedPrompt,project.draft.prompt.trim(),'Restored draft differs from the visible request');

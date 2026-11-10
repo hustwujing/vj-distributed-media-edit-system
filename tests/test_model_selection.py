@@ -19,10 +19,14 @@ class ModelSelectionTests(unittest.TestCase):
             'claude55':{'harness':'claude_code','model':'claude-sonnet-5-5','protocol':'anthropic',
                 'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'claude_bpe_estimate_v1',
                 'specialist_reasoning_effort':{'editing_implementer':'medium'}},
+            'codex_remote':{'harness':'codex','model':'gpt-6-luna','protocol':'responses',
+                'base_url':'https://responses.example/v1','credential_env':'VIDEO_USE_CODEX_REMOTE_API_KEY',
+                'reasoning_effort':'low','input_token_policy':'native','vision_tokenizer':'patch32_1_2'},
             'deepseek41':{'harness':'deepseek_harness','model':'deepseek-v4.1-flash','protocol':'anthropic',
                 'base_url':'https://models.example/v1','credential_env':'ANTHROPIC_API_KEY','reasoning_effort':'high','input_token_policy':'deepseek_bpe_estimate_v1'}}
         active=patch.dict(os.environ,{'VIDEO_USE_AGENT_PROFILES_JSON':json.dumps(self.registry),'VIDEO_USE_AGENT_PROFILE':'claude',
-            'VIDEO_USE_USER_AGENT_PROFILE':'claude55','ANTHROPIC_API_KEY':'test-model-selection-secret'})
+            'VIDEO_USE_USER_AGENT_PROFILE':'claude55','ANTHROPIC_API_KEY':'test-model-selection-secret',
+            'VIDEO_USE_CODEX_REMOTE_API_KEY':'test-codex-route-secret'})
         active.start();self.addCleanup(active.stop)
 
     def choice(self,name='claude',effort='high'):
@@ -40,6 +44,14 @@ class ModelSelectionTests(unittest.TestCase):
         self.assertIn('editing_implementer',run['model_configuration']['roles'])
         self.assertEqual(run['model_configuration']['roles']['editing_implementer']['reasoning_effort'],'medium')
         self.assertEqual(run['model_configuration']['roles']['media_planner']['reasoning_effort'],'high')
+
+    def test_named_profiles_resolve_independent_routes_and_credentials(self):
+        claude=agent_profiles.selected('claude55');codex=agent_profiles.selected('codex_remote')
+        self.assertEqual(claude.credentials(),('https://models.example/v1','test-model-selection-secret'))
+        self.assertEqual(codex.credentials(),('https://responses.example/v1','test-codex-route-secret'))
+        public=json.dumps({'claude':claude.public(),'codex':codex.public()})
+        self.assertNotIn('models.example',public);self.assertNotIn('responses.example',public)
+        self.assertNotIn('test-model-selection-secret',public);self.assertNotIn('test-codex-route-secret',public)
 
     def test_sandbox_choice_and_system_expert_models_are_frozen_separately(self):
         response=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('deepseek41','low')})
