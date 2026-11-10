@@ -36,6 +36,7 @@ class ProfileSkillTests(unittest.TestCase):
   self.assertIn('先给方案',manager);self.assertIn('不得用respond结束',manager)
   self.assertIn('不得再创建media.analyze业务Task',manager)
   self.assertIn('textbbox',implementer);self.assertIn('可见内容bbox',implementer)
+  self.assertIn('fc-list :lang=zh family file',implementer);self.assertIn('方框/缺字',implementer)
   self.assertIn('不能用同名目录代替',implementer);self.assertIn('files.path必须是普通文件',manager)
   structured=model_instructions(profiles.get('editing_implementer'))
   self.assertIn('VIDEO_USE_STEP_SCRATCH',structured)

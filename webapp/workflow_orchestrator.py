@@ -985,6 +985,10 @@ class Orchestrator:
             frozen['review_criteria']=final_criteria(run,complete_tasks)
         if purpose=='task':
             selected=frozen['tasks'][0]
+            from .execution_locations import for_run as execution_locations
+            evidence=execution_locations(store,run).get(selected['id'],{})
+            frozen['execution_evidence']={key:value for key,value in evidence.items()
+                if key in ('execution_location','execution_attempt_id','execution_harness','tool_location')}
             frozen['goal']=selected['spec']['objective']
             frozen.pop('delivery_targets')
             frozen['review_criteria']=list(dict.fromkeys(a['criterion'] for a in selected['spec']['acceptance']

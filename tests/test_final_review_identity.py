@@ -6,6 +6,16 @@ from webapp import workflow_graph as graph,run_inputs
 
 
 class FinalReviewInputIdentityTests(unittest.TestCase):
+    def test_task_review_receives_host_derived_harness_evidence(self):
+        f=fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
+        run=f.review_fixture();subject=run['tasks'][0]
+        evidence={subject['id']:{'execution_location':'opensandbox','execution_attempt_id':'a'*32,
+            'execution_harness':'codex','tool_location':'opensandbox'}}
+        with patch('webapp.execution_locations.for_run',return_value=evidence):
+            f.orchestrator.queue_review(run,subject['id'],purpose='task')
+        snapshot=json.loads(f.store.query("SELECT snapshot_json FROM workflow_reviews WHERE purpose='task'")[0]['snapshot_json'])
+        self.assertEqual(snapshot['execution_evidence'],evidence[subject['id']])
+
     def test_native_and_external_method_provenance_survives_upstream_projection(self):
         import copy
         for operation,profile,external in [('image.segment','sam2',False),('image.remove_background','birefnet',False),
