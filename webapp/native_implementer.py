@@ -112,6 +112,15 @@ def execute(host,lease,run,task):
                 runtime.client.connect()
         if ended.get('status')!='completed':
             error=ended.get('error')
+            if isinstance(error,dict):
+                message=str(error.get('message','')).lower()
+                if any(marker in message for marker in ('concurrency limit exceeded','rate limit exceeded',
+                        'too many requests','retry later')):
+                    from .workflow_agents import ModelServiceError
+                    raise ModelServiceError(429,'model_provider_concurrency')
+                if 'stream disconnected before completion' in message:
+                    from .workflow_agents import ModelServiceError
+                    raise ModelServiceError(503,'model_stream_disconnected')
             if isinstance(error,dict) and error.get('code')=='STREAM_CLOSED':
                 from .runtime_client import RuntimeDependencyError
                 raise RuntimeDependencyError(

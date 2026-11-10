@@ -238,6 +238,27 @@ class NativeRunnerTests(unittest.TestCase):
         finish.assert_not_called();runtime._download_output.assert_not_called()
         publisher.flush.assert_called_with(complete=True)
 
+    def test_codex_concurrency_limit_is_a_transient_model_error_not_script_failure(self):
+        from webapp.workflow_agents import ModelServiceError
+        run,runtime,publisher,finish=self.run_case(status='failed',error={
+            'message':'stream disconnected before completion: Concurrency limit exceeded for account, please retry later',
+            'codexErrorInfo':'other'})
+        with self.assertRaises(ModelServiceError) as raised:run()
+        self.assertEqual(raised.exception.diagnostic['http_status'],429)
+        self.assertEqual(raised.exception.diagnostic['code'],'model_provider_concurrency')
+        finish.assert_not_called();runtime._download_output.assert_not_called()
+        publisher.flush.assert_called_with(complete=True)
+
+    def test_codex_stream_disconnect_is_a_transient_model_service_error(self):
+        from webapp.workflow_agents import ModelServiceError
+        run,runtime,publisher,finish=self.run_case(status='failed',error={
+            'message':'stream disconnected before completion: upstream closed'})
+        with self.assertRaises(ModelServiceError) as raised:run()
+        self.assertEqual(raised.exception.diagnostic['http_status'],503)
+        self.assertEqual(raised.exception.diagnostic['code'],'model_stream_disconnected')
+        finish.assert_not_called();runtime._download_output.assert_not_called()
+        publisher.flush.assert_called_with(complete=True)
+
     def test_gateway_business_rejection_is_reported_as_host_error(self):
         run,runtime,publisher,finish=self.run_case(status='failed',error='SDK received HTTP 422')
         runtime.gateway.last_error=ValueError('Messages request field is unsupported')
