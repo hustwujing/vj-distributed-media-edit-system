@@ -234,14 +234,15 @@ def resolve_review(decision,snapshot,inspections,candidate_keys=None):
                   for identifier in [item['inspection_id'],*item.get('supporting_inspection_ids',[])]}
     if not evidence_ids<=set(inspections):raise ValueError('Review evidence must use completed inspection_id values from this attempt')
     candidate_keys=candidate_keys or {};aliases=review_candidate_aliases(snapshot,inspections,candidate_keys)
+    unique=list(dict.fromkeys(candidate_keys.values()))
     def select(value):
         if value in aliases:return aliases[value]
+        if len(unique)==1:return unique[0]
         raise ValueError('Final selection must use a current candidate_key or another unique alias from the same inspect receipt')
     selected=[select(value) for value in decision['deliverables']]
     selected.extend(identifier for identifier in required_reviewed_deliverables(
         snapshot,decision,inspections,candidate_keys) if identifier not in selected)
     if snapshot.get('review_scope')=='final' and decision['verdict']=='pass' and not selected:
-        unique=list(dict.fromkeys(candidate_keys.values()))
         if len(unique)==1:selected=unique
     primary=select(decision['primary']) if decision.get('primary') else ''
     if not primary and len(set(selected))==1:primary=selected[0]

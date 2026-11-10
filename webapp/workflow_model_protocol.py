@@ -31,6 +31,8 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
     plan=value
     if not isinstance(plan,dict):return value,changes
     tasks=plan.get('tasks')
+    if name=='submit_typed_plan' and 'kind' not in plan and isinstance(tasks,list) and tasks:
+        plan['kind']='APPLY_PLAN';changes.append('kind_defaulted_to_apply_plan')
     def binding_map(items):
         mapped={}
         for item in items:

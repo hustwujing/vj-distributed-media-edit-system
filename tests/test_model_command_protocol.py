@@ -252,6 +252,12 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(normalized['tasks'][0]['acceptance'][0],{'kind':'image','height':64,'max_participation':.5})
         self.assertEqual(changes,['tasks.0.acceptance.0.height_->height'])
 
+    def test_nonempty_typed_batch_safely_defaults_to_open_plan(self):
+        normalized,changes=normalize_planner_arguments('submit_typed_plan',{'tasks':[{'type':'agent'}]})
+        self.assertEqual(normalized['kind'],'APPLY_PLAN');self.assertEqual(changes,['kind_defaulted_to_apply_plan'])
+        empty,changes=normalize_planner_arguments('submit_typed_plan',{'tasks':[]})
+        self.assertNotIn('kind',empty);self.assertEqual(changes,[])
+
     def test_unambiguous_operation_acceptance_is_lifted_out_of_parameters(self):
         value={'tasks':[{'type':'operation','operation':'media.edit','parameters':{
             'edit_plan':{'clips':[{'asset':'source'}]},'acceptance':[{'kind':'media','video':True}]}}]}
@@ -1222,6 +1228,15 @@ class ModelCommandTests(unittest.TestCase):
         bad={**decision,'evidence':[{'criterion_index':1,'method_use':'not_applicable','observation':'越界','inspection_id':inspection}]}
         with self.assertRaisesRegex(ValueError,'0..0'):
             resolve_review(bad,snapshot,{inspection:'edit/final.mp4'},{'delivery_1':inspection})
+
+    def test_one_current_delivery_candidate_normalizes_an_invalid_alias(self):
+        from webapp.workflow_agent_contracts import resolve_review
+        inspection='b'*32;snapshot={'review_scope':'final','review_criteria':['result is valid'],'tasks':[]}
+        decision={'snapshot_digest':'a'*64,'verdict':'pass','evidence':[{
+            'criterion_index':0,'method_use':'not_applicable','observation':'Checked','inspection_id':inspection}],
+            'deliverables':['invalid-old-alias'],'primary':'invalid-old-alias','feedback':''}
+        resolved=resolve_review(decision,snapshot,{inspection:'edit/result.json'},{'delivery_1':inspection})
+        self.assertEqual((resolved['deliverables'],resolved['primary']),(['edit/result.json'],'edit/result.json'))
 
     def test_input_asset_filename_is_not_a_required_delivery_format(self):
         from webapp.workflow_model_protocol import required_delivery_extensions
