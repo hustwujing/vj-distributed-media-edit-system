@@ -112,6 +112,12 @@ class ContractTests(unittest.TestCase):
         self.assertIs(value['edit_plan']['titles'][0]['background'],True)
         plan['titles'][0]['background']='#000000'
         with self.assertRaises(ValueError):validate_parameters('media.edit',{'edit_plan':plan},inputs)
+
+    def test_media_edit_freeze_contract_requires_a_real_source_interval(self):
+        schema=get('media.edit').public()['parameters_schema'];clip=schema['$defs']['EditClip']['properties']
+        self.assertIn('at least 0.04 seconds',clip['start']['description'])
+        self.assertIn('source duration',clip['end']['description'])
+        self.assertIn('does not permit a zero-length',clip['freeze_end']['description'])
     def test_profile_does_not_depend_on_user_conversation_mode(self):
         self.assertEqual(profile('execute',review=True),'review')
         self.assertEqual(dispatch_kind({'workflow_status':'reviewing'}),'agent')

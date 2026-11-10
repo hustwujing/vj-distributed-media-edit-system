@@ -89,15 +89,18 @@ class Render(Parameters):
 
 class EditClip(Parameters):
     asset:str=Field(min_length=1,max_length=100)
-    start:float|None=Field(default=None,ge=0)
-    end:float|None=Field(default=None,gt=0)
+    start:float|None=Field(default=None,ge=0,
+        description='Source start time. A concrete clip interval must be at least 0.04 seconds; for a final-frame freeze, use start no later than source duration minus 0.04.')
+    end:float|None=Field(default=None,gt=0,
+        description='Source end time, at most the source duration and at least 0.04 seconds after start. For a final-frame freeze, set end to the source duration.')
     words:list[int]|None=Field(default=None,min_length=2,max_length=2)
     padding:float=Field(default=.08,ge=.03,le=.2)
     audio_track:int=Field(default=0,ge=0,le=15)
     speed:float=Field(default=1,ge=.25,le=4)
     reverse:bool=False
     reverse_audio:bool=False
-    freeze_end:float=Field(default=0,ge=0,le=30)
+    freeze_end:float=Field(default=0,ge=0,le=30,
+        description='Seconds of frozen final frame appended after this valid source clip. This does not permit a zero-length source interval.')
     repeat:int=Field(default=1,ge=1,le=20)
     crop:list[int]|None=Field(default=None,min_length=4,max_length=4)
     rotate:Literal[0,90,180,270]=0
