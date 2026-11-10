@@ -14,8 +14,8 @@ const assertModelConfiguration=value=>{
  assert.equal(value.model,'claude-opus-5-5');
  assert.equal(value.roles.media_planner.model,'claude-opus-5-5');
  assert.equal(value.roles.visual_quality_reviewer.model,'claude-opus-5-5');
- assert.equal(value.roles.editing_implementer.model,'claude-opus-5-5');
- assert.equal(value.roles.editing_implementer.harness,'claude_code');
+ assert.equal(value.roles.editing_implementer.model,'gpt-6-luna');
+ assert.equal(value.roles.editing_implementer.harness,'codex');
  assert.equal(value.roles.editing_implementer.reasoning_effort,'low');
 };
 const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
@@ -171,7 +171,8 @@ async function runCase(demo){
  const cases=selected?[...selected].map(id=>catalog.find(item=>item.id===id)):catalog;
  if(selected)assert.ok(cases.every(Boolean),'Unknown example requested');
  save(path.join(output,'round.json'),{started_at:Date.now()/1000,total:44,selected:cases.map(d=>d.id),concurrency:jobs,release,catalog_sha256:sha(Buffer.from(JSON.stringify(catalog))),driver_sha256:sha(fs.readFileSync(__filename))});
- browser=await chromium.launch({headless:true,args:['--no-sandbox','--host-resolver-rules=MAP updream-lab.bilibili.co 127.0.0.1']});
+ browser=await chromium.launch({headless:true,handleSIGINT:false,handleSIGTERM:false,
+  args:['--no-sandbox','--host-resolver-rules=MAP updream-lab.bilibili.co 127.0.0.1']});
  try{let cursor=0;const workers=await Promise.allSettled(Array.from({length:Math.min(jobs,cases.length)},async()=>{while(!stop&&cursor<cases.length&&!fs.existsSync(path.join(output,'pause-new-cases'))){const demo=cases[cursor++];await runCase(demo);}}));const errors=workers.filter(item=>item.status==='rejected').map(item=>String(item.reason));if(errors.length){save(path.join(output,'driver-errors.json'),errors);throw Error(errors.join('\n'));}}
  finally{if(stop)await Promise.allSettled([...active].map(cancel=>cancel()));await browser.close();save(path.join(output,'summary.json'),{total:44,started:results.length,results:results.map(s=>({case:s.case,status:s.status,classification:s.classification,seconds:s.seconds})),finished_at:Date.now()/1000});}
 })().catch(error=>{console.error(error);process.exitCode=1;});
