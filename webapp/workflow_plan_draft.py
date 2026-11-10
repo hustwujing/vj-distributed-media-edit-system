@@ -162,7 +162,9 @@ def compile(store,request_id,frozen,command):
 def compile_value(value,frozen,command):
     draft={key:deepcopy(value[key]) for key in (*LIST_FIELDS,*MAP_FIELDS)}
     return compile_manager({'kind':command['kind'],'reason':command['reason'],
-                            'delivery_targets':command.get('delivery_targets',[]),'plan':draft},frozen)
+                            'delivery_targets':command.get('delivery_targets',[]),
+                            'delivery_contract':command.get('delivery_contract'),
+                            'review_policy':command.get('review_policy'),'plan':draft},frozen)
 
 
 def record_error(store,lease,request_id,errors):

@@ -132,7 +132,7 @@ def activate(store,run,message):
             context['responding_to']={'decision_id':decision['id'],'question':question.get('question','')}
             if decision['kind']=='plan_confirmation':
                 from .workflow_conversation import invalidate_plan
-                context['superseded_plan']={key:question[key] for key in ('reason','delivery_targets','steps','dependencies')}
+                context['superseded_plan']={key:question[key] for key in ('reason','delivery_targets','delivery_contract','steps','dependencies')}
                 invalidate_plan(store,run,decision)
             else:store.execute("UPDATE workflow_decisions SET status='superseded',answer_json=?,updated_at=? WHERE id=?",
                                (graph.encode({'action':'revise','feedback':message['content']}),now,decision['id']))

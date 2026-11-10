@@ -292,6 +292,32 @@ class Orchestrator:
             store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",
                           (encode(payload),store.now(),row['id']))
             return
+        if row['kind']=='publication_checkpoint':
+            reviews=store.query("SELECT * FROM workflow_reviews WHERE id=? AND run_id=? AND purpose='final' AND status='passed'",
+                                (request.get('review_id'),run['id']))
+            if not reviews or reviews[0]['graph_version']!=run['graph_version']:
+                raise DecisionError('decision_snapshot_stale')
+            if payload['action']=='approve':
+                store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",
+                              (encode(payload),store.now(),row['id']))
+                self.set_status(run,'ACTIVE','publication_approved')
+                return
+            if payload['action']=='revise':
+                if not request_id:raise ValueError('Feedback requires an idempotency request ID')
+                from .run_inputs import accept
+                accept(store,run['id'],actor,{'request_id':request_id,'content':payload['feedback'],
+                    'attachments':payload['attachments'],'source':'user'},context={
+                        'decision_id':row['id'],'decision_snapshot':row['snapshot_digest'],
+                        'final_review_id':reviews[0]['id']})
+                store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],))
+                store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",
+                              (encode(payload),store.now(),row['id']))
+                self.set_status(run,'ACTIVE','input_draining')
+                return
+            store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",
+                          (encode(payload),store.now(),row['id']))
+            self.set_status(run,'WAITING_USER','user_rejected')
+            return
         if row['kind'] in ('quality','quality_feedback'):
             from .run_inputs import candidate_digest
             subject=next(t for t in run['tasks'] if t['id']==request['task_id'])
@@ -304,7 +330,7 @@ class Orchestrator:
             context={'decision_id':row['id'],'decision_snapshot':row['snapshot_digest']}
             if row['kind']=='plan_confirmation':
                 from .workflow_conversation import invalidate_plan
-                context['superseded_plan']={key:request[key] for key in ('reason','delivery_targets','steps','dependencies')}
+                context['superseded_plan']={key:request[key] for key in ('reason','delivery_targets','delivery_contract','steps','dependencies')}
                 invalidate_plan(store,run,row)
             if row['kind'] not in ('input_question','plan_confirmation'):
                 if subject['user_revision_count']>=5:raise ValueError('User revision limit reached')
@@ -426,7 +452,9 @@ class Orchestrator:
             except ValueError as exc:raise DecisionError('scope_invalid',str(exc)) from exc
             filling_initial_targets=not run['tasks'] and run['graph_version']==0 and not run['authorization']['delivery_targets']
             if authorization.goal!=run['goal']:raise ValueError('Changing the top-level goal requires a new Run')
-            if run['scope_confirmed'] and not filling_initial_targets and set(authorization.delivery_targets)!=set(run['authorization']['delivery_targets']):
+            old_contract=graph.DeliveryContract.model_validate(run['authorization'].get('delivery_contract',{})).model_dump()
+            contract_changed=authorization.delivery_contract.model_dump()!=old_contract
+            if run['scope_confirmed'] and not filling_initial_targets and (set(authorization.delivery_targets)!=set(run['authorization']['delivery_targets']) or contract_changed):
                 cutoff=int(request.get('input_through_sequence',0))
                 if not cutoff or not store.query("SELECT id FROM run_inputs WHERE run_id=? AND sequence<=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],cutoff)):
                     raise ValueError('Delivery contract change requires explicit pending user input')
@@ -446,6 +474,13 @@ class Orchestrator:
             new_targets=set(authorization.delivery_targets)
             if not new_targets:raise ValueError('Delivery scope cannot be empty after confirmation')
             if not new_targets<=old_targets:raise ValueError('Delivery scope expansion requires a new explicit plan change')
+            old_contract=graph.DeliveryContract.model_validate(run['authorization'].get('delivery_contract',{}))
+            new_contract=authorization.delivery_contract
+            if (not set(new_contract.filenames)<=set(old_contract.filenames)
+                    or not set(new_contract.formats)<=set(old_contract.formats)
+                    or not set(new_contract.roles)<=set(old_contract.roles)
+                    or not set(old_contract.excluded_filenames)<=set(new_contract.excluded_filenames)):
+                raise ValueError('Delivery contract expansion requires a new explicit plan change')
             from .run_authorization import approve
             approve(store,run,authorization)
             superseded=store.query("SELECT task_id FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status IN ('passed','rejected','pending','running','staged')",(run['id'],))
@@ -921,6 +956,7 @@ class Orchestrator:
         identifier=uuid.uuid4().hex;task_id=identifier;now=store.now()
         frozen={'graph_version':run['graph_version'],'authorization_version':run['authorization_version'],
                 'goal':run['goal'],'delivery_targets':run['authorization']['delivery_targets'],'sealed':run['sealed'],
+                'delivery_contract':run['authorization'].get('delivery_contract',graph.DeliveryContract().model_dump()),
                 'tasks':[t for t in graph.work_items(run) if not t.get('control_kind') and (not subject or t['id']==subject)]}
         asset_ids=run['authorization'].get('allowed_assets',[])
         frozen['input_asset_names']=[]
@@ -1217,6 +1253,18 @@ class Orchestrator:
             graph.event(store,run,'delivery_blocked',{'reason':'delivery_targets_incomplete',
                 'missing_task_ids':[],'missing_extensions':[],'missing_roles':sorted(missing_roles)})
             self.set_status(run,'WAITING_USER','delivery_targets_incomplete');return
+        checkpoint=(run['authorization'].get('review_policy') or {}).get('user_checkpoint') or {}
+        if checkpoint.get('enabled') and checkpoint.get('stage')=='before_publish':
+            approvals=store.query("SELECT request_json FROM workflow_decisions WHERE run_id=? AND kind='publication_checkpoint' AND status='applied' AND graph_version=? AND authorization_version=?",
+                                  (run['id'],run['graph_version'],run['authorization_version']))
+            approved=any(json.loads(item['request_json']).get('review_id')==review['id'] for item in approvals)
+            if not approved:
+                self.decision(run,'publication_checkpoint',{
+                    'review_id':review['id'],'reason':checkpoint['reason'],
+                    'question':'最终审查已经通过。请确认是否正式发布这些成果。',
+                    'deliverables':[publication_names.get(name,PurePosixPath(name).name) for name in selected],
+                    'primary':publication_names.get(primary,PurePosixPath(primary).name)})
+                return
         artifacts=[];publications=[]
         import mimetypes
         from pathlib import PurePosixPath

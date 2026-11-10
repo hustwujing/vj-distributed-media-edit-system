@@ -13,3 +13,11 @@ test('plan confirmation shows real sandbox route dependencies and exact network 
  const gpu=confirmationDetails(decision({requires_gpu:true,python_modules:[],system_tools:[],network_urls:[]}));
  assert.match(gpu,/bwrap（GPU \/ 宿主设备）/);assert.match(gpu,/不联网/);
 });
+
+test('plan confirmation exposes the frozen publication checkpoint without task review inference',()=>{
+ const value=confirmationDetails({kind:'plan_confirmation',request:{delivery_targets:['result'],steps:[],review_policy:{
+  technical_review:'required',user_checkpoint:{enabled:true,stage:'before_publish',reason:'发布前确认成片'}}}});
+ assert.match(value,/发布前确认成片/);
+ const checkpoint=confirmationDetails({kind:'publication_checkpoint',request:{deliverables:['final.mp4'],primary:'final.mp4'}});
+ assert.match(checkpoint,/待发布成果.*final\.mp4/s);assert.match(checkpoint,/主成果/);
+});

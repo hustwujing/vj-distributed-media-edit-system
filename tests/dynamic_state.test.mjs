@@ -14,6 +14,14 @@ test('user approval requires declared review, technical pass and required agent 
  assert.equal(acceptsFeedback({...decision,kind:'quality_feedback'}),true);
 });
 
+test('publication checkpoint has explicit approval, revision and re-entry status',()=>{
+ const decision={kind:'publication_checkpoint'};
+ assert.equal(canApproveDecision(decision,{tasks:[]}),true);
+ assert.equal(acceptsFeedback(decision),true);
+ assert.equal(decisionPresentation(decision,{tasks:[]}).actions.find(item=>item.action==='approve').label,'确认并发布');
+ assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'publication_checkpoint'}),/最终审查.*等待.*发布/);
+});
+
 test('unknown external submission and planning have distinct input waiting messages',()=>{
  assert.match(inputStatus({input_barrier_sequence:2,terminal_reason:'input_waiting_external_unknown'}),/核实.*不会重复提交/);
  assert.match(inputStatus({input_barrier_sequence:null,terminal_reason:'review_contract_exhausted'}),/Reviewer.*证据已保留/);

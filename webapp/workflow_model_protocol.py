@@ -89,105 +89,24 @@ def change_fields(task_type,user=False):
 
 
 REPLACEMENT_REQUIREMENT_FIELDS=('objective','acceptance','semantics','delivery_stage','runtime_requirements')
-DELIVERY_SUFFIXES=('png','jpg','jpeg','webp','tif','tiff','mp4','mov','mkv','webm','wav','mp3','m4a','flac',
-                   'srt','vtt','ass','json','txt','md','csv','pdf','zip','psd','ora','svg','py')
-DELIVERY_EXTENSION_PATTERN='(?:'+'|'.join(DELIVERY_SUFFIXES)+')'
-
-
-def _delivery_request_text(frozen,forbidden_names=None):
-    import re
-    records=[*frozen.get('user_changes',[]),*((frozen.get('input_batch') or {}).get('inputs') or [])]
-    changes=[item.get('content','') for item in records if isinstance(item,dict)]
-    targets=frozen.get('delivery_targets',frozen.get('authorization',{}).get('delivery_targets',[]))
-    text=' '.join([frozen.get('goal',''),*targets,*changes])
-    scope=frozen.get('effective_delivery_scope')
-    if scope and (scope.get('confirmed') or scope.get('proposed')):
-        # A confirmed complete delivery list replaces earlier delivery-list
-        # requirements only. The full goal remains in content review criteria.
-        text='；'.join('交付 '+value for value in scope['targets'])
-    for value in frozen.get('input_asset_names',[]):
-        if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
-    for asset in frozen.get('assets',[]):
-        for value in (asset.get('name'),asset.get('filename')):
-            if value:text=re.sub(re.escape(value),' ',text,flags=re.IGNORECASE)
-    extension=DELIVERY_EXTENSION_PATTERN
-    filename=re.compile(r'(?i)(?<![A-Za-z0-9_.-])[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+extension+r'(?![A-Za-z0-9_-]|\.[A-Za-z0-9_-])')
-    exclusions={};inclusions={}
-    def omit_non_delivery(match):
-        before=re.split(r'[;；。\n,，.!?！？]',text[:match.start()])[-1]
-        # A prohibition on reprocessing an original input is not an output
-        # declaration. A separate positive delivery mention remains intact.
-        original_input=r'(?:(?:不要|无需|不得|不再)(?:重新|重复)?(?:剪辑|处理|生成|制作|编码|转码)\s*(?:原始|原(?:视频|音频|图片)|源(?:文件|素材))\s*|(?:do not|don\x27t|without)\s+(?:reprocess|re-?edit|regenerate|re-?encode)\s+(?:the\s+)?(?:original|source|input)\s+)$'
-        if re.search(original_input,before,re.IGNORECASE):return ' '
-        after=text[match.end():]
-        excluded=r'(?:非交付|不交付|不要交付|无需交付|不得交付|仅(?:作为|供)?(?:中间|内部|参考)|non[- ]?deliverable|do not deliver|not for delivery|internal only)'
-        endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
-        tail=after[:min(endings) if endings else len(after)]
-        for comma in re.finditer(r'[,，]',tail):
-            remaining=tail[comma.end():];other=filename.search(remaining);negative=re.search(excluded,remaining,re.IGNORECASE)
-            if other and (not negative or other.start()<negative.start()):tail=tail[:comma.start()];break
-        nearby=match.group(0)+tail
-        prefix=re.split(r'[;；。\n,，]|\.\s+',text[:match.start()])[-1]
-        negative_prefix=r'(?:不交付|不要交付|无需交付|不得交付|do not deliver|not for delivery)'
-        if re.search(excluded,nearby,re.IGNORECASE) or re.search(negative_prefix,prefix,re.IGNORECASE):
-            exclusions[match.group(0)]=match.start();return ' '
-        if re.search(r'(?:交付|\bdeliver\b)',prefix,re.IGNORECASE):inclusions[match.group(0)]=match.start()
-        return match.group(0)
-    text=filename.sub(omit_non_delivery,text)
-    forbidden={name for name,offset in exclusions.items() if inclusions.get(name,-1)<offset}
-    if forbidden_names is not None:forbidden_names.update(forbidden)
-    text=filename.sub(lambda match:' ' if match.group(0) in forbidden else match.group(0),text)
-    format_token=re.compile(r'(?i)(?<![A-Za-z0-9])('+ '|'.join(DELIVERY_SUFFIXES)+r')(?![A-Za-z0-9])')
-    def omit_intermediate_format(match):
-        after=text[match.end():]
-        endings=[index for mark in ';；。\n' if (index:=after.find(mark))>=0]
-        clause=after[:min(endings) if endings else len(after)]
-        intermediate=r'(?:中间|复用|输入|素材|备用|参考|intermediate|reuse|input|source|reference)'
-        return ' ' if re.search(intermediate,clause,re.IGNORECASE) else match.group(0)
-    return format_token.sub(omit_intermediate_format,text),filename
+def delivery_contract(frozen):
+    """Read Manager-structured delivery semantics; never interpret user prose."""
+    scope=frozen.get('effective_delivery_scope') or {}
+    value=(frozen.get('delivery_contract') or scope.get('delivery_contract')
+           or frozen.get('authorization',{}).get('delivery_contract') or {})
+    return graph.DeliveryContract.model_validate(value)
 
 
 def required_delivery_names(frozen):
-    """Return explicit output basenames from the confirmed scope and applied input."""
-    import re
-    text,filename=_delivery_request_text(frozen)
-    matches=list(filename.finditer(text));names={match.group(0) for match in matches}
-    explicit={match.group(0) for clause in re.finditer(r'(?i)(?:交付|\bdeliver\s+)[^;；。\n]*',text)
-              for match in filename.finditer(clause.group(0))}
-    if explicit:names=explicit
-    name=r'[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*\.'+DELIVERY_EXTENSION_PATTERN
-    verb=r'(?:改名为|重命名为|改为|改成|rename(?:d)?\s+to)'
-    subject=r'(?:(?:最终|交付)(?:的)?(?:(?:视频|音频|图片|文档|报告)(?:文件)?|文件|产物)(?:名(?:称|字)?)?|final\s+(?:(?:video|audio|image)\s+)?(?:file(?:name)?|output)(?:\s+name)?)'
-    renames=[*re.finditer(rf'(?i)(?P<old>{name})\s*{verb}\s*(?P<new>{name})',text),
-             *re.finditer(rf'(?i){subject}\s*{verb}\s*(?P<new>{name})',text)]
-    renames.sort(key=lambda match:match.start())
-    for index,renamed in enumerate(renames):
-        target=renamed.group('new');extension=target.rsplit('.',1)[-1].lower()
-        if renamed.groupdict().get('old'):names.discard(renamed.group('old'))
-        else:
-            # Confirmed targets are concatenated before chronological changes.
-            # Do not mistake a later rename's destination for an older output.
-            future={item.group('new') for item in renames[index+1:]}
-            prior={match.group(0) for match in matches if match.start()<renamed.start()
-                   and match.group(0) in names and match.group(0).rsplit('.',1)[-1].lower()==extension}-{target}-future
-            # Multiple existing files of the same format require an explicit
-            # old name; a generic rename must not erase unrelated deliverables.
-            if len(prior)==1:names.difference_update(prior)
-        names.add(target)
-    return names
+    return set(delivery_contract(frozen).filenames)
 
 
 def forbidden_delivery_names(frozen):
-    names=set();_delivery_request_text(frozen,names)
-    return names
+    return set(delivery_contract(frozen).excluded_filenames)
 
 
 def required_delivery_extensions(frozen):
-    import re
-    text,_=_delivery_request_text(frozen)
-    aliases={'jpg':'jpeg'}
-    return {aliases.get(value.lower(),value.lower()) for value in re.findall(
-        r'(?i)(?<![A-Za-z0-9])('+ '|'.join(DELIVERY_SUFFIXES)+r')(?![A-Za-z0-9])',text)}
+    return set(delivery_contract(frozen).formats)
 
 
 def bind_explicit_delivery_names(raw,filenames,roles,frozen):
@@ -215,12 +134,7 @@ def bind_explicit_delivery_names(raw,filenames,roles,frozen):
 
 
 def required_delivery_roles(frozen):
-    import re
-    text,_=_delivery_request_text(frozen)
-    pattern=r'(?:交付|输出|保存|附上|deliver|provide|include|output|save|attach).{0,48}(?:报告|\breport\b)'
-    excluded=r'(?:不交付|非交付|不要交付|仅(?:作为|供)?(?:内部|参考)|留在工作流|internal only|do not deliver|not for delivery)'
-    clauses=re.split(r'[;；。\n,，]|\.\s+',text)
-    return {'report'} if any(re.search(pattern,clause,re.IGNORECASE) and not re.search(excluded,clause,re.IGNORECASE) for clause in clauses) else set()
+    return set(delivery_contract(frozen).roles)
 
 
 def bind_explicit_delivery_formats(raw,filenames,frozen,role_filenames=None):
@@ -400,11 +314,9 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         asset_branch['description']='Use one exact authorized asset ID from this enum; never use a filename, display name or guessed ID.'
     from .quality_policy import Acceptance
     acceptance=defs['Acceptance']['properties'];variants=[]
-    import re
-    review_text=' '.join([str(frozen.get('goal','')),*[str(item.get('content','')) for item in frozen.get('user_changes',[]) if isinstance(item,dict)]])
-    human_review=bool(re.search(r'人工确认|用户确认|我来确认|让我确认|由我审核|手工确认|human review|manual review|manually review|ask me to approve',review_text,re.I))
-    acceptance_kinds=('file','image','media','text','json','subtitle','agent')+(('review',) if human_review else ())
-    for kind in acceptance_kinds:
+    # Human approval is a control-plane decision, not model-inferred Task
+    # acceptance. Planner-created content checks always use the Agent reviewer.
+    for kind in ('file','image','media','text','json','subtitle','agent'):
         fields={key:deepcopy(acceptance[key]) for key in sorted(Acceptance.fields_for_kind(kind)-{'source'})}
         fields['kind']={'type':'string','enum':[kind]};required=['kind']
         if kind in ('agent','review'):
@@ -526,6 +438,8 @@ def compile_manager(command,frozen):
                   authorization_version=frozen['authorization_version'],
                   input_through_sequence=(frozen.get('input_batch') or {}).get('through_sequence',0))
     plan=command.get('plan')
+    if command.get('delivery_contract') is not None:
+        frozen={**frozen,'delivery_contract':command['delivery_contract']}
     if command.get('delivery_targets') and (frozen.get('input_batch') or {}).get('inputs'):
         frozen={**frozen,'effective_delivery_scope':{'proposed':True,'targets':command['delivery_targets']}}
     if plan is not None:
@@ -775,7 +689,9 @@ class ToolProtocol:
         can_correct=self.correction_mode
         config_fields={key:deepcopy(plan[key]) for key in ('changes','dependencies','remove_dependencies','repair_replacements','replacements','review_again') if key in plan}
         commit_fields={'kind':{'type':'string','enum':['APPLY_PLAN','COMPLETE']},'reason':command['properties']['reason'],
-                       'delivery_targets':command['properties']['delivery_targets']}
+                       'delivery_targets':command['properties']['delivery_targets'],
+                       'delivery_contract':command['properties']['delivery_contract'],
+                       'review_policy':command['properties']['review_policy']}
         automatic,user=scopes(self.frozen);targeted=targeted_user_inputs(self.frozen)
         evidence_repair=automatic is not None and user is None and evidence_collection_available(self.frozen)
         allow_new_tasks=((automatic is None or user is not None) and not targeted) or evidence_repair
@@ -798,13 +714,16 @@ class ToolProtocol:
         if not existing or not finalize and not can_correct:
             submit={**config_fields,**commit_fields}
             if task_variants and allow_new_tasks:submit['tasks']={'type':'array','minItems':1,'maxItems':16,'items':{'anyOf':task_variants}}
-            self.add('submit_typed_plan','draft_batch_commit',referenced_schema(obj(submit,['kind','reason']),defs))
+            required=['kind','reason']+(['delivery_contract'] if self.frozen.get('graph_version')==0 else [])
+            self.add('submit_typed_plan','draft_batch_commit',referenced_schema(obj(submit,required),defs))
         if config_fields:
             schema=referenced_schema(obj(config_fields,[]),defs)
             if can_correct and any(draft_value.get(key) for key in config_fields):self.add('replace_plan_configuration','draft_replace_configuration',schema)
         identifiers=[item['id'] for item in existing]
         if can_correct and identifiers:self.add('remove_draft_tasks','draft_remove_tasks',obj({'task_ids':{'type':'array','minItems':1,'maxItems':16,'uniqueItems':True,'items':{'type':'string','enum':identifiers}}}))
-        if existing or finalize or can_correct:self.add('commit_plan','draft_commit',obj(commit_fields,['kind','reason']))
+        if existing or finalize or can_correct:
+            required=['kind','reason']+(['delivery_contract'] if self.frozen.get('graph_version')==0 else [])
+            self.add('commit_plan','draft_commit',obj(commit_fields,required))
         if (self.frozen.get('input_batch') or {}).get('through_sequence',0):
             self.add('continue_run','draft_control',obj({'reason':command['properties']['reason']}))
         self.add('request_user_input','draft_control',obj({'reason':command['properties']['reason'],

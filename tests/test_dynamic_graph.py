@@ -769,6 +769,29 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual([(t['id'],t['revision'],t['status'],t['attempts']) for t in run['tasks']],before)
         self.assertEqual(len(run['delivery']),1)
 
+    def test_publication_checkpoint_is_durable_and_only_orchestrator_can_release_delivery(self):
+        from unittest.mock import patch
+        def require_checkpoint(run,review_id):
+            authorization={**run['authorization'],'review_policy':{
+                'technical_review':'required','user_checkpoint':{
+                    'enabled':True,'stage':'before_publish','reason':'发布前核对最终报告'}}}
+            self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(authorization),run['id']))
+            self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=? AND version=?',
+                               (graph.encode(authorization),run['id'],run['authorization_version']))
+        self.publish_metadata_fixture(['report.txt'],before_publish=require_checkpoint,expect_success=False)
+        run=graph.get(self.store,self.run['id']);self.assertIsNone(run['delivered_at'])
+        row=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND kind='publication_checkpoint' AND status='pending'",
+                             (run['id'],))[0]
+        request=json.loads(row['request_json'])
+        self.assertEqual(request['deliverables'],['report.txt']);self.assertEqual(request['primary'],'report.txt')
+        self.orchestrator.answer(run,{'decision_id':row['id'],'snapshot_digest':row['snapshot_digest'],'action':'approve'})
+        review=self.store.query("SELECT * FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status='passed'",(run['id'],))[0]
+        with patch.dict('os.environ',{'VIDEO_USE_OBJECT_BUCKET':'publication-metadata-fixture'}):
+            self.orchestrator.publish(graph.get(self.store,run['id']),review)
+        current=graph.get(self.store,run['id'])
+        self.assertEqual(current['status'],'SUCCEEDED');self.assertEqual(len(current['delivery']),1)
+        self.assertEqual(self.store.query('SELECT status FROM workflow_decisions WHERE id=?',(row['id'],))[0]['status'],'applied')
+
     def test_passed_final_review_can_be_reused_after_graph_only_change(self):
         from webapp.review_identity import identity,final_criteria
         def reseal(run,review_id):
@@ -796,15 +819,19 @@ class DynamicGraphTests(unittest.TestCase):
 
     def test_publisher_rejects_explicitly_excluded_files_even_if_review_passed(self):
         def scope(run,review_id):
-            self.store.execute('UPDATE runs SET goal=? WHERE id=?',
-                ('先保留 final.txt 和 internal.json。最终交付 final.txt，internal.json不交付。',run['id']))
+            authorization={**run['authorization'],'delivery_contract':graph.DeliveryContract(
+                filenames=['final.txt'],excluded_filenames=['internal.json']).model_dump()}
+            self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
+                ('保留内部记录，只交付最终文本',graph.encode(authorization),run['id']))
         delivered,_=self.publish_metadata_fixture(['final.txt','internal.json'],before_publish=scope,expect_success=False)
         self.assertEqual(delivered,[])
 
     def test_excluded_delivery_stage_does_not_force_publication_of_internal_file(self):
         def scope(run,review_id):
-            self.store.execute('UPDATE runs SET goal=? WHERE id=?',
-                ('先保留 final.txt 和 internal.json。最终交付 final.txt，internal.json不交付。',run['id']))
+            authorization={**run['authorization'],'delivery_contract':graph.DeliveryContract(
+                filenames=['final.txt'],excluded_filenames=['internal.json']).model_dump()}
+            self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
+                ('保留内部记录，只交付最终文本',graph.encode(authorization),run['id']))
         delivered,_=self.publish_metadata_fixture(['final.txt','internal.json'],selected_indices=[0],before_publish=scope)
         self.assertEqual([item['name'] for item in delivered],['final.txt'])
 
@@ -851,7 +878,8 @@ class DynamicGraphTests(unittest.TestCase):
         self.publish_metadata_fixture(['master_8s_horizontal.mp4','final.mp4'],primary_index=None)
 
     def test_explicit_file_delivery_targets_must_all_be_selected(self):
-        authorization={**self.run['authorization'],'delivery_targets':['最终 PNG 及原始 TXT 记录']}
+        authorization={**self.run['authorization'],'delivery_targets':['最终 PNG 及原始 TXT 记录'],
+            'delivery_contract':graph.DeliveryContract(filenames=['final.png','record.txt']).model_dump()}
         self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
             ('交付 final.png 和 record.txt',graph.encode(authorization),self.run['id']))
         self.publish_metadata_fixture(['final.png'],expect_success=False)
@@ -867,7 +895,8 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertIn('无需缩小需求',shown['blocking_action']['message'])
 
     def test_explicit_delivery_filename_cannot_be_replaced_by_same_format(self):
-        authorization={**self.run['authorization'],'delivery_targets':['final.mp4 and cover.png']}
+        authorization={**self.run['authorization'],'delivery_targets':['final.mp4 and cover.png'],
+            'delivery_contract':graph.DeliveryContract(filenames=['final.mp4','cover.png']).model_dump()}
         self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
             ('Deliver final.mp4 and cover.png',graph.encode(authorization),self.run['id']))
         self.publish_metadata_fixture(['clip_128x64.mp4','cover.png'],primary_index=0,expect_success=False)
@@ -875,7 +904,8 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(payload['missing_names'],['final.mp4'])
 
     def test_explicit_report_role_must_be_selected(self):
-        authorization={**self.run['authorization'],'delivery_targets':['final report']}
+        authorization={**self.run['authorization'],'delivery_targets':['final report'],
+            'delivery_contract':graph.DeliveryContract(roles=['report']).model_dump()}
         self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
             ('Deliver final.png and an objective report',graph.encode(authorization),self.run['id']))
         self.publish_metadata_fixture(['final.png','report.json'],expect_success=False)
@@ -883,7 +913,8 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(payload['missing_roles'],['report'])
 
     def test_input_asset_extension_is_not_treated_as_a_delivery_format(self):
-        authorization={**self.run['authorization'],'delivery_targets':['符合需求的 512x512 图片']}
+        authorization={**self.run['authorization'],'delivery_targets':['符合需求的 512x512 图片'],
+            'delivery_contract':graph.DeliveryContract(formats=['jpeg']).model_dump()}
         self.store.execute('UPDATE runs SET goal=?,authorization_json=? WHERE id=?',
             ('将 source.png 转为 JPEG，保持内容不变',graph.encode(authorization),self.run['id']))
         delivered,_=self.publish_metadata_fixture(['final.jpg'])
@@ -936,7 +967,7 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(validated_internal_result(run,task,get('delivery_reviewer'),{'decision':by_ref},frozen,inspections,keys)['decision']['primary'],selected[0])
         by_name={**valid,'deliverables':['master.mp4','final.mp4'],'primary':'master.mp4'}
         self.assertEqual(validated_internal_result(run,task,get('delivery_reviewer'),{'decision':by_name},frozen,inspections,keys)['decision']['primary'],selected[0])
-        exact_name={**frozen,'user_changes':[{'content':'Keep both variants but deliver requested.mp4 as the primary video.'}]}
+        exact_name={**frozen,'delivery_contract':graph.DeliveryContract(filenames=['requested.mp4']).model_dump()}
         with self.assertRaisesRegex(ValueError,'required filenames'):
             validated_internal_result(run,task,get('delivery_reviewer'),{'decision':valid},exact_name,inspections,keys)
         only={'delivery_1':ids[0]};automatic={**valid,'deliverables':[],'primary':''}

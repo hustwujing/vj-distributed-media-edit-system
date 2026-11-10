@@ -27,10 +27,13 @@ function runtimeRequirements(step){
  return `<p><strong>执行环境：</strong>${esc(location)}${deps.length?`；依赖：${esc(deps.join('、'))}`:''}${value.network_urls?.length?`；联网授权：${esc(value.network_urls.join('、'))}`:'；不联网'}</p>`;
 }
 export function confirmationDetails(decision,assets=[]){
+ if(decision.kind==='publication_checkpoint')return `<section class="plan-confirmation-details"><p><strong>待发布成果：</strong>${esc((decision.request.deliverables||[]).join('、'))}</p>${decision.request.primary?`<p><strong>主成果：</strong>${esc(decision.request.primary)}</p>`:''}</section>`;
  if(decision.kind!=='plan_confirmation')return deliveryAmendment(decision.request||{});
  const request=decision.request;
  const inputs=step=>Object.entries(step.inputs||{}).map(([role,ref])=>`${role}：${ref.asset?(assets.find(asset=>asset.id===ref.asset)?.name||ref.asset):ref.step?`${ref.step} / ${ref.role}`:ref.repair_candidate?'当前修复候选':'未指定'}`).join('；');
- return `<section class="plan-confirmation-details">${deliveryAmendment(request)}<p><strong>交付内容：</strong>${esc((request.delivery_targets||[]).join('、'))}</p><ol>${(request.steps||[]).map(step=>`<li><strong>${esc(step.name)}</strong><p>${esc(step.objective)}</p>${inputs(step)?`<p>使用素材：${esc(inputs(step))}</p>`:''}${runtimeRequirements(step)}${step.parameters&&Object.keys(step.parameters).length?`<details><summary>关键参数</summary><pre>${esc(JSON.stringify(step.parameters,null,2))}</pre></details>`:''}</li>`).join('')}</ol></section>`;
+ const checkpoint=request.review_policy?.user_checkpoint;
+ const contract=request.delivery_contract||{},contractParts=[...(contract.filenames||[]),...(contract.formats||[]).map(value=>value.toUpperCase()),...(contract.roles||[]).map(value=>`角色：${value}`)];
+ return `<section class="plan-confirmation-details">${deliveryAmendment(request)}<p><strong>交付内容：</strong>${esc((request.delivery_targets||[]).join('、'))}</p><p><strong>结构化交付契约：</strong>${esc(contractParts.join('、')||'无特定文件名、格式或附属角色')}${contract.excluded_filenames?.length?`；不交付：${esc(contract.excluded_filenames.join('、'))}`:''}</p><p><strong>发布确认：</strong>${checkpoint?.enabled?`需要在正式发布前确认：${esc(checkpoint.reason)}`:'无需额外人工确认；仍执行独立技术与质量审查'}</p><ol>${(request.steps||[]).map(step=>`<li><strong>${esc(step.name)}</strong><p>${esc(step.objective)}</p>${inputs(step)?`<p>使用素材：${esc(inputs(step))}</p>`:''}${runtimeRequirements(step)}${step.parameters&&Object.keys(step.parameters).length?`<details><summary>关键参数</summary><pre>${esc(JSON.stringify(step.parameters,null,2))}</pre></details>`:''}</li>`).join('')}</ol></section>`;
 }
 
 export function candidateItems(run){

@@ -2,7 +2,7 @@
 import json
 import os
 import uuid
-from .workflow_graph import Authorization,Proposal,ManagerResult,Task,encode,digest,get,event,validate_proposal,initial_phase,active_tasks
+from .workflow_graph import Authorization,ReviewPolicy,DeliveryContract,Proposal,ManagerResult,Task,encode,digest,get,event,validate_proposal,initial_phase,active_tasks
 
 
 class ProposalIdentityError(ValueError):pass
@@ -211,6 +211,16 @@ def stage(store,lease,request_id,raw,*,draft_revision=None,draft_digest=None):
             raise PlanningScopeRequired('Copy the frozen goal exactly for scope expansion; use NEW_RUN_REQUIRED for a different top-level goal')
         if result.proposal and run['authorization'].get('require_plan_confirmation') and not run['authorization']['delivery_targets'] and not result.delivery_targets:
             raise PlanningScopeRequired('Supply delivery_targets with the proposed concrete outputs before asking the user to confirm the plan')
+        if result.review_policy is not None:
+            from .workflow_conversation import needs_confirmation
+            current=run['authorization'].get('review_policy',ReviewPolicy().model_dump())
+            if result.review_policy.model_dump()!=current and not needs_confirmation(run,frozen):
+                raise PlanningScopeRequired('A user checkpoint change requires a plan confirmation bound to explicit user input')
+        if result.delivery_contract is not None:
+            from .workflow_conversation import needs_confirmation
+            current=run['authorization'].get('delivery_contract',DeliveryContract().model_dump())
+            if result.delivery_contract.model_dump()!=current and not needs_confirmation(run,frozen):
+                raise PlanningScopeRequired('A delivery contract change requires a plan confirmation bound to explicit user input')
         cutoff=(frozen.get('input_batch') or {}).get('through_sequence',0)
         if (result.delivery_targets and run['authorization']['delivery_targets']
                 and set(result.delivery_targets)!=set(run['authorization']['delivery_targets']) and not cutoff):
@@ -257,11 +267,19 @@ def apply(store,run,request,*,confirmed_plan=False):
     repair_scope,user_scope=scopes(frozen)
     batch=frozen.get('input_batch') or {};input_records=batch.get('inputs',[])
     from .workflow_conversation import needs_confirmation,hold_plan
-    if confirmed_plan and (not run['authorization']['delivery_targets'] or result.delivery_targets and set(result.delivery_targets)!=set(run['authorization']['delivery_targets'])):
+    current_policy=run['authorization'].get('review_policy',ReviewPolicy().model_dump())
+    proposed_policy=result.review_policy.model_dump() if result.review_policy is not None else current_policy
+    current_delivery=run['authorization'].get('delivery_contract',DeliveryContract().model_dump())
+    proposed_delivery=result.delivery_contract.model_dump() if result.delivery_contract is not None else current_delivery
+    if confirmed_plan and (not run['authorization']['delivery_targets']
+            or result.delivery_targets and set(result.delivery_targets)!=set(run['authorization']['delivery_targets'])
+            or proposed_policy!=current_policy or proposed_delivery!=current_delivery):
         from .run_authorization import approve
-        if not result.delivery_targets:raise ValueError('Confirmed plan has no delivery targets')
+        confirmed_targets=result.delivery_targets or run['authorization']['delivery_targets']
+        if not confirmed_targets:raise ValueError('Confirmed plan has no delivery targets')
         if run['authorization']['delivery_targets'] and not input_records:raise ValueError('Delivery amendment lacks explicit user input')
-        approve(store,run,Authorization.model_validate({**run['authorization'],'delivery_targets':result.delivery_targets}))
+        approve(store,run,Authorization.model_validate({**run['authorization'],'delivery_targets':confirmed_targets,
+                                                        'delivery_contract':proposed_delivery,'review_policy':proposed_policy}))
         run=get(store,run['id'])
     proposal,tasks,revisions,edges=validate_proposal(store,run,result.proposal.model_dump(),repair_scope=repair_scope,user_revision_scope=user_scope)
     if not confirmed_plan and needs_confirmation(run,frozen):
@@ -371,11 +389,16 @@ def apply_control_result(store,run,request,result,frozen):
         data={'reason':result.reason,'question':result.question,'options':result.options,
               'input_through_sequence':result.input_through_sequence,'new_goal':result.new_goal}
         if result.authorization:data['authorization']=result.authorization.model_dump()
-        if result.authorization and set(result.authorization.delivery_targets)!=set(run['authorization']['delivery_targets']):
+        if result.authorization:
+            old_contract=DeliveryContract.model_validate(run['authorization'].get('delivery_contract',{})).model_dump()
+            new_contract=result.authorization.delivery_contract.model_dump()
+        if result.authorization and (set(result.authorization.delivery_targets)!=set(run['authorization']['delivery_targets'])
+                                     or new_contract!=old_contract):
             from .effective_delivery import change_details
             data.update(previous_delivery_targets=run['authorization']['delivery_targets'],delivery_scope_changed=True,
-                        delivery_targets=result.authorization.delivery_targets,
-                        delivery_changes=change_details(frozen,result.authorization.delivery_targets))
+                        delivery_targets=result.authorization.delivery_targets,delivery_contract=new_contract,
+                        previous_delivery_contract=old_contract,
+                        delivery_changes=change_details({'delivery_contract':old_contract},new_contract))
         Orchestrator(store).decision(run,request_kind,data)
         if result.input_through_sequence:defer_batch(store,run,result.input_through_sequence)
     store.execute("UPDATE planner_runs SET status='applied',applied_graph_version=?,updated_at=? WHERE id=?",(run['graph_version'],now,request['id']))

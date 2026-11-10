@@ -48,6 +48,57 @@ class Contract(BaseModel):
     model_config=ConfigDict(extra='forbid',allow_inf_nan=False)
 
 
+class UserCheckpoint(Contract):
+    enabled:bool=False
+    stage:Literal['before_publish']='before_publish'
+    reason:str=Field(default='',max_length=500)
+
+    @model_validator(mode='after')
+    def valid(self):
+        if self.enabled and not self.reason.strip():raise ValueError('Enabled user checkpoint requires a user-facing reason')
+        if not self.enabled and self.reason:raise ValueError('Disabled user checkpoint cannot carry a reason')
+        return self
+
+
+class ReviewPolicy(Contract):
+    technical_review:Literal['required']='required'
+    user_checkpoint:UserCheckpoint=Field(default_factory=UserCheckpoint)
+
+
+DELIVERY_FORMATS=frozenset({'png','jpeg','webp','tif','tiff','mp4','mov','mkv','webm','wav','mp3','m4a','flac',
+                            'srt','vtt','ass','json','txt','md','csv','pdf','zip','psd','ora','svg','py'})
+
+
+class DeliveryContract(Contract):
+    filenames:list[str]=Field(default_factory=list,max_length=20,
+        description='Exact final output basenames explicitly understood from the user request.')
+    formats:list[str]=Field(default_factory=list,max_length=20,
+        description='Required final formats, without a leading dot. This is semantic model output, not host text extraction.')
+    roles:list[Literal['report']]=Field(default_factory=list,max_length=4,
+        description='Auxiliary output roles explicitly requested for final delivery.')
+    excluded_filenames:list[str]=Field(default_factory=list,max_length=20,
+        description='Named outputs that may exist internally but must not be delivered.')
+
+    @model_validator(mode='after')
+    def valid(self):
+        from pathlib import PurePosixPath
+        def filename(value):
+            path=PurePosixPath(value)
+            return (bool(value) and len(value)<=100 and path.name==value and '/' not in value and '\\' not in value
+                    and path.suffix.lstrip('.').lower() in DELIVERY_FORMATS|{'jpg'})
+        if any(not filename(value) for value in [*self.filenames,*self.excluded_filenames]):
+            raise ValueError('Delivery filenames must be supported plain basenames')
+        self.formats=list(dict.fromkeys('jpeg' if value.lower()=='jpg' else value.lower() for value in self.formats))
+        if any(value not in DELIVERY_FORMATS for value in self.formats):raise ValueError('Unsupported delivery format')
+        self.filenames=list(dict.fromkeys(self.filenames));self.excluded_filenames=list(dict.fromkeys(self.excluded_filenames))
+        self.roles=list(dict.fromkeys(self.roles))
+        if set(self.filenames)&set(self.excluded_filenames):raise ValueError('A delivery filename cannot also be excluded')
+        for value in self.filenames:
+            extension='jpeg' if value.rsplit('.',1)[-1].lower()=='jpg' else value.rsplit('.',1)[-1].lower()
+            if extension not in self.formats:self.formats.append(extension)
+        return self
+
+
 class Authorization(Contract):
     goal:str=Field(min_length=1,max_length=8000)
     allowed_assets:list[str]=Field(max_length=100)
@@ -68,6 +119,8 @@ class Authorization(Contract):
     max_planning_rounds:int=Field(default=64,ge=1,le=64)
     delivery_targets:list[str]=Field(default_factory=list,max_length=20)
     require_plan_confirmation:bool=False
+    review_policy:ReviewPolicy=Field(default_factory=ReviewPolicy)
+    delivery_contract:DeliveryContract=Field(default_factory=DeliveryContract)
     content_fingerprint:str=Field(pattern=r'^[a-f0-9]{64}$')
     semantic_policy_version:Literal['media-semantics-v1']='media-semantics-v1'
 
@@ -320,6 +373,8 @@ class ManagerResult(Contract):
     authorization:Authorization|None=None
     new_goal:str=Field(default='',max_length=8000)
     delivery_targets:list[str]=Field(default_factory=list,max_length=20)
+    review_policy:ReviewPolicy|None=None
+    delivery_contract:DeliveryContract|None=None
 
     @model_validator(mode='after')
     def shape(self):
@@ -327,6 +382,8 @@ class ManagerResult(Contract):
         if requires_proposal != (self.proposal is not None):raise ValueError('Only APPLY_PLAN and COMPLETE carry a Proposal')
         if self.kind=='CONTINUE' and self.input_through_sequence<=0:raise ValueError('CONTINUE requires a frozen input batch')
         if self.kind=='RESPOND' and (not self.reason.strip() or self.authorization is not None or self.question or self.options or self.new_goal or self.delivery_targets):raise ValueError('RESPOND carries only an answer, never a plan, question, delivery or authorization')
+        if (self.review_policy is not None or self.delivery_contract is not None) and self.kind not in ('APPLY_PLAN','COMPLETE'):
+            raise ValueError('Review and delivery policy are proposed only with an executable plan')
         if self.proposal and self.proposal.base_graph_version!=self.base_graph_version:raise ValueError('Proposal version differs from result envelope')
         if self.kind=='COMPLETE' and not self.proposal.sealed:raise ValueError('COMPLETE requires a sealed Proposal and independent final review')
         if self.kind=='REQUEST_AUTHORIZATION' and self.authorization is None:raise ValueError('Authorization request requires the complete proposed scope')

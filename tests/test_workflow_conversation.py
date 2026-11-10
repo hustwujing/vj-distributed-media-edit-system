@@ -15,7 +15,7 @@ class ConversationTests(unittest.TestCase):
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(authorization),self.run['id']))
         self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(graph.encode(authorization),self.run['id']))
 
-    def stage(self,kind='APPLY_PLAN',targets=None):
+    def stage(self,kind='APPLY_PLAN',targets=None,review_policy=None,delivery_contract=None):
         self.f.tick()
         request=self.store.query("SELECT * FROM planner_runs WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
         lease=Coordinator(self.store,'conversation-test','test').claim(self.run['id'],'workflow',step_id=request['task_id'])
@@ -23,6 +23,8 @@ class ConversationTests(unittest.TestCase):
         proposal=None if kind!='APPLY_PLAN' else {'proposal_id':request['id'],'base_graph_version':0,'reason':'Write approved report','add_tasks':[fixtures.script()],'replan_after':['first']}
         reply=fixtures.envelope(self.store,request['id'],proposal,kind=kind,
             delivery_targets=['report.txt'] if targets is None else targets)
+        if review_policy is not None:reply['review_policy']=review_policy
+        if delivery_contract is not None:reply['delivery_contract']=delivery_contract
         reply['reason']='上一轮成果仍可查看；本次仅回答，没有重新处理素材。' if kind=='RESPOND' else '生成报告，确认后执行'
         try:
             with lease.bind():planning.stage(self.store,lease,request['id'],reply)
@@ -57,6 +59,30 @@ class ConversationTests(unittest.TestCase):
         for row in self.store.query('SELECT snapshot_json FROM workflow_reviews WHERE run_id=?',(run['id'],)):
             self.assertEqual(json.loads(row['snapshot_json'])['plan_confirmation_evidence'],proof)
         with self.assertRaises(ValueError):self.answer(decision,'approve')
+
+    def test_manager_proposes_and_confirmation_freezes_publication_checkpoint_policy(self):
+        policy={'technical_review':'required','user_checkpoint':{
+            'enabled':True,'stage':'before_publish','reason':'请在正式发布前确认最终报告'}}
+        run=self.stage(review_policy=policy);decision=self.decision()
+        request=json.loads(decision['request_json'])
+        self.assertEqual(request['review_policy'],policy)
+        self.assertNotIn('review',{item['kind'] for item in request['steps'][0]['acceptance']})
+        self.answer(decision,'approve');run=graph.get(self.store,run['id'])
+        self.assertEqual(run['authorization']['review_policy'],policy)
+        self.assertGreater(run['authorization_version'],1)
+
+    def test_checkpoint_policy_revision_preserves_an_existing_delivery_list(self):
+        existing={**graph.get(self.store,self.run['id'])['authorization'],'delivery_targets':['report.txt']}
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(existing),self.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(graph.encode(existing),self.run['id']))
+        accept_change(self.store,self.run['id'],'owner',{'request_id':uuid.uuid4().hex,
+            'content':'这次需要在正式发布前由我确认最终成果'})
+        policy={'technical_review':'required','user_checkpoint':{
+            'enabled':True,'stage':'before_publish','reason':'正式发布前确认最终成果'}}
+        self.stage(targets=[],review_policy=policy);self.answer(self.decision(),'approve')
+        run=graph.get(self.store,self.run['id'])
+        self.assertEqual(run['authorization']['delivery_targets'],['report.txt'])
+        self.assertEqual(run['authorization']['review_policy'],policy)
 
     def test_chat_revision_invalidates_confirmation_and_preserves_both_inputs(self):
         self.stage();old=self.decision()

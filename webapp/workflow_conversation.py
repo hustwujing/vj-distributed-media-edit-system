@@ -73,14 +73,25 @@ def hold_plan(store,run,request,result,tasks):
     if not targets or any(not value.strip() or len(value)>500 for value in targets):
         raise ValueError('Plan confirmation requires nonempty delivery_targets; propose concrete outputs for the user')
     changed=bool(inputs and previous and set(previous)!=set(targets))
+    delivery_contract=(result.delivery_contract.model_dump() if result.delivery_contract is not None
+                       else run['authorization'].get('delivery_contract',graph.DeliveryContract().model_dump()))
+    previous_contract=run['authorization'].get('delivery_contract',graph.DeliveryContract().model_dump())
+    if inputs and previous_contract==graph.DeliveryContract().model_dump():
+        previous_contract=next(((item.get('context') or {}).get('superseded_plan',{}).get('delivery_contract') for item in reversed(inputs)
+                                if (item.get('context') or {}).get('superseded_plan',{}).get('delivery_contract') is not None),previous_contract)
+    changed=changed or bool(inputs and delivery_contract!=previous_contract)
+    review_policy=(result.review_policy.model_dump() if result.review_policy is not None
+                   else run['authorization'].get('review_policy',graph.ReviewPolicy().model_dump()))
     from .effective_delivery import change_details
     Orchestrator(store).decision(run,'plan_confirmation',{
         'planning_request_id':request['id'],'proposal_digest':graph.digest(json.loads(request['proposal_json'])),
         'input_sequence':run['input_sequence'],'input_through_sequence':result.input_through_sequence,
         'content_fingerprint':graph.content_fingerprint(store,run['project_id']),
         'reason':result.reason,'question':'请核对方案、关键参数和交付内容。确认后才会执行。',
+        'review_policy':review_policy,
+        'delivery_contract':delivery_contract,'previous_delivery_contract':previous_contract,
         'delivery_targets':targets,'previous_delivery_targets':previous,'delivery_scope_changed':changed,
-        'delivery_changes':change_details(frozen,targets) if changed else {},
+        'delivery_changes':change_details({'delivery_contract':previous_contract},delivery_contract) if changed else {},
         'steps':[task.model_dump() for task in [*tasks,*result.proposal.revise_tasks]],
         'dependencies':[edge.model_dump() for edge in result.proposal.add_dependencies]})
     store.execute("UPDATE planner_runs SET status='awaiting_confirmation' WHERE id=?",(request['id'],))

@@ -23,6 +23,7 @@ export function assertCommandAccepted(receipt) {
 
 export function decisionPresentation(decision, run) {
   if(decision.kind==='plan_confirmation')return {title:'请确认执行方案',description:'确认前不会执行媒体处理。',actions:[{action:'approve',label:'确认方案并执行',primary:true},{action:'reject',label:'暂不执行',primary:false}]};
+  if(decision.kind==='publication_checkpoint')return {title:'请确认最终发布',description:'最终审查已经通过，确认后正式发布成果。',actions:[{action:'approve',label:'确认并发布',primary:true},{action:'reject',label:'暂不发布',primary:false}]};
   if(decision.kind==='input_question')return {title:'需要明确的事项',description:'可以在这里或聊天框直接回答。',actions:[{action:'reject',label:'停止当前方向',primary:false}]};
   if (decision.kind === 'external_wait') return {title:'外部任务等待超时', description:'继续等待原任务，或放弃该任务并重新规划；其他已完成成果保留。',
     actions:[{action:'approve',label:'再等一个周期',primary:true},{action:'reject',label:'放弃该任务并重新规划',primary:false}]};
@@ -35,19 +36,20 @@ export function decisionPresentation(decision, run) {
 }
 
 export function canApproveDecision(decision, run) {
-  if (['plan_change', 'successor_authorization', 'new_run', 'external_submission', 'external_wait'].includes(decision.kind)) return true;
+  if (['plan_change', 'successor_authorization', 'new_run', 'external_submission', 'external_wait','publication_checkpoint'].includes(decision.kind)) return true;
   if (decision.kind !== 'quality') return false;
   const task = run.tasks.find(task => task.id === decision.request.task_id);
   return Boolean(task?.quality.technical_valid && task.spec.acceptance.some(rule => rule.kind === 'review') &&
     (!task.quality.requires_agent || task.quality.agent_review_passed));
 }
 
-export const acceptsFeedback = decision => ['quality', 'quality_feedback', 'input_question','plan_confirmation'].includes(decision.kind);
+export const acceptsFeedback = decision => ['quality', 'quality_feedback', 'input_question','plan_confirmation','publication_checkpoint'].includes(decision.kind);
 
 export function inputStatus(run) {
   if(run.message_pending)return '正在由任务规划师处理消息；原任务状态不变，明确修改后才会进入重新规划。';
   if(run.terminal_reason==='conversation_answer')return '本轮已答复，没有重新处理素材；可以继续提问或提出修改要求。';
   if(run.terminal_reason==='plan_confirmation')return '方案已生成，确认后才会执行；也可以直接在聊天框修改方案。';
+  if(run.terminal_reason==='publication_checkpoint')return '最终审查已经通过，正在等待你确认正式发布；也可以提交修改意见。';
   if(run.terminal_reason==='user_rejected')return '已停止当前方向。收到新的要求前不会重新规划。';
   if (!terminalRun(run.state) && run.control_plane?.available === false) return '控制服务暂不可用，任务与操作会在恢复后继续处理。';
   if(run.decisions?.some(item=>item.kind==='input_question'))return '请回答上方列出的具体问题；也可以直接在聊天框回复。';

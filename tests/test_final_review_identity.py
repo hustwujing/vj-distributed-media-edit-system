@@ -62,23 +62,41 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
         from webapp.workflow_model_protocol import required_delivery_names,required_delivery_extensions
         from webapp.workflow_agent_contracts import approved_delivery_refs,validate_resolved_review
         targets=['subtitle_v2.srt','subtitle_check.json','render.py','editable.svg','layers.ora','notes.md']
-        nested={'goal':'检查现有字幕并交付已确认结果','authorization':{'delivery_targets':targets}}
-        flat={'goal':nested['goal'],'delivery_targets':targets}
+        contract=graph.DeliveryContract(filenames=targets).model_dump()
+        nested={'goal':'检查现有字幕并交付已确认结果','authorization':{'delivery_targets':targets,
+            'delivery_contract':contract}}
+        flat={'goal':nested['goal'],'delivery_targets':targets,'delivery_contract':contract}
         self.assertEqual(required_delivery_names(nested),set(targets))
         self.assertEqual(required_delivery_names(flat),set(targets))
         self.assertEqual(required_delivery_extensions(flat),{'srt','json','py','svg','ora','md'})
         subtitle='edit/step/subtitle_v2.srt';report='edit/step/subtitle_check.json'
         snapshot={'review_scope':'final','goal':'检查现有字幕','delivery_targets':targets[:2],
+                  'delivery_contract':graph.DeliveryContract(filenames=targets[:2]).model_dump(),
                   'review_criteria':['已确认的字幕与检查记录'],
                   'tasks':[{'id':'subtitle','spec':{'delivery_stage':True},'accepted_result':[subtitle,report],
                             'quality':{'output_roles':{'subtitle':subtitle,'report':report}}}]}
         self.assertEqual(approved_delivery_refs(snapshot),{subtitle,report})
-        self.assertEqual(approved_delivery_refs({**snapshot,'delivery_targets':[targets[0]]}),{subtitle})
+        self.assertEqual(approved_delivery_refs({**snapshot,'delivery_targets':[targets[0]],
+            'delivery_contract':graph.DeliveryContract(filenames=[targets[0]]).model_dump()}),{subtitle})
         decision={'verdict':'pass','evidence':[{'criterion':snapshot['review_criteria'][0],'inspection_id':'a','ref':subtitle,'method_use':'not_applicable'}],
                   'deliverables':[subtitle],'primary':subtitle}
         with self.assertRaisesRegex(ValueError,'missing required formats'):
             validate_resolved_review(decision,snapshot,{'a':subtitle,'b':report})
         validate_resolved_review({**decision,'deliverables':[subtitle,report]},snapshot,{'a':subtitle,'b':report})
+
+    def test_initial_structured_delivery_contract_is_frozen_into_final_review_identity(self):
+        f=fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
+        contract=graph.DeliveryContract(filenames=['final.txt'],formats=['json'],roles=['report']).model_dump()
+        authorization={**f.run['authorization'],'delivery_contract':contract}
+        f.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(authorization),f.run['id']))
+        run=graph.get(f.store,f.run['id']);f.orchestrator.queue_review(run)
+        snapshot=json.loads(f.store.query("SELECT snapshot_json FROM workflow_reviews WHERE purpose='final'")[0]['snapshot_json'])
+        self.assertEqual(snapshot['delivery_contract'],contract)
+        from webapp.review_identity import final_identity
+        before=final_identity(f.store,run)
+        changed={**authorization,'delivery_contract':graph.DeliveryContract(filenames=['renamed.txt']).model_dump()}
+        f.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(changed),run['id']))
+        self.assertNotEqual(before,final_identity(f.store,graph.get(f.store,run['id'])))
 
     def test_actual_review_model_context_retains_semantic_policy(self):
         import threading

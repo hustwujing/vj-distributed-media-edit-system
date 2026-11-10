@@ -20,9 +20,12 @@ class OperationDeliveryNameTests(unittest.TestCase):
         from PIL import Image
         f=workflow_fixtures.WorkflowTests();f.setUp();self.addCleanup(f.tearDown);store=f.store
         fixture=graph_fixtures.DynamicGraphTests();fixture.f=f;fixture.store=store
+        contract=graph.DeliveryContract(filenames=['final.png'],formats=['json'] if drop_report else [],
+                                        roles=['report'] if drop_report else []).model_dump()
         fixture.run=graph.create(store,f.project,f.turn,{'goal':'Deliver final.png and JSON report' if drop_report else 'Deliver final.png','allowed_assets':['asset'],
             'allowed_operations':['image.batch_export'],'allowed_agent_profiles':[],
-            'delivery_targets':['final.png','JSON report'] if drop_report else ['64x64 PNG'],'content_fingerprint':graph.content_fingerprint(store,f.project)})
+            'delivery_targets':['final.png','JSON report'] if drop_report else ['64x64 PNG'],'delivery_contract':contract,
+            'content_fingerprint':graph.content_fingerprint(store,f.project)})
         fixture.orchestrator=Orchestrator(store,'test-native-publication');fixture.tick()
         fixture.propose({'proposal_id':'native','base_graph_version':0,'reason':'Registered image export',
             'add_tasks':[{'id':'export','type':'operation','operation':'image.batch_export','name':'Export','objective':'Resize source',
@@ -40,7 +43,8 @@ class OperationDeliveryNameTests(unittest.TestCase):
             fixture.orchestrator.decision(run,'delivery_scope_change',{'question':'Only deliver the PNG, remove the JSON report?','current_targets':run['authorization']['delivery_targets']})
             approval=store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))[0]
             fixture.orchestrator.answer(graph.get(store,run['id']),{'decision_id':approval['id'],'snapshot_digest':approval['snapshot_digest'],
-                'action':'approve','authorization':{**run['authorization'],'delivery_targets':['final.png']}})
+                'action':'approve','authorization':{**run['authorization'],'delivery_targets':['final.png'],
+                    'delivery_contract':graph.DeliveryContract(filenames=['final.png']).model_dump()}})
             run=graph.get(store,run['id'])
         else:fixture.orchestrator.queue_review(run)
         review=store.query("SELECT * FROM workflow_reviews WHERE purpose='final'")[0];snapshot=json.loads(review['snapshot_json'])
@@ -71,7 +75,8 @@ class OperationDeliveryNameTests(unittest.TestCase):
         self.assertEqual(final['tasks'][0]['accepted_result'],[ref]);self.assertEqual(len(final['tasks']),1)
 
     def snapshot(self):
-        return {'goal':'Deliver final.png','tasks':[{'id':'export','spec':{'type':'operation','delivery_stage':True},
+        return {'goal':'Deliver final.png','delivery_contract':graph.DeliveryContract(filenames=['final.png']).model_dump(),
+            'tasks':[{'id':'export','spec':{'type':'operation','delivery_stage':True},
             'accepted_result':['edit/image.png'],'quality':{'output_roles':{'primary_image':'edit/image.png'}}}]}
 
     def test_mapping_requires_one_requested_name_and_one_eligible_same_format_candidate(self):
@@ -80,34 +85,23 @@ class OperationDeliveryNameTests(unittest.TestCase):
         for change in ('second_candidate','second_name','different_format','agent','excluded'):
             altered=copy.deepcopy(value)
             if change=='second_candidate':altered['tasks'][0]['accepted_result'].append('edit/other.png');altered['tasks'][0]['quality']['output_roles']['other']='edit/other.png'
-            elif change=='second_name':altered['goal']='Deliver final.png and cover.png'
-            elif change=='different_format':altered['goal']='Deliver final.jpg'
+            elif change=='second_name':altered['delivery_contract']=graph.DeliveryContract(filenames=['final.png','cover.png']).model_dump()
+            elif change=='different_format':altered['delivery_contract']=graph.DeliveryContract(filenames=['final.jpg']).model_dump()
             elif change=='agent':altered['tasks'][0]['spec']['type']='agent'
-            else:altered['goal']='Deliver final.png; image.png not for delivery'
+            else:altered['delivery_contract']=graph.DeliveryContract(filenames=['final.png'],excluded_filenames=['image.png']).model_dump()
             with self.subTest(change=change):self.assertEqual(delivery_publication_names(altered),{})
 
     def test_applied_final_filename_change_replaces_original_name_without_losing_other_outputs(self):
         from webapp.workflow_model_protocol import required_delivery_names
         from webapp.workflow_agent_contracts import delivery_publication_names
-        for subject in ('最终视频文件名','最终音频名称','交付图片文件名','最终文档名称','final video filename'):
-            frozen={'goal':'最终视频命名为 original.mp4。另交付 captions.srt。',
-                    'authorization':{'delivery_targets':['renamed.mp4','captions.srt']},
-                    'user_changes':[{'sequence':1,'content':subject+' 改为 renamed.mp4，其他要求保持不变。'}]}
-            # Use the same explicit delivery vocabulary in the initial scope;
-            # unrelated subtitle delivery must survive the filename change.
-            frozen['goal']='交付 original.mp4 和 captions.srt。'
-            self.assertEqual(required_delivery_names(frozen),{'renamed.mp4','captions.srt'})
-        frozen={'goal':'最终视频命名为 original.mp4。先给方案。','authorization':{'delivery_targets':['renamed.mp4']},
-                'user_changes':[{'sequence':1,'content':'谢谢，另外请把最终视频文件名改为 renamed.mp4，其他要求保持不变。'}],
+        frozen={'goal':'更新最终文件名并保留字幕','authorization':{'delivery_targets':['renamed.mp4','captions.srt'],
+                    'delivery_contract':graph.DeliveryContract(filenames=['renamed.mp4','captions.srt']).model_dump()},
                 'tasks':[{'id':'speed','spec':{'type':'operation','delivery_stage':True},'accepted_result':['edit/final.mp4'],
                           'quality':{'output_roles':{'video':'edit/final.mp4'}}}]}
-        self.assertEqual(required_delivery_names(frozen),{'renamed.mp4'})
+        self.assertEqual(required_delivery_names(frozen),{'renamed.mp4','captions.srt'})
+        frozen['authorization']['delivery_contract']=graph.DeliveryContract(filenames=['renamed.mp4']).model_dump()
         self.assertEqual(delivery_publication_names(frozen),{'edit/final.mp4':'renamed.mp4'})
-        frozen['user_changes'].append({'sequence':2,'content':'最终视频文件名改成 latest.mp4。'})
-        frozen['authorization']['delivery_targets']=['latest.mp4']
+        frozen['authorization']['delivery_contract']=graph.DeliveryContract(filenames=['latest.mp4']).model_dump()
         self.assertEqual(required_delivery_names(frozen),{'latest.mp4'})
-        frozen['goal']='交付 main.mp4 和 trailer.mp4。'
-        frozen['user_changes']=[{'content':'最终视频文件名改为 latest.mp4。'}]
-        self.assertTrue({'main.mp4','trailer.mp4'}<=required_delivery_names(frozen),'Ambiguous rename cannot remove a sibling delivery')
-        frozen['user_changes']=[{'content':'main.mp4 改为 latest.mp4。'}]
+        frozen['authorization']['delivery_contract']=graph.DeliveryContract(filenames=['latest.mp4','trailer.mp4']).model_dump()
         self.assertEqual(required_delivery_names(frozen),{'latest.mp4','trailer.mp4'})

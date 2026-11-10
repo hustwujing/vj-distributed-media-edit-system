@@ -22,6 +22,11 @@ def frozen(task=None,user=False):
             'dependencies':[],'trigger':{} if task is False else {'task_id':'render'},'input_batch':{'through_sequence':7,'inputs':[{'context':{'allowed_revision_tasks':['render']}}]} if user else None}
 
 
+def delivery(*,filenames=(),formats=(),roles=(),excluded=()):
+    return {'delivery_contract':{'filenames':list(filenames),'formats':list(formats),
+                                 'roles':list(roles),'excluded_filenames':list(excluded)}}
+
+
 class ModelCommandTests(unittest.TestCase):
     def test_exhausted_repair_is_not_offered_as_revision_or_replacement(self):
         from webapp.workflow_model_protocol import available_changes,automatic_replacement_tasks
@@ -101,12 +106,12 @@ class ModelCommandTests(unittest.TestCase):
         raw={'acceptance':[{'kind':'media','video':True,'width':854,'file':'*','source':'user','stage':'current'},
             {'kind':'subtitle','file':'*','source':'user','stage':'current'},
             {'kind':'json','file':'*','source':'user','stage':'current'}]}
-        bind_explicit_delivery_formats(raw,['final.mp4','final.srt','report.json'],{'goal':'Deliver MP4, SRT and a JSON report'})
+        bind_explicit_delivery_formats(raw,['final.mp4','final.srt','report.json'],delivery(formats=('mp4','srt','json'),roles=('report',)))
         finals={x['file']:x['kind'] for x in raw['acceptance'] if x['stage']=='final'}
         self.assertEqual(finals,{'final.mp4':'media','final.srt':'subtitle','report.json':'json'})
         self.assertEqual(len([x for x in raw['acceptance'] if x['file']=='*']),3)
         raw={'acceptance':[{'kind':'image','width':64,'file':'*','source':'user','stage':'current'}]}
-        bind_explicit_delivery_formats(raw,['a.png','b.png'],{'goal':'Deliver PNG images'})
+        bind_explicit_delivery_formats(raw,['a.png','b.png'],delivery(formats=('png',)))
         self.assertEqual({x['file'] for x in raw['acceptance'] if x['stage']=='final'},{'a.png','b.png'})
 
     def test_operation_srt_delivery_never_retargets_video_acceptance(self):
@@ -116,7 +121,8 @@ class ModelCommandTests(unittest.TestCase):
             'inputs':{'source':{'asset':'clip'},'transcript':{'asset':'words'}},
             'parameters':{'edit_plan':{'clips':[{'asset':'source','end':1}],'subtitles':{'from_transcripts':True}}},
             'acceptance':[{'kind':'media','video':True,'width':854,'stage':'final'},{'kind':'subtitle','stage':'final'}]}
-        compiled=compile_manager({'kind':'COMPLETE','reason':'Deliver both','plan':{'new_tasks':[task]}},value)['proposal']['add_tasks'][0]
+        compiled=compile_manager({'kind':'COMPLETE','reason':'Deliver both',**delivery(formats=('mp4','srt')),
+                                  'plan':{'new_tasks':[task]}},value)['proposal']['add_tasks'][0]
         self.assertTrue(any(check['kind']=='subtitle' and check['file']=='final.srt' for check in compiled['acceptance']))
         self.assertTrue(all(check['file']!='final.srt' for check in compiled['acceptance'] if check['kind']=='media'))
 
@@ -147,14 +153,17 @@ class ModelCommandTests(unittest.TestCase):
               'objective':'Produce the requested video and report','files':[
                   {'path':'final.mp4','roles':['final_video']},{'path':'quality.json','roles':['quality_report']}],
               'acceptance':[{'kind':'media','video':True,'stage':'final'},{'kind':'json','required_keys':['duration'],'stage':'final'}]}
-        result=compile_manager({'kind':'COMPLETE','reason':'Deliver authorized outputs','plan':{'new_tasks':[task]}},f)['proposal']
+        result=compile_manager({'kind':'COMPLETE','reason':'Deliver authorized outputs',
+            **delivery(filenames=('final.mp4','quality.json'),roles=('report',)),'plan':{'new_tasks':[task]}},f)['proposal']
         roles=result['add_tasks'][0]['output_roles']
         self.assertEqual(roles,{'final_video':'final.mp4','quality_report':'quality.json','report':'quality.json'})
         duplicate=copy.deepcopy(task);duplicate['files'].append({'path':'other.json','roles':['other_report']})
         with self.assertRaisesRegex(CommandError,'multiple report roles'):
-            compile_manager({'kind':'COMPLETE','reason':'Ambiguous reports','plan':{'new_tasks':[duplicate]}},f)
+            compile_manager({'kind':'COMPLETE','reason':'Ambiguous reports',**delivery(roles=('report',)),
+                             'plan':{'new_tasks':[duplicate]}},f)
         duplicate['files'][1]['roles'].append('report')
-        self.assertEqual(compile_manager({'kind':'COMPLETE','reason':'Explicit role','plan':{'new_tasks':[duplicate]}},f)['proposal']['add_tasks'][0]['output_roles']['report'],'quality.json')
+        self.assertEqual(compile_manager({'kind':'COMPLETE','reason':'Explicit role',**delivery(roles=('report',)),
+            'plan':{'new_tasks':[duplicate]}},f)['proposal']['add_tasks'][0]['output_roles']['report'],'quality.json')
 
     def test_tool_envelope_errors_are_specific_and_do_not_echo_response_content(self):
         cases=[('anthropic',{'stop_reason':'end_turn','content':[{'type':'text','text':'private response'}]},'tool_call_required'),
@@ -240,87 +249,81 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(normalized['tasks'][0]['acceptance'][0],{'kind':'image','height':64,'max_participation':.5})
         self.assertEqual(changes,['tasks.0.acceptance.0.height_->height'])
 
-    def test_applied_user_change_adds_exact_delivery_names_but_not_inputs(self):
+    def test_structured_delivery_contract_adds_exact_names_but_not_inputs(self):
         value={'goal':'Edit source.mp4','authorization':{'delivery_targets':['video and cover']},
-               'input_asset_names':['source.mp4'],
-               'user_changes':[{'content':'Reuse source.mp4; deliver final.mp4 and cover.png.'}]}
+               'input_asset_names':['source.mp4'],**delivery(filenames=('final.mp4','cover.png'))}
         self.assertEqual(required_delivery_names(value),{'final.mp4','cover.png'})
         self.assertEqual(required_delivery_extensions(value),{'mp4','png'})
 
-    def test_non_delivery_filename_is_not_required_after_user_change(self):
+    def test_structured_exclusion_does_not_become_a_required_output(self):
         value={'goal':'Deliver final.mp4','authorization':{'delivery_targets':['video']},
-               'user_changes':[{'content':'Keep evidence.json internal only; deliver final.mp4.'}]}
+               **delivery(filenames=('final.mp4',),excluded=('evidence.json',))}
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
 
     def test_final_exclusions_override_earlier_candidate_filename_mentions(self):
         from webapp.workflow_agent_contracts import approved_delivery_refs,delivery_leaf_refs
-        value={'goal':'先保存 candidate.mp4；再复制为 primary.mp4 和 deliver.mp4。最终只交付 deliver.mp4，candidate.mp4和primary.mp4不交付。',
+        value={'goal':'先保存候选再交付最终视频',**delivery(filenames=('deliver.mp4',),excluded=('candidate.mp4','primary.mp4')),
             'tasks':[{'id':name,'spec':{'delivery_stage':True},'accepted_result':['edit/'+name]} for name in ('candidate.mp4','primary.mp4','deliver.mp4')]}
         self.assertEqual(required_delivery_names(value),{'deliver.mp4'})
         self.assertEqual(approved_delivery_refs(value),{'edit/deliver.mp4'})
         self.assertEqual(delivery_leaf_refs(value),{'deliver.mp4':{'edit/deliver.mp4'}})
-        value['user_changes']=[{'content':'现在也交付 candidate.mp4。'}]
+        value.update(delivery_contract=graph.DeliveryContract(filenames=['deliver.mp4','candidate.mp4'],
+            excluded_filenames=['primary.mp4']).model_dump())
         self.assertEqual(required_delivery_names(value),{'deliver.mp4','candidate.mp4'})
         self.assertEqual(approved_delivery_refs(value),{'edit/deliver.mp4','edit/candidate.mp4'})
 
     def test_excluded_candidate_name_cannot_be_promoted_by_global_output_rename(self):
-        value=frozen(False);value['goal']='保留 candidate.mp4 候选。最终只交付 deliver.mp4，candidate.mp4不交付。'
+        value=frozen(False);value.update(delivery(filenames=('deliver.mp4',),excluded=('candidate.mp4',)))
         task={'id':'candidate','type':'agent','profile':'editing_implementer','name':'Retained candidate',
             'objective':'Copy the input bytes to candidate.mp4',
             'files':[{'path':'candidate.mp4','roles':['video']}],
             'acceptance':[{'kind':'media','file':'candidate.mp4','video':True,'stage':'final'}]}
-        proposal=compile_manager({'kind':'APPLY_PLAN','reason':'Retain source candidate','plan':{'new_tasks':[task]}},value)['proposal']
+        proposal=compile_manager({'kind':'APPLY_PLAN','reason':'Retain source candidate',
+            **delivery(filenames=('deliver.mp4',),excluded=('candidate.mp4',)),'plan':{'new_tasks':[task]}},value)['proposal']
         compiled=proposal['add_tasks'][0]
         self.assertEqual(compiled['outputs'],['candidate.mp4'])
         self.assertEqual(compiled['output_roles'],{'video':'candidate.mp4'})
         self.assertEqual(compiled['acceptance'][0]['file'],'candidate.mp4')
 
-    def test_prefix_delivery_exclusion_does_not_exclude_the_next_clause(self):
+    def test_user_prose_is_not_reinterpreted_by_the_host(self):
         value={'goal':'Create internal.png; do not deliver internal.png; deliver final.mp4.'}
+        self.assertEqual(required_delivery_names(value),set())
+        value.update(delivery(filenames=('final.mp4',),excluded=('internal.png',)))
         self.assertEqual(required_delivery_names(value),{'final.mp4'})
         self.assertEqual(required_delivery_extensions(value),{'mp4'})
 
-    def test_explicit_final_delivery_does_not_require_intermediate_objective_filenames(self):
-        value={'goal':'render的objective设为“将portrait.png缩放为64×64 final.png。”。package复制上游结果为delivered.png并交付delivered.png。',
-               'input_asset_names':['portrait.png']}
+    def test_structured_final_delivery_does_not_require_intermediate_filenames(self):
+        value={'goal':'生成中间图片并交付最终图片','input_asset_names':['portrait.png'],
+               **delivery(filenames=('delivered.png',))}
         self.assertEqual(required_delivery_names(value),{'delivered.png'})
-        value['goal']='先生成 intermediate.wav。最终交付 final.mp4、subtitles.srt 和 cover.png。'
+        value.update(delivery(filenames=('final.mp4','subtitles.srt','cover.png')))
         self.assertEqual(required_delivery_names(value),{'final.mp4','subtitles.srt','cover.png'})
-        self.assertEqual(required_delivery_names({'goal':'Create intermediate.png; deliver final.png.'}),{'final.png'})
-        self.assertEqual(required_delivery_names({'goal':'缩放为64×64 final.png。'}),{'final.png'})
 
     def test_internal_evidence_is_not_promoted_by_global_report_or_format_requests(self):
         from webapp.workflow_model_protocol import required_delivery_roles,bind_explicit_delivery_formats
-        value={'goal':'交付处理后的WAV；证据报告留在工作流中供系统最终Review检查，不交付。'}
+        value={'goal':'交付处理后的音频，证据报告只供系统检查',**delivery(formats=('wav',),excluded=('evidence.json',))}
         self.assertEqual(required_delivery_roles(value),set())
-        self.assertEqual(required_delivery_roles({'goal':'交付WAV，并附上质检报告。'}),{'report'})
+        self.assertEqual(required_delivery_roles(delivery(formats=('wav',),roles=('report',))),{'report'})
         task={'purpose':'evidence','acceptance':[{'kind':'json','source':'technical','stage':'current','file':'evidence.json'}]}
         original=copy.deepcopy(task)
-        bind_explicit_delivery_formats(task,['evidence.json'],{'goal':'Deliver audio and a report as JSON'},{'report':'evidence.json'})
+        bind_explicit_delivery_formats(task,['evidence.json'],delivery(formats=('wav','json'),roles=('report',)),{'report':'evidence.json'})
         self.assertEqual(task,original)
 
     def test_missing_delivery_bytes_remain_required_unless_explicitly_excluded(self):
         from webapp.workflow_agent_contracts import delivery_leaf_refs
-        snapshot={'goal':'Deliver final.png','tasks':[{'id':'empty','spec':{'delivery_stage':True},'accepted_result':[]}]}
+        snapshot={'goal':'Deliver final.png',**delivery(filenames=('final.png',)),
+                  'tasks':[{'id':'empty','spec':{'delivery_stage':True},'accepted_result':[]}]}
         self.assertEqual(delivery_leaf_refs(snapshot),{'empty':set()})
 
-    def test_negated_processing_of_original_source_is_not_an_output_request(self):
-        for clause in ('不要重复剪辑原始 clip_a.mp4 或重新亮度处理图片。',
-                       '无需重新处理原始 recording.wav。',
-                       'Do not reprocess the original recording.wav.'):
-            with self.subTest(clause=clause):
-                value={'goal':'交付 final.mp4 和 cover.png。'+clause}
-                self.assertEqual(required_delivery_names(value),{'final.mp4','cover.png'})
-                self.assertEqual(required_delivery_extensions(value),{'mp4','png'})
-                value['goal']+='同时交付原始 recording.wav。'
-                self.assertEqual(required_delivery_names(value),{'final.mp4','cover.png','recording.wav'})
-                self.assertEqual(required_delivery_extensions(value),{'mp4','png','wav'})
-        self.assertEqual(required_delivery_names({'goal':'不要重新生成 final.png，直接交付。'}),{'final.png'})
-        self.assertEqual(required_delivery_names({'goal':'不要重复剪辑原始 clip_a.mp4，直接交付 clip_a.mp4。'}),{'clip_a.mp4'})
+    def test_input_names_never_expand_a_structured_output_contract(self):
+        value={'goal':'复用原始输入并交付成片','input_asset_names':['clip_a.mp4','recording.wav'],
+               **delivery(filenames=('final.mp4','cover.png'))}
+        self.assertEqual(required_delivery_names(value),{'final.mp4','cover.png'})
+        self.assertEqual(required_delivery_extensions(value),{'mp4','png'})
 
     def test_intermediate_reused_format_is_not_a_delivery_requirement(self):
-        value={'goal':'另建 clip 节点处理成 MP4，保留该节点供后续复用。最终交付 final.png。',
-               'authorization':{'delivery_targets':['128x64 PNG image']}}
+        value={'goal':'另建片段供后续复用，最终交付图片。',
+               'authorization':{'delivery_targets':['128x64 PNG image']},**delivery(filenames=('final.png',))}
         self.assertEqual(required_delivery_extensions(value),{'png'})
 
     def test_unique_requested_basename_is_host_compiled_for_agent_revision(self):
@@ -330,7 +333,8 @@ class ModelCommandTests(unittest.TestCase):
               'basic_reason':'export','delivery_stage':True}
         value=frozen(task,user=True)
         value['input_batch']['inputs'][0]['content']='Deliver final.mp4 and cover.png.'
-        command={'kind':'COMPLETE','reason':'Apply requested names','plan':{'changes':[{'task_id':'render','set':{
+        command={'kind':'COMPLETE','reason':'Apply requested names',**delivery(filenames=('final.mp4','cover.png')),
+                 'plan':{'changes':[{'task_id':'render','set':{
             'objective':'Export video and cover'}}]}}
         revised=compile_manager(command,value)['proposal']['revise_tasks'][0]
         self.assertEqual(revised['outputs'],['final.mp4','cover.png'])
@@ -376,7 +380,8 @@ class ModelCommandTests(unittest.TestCase):
               'files':[{'path':'ocr.json','roles':['json']},{'path':'ocr.txt','roles':['text']}],
               'acceptance':[{'kind':'json','file':'ocr.json','stage':'current','source':'technical'},
                             {'kind':'text','file':'ocr.txt','contains':['text'],'stage':'current','source':'user'}]}
-        result=compile_manager({'kind':'COMPLETE','reason':'Deliver records','plan':{'new_tasks':[task]}},f)
+        result=compile_manager({'kind':'COMPLETE','reason':'Deliver records',**delivery(formats=('json','txt')),
+                                'plan':{'new_tasks':[task]}},f)
         compiled=result['proposal']['add_tasks'][0]
         self.assertTrue(compiled['delivery_stage'])
         finals={(check['file'],check['source'],check['stage']) for check in compiled['acceptance'] if check['stage']=='final'}
@@ -388,7 +393,8 @@ class ModelCommandTests(unittest.TestCase):
         f=frozen(False);f['goal']='Deliver the final PNG with original JSON record';f['operations']=[operation]
         task={'id':'ocr','type':'operation','name':'OCR','objective':'Read text','operation':'image.ocr',
               'inputs':{'source':{'asset':'asset'}},'parameters':{},'acceptance':[]}
-        result=compile_manager({'kind':'APPLY_PLAN','reason':'Read text','plan':{'new_tasks':[task]}},f)
+        result=compile_manager({'kind':'APPLY_PLAN','reason':'Read text',**delivery(formats=('png','json')),
+                                'plan':{'new_tasks':[task]}},f)
         compiled=result['proposal']['add_tasks'][0]
         finals={(check['file'],check['source']) for check in compiled['acceptance'] if check['stage']=='final'}
         self.assertEqual(finals,{('ocr.json','user')})
@@ -399,7 +405,8 @@ class ModelCommandTests(unittest.TestCase):
         f=frozen(False);f['goal']='Deliver a WAV and the objective audio-process report';f['operations']=[operation]
         task={'id':'process','type':'operation','name':'Process','objective':'Process audio','operation':'audio.process',
               'inputs':{'source':{'asset':'asset'}},'parameters':{},'acceptance':[{'kind':'media','stage':'final'}]}
-        result=compile_manager({'kind':'COMPLETE','reason':'Deliver audio and report','plan':{'new_tasks':[task]}},f)
+        result=compile_manager({'kind':'COMPLETE','reason':'Deliver audio and report',**delivery(formats=('wav','json'),roles=('report',)),
+                                'plan':{'new_tasks':[task]}},f)
         compiled=result['proposal']['add_tasks'][0]
         finals={(check['file'],check['source']) for check in compiled['acceptance'] if check['stage']=='final'}
         self.assertIn(('audio-process-report.json','user'),finals)
@@ -797,13 +804,23 @@ class ModelCommandTests(unittest.TestCase):
         path=schema['$defs']['AgentCommandTask']['properties']['files']['items']['properties']['path']
         self.assertIn('never a directory',path['description'])
 
-    def test_human_review_acceptance_is_only_exposed_for_an_explicit_user_gate(self):
-        normal=manager_schema({**frozen(False),'goal':'Make the cuts sound smooth'})
-        refs={item['$ref'] for item in normal['$defs']['Acceptance']['anyOf']}
-        self.assertNotIn('#/$defs/CommandAcceptanceReview',refs)
-        gated=manager_schema({**frozen(False),'goal':'Render a preview and let me manually review it'})
-        refs={item['$ref'] for item in gated['$defs']['Acceptance']['anyOf']}
-        self.assertIn('#/$defs/CommandAcceptanceReview',refs)
+    def test_planner_cannot_infer_human_approval_from_task_text(self):
+        for goal in ('Make the cuts sound smooth','Render a preview and let me manually review it'):
+            schema=manager_schema({**frozen(False),'goal':goal})
+            refs={item['$ref'] for item in schema['$defs']['Acceptance']['anyOf']}
+            self.assertNotIn('#/$defs/CommandAcceptanceReview',refs)
+            self.assertIn('review_policy',schema['properties'])
+
+    def test_initial_plan_requires_ai_structured_delivery_semantics(self):
+        first={**frozen(False),'graph_version':0,'goal':'Please produce the requested result'}
+        second={**first,'goal':'请生成用户要求的最终成果'}
+        schemas=[manager_schema(value) for value in (first,second)]
+        for schema in schemas:
+            self.assertIn('delivery_contract',schema['properties'])
+        protocol=ToolProtocol(profile('media_planner'),first,{'control_kind':'PLAN'},draft={'status':'OPEN','draft':{}})
+        schema=protocol.schemas['submit_typed_plan']
+        self.assertIn('delivery_contract',schema['required'])
+        self.assertNotIn('review',str(schema['$defs']['Acceptance']['anyOf']))
 
     def test_transcript_subtitles_cannot_also_claim_an_uploaded_srt_role(self):
         from webapp.operation_parameters import EditSubtitles
@@ -1147,24 +1164,22 @@ class ModelCommandTests(unittest.TestCase):
         from webapp.workflow_model_protocol import required_delivery_extensions
         frozen_review={'goal':'Use music.wav under the video and deliver MP4',
                        'authorization':{'delivery_targets':['complete video and requested attachments']},
-                       'input_asset_names':['music.wav']}
+                       'input_asset_names':['music.wav'],**delivery(formats=('mp4',))}
         self.assertEqual(required_delivery_extensions(frozen_review),{'mp4'})
-        frozen_review['goal']='Use music.wav under the video and deliver MP4 plus WAV'
-        # The repeated extension outside the exact input filename remains an explicit output request.
+        frozen_review.update(delivery(formats=('mp4','wav')))
         self.assertEqual(required_delivery_extensions(frozen_review),{'mp4','wav'})
 
     def test_final_filename_rename_replaces_the_previous_name(self):
-        frozen={'goal':'交付 final.png。最终文件改名为 renamed.png。','authorization':{'delivery_targets':['128x64 PNG']}}
-        self.assertEqual(required_delivery_names(frozen),{'renamed.png'})
-        frozen['goal']='将 final.png 重命名为 renamed.png 后交付。'
+        frozen={'goal':'最终文件改名后交付','authorization':{'delivery_targets':['128x64 PNG']},
+                **delivery(filenames=('renamed.png',))}
         self.assertEqual(required_delivery_names(frozen),{'renamed.png'})
 
     def test_explicit_non_delivery_filename_does_not_create_a_format_requirement(self):
         from webapp.workflow_model_protocol import required_delivery_extensions
-        frozen={'goal':'保存 reference.png，声明为非交付；最终交付 5 秒 MP4',
-                'authorization':{'delivery_targets':['符合需求的视频及要求的附加文件']}}
+        frozen={'goal':'保存参考图但只交付视频','authorization':{'delivery_targets':['符合需求的视频及要求的附加文件']},
+                **delivery(formats=('mp4',),excluded=('reference.png',))}
         self.assertEqual(required_delivery_extensions(frozen),{'mp4'})
-        frozen['goal']='reference.png 仅作为中间参考；最终交付 MP4 和 PNG 海报'
+        frozen.update(delivery(formats=('mp4','png'),excluded=('reference.png',)))
         self.assertEqual(required_delivery_extensions(frozen),{'mp4','png'})
 
     def test_gateway_fallback_is_explicit_and_never_auth_or_generic_failure(self):
