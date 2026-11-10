@@ -376,6 +376,18 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
     for index,(identifier,allowed) in enumerate(available_changes(frozen).items()):
         name='TaskChange'+str(index)
         patch_fields={key:deepcopy(props[key]) for key in allowed if key not in ('outputs','output_roles','inputs','on_failure')}
+        current_task=next((item for item in frozen.get('tasks',[]) if item['id']==identifier),None)
+        if 'parameters' in patch_fields and current_task and current_task['spec'].get('type')=='operation':
+            contract=contracts.get(current_task['spec'].get('operation'))
+            if contract:
+                parameters=deepcopy(contract['parameters_schema']);prefix='TaskChange'+str(index)+'_'
+                def rename_change(value):
+                    if isinstance(value,dict):return {key:('#/$defs/'+prefix+item[8:] if key=='$ref' and isinstance(item,str) and item.startswith('#/$defs/') else rename_change(item)) for key,item in value.items()}
+                    if isinstance(value,list):return [rename_change(item) for item in value]
+                    return value
+                for key,value in parameters.pop('$defs',{}).items():defs[prefix+key]=rename_change(value)
+                patch_fields['parameters']=rename_change(parameters)
+            else:patch_fields.pop('parameters')
         if 'inputs' in allowed:patch_fields['input_bindings']=deepcopy(input_bindings)
         if 'outputs' in allowed or 'output_roles' in allowed:patch_fields['files']=deepcopy(files)
         defs[name]=obj({'task_id':{'type':'string','enum':[identifier]},

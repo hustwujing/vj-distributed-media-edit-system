@@ -541,6 +541,27 @@ class ModelCommandTests(unittest.TestCase):
         with self.assertRaises(CommandError):compile_manager(command,f)
         with self.assertRaises(ValidationError):transform(command,schema,encode=True)
 
+    def test_operation_revision_parameters_require_and_reuse_the_queried_contract(self):
+        from webapp.operations import get as operation
+        task={'id':'render','type':'operation','operation':'media.edit','implementation':'fixed_media@1',
+              'name':'Render','objective':'Normalize audio','inputs':{'source':{'asset':'asset'}},
+              'parameters':{'edit_plan':{'clips':[{'asset':'source','start':0,'end':2}]}},
+              'acceptance':[{'kind':'media'}],'basic_reason':'registered edit'}
+        value=frozen(task);value['tasks'][0].update(status='paused');value['trigger']={'task_id':'render'}
+        value['operations']=[operation('media.edit').public()]
+        unqueried=manager_schema(value)
+        change=next(item for item in unqueried['properties']['plan']['anyOf'][0]['properties']['changes']['items']['anyOf'])
+        self.assertNotIn('parameters',unqueried['$defs'][change['$ref'][8:]]['properties']['set']['properties'])
+        contract=operation('media.edit').public()
+        queried=manager_schema(value,{'media.edit':contract})
+        change=queried['properties']['plan']['anyOf'][0]['properties']['changes']['items']['anyOf'][0]
+        parameters=queried['$defs'][change['$ref'][8:]]['properties']['set']['properties']['parameters']
+        self.assertIn('edit_plan',parameters['properties'])
+        command={'kind':'APPLY_PLAN','reason':'Enable registered normalization','plan':{'changes':[{
+            'task_id':'render','set':{'parameters':{'edit_plan':{'clips':[{'asset':'source','start':0,'end':2}],
+                'audio':{'normalize':True}}}}}]}}
+        transform(command,queried,encode=True)
+
     def test_user_feedback_has_only_its_authorized_edit_fields(self):
         f=frozen(user=True);schema=manager_schema(f)
         cmd={'kind':'COMPLETE','reason':'User feedback','plan':{'changes':[{'task_id':'render','set':{'objective':'Updated goal'}}]}}
