@@ -95,7 +95,12 @@ def snapshot(store,run):
         if len(values)<3:values.append(json.loads(row['record']))
     feedback=[{**{key:row[key] for key in ('id','purpose','subject_task','graph_version','status')},
                'decision':json.loads(row['decision_json'])} for row in store.query(
-        "SELECT id,purpose,subject_task,graph_version,status,decision_json FROM workflow_reviews WHERE run_id=? AND status='rejected' AND decision_json<>'{}' ORDER BY updated_at DESC LIMIT 10",(run['id'],))]
+        """SELECT r.id,r.purpose,r.subject_task,r.graph_version,r.status,r.decision_json
+        FROM workflow_reviews r WHERE r.run_id=? AND r.status='rejected' AND r.decision_json<>'{}'
+        AND NOT EXISTS (SELECT 1 FROM workflow_reviews newer
+          WHERE newer.run_id=r.run_id AND newer.purpose=r.purpose AND newer.subject_task=r.subject_task
+          AND newer.status='passed' AND (newer.graph_version>r.graph_version OR newer.updated_at>r.updated_at))
+        ORDER BY r.updated_at DESC LIMIT 10""",(run['id'],))]
     applied_inputs=store.query("SELECT sequence,content,source,context_json FROM run_inputs WHERE run_id=? AND status='APPLIED' ORDER BY sequence DESC LIMIT 101",(run['id'],))
     for change in applied_inputs:change['context']=json.loads(change.pop('context_json'))
     reservations=store.query('SELECT COALESCE(SUM(COALESCE(used_tokens,reserved_tokens)),0) AS used FROM workflow_model_reservations WHERE run_id=?',(run['id'],))[0]['used']

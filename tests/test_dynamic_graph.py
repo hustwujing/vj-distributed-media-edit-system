@@ -1181,6 +1181,13 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(frozen['trigger']['decision']['feedback'],'Required ending is missing.')
         self.assertEqual(frozen['review_feedback'][0]['decision']['feedback'],'Required ending is missing.')
         self.assertIsNone(graph.get(self.store,run['id'])['delivered_at'])
+        self.store.execute("""INSERT INTO workflow_reviews
+            SELECT ?,run_id,?,purpose,subject_task,graph_version+1,?,snapshot_json,snapshot_digest,
+                   'passed',decision_json,created_at+1,updated_at+1
+            FROM workflow_reviews WHERE run_id=? AND status='rejected'""",
+            ('f'*32,'passed-review','passed-identity',run['id']))
+        from webapp.workflow_planning import snapshot
+        self.assertEqual(snapshot(self.store,graph.get(self.store,run['id']))['review_feedback'],[])
 
     def test_inconclusive_final_review_requests_evidence_without_rerendering_delivery(self):
         run=self.review_fixture()
