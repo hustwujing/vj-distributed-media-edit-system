@@ -44,7 +44,7 @@ class ReviewRecoveryRegressions(unittest.TestCase):
             with lease.bind(),patch('webapp.profile_harnesses.get',return_value=harness):execute(host,lease)
         finally:lease.release()
         receipt=json.loads(self.store.query('SELECT result_json FROM task_results WHERE run_id=?',(self.run['id'],))[0]['result_json'])
-        self.assertEqual(receipt['error_code'],'agent_failed');self.assertTrue(receipt['transient'])
+        self.assertEqual(receipt['error_code'],'agent_model_transport_failed');self.assertTrue(receipt['transient'])
         self.f.f.orchestrator.accept_results(graph.get(self.store,self.run['id']))
         self.assertEqual(graph.get(self.store,self.run['id'])['tasks'][0]['status'],'retry_wait')
         self.assertEqual(harness.run.call_count,1)
