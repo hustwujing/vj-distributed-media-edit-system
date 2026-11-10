@@ -1159,6 +1159,16 @@ class ModelCommandTests(unittest.TestCase):
         decoded=p.decode('submit_result',supporting)
         self.assertEqual(decoded['decision']['evidence'][0]['supporting_inspection_ids'],['b'*32])
 
+    def test_inspect_resolves_only_unique_frozen_basenames(self):
+        from webapp.workflow_agent_contracts import ReviewDecision
+        snapshot={**frozen(False),'result_schema':ReviewDecision.model_json_schema(),'review_scope':'final',
+            'inspectable_refs':['edit/a/analysis.json','edit/b/other.json','edit/c/duplicate.json','edit/d/duplicate.json']}
+        protocol=ToolProtocol(profile('delivery_reviewer'),snapshot,{'control_kind':'REVIEW'})
+        enum=protocol.schemas['inspect']['properties']['refs']['items']['properties']['ref']['enum']
+        self.assertIn('analysis.json',enum);self.assertNotIn('duplicate.json',enum)
+        decoded=protocol.decode('inspect',{'refs':[{'ref':'analysis.json'}]})
+        self.assertEqual(decoded['refs'][0]['ref'],'edit/a/analysis.json')
+
     def test_review_tool_schema_requires_the_exact_frozen_criterion_count(self):
         from webapp.workflow_agent_contracts import ReviewDecision
         f=frozen();f.update(result_schema=ReviewDecision.model_json_schema(),review_scope='final',

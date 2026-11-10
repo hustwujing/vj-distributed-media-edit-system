@@ -674,13 +674,22 @@ def compile_manager(command,frozen):
 
 class ToolProtocol:
     def __init__(self,profile,frozen,task,*,finalize=False,inspections=None,candidate_keys=None,contracts=None,draft=None,store=None):
-        self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.store=store;self._draft=draft;self.contracts=contracts or {};self.schemas={};self.names={}
+        self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.store=store;self._draft=draft;self.contracts=contracts or {};self.schemas={};self.names={};self.inspect_aliases={}
         self.correction_mode=bool(draft and draft.get('last_error_signature'))
         tools=set(profile.tools)&({'proposal','result'} if finalize else set(profile.tools))
         if 'inspect' in tools:
             refs=frozen.get('inspectable_refs',[])
-            if refs:self.add('inspect','inspect',obj({'refs':{'type':'array','minItems':1,'maxItems':8,'items':obj({
-                'ref':{'type':'string','enum':refs},'offset':{'type':'number','minimum':0},
+            if refs:
+                from pathlib import PurePosixPath
+                aliases={};ambiguous=set()
+                for reference in refs:
+                    alias=PurePosixPath(reference).name if '/' in reference else ''
+                    if not alias or alias==reference or alias in ambiguous:continue
+                    if alias in aliases and aliases[alias]!=reference:aliases.pop(alias);ambiguous.add(alias)
+                    else:aliases[alias]=reference
+                self.inspect_aliases=aliases
+                self.add('inspect','inspect',obj({'refs':{'type':'array','minItems':1,'maxItems':8,'items':obj({
+                'ref':{'type':'string','enum':[*refs,*sorted(aliases)]},'offset':{'type':'number','minimum':0},
                 'window_seconds':{'type':'number','exclusiveMinimum':0,'maximum':8}},['ref'])}}))
         if 'contract' in tools:
             operations=[row['id'] for row in frozen.get('operations',[])]
@@ -821,6 +830,10 @@ class ToolProtocol:
         dynamic={identifier for identifier,contract in self.contracts.items() if contract.get('input_contract',{}).get('allowed_roles') is None}
         arguments,normalizations=normalize_planner_arguments(name,arguments,dynamic)
         payload=transform(arguments,self.schemas[name]);action=self.names[name]
+        if action=='inspect' and self.inspect_aliases:
+            if isinstance(payload.get('refs'),list):
+                for item in payload['refs']:item['ref']=self.inspect_aliases.get(item['ref'],item['ref'])
+            elif 'ref' in payload:payload['ref']=self.inspect_aliases.get(payload['ref'],payload['ref'])
         if action=='proposal':return {'action':'proposal','proposal':compile_manager(payload,self.frozen),'_model_command':payload}
         if action in ('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration'):
             if action in ('draft_add_tasks','draft_batch_commit'):
