@@ -20,6 +20,9 @@ class ProfileSkillTests(unittest.TestCase):
    reviewer=profiles.PROFILES[identifier].prompt
    self.assertIn('下一轮必须立即调用result',reviewer)
    self.assertIn('用长篇推理耗尽输出预算',reviewer)
+   self.assertEqual(profiles.PROFILES[identifier].max_inspection_rounds,2)
+   self.assertEqual(profiles.PROFILES[identifier].finalize_rounds,2)
+  self.assertEqual(profiles.PROFILES['media_failure_diagnostician'].max_inspection_rounds,1)
 
  def test_repair_prompts_require_evidence_first_and_measured_layouts(self):
   manager=profiles.get('media_planner').prompt
