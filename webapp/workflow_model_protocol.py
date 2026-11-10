@@ -400,7 +400,11 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
         asset_branch['description']='Use one exact authorized asset ID from this enum; never use a filename, display name or guessed ID.'
     from .quality_policy import Acceptance
     acceptance=defs['Acceptance']['properties'];variants=[]
-    for kind in ('file','image','media','text','json','subtitle','agent','review'):
+    import re
+    review_text=' '.join([str(frozen.get('goal','')),*[str(item.get('content','')) for item in frozen.get('user_changes',[]) if isinstance(item,dict)]])
+    human_review=bool(re.search(r'人工确认|用户确认|我来确认|让我确认|由我审核|手工确认|human review|manual review|manually review|ask me to approve',review_text,re.I))
+    acceptance_kinds=('file','image','media','text','json','subtitle','agent')+(('review',) if human_review else ())
+    for kind in acceptance_kinds:
         fields={key:deepcopy(acceptance[key]) for key in sorted(Acceptance.fields_for_kind(kind)-{'source'})}
         fields['kind']={'type':'string','enum':[kind]};required=['kind']
         if kind in ('agent','review'):

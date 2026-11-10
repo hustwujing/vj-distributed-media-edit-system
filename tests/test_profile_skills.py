@@ -35,6 +35,8 @@ class ProfileSkillTests(unittest.TestCase):
   self.assertIn('不是用户契约',manager);self.assertIn('不要为放弃自己选择的实现再次询问用户',manager)
   self.assertIn('先给方案',manager);self.assertIn('不得用respond结束',manager)
   self.assertIn('不得再创建media.analyze业务Task',manager)
+  self.assertIn('必须创建editing_implementer Agent Task',manager)
+  self.assertIn('on_failure=diagnose',manager)
   self.assertIn('textbbox',implementer);self.assertIn('可见内容bbox',implementer)
   self.assertIn('fc-list :lang=zh family file',implementer);self.assertIn('方框/缺字',implementer)
   self.assertIn('不能用同名目录代替',implementer);self.assertIn('files.path必须是普通文件',manager)

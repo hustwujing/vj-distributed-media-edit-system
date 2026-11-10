@@ -172,8 +172,10 @@ class EditTitle(Parameters):
 
 
 class EditSubtitles(Parameters):
-    asset:str|None=Field(default=None,min_length=1,max_length=100)
-    from_transcripts:bool=False
+    asset:str|None=Field(default=None,min_length=1,max_length=100,
+        description='Input role for an uploaded SRT file only. Omit when from_transcripts=true.')
+    from_transcripts:bool=Field(default=False,
+        description='Build captions from declared transcript_<clip-role> inputs. This is mutually exclusive with asset.')
     clip_to_output:bool=Field(default=True,description='For output-timeline SRT, discard cues after the rendered duration and clip a cue crossing the end. Disable for strict rejection.')
     words_per_line:int=Field(default=6,ge=1,le=20)
     uppercase:bool=Field(default=False,description='Uppercase displayed captions and exported SRT together, preserving timestamps and source transcript. Set with words_per_line=2 for two-word uppercase captions.')
@@ -182,6 +184,10 @@ class EditSubtitles(Parameters):
     highlight:str|None=Field(default=None,pattern=r'^#[0-9A-Fa-f]{6}$')
     position:Literal['top','center','bottom']='bottom'
     outline:int=Field(default=2,ge=0,le=8)
+    @model_validator(mode='after')
+    def exclusive_source(self):
+        if self.asset and self.from_transcripts:raise ValueError('subtitles.asset is only for uploaded SRT; omit it when from_transcripts=true')
+        return self
 
 
 class EditPlan(Parameters):

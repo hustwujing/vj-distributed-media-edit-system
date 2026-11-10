@@ -797,6 +797,19 @@ class ModelCommandTests(unittest.TestCase):
         path=schema['$defs']['AgentCommandTask']['properties']['files']['items']['properties']['path']
         self.assertIn('never a directory',path['description'])
 
+    def test_human_review_acceptance_is_only_exposed_for_an_explicit_user_gate(self):
+        normal=manager_schema({**frozen(False),'goal':'Make the cuts sound smooth'})
+        refs={item['$ref'] for item in normal['$defs']['Acceptance']['anyOf']}
+        self.assertNotIn('#/$defs/CommandAcceptanceReview',refs)
+        gated=manager_schema({**frozen(False),'goal':'Render a preview and let me manually review it'})
+        refs={item['$ref'] for item in gated['$defs']['Acceptance']['anyOf']}
+        self.assertIn('#/$defs/CommandAcceptanceReview',refs)
+
+    def test_transcript_subtitles_cannot_also_claim_an_uploaded_srt_role(self):
+        from webapp.operation_parameters import EditSubtitles
+        with self.assertRaisesRegex(ValueError,'uploaded SRT'):
+            EditSubtitles(asset='transcript',from_transcripts=True)
+
     def test_schema_feedback_names_the_actual_wrong_variant_field_without_values(self):
         from webapp.strict_schema import validation_feedback
         schema=manager_schema(frozen(False));command={'kind':'COMPLETE','reason':'Plan','plan':{'new_tasks':[{

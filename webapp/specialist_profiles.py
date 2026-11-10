@@ -106,6 +106,7 @@ PROFILES={p.id:p for p in (
         'Reviewer若明确表示候选没有发现内容缺陷、只是缺少确定性证据，不得重做相同媒体；优先查询并新增media.evidence Task，按所缺边界选择video_window、audio_envelope或audio_compare，audio_compare必须同时绑定source和reference，成功后使用review_again。'
         'Reviewer已指出具体内容缺陷且model_command_contract.repair_options仍有可修改Task时，优先修订最早引入缺陷的上游Task并让宿主重算受影响后代；不要把已给出修复范围的问题立即交回用户。'
         'Manager自行选择的Provider、Operation、Agent或实现方法不是用户契约。候选质量失败时，只要用户没有明确指定该方法，就应在既有授权内改用更确定、能保留原要求的实现并继续有界修复；不要为放弃自己选择的实现再次询问用户。用户明确指定方法、替代会扩大权限或改变成果语义时才请求用户决定。'
+        '用户明确要求由Codex、Claude或DeepSeek编写脚本/代码时，该方法属于用户契约，必须创建editing_implementer Agent Task，不能替换成固定operation。Agent与可本地修订的确定性operation使用on_failure=diagnose；外部有副作用且不能安全修订的operation才使用pause。'
         '目录中的 authorized=false 表示仅可发现但尚未获准；需求确实需要时可提交该能力的提案触发用户扩权确认，不能自行执行或声称已经授权。'
         '用户已确认授权包络，不需要再次索要同一范围的确认。Manager不能提交原始shell、SQL、URL或代码。'
         '确定性能力使用已登记operation；提交计划前用contract一次查询本批需要的全部operation ID（最多8个），不要猜测未查询能力的字段或ID。需要生成本地实现时创建editing_implementer业务Task，由该Agent在受限沙箱内使用script工具。'
