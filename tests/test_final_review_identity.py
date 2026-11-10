@@ -1,4 +1,5 @@
 import json,unittest,uuid
+from unittest.mock import patch
 from tests.run_input_fixture import accept_change
 from tests import test_dynamic_graph as fixtures
 from webapp import workflow_graph as graph,run_inputs
@@ -19,7 +20,9 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
                     repaired['spec'].update(id='repair',type='agent',operation=None,profile='editing_implementer',
                         delivery_stage=True,inputs={'candidate':{'step':producer['id'],'role':'foreground'}})
                     run['tasks'].append(repaired)
-                    f.orchestrator.queue_review(run)
+                    execution={'repair':{'execution_location':'opensandbox','execution_attempt_id':'a'*32,
+                        'execution_harness':'codex','tool_location':'opensandbox'}}
+                    with patch('webapp.execution_locations.for_run',return_value=execution):f.orchestrator.queue_review(run)
                     snapshot=json.loads(f.store.query("SELECT snapshot_json FROM workflow_reviews WHERE purpose='final'")[0]['snapshot_json'])
                     record=next(p for p in snapshot['delivery_provenance'] if p['task_id']==producer['id'])
                     self.assertFalse(record['delivery_stage']);self.assertEqual(record['status'],'succeeded')
@@ -30,6 +33,7 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
                     repair=next(p for p in snapshot['delivery_provenance'] if p['task_id']=='repair')
                     self.assertEqual(repair['input_sources']['candidate']['step'],producer['id'])
                     self.assertIsNone(repair['operation_execution'])
+                    self.assertEqual(repair['execution_evidence'],execution['repair'])
                 finally:f.tearDown()
 
     def test_same_pixels_from_a_different_producer_require_new_review(self):

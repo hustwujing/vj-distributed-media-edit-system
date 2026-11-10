@@ -945,6 +945,8 @@ class Orchestrator:
             for key,value in operation_contracts.items()}
         if purpose=='final':
             complete_tasks=frozen['tasks']
+            from .execution_locations import for_run as execution_locations
+            execution_evidence=execution_locations(store,run)
             frozen['dependencies']=run['dependencies']
             frozen['supporting_tasks']=[{'id':task['id'],'revision':task['revision'],'status':task['status'],
                 'objective':task['spec']['objective'],'output_roles':task.get('quality',{}).get('output_roles',{})}
@@ -960,11 +962,14 @@ class Orchestrator:
                 'delivery_stage':task['spec'].get('delivery_stage',False),
                 'accepted_outputs':task['accepted_result'],
                 'producer':{key:task['spec'].get(key) for key in ('type','operation','implementation','profile')},
+                'execution_evidence':{key:value for key,value in execution_evidence.get(task['id'],{}).items()
+                    if key in ('execution_location','execution_attempt_id','execution_harness','tool_location')},
                 'operation_execution':frozen['operation_execution_contracts'].get(task['id']),
                 'input_sources':task['spec'].get('inputs',{}),
                 'current_provider_receipts':[call for call in frozen['provider_receipts']
                     if call['step']==task['id'] and call['revision']==task['revision']],
                 'scope':'Current selected producer and declared inputs, including upstream processing. '
+                    'execution_evidence is host-derived from the durable attempt, sandbox cleanup receipt and frozen specialist profile. '
                     'Succeeded registered local operations use their model_profile and accepted outputs as execution evidence; '
                     'they do not create external provider receipts. Unrelated historical calls are not provenance.'}
                 for task in complete_tasks if task['spec'].get('purpose')!='evidence']
