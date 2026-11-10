@@ -31,6 +31,7 @@ class ProfileSkillTests(unittest.TestCase):
   self.assertIn('audio_envelope',manager);self.assertIn('review_again',manager)
   self.assertIn('不是用户契约',manager);self.assertIn('不要为放弃自己选择的实现再次询问用户',manager)
   self.assertIn('先给方案',manager);self.assertIn('不得用respond结束',manager)
+  self.assertIn('不得再创建media.analyze业务Task',manager)
   self.assertIn('textbbox',implementer);self.assertIn('可见内容bbox',implementer)
   structured=model_instructions(profiles.get('editing_implementer'))
   self.assertIn('VIDEO_USE_STEP_SCRATCH',structured)
