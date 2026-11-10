@@ -21,6 +21,7 @@ case "${1:-}" in
     ;;
   base)
     test -d wheels
+    "$PWD/deploy/prepare-runtime-assets.sh"
     require_digest BASE_IMAGE "${BASE_IMAGE:-}"
     "$docker_bin" build --network=none -f runtime/opensandbox/base.Dockerfile \
       --build-arg "BASE_IMAGE=$BASE_IMAGE" -t agent-runtime-base:build .

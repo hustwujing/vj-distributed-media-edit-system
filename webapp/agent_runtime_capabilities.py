@@ -17,11 +17,11 @@ def catalogue():
     required={'opensandbox_cpu','bwrap_cpu','bwrap_gpu'}
     if not isinstance(value,dict) or set(value)!=required:raise ValueError('Invalid Agent runtime capability catalogue')
     for name,item in value.items():
-        if (not isinstance(item,dict) or set(item)!={'execution_location','requires_gpu','network_modes','python_modules','system_tools'}
+        if (not isinstance(item,dict) or set(item)!={'execution_location','requires_gpu','network_modes','python_modules','node_modules','system_tools'}
                 or type(item['requires_gpu']) is not bool
                 or item['requires_gpu']!=(name=='bwrap_gpu')
                 or not all(isinstance(values,list) and len(values)==len(set(values))
-                           for values in (item['network_modes'],item['python_modules'],item['system_tools']))):
+                           for values in (item['network_modes'],item['python_modules'],item['node_modules'],item['system_tools']))):
             raise ValueError('Invalid Agent runtime capability record: '+name)
     return value
 
@@ -74,14 +74,16 @@ def validate_public_url(value):
 def validate(requirements,environ=None,selected=None):
     selected=selected or target(requirements,environ);available=catalogue()[selected]
     missing_modules=sorted(set(requirements.get('python_modules',()))-set(available['python_modules']))
+    missing_node=sorted(set(requirements.get('node_modules',()))-set(available['node_modules']))
     missing_tools=sorted(set(requirements.get('system_tools',()))-set(available['system_tools']))
     network_urls=requirements.get('network_urls',())
     if network_urls and 'approved_public_https' not in available['network_modes']:
         raise ValueError('Selected runtime does not support approved public HTTPS')
     for value in network_urls:validate_public_url(value)
-    if missing_modules or missing_tools:
+    if missing_modules or missing_node or missing_tools:
         detail=[]
         if missing_modules:detail.append('Python modules: '+', '.join(missing_modules))
+        if missing_node:detail.append('Node modules: '+', '.join(missing_node))
         if missing_tools:detail.append('system tools: '+', '.join(missing_tools))
         raise ValueError('Selected runtime lacks declared dependencies ('+'; '.join(detail)+')')
     return selected

@@ -60,7 +60,7 @@ class Bridge:
                                       # This bridge already runs after UID drop in
                                       # the application filesystem/network/cgroup
                                       # sandbox. Native nesting is unavailable.
-                                      env={'DSH_PERMISSION_MODE':'danger-full-access'},
+                                      env={**self.runtime_environment(),'DSH_PERMISSION_MODE':'danger-full-access'},
                                       request_timeout_seconds=30, shutdown_timeout_seconds=5)
             self.sdk.start()
             if self.resume:
@@ -68,6 +68,11 @@ class Bridge:
         else:
             raise ValueError('Unsupported SDK bridge')
         return {'session_id': self.session_id}
+
+    @staticmethod
+    def runtime_environment():
+        names=('NODE_PATH','PLAYWRIGHT_BROWSERS_PATH','PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD','U2NET_HOME')
+        return {name:os.environ[name] for name in names if os.environ.get(name)}
 
     async def claude(self, text):
         from claude_agent_sdk import query, ClaudeAgentOptions, HookMatcher
@@ -86,7 +91,7 @@ class Bridge:
             include_partial_messages=True, hooks=hooks,
             resume=self.session_id if self.resume else None,
             session_id=None if self.resume else self.session_id,
-            env={'ANTHROPIC_BASE_URL': 'http://127.0.0.1:18766', 'ANTHROPIC_API_KEY': 'gateway-placeholder',
+            env={**self.runtime_environment(),'ANTHROPIC_BASE_URL': 'http://127.0.0.1:18766', 'ANTHROPIC_API_KEY': 'gateway-placeholder',
                  'CLAUDE_CONFIG_DIR': '/state/claude', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1',
                  'DISABLE_AUTOUPDATER': '1'},
         )

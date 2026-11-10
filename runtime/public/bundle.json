@@ -7,8 +7,8 @@
     },
     {
       "path": "capabilities.json",
-      "sha256": "7e0f63d5d8d54844fc553148b13b22f187ec242e324f8dd1d7236c8ea253113b",
-      "size": 2388
+      "sha256": "9f10056991caf57874296d5a593a7fcf1408a3355add744651594fd139187180",
+      "size": 3252
     },
     {
       "path": "helpers/canvas_render.py",
@@ -152,6 +152,6 @@
     }
   ],
   "schema_version": 1,
-  "skill_digest": "sha256:c4a09f319617a50b15f04e2d2f68372b1154985722f2c00dbff6b04ce9688e90",
-  "tool_schema_digest": "sha256:7e0f63d5d8d54844fc553148b13b22f187ec242e324f8dd1d7236c8ea253113b"
+  "skill_digest": "sha256:97080fcdc5eb8de8ad04743792fb6ff02eee9f8bc0e41aeb5f23241e17a7b9fc",
+  "tool_schema_digest": "sha256:9f10056991caf57874296d5a593a7fcf1408a3355add744651594fd139187180"
 }

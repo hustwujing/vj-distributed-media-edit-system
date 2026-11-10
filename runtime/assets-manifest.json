@@ -1,0 +1,15 @@
+{
+  "node_modules": {
+    "playwright": "1.62.1",
+    "playwright-core": "1.62.1",
+    "three": "0.185.0",
+    "esbuild": "0.25.8",
+    "@esbuild/linux-x64": "0.25.8"
+  },
+  "files": {
+    "node_modules/esbuild/bin/esbuild": "1804240da84ec9976ae33333f256ae9cf731a9d656dad8f83d2ba31098b50547",
+    "ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell": "e11fc9ce65c96313476f7ee9844b6fb6a9220fb048693cfe9eee00acf4170a9f",
+    "ms-playwright/ffmpeg-1011/ffmpeg-linux": "460d44f3416005662f528d4b92e7b94ace924e8a0288106d3803b73c56eaadc8",
+    "rembg/u2net.onnx": "8d10d2f3bb75ae3b6d527c77944fc5e7dcd94b29809d47a739a7a728a912b491"
+  }
+}

@@ -123,6 +123,22 @@ class NativeSelectionTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError,'Python modules: torch'):
                 validate({'requires_gpu':False,'python_modules':['torch'],'system_tools':[],'network_urls':[]})
 
+    def test_media_document_and_browser_dependencies_are_advertised_consistently(self):
+        from webapp.agent_runtime_capabilities import catalogue,validate
+        python={'av','cairosvg','ffmpeg','imageio','onnxruntime','pymupdf','rembg','reportlab','shapely','skimage','trimesh'}
+        node={'esbuild','playwright','three'};tools={'chromium','esbuild','node'}
+        for name,capabilities in catalogue().items():
+            with self.subTest(runtime=name):
+                self.assertTrue(python<=set(capabilities['python_modules']))
+                self.assertEqual(set(capabilities['node_modules']),node)
+                self.assertTrue(tools<=set(capabilities['system_tools']))
+        self.assertEqual(validate({'requires_gpu':False,'python_modules':['rembg'],
+            'node_modules':['playwright','three'],'system_tools':['chromium'],'network_urls':[]},
+            selected='opensandbox_cpu'),'opensandbox_cpu')
+        with self.assertRaisesRegex(ValueError,'Node modules: unregistered'):
+            validate({'requires_gpu':False,'python_modules':[],'node_modules':['unregistered'],
+                'system_tools':[],'network_urls':[]},selected='opensandbox_cpu')
+
     def test_operation_catalogue_exposes_authoritative_gpu_requirement(self):
         from webapp.operations import catalog
         operations=catalog()['operations']

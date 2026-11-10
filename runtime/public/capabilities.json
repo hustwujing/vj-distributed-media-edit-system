@@ -50,13 +50,16 @@
       "requires_gpu": false,
       "network_modes": ["none", "approved_public_https"],
       "python_modules": [
-        "cv2", "jsonschema", "librosa", "matplotlib", "networkx", "numpy",
-        "PIL", "psd_tools", "scipy", "sklearn", "soundfile", "sympy",
-        "xmltodict", "yaml"
+        "av", "cairosvg", "cv2", "ffmpeg", "fitz", "imagehash", "imageio",
+        "jsonschema", "librosa", "matplotlib", "mutagen", "networkx", "numpy",
+        "onnxruntime", "piexif", "PIL", "psd_tools", "pydub", "pymupdf", "rembg",
+        "reportlab", "scipy", "shapely", "skimage", "sklearn", "soundfile",
+        "svgwrite", "sympy", "trimesh", "xmltodict", "yaml"
       ],
+      "node_modules": ["esbuild", "playwright", "three"],
       "system_tools": [
-        "bash", "file", "ffmpeg", "ffprobe", "fc-list", "git", "jq",
-        "python", "rg", "socat"
+        "bash", "chromium", "esbuild", "file", "ffmpeg", "ffprobe", "fc-list", "git", "jq",
+        "node", "python", "rg", "socat"
       ]
     },
     "bwrap_cpu": {
@@ -64,12 +67,15 @@
       "requires_gpu": false,
       "network_modes": ["none", "approved_public_https"],
       "python_modules": [
-        "cv2", "jsonschema", "librosa", "matplotlib", "networkx", "numpy",
-        "PIL", "psd_tools", "scipy", "sklearn", "soundfile", "sympy",
-        "xmltodict", "yaml"
+        "av", "cairosvg", "cv2", "ffmpeg", "fitz", "imagehash", "imageio",
+        "jsonschema", "librosa", "matplotlib", "mutagen", "networkx", "numpy",
+        "onnxruntime", "piexif", "PIL", "psd_tools", "pydub", "pymupdf", "rembg",
+        "reportlab", "scipy", "shapely", "skimage", "sklearn", "soundfile",
+        "svgwrite", "sympy", "trimesh", "xmltodict", "yaml"
       ],
+      "node_modules": ["esbuild", "playwright", "three"],
       "system_tools": [
-        "bash", "file", "ffmpeg", "ffprobe", "fc-list", "nvidia-smi", "python", "rg", "socat"
+        "bash", "chromium", "esbuild", "file", "ffmpeg", "ffprobe", "fc-list", "nvidia-smi", "node", "python", "rg", "socat"
       ]
     },
     "bwrap_gpu": {
@@ -77,12 +83,15 @@
       "requires_gpu": true,
       "network_modes": ["none", "approved_public_https"],
       "python_modules": [
-        "cv2", "jsonschema", "librosa", "matplotlib", "networkx", "numpy",
-        "PIL", "psd_tools", "scipy", "sklearn", "soundfile", "sympy",
-        "xmltodict", "yaml"
+        "av", "cairosvg", "cv2", "ffmpeg", "fitz", "imagehash", "imageio",
+        "jsonschema", "librosa", "matplotlib", "mutagen", "networkx", "numpy",
+        "onnxruntime", "piexif", "PIL", "psd_tools", "pydub", "pymupdf", "rembg",
+        "reportlab", "scipy", "shapely", "skimage", "sklearn", "soundfile",
+        "svgwrite", "sympy", "trimesh", "xmltodict", "yaml"
       ],
+      "node_modules": ["esbuild", "playwright", "three"],
       "system_tools": [
-        "bash", "file", "ffmpeg", "ffprobe", "fc-list", "python", "rg", "socat"
+        "bash", "chromium", "esbuild", "file", "ffmpeg", "ffprobe", "fc-list", "node", "python", "rg", "socat"
       ]
     }
   }

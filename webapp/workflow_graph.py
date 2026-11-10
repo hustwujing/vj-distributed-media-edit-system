@@ -160,6 +160,7 @@ class TaskSemantics(Contract):
 class AgentRuntimeRequirements(Contract):
     requires_gpu:bool=Field(default=False,description='True only when generated code must directly use a GPU or a host-mounted GPU model. GPU tasks use the bwrap code editor; portable CPU tasks prefer the configured OpenSandbox Harness.')
     python_modules:list[str]=Field(default_factory=list,max_length=64,description='Import module names required by the generated code. Select only modules advertised by the chosen code-editor runtime.')
+    node_modules:list[str]=Field(default_factory=list,max_length=64,description='Node package names required by generated code, selected from the code-editor runtime capability catalogue.')
     system_tools:list[str]=Field(default_factory=list,max_length=64,description='Executable names required by generated code, selected from the code-editor runtime capability catalogue.')
     network_urls:list[str]=Field(default_factory=list,max_length=16,description='Exact public HTTPS URLs the generated code may read through the host Gateway. Empty means no public network access.')
 
@@ -167,9 +168,10 @@ class AgentRuntimeRequirements(Contract):
     def valid(self):
         token=re.compile(r'^[A-Za-z_][A-Za-z0-9_.-]{0,79}$')
         if (len(set(self.python_modules))!=len(self.python_modules)
+                or len(set(self.node_modules))!=len(self.node_modules)
                 or len(set(self.system_tools))!=len(self.system_tools)
                 or len(set(self.network_urls))!=len(self.network_urls)
-                or any(not token.fullmatch(value) for value in (*self.python_modules,*self.system_tools))):
+                or any(not token.fullmatch(value) for value in (*self.python_modules,*self.node_modules,*self.system_tools))):
             raise ValueError('Agent runtime requirements must be unique registered capability names')
         from .agent_runtime_capabilities import validate_public_url
         for value in self.network_urls:validate_public_url(value)

@@ -1020,7 +1020,7 @@ class ModelCommandTests(unittest.TestCase):
             'acceptance':[{'kind':'json','required_keys':['value'],'stage':'final'}],
             'basic_reason':'Requires generated local implementation',
             'runtime_requirements':{'requires_gpu':False,'python_modules':['numpy'],
-                'system_tools':['ffmpeg'],'network_urls':['https://example.com/data.json']}}
+                'node_modules':['three'],'system_tools':['ffmpeg'],'network_urls':['https://example.com/data.json']}}
         command={'kind':'COMPLETE','reason':'Run the portable code editor','plan':{'new_tasks':[task]}}
         result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['add_tasks'][0]
         self.assertEqual(result['runtime_requirements'],task['runtime_requirements'])

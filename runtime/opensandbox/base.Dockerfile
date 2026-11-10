@@ -23,6 +23,10 @@ ENV PATH=/opt/venv/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     PYTHONPATH=/opt/video-use:/opt/video-use/helpers \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    NODE_PATH=/opt/runtime-assets/node_modules \
+    PLAYWRIGHT_BROWSERS_PATH=/opt/runtime-assets/ms-playwright \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    U2NET_HOME=/opt/runtime-assets/rembg \
     HOME=/state
 
 RUN addgroup --gid 10001 video-use && \
@@ -36,8 +40,17 @@ COPY helpers/edit_media.py helpers/edit_plan.py helpers/edit_captions.py /opt/vi
 COPY helpers/preview_style.py helpers/image_edit.py helpers/render.py /opt/video-use/helpers/
 COPY helpers/grade.py helpers/timeline_view.py helpers/pack_transcripts.py /opt/video-use/helpers/
 COPY helpers/canvas_render.py helpers/transcribe.py /opt/video-use/helpers/
+COPY runtime/local-assets /opt/runtime-assets
 RUN find /opt/video-use -type d -exec chmod 0555 {} + && \
-    find /opt/video-use -type f -exec chmod 0444 {} +
+    find /opt/video-use -type f -exec chmod 0444 {} + && \
+    find /opt/runtime-assets -type d -exec chmod 0555 {} + && \
+    find /opt/runtime-assets -type f -exec chmod 0444 {} + && \
+    chmod 0755 /opt/runtime-assets/node_modules/esbuild/bin/esbuild \
+      /opt/runtime-assets/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell \
+      /opt/runtime-assets/ms-playwright/ffmpeg-1011/ffmpeg-linux && \
+    ln -s /opt/runtime-assets/node_modules/esbuild/bin/esbuild /usr/local/bin/esbuild && \
+    ln -s /opt/runtime-assets/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell /usr/local/bin/chromium && \
+    test -x /usr/bin/node && test -x /usr/local/bin/esbuild && test -x /usr/local/bin/chromium
 
 USER 10001:10001
 WORKDIR /workspace

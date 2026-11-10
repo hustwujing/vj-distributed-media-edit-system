@@ -14,7 +14,7 @@ MANIFEST=Path(os.environ.get('VIDEO_USE_RUNTIME_BUILD',str(REPO/'runtime/build')
 TOOLS=('bash','sh','env','cat','ls','find','sed','awk','sort','uniq','wc','head','tail','cut',
        'date','mkdir','cp','mv','rm','touch','printf','timeout','nice','ps','kill','pwd',
        'basename','dirname','readlink','realpath','stat','du','df','grep','xargs','tee',
-       'ffmpeg','ffprobe','socat','setpriv','ldconfig','fc-match','fc-list','file','rg','nvidia-smi','uname','sleep','tr','true','false')
+       'ffmpeg','ffprobe','socat','setpriv','ldconfig','fc-match','fc-list','file','rg','nvidia-smi','node','uname','sleep','tr','true','false')
 CODEX_DEFAULT='/usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-linux-x64/vendor/x86_64-unknown-linux-musl/bin/codex'
 TOOL_MODULES=('__init__.py','telemetry.py','api_capacity.py','worker.py','media_handlers.py','media_plan_compiler.py','media_evidence.py','media_evidence_operation.py','operation_result.py','image_tasks_cli.py','image_tasks.py','image_document.py',
               'image_providers.py','image_models.py','image_replace.py','sam3_zim.py','models.py','edit_tools.py','quality_review.py')
@@ -85,8 +85,19 @@ def fingerprint():
 
 def build():
     prefix=Path(sys.base_prefix)
+    assets=Path(os.environ.get('VIDEO_USE_RUNTIME_ASSETS','/data2/wujing03/runtime-assets')).resolve()
+    asset_manifest=json.loads((REPO/'runtime/assets-manifest.json').read_text())
+    for package,expected in asset_manifest['node_modules'].items():
+        actual=json.loads((assets/'node_modules'/package/'package.json').read_text())['version']
+        if actual!=expected:raise RuntimeError('Runtime Node package version mismatch: '+package)
+    for relative,expected in asset_manifest['files'].items():
+        path=assets/relative
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest()!=expected:
+            raise RuntimeError('Runtime asset checksum mismatch: '+relative)
     codex=Path(os.environ.get('VIDEO_USE_CODEX_BIN',CODEX_DEFAULT)).resolve()
     executables={name:Path(shutil.which(name) or '/missing/'+name).resolve() for name in TOOLS}
+    executables['esbuild']=(assets/'node_modules/esbuild/bin/esbuild').resolve()
+    executables['chromium']=(REPO/'runtime/public/chromium').resolve()
     missing=[name for name,path in executables.items() if not path.is_file()]
     if missing:raise RuntimeError('Required runtime tools missing: '+','.join(missing))
     if not codex.is_file():raise RuntimeError('Codex runtime is not installed')
@@ -95,13 +106,15 @@ def build():
     magic=Path('/usr/share/misc/magic.mgc')
     if not magic.is_file():raise RuntimeError('file runtime magic database is missing')
     libraries[str(magic)]=str(magic.resolve())
-    data_files={str(magic):hashlib.sha256(magic.read_bytes()).hexdigest()}
+    data_files={str(magic):hashlib.sha256(magic.read_bytes()).hexdigest(),
+                **{str(assets/relative):digest for relative,digest in asset_manifest['files'].items()}}
     cache=subprocess.check_output(['ldconfig','-p'],text=True)
     match=re.search(r'libseccomp\.so\.2[^\n]*=>\s+(\S+)',cache)
     if not match:raise RuntimeError('libseccomp is required')
     libraries[match[1]]=str(Path(match[1]).resolve())
     code_host=codex.with_name('codex-code-mode-host')
-    native=set(executables.values())|{Path(sys.executable).resolve(),codex}
+    native=set(executables.values())|{Path(sys.executable).resolve(),codex,
+        (assets/'ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell').resolve()}
     harnesses={'codex':{'sha256':hashlib.sha256(codex.read_bytes()).hexdigest()}}
     # Only installed, pinned SDK distributions contribute native dependencies.
     # Their executables stay under the existing read-only venv mount.
@@ -142,7 +155,8 @@ def build():
     packages=sorted((d.metadata.get('Name',''),d.version) for d in distributions())
     result={'packages':packages,'harnesses':harnesses,'data_files':data_files,'version':2,'python':str(Path(sys.executable).resolve()),'prefix':str(prefix),
         'python_version':f'{sys.version_info.major}.{sys.version_info.minor}',
-        'codex':str(codex),'code_host':str(code_host) if code_host.is_file() else None,'tools':{k:str(v) for k,v in executables.items()},'libraries':libraries}
+        'codex':str(codex),'code_host':str(code_host) if code_host.is_file() else None,
+        'runtime_assets':str(assets),'tools':{k:str(v) for k,v in executables.items()},'libraries':libraries}
     MANIFEST.parent.mkdir(parents=True,exist_ok=True)
     tool_app=MANIFEST.parent/'tool-app'
     for directory in (tool_app,tool_app/'webapp',tool_app/'helpers'):
@@ -182,7 +196,14 @@ def mounts():
            '--ro-bind',data['codex'],'/opt/codex',
            '--ro-bind',str(MANIFEST.parent/'pyvenv.cfg' if (MANIFEST.parent/'pyvenv.cfg').is_file() else REPO/'runtime/public/pyvenv.cfg'),'/opt/venv/pyvenv.cfg',
            '--setenv','PYTHONHOME','/opt/python',
-           '--setenv','PYTHONPYCACHEPREFIX','/tmp/pycache']
+           '--setenv','PYTHONPYCACHEPREFIX','/tmp/pycache',
+           '--ro-bind',data['runtime_assets']+'/node_modules','/opt/runtime-assets/node_modules',
+           '--ro-bind',data['runtime_assets']+'/ms-playwright','/opt/runtime-assets/ms-playwright',
+           '--ro-bind',data['runtime_assets']+'/rembg','/opt/runtime-assets/rembg',
+           '--setenv','NODE_PATH','/opt/runtime-assets/node_modules',
+           '--setenv','PLAYWRIGHT_BROWSERS_PATH','/opt/runtime-assets/ms-playwright',
+           '--setenv','PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD','1',
+           '--setenv','U2NET_HOME','/opt/runtime-assets/rembg']
     for directory in ('/usr/share/fonts','/usr/share/fontconfig','/usr/share/zoneinfo','/usr/share/terminfo','/etc/fonts','/etc/ssl/certs'):
         if Path(directory).exists():args+=['--ro-bind',directory,directory]
     if data.get('code_host'):args+=['--ro-bind',data['code_host'],'/opt/codex-code-mode-host']

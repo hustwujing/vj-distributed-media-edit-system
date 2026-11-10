@@ -23,7 +23,7 @@ function deliveryAmendment(request){
 }
 function runtimeRequirements(step){
  const value=step.runtime_requirements;if(step.type!=='agent'||!value)return '';
- const location=value.requires_gpu?'bwrap（GPU / 宿主设备）':'OpenSandbox Harness（CPU）',deps=[...(value.python_modules||[]),...(value.system_tools||[])];
+ const location=value.requires_gpu?'bwrap（GPU / 宿主设备）':'OpenSandbox Harness（CPU）',deps=[...(value.python_modules||[]),...(value.node_modules||[]),...(value.system_tools||[])];
  return `<p><strong>执行环境：</strong>${esc(location)}${deps.length?`；依赖：${esc(deps.join('、'))}`:''}${value.network_urls?.length?`；联网授权：${esc(value.network_urls.join('、'))}`:'；不联网'}</p>`;
 }
 export function confirmationDetails(decision,assets=[]){
