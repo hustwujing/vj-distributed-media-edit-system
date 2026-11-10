@@ -7,6 +7,11 @@ from webapp.workflow_agents import model_output_limit
 
 
 class ModelOutputBudgetTests(unittest.TestCase):
+    def test_strict_tool_policy_is_frozen_and_typed(self):
+        profile=AgentProfile(strict_tools=False)
+        self.assertFalse(AgentProfile(**profile.snapshot()).strict_tools)
+        with self.assertRaises(ValueError):AgentProfile(strict_tools='false')
+
     def test_model_policy_is_frozen_and_changes_configuration_identity(self):
         phase=AgentProfile();full=replace(phase,output_token_policy='profile')
         self.assertNotEqual(phase.digest,full.digest)

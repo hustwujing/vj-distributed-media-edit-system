@@ -776,7 +776,8 @@ def execute(host,lease,run,task):
     conversation=graph.encode(initial_protocol.context());seen=set();inspections={};candidate_keys={};candidate_refs={};inspection_keys=set();images=[];deadline=time.monotonic()+min(profile.timeout_seconds,task['spec'].get('timeout_seconds',profile.timeout_seconds))
     from .agent_text import TextPublisher
     text_stream=TextPublisher(store,run['id'])
-    transport={'strict':True};contracts={}
+    from .agent_profiles import for_specialist
+    transport={'strict':for_specialist(store,run['id'],profile.id).strict_tools};contracts={}
     output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={};script_failures={};inspection_failures={}
     for turn in range(profile.max_turns):
         lease.check()

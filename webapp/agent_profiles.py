@@ -74,6 +74,7 @@ class AgentProfile:
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     response_transport: str = 'stream'
+    strict_tools: bool = True
     budget: dict = field(default_factory=configured_budget)
 
     def __post_init__(self):
@@ -85,6 +86,7 @@ class AgentProfile:
             raise ValueError('Unsupported Agent adapter or tool policy version')
         if self.response_transport not in ('buffered','stream'):
             raise ValueError('Unsupported Agent response transport')
+        if type(self.strict_tools) is not bool:raise ValueError('Invalid strict tools policy')
         if self.output_token_policy not in ('phase','profile'):
             raise ValueError('Unsupported Agent output token policy')
         from .specialist_profiles import PROFILES
