@@ -64,7 +64,8 @@ def collect(source,kind,output,parameters,*,reference=None):
         report.update(coverage='contact_sheet',duration_seconds=duration,frame_timestamps=times,
                       timestamp_basis='decoded_frame_pts',preview_padding_cells=count-len(times),
                       source_frame_interval_seconds=1/fps if fps>0 else None)
-        report['structure']=structure_metrics(source,offset,span,rate,count,crop,reference)
+        report['structure']=structure_metrics(source,offset,span,rate,count,crop,reference,
+                                               reference_offset=params['reference_offset'])
     elif mode in ('audio','audio_envelope','audio_compare'):
         if kind not in ('audio','video'):raise ValueError('Audio evidence requires an audio stream')
         from .media_evidence import audio_evidence
@@ -163,30 +164,51 @@ def audio_comparison(source,reference,offset,window_seconds,*,reference_offset=N
             'interpretation':'bounded_signal_similarity_not_source_separation_or_identity'}
 
 
-def structure_metrics(source,offset,span,rate,count,crop,reference):
+def structure_metrics(source,offset,span,rate,count,crop,reference,*,reference_offset=None):
     """Measured pixel/edge changes are evidence, never an identity verdict."""
     import numpy as np
-    result=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-filter_threads','1',
-        '-copyts','-start_at_zero','-ss',str(offset),'-t',str(span),'-i',str(source),'-an','-sn','-dn','-vf',
-        f'{crop}{temporal_select_filter(offset,rate)},scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2',
-        '-frames:v',str(count),'-fps_mode','passthrough','-threads','1','-pix_fmt','rgb24','-f','rawvideo','pipe:1'],capture_output=True,timeout=30,check=True)
     frame_bytes=160*90*3
-    if not result.stdout or len(result.stdout)%frame_bytes or len(result.stdout)>16*frame_bytes:raise ValueError('Invalid bounded frame samples')
-    frames=np.frombuffer(result.stdout,dtype=np.uint8).reshape(-1,90,160,3).astype(np.float32)/255
+    def decode(path,start):
+        result=subprocess.run(['ffmpeg','-nostdin','-v','error','-threads','1','-filter_threads','1',
+            '-copyts','-start_at_zero','-ss',str(start),'-t',str(span),'-i',str(path),'-an','-sn','-dn','-vf',
+            f'{crop}{temporal_select_filter(start,rate)},scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2',
+            '-frames:v',str(count),'-fps_mode','passthrough','-threads','1','-pix_fmt','rgb24','-f','rawvideo','pipe:1'],capture_output=True,timeout=30,check=True)
+        if not result.stdout or len(result.stdout)%frame_bytes or len(result.stdout)>16*frame_bytes:raise ValueError('Invalid bounded frame samples')
+        return np.frombuffer(result.stdout,dtype=np.uint8).reshape(-1,90,160,3).astype(np.float32)/255
+    frames=decode(source,offset)
     gray=frames.mean(axis=-1)
     edges=lambda data:(np.abs(np.diff(data,axis=-1,prepend=data[...,:1]))+np.abs(np.diff(data,axis=-2,prepend=data[...,:1,:])))/2
     edge=edges(gray)
     output={'method':'bounded-luma-and-edge-mae-v1','interpretation':'structural_change_not_identity_verdict',
         'frame_count':len(frames),'unique_sample_frames':len({hashlib.sha256(frame.tobytes()).hexdigest() for frame in frames}),'adjacent_luma_mae':np.mean(np.abs(np.diff(gray,axis=0)),axis=(1,2)).tolist(),
-        'adjacent_edge_mae':np.mean(np.abs(np.diff(edge,axis=0)),axis=(1,2)).tolist()}
+        'adjacent_edge_mae':np.mean(np.abs(np.diff(edge,axis=0)),axis=(1,2)).tolist(),
+        'window_rgb_mean':np.mean(frames,axis=(0,1,2)).tolist(),'window_luma_stddev':float(np.std(gray)),
+        'window_red_blue_ratio':float(np.mean(frames[...,0])/(np.mean(frames[...,2])+1e-9))}
     if reference:
-        from PIL import Image,ImageOps
-        with Image.open(reference) as opened:
-            if opened.width*opened.height>32_000_000:raise ValueError('Reference evidence limit')
-            image=ImageOps.contain(ImageOps.exif_transpose(opened).convert('RGB'),(160,90))
-            canvas=Image.new('RGB',(160,90),'black');canvas.paste(image,((160-image.width)//2,(90-image.height)//2))
-            ref=np.array(canvas,dtype=np.float32).mean(axis=-1)/255
-        output['reference_alignment']='contain_black_padding_160x90'
-        output['reference_luma_mae']=np.mean(np.abs(gray-ref),axis=(1,2)).tolist()
-        output['reference_edge_mae']=np.mean(np.abs(edge-edges(ref)),axis=(1,2)).tolist()
+        suffix=Path(reference).suffix.lower()
+        if suffix in ('.mp4','.mov','.webm','.mkv'):
+            reference_frames=decode(reference,offset if reference_offset is None else float(reference_offset))
+            sample=min(len(frames),len(reference_frames));candidate=frames[:sample];baseline=reference_frames[:sample]
+            candidate_gray=candidate.mean(axis=-1);baseline_gray=baseline.mean(axis=-1)
+            candidate_rgb=np.mean(candidate,axis=(0,1,2));baseline_rgb=np.mean(baseline,axis=(0,1,2))
+            candidate_contrast=float(np.std(candidate_gray));baseline_contrast=float(np.std(baseline_gray))
+            output['reference_video_comparison']={'frame_count':sample,'reference_offset_seconds':offset if reference_offset is None else float(reference_offset),
+                'candidate_rgb_mean':candidate_rgb.tolist(),'reference_rgb_mean':baseline_rgb.tolist(),
+                'rgb_mean_delta':(candidate_rgb-baseline_rgb).tolist(),
+                'candidate_red_blue_ratio':float(candidate_rgb[0]/(candidate_rgb[2]+1e-9)),
+                'reference_red_blue_ratio':float(baseline_rgb[0]/(baseline_rgb[2]+1e-9)),
+                'red_blue_ratio_delta':float(candidate_rgb[0]/(candidate_rgb[2]+1e-9)-baseline_rgb[0]/(baseline_rgb[2]+1e-9)),
+                'candidate_luma_stddev':candidate_contrast,'reference_luma_stddev':baseline_contrast,
+                'contrast_stddev_ratio':candidate_contrast/baseline_contrast if baseline_contrast else None,
+                'mean_abs_rgb_delta':float(np.mean(np.abs(candidate-baseline)))}
+        else:
+            from PIL import Image,ImageOps
+            with Image.open(reference) as opened:
+                if opened.width*opened.height>32_000_000:raise ValueError('Reference evidence limit')
+                image=ImageOps.contain(ImageOps.exif_transpose(opened).convert('RGB'),(160,90))
+                canvas=Image.new('RGB',(160,90),'black');canvas.paste(image,((160-image.width)//2,(90-image.height)//2))
+                ref=np.array(canvas,dtype=np.float32).mean(axis=-1)/255
+            output['reference_alignment']='contain_black_padding_160x90'
+            output['reference_luma_mae']=np.mean(np.abs(gray-ref),axis=(1,2)).tolist()
+            output['reference_edge_mae']=np.mean(np.abs(edge-edges(ref)),axis=(1,2)).tolist()
     return output

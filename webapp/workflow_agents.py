@@ -834,6 +834,42 @@ def bind_inspection_image(evidence,images,maximum):
     return evidence
 
 
+OFFICE_RENDER='''import pathlib,subprocess,sys,tempfile
+import pymupdf
+source=pathlib.Path(sys.argv[1]);index=int(sys.argv[2])
+with tempfile.TemporaryDirectory(dir='/tmp') as temporary:
+ root=pathlib.Path(temporary);profile=root/'profile';profile.mkdir();shared=root/'shared'
+ run=subprocess.run(['/usr/bin/libreoffice','--headless','--nologo','--nodefault','--nolockcheck','--nofirststartwizard',
+  '-env:UserInstallation='+profile.resolve().as_uri(),'-env:UNO_SHARED_PACKAGES_CACHE='+shared.resolve().as_uri(),
+  '--convert-to','pdf','--outdir',str(root),str(source)],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=90)
+ pdf=next(root.glob('*.pdf'),None)
+ if run.returncode or pdf is None:raise RuntimeError('Office conversion failed')
+ with pymupdf.open(pdf) as document:
+  if not 0<=index<len(document)<=200:raise ValueError('Office page outside range')
+  sys.stderr.write('PAGE_COUNT='+str(len(document))+'\\n')
+  pixels=document[index].get_pixmap(matrix=pymupdf.Matrix(2,2),alpha=False)
+  sys.stdout.buffer.write(pixels.tobytes('jpeg',jpg_quality=88))
+'''
+
+
+def render_office_document(host,lease,run,task,evidence):
+    if evidence.get('document_kind') not in ('docx','xlsx'):return evidence
+    import subprocess,re
+    from . import agent_sandbox
+    env=host.workflow_runner.adapter.environment(graph.execution_view(run))
+    reference=evidence['ref']
+    relative=('sources/'+next(a['filename'] for a in env['assets'] if a['id']==reference)
+              if reference in {a['id'] for a in env['assets']} else reference)
+    result=subprocess.run(agent_sandbox.command(dict(env,workspace_policy='REVIEW_SCRATCH_ONLY'),None,
+        ['/opt/venv/bin/python','-c',OFFICE_RENDER,'/workspace/'+relative,str(evidence['document_index'])]),
+        capture_output=True,timeout=100)
+    count=re.search(rb'PAGE_COUNT=([0-9]+)',result.stderr)
+    if result.returncode or not count or not result.stdout or len(result.stdout)>4*1024**2:
+        raise InspectionInputError('Office document rendering failed','inspection_document_render')
+    return {**evidence,'coverage':evidence['coverage']+'_and_rendered_page','rendered_page_count':int(count.group(1)),
+            'image':'data:image/jpeg;base64,'+base64.b64encode(result.stdout).decode()}
+
+
 def execute(host,lease,run,task):
     store=host.store
     if task.get('control_kind'):profile=get_profile(task['spec']['profile'])
@@ -1197,7 +1233,8 @@ def execute(host,lease,run,task):
                             evidence['window_seconds']=window
                         if evidence.get('media'):evidence=inspect_media(host,lease,run,task,evidence,
                             remaining_images=profile.max_images-len(images))
-                        elif evidence.get('document'):evidence=inspect_document(evidence)
+                        elif evidence.get('document'):
+                            evidence=inspect_document(evidence);evidence=render_office_document(host,lease,run,task,evidence)
                     except (InspectionInputError,MediaInspectionError) as exc:
                         tool_receipt['status']='failed'
                         detail=getattr(exc,'diagnostic',{}) or {}

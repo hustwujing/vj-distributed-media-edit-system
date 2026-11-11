@@ -374,5 +374,19 @@ class MediaSemanticsTests(unittest.TestCase):
             self.assertEqual(structure['interpretation'],'structural_change_not_identity_verdict')
             self.assertEqual(report['preview_sha256'],hashlib.sha256((output/'preview.jpg').read_bytes()).hexdigest())
 
+    def test_video_reference_reports_color_and_contrast_metrics(self):
+        import subprocess,json
+        from webapp.media_evidence_operation import collect
+        with tempfile.TemporaryDirectory() as root:
+            root=Path(root);source=root/'candidate.mp4';reference=root/'original.mp4';output=root/'evidence';output.mkdir()
+            for path,color in ((reference,'gray'),(source,'#806060')):
+                subprocess.run(['ffmpeg','-nostdin','-v','error','-y','-f','lavfi','-i',f'color=c={color}:s=128x96:r=25:d=2',
+                                '-c:v','libx264','-threads','1','-pix_fmt','yuv420p',str(path)],check=True)
+            collect(source,'video',output,{'mode':'video_window','window_seconds':2},reference=reference)
+            comparison=json.loads((output/'evidence-report.json').read_text())['structure']['reference_video_comparison']
+            self.assertGreater(comparison['red_blue_ratio_delta'],0)
+            self.assertEqual(comparison['frame_count'],16)
+            self.assertIn('contrast_stddev_ratio',comparison)
+
 
 if __name__=='__main__':unittest.main()
