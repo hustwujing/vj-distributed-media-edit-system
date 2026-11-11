@@ -152,6 +152,18 @@ class EgressTests(unittest.TestCase):
             gateway.forward_result({'input':[]})
         self.assertEqual(error.exception.diagnostic['scope'],'turn');gateway.lease.consume.assert_not_called()
 
+    def test_native_harness_uses_frozen_task_model_budget_not_structured_turn_count(self):
+        from dataclasses import replace
+        from webapp.agent_gateway import turn_model_call_limit
+        from webapp.agent_profiles import AgentProfile
+        from webapp.specialist_profiles import get
+        profile=AgentProfile(budget={'plan_seconds':240,'plan_models':14,'plan_tools':24,'plan_inspections':8,
+            'run_seconds':900,'run_models':160,'task_models':40,'max_output_tokens':16000})
+        structured=get('editing_implementer')
+        native=replace(structured,harness='native-implementer-v1')
+        self.assertEqual(turn_model_call_limit(profile,structured),structured.max_turns)
+        self.assertEqual(turn_model_call_limit(profile,native),40)
+
     def test_model_health_uses_http_status_not_error_words(self):
         import threading
         from unittest.mock import Mock

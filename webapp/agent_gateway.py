@@ -24,6 +24,13 @@ from .task_leases import CURRENT, LeaseLost,TaskQuotaReached,model_call_limit,qu
 
 from .live_activity import observed
 
+
+def turn_model_call_limit(profile,role=None):
+    if role and role.harness=='native-implementer-v1':
+        return min(profile.budget['run_models'],profile.budget['task_models'])
+    return min(profile.budget['run_models'],role.max_turns) if role else profile.budget['run_models']
+
+
 class UnixHTTPServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
     daemon_threads = True
 
@@ -310,7 +317,7 @@ class Gateway:
             self.normalize_model_images(body)
         if self.model_adapter.protocol!='responses':self.normalize_native_images(body)
         with self.lock:
-            if self.calls>=(min(self.profile.budget['run_models'],role.max_turns) if role else self.profile.budget['run_models']):
+            if self.calls>=turn_model_call_limit(self.profile,role):
                 if self.lease:
                     status=quota_status(self.lease.store,self.lease.run_id,'model',model_call_limit())
                     if status['blocked']:raise quota_error(status)
