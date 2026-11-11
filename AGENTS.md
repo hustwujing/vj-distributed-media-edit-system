@@ -22,7 +22,7 @@
 - 本机 Python 定向测试也必须使用 `VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp TMPDIR=/data2/wujing03/t VIDEO_USE_TEST_SUITE_LOCK=/data2/wujing03/video-use-test-suite-0.lock XDG_CACHE_HOME=/data2/wujing03/vu-tmp/cache PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m tests.run_distributed_suite <测试模块>`，不得直接使用 `python -m unittest` 绕过隔离初始化。临时文件、测试缓存、锁文件和日志放在 `/data2/wujing03`；不要回退到根分区 `/tmp`。并行工作区使用不同 suite lock，避免互相等待或覆盖报告。
 - 交付时说明改动、验证结果及未验证边界；历史验收不代表当前代码通过，工作区修改不代表已部署。
 - 本机独立部署统一通过 `deploy/sandbox_cluster.sh` 管理，真机通过 `deploy/sandbox_campaign.sh`，OpenSandbox cleanup 恢复通过 `deploy/sandbox_opensandbox_recovery.sh`。共享部署原语与 unit 模板位于 `deploy/common.py` 和 `deploy/systemd_templates.py`。不得用 `deploy.sh`、来源仓库驱动或裸 `dynamic_cluster.py` 绕过本仓库固定命名空间。
-- 当前混合路由是 CPU Command `opensandbox`、CPU Agent `local_bwrap`、GPU 本机隔离、外部能力走登记 Provider。后端选择、Runtime Profile、镜像/Bundle digest 和 Gateway grant 必须冻结到 Attempt；页面、日志与报告按真实 `execution_location` / `tool_location` 展示，不能把宿主 Agent 写成 OpenSandbox Agent。
+- 当前混合路由是 CPU Command `opensandbox`、CPU Agent `opensandbox`（Codex/Claude/DeepSeek Harness）、GPU 本机隔离、外部能力走登记 Provider。后端选择、Runtime Profile、镜像/Bundle digest 和 Gateway grant 必须冻结到 Attempt；页面、日志与报告按真实 `execution_location` / `tool_location` 展示，不能把宿主控制 Agent 写成业务 OpenSandbox Agent。
 - OpenSandbox 创建、续租、清理和 Gateway 撤销必须按 Attempt 幂等。create 回执丢失时按 Attempt 查询已有实例；cleanup 未确认时保留重试状态，不得释放资源或重复创建来掩盖未知状态。
 - 动态 Task 的正式状态只由 Orchestrator 提交；执行器仅保存候选和回执。不得绕过 sealed、
   授权包络、候选验证或旧 generation 防护来让测试通过。

@@ -49,7 +49,7 @@ API 将同步依赖调用隔离到不同的有界执行器。异步 Redis SSE �
 
 当前 `sandbox-agent` 独立实例的冻结配置写入 `/etc/distributed-agent-sandbox-backend/releases/<配置摘要>/`，节点后端绑定写入该实例的 `node-a.env` / `node-b.env`。部署入口是 `deploy/sandbox_cluster.sh`。`VIDEO_USE_REDIS_URL` 为空时使用数据库快照同步；Redis 不作为任务或成果的权威存储。对话模型、图片/视频供应商、本地图片模型和 OpenSandbox Runtime 需要分别准备，配置主模型不会自动启用全部能力。
 
-当前节点绑定为 CPU Agent `local_bwrap`、CPU Command `opensandbox`。OpenSandbox 节点配置必须同时冻结 URL、网络隔离确认、Command Runtime Profile、镜像 manifest digest 和 Bundle digest；API key 只保存在私有节点配置。GPU 和未声明 `opensandbox_command` 的 operation 不随该开关迁移。修改路由后以实际 Attempt 的 backend binding、`execution_location`、Sandbox ID 和 cleanup receipt 核对，不能只检查环境变量。
+当前节点绑定为 CPU Agent `opensandbox`、CPU Command `opensandbox`，CPU Agent Profile 覆盖 Codex、Claude 和 DeepSeek Harness。OpenSandbox 节点配置必须同时冻结 URL、网络隔离确认、Runtime Profile、镜像 manifest digest 和 Bundle digest；API key 只保存在私有节点配置。GPU 和未声明远程执行能力的 operation 不随该开关迁移。修改路由后以实际 Attempt 的 backend binding、`execution_location`、Sandbox ID 和 cleanup receipt 核对，不能只检查环境变量。
 
 ### 对话模型与沙盒推理强度
 

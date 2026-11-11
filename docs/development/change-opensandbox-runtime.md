@@ -9,9 +9,9 @@ Profile、Node Capability Gateway grant、远程清理、独立部署及发布�
 
 当前分支已在独立 `sandbox-agent` 环境接通数据库持久化、OpenSandbox 生命周期服务、gVisor
 Command Runtime、隔离 registry digest、Bundle/Profile、Attempt 绑定、Gateway grant、远程 cleanup 和
-部署后真机。当前实际路由是 CPU Command `opensandbox`、CPU Agent `local_bwrap`；GPU 和外部 Provider
-保留各自登记路径。代码具备远程 Agent Runtime，但当前部署没有启用，不能把 Command 真机结果写成
-“所有 Agent 已迁移 OpenSandbox”。
+部署后真机。当前实际路由是 CPU Command `opensandbox`、CPU Agent `opensandbox`，并为 Codex、Claude、
+DeepSeek 分别冻结 Agent Runtime Profile；GPU 和外部 Provider 保留各自登记路径。Command 与三种 Agent
+Runtime 必须分别验证，不能把其中一种 Harness 的真机结果写成整个 Runtime 矩阵已通过。
 
 已验证的单机独立环境仍不等于生产多机完成。以下结论必须分开：
 
