@@ -835,7 +835,7 @@ def bind_inspection_image(evidence,images,maximum):
 
 
 def render_office_document(evidence,source_path):
-    if evidence.get('document_kind') not in ('docx','xlsx'):return evidence
+    if evidence.get('document_kind') not in ('docx','xlsx','pptx'):return evidence
     import subprocess,tempfile,os
     import pymupdf
     source_path=Path(source_path)
