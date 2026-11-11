@@ -74,9 +74,10 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
                 from .native_sessions import restore as restore_session
                 restore_session(self,restore,files)
         RuntimeInjector(self.session.files).inject(bundle,workspace)
+        from .runtime_harness import RUNTIME_PATH
         opts=RunCommandOpts(background=True,uid=10001,gid=10001,working_directory='/workspace',
             timeout=timedelta(seconds=min(profile.budget['run_seconds'],3600)+60),
-            envs={'PATH':'/opt/venv/bin:/usr/bin:/bin','HOME':'/state','TMPDIR':'/state/tmp','LANG':'C.UTF-8'})
+            envs={'PATH':RUNTIME_PATH,'HOME':'/state','TMPDIR':'/state/tmp','LANG':'C.UTF-8'})
         self.session.commands.run(['/opt/venv/bin/python','-m','webapp.runtime_bootstrap'],opts=opts)
         endpoint,headers=self.session.websocket_endpoint(CONTROL_PORT)
         self.client=RuntimeClient(endpoint,identity,bundle.control_token,on_event,headers=headers,timeout=2)

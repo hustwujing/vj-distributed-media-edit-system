@@ -10,6 +10,9 @@ import threading
 import time
 
 
+RUNTIME_PATH='/opt/venv/bin:/usr/local/bin:/usr/bin:/bin'
+
+
 class HarnessStateError(RuntimeError):
     pass
 
@@ -24,7 +27,7 @@ class StdioHarnessBridge:
 
     def start(self,on_event):
         if self.process is not None:raise HarnessStateError('Harness process is already started')
-        env={'PATH':'/opt/venv/bin:/usr/bin:/bin','LANG':'C.UTF-8','HOME':'/state',
+        env={'PATH':RUNTIME_PATH,'LANG':'C.UTF-8','HOME':'/state',
              'CODEX_HOME':'/state/codex','TMPDIR':'/state/tmp',**self.environment}
         self.process=self.process_factory(self.command,stdin=subprocess.PIPE,stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,text=True,bufsize=1,start_new_session=True,env=env)

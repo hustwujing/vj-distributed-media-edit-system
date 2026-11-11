@@ -46,9 +46,12 @@ class FakeProcess:
 class RuntimeHarnessTests(unittest.TestCase):
     def setUp(self):
         self.process=FakeProcess();self.events=[]
+        self.process_options={}
+        def process_factory(*args,**kwargs):
+            self.process_options.update(kwargs);return self.process
         adapter=HarnessAdapter();adapter.id='test'
         self.bridge=StdioHarnessBridge(adapter,['/opt/test-harness'],
-            process_factory=lambda *args,**kwargs:self.process)
+            process_factory=process_factory)
         self.controller=HarnessController(adapter,SimpleNamespace(model='m',reasoning_effort='high',response_transport='stream'),
             self.bridge,self.events.append,{'profile':'profile-1','skill':'skill-1'})
         self.addCleanup(self._close)
@@ -71,6 +74,12 @@ class RuntimeHarnessTests(unittest.TestCase):
         self.assertEqual(self.controller.dispatch('session.export',{}),
             {'session_id':'session-1','native_state':'owned_by_harness',
              'manifest_ref':None})
+
+    def test_harness_process_can_resolve_installed_runtime_tools(self):
+        self.controller.dispatch('runtime.initialize',{'profile':'profile-1','skill':'skill-1'})
+        paths=self.process_options['env']['PATH'].split(':')
+        self.assertIn('/opt/venv/bin',paths)
+        self.assertIn('/usr/local/bin',paths)
 
     def test_buffered_runtime_suppresses_only_public_message_deltas(self):
         from webapp.harness_events import AgentEvent
