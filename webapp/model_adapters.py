@@ -10,6 +10,52 @@ from .usage_protocol import Receipt, number
 from .egress_policy import ModelPolicyViolation
 
 
+def buffered_response_stream(protocol,payload):
+    """Encode one completed buffered response as the provider's public SSE wire.
+
+    Native SDKs consume SSE even when the trusted Gateway deliberately uses a
+    buffered upstream request. The conversion contains only the completed
+    public response; it never invents intermediate reasoning or tool progress.
+    """
+    if not isinstance(payload,dict):raise ValueError('Buffered model response must be an object')
+    def frame(kind,value):
+        return ('event: '+kind+'\ndata: '+json.dumps(value,ensure_ascii=False,separators=(',',':'))+'\n\n').encode()
+    if protocol=='responses':
+        if payload.get('status')!='completed':raise ValueError('Buffered Responses result is not complete')
+        return [frame('response.completed',{'type':'response.completed','response':payload})]
+    if protocol!='anthropic':raise ValueError('Buffered native transport is unsupported for this protocol')
+    if payload.get('type')!='message' or payload.get('stop_reason') not in ('end_turn','stop_sequence','tool_use'):
+        raise ValueError('Buffered Anthropic result is not complete')
+    content=payload.get('content')
+    if not isinstance(content,list) or any(not isinstance(item,dict) for item in content):
+        raise ValueError('Buffered Anthropic content is invalid')
+    usage=payload.get('usage') if isinstance(payload.get('usage'),dict) else {}
+    start={key:payload[key] for key in ('id','type','role','model') if key in payload}
+    start.update(content=[],stop_reason=None,stop_sequence=None,
+                 usage={**usage,'output_tokens':0} if usage else {})
+    result=[frame('message_start',{'type':'message_start','message':start})]
+    for index,item in enumerate(content):
+        kind=item.get('type')
+        if kind=='text':
+            block={**item,'text':''};deltas=[{'type':'text_delta','text':item.get('text','')}]
+        elif kind=='tool_use':
+            block={**item,'input':{}};deltas=[{'type':'input_json_delta','partial_json':json.dumps(
+                item.get('input',{}),ensure_ascii=False,separators=(',',':'))}]
+        elif kind=='thinking':
+            block={**item,'thinking':''};deltas=[{'type':'thinking_delta','thinking':item.get('thinking','')}]
+            if item.get('signature'):deltas.append({'type':'signature_delta','signature':item['signature']})
+        elif kind=='redacted_thinking':block=item;deltas=[]
+        else:raise ValueError('Unsupported buffered Anthropic content block')
+        result.append(frame('content_block_start',{'type':'content_block_start','index':index,'content_block':block}))
+        result.extend(frame('content_block_delta',{'type':'content_block_delta','index':index,'delta':delta})
+                      for delta in deltas if any(value not in ('',None) for key,value in delta.items() if key!='type'))
+        result.append(frame('content_block_stop',{'type':'content_block_stop','index':index}))
+    result.append(frame('message_delta',{'type':'message_delta','delta':{
+        'stop_reason':payload['stop_reason'],'stop_sequence':payload.get('stop_sequence')},'usage':usage}))
+    result.append(frame('message_stop',{'type':'message_stop'}))
+    return result
+
+
 class PublicResponseStructureError(ValueError):
     def __init__(self,message,code='multiple_public_blocks'):
         self.code=code

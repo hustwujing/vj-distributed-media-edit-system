@@ -23,7 +23,7 @@
 7. 接入配置校验、模型列表、实际执行方及诊断。SDK harness 的协议兼容表也需核实，不允许静默回落到另一协议。
    页面只展示服务端登记的沙盒Agent Profile，由用户选择Harness/模型/推理强度；专家角色模型由`VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON`配置。Run必须分别冻结沙盒选择和每个专家Profile的实际模型摘要，恢复时不得重新读取当前默认值。
 8. 响应结构观测记录 payload 类型、公开文本长度/哈希、消息或动作对象数量、JSON 错误类型和位置；不记录完整提示、私有推理或敏感正文。迟到响应必须受 request epoch、Task revision 和 generation 约束，不能覆盖已确认的取消或新结论。
-   同时记录`response_transport`、请求模型、上游实际模型、响应头/首块/首段公开文本/完成耗时及Publisher耗时。若`stream`改变上游实际路由，必须作为独立性能与行为变量评测，不能仅按配置模型名归组。
+   同时记录`response_transport`、请求模型、上游实际模型、响应头/首块/首段公开文本/完成耗时及Publisher耗时。若`stream`改变上游实际路由，必须作为独立性能与行为变量评测，不能仅按配置模型名归组。专家角色使用冻结后的`specialist_response_transport`；原生Harness使用独立的`native_response_transport`。原生buffered由宿主Gateway请求完整响应并转换为SDK完成事件，不能只在UI丢弃delta后声称上游为buffered。
 
 ## 验证与完成标准
 

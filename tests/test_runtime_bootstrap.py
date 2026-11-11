@@ -15,7 +15,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
         self.temporary=tempfile.TemporaryDirectory();self.addCleanup(self.temporary.cleanup)
         self.root=Path(self.temporary.name)
         self.token=self.root/'control.token';self.token.write_text('s'*48);self.token.chmod(0o600)
-        self.harness=self.root/'harness.json';self.harness.write_text('{}');self.harness.chmod(0o600)
+        self.harness=self.root/'harness.json';self.harness.write_text('{"response_transport":"stream"}');self.harness.chmod(0o600)
         self.config=self.root/'runtime.json'
         repo=Path(__file__).resolve().parents[1];self.bundle_root=self.root/'bundle';self.bundle_root.mkdir()
         self.bundle=json.loads((repo/'runtime/public/bundle.json').read_text())
@@ -27,7 +27,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
 
     def write(self,harness='codex'):
         value={'identity':{'attempt_id':'attempt-1','generation':1,'sandbox_id':'sandbox-1'},
-            'harness':harness,'profile':{'model':'model-1','reasoning_effort':'high'},
+            'harness':harness,'profile':{'model':'model-1','reasoning_effort':'high','response_transport':'stream'},
             'binding':{'harness':harness,'runtime_profile':'agent-v1',
                 'image_digest':'registry/agent@sha256:'+'a'*64,
                 'skill_digest':self.bundle['skill_digest'],
@@ -54,7 +54,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
     def test_native_task_gets_the_same_declared_script_environment(self):
         self.write('claude_code')
         workspace={'output':'/workspace/edit/workflows/run/task/attempt','inputs':{'source':['/workspace/sources/a.mp4']}}
-        self.harness.write_text(json.dumps({'task_workspace':workspace}))
+        self.harness.write_text(json.dumps({'response_transport':'stream','task_workspace':workspace}))
         app=create_runtime(self.config,bundle_root=self.bundle_root)
         environment=app.state.harness_controller.bridge.environment
         self.assertEqual(environment['VIDEO_USE_STEP_OUTPUT'],workspace['output'])
@@ -63,7 +63,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
         self.assertIn('/opt/video-use/helpers',environment['PYTHONPATH'])
         self.assertIn('/opt/harness',environment['PYTHONPATH'].split(':'))
         for value in ('/etc/passwd','/workspace/../outside'):
-            self.harness.write_text(json.dumps({'task_workspace':{**workspace,'inputs':{'source':[value]}}}))
+            self.harness.write_text(json.dumps({'response_transport':'stream','task_workspace':{**workspace,'inputs':{'source':[value]}}}))
             with self.assertRaisesRegex(ValueError,'workspace contract'):create_runtime(self.config,bundle_root=self.bundle_root)
 
     def test_gateway_grant_starts_only_a_loopback_client(self):

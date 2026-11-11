@@ -134,6 +134,7 @@ inherit = "all"
     config.chmod(0o644)
     harness_config=agent/'harness-config.json'
     harness_config.write_text(json.dumps({'model':model,'reasoning_effort':effort,
+        'response_transport':execution_profile.native_response_transport if execution_profile else 'stream',
         'max_output_tokens':execution_profile.budget['max_output_tokens'] if execution_profile else 16000}))
     harness_config.chmod(0o644)
     from .harness_context import write as write_handoff

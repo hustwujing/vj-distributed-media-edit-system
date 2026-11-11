@@ -78,10 +78,12 @@ def load_config(path,*,bundle_root=RUNTIME_BUNDLE):
         raise ValueError('Invalid Runtime identity configuration')
     runtime_identity=RuntimeIdentity(**identity)
     adapter=harness_adapter(value['harness'])
-    if not isinstance(profile,dict) or set(profile)!={'model','reasoning_effort'}:
+    if not isinstance(profile,dict) or set(profile)!={'model','reasoning_effort','response_transport'}:
         raise ValueError('Invalid Harness profile configuration')
     if any(not isinstance(profile[key],str) or not profile[key] or len(profile[key])>200 for key in profile):
         raise ValueError('Invalid Harness profile value')
+    if profile['response_transport'] not in ('buffered','stream'):
+        raise ValueError('Invalid Harness response transport')
     if (not isinstance(binding,dict) or set(binding)!=BINDING_KEYS or
             binding['harness']!=adapter.id or
             any(not isinstance(item,str) or not item or len(item)>300 for item in binding.values())):
@@ -118,6 +120,9 @@ def load_gateway(path,identity):
 def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
     config=load_config(path,bundle_root=bundle_root);holder={}
     harness_config=json.loads(Path(config['harness_config']).read_text())
+    if (not isinstance(harness_config,dict)
+            or harness_config.get('response_transport')!=config['profile'].response_transport):
+        raise ValueError('Harness response transport does not match frozen profile')
     environment={'PYTHONPATH':'/opt/harness:/opt/video-use:/opt/video-use/helpers'}
     workspace=harness_config.get('task_workspace')
     if workspace is not None:

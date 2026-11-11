@@ -61,8 +61,10 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
             'tool_schema_digest':'sha256:'+hashlib.sha256(tools.read_bytes()).hexdigest(),
             'gateway_protocol':'gateway-v1'}
         bundle=RuntimeBundle.create(identity,profile.harness,
-            {'model':profile.model,'reasoning_effort':profile.reasoning_effort},frozen,
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort,
+             'response_transport':profile.native_response_transport},frozen,
+            {'model':profile.model,'reasoning_effort':profile.reasoning_effort,
+             'response_transport':profile.native_response_transport,
              'max_output_tokens':output_token_limit(profile),
              'task_workspace':{'output':task_context['output_directory'],
                  'inputs':{name:[item['path']] for name,item in task_context['inputs'].items()}}},gateway=self.gateway.material)

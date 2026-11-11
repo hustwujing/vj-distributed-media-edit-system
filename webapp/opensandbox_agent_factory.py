@@ -54,8 +54,10 @@ class OpenSandboxAgentFactory:
         profile=for_task(lease.store,lease.run_id)
         env,manifest,sources=self.workspace(lease,profile)
         spec=AgentRuntimeSpec(profile.harness,profile.model,profile.reasoning_effort,
+            profile.native_response_transport,
             self.tool_schema_digest,self.gateway_protocol,
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort,
+             'response_transport':profile.native_response_transport,
              'max_output_tokens':profile.budget['max_output_tokens']},
             lambda identity:self.gateway_grant_factory(lease,identity))
         restorer=SandboxWorkspaceRestorer(sources.__getitem__)

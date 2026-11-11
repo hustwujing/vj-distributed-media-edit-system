@@ -291,6 +291,10 @@ class Gateway:
         try:
             output_limit=min(self.profile.budget['max_output_tokens'],role.max_output_tokens) if role else self.profile.budget['max_output_tokens']
             body=self.model_adapter.prepare(body,self.model,output_limit,self.profile.reasoning_effort)
+            response_transport=getattr(self,'response_transport',None)
+            if response_transport is not None:
+                if response_transport not in ('buffered','stream'):raise ValueError('Invalid native response transport')
+                body['stream']=response_transport=='stream'
         except ModelPolicyViolation:
             denial(self.lease,'model_input_denied')
             return encoded(403,{'error':{'code':'model_input_denied','message':'模型输入中的远程地址或外部能力不符合任务网络策略。'}})
@@ -322,6 +326,8 @@ class Gateway:
         from .telemetry import emit
         emit('model.request_configuration',model=self.model,harness=self.profile.harness,
              protocol=self.profile.protocol,reasoning_effort=self.profile.reasoning_effort,
+             response_transport=('sse' if response_transport=='stream' else 'buffered') if response_transport else
+                 ('sse' if body.get('stream') else 'buffered'),
              max_output_tokens=body.get('max_output_tokens',body.get('max_tokens')))
         from .task_usage import model_call
         from .workflow_agents import model_budget
@@ -357,6 +363,20 @@ class Gateway:
             from .egress_policy import secrets
             from .safe_stream import SafeEvents,chunks
             guard=SafeEvents((*secrets(),self.key))
+            if response_transport=='buffered':
+                data=bytearray()
+                for chunk in chunks(response):
+                    self.check();data.extend(chunk)
+                    if len(data)>8*1024**2:raise ValueError('Buffered model response exceeds limit')
+                observer.feed(bytes(data));observer.finish()
+                try:payload=json.loads(data)
+                except (UnicodeDecodeError,ValueError):raise ValueError('Buffered model response is invalid JSON') from None
+                from .model_adapters import buffered_response_stream
+                forwarded=[]
+                for chunk in buffered_response_stream(self.model_adapter.protocol,payload):
+                    forwarded.extend(guard.feed(chunk))
+                forwarded.extend(guard.finish());stack.close()
+                return GatewayResult(200,{'Content-Type':'text/event-stream'},forwarded,lambda:None)
             def stream():
                 try:
                     for chunk in chunks(response):

@@ -21,12 +21,12 @@ class FakeFiles:
 class RuntimeInjectionTests(unittest.TestCase):
     def bundle(self):
         return RuntimeBundle.create(RuntimeIdentity('attempt-1',1,'sandbox-1'),'codex',
-            {'model':'model-1','reasoning_effort':'high'},
+            {'model':'model-1','reasoning_effort':'high','response_transport':'stream'},
             {'harness':'codex','runtime_profile':'agent-v1',
              'image_digest':'registry/agent@sha256:'+'a'*64,
              'skill_digest':'sha256:'+'b'*64,'tool_schema_digest':'sha256:'+'c'*64,
              'gateway_protocol':'gateway-v1'},
-            {'model':'model-1'},token='t'*48)
+            {'model':'model-1','response_transport':'stream'},token='t'*48)
 
     def test_runtime_config_is_written_last_after_workspace_and_verification(self):
         files=FakeFiles();restored=[]

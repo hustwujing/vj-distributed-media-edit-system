@@ -38,10 +38,10 @@ def main():
         def close(self):pass
     server=GatewayClientServer(Client(),port=18766);server.start()
     for path in ('/state/tmp','/state/claude','/state/dsh'):Path(path).mkdir(parents=True,exist_ok=True)
-    config=Path('/run/video-use/harness-config.json');config.write_text(json.dumps({'model':model,'reasoning_effort':'high','max_output_tokens':2048}))
+    config=Path('/run/video-use/harness-config.json');config.write_text(json.dumps({'model':model,'reasoning_effort':'high','response_transport':'stream','max_output_tokens':2048}))
     adapter=get(harness)
     bridge=StdioHarnessBridge(adapter,adapter.runtime_launch(str(config)),environment={'PYTHONPATH':'/opt/harness:/opt/video-use:/opt/video-use/helpers'})
-    controller=HarnessController(adapter,SimpleNamespace(model=model,reasoning_effort='high'),bridge,events.append,{'probe':True})
+    controller=HarnessController(adapter,SimpleNamespace(model=model,reasoning_effort='high',response_transport='stream'),bridge,events.append,{'probe':True})
     try:
         controller.dispatch('runtime.initialize',{'probe':True})
         session=controller.dispatch('session.open',{'instructions':'Return one short acknowledgement. No tools required.'})['session_id']

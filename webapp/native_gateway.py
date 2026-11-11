@@ -37,6 +37,7 @@ class NativeModelGateway:
         self.lease=lease;self.profile=profile;self.model=profile.model
         self.base_url,self.key=profile.credentials()
         self.model_adapter=get(profile.protocol)
+        self.response_transport=profile.native_response_transport
         self.lock=threading.Lock();self.calls=0;self.normalize=normalize
 
     def check(self):

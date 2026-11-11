@@ -106,6 +106,7 @@ class HarnessController:
     def event(self,event):
         with self.lock:
             if event.kind=='turn.ended' and self.state!='closed':self.state='session'
+        if self.profile.response_transport=='buffered' and event.kind=='message.delta':return
         self.publish(event)
 
     def dispatch(self,method,params):

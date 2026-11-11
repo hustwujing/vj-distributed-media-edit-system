@@ -6,10 +6,27 @@ from unittest.mock import patch
 from webapp.agent_profiles import AgentProfile, selected, for_task
 from webapp.harness_adapters import CodexAdapter, get
 from webapp.harness_sdk_events import SDKEvents
-from webapp.model_adapters import AnthropicAdapter, ChatCompletionsAdapter, AnthropicReceipt, ChatReceipt,StructuredStream
+from webapp.model_adapters import (AnthropicAdapter,ChatCompletionsAdapter,AnthropicReceipt,ChatReceipt,
+    StructuredStream,buffered_response_stream)
 
 
 class HarnessProtocolTests(unittest.TestCase):
+    def test_buffered_native_responses_are_reencoded_as_completed_sdk_streams(self):
+        anthropic={'id':'message-1','type':'message','role':'assistant','model':'claude-test',
+            'content':[{'type':'text','text':'done'},{'type':'tool_use','id':'tool-1','name':'finish','input':{'ok':True}}],
+            'stop_reason':'tool_use','stop_sequence':None,'usage':{'input_tokens':4,'output_tokens':3}}
+        texts=[];stream=StructuredStream('anthropic',texts.append)
+        for chunk in buffered_response_stream('anthropic',anthropic):stream.feed(chunk)
+        rebuilt=stream.finish();tool=next(item for item in rebuilt['content'] if item['type']=='tool_use')
+        self.assertEqual((rebuilt['model'],rebuilt['stop_reason'],tool['input']),('claude-test','tool_use',{'ok':True}))
+        self.assertEqual(''.join(texts),'done')
+        responses={'id':'response-1','status':'completed','model':'codex-test','output':[
+            {'type':'function_call','name':'finish','arguments':'{"ok":true}'}],
+            'usage':{'input_tokens':2,'output_tokens':1,'total_tokens':3}}
+        stream=StructuredStream('responses',lambda _:None)
+        for chunk in buffered_response_stream('responses',responses):stream.feed(chunk)
+        self.assertEqual(stream.finish(),responses)
+
     def test_structured_native_streams_release_public_text_and_rebuild_tools(self):
         def wire(events):return b''.join(('data: '+json.dumps(event,ensure_ascii=False)+'\n\n').encode() for event in events)+b'data: [DONE]\n\n'
         cases={
@@ -46,6 +63,8 @@ class HarnessProtocolTests(unittest.TestCase):
         with self.assertRaises(ValueError):AgentProfile(harness='claude_code',protocol='responses')
         with self.assertRaises(ValueError):AgentProfile(credential_env='HOME')
         with self.assertRaises(ValueError):AgentProfile(reasoning_effort='guess')
+        with self.assertRaises(ValueError):AgentProfile(native_response_transport='chunks')
+        with self.assertRaises(ValueError):AgentProfile(specialist_response_transport={'media_planner':'chunks'})
 
     def test_profile_contains_only_credential_reference_and_public_projection_omits_route(self):
         profile=AgentProfile(base_url='https://example.org/v1')

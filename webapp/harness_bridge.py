@@ -21,6 +21,8 @@ except ImportError:
 class Bridge:
     def __init__(self, harness, config, output):
         self.harness, self.config, self.output = harness, config, output
+        if config.get('response_transport') not in ('buffered','stream'):
+            raise ValueError('Invalid native Harness response transport')
         self.lock = threading.Lock()
         self.session_id = None
         self.instructions = ''
@@ -88,7 +90,7 @@ class Bridge:
             system_prompt=self.instructions, tools=['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'],
             allowed_tools=['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'],
             permission_mode='bypassPermissions', setting_sources=[], strict_mcp_config=True,
-            include_partial_messages=True, hooks=hooks,
+            include_partial_messages=self.config['response_transport']=='stream', hooks=hooks,
             resume=self.session_id if self.resume else None,
             session_id=None if self.resume else self.session_id,
             env={**self.runtime_environment(),'ANTHROPIC_BASE_URL': 'http://127.0.0.1:18766', 'ANTHROPIC_API_KEY': 'gateway-placeholder',

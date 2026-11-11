@@ -29,6 +29,7 @@ class AgentRuntimeSpec:
     harness: str
     model: str
     reasoning_effort: str
+    response_transport: str
     tool_schema_digest: str
     gateway_protocol: str
     harness_config: dict
@@ -124,7 +125,8 @@ class OpenSandboxBackend:
                 raise BackendConfigurationError('Gateway grant factory returned an invalid grant')
             frozen=self.frozen_binding(binding,spec)
             bundle=RuntimeBundle.create(identity,spec.harness,
-                {'model':spec.model,'reasoning_effort':spec.reasoning_effort},
+                {'model':spec.model,'reasoning_effort':spec.reasoning_effort,
+                 'response_transport':spec.response_transport},
                 frozen,spec.harness_config,gateway=gateway_grant.material)
             session=self.sdk.connect(sandbox_id)
             RuntimeInjector(session.files).inject(bundle,restore_workspace)

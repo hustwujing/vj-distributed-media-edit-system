@@ -52,6 +52,30 @@ class GatewayBusinessTests(unittest.TestCase):
             response.__exit__.assert_called_once()
         self.assertEqual(gateway.check.call_count,2)
 
+    def test_native_buffered_transport_requests_json_and_returns_sdk_sse(self):
+        from webapp.agent_gateway import Gateway
+        from webapp.agent_profiles import AgentProfile
+        from webapp.model_adapters import ResponsesAdapter,StructuredStream
+        gateway=object.__new__(Gateway);gateway.check=Mock();gateway.dynamic_task=False
+        gateway.profile=AgentProfile(native_response_transport='buffered');gateway.model_adapter=ResponsesAdapter();gateway.broker=None
+        gateway.lease=None;gateway.lock=threading.Lock();gateway.calls=0;gateway.response_transport='buffered'
+        gateway.model='model';gateway.base_url='https://provider.invalid';gateway.key='test-key'
+        payload={'id':'response-1','status':'completed','model':'model','output':[
+            {'type':'function_call','name':'finish','arguments':'{"ok":true}'}],
+            'usage':{'input_tokens':2,'output_tokens':1,'total_tokens':3}}
+        raw=json.dumps(payload).encode();response=Mock();response.status_code=200
+        response.headers={'Content-Type':'application/json'};response.raw=None
+        response.iter_content.return_value=iter((raw,));response.__enter__=Mock(return_value=response)
+        response.__exit__=Mock(return_value=False)
+        client=Mock();client.post.return_value=response
+        client.__enter__=Mock(return_value=client);client.__exit__=Mock(return_value=False)
+        with patch('webapp.egress_policy.session',return_value=client):result=gateway.forward_result({'input':[],'stream':True})
+        self.assertFalse(client.post.call_args.kwargs['json']['stream'])
+        self.assertEqual(result.headers['Content-Type'],'text/event-stream')
+        stream=StructuredStream('responses',lambda _:None)
+        for chunk in result.chunks:stream.feed(chunk)
+        self.assertEqual(stream.finish(),payload)
+
     def test_node_authorization_and_business_adapter_share_one_result_contract(self):
         from webapp.node_gateway import GrantAuthority,InMemoryGrantStore,NodeGatewayAuthorizer,NodeGatewayCore
         store=InMemoryGrantStore(lambda:100);issued=GrantAuthority(store).issue(

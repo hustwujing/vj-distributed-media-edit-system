@@ -100,6 +100,34 @@ class ModelSelectionTests(unittest.TestCase):
         forged={**self.body(),'role_model_choices':{'media_planner':self.choice('claude')}}
         self.assertEqual(self.a.post(self.prefix,json=forged).status_code,422)
 
+    def test_expert_and_native_transports_are_configured_and_frozen_independently(self):
+        self.registry['claude']['specialist_response_transport']={
+            'media_planner':'stream','visual_quality_reviewer':'stream'}
+        self.registry['claude55']['native_response_transport']='buffered'
+        os.environ['VIDEO_USE_AGENT_PROFILES_JSON']=json.dumps(self.registry)
+        run=self.a.post(self.prefix,json={**self.body(),'model_choice':self.choice('claude55')}).json()
+        roles=run['model_configuration']['roles']
+        self.assertEqual(roles['media_planner']['response_transport'],'stream')
+        self.assertEqual(roles['visual_quality_reviewer']['response_transport'],'stream')
+        self.assertEqual(roles['delivery_reviewer']['response_transport'],'buffered')
+        self.assertEqual(roles['editing_implementer']['response_transport'],'stream')
+        implementer=agent_profiles.for_specialist(self.app.state.store,run['id'],'editing_implementer')
+        self.assertEqual(implementer.native_response_transport,'buffered')
+        frozen=run['model_configuration']
+        self.registry['claude55']['native_response_transport']='stream'
+        self.registry['claude']['specialist_response_transport']={}
+        os.environ['VIDEO_USE_AGENT_PROFILES_JSON']=json.dumps(self.registry)
+        self.assertEqual(self.a.get(self.prefix+'/'+run['id']).json()['model_configuration'],frozen)
+
+    def test_invalid_expert_and_native_transport_configuration_is_rejected(self):
+        for patch_value in ({'native_response_transport':'chunks'},
+                            {'specialist_response_transport':{'unknown':'stream'}},
+                            {'specialist_response_transport':{'media_planner':'chunks'}}):
+            registry=copy.deepcopy(self.registry);registry['claude55'].update(patch_value)
+            with self.subTest(value=patch_value),patch.dict(os.environ,{
+                    'VIDEO_USE_AGENT_PROFILES_JSON':json.dumps(registry)}),self.assertRaises(ValueError):
+                agent_profiles.profiles()
+
     def test_choice_is_frozen_and_idempotent_replay_survives_registry_change(self):
         body={**self.body(),'model_choice':self.choice('deepseek41','low')}
         response=self.a.post(self.prefix,json=body);self.assertEqual(response.status_code,202,response.text);run=response.json()

@@ -71,6 +71,8 @@ class AgentProfile:
     specialist_output_tokens: dict = field(default_factory=dict)
     specialist_minimum_seconds: dict = field(default_factory=dict)
     specialist_reasoning_effort: dict = field(default_factory=dict)
+    specialist_response_transport: dict = field(default_factory=dict)
+    native_response_transport: str = 'stream'
     adapter_version: int = 1
     tool_policy: str = 'media-restricted-v1'
     response_transport: str = 'stream'
@@ -100,6 +102,12 @@ class AgentProfile:
                 or any(not isinstance(v,str) or v not in HARNESS_EFFORTS[self.harness]
                        for v in self.specialist_reasoning_effort.values())):
             raise ValueError('Invalid specialist reasoning effort')
+        if (not isinstance(self.specialist_response_transport,dict)
+                or set(self.specialist_response_transport)-set(PROFILES)
+                or any(value not in ('buffered','stream') for value in self.specialist_response_transport.values())):
+            raise ValueError('Invalid specialist response transport')
+        if self.native_response_transport not in ('buffered','stream'):
+            raise ValueError('Invalid native response transport')
         if not self.model or len(self.model) > 200 or any(ord(c) < 32 for c in self.model):
             raise ValueError('Invalid model identifier')
         if not re.fullmatch(r'(?:VIDEO_USE_|ANTHROPIC_|DEEPSEEK_|OPENAI_)[A-Z0-9_]*(?:KEY|TOKEN)', self.credential_env):
@@ -142,6 +150,9 @@ def profiles():
                            base_url=os.environ.get('VIDEO_USE_MODEL_BASE_URL', '').rstrip('/'),
                            reasoning_effort=os.environ.get('VIDEO_USE_MODEL_REASONING_EFFORT', 'medium'),
                            input_token_policy=os.environ.get('VIDEO_USE_MODEL_INPUT_TOKEN_POLICY','native'),
+                           specialist_response_transport=json.loads(
+                               os.environ.get('VIDEO_USE_SPECIALIST_RESPONSE_TRANSPORT_JSON','{}')),
+                           native_response_transport=os.environ.get('VIDEO_USE_NATIVE_RESPONSE_TRANSPORT','stream'),
                            vision_tokenizer=os.environ.get('VIDEO_USE_MODEL_VISION_TOKENIZER',
                                'patch32_1_2' if model=='gpt-6-astra' else 'unconfigured'))
     raw = os.environ.get('VIDEO_USE_AGENT_PROFILES_JSON', '{}')
@@ -245,7 +256,8 @@ def freeze(db, task, project, created, parent=None,*,configuration=None,role_pro
         for identifier,value in PROFILES.items():
             if str(value.role)=='IMPLEMENTER':configured.setdefault(identifier,configuration or selected())
         for identifier,value in configured.items():
-            value=replace(value,response_transport=PROFILES[identifier].response_transport,
+            value=replace(value,response_transport=value.specialist_response_transport.get(
+                identifier,PROFILES[identifier].response_transport),
                 reasoning_effort=value.specialist_reasoning_effort.get(identifier,value.reasoning_effort))
             db.execute('INSERT INTO agent_run_role_profiles VALUES (?,?,?,?,?)',
                        (task,identifier,json.dumps(value.snapshot(),sort_keys=True),value.digest,created))

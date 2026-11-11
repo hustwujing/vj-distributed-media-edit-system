@@ -36,6 +36,10 @@ DeepSeek 这一固定版本的实际模型请求走 Messages，不能因为模�
 
 使用 `VIDEO_USE_AGENT_PROFILES_JSON` 注册配置档，使用 `VIDEO_USE_AGENT_PROFILE` 选择全局默认值。例子中的地址是占位符，密钥只通过服务端环境变量提供：
 
+传输方式分开配置：`specialist_response_transport`是按专家角色冻结的结构化模型请求策略，
+`native_response_transport`是该 Profile 被原生 Harness 使用时的真实上游请求策略。不要用一个字段同时表达两者；
+否则 Manager 的延迟优化会静默改变代码编辑 Harness，或原生 SDK 的增量需求会把所有 Reviewer 导向流式路由。
+
 ```json
 {
   "claude": {

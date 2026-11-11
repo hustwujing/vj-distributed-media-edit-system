@@ -55,8 +55,8 @@ class OpenSandboxBackendTests(unittest.TestCase):
             self.grant_identity=identity
             material=GatewayGrant('https://172.30.0.1:18880','g'*48,b'ca',('/v1/responses','/context'))
             return RuntimeGatewayGrant(material,lambda:self.revoked.append(True))
-        self.spec=AgentRuntimeSpec('codex','model-1','high','sha256:'+'c'*64,
-            'gateway-v1',{'model':'model-1'},grant)
+        self.spec=AgentRuntimeSpec('codex','model-1','high','stream','sha256:'+'c'*64,
+            'gateway-v1',{'model':'model-1','response_transport':'stream'},grant)
 
     def test_start_wires_create_files_proxy_and_runtime_initialization(self):
         restored=[]
@@ -94,8 +94,8 @@ class OpenSandboxBackendTests(unittest.TestCase):
                 attempts.append(True)
                 if len(attempts)<2:raise OSError('temporary revoke failure')
             return RuntimeGatewayGrant(material,revoke)
-        spec=AgentRuntimeSpec('codex','model-1','high','sha256:'+'c'*64,
-            'gateway-v1',{'model':'model-1'},grant)
+        spec=AgentRuntimeSpec('codex','model-1','high','stream','sha256:'+'c'*64,
+            'gateway-v1',{'model':'model-1','response_transport':'stream'},grant)
         runtime=self.backend.start(self.lease,self.binding,{'cpu':1,'memory_mb':512},spec,
             lambda files:None,lambda event:None)
         runtime.begin_cleanup();self.assertEqual(len(attempts),1)

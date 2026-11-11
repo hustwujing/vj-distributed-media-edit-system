@@ -49,7 +49,7 @@ class RuntimeHarnessTests(unittest.TestCase):
         adapter=HarnessAdapter();adapter.id='test'
         self.bridge=StdioHarnessBridge(adapter,['/opt/test-harness'],
             process_factory=lambda *args,**kwargs:self.process)
-        self.controller=HarnessController(adapter,SimpleNamespace(model='m',reasoning_effort='high'),
+        self.controller=HarnessController(adapter,SimpleNamespace(model='m',reasoning_effort='high',response_transport='stream'),
             self.bridge,self.events.append,{'profile':'profile-1','skill':'skill-1'})
         self.addCleanup(self._close)
     def _close(self):
@@ -71,6 +71,14 @@ class RuntimeHarnessTests(unittest.TestCase):
         self.assertEqual(self.controller.dispatch('session.export',{}),
             {'session_id':'session-1','native_state':'owned_by_harness',
              'manifest_ref':None})
+
+    def test_buffered_runtime_suppresses_only_public_message_deltas(self):
+        from webapp.harness_events import AgentEvent
+        self.controller.profile.response_transport='buffered'
+        self.controller.event(AgentEvent('message.delta','message',{'delta':'partial'}))
+        self.controller.event(AgentEvent('tool.started','tool',{'item':{'id':'tool'}}))
+        self.controller.event(AgentEvent('message.completed','message',{'text':'complete'}))
+        self.assertEqual([event.kind for event in self.events],['tool.started','message.completed'])
 
     def test_frozen_profile_and_lifecycle_are_enforced(self):
         with self.assertRaisesRegex(HarnessStateError,'frozen'):

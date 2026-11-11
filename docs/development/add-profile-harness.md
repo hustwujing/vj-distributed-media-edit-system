@@ -12,7 +12,38 @@
 推理参数和预算。不能因为项目模型配置中保留了 SDK harness 字段，就把结构化 HTTP 循环的调用
 报告成某个 SDK 已执行。
 
-`response_transport`也是冻结执行策略。当前控制角色使用`buffered`，Editing Implementer使用`stream`；它同时进入SpecialistProfile和Run角色模型摘要。恢复或接管不得改读当前默认值。buffered只改变响应传输，不绕过strict、本地Schema、语义、权限、预算或回执校验；没有公开commentary时由宿主生成动作摘要，不能拒绝合法命令。
+`response_transport`也是冻结执行策略。专家角色不再只能使用代码内默认值：已登记的 Agent Profile 可用
+`specialist_response_transport`按 Specialist Profile ID 配置 `buffered`/`stream`；默认 Profile 可用
+`VIDEO_USE_SPECIALIST_RESPONSE_TRANSPORT_JSON`提供同一映射。未配置时仍采用角色默认值：Manager、Diagnostician、
+Task/Delivery Reviewer 为 `buffered`，Editing Implementer 为 `stream`。Run 创建时把每个角色的有效值写入
+`agent_run_role_profiles`，恢复、接管或修改环境变量不得改变旧 Run。
+
+原生 Harness 使用独立的 `native_response_transport`，登记在 `VIDEO_USE_AGENT_PROFILES_JSON` 的具体 Profile 中；
+默认 Profile 可用 `VIDEO_USE_NATIVE_RESPONSE_TRANSPORT`。该字段不能用专家角色配置替代。`buffered` 时，Attempt Gateway
+向模型服务发送 `stream=false`，校验并计量完整响应，再转换为 Claude/Responses SDK 需要的标准完成 SSE；不会伪造中间
+推理或工具进度。`stream` 时保持 SDK 原生增量。两种模式都保留工具事件、完整最终消息、租约、预算和使用回执。
+Runtime Bundle 同时冻结该值，沙箱配置不一致时拒绝启动；改变它会改变 Profile digest，旧 native session 不得跨配置恢复。
+
+示例（省略地址和凭据）：
+
+```json
+{
+  "claude55": {
+    "harness": "claude_code",
+    "model": "claude-sonnet-5-5",
+    "protocol": "anthropic",
+    "specialist_response_transport": {
+      "media_planner": "buffered",
+      "visual_quality_reviewer": "buffered",
+      "editing_implementer": "stream"
+    },
+    "native_response_transport": "buffered"
+  }
+}
+```
+
+buffered 只改变响应传输，不绕过 strict、本地 Schema、语义、权限、预算或回执校验；没有公开 commentary 时由宿主
+生成动作摘要，不能拒绝合法命令。配置非法角色名或 `buffered`/`stream` 之外的值必须在服务启动或 Run 创建前失败。
 
 ## 实现入口
 
