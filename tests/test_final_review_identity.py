@@ -6,11 +6,34 @@ from webapp import workflow_graph as graph,run_inputs
 
 
 class FinalReviewInputIdentityTests(unittest.TestCase):
+    def test_native_skill_evidence_requires_an_actual_native_opensandbox_attempt(self):
+        from webapp.execution_locations import for_run
+        f=fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
+        run=f.review_fixture();task=run['tasks'][0];task['type']='agent';task['profile']={'harness':'native-implementer-v1'}
+        task['spec'].update(type='agent',profile='editing_implementer',operation=None,
+            runtime_requirements={'requires_gpu':False,'python_modules':[],'node_modules':[],
+                'system_tools':[],'network_urls':[],'native_skills':['academy-guide']})
+        attempt='a'*32
+        f.store.execute('''INSERT INTO execution_attempts
+            (id,run_id,worker,generation,kind,started,status,step_id,task_revision,runtime,uid)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)''',(attempt,run['id'],'worker',1,'workflow',f.store.now(),'succeeded',task['id'],task['revision'],'remote',None))
+        f.store.execute('''INSERT INTO execution_external_cleanup
+            (id,task_id,provider,external_id,state,phase,error) VALUES (?,?,?,?,?,?,?)''',
+            ('opensandbox:'+attempt,run['id'],'opensandbox:'+attempt,'sandbox-id','complete','deleted',''))
+        f.store.execute('INSERT INTO specialist_attempt_profiles VALUES (?,?,?,?,?,?,?,?,?,?)',
+            (attempt,run['id'],task['id'],'editing_implementer','claude_code','p','model','anthropic','c',f.store.now()))
+        evidence=for_run(f.store,run)[task['id']]
+        self.assertEqual(evidence['native_skills'],['academy-guide'])
+        self.assertRegex(evidence['native_skill_bundle_digest'],r'^sha256:[a-f0-9]{64}$')
+        task['spec']['runtime_requirements']['native_skills']=[]
+        self.assertNotIn('native_skills',for_run(f.store,run)[task['id']])
+
     def test_task_review_receives_host_derived_harness_evidence(self):
         f=fixtures.DynamicGraphTests();f.setUp();self.addCleanup(f.tearDown)
         run=f.review_fixture();subject=run['tasks'][0]
         evidence={subject['id']:{'execution_location':'opensandbox','execution_attempt_id':'a'*32,
-            'execution_harness':'codex','tool_location':'opensandbox'}}
+            'execution_harness':'codex','tool_location':'opensandbox','native_skills':['academy-guide'],
+            'native_skill_bundle_digest':'sha256:'+'b'*64}}
         with patch('webapp.execution_locations.for_run',return_value=evidence):
             f.orchestrator.queue_review(run,subject['id'],purpose='task')
         snapshot=json.loads(f.store.query("SELECT snapshot_json FROM workflow_reviews WHERE purpose='task'")[0]['snapshot_json'])

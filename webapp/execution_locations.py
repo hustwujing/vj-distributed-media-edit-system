@@ -46,6 +46,11 @@ def for_run(store,run):
                         location='executor_host'
         value={'execution_location':location,'execution_attempt_id':attempt['id'] if attempt else None}
         if attempt and attempt.get('actual_harness'):value['execution_harness']=attempt['actual_harness']
+        selected=item.get('spec',{}).get('runtime_requirements',{}).get('native_skills',[])
+        if selected and attempt and attempt.get('actual_harness') and location=='opensandbox':
+            from .native_skill_catalog import manifest,validate
+            validate(selected);value['native_skills']=list(selected)
+            value['native_skill_bundle_digest']=manifest()['bundle_digest']
         if agent and item.get('control_kind')!='MESSAGE':value['tool_location']=tool if attempt else location
         provider=providers.get((item['id'],item['revision']))
         if provider:value['provider_execution_state']=provider

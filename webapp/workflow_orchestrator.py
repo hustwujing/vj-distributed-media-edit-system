@@ -1046,7 +1046,7 @@ class Orchestrator:
                 'candidate_outputs':task['candidate_result'] if not task.get('selected',True) else [],
                 'producer':{key:task['spec'].get(key) for key in ('type','operation','implementation','profile')},
                 'execution_evidence':{key:value for key,value in execution_evidence.get(task['id'],{}).items()
-                    if key in ('execution_location','execution_attempt_id','execution_harness','tool_location')},
+                    if key in ('execution_location','execution_attempt_id','execution_harness','tool_location','native_skills','native_skill_bundle_digest')},
                 'operation_execution':frozen['operation_execution_contracts'].get(task['id']),
                 'input_sources':task['spec'].get('inputs',{}),
                 'current_provider_receipts':[call for call in frozen['provider_receipts']
@@ -1072,7 +1072,7 @@ class Orchestrator:
             from .execution_locations import for_run as execution_locations
             evidence=execution_locations(store,run).get(selected['id'],{})
             frozen['execution_evidence']={key:value for key,value in evidence.items()
-                if key in ('execution_location','execution_attempt_id','execution_harness','tool_location')}
+                if key in ('execution_location','execution_attempt_id','execution_harness','tool_location','native_skills','native_skill_bundle_digest')}
             frozen['goal']=selected['spec']['objective']
             frozen.pop('delivery_targets')
             frozen['review_criteria']=list(dict.fromkeys(a['criterion'] for a in selected['spec']['acceptance']
