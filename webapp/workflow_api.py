@@ -228,6 +228,10 @@ def public(store,run):
                             '审查未返回可用的详细意见，系统已暂停且未交付。可停止本轮；诊断中保留了审查记录。')
                 if feedback:value['blocking_action']['details']=[{'task_id':latest[0]['subject_task'] or latest[0]['task_id'],
                     'name':'最终审查' if latest[0]['purpose']=='final' else '步骤审查','code':decision.get('verdict','inconclusive'),'message':feedback}]
+    if run['status']=='WAITING_USER' and value.get('blocking_action') and not value['blocking_action'].get('decision_id'):
+        from .workflow_messages import retry_options
+        options=retry_options(store,run)
+        if options:value['blocking_action'].update(action='retry',retry_options=options)
     value['reviews']=store.query('SELECT id,task_id,purpose,subject_task,graph_version,status FROM workflow_reviews WHERE run_id=? ORDER BY created_at',(run['id'],))
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in

@@ -161,7 +161,8 @@ class ConversationTests(unittest.TestCase):
         successor=graph.get(self.store,result['run_id']);self.assertFalse(successor['scope_confirmed'])
         from webapp.workflow_conversation import context
         facts=context(self.store,successor)
-        self.assertIn('没有重新处理素材',facts['previous_runs'][0]['answers'][0]['content'])
+        self.assertTrue(any('没有重新处理素材' in item['content'] and item['role']=='assistant'
+                            for item in facts['memory']['messages_after_cursor']))
 
     def test_respond_cannot_bypass_business_review(self):
         self.stage();self.answer(self.decision(),'approve')

@@ -446,6 +446,8 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM workflow_asset_reuse WHERE project_id=?',(project_id,))
         for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
             store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM conversation_summary_jobs WHERE session_id IN (SELECT id FROM sessions WHERE project_id=?)',(project_id,))
+        store.execute('DELETE FROM conversation_summaries WHERE session_id IN (SELECT id FROM sessions WHERE project_id=?)',(project_id,))
         store.execute('DELETE FROM session_messages WHERE session_id IN (SELECT id FROM sessions WHERE project_id=?)',(project_id,))
         store.execute('DELETE FROM sessions WHERE project_id=?',(project_id,))
         store.execute('DELETE FROM runs WHERE project_id=?',(project_id,))

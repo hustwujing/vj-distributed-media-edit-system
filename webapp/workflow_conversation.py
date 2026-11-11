@@ -4,6 +4,7 @@ from . import workflow_graph as graph
 
 
 def context(store,run):
+    from .conversation_memory import snapshot as memory_snapshot
     history=[];identifier=run.get('parent_run_id');seen={run['id']}
     while identifier and identifier not in seen and len(history)<8:
         seen.add(identifier)
@@ -14,8 +15,7 @@ def context(store,run):
         history.append({'run_id':identifier,'goal':parent['goal'],'state':parent['status'],
             'delivery':[{key:item.get(key) for key in ('name','file','type','size','sha256')}
                         for item in json.loads(parent['delivery_json'])[:20]],
-            'steps':store.query('SELECT id,spec_json,status FROM run_tasks WHERE run_id=? AND selected=1 ORDER BY created_graph_version,created_at LIMIT 32',(identifier,)),
-            'answers':store.query("SELECT content FROM session_messages WHERE run_id=? AND role='assistant' ORDER BY created_at DESC LIMIT 3",(identifier,))})
+            'steps':store.query('SELECT id,spec_json,status FROM run_tasks WHERE run_id=? AND selected=1 ORDER BY created_graph_version,created_at LIMIT 32',(identifier,))})
         for step in history[-1]['steps']:
             spec=json.loads(step.pop('spec_json'));step.update(name=spec.get('name',''),objective=spec.get('objective',''))
         identifier=parent['parent_run_id']
@@ -24,8 +24,7 @@ def context(store,run):
         request=json.loads(row.pop('request_json'));answer=json.loads(row.pop('answer_json'))
         questions.append({**row,'question':request.get('question',''),'reason':request.get('reason',''),
                           'answer':{key:answer.get(key) for key in ('action','feedback')}})
-    return {'previous_runs':history,'clarifications':list(reversed(questions)),
-            'recent_answers':store.query("SELECT content FROM session_messages WHERE run_id=? AND role='assistant' ORDER BY created_at DESC LIMIT 8",(run['id'],)),
+    return {'memory':memory_snapshot(store,run),'previous_runs':history,'clarifications':list(reversed(questions)),
             'scope':'Read-only historical facts, not new permissions or authorized input artifacts.'}
 
 
@@ -41,6 +40,8 @@ def respond(store,run,request,result):
     store.execute('''INSERT INTO session_messages(id,session_id,run_id,role,content,created_at)
         VALUES (?,?,?,'assistant',?,?) ON CONFLICT(id) DO NOTHING''',
         ('answer:'+request['id'],run['session_id'],run['id'],result.reason,now))
+    from .conversation_memory import message_recorded
+    message_recorded(store,run)
     finish_batch(store,run,result.input_through_sequence)
     if run['input_sequence']<=result.input_through_sequence:
         # delivered_at also permits subsequent conversation input. No artifact,

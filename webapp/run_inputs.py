@@ -108,6 +108,8 @@ def accept(store,identifier,actor,raw,*,context=None):
              graph.encode(attachments),request.source,graph.encode(context),run['graph_version'],run['authorization_version'],'ROUTING' if route_message else 'ACCEPTED',now))
         db.execute('INSERT INTO session_messages(id,session_id,run_id,role,content,created_at) VALUES (?,?,?,?,?,?)',
             (input_id,run['session_id'],run['id'],'user',request.content,now))
+        from .conversation_memory import message_recorded
+        message_recorded(store,run)
         if not route_message:activate(store,run,dict(db.execute('SELECT * FROM run_inputs WHERE id=?',(input_id,)).fetchone()))
         else:store.execute('UPDATE runs SET next_reconcile_at=?,updated_at=? WHERE id=?',(now,now,run['id']))
         graph.event(store,run,'message_received' if route_message else 'input_accepted',{'input_id':input_id,'input_sequence':sequence,'source':request.source})

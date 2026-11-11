@@ -445,6 +445,16 @@ def initialize(store):
         db.executescript('''
         CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS session_messages(id TEXT PRIMARY KEY,session_id TEXT NOT NULL,run_id TEXT,role TEXT NOT NULL,content TEXT NOT NULL,created_at REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS session_message_order ON session_messages(session_id,created_at,id);
+        CREATE TABLE IF NOT EXISTS conversation_summaries(
+          session_id TEXT PRIMARY KEY,through_created_at REAL NOT NULL,through_message_id TEXT NOT NULL,
+          source_digest TEXT NOT NULL,summary_json TEXT NOT NULL,revision INTEGER NOT NULL DEFAULT 1,
+          status TEXT NOT NULL DEFAULT 'committed',error_code TEXT NOT NULL DEFAULT '',
+          created_at REAL NOT NULL,updated_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS conversation_summary_jobs(
+          session_id TEXT PRIMARY KEY,run_id TEXT NOT NULL,target_created_at REAL NOT NULL,target_message_id TEXT NOT NULL,
+          source_digest TEXT NOT NULL,status TEXT NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,
+          next_run_at REAL NOT NULL DEFAULT 0,error_code TEXT NOT NULL DEFAULT '',created_at REAL NOT NULL,updated_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS runs(
           id TEXT PRIMARY KEY,project_id TEXT NOT NULL,session_id TEXT NOT NULL,parent_run_id TEXT,
           scope_confirmed INTEGER NOT NULL DEFAULT 1,input_sequence INTEGER NOT NULL DEFAULT 0,input_barrier_sequence INTEGER,input_barrier_was_sealed INTEGER NOT NULL DEFAULT 0,
@@ -698,7 +708,11 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,sco
         if record_message:
             db.execute('INSERT INTO session_messages(id,session_id,run_id,role,content,created_at) VALUES (?,?,?,?,?,?)',
                 (uuid.uuid4().hex,session_id,identifier,'user',authorization.goal,now))
-        run=get(store,identifier);event(store,run,'created');return run
+        run=get(store,identifier)
+        if record_message:
+            from .conversation_memory import message_recorded
+            message_recorded(store,run)
+        event(store,run,'created');return run
 
 
 def bind_authorization(raw,*,implementations=None,policies=None):

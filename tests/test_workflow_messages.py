@@ -23,12 +23,13 @@ class WorkflowMessageTests(unittest.TestCase):
         self.f.tick()
         return next(t for t in graph.get(self.store,self.run['id'])['control_jobs'] if t['control_kind']=='MESSAGE' and t['status']=='ready')
 
-    def complete(self,job,action='reply',answer='任务仍在进行，两个步骤尚未完成。',change='',before_release=None):
+    def complete(self,job,action='reply',answer='任务仍在进行，两个步骤尚未完成。',change='',before_release=None,retry_option_id=''):
         lease=self.coordinator.claim(self.run['id'],'workflow',step_id=job['id']);self.assertIsNotNone(lease)
         try:
             if before_release:before_release()
             stage_result(self.store,lease,'succeeded',{'input_id':job['spec']['message_input_id'],
-                'snapshot_digest':job['snapshot_digest'],'message_decision':{'action':action,'answer':answer,'change':change}})
+                'snapshot_digest':job['snapshot_digest'],'message_decision':{'action':action,'answer':answer,'change':change,
+                    'retry_option_id':retry_option_id}})
         finally:lease.release()
         self.f.tick()
         return graph.get(self.store,self.run['id'])
@@ -115,6 +116,34 @@ class WorkflowMessageTests(unittest.TestCase):
         with self.assertRaises(ValueError):protocol.decode('script',{'code':'bad'})
         with self.assertRaises(ValueError):messages.MessageDecision(action='reply',answer='hello',change='silently edit')
 
+    def test_retry_current_planning_failure_is_server_bound_and_applies_resume(self):
+        plan=next(job for job in graph.get(self.store,self.run['id'])['control_jobs'] if job['control_kind']=='PLAN')
+        self.store.execute('DELETE FROM workflow_dependencies WHERE run_id=?',(self.run['id'],))
+        self.store.execute('DELETE FROM run_tasks WHERE run_id=?',(self.run['id'],))
+        self.store.execute("UPDATE planner_runs SET status='rejected',error_code='agent_model_transport_failed' WHERE run_id=?",(self.run['id'],))
+        self.store.execute("UPDATE control_jobs SET status='paused',error_code='agent_model_transport_failed',error_detail='RemoteDisconnected' WHERE run_id=? AND id=?",(self.run['id'],plan['id']))
+        self.store.execute("UPDATE runs SET status='WAITING_USER',terminal_reason='agent_model_transport_failed',graph_version=0,sealed=0 WHERE id=?",(self.run['id'],))
+        run=graph.get(self.store,self.run['id']);options=messages.retry_options(self.store,run)
+        self.assertEqual(len(options),1)
+        from webapp.workflow_api import public
+        self.assertEqual(public(self.store,run)['blocking_action']['action'],'retry')
+        protocol=messages.MessageProtocol(options);self.assertIn('retry_current_failure',protocol.schemas)
+        incoming=self.send('继续重试');messages.queue(self.store,graph.get(self.store,self.run['id']))
+        job=next(item for item in graph.get(self.store,self.run['id'])['control_jobs'] if item['control_kind']=='MESSAGE' and item['status']=='ready')
+        frozen=json.loads(job['snapshot_json'])
+        self.assertEqual(frozen['current_failure']['terminal_reason'],'agent_model_transport_failed')
+        self.assertEqual(frozen['retry_options'][0]['id'],options[0]['id'])
+        self.complete(job,'retry','收到，重试当前规划。',retry_option_id=options[0]['id'])
+        self.f.tick();command=self.store.query("SELECT action,status,error_code FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 1",(self.run['id'],))[0]
+        self.assertEqual(command,{'action':'resume','status':'applied','error_code':''})
+        self.assertEqual(self.store.query('SELECT status FROM run_inputs WHERE id=?',(incoming['id'],))[0]['status'],'REPLIED')
+        retried=graph.get(self.store,self.run['id'])
+        self.assertTrue(any(job['control_kind']=='PLAN' and job['status']=='ready' and job['id']!=plan['id'] for job in retried['control_jobs']))
+
+    def test_retry_tool_is_absent_without_a_current_server_option(self):
+        protocol=messages.MessageProtocol();self.assertNotIn('retry_current_failure',protocol.schemas)
+        with self.assertRaises(ValueError):protocol.decode('retry_current_failure',{'answer':'retry','retry_option_id':'invented'})
+
     def test_read_only_message_lease_does_not_block_final_business_gate(self):
         self.send();job=self.job();lease=self.coordinator.claim(self.run['id'],'workflow',step_id=job['id'])
         self.assertIsNotNone(lease)
@@ -145,7 +174,8 @@ class WorkflowMessageTests(unittest.TestCase):
     def test_followup_message_receives_the_previous_clarification_and_cancel_settles_queue(self):
         first=self.send('不太对');job=self.job();self.complete(job,answer='你想调整标题还是画面？当前任务继续。')
         second=self.send('是标题');self.send('再等等');job=self.job()
-        frozen=json.loads(job['snapshot_json']);self.assertIn('调整标题',frozen['recent_messages'][0]['reply'])
+        frozen=json.loads(job['snapshot_json']);history=frozen['conversation_memory']['messages_after_cursor']
+        self.assertTrue(any('调整标题' in item['content'] and item['role']=='assistant' for item in history))
         self.store.execute("UPDATE runs SET status='CANCELLING',terminal_reason='user_cancelled' WHERE id=?",(self.run['id'],))
         self.f.tick();self.assertFalse(messages.pending(self.store,self.run['id']))
         self.assertEqual(self.store.query('SELECT status FROM run_inputs WHERE id=?',(first['id'],))[0]['status'],'REPLIED')

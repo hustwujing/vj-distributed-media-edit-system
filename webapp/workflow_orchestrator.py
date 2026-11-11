@@ -62,6 +62,8 @@ class Orchestrator:
         with store.connect() as db:
             db.execute('BEGIN IMMEDIATE');self.check(db,identifier,generation)
             run=graph.get(store,identifier)
+            from .conversation_memory import process_pending as process_conversation_summary
+            process_conversation_summary(store,run['session_id'])
             from . import workflow_messages as messages
             if run['status'] in RUN_TERMINAL:
                 if run['status']=='SUCCEEDED':

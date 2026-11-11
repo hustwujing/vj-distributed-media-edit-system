@@ -300,7 +300,8 @@ class DynamicAPITests(unittest.TestCase):
         self.assertEqual(self.a.get(self.prefix+'/'+run['id']).json()['state'],'CANCELLED')
         result=self.a.delete('/api/projects/'+self.project)
         self.assertEqual(result.status_code,200,result.text)
-        for table in ('runs','run_tasks','planner_runs','workflow_commands','workflow_graph_events','workflow_start_requests'):
+        for table in ('runs','run_tasks','planner_runs','workflow_commands','workflow_graph_events','workflow_start_requests',
+                      'session_messages','conversation_summaries','conversation_summary_jobs'):
             self.assertFalse(self.app.state.store.query('SELECT * FROM '+table),table)
 
     def test_project_delete_releases_local_artifact_references_for_gc(self):
