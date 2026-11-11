@@ -4,7 +4,7 @@
 
 当前部署：`8f653f97324e7d1ac82971ed35a6c2ceab94512fa71f98420454280ef6b54bd1`。整体验收：**未完成**。
 
-冻结 Python 门禁：31 项，失败 0，错误 0，跳过 0。绑定摘要：`8f653f97324e7d1ac82971ed35a6c2ceab94512fa71f98420454280ef6b54bd1`。
+冻结 Python 门禁：1684 项，失败 0，错误 0，跳过 6。绑定摘要：`8f653f97324e7d1ac82971ed35a6c2ceab94512fa71f98420454280ef6b54bd1`。
 JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-sandbox-backend/.sandbox-cluster/verification/8f653f97324e-1355c740.log`。实际模型、外部服务和浏览器结果以下面的逐例证据为准。
 
 统计：需在当前版本复测 123；通过 3。
@@ -192,6 +192,15 @@ JavaScript 门禁与发布日志：`/data2/wujing03/distributed-agent-sandbox-ba
 | D46 | 异步Provider轮询硬杀后沿用原句柄 | 需在当前版本复测 | 3 |
 | D47 | 自然语言附加交付与Delivery叶节点完整选择 | 需在当前版本复测 | 1 |
 | D48 | 安全点前附件失效并拒绝补充输入 | 需在当前版本复测 | 2 |
+
+Python 门禁跳过项（不计作真实模型通过证据）：
+
+- `test_real_birefnet_cutout (test_execution_runtime.RuntimeTests.test_real_birefnet_cutout)`：Explicit real GPU smoke
+- `test_real_ocr (test_execution_runtime.RuntimeTests.test_real_ocr)`：Explicit real OCR smoke
+- `test_real_sam2_segment (test_execution_runtime.RuntimeTests.test_real_sam2_segment)`：Explicit real GPU smoke
+- `test_real_sam3_empty_selection (test_execution_runtime.RuntimeTests.test_real_sam3_empty_selection)`：Explicit real SAM3 smoke
+- `test_real_sam3_segment (test_execution_runtime.RuntimeTests.test_real_sam3_segment)`：Explicit real SAM3 smoke
+- `test_real_cutout_uses_pinned_step_resources_after_claim (test_native_operation_dispatch.NativeDispatchTests.test_real_cutout_uses_pinned_step_resources_after_claim)`：Explicit real GPU workflow dispatch smoke
 
 ## S01 · 图片中心裁切
 
