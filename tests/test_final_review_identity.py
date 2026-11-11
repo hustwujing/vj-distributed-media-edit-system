@@ -24,24 +24,30 @@ class FinalReviewInputIdentityTests(unittest.TestCase):
                 f=fixtures.DynamicGraphTests();f.setUp()
                 try:
                     run=f.review_fixture();producer=run['tasks'][0]
-                    producer.update(type='operation',status='succeeded',accepted_result=['edit/model.png'])
+                    producer.update(type='operation',status='paused',selected=False,accepted_result=[],
+                        candidate_result=['edit/model.png'])
                     producer['spec'].update(type='operation',operation=operation,implementation=None,delivery_stage=False)
-                    repaired=copy.deepcopy(producer);repaired.update(id='repair',type='agent',accepted_result=['edit/final.png'])
+                    repaired=copy.deepcopy(producer);repaired.update(id='repair',type='agent',status='succeeded',selected=True,
+                        accepted_result=['edit/final.png'],candidate_result=['edit/final.png'])
                     repaired['spec'].update(id='repair',type='agent',operation=None,profile='editing_implementer',
-                        delivery_stage=True,inputs={'candidate':{'step':producer['id'],'role':'foreground'}})
+                        delivery_stage=True,inputs={'candidate':{'repair_candidate':{
+                            'logical_task_id':producer['id'],'revision':producer['revision'],'role':'foreground',
+                            'artifact_id':'artifact','sha256':'a'*64}}})
                     run['tasks'].append(repaired)
-                    execution={'repair':{'execution_location':'opensandbox','execution_attempt_id':'a'*32,
-                        'execution_harness':'codex','tool_location':'opensandbox'}}
+                    execution={producer['id']:{'execution_location':'executor_host','execution_attempt_id':'b'*32},
+                        'repair':{'execution_location':'opensandbox','execution_attempt_id':'a'*32,
+                                  'execution_harness':'codex','tool_location':'opensandbox'}}
                     with patch('webapp.execution_locations.for_run',return_value=execution):f.orchestrator.queue_review(run)
                     snapshot=json.loads(f.store.query("SELECT snapshot_json FROM workflow_reviews WHERE purpose='final'")[0]['snapshot_json'])
                     record=next(p for p in snapshot['delivery_provenance'] if p['task_id']==producer['id'])
-                    self.assertFalse(record['delivery_stage']);self.assertEqual(record['status'],'succeeded')
-                    self.assertEqual(record['accepted_outputs'],['edit/model.png'])
+                    self.assertFalse(record['selected']);self.assertFalse(record['delivery_stage']);self.assertEqual(record['status'],'paused')
+                    self.assertEqual(record['accepted_outputs'],[]);self.assertEqual(record['candidate_outputs'],['edit/model.png'])
                     self.assertEqual(record['operation_execution']['model_profile'],profile)
                     self.assertEqual(record['operation_execution']['external_side_effects'],external)
+                    self.assertEqual(record['execution_evidence']['execution_location'],'executor_host')
                     self.assertEqual(record['current_provider_receipts'],[])
                     repair=next(p for p in snapshot['delivery_provenance'] if p['task_id']=='repair')
-                    self.assertEqual(repair['input_sources']['candidate']['step'],producer['id'])
+                    self.assertEqual(repair['input_sources']['candidate']['repair_candidate']['logical_task_id'],producer['id'])
                     self.assertIsNone(repair['operation_execution'])
                     self.assertEqual(repair['execution_evidence'],execution['repair'])
                 finally:f.tearDown()

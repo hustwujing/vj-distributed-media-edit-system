@@ -973,8 +973,22 @@ class Orchestrator:
             from .workflow_history import plan_confirmation_evidence
             frozen['plan_confirmation_evidence']=plan_confirmation_evidence(store,run)
         from .operations import get as get_operation
+        provenance_tasks=list(frozen['tasks'])
+        if purpose=='final':
+            all_tasks={item['id']:item for item in run['tasks']};required={item['id'] for item in provenance_tasks}
+            pending=list(required)
+            while pending:
+                current=all_tasks.get(pending.pop())
+                if not current:continue
+                for ref in current['spec'].get('inputs',{}).values():
+                    candidate=ref.get('repair_candidate') if isinstance(ref,dict) else None
+                    source=ref.get('step') if isinstance(ref,dict) else None
+                    source=source or (candidate or {}).get('logical_task_id')
+                    if source in all_tasks and source not in required:
+                        required.add(source);pending.append(source)
+            provenance_tasks=[item for item in run['tasks'] if item['id'] in required]
         operation_contracts={item['id']:get_operation(item['spec']['operation'],item['spec'].get('implementation')).public()
-            for item in frozen['tasks'] if item['type']=='operation'}
+            for item in provenance_tasks if item['type']=='operation'}
         frozen['operation_output_contracts']={key:value['output_contract'] for key,value in operation_contracts.items()}
         frozen['operation_execution_contracts']={key:{field:value[field] for field in
             ('implementation','lifecycle','executor','model_profile','external_side_effects','provider_identity','execution_mode')}
@@ -995,8 +1009,10 @@ class Orchestrator:
                     ('provider_identity','route_adapter','model')}})
             frozen['delivery_provenance']=[{
                 'task_id':task['id'],'revision':task['revision'],'status':task['status'],
-                'delivery_stage':task['spec'].get('delivery_stage',False),
+                'selected':task.get('selected',True),
+                'delivery_stage':bool(task.get('selected',True) and task['spec'].get('delivery_stage',False)),
                 'accepted_outputs':task['accepted_result'],
+                'candidate_outputs':task['candidate_result'] if not task.get('selected',True) else [],
                 'producer':{key:task['spec'].get(key) for key in ('type','operation','implementation','profile')},
                 'execution_evidence':{key:value for key,value in execution_evidence.get(task['id'],{}).items()
                     if key in ('execution_location','execution_attempt_id','execution_harness','tool_location')},
@@ -1005,10 +1021,11 @@ class Orchestrator:
                 'current_provider_receipts':[call for call in frozen['provider_receipts']
                     if call['step']==task['id'] and call['revision']==task['revision']],
                 'scope':'Current selected producer and declared inputs, including upstream processing. '
+                    'A selected=false ancestor is provenance-only and cannot be delivered. '
                     'execution_evidence is host-derived from the durable attempt, sandbox cleanup receipt and frozen specialist profile. '
                     'Succeeded registered local operations use their model_profile and accepted outputs as execution evidence; '
                     'they do not create external provider receipts. Unrelated historical calls are not provenance.'}
-                for task in complete_tasks if task['spec'].get('purpose')!='evidence']
+                for task in provenance_tasks if task['spec'].get('purpose')!='evidence']
             from .review_identity import applied_user_changes
             frozen['user_changes'],frozen['user_changes_truncated']=applied_user_changes(store,run)
             from .workflow_history import snapshot as history_snapshot,user_reviews
