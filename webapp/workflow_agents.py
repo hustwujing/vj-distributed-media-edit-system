@@ -852,10 +852,13 @@ def render_office_document(evidence,source_path):
             '--convert-to','pdf','--outdir','/output',target]
         result=subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=100)
         pdf=next(root.glob('*.pdf'),None)
-        if result.returncode or pdf is None:raise InspectionInputError('Office document rendering failed','inspection_document_render')
+        if result.returncode or pdf is None:
+            return {**evidence,'rendering_unavailable':'office_conversion_failed',
+                    'limitation':'Office structure was inspected, but this optional rendering attempt failed; do not discard cell, formula, paragraph, or table evidence.'}
         with pymupdf.open(pdf) as document:
             index=evidence['document_index']
-            if not 0<=index<len(document)<=200:raise InspectionInputError('Office page outside range','inspection_document_page')
+            if not 0<=index<len(document)<=200:
+                return {**evidence,'rendered_page_count':len(document),'rendering_unavailable':'page_outside_range'}
             pixels=document[index].get_pixmap(matrix=pymupdf.Matrix(2,2),alpha=False);image=pixels.tobytes('jpeg',jpg_quality=88);count=len(document)
     return {**evidence,'coverage':evidence['coverage']+'_and_rendered_page','rendered_page_count':count,
             'image':'data:image/jpeg;base64,'+base64.b64encode(image).decode()}
