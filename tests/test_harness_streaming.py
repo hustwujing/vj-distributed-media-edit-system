@@ -1,14 +1,32 @@
 """Public native streaming, safe SSE boundaries, and canonical text closure."""
 import json
+import asyncio
+import io
 import unittest
+from unittest.mock import patch
 from webapp.safe_stream import SafeEvents
 from webapp.harness_sdk_events import SDKEvents
+from webapp.harness_bridge import Bridge,HARNESS_MESSAGE_LIMIT
 
 
 def frame(value):return ('data: '+json.dumps(value,ensure_ascii=False)+'\n\n').encode()
 
 
 class NativeStreamTests(unittest.TestCase):
+    def test_claude_sdk_accepts_messages_up_to_the_bounded_bridge_limit(self):
+        captured={}
+        async def query(*,prompt,options):
+            captured['options']=options
+            if False:
+                yield None
+        bridge=Bridge('claude_code',{
+            'model':'claude-test','reasoning_effort':'high','response_transport':'stream',
+        },io.StringIO())
+        bridge.instructions='trusted rules';bridge.session_id='session-1'
+        with patch('claude_agent_sdk.query',query),self.assertRaisesRegex(RuntimeError,'without a result'):
+            asyncio.run(bridge.claude('create a large local artifact'))
+        self.assertEqual(captured['options'].max_buffer_size,HARNESS_MESSAGE_LIMIT)
+
     def test_complete_native_text_frames_flush_without_following_packet(self):
         examples=[{'type':'content_block_delta','index':0,'delta':{'type':'text_delta','text':'透明背景，全部文字。'}},
                   {'id':'chat-1','choices':[{'index':0,'delta':{'content':'透明背景，全部文字。'}}]}]

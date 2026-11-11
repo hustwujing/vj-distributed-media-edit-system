@@ -18,6 +18,9 @@ except ImportError:
     from harness_sdk_events import SDKEvents
 
 
+HARNESS_MESSAGE_LIMIT = 8 * 1024**2
+
+
 class Bridge:
     def __init__(self, harness, config, output):
         self.harness, self.config, self.output = harness, config, output
@@ -91,6 +94,7 @@ class Bridge:
             system_prompt=self.instructions, tools=['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'],
             allowed_tools=['Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'],
             permission_mode='bypassPermissions', setting_sources=[], strict_mcp_config=True,
+            max_buffer_size=HARNESS_MESSAGE_LIMIT,
             include_partial_messages=self.config['response_transport']=='stream', hooks=hooks,
             resume=self.session_id if self.resume else None,
             session_id=None if self.resume else self.session_id,
@@ -166,8 +170,8 @@ class Bridge:
 def main():
     config = json.loads(Path(sys.argv[2]).read_text())
     bridge = Bridge(sys.argv[1], config, sys.stdout)
-    for line in iter(lambda: sys.stdin.readline(8 * 1024**2 + 1), ''):
-        if len(line) > 8 * 1024**2:
+    for line in iter(lambda: sys.stdin.readline(HARNESS_MESSAGE_LIMIT + 1), ''):
+        if len(line) > HARNESS_MESSAGE_LIMIT:
             raise ValueError('Bridge control message exceeds limit')
         bridge.dispatch(json.loads(line))
     if bridge.sdk:
