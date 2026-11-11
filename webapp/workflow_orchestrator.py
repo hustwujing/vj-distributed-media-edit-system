@@ -557,8 +557,10 @@ class Orchestrator:
                 data=json.loads(result['result_json'])
                 if not isinstance(data,dict):raise ValueError('Task result must be an object')
                 if outcome=='resource_wait':
-                    graph.write_work(store,task,"UPDATE run_tasks SET status='retry_wait',next_run_at=?,wait_reason='resource',attempts=CASE WHEN attempts>0 THEN attempts-1 ELSE 0 END WHERE run_id=? AND id=?",
-                        (store.now()+5,run['id'],task['id']))
+                    delay=max(5,min(60,int(data.get('wait_seconds',10))))
+                    reason=data.get('wait_reason') if data.get('wait_reason') in ('resource','gpu_capacity') else 'resource'
+                    graph.write_work(store,task,"UPDATE run_tasks SET status='retry_wait',next_run_at=?,wait_reason=?,wait_recorded_at=COALESCE(wait_recorded_at,?),attempts=CASE WHEN attempts>0 THEN attempts-1 ELSE 0 END WHERE run_id=? AND id=?",
+                        (store.now()+delay,reason,store.now(),run['id'],task['id']))
                 elif task.get('control_kind'):
                     if outcome=='succeeded':
                         if task.get('control_kind')=='MESSAGE':

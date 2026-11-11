@@ -96,12 +96,15 @@ def public(store,run):
     value['tasks']=[]
     for task in run['tasks']:
         public_task={k:task[k] for k in ('id','type','spec','status','selected','phase','revision','authorization_version','repair_count','recovery_count','infrastructure_interruptions','user_revision_count','attempts',
-            'wait_reason','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
+            'wait_reason','wait_recorded_at','next_run_at','candidate_result','accepted_result','quality','error_code','error_detail','created_at','updated_at')}
         public_task['selected']=bool(task['selected'])
         public_task['revision_graph_version']=revision_versions.get((task['id'],task['revision']),task['created_graph_version'])
         public_task.update(locations[task['id']])
         public_task['display_name']=item_name(task)
         value['tasks'].append(public_task)
+    resource_waits={row['step_id']:row['n'] for row in store.query(
+        "SELECT step_id,COUNT(*) AS n FROM execution_attempts WHERE run_id=? AND status='resource_wait' GROUP BY step_id",(run['id'],))}
+    for task in value['tasks']:task['resource_wait_count']=resource_waits.get(task['id'],0)
     value['failure_details']=[]
     for task in [*run['tasks'],*run['control_jobs']]:
         if task.get('error_code'):

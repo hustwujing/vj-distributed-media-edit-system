@@ -13,6 +13,11 @@ Command Runtime、隔离 registry digest、Bundle/Profile、Attempt 绑定、Gat
 DeepSeek 分别冻结 Agent Runtime Profile；GPU 和外部 Provider 保留各自登记路径。Command 与三种 Agent
 Runtime 必须分别验证，不能把其中一种 Harness 的真机结果写成整个 Runtime 矩阵已通过。
 
+GPU operation 保留本机隔离执行。节点通过 `VIDEO_USE_GPU_DEVICES` 声明授权池，Worker heartbeat 动态发布
+池内满足显存、利用率和 lease lock 的 GPU；调度必须在创建 Attempt 前过滤容量，并在实际启动前再次加锁。
+资源等待使用有界退避和独立 UI 状态，不能每几秒创建并结算一个 `resource_wait` Attempt，也不能让页面看起来
+像任务已停止。
+
 已验证的单机独立环境仍不等于生产多机完成。以下结论必须分开：
 
 | 已有独立环境证据 | 尚未由当前环境证明 |

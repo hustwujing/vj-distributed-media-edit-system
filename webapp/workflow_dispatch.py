@@ -96,7 +96,7 @@ def bind_claim(store,db,run,step_id,attempt,generation):
     from .run_inputs import can_dispatch
     if not can_dispatch(graph.get(store,run['id']),task):raise ValueError('Input barrier prevents this claim')
     if not db.execute(f'''UPDATE {graph.work_table(task)} SET lease_id=?,lease_generation=?,attempts=attempts+1,
-        wait_reason='',error_code='',error_detail='',updated_at=?
+        wait_reason='',wait_recorded_at=NULL,error_code='',error_detail='',updated_at=?
         WHERE run_id=? AND id=? AND status='ready' AND revision=?''',
         (attempt,generation,store.now(),run['id'],step_id,task['revision'])).rowcount:
         raise ValueError('Task no longer ready')

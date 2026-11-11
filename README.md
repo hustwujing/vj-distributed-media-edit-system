@@ -43,7 +43,7 @@ Observer：关联 Run、Task/Control Job、Attempt、Generation 和 Sandbox
 | 支持的 CPU Command operation | OpenSandbox Command Runtime | gVisor、只读根文件系统、Attempt 私有目录、不可变镜像与 Bundle |
 | CPU Agent，包括 Editing Implementer | OpenSandbox Agent Runtime | 按用户冻结配置选择 Codex、Claude 或 DeepSeek Harness；页面显示真实执行位置 |
 | Manager、Reviewer、Diagnostician | Agent Worker 宿主控制任务 | 不伪装成业务 Task，也不宣称运行在 OpenSandbox |
-| GPU operation | 本机隔离运行时 | 不因 OpenSandbox 可用而自动迁移 |
+| GPU operation | 本机隔离运行时 | 在配置授权池内动态探测显存、利用率和 lease lock；资源等待不消耗业务尝试 |
 | 外部 Provider operation | 已登记 Provider 协议 | 保存调用意图、外部句柄、恢复和清理状态 |
 
 当前部署已启用 Codex、Claude 和 DeepSeek 三种远程 Agent Runtime。GPU Agent 与未声明远程能力的任务保留本机隔离路径；不得把 Command Runtime 的验证结果外推为所有 Harness 均已通过真实模型业务验收。

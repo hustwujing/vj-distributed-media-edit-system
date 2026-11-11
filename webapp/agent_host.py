@@ -518,8 +518,12 @@ class AgentHost:
                         allocation=allocation_for(self.identities.root)
                         if allocation.acquire() is None:
                             allocation.release();lease.waiting_for_resource=True
+                            from .workflow_graph import get as current_run,work_item
+                            from .scheduling import resource_backoff
+                            task=work_item(current_run(self.store,lease.run_id),lease.step_id)
+                            delay=resource_backoff(task.get('wait_recorded_at'),self.store.now())
                             from .workflow_dispatch import stage_result
-                            stage_result(self.store,lease,'resource_wait',{'wait_seconds':5})
+                            stage_result(self.store,lease,'resource_wait',{'wait_seconds':delay,'wait_reason':'gpu_capacity'})
                             return
                         lease.gpu_reservation=allocation
                     from .workflow_executor import execute

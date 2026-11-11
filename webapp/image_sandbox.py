@@ -1,6 +1,8 @@
 """Restricted runtime for fixed image tools, separate from generated code."""
 import contextlib
+import fcntl
 import importlib.util
+import math
 import os
 from pathlib import Path
 import sys
@@ -29,16 +31,41 @@ MODEL_PATHS = (
 )
 
 
-def allocation_for(pool_root):
+def _gpu_manager():
     spec=importlib.util.spec_from_file_location('video_use_gpu_manager',os.environ.get('VIDEO_USE_GPU_MANAGER_PATH','/data/wujing03/media-foundation-core/media_core/gpu.py'))
     module=importlib.util.module_from_spec(spec);sys.modules[spec.name]=module;spec.loader.exec_module(module)
+    return module
+
+
+def gpu_capacity(allowed):
+    """Return currently admissible GPUs without reserving one."""
+    module=_gpu_manager();minimum=int(os.environ.get('VIDEO_USE_GPU_MINIMUM_FREE_MB','6000'))
+    required=math.ceil(minimum*max(1.0,float(os.environ.get('MEDIA_GPU_SAFETY_FACTOR','1.15'))))
+    maximum=int(os.environ.get('MEDIA_GPU_MAX_UTILIZATION','95'))
+    directory=Path(os.environ.get('VIDEO_USE_GPU_LEASE_ROOT','/data/wujing03/.media-gpu-leases'))
+    directory.mkdir(parents=True,exist_ok=True);result=[]
+    for gpu in module.query_gpus():
+        if gpu.index not in allowed or gpu.free_mb<required or gpu.utilization>maximum:continue
+        handle=(directory/f'gpu-{gpu.index}.lock').open('a+')
+        try:
+            try:fcntl.flock(handle.fileno(),fcntl.LOCK_EX|fcntl.LOCK_NB)
+            except BlockingIOError:continue
+            result.append({'index':gpu.index,'free_mb':gpu.free_mb,'utilization':gpu.utilization})
+            fcntl.flock(handle.fileno(),fcntl.LOCK_UN)
+        finally:handle.close()
+    return result
+
+
+def allocation_for(pool_root):
+    module=_gpu_manager()
     blocked=set()
     for path in (Path(pool_root)/'records').glob('*.json'):
         try:blocked.update(json.loads(path.read_text()).get('gpus',[]))
         except (OSError,ValueError):pass
     from .scheduling import gpu_devices
     return module.GPULease(Path(os.environ.get('VIDEO_USE_GPU_LEASE_ROOT','/data/wujing03/.media-gpu-leases')),
-                           tuple(i for i in gpu_devices() if i not in blocked),6000)
+                           tuple(i for i in gpu_devices() if i not in blocked),
+                           int(os.environ.get('VIDEO_USE_GPU_MINIMUM_FREE_MB','6000')))
 
 
 @contextlib.contextmanager

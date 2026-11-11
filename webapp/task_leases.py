@@ -302,6 +302,8 @@ class Coordinator:
         self.heartbeat()
 
     def heartbeat(self, draining=False):
+        from .scheduling import limits
+        settings=json.dumps(limits())
         with self.store.connect() as db:
             db.execute('BEGIN IMMEDIATE')
             from .task_lifecycle import sweep
@@ -309,8 +311,7 @@ class Coordinator:
             db.execute('INSERT INTO execution_workers VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET heartbeat=excluded.heartbeat,draining=MAX(execution_workers.draining,excluded.draining)',
                        (self.worker, self.node, self.release, self.model, now(db), int(draining)))
             db.execute('INSERT OR IGNORE INTO execution_operation_catalog VALUES (?,?,?)',(self.worker,self.operation_catalog,now(db)))
-            from .scheduling import limits
-            db.execute('INSERT INTO execution_scheduler_configs VALUES (?,?,?) ON CONFLICT(worker) DO UPDATE SET settings=excluded.settings,updated=excluded.updated',(self.worker,json.dumps(limits()),now(db)))
+            db.execute('INSERT INTO execution_scheduler_configs VALUES (?,?,?) ON CONFLICT(worker) DO UPDATE SET settings=excluded.settings,updated=excluded.updated',(self.worker,settings,now(db)))
             from .task_lifecycle import expire_leases
             expire_leases(db)
 
@@ -422,9 +423,21 @@ class Coordinator:
             recovered = bool(prior and (prior['active'] or prior['interrupted'])) or bool(not prior and turn['status']=='running')
             generation = db.execute('SELECT COALESCE(MAX(generation),0)+1 AS next FROM execution_attempts WHERE run_id=?',(run_id,)).fetchone()['next']
             from .scheduling import admit
-            resources={'cpu':0,'memory_mb':0,'provider':''} if control_only else admit(db,self.store,run_id,kind,self.node,timestamp,step_id=step_id)
+            resources={'cpu':0,'memory_mb':0,'provider':''} if control_only else admit(db,self.store,run_id,kind,self.node,timestamp,step_id=step_id,worker=self.worker)
             if resources is None:
-                db.execute("INSERT INTO execution_waits VALUES (?,'resource',0,?) ON CONFLICT(task_id) DO UPDATE SET reason='resource',updated=excluded.updated",(run_id,timestamp))
+                from .scheduling import requirements,resource_backoff
+                need=requirements(self.store,run_id,kind,step_id=step_id);reason='resource'
+                if need['gpu']:
+                    row=db.execute('SELECT settings FROM execution_scheduler_configs WHERE worker=?',(self.worker,)).fetchone()
+                    available=json.loads(row['settings']).get('gpu_available_devices',[]) if row and row['settings'] else []
+                    if not available:reason='gpu_capacity'
+                retry_at=0
+                if dynamic and step_id:
+                    from .workflow_graph import write_work
+                    delay=resource_backoff(task.get('wait_recorded_at'),timestamp);retry_at=timestamp+delay
+                    write_work(self.store,task,"UPDATE run_tasks SET status='retry_wait',wait_reason=?,wait_recorded_at=COALESCE(wait_recorded_at,?),next_run_at=?,updated_at=? WHERE run_id=? AND id=?",
+                               (reason,timestamp,retry_at,timestamp,run_id,step_id))
+                db.execute("INSERT INTO execution_waits VALUES (?,?,?,?) ON CONFLICT(task_id) DO UPDATE SET reason=excluded.reason,next_retry=excluded.next_retry,updated=excluded.updated",(run_id,reason,retry_at,timestamp))
                 return None
             if environment_binding:db.execute(f'UPDATE {work_table(task)} SET bindings_json=? WHERE run_id=? AND id=?' if dynamic else 'UPDATE agent_steps SET bindings=? WHERE workflow=? AND id=?',environment_binding)
             attempt = uuid.uuid4().hex

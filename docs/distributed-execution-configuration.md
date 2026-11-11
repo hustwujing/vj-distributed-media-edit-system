@@ -51,6 +51,8 @@ API 将同步依赖调用隔离到不同的有界执行器。异步 Redis SSE �
 
 当前节点绑定为 CPU Agent `opensandbox`、CPU Command `opensandbox`，CPU Agent Profile 覆盖 Codex、Claude 和 DeepSeek Harness。OpenSandbox 节点配置必须同时冻结 URL、网络隔离确认、Runtime Profile、镜像 manifest digest 和 Bundle digest；API key 只保存在私有节点配置。GPU 和未声明远程执行能力的 operation 不随该开关迁移。修改路由后以实际 Attempt 的 backend binding、`execution_location`、Sandbox ID 和 cleanup receipt 核对，不能只检查环境变量。
 
+`VIDEO_USE_GPU_DEVICES` 是本部署允许使用的 GPU 池，不是固定指派某一张卡。Executor 心跳只在该池内动态探测显存、利用率和共享 lease lock，并发布 `gpu_available_devices`；领取 GPU Task 前按心跳结果拦截。领取后仍须二次加锁，以处理探测和执行之间的竞争。资源不足写入 `gpu_capacity` 等待原因并按 10、20、40、60 秒退避，不创建无意义的业务 Attempt。扩大授权池前要核对其他服务使用范围，不能把“当前空闲”当成永久独占授权。
+
 ### 对话模型与沙盒推理强度
 
 在私有 `.agent.env` 中配置，并通过完整部署重启服务使其生效：

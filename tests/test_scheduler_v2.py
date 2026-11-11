@@ -1,4 +1,8 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from tests import test_workflows as fixtures
 local_step=fixtures.local_step
@@ -86,7 +90,43 @@ class SchedulingTests(unittest.TestCase):
             self.assertIsNotNone(first)
             self.assertIsNone(self.coordinator.claim(self.f.turn,'agent'))
             first.release()
+            settings=json.loads(self.f.store.query('SELECT settings FROM execution_scheduler_configs WHERE worker=?',(self.coordinator.worker,))[0]['settings'])
+            self.f.store.execute('UPDATE execution_scheduler_configs SET settings=? WHERE worker=?',
+                                 (json.dumps({**settings,'gpu_available_devices':[0]}),self.coordinator.worker))
             self.assertIsNotNone(self.coordinator.claim(self.f.turn,'agent'))
+
+    def test_gpu_capacity_is_published_and_blocks_claim_before_attempt_creation(self):
+        from webapp import scheduling
+        with patch('webapp.scheduling.available_gpu_devices',return_value=[{'index':7,'free_mb':24000,'utilization':0}]):
+            self.coordinator.heartbeat()
+        settings=json.loads(self.f.store.query('SELECT settings FROM execution_scheduler_configs WHERE worker=?',(self.coordinator.worker,))[0]['settings'])
+        self.assertEqual(settings['gpu_available_devices'],[7])
+        project=self.f.store.add_project('gpu-owner','gpu-wait')['id'];job=self.f.store.add_job(project,'pack',{'kind':'pack'})
+        need={'cpu':2,'memory_mb':8192,'gpu':True,'provider':'','step_id':None}
+        self.f.store.execute('UPDATE execution_scheduler_configs SET settings=? WHERE worker=?',
+                             (json.dumps({**settings,'gpu_available_devices':[]}),self.coordinator.worker))
+        with patch('webapp.scheduling.requirements',return_value=need):
+            self.assertIsNone(self.coordinator.claim(job['id'],'manual'))
+        self.assertFalse(self.f.store.query('SELECT id FROM execution_attempts WHERE run_id=?',(job['id'],)))
+        self.assertEqual(self.f.store.query('SELECT reason FROM execution_waits WHERE task_id=?',(job['id'],))[0]['reason'],'gpu_capacity')
+        self.f.store.execute('UPDATE execution_scheduler_configs SET settings=? WHERE worker=?',
+                             (json.dumps({**settings,'gpu_available_devices':[7]}),self.coordinator.worker))
+        self.f.store.execute('UPDATE execution_waits SET next_retry=0 WHERE task_id=?',(job['id'],))
+        with patch('webapp.scheduling.requirements',return_value=need):lease=self.coordinator.claim(job['id'],'manual')
+        self.assertIsNotNone(lease);lease.release()
+
+    def test_gpu_probe_filters_authorized_capacity_and_resource_backoff_is_bounded(self):
+        from webapp.image_sandbox import gpu_capacity
+        from webapp.scheduling import resource_backoff
+        fake=SimpleNamespace(query_gpus=lambda:[
+            SimpleNamespace(index=6,free_mb=8000,utilization=0),SimpleNamespace(index=7,free_mb=24000,utilization=0),
+            SimpleNamespace(index=5,free_mb=20000,utilization=100)])
+        with tempfile.TemporaryDirectory(dir='/data2/wujing03/vu-tmp') as folder, \
+             patch('webapp.image_sandbox._gpu_manager',return_value=fake), \
+             patch.dict('os.environ',{'VIDEO_USE_GPU_LEASE_ROOT':folder}):
+            self.assertEqual([item['index'] for item in gpu_capacity((5,7))],[7])
+        self.assertEqual([resource_backoff(100,100),resource_backoff(100,131),resource_backoff(100,161),resource_backoff(100,500)],
+                         [10,20,40,60])
 
     def test_resource_wait_does_not_consume_manual_recovery_attempts(self):
         from webapp.scheduling import defer_resource

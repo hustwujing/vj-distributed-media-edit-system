@@ -178,6 +178,7 @@ def configure(seed):
     service=pwd.getpwnam(NAMESPACE)
     sandbox_values=env_file(CONF/'opensandbox-runtime.env') if (CONF/'opensandbox-runtime.env').exists() else {}
     allowed_sandbox={'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND','VIDEO_USE_CPU_COMMAND_SANDBOX_BACKEND',
+        'VIDEO_USE_GPU_DEVICES',
         'VIDEO_USE_OPEN_SANDBOX_URL','VIDEO_USE_OPEN_SANDBOX_API_KEY',
         'VIDEO_USE_OPEN_SANDBOX_NETWORK_ISOLATION','VIDEO_USE_OPEN_SANDBOX_INTERNAL_BRIDGE_CONFIRMED',
         'VIDEO_USE_OPEN_SANDBOX_COMMAND_RUNTIME_PROFILE','VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST',
@@ -199,7 +200,8 @@ def configure(seed):
         private_env(CONF/f'node-{node}.env',{'VIDEO_USE_DATA_DIR':data('node',node),'TMPDIR':data('node',node)/'tmp',
             'VIDEO_USE_NODE_INSTANCE':node,
             'VIDEO_USE_EXECUTOR_ROOT':registry(node),'VIDEO_USE_UID_START':UIDS[node],'VIDEO_USE_UID_COUNT':64,
-            'VIDEO_USE_GPU_DEVICES':'1' if node=='a' else '2','VIDEO_USE_NODE_OPERATIONS':'*',**sandbox_values})
+            'VIDEO_USE_GPU_DEVICES':sandbox_values.get('VIDEO_USE_GPU_DEVICES','1' if node=='a' else '2'),
+            'VIDEO_USE_NODE_OPERATIONS':'*',**sandbox_values})
         private_env(CONF/f'media-{node}.env',{'TMPDIR':data('media',node)/'tmp','VIDEO_USE_DEPLOYMENT':NAMESPACE})
     (ROOT/'observability/tmp').mkdir(mode=0o700,parents=True,exist_ok=True)
     (ROOT/'orchestrator').mkdir(mode=0o700,exist_ok=True)

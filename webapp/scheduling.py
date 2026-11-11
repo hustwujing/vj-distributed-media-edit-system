@@ -1,8 +1,11 @@
 """Fair candidate selection and explainable resource admission."""
 import json
 import os
+import time
 from .execution_contracts import dispatch_kind
 from .operations import for_step
+
+_GPU_CAPACITY_CACHE={}
 
 
 def gpu_devices():
@@ -13,6 +16,24 @@ def gpu_devices():
         if any(value<0 or value>255 for value in devices):raise ValueError('Invalid configured GPU index')
         return sorted(set(devices))
     return sorted(int(path.name[6:]) for path in Path('/dev').glob('nvidia[0-9]*') if path.name[6:].isdigit())
+
+
+def available_gpu_devices():
+    allowed=tuple(gpu_devices())
+    if not allowed:return []
+    now=time.monotonic();ttl=max(1,float(os.environ.get('VIDEO_USE_GPU_CAPACITY_CACHE_SECONDS','5')))
+    key=(allowed,os.environ.get('VIDEO_USE_GPU_MINIMUM_FREE_MB','6000'),
+         os.environ.get('MEDIA_GPU_SAFETY_FACTOR','1.15'),os.environ.get('MEDIA_GPU_MAX_UTILIZATION','95'))
+    cached=_GPU_CAPACITY_CACHE.get(key)
+    if cached and cached[0]>now:return cached[1]
+    from .image_sandbox import gpu_capacity
+    value=gpu_capacity(allowed);_GPU_CAPACITY_CACHE.clear();_GPU_CAPACITY_CACHE[key]=(now+ttl,value)
+    return value
+
+
+def resource_backoff(wait_recorded_at,now):
+    waited=max(0,now-(wait_recorded_at or now))
+    return min(60,10*2**min(3,int(waited//30)))
 
 
 def next_step(w,now):
@@ -151,9 +172,12 @@ def initialize(db):
     );''')
 
 
-def admit(db,store,run_id,kind,node,timestamp,step_id=None):
+def admit(db,store,run_id,kind,node,timestamp,step_id=None,worker=None):
     need=requirements(store,run_id,kind,step_id=step_id)
-    if need['gpu'] and not gpu_devices():return None
+    if need['gpu']:
+        settings=db.execute('SELECT settings FROM execution_scheduler_configs WHERE worker=?',(worker,)).fetchone() if worker else None
+        available=json.loads(settings['settings']).get('gpu_available_devices',[]) if settings and settings['settings'] else []
+        if not available:return None
     used=db.execute('''SELECT COALESCE(SUM(r.cpu),0) AS cpu,COALESCE(SUM(r.memory_mb),0) AS memory_mb
       FROM execution_resource_claims r WHERE node=? AND (
       EXISTS(SELECT 1 FROM execution_leases l WHERE l.attempt=r.attempt AND l.active=1 AND l.expires>?)
@@ -202,12 +226,14 @@ def admit(db,store,run_id,kind,node,timestamp,step_id=None):
 
 def limits(*, include_runtime_profile=True):
     from .runtime_image import fingerprint
+    capacity=available_gpu_devices()
     return {'worker':int(os.environ.get('VIDEO_USE_CONCURRENCY','2')),
         'operations':os.environ.get('VIDEO_USE_NODE_OPERATIONS','*').split(','),
         'node':int(os.environ.get('VIDEO_USE_NODE_CONCURRENCY',os.environ.get('VIDEO_USE_CONCURRENCY','2'))),
         'user':int(os.environ.get('VIDEO_USE_USER_CONCURRENCY','2')),'cpu_slots':int(os.environ.get('VIDEO_USE_NODE_CPU_SLOTS','4')),
         'memory_mb':int(os.environ.get('VIDEO_USE_NODE_MEMORY_MB','12288')),'provider':int(os.environ.get('VIDEO_USE_PROVIDER_CONCURRENCY','4')),
-        'gpu_devices':gpu_devices(),'runtime_profile':fingerprint() if include_runtime_profile else None}
+        'gpu_devices':gpu_devices(),'gpu_available_devices':[item['index'] for item in capacity],
+        'gpu_capacity':capacity,'runtime_profile':fingerprint() if include_runtime_profile else None}
 
 
 def snapshot(store,run_id):
