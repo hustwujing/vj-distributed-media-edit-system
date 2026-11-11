@@ -55,6 +55,9 @@ const server=http.createServer((req,res)=>{
   await page.evaluate(()=>window.rerender());assert.deepEqual(await node.evaluate(n=>[n.offsetLeft,n.offsetTop]),moved);
   await page.locator('#dag-reset').click();assert.deepEqual(await node.evaluate(n=>[n.offsetLeft,n.offsetTop]),before);
   await page.evaluate(()=>window.startClock());
+  const pulse=await node.evaluate(n=>{const style=getComputedStyle(n),frames=n.getAnimations()[0]?.effect.getKeyframes()||[];return {name:style.animationName,duration:style.animationDuration,frames:frames.map(frame=>({background:frame.backgroundColor,shadow:frame.boxShadow}))};});
+  assert.equal(pulse.name,'node-breathe');assert.equal(pulse.duration,'1.6s');assert.ok(new Set(pulse.frames.map(frame=>frame.background).filter(Boolean)).size>1);assert.ok(pulse.frames.some(frame=>String(frame.shadow).includes('11px')));
+  if(process.argv[2])await page.screenshot({path:path.join(path.dirname(process.argv[2]),'active-node-breathe.png'),fullPage:true});
   const clocks=node.locator('.execution-time');assert.equal(await clocks.count(),3);
   assert.doesNotMatch(await node.innerText(),/第1次/);assert.match(await node.innerText(),/第4次/);
   const first=await clocks.last().innerText();await page.waitForTimeout(1100);await page.evaluate(()=>window.tick());
