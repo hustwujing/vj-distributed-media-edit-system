@@ -639,7 +639,8 @@ def inspect(store,run,allowed,reference,offset=0):
         if result['static_rendering_eligible']:
             result.update(media=True,still_image=True,vector_image=True,path=path,offset_seconds=0)
         return result
-    if suffix in ('.txt','.md','.json','.srt','.vtt','.ass','.csv','.py','.log'):
+    from .text_formats import TEXT_SUFFIXES
+    if suffix in TEXT_SUFFIXES:
         if type(offset)!=int:raise InspectionInputError('Text offset is an integer byte offset, not a video timestamp')
         if path.stat().st_size and offset>=path.stat().st_size:raise InspectionInputError('Text offset is beyond EOF; use an earlier byte offset')
         with path.open('rb') as source:source.seek(offset);content=source.read(8192)

@@ -55,6 +55,16 @@ class InspectionFormatTests(unittest.TestCase):
                 input=json.dumps({'files':[path.name],'acceptance':[rule]}),capture_output=True,text=True,check=True)
             self.assertEqual(json.loads(result.stdout)['passed'],passed,result.stdout)
 
+    def test_native_text_artifacts_are_inspected_as_bounded_source_without_execution(self):
+        path=self.root/'artifact.html'
+        path.write_text('<!doctype html><script>const seed = 42;</script><a href="https://example.invalid">offline check</a>')
+        with patch('subprocess.run',side_effect=AssertionError('Text inspection must not execute a renderer')):
+            result=self.inspect_file(path)
+        self.assertIn('const seed = 42',result['text'])
+        self.assertIn('https://example.invalid',result['text'])
+        self.assertTrue(result['complete'])
+        self.assertEqual(result['offset'],0)
+
     def test_svg_format_comes_from_logical_reference_not_object_cache_filename(self):
         path=self.root/('c'*64);path.write_text('<svg xmlns="http://www.w3.org/2000/svg"><text>缓存标题</text></svg>')
         reference='edit/candidate/title.svg'
