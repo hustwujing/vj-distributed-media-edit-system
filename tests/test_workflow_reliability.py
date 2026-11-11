@@ -106,6 +106,12 @@ class FormatTests(unittest.TestCase):
             validate_typed_output_targets([Acceptance(**rule),Acceptance(**media)],['status.gif'])
             report=self.check(root,['status.gif'],[rule,media])
             self.assertTrue(report['passed']);self.assertEqual(report['files'][0]['frame_count'],2)
+    def test_office_delivery_must_open_in_libreoffice(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            (root/'broken.xlsx').write_bytes(b'PK\x03\x04not-an-office-document')
+            invalid=self.check(root,['broken.xlsx'],[{'kind':'file','file':'broken.xlsx'}])
+            self.assertFalse(invalid['technical_valid'])
 
 class RecoveryTests(unittest.TestCase):
     def setUp(self):

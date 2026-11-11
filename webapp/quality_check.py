@@ -65,6 +65,18 @@ def inspect(name):
     elif path.suffix.lower()=='.json':
         if size>2*1024**2:raise ValueError('JSON exceeds limit')
         parsed=json.loads(path.read_text());value.update(kind='json',keys=list(parsed) if isinstance(parsed,dict) else [])
+    elif path.suffix.lower() in ('.docx','.xlsx','.pptx'):
+        with tempfile.TemporaryDirectory(dir=os.environ.get('TMPDIR')) as temporary:
+            root=Path(temporary);profile=root/'profile'
+            converted=subprocess.run(['/usr/bin/libreoffice','--headless','--nologo','--nodefault','--nolockcheck','--nofirststartwizard',
+                '-env:UserInstallation='+profile.resolve().as_uri(),'--convert-to','pdf','--outdir',str(root),str(path.resolve())],
+                stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.PIPE,timeout=90)
+            pdf=next(root.glob('*.pdf'),None)
+            if converted.returncode or pdf is None or not pdf.read_bytes()[:5]==b'%PDF-':raise ValueError('Office document cannot be rendered')
+            import pymupdf
+            with pymupdf.open(pdf) as document:
+                if not 0<len(document)<=200:raise ValueError('Office page count exceeds limit')
+                value.update(office_render_valid=True,rendered_page_count=len(document))
     elif path.suffix.lower() in SUBTITLE_SUFFIXES:
         # Downstream operations consume this attested type, not just the file
         # suffix or the success of an optional acceptance rule.
