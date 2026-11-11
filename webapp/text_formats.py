@@ -2,7 +2,11 @@
 import re
 from pathlib import Path
 
-TEXT_SUFFIXES=frozenset({'.txt','.md','.json','.srt','.vtt','.ass','.ssa','.csv','.log','.svg'})
+TEXT_SUFFIXES=frozenset({
+    '.txt','.md','.json','.jsonl','.ndjson','.srt','.vtt','.ass','.ssa','.csv','.tsv','.log',
+    '.svg','.html','.htm','.css','.js','.mjs','.cjs','.ts','.tsx','.jsx','.xml','.drawio',
+    '.yaml','.yml','.toml','.ini','.cfg','.py','.sh','.sql','.tex',
+})
 SUBTITLE_SUFFIXES=frozenset({'.srt','.vtt','.ass','.ssa'})
 MAX_TEXT_BYTES=2*1024**2
 

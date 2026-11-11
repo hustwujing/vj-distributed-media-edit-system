@@ -32,6 +32,22 @@ class FormatTests(unittest.TestCase):
                     report=self.check(root,[name],rules)
                     self.assertTrue(report['passed'])
                     self.assertEqual(report['files'][0]['kind'],'subtitle')
+    def test_real_checker_accepts_bounded_native_skill_text_artifacts(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d)
+            examples={
+                'artifact.html':'<!doctype html><meta charset="utf-8"><script>const seed = 42;</script>',
+                'diagram.drawio':'<mxfile><diagram name="seed-42"/></mxfile>',
+                'config.yaml':'seed: 42\n',
+                'component.tsx':'export const Seed = () => <span>42</span>;\n',
+            }
+            for name,content in examples.items():
+                with self.subTest(name=name):
+                    (root/name).write_text(content)
+                    rule={'kind':'text','file':name,'contains':['42']}
+                    validate_typed_output_targets([Acceptance(**rule)],[name])
+                    report=self.check(root,[name],[rule])
+                    self.assertTrue(report['passed'],report)
     def test_subtitle_type_is_attested_without_optional_acceptance_rules(self):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d)
