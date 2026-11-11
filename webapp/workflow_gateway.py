@@ -78,7 +78,7 @@ def submit(lease,kind,body):
 def inspect(gateway,body):
     run,task,policy=context(gateway.lease)
     if 'inspect' not in policy.tools or set(body)-{'ref','offset'}:raise ValueError('Inspection outside profile scope')
-    from .workflow_agents import inputs,inspect as inspect_file,inspect_media
+    from .workflow_agents import inputs,inspect as inspect_file,inspect_media,inspect_document
     if task.get('control_kind'):
         table='planner_runs' if policy.id=='media_planner' else 'workflow_reviews'
         row=gateway.lease.store.query(f'SELECT snapshot_json,snapshot_digest FROM {table} WHERE id=?',(task['spec']['request_id'],))[0]
@@ -93,6 +93,7 @@ def inspect(gateway,body):
         host=SimpleNamespace(store=gateway.lease.store,stop=threading.Event(),workflow_runner=SimpleNamespace(
             adapter=Adapter(gateway.lease.store,gateway.model,gateway.socket_path.parent)))
         value=inspect_media(host,gateway.lease,run,task,value)
+    elif value.get('document'):value=inspect_document(value)
     import uuid
     gateway.lease.store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',
         (uuid.uuid4().hex,run['id'],task['id'],gateway.lease.attempt,body['ref'],snapshot_digest,

@@ -690,6 +690,10 @@ def inspect(store,run,allowed,reference,offset=0):
     if suffix=='.zip':
         if offset!=0:raise InspectionInputError('ZIP directory inspection requires offset 0')
         return {'ref':reference,'metadata':metadata,**archive_index(path)}
+    if suffix in ('.pdf','.pptx','.docx','.xlsx'):
+        if type(offset)!=int:raise InspectionInputError('Document offset is a zero-based page or sheet index')
+        return {'ref':reference,'metadata':metadata,'document':True,'document_kind':suffix[1:],
+                'path':path,'document_index':offset}
     kind=mimetypes.guess_type('file'+suffix)[0] or ''
     if not kind.startswith(('image/','video/','audio/')):
         raise InspectionInputError('Unsupported inspection file type; inspect a supported text manifest or media file.', 'unsupported_inspection_type')
@@ -698,6 +702,128 @@ def inspect(store,run,allowed,reference,offset=0):
     still_image=suffix in ('.png','.jpg','.jpeg','.webp','.gif','.bmp')
     return {'ref':reference,'metadata':metadata,'media':True,'path':path,'still_image':still_image,
             'offset_seconds':0 if still_image else offset}
+
+
+def inspect_document(evidence):
+    """Bounded, non-executing document structure and page evidence."""
+    import io,posixpath,re,zipfile
+    from xml.etree import ElementTree
+    kind=evidence['document_kind'];path=evidence.pop('path');index=evidence['document_index']
+    if kind!='pdf':archive_index(path)
+    if kind=='pdf':
+        import pymupdf
+        try:
+            with pymupdf.open(path) as document:
+                if not 0<len(document)<=200 or index>=len(document):raise InspectionInputError('Document page is outside the bounded page range')
+                page=document[index];text=page.get_text()[:24000]
+                pixels=page.get_pixmap(matrix=pymupdf.Matrix(1.25,1.25),alpha=False)
+                image=pixels.tobytes('jpeg',jpg_quality=80)
+                return {**evidence,'coverage':'pdf_page_text_and_render','page_count':len(document),
+                    'page_index':index,'text':text,'image':'data:image/jpeg;base64,'+base64.b64encode(image).decode()}
+        except InspectionInputError:raise
+        except Exception as exc:raise InspectionInputError('PDF document is invalid') from exc
+    if kind=='pptx':
+        with zipfile.ZipFile(path) as archive:
+            def xml(name,maximum=2*1024**2):
+                try:info=archive.getinfo(name)
+                except KeyError as exc:raise InspectionInputError('Required Office XML member is missing') from exc
+                if info.file_size>maximum:raise InspectionInputError('Office XML member exceeds limit')
+                raw=archive.read(name)
+                if b'<!DOCTYPE' in raw.upper() or b'<!ENTITY' in raw.upper():raise InspectionInputError('Office XML declarations are unsupported')
+                try:return ElementTree.fromstring(raw)
+                except ElementTree.ParseError as exc:raise InspectionInputError('Office XML is invalid') from exc
+            local=lambda node:node.tag.rsplit('}',1)[-1]
+            slides=sorted((name for name in archive.namelist() if re.fullmatch(r'ppt/slides/slide[0-9]+\.xml',name)),
+                          key=lambda name:int(re.search(r'([0-9]+)',name.rsplit('/',1)[-1]).group(1)))
+            if not 0<len(slides)<=100 or index>=len(slides):raise InspectionInputError('Presentation slide is outside the bounded slide range')
+            presentation=xml('ppt/presentation.xml');size=next((node for node in presentation.iter() if local(node)=='sldSz'),None)
+            width=int(size.attrib.get('cx',0)) if size is not None else 0;height=int(size.attrib.get('cy',0)) if size is not None else 0
+            slide_name=slides[index];slide=xml(slide_name);rels={}
+            rel_name=posixpath.join(posixpath.dirname(slide_name),'_rels',posixpath.basename(slide_name)+'.rels')
+            if rel_name in archive.namelist():
+                for relation in xml(rel_name).iter():
+                    if local(relation)=='Relationship':rels[relation.attrib.get('Id','')]=posixpath.normpath(posixpath.join(posixpath.dirname(slide_name),relation.attrib.get('Target','')))
+            texts=[];shapes=[];pictures=[]
+            for shape in (node for node in slide.iter() if local(node) in ('sp','pic')):
+                nodes=list(shape.iter());off=next((node for node in nodes if local(node)=='off'),None);ext=next((node for node in nodes if local(node)=='ext'),None)
+                left=int(off.attrib.get('x',0)) if off is not None else 0;top=int(off.attrib.get('y',0)) if off is not None else 0
+                shape_width=int(ext.attrib.get('cx',0)) if ext is not None else 0;shape_height=int(ext.attrib.get('cy',0)) if ext is not None else 0
+                text=''.join((node.text or '') for node in nodes if local(node)=='t')[:4000]
+                item={'type':local(shape),'left':left,'top':top,'width':shape_width,'height':shape_height,
+                    'outside_slide':bool(width and height and (left<0 or top<0 or left+shape_width>width or top+shape_height>height))}
+                if text:item['text']=text;texts.append(text)
+                if local(shape)=='pic':
+                    blip=next((node for node in nodes if local(node)=='blip'),None)
+                    rid=next((value for key,value in (blip.attrib.items() if blip is not None else ()) if key.rsplit('}',1)[-1]=='embed'),'')
+                    target=rels.get(rid)
+                    if target in archive.namelist():
+                        info=archive.getinfo(target)
+                        if info.file_size<=32*1024**2:pictures.append((shape_width*shape_height,archive.read(target)))
+                shapes.append(item)
+                if len(shapes)>500:raise InspectionInputError('Presentation shape count exceeds limit')
+        result={**evidence,'coverage':'presentation_structure','slide_count':len(slides),'slide_index':index,
+            'slide_size':{'width':width,'height':height},'texts':texts,'shapes':shapes,
+            'out_of_bounds_shapes':sum(item['outside_slide'] for item in shapes)}
+        if pictures:
+            from PIL import Image
+            with Image.open(io.BytesIO(max(pictures,key=lambda item:item[0])[1])) as source:
+                source.load();pixels=source.convert('RGB');pixels.thumbnail((1024,1024),Image.Resampling.LANCZOS)
+                output=io.BytesIO();pixels.save(output,format='JPEG',quality=82)
+            result.update(coverage='presentation_structure_and_embedded_slide_image',
+                image='data:image/jpeg;base64,'+base64.b64encode(output.getvalue()).decode())
+        if len(graph.encode({k:v for k,v in result.items() if k!='image'}).encode())>65536:
+            raise InspectionInputError('Presentation evidence exceeds limit')
+        return result
+    if index!=0:raise InspectionInputError('This document format exposes one bounded structural inspection at offset 0')
+    if kind=='docx':
+        with zipfile.ZipFile(path) as archive:
+            info=archive.getinfo('word/document.xml')
+            if info.file_size>4*1024**2:raise InspectionInputError('Word document XML exceeds limit')
+            root=ElementTree.fromstring(archive.read(info));local=lambda node:node.tag.rsplit('}',1)[-1]
+            paragraphs=[];tables=[]
+            for paragraph in (node for node in root.iter() if local(node)=='p'):
+                text=''.join((node.text or '') for node in paragraph.iter() if local(node)=='t').strip()
+                if text:paragraphs.append(text[:2000])
+                if len(paragraphs)>500:break
+            for table in (node for node in root.iter() if local(node)=='tbl'):
+                rows=[]
+                for row in (node for node in table if local(node)=='tr'):
+                    rows.append([''.join((part.text or '') for part in cell.iter() if local(part)=='t')[:1000]
+                                 for cell in row if local(cell)=='tc'][:30])
+                    if len(rows)>=100:break
+                tables.append(rows)
+                if len(tables)>=50:break
+            sections=sum(1 for node in root.iter() if local(node)=='sectPr')
+        return {**evidence,'coverage':'word_structure','paragraphs':paragraphs,'tables':tables,'section_count':sections}
+    with zipfile.ZipFile(path) as archive:
+        def bounded_xml(name):
+            info=archive.getinfo(name)
+            if info.file_size>4*1024**2:raise InspectionInputError('Spreadsheet XML member exceeds limit')
+            return ElementTree.fromstring(archive.read(info))
+        local=lambda node:node.tag.rsplit('}',1)[-1]
+        workbook=bounded_xml('xl/workbook.xml');names=[node.attrib.get('name','') for node in workbook.iter() if local(node)=='sheet']
+        if not names or len(names)>100:raise InspectionInputError('Spreadsheet sheet count exceeds limit')
+        shared=[]
+        if 'xl/sharedStrings.xml' in archive.namelist():
+            shared_root=bounded_xml('xl/sharedStrings.xml')
+            shared=[''.join((part.text or '') for part in node.iter() if local(part)=='t')[:1000]
+                    for node in shared_root if local(node)=='si'][:10000]
+        members=sorted((name for name in archive.namelist() if re.fullmatch(r'xl/worksheets/sheet[0-9]+\.xml',name)),
+                       key=lambda name:int(re.search(r'([0-9]+)',name.rsplit('/',1)[-1]).group(1)))
+        sheets=[];total=0
+        for sheet_index,name in enumerate(members[:len(names)]):
+            root=bounded_xml(name);cells=[]
+            for cell in (node for node in root.iter() if local(node)=='c'):
+                reference=cell.attrib.get('r','');formula=next((node.text or '' for node in cell if local(node)=='f'),'')
+                raw=next((node.text or '' for node in cell if local(node)=='v'),'')
+                if cell.attrib.get('t')=='s' and raw.isdigit() and int(raw)<len(shared):raw=shared[int(raw)]
+                if cell.attrib.get('t')=='inlineStr':raw=''.join((node.text or '') for node in cell.iter() if local(node)=='t')
+                cells.append({'coordinate':reference,'value':raw[:1000],'formula':formula[:1000]})
+                total+=1
+                if total>=4000:break
+            sheets.append({'name':names[sheet_index],'cells':cells})
+            if total>=4000:break
+    return {**evidence,'coverage':'spreadsheet_structure','sheet_count':len(names),'sheets':sheets}
 
 
 def execute(host,lease,run,task):
@@ -1063,6 +1189,7 @@ def execute(host,lease,run,task):
                             evidence['window_seconds']=window
                         if evidence.get('media'):evidence=inspect_media(host,lease,run,task,evidence,
                             remaining_images=profile.max_images-len(images))
+                        elif evidence.get('document'):evidence=inspect_document(evidence)
                     except (InspectionInputError,MediaInspectionError) as exc:
                         tool_receipt['status']='failed'
                         detail=getattr(exc,'diagnostic',{}) or {}
