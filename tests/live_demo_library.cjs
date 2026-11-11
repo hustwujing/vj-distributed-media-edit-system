@@ -10,13 +10,16 @@ const jobs=8,uid=()=>crypto.randomBytes(16).toString('hex'),sha=bytes=>crypto.cr
 const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const assertModelConfiguration=value=>{
- assert.equal(value.profile,'codex_gpt6_astra');
- assert.equal(value.model,'gpt-6-astra');
+ assert.equal(value.profile,'claude55');
+ assert.equal(value.model,'claude-sonnet-5-5');
  for(const role of ['media_planner','visual_quality_reviewer','media_failure_diagnostician','delivery_reviewer','editing_implementer']){
-  assert.equal(value.roles[role].model,'gpt-6-astra');
-  assert.equal(value.roles[role].harness,'codex');
-  assert.equal(value.roles[role].reasoning_effort,'low');
+  assert.equal(value.roles[role].model,'claude-sonnet-5-5');
+  assert.equal(value.roles[role].harness,'claude_code');
+  assert.equal(value.roles[role].response_transport,'buffered');
  }
+ for(const role of ['media_planner','visual_quality_reviewer','media_failure_diagnostician','delivery_reviewer'])
+  assert.equal(value.roles[role].reasoning_effort,'high');
+ assert.equal(value.roles.editing_implementer.reasoning_effort,'medium');
 };
 const save=(file,value)=>{fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});fs.writeFileSync(file,JSON.stringify(value,null,2)+'\n',{mode:0o600});};
 const release=JSON.parse(fs.readFileSync(path.join(root,'.sandbox-cluster/release.json')));
@@ -67,7 +70,7 @@ async function runCase(demo){
    for(const track of Object.keys(source.transcripts||{}))assert.ok(project.assets.some(asset=>asset.kind==='json'&&asset.source_asset===imported.id&&asset.audio_track===Number(track)),'Declared cached transcript is not available as an input');
   }
   await page.locator('#dynamic-execution-settings').evaluate(node=>node.open=true);
-  await page.locator('#dynamic-model-profile').selectOption('codex_gpt6_astra');await page.locator('#dynamic-reasoning-effort').selectOption('low');
+  await page.locator('#dynamic-model-profile').selectOption('claude55');await page.locator('#dynamic-reasoning-effort').selectOption('low');
   // Model options are populated only after loadProject has restored the draft.
   const importedPrompt=(await page.locator('#dynamic-input-content').inputValue()).trim();
   assert.equal(importedPrompt,project.draft.prompt.trim(),'Restored draft differs from the visible request');
