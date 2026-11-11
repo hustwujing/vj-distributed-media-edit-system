@@ -77,7 +77,8 @@ class Bridge:
 
     @staticmethod
     def runtime_environment():
-        names=('NODE_PATH','NUMBA_CACHE_DIR','PLAYWRIGHT_BROWSERS_PATH','PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD','U2NET_HOME')
+        names=('NODE_PATH','NUMBA_CACHE_DIR','PLAYWRIGHT_BROWSERS_PATH','PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD','U2NET_HOME',
+               'OPENAI_API_KEY','OPENAI_BASE_URL','CODEX_PPT_IMAGE_MODEL')
         return {name:os.environ[name] for name in names if os.environ.get(name)}
 
     async def claude(self, text):

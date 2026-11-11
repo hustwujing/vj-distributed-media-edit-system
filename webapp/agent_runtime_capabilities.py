@@ -23,9 +23,12 @@ def catalogue():
                 or not all(isinstance(values,list) and len(values)==len(set(values))
                            for values in (item['network_modes'],item['python_modules'],item['node_modules'],item['system_tools']))):
             raise ValueError('Invalid Agent runtime capability record: '+name)
-    from .native_skill_catalog import identifiers
+    from .native_skill_catalog import identifiers,GATEWAY_REQUIREMENTS
     result=json.loads(json.dumps(value))
-    for name,item in result.items():item['native_skills']=list(identifiers()) if name=='opensandbox_cpu' else []
+    for name,item in result.items():
+        item['native_skills']=list(identifiers()) if name=='opensandbox_cpu' else []
+        item['gateway_operations']=sorted({operation for operations in GATEWAY_REQUIREMENTS.values() for operation in operations}) if name=='opensandbox_cpu' else []
+        item['native_skill_gateway_requirements']={key:list(value) for key,value in sorted(GATEWAY_REQUIREMENTS.items())} if name=='opensandbox_cpu' else {}
     return result
 
 
@@ -81,12 +84,15 @@ def validate(requirements,environ=None,selected=None):
     missing_tools=sorted(set(requirements.get('system_tools',()))-set(available['system_tools']))
     network_urls=requirements.get('network_urls',())
     native_skills=requirements.get('native_skills',())
+    gateway_operations=requirements.get('gateway_operations',())
     if native_skills and selected!='opensandbox_cpu':raise ValueError('Selected runtime does not support Native Skills')
     from .native_skill_catalog import validate as validate_native_skills
     validate_native_skills(native_skills)
     if network_urls and 'approved_public_https' not in available['network_modes']:
         raise ValueError('Selected runtime does not support approved public HTTPS')
     for value in network_urls:validate_public_url(value)
+    unsupported_gateway=sorted(set(gateway_operations)-set(available['gateway_operations']))
+    if unsupported_gateway:raise ValueError('Selected runtime lacks Gateway operations: '+', '.join(unsupported_gateway))
     if missing_modules or missing_node or missing_tools:
         detail=[]
         if missing_modules:detail.append('Python modules: '+', '.join(missing_modules))

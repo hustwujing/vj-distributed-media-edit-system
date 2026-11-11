@@ -54,7 +54,9 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
             'import socket; print(socket.gethostbyname(socket.gethostname()))'],10,lambda:False)
         source_ip=self._stdout(source).strip()
         public_urls=tuple(((task_context or {}).get('task',{}).get('runtime_requirements') or {}).get('network_urls') or ())
-        self.gateway=NativeAttemptGateway(self.lease,identity,profile,source_ip,self.normalize_image,public_urls=public_urls)
+        gateway_operations=tuple(((task_context or {}).get('task',{}).get('runtime_requirements') or {}).get('gateway_operations') or ())
+        self.gateway=NativeAttemptGateway(self.lease,identity,profile,source_ip,self.normalize_image,
+            public_urls=public_urls,gateway_operations=gateway_operations)
         tools=Path(__file__).resolve().parents[1]/'runtime/public/capabilities.json'
         frozen={'harness':profile.harness,'runtime_profile':binding.runtime_profile,
             'image_digest':binding.image_digest,'skill_digest':binding.skill_digest,
@@ -66,6 +68,7 @@ class NativeImplementerRuntime(OpenSandboxCommandRuntime):
             {'model':profile.model,'reasoning_effort':profile.reasoning_effort,
              'response_transport':profile.native_response_transport,
              'max_output_tokens':output_token_limit(profile),
+             'gateway_operations':list(gateway_operations),
              'task_workspace':{'output':task_context['output_directory'],
                  'inputs':{name:[item['path']] for name,item in task_context['inputs'].items()}}},gateway=self.gateway.material)
         def workspace(files):

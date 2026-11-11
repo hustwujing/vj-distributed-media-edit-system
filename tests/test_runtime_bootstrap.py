@@ -73,6 +73,16 @@ class RuntimeBootstrapTests(unittest.TestCase):
                 self.harness.write_text(json.dumps({'response_transport':'stream','task_workspace':{**workspace,'inputs':{'source':[value]}}}))
                 with self.assertRaisesRegex(ValueError,'workspace contract'):create_runtime(self.config,bundle_root=self.bundle_root)
 
+    def test_authorized_image_gateway_injects_only_placeholder_compatibility_configuration(self):
+        self.write('claude_code')
+        self.harness.write_text(json.dumps({'response_transport':'stream',
+            'gateway_operations':['image.generate_from_text']}))
+        app=create_runtime(self.config,bundle_root=self.bundle_root)
+        environment=app.state.harness_controller.bridge.environment
+        self.assertEqual(environment['OPENAI_API_KEY'],'gateway-placeholder')
+        self.assertEqual(environment['OPENAI_BASE_URL'],'http://127.0.0.1:18766/v1')
+        self.assertNotIn('private',json.dumps(environment))
+
     def test_codex_does_not_inherit_sdk_private_python_packages(self):
         self.write('codex');app=create_runtime(self.config,bundle_root=self.bundle_root)
         self.assertNotIn('/opt/harness',app.state.harness_controller.bridge.environment['PYTHONPATH'].split(':'))

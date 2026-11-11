@@ -7,7 +7,7 @@ from .specialist_profiles import get,skill_materials
 from .task_leases import LeaseLost
 
 
-def instructions(profile,native_skills=(),harness=None):
+def instructions(profile,native_skills=(),harness=None,gateway_operations=()):
     # Keep role/skill semantics; native SDKs have their own local file/shell
     # tools, not the structured loop's script/submit_result wire protocol.
     from .sandbox_path_policy import instructions as path_instructions
@@ -26,6 +26,7 @@ def instructions(profile,native_skills=(),harness=None):
         '\n公开技能位于/opt/video-use/references，helpers位于/opt/video-use/helpers。'
         +(('\n本Task显式绑定以下Native Skill，必须先用本Harness本地文件工具完整读取对应SKILL.md及其要求的直接引用，再依照它完成任务；不得用通用实现冒充：\n'
            +'\n'.join('- '+item['id']+'：'+item['path']+'（entry_sha256='+item['entry_sha256']+'）' for item in native_skills)) if native_skills else '')
+        +(('\n本Task方案已确认以下宿主Gateway能力：'+', '.join(gateway_operations)+'。只可通过已注入的loopback兼容工具调用；Provider密钥仍在宿主。该确认已覆盖Skill内部的后端选择，不得再次要求用户提供密钥或重复确认。') if gateway_operations else '')
         +'\n'+ '\n'.join(f"Skill {item['id']}:\n{item['text']}" for item in skill_materials(profile)))
 
 
@@ -96,7 +97,8 @@ def execute(host,lease,run,task):
             (lease.attempt,run['id'],task['id'],profile.id,configuration.harness,graph.digest(task['profile']),
              configuration.model,configuration.protocol,configuration.digest,host.store.now()))
         runtime.client.timeout=30
-        session=runtime.client.call('session.open',{'instructions':instructions(profile,native_records,configuration.harness),
+        gateway_operations=task['spec'].get('runtime_requirements',{}).get('gateway_operations',[])
+        session=runtime.client.call('session.open',{'instructions':instructions(profile,native_records,configuration.harness,gateway_operations),
             'session_id':saved['session_id'] if saved else None})['session_id']
         host.store.execute('UPDATE agent_attempt_profiles SET native_session_id=?,restore_mode=? WHERE attempt_id=?',
             (session,'native_resume' if saved else 'fresh_task_scope',lease.attempt))

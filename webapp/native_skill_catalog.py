@@ -6,6 +6,9 @@ from pathlib import Path
 import re
 
 
+GATEWAY_REQUIREMENTS={'codex-ppt':('image.generate_from_text',)}
+
+
 def bundle():
     candidates=(Path(__file__).resolve().parents[1]/'runtime/public/bundle.json',Path('/opt/video-use/bundle.json'))
     for candidate in candidates:
@@ -40,6 +43,12 @@ def validate(selected):
     unknown=sorted(set(selected)-set(identifiers()))
     if unknown:raise ValueError('Unknown Native Skill: '+', '.join(unknown))
     return tuple(selected)
+
+
+def required_gateway_operations(selected):
+    validate(selected)
+    return tuple(sorted({operation for identifier in selected
+                         for operation in GATEWAY_REQUIREMENTS.get(identifier,())}))
 
 
 def records(selected,harness):

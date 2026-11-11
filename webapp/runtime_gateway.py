@@ -45,8 +45,9 @@ class GatewayClient:
             'X-Video-Use-Attempt':self.identity.attempt_id,
             'X-Video-Use-Generation':str(self.identity.generation),
             'X-Video-Use-Sandbox':self.identity.sandbox_id})
+        timeout=300 if path=='/v1/images/generations' else 90
         return self.session.request('POST',self.endpoint+path,data=body,headers=outgoing,
-            stream=True,timeout=(5,90),allow_redirects=False,verify=self.ca_file)
+            stream=True,timeout=(5,timeout),allow_redirects=False,verify=self.ca_file)
 
     def close(self):self.session.close()
 

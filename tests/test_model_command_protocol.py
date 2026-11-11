@@ -1181,7 +1181,7 @@ class ModelCommandTests(unittest.TestCase):
             'basic_reason':'Requires generated local implementation',
             'runtime_requirements':{'requires_gpu':False,'python_modules':['numpy'],
                 'node_modules':['three'],'system_tools':['ffmpeg'],'network_urls':['https://example.com/data.json'],
-                'native_skills':[]}}
+                'native_skills':[],'gateway_operations':[]}}
         command={'kind':'COMPLETE','reason':'Run the portable code editor','plan':{'new_tasks':[task]}}
         result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['add_tasks'][0]
         self.assertEqual(result['runtime_requirements'],task['runtime_requirements'])

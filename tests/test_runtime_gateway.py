@@ -38,6 +38,12 @@ class RuntimeGatewayTests(unittest.TestCase):
                 self.client.forward(method,path,{},body)
         self.assertEqual(self.session.calls,[])
 
+    def test_image_generation_route_has_bounded_provider_timeout(self):
+        client=GatewayClient('https://172.30.0.1:18880',self.token,self.identity,
+            {'/v1/images/generations'},'/run/video-use/gateway-ca.pem',session=self.session)
+        client.forward('POST','/v1/images/generations',{'Content-Type':'application/json'},b'{}')
+        self.assertEqual(self.session.calls[0][1]['timeout'],(5,300))
+
     def test_endpoint_and_route_cannot_select_arbitrary_destination(self):
         for endpoint in ('http://172.30.0.1:18880','https://user:pass@host','https://host/base','https://host?x=1'):
             with self.subTest(endpoint=endpoint),self.assertRaises(GatewayClientError):

@@ -219,6 +219,8 @@ class AgentRuntimeRequirements(Contract):
     network_urls:list[str]=Field(default_factory=list,max_length=16,description='Exact public HTTPS URLs the generated code may read through the host Gateway. Empty means no public network access.')
     native_skills:list[str]=Field(default_factory=list,max_length=25,
         description='Exact image-pinned Native Skill IDs required by this OpenSandbox Harness Task. Empty means no task-specific Native Skill.')
+    gateway_operations:list[str]=Field(default_factory=list,max_length=8,
+        description='Exact host Gateway operations required by the Native Skill. Provider credentials remain on the host; empty grants no provider tools.')
 
     @model_validator(mode='after')
     def valid(self):
@@ -228,12 +230,16 @@ class AgentRuntimeRequirements(Contract):
                 or len(set(self.system_tools))!=len(self.system_tools)
                 or len(set(self.network_urls))!=len(self.network_urls)
                 or len(set(self.native_skills))!=len(self.native_skills)
-                or any(not token.fullmatch(value) for value in (*self.python_modules,*self.node_modules,*self.system_tools))):
+                or len(set(self.gateway_operations))!=len(self.gateway_operations)
+                or any(not token.fullmatch(value) for value in (*self.python_modules,*self.node_modules,*self.system_tools,*self.gateway_operations))):
             raise ValueError('Agent runtime requirements must be unique registered capability names')
-        from .native_skill_catalog import validate as validate_native_skills
+        from .native_skill_catalog import validate as validate_native_skills,required_gateway_operations
         validate_native_skills(self.native_skills)
-        if self.requires_gpu and self.native_skills:
-            raise ValueError('Native Skills require the OpenSandbox CPU Harness and cannot be declared for GPU/bwrap')
+        required=set(required_gateway_operations(self.native_skills))
+        if not required<=set(self.gateway_operations):
+            raise ValueError('Native Skill requires Gateway operations: '+', '.join(sorted(required-set(self.gateway_operations))))
+        if self.requires_gpu and (self.native_skills or self.gateway_operations):
+            raise ValueError('Native Skills and Gateway operations require the OpenSandbox CPU Harness and cannot be declared for GPU/bwrap')
         from .agent_runtime_capabilities import validate_public_url
         for value in self.network_urls:validate_public_url(value)
         return self
@@ -1004,6 +1010,11 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                         f'The frozen {configuration.model} profile requires at least {minimum} seconds for {task.profile}; increase the declared Task timeout before confirmation.')
             if not set(task.runtime_requirements.network_urls)<=set(task_scope.allowed_network_urls):
                 raise AuthorizationRequired('Public HTTPS URL requires explicit authorization')
+            for name in task.runtime_requirements.gateway_operations:
+                if (name not in task_scope.allowed_operations
+                        or name not in task_scope.operation_policy_digests
+                        or task_scope.provider_call_budget.get(name,0)<=0):
+                    raise AuthorizationRequired('Native Gateway operation requires explicit authorization and provider budget')
         else:
             name=task.operation if task.type=='operation' else 'script'
             if name not in task_scope.allowed_operations:raise AuthorizationRequired('Operation requires additional authorization')

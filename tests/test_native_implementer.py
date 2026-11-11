@@ -107,6 +107,8 @@ class NativeSelectionTests(unittest.TestCase):
         from webapp.agent_runtime_capabilities import catalogue,validate
         available=catalogue()['opensandbox_cpu']['native_skills']
         self.assertEqual(len(available),25);self.assertIn('academy-guide',available)
+        self.assertEqual(catalogue()['opensandbox_cpu']['native_skill_gateway_requirements']['codex-ppt'],
+                         ['image.generate_from_text'])
         task=graph.Task.model_validate(self.agent_spec(requires_gpu=False,native_skills=['academy-guide']))
         self.assertEqual(task.runtime_requirements.native_skills,['academy-guide'])
         with self.assertRaisesRegex(ValueError,'profile maximum'):
@@ -118,6 +120,29 @@ class NativeSelectionTests(unittest.TestCase):
             with self.subTest(runtime=runtime),self.assertRaises(ValueError):
                 graph.Task.model_validate(self.agent_spec(**runtime))
         with self.assertRaises(ValueError):validate({'native_skills':['academy-guide']},selected='bwrap_cpu')
+        with self.assertRaisesRegex(ValueError,'requires Gateway operations'):
+            graph.Task.model_validate(self.agent_spec(requires_gpu=False,native_skills=['codex-ppt']))
+        ppt=graph.Task.model_validate(self.agent_spec(requires_gpu=False,native_skills=['codex-ppt'],
+            gateway_operations=['image.generate_from_text']))
+        self.assertEqual(ppt.runtime_requirements.gateway_operations,['image.generate_from_text'])
+
+    def test_native_image_gateway_uses_host_provider_and_shared_budget(self):
+        from webapp.native_gateway import NativeImageGenerationGateway
+        lease=Mock(run_id='run',attempt='attempt')
+        task={'spec':{'runtime_requirements':{'gateway_operations':['image.generate_from_text']}}}
+        run={'authorization':{'provider_call_budget':{'image.generate_from_text':6}}}
+        body=json.dumps({'model':'untrusted-model','prompt':'blue technical slide','n':1,
+                         'size':'1280x720','quality':'medium','output_format':'png'}).encode()
+        with patch('webapp.workflow_gateway.context',return_value=(run,task,Mock())), \
+             patch('webapp.image_generation.generate',return_value=(b'png-bytes',{'usage':{'images':1},'cost':None})) as generate, \
+             patch('webapp.image_generation.configuration',return_value=('https://host-provider','private','host-model')), \
+             patch('webapp.telemetry.emit'):
+            result=NativeImageGenerationGateway(lease).handle(body,Mock())
+        payload=json.loads(b''.join(result.chunks))
+        self.assertEqual(payload['model'],'host-model')
+        self.assertEqual(__import__('base64').b64decode(payload['data'][0]['b64_json']),b'png-bytes')
+        self.assertEqual(generate.call_args.args[0]['prompt'],'blue technical slide')
+        lease.consume.assert_called_once_with('provider:image.generate_from_text',6)
 
     def test_model_harness_without_native_image_freezes_structured_cpu_fallback(self):
         from webapp.specialist_profiles import for_task
@@ -182,7 +207,8 @@ class NativeSelectionTests(unittest.TestCase):
     def test_native_instructions_apply_the_shared_path_contract(self):
         from webapp.native_implementer import instructions
         from webapp.specialist_profiles import get
-        text=instructions(get('editing_implementer'),[{'id':'academy-guide','path':'/state/codex/skills/academy-guide/SKILL.md','entry_sha256':'a'*64}],'codex')
+        text=instructions(get('editing_implementer'),[{'id':'academy-guide','path':'/state/codex/skills/academy-guide/SKILL.md','entry_sha256':'a'*64}],
+                          'codex',['image.generate_from_text'])
         self.assertIn('/workspace 是稳定Shell工作目录',text)
         self.assertIn('临时工作文件只能放在VIDEO_USE_STEP_SCRATCH',text)
         self.assertIn('不得删除、移动或改名VIDEO_USE_STEP_OUTPUT本身',text)
@@ -190,6 +216,7 @@ class NativeSelectionTests(unittest.TestCase):
         self.assertIn('不得为可选解释重复读取未变化的输入或成果',text)
         self.assertIn('/state/codex/skills/academy-guide/SKILL.md',text)
         self.assertIn('不得用通用实现冒充',text)
+        self.assertIn('Provider密钥仍在宿主',text)
 
 
 class NativeRunnerTests(unittest.TestCase):

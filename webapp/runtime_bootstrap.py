@@ -128,6 +128,13 @@ def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
     skill_pythonpath='/opt/video-use:/opt/video-use/helpers'
     environment={'PYTHONPATH':('/opt/harness:'+skill_pythonpath
         if config['adapter'].id in ('claude_code','deepseek_harness') else skill_pythonpath)}
+    gateway_operations=harness_config.get('gateway_operations',[])
+    if (not isinstance(gateway_operations,list) or len(gateway_operations)!=len(set(gateway_operations))
+            or set(gateway_operations)-{'image.generate_from_text'}):
+        raise ValueError('Invalid frozen Gateway operation configuration')
+    if 'image.generate_from_text' in gateway_operations:
+        environment.update(OPENAI_API_KEY='gateway-placeholder',OPENAI_BASE_URL='http://127.0.0.1:18766/v1',
+                           CODEX_PPT_IMAGE_MODEL='gpt-image-2.5-flare')
     workspace=harness_config.get('task_workspace')
     if workspace is not None:
         from pathlib import PurePosixPath

@@ -6,6 +6,7 @@ Business budgets and usage remain in the shared database, not this transport.
 """
 import ipaddress
 import errno
+import base64
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,49 @@ from .gateway_business import GatewayBusinessCore
 from .node_gateway import (GrantAuthority,InMemoryGrantStore,NodeGatewayAuthorizer,
     NodeGatewayCore,GatewayAuthorizationError,GatewayBudgetError)
 from .runtime_injection import GatewayGrant
+from .gateway_contracts import json_result
+
+
+class NativeImageGenerationGateway:
+    """Narrow OpenAI-compatible image route backed by host credentials."""
+    ROUTE='/v1/images/generations'
+
+    def __init__(self,lease):self.lease=lease
+
+    def handle(self,body,permit):
+        value=GatewayBusinessCore.decode(body)
+        allowed={'model','prompt','n','size','quality','background','output_format','output_compression','moderation'}
+        if set(value)-allowed:raise ValueError('Unsupported image generation request field')
+        if value.get('n',1)!=1 or value.get('output_format','png')!='png':
+            raise ValueError('Native image generation supports one PNG per call')
+        size=value.get('size','1280x720')
+        if size=='auto':width,height=1280,720
+        else:
+            import re
+            match=re.fullmatch(r'([1-9][0-9]{1,3})x([1-9][0-9]{1,3})',str(size))
+            if not match:raise ValueError('Invalid image generation size')
+            width,height=map(int,match.groups())
+        quality=value.get('quality','low')
+        if quality not in ('low','medium','high','auto','xhigh','max'):
+            raise ValueError('Invalid image generation quality')
+        from .workflow_gateway import context
+        run,task,_=context(self.lease)
+        operation='image.generate_from_text'
+        declared=set((task['spec'].get('runtime_requirements') or {}).get('gateway_operations') or ())
+        if operation not in declared:raise ValueError('Image generation is outside the frozen Task Gateway capabilities')
+        limit=run['authorization']['provider_call_budget'].get(operation,0)
+        if limit<=0:raise ValueError('Image generation has no frozen provider budget')
+        self.lease.consume('provider:'+operation,limit)
+        from .image_generation import generate,configuration
+        raw,metadata=generate({'prompt':value.get('prompt',''),'width':width,'height':height,
+            'quality':'high' if quality in ('xhigh','max') else quality,'background':'#ffffff','fit':'native'})
+        _,_,model=configuration()
+        from .telemetry import emit
+        emit('native.gateway_image_generated','INFO',task_id=self.lease.run_id,attempt_id=self.lease.attempt,
+             operation=operation,bytes=len(raw),width=width,height=height)
+        return json_result(200,{'created':int(time.time()),'model':model,
+            'data':[{'b64_json':base64.b64encode(raw).decode()}],
+            'usage':metadata.get('usage'),'cost':metadata.get('cost')})
 
 
 class NativeModelGateway:
@@ -57,7 +101,7 @@ class NativeModelGateway:
 
 
 class NativeAttemptGateway:
-    def __init__(self,lease,identity,profile,source_ip,normalize,*,public_urls=(),environ=None):
+    def __init__(self,lease,identity,profile,source_ip,normalize,*,public_urls=(),gateway_operations=(),environ=None):
         env=os.environ if environ is None else environ
         address=env.get('VIDEO_USE_NODE_GATEWAY_BIND','')
         parsed=ipaddress.ip_address(address)
@@ -77,6 +121,10 @@ class NativeAttemptGateway:
         routes=({'/responses','/v1/responses'} if profile.protocol=='responses' else
                 {'/messages','/v1/messages'})
         handlers={route:(lambda body,permit:business.model(business.decode(body))) for route in routes}
+        unsupported=set(gateway_operations)-{'image.generate_from_text'}
+        if unsupported:raise ValueError('Unsupported Native Gateway operations: '+', '.join(sorted(unsupported)))
+        if 'image.generate_from_text' in gateway_operations:
+            image=NativeImageGenerationGateway(lease);routes.add(image.ROUTE);handlers[image.ROUTE]=image.handle
         if public_urls:
             from .public_http_gateway import PublicHTTPGateway,ROUTE
             routes.add(ROUTE);handlers[ROUTE]=PublicHTTPGateway(lease,public_urls).handle
