@@ -36,7 +36,7 @@ def configured_budget():
         'plan_models': integer('VIDEO_USE_PLAN_MODELS', 14),
         'plan_tools': integer('VIDEO_USE_PLAN_TOOLS', 24),
         'plan_inspections': integer('VIDEO_USE_PLAN_INSPECTIONS', 8),
-        'run_seconds': integer('VIDEO_USE_AGENT_RUN_SECONDS', 900),
+        'run_seconds': integer('VIDEO_USE_AGENT_RUN_SECONDS', 1800),
         'run_models': integer('VIDEO_USE_AGENT_RUN_MODEL_CALLS', 160),
         'task_models': integer('VIDEO_USE_TASK_MODEL_CALLS', 40),
         'max_output_tokens': integer('VIDEO_USE_MODEL_OUTPUT_TOKENS', 16000),

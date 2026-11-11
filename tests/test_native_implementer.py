@@ -15,6 +15,7 @@ class NativeSelectionTests(unittest.TestCase):
         return {'id':'edit','type':'agent','name':'Edit','objective':'Generate authorized output',
             'profile':'editing_implementer','output_roles':{'report':'result.txt'},
             'acceptance':[{'kind':'file'}],'basic_reason':'Delegated local implementation',
+            'timeout_seconds':1800 if runtime.get('native_skills') else 900,
             'runtime_requirements':runtime}
 
     def test_user_harness_selects_exact_immutable_runtime_and_missing_never_falls_back(self):
@@ -108,6 +109,9 @@ class NativeSelectionTests(unittest.TestCase):
         self.assertEqual(len(available),25);self.assertIn('academy-guide',available)
         task=graph.Task.model_validate(self.agent_spec(requires_gpu=False,native_skills=['academy-guide']))
         self.assertEqual(task.runtime_requirements.native_skills,['academy-guide'])
+        with self.assertRaisesRegex(ValueError,'profile maximum'):
+            graph.Task.model_validate({**self.agent_spec(requires_gpu=False,native_skills=['academy-guide']),
+                                       'timeout_seconds':900})
         self.assertEqual(validate(task.runtime_requirements.model_dump(),selected='opensandbox_cpu'),'opensandbox_cpu')
         for runtime in ({'requires_gpu':True,'native_skills':['academy-guide']},
                         {'requires_gpu':False,'native_skills':['missing-skill']}):

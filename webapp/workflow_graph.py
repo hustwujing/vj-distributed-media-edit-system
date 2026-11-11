@@ -283,6 +283,8 @@ class Task(Contract):
                 raise ValueError('Only the code editor accepts runtime requirements')
             if not self.output_roles:raise ValueError('Agent task must declare output roles')
             if self.timeout_seconds>profile.timeout_seconds:raise ValueError('Agent timeout exceeds profile')
+            if self.runtime_requirements.native_skills and self.timeout_seconds<profile.timeout_seconds:
+                raise ValueError('Native Skill Agent timeout must use the profile maximum')
             for role,name in self.output_roles.items():
                 if not re.fullmatch(r'[a-z][a-z0-9_-]{0,39}',role) or not re.fullmatch(r'[A-Za-z0-9_][A-Za-z0-9_.-]{0,99}',name):
                     raise ValueError('Invalid Agent output role or filename')
