@@ -320,6 +320,11 @@ def evidence_collection_available(frozen):
     return any(item['action'] in ('collect_evidence_then_review_again','collect_delivery_evidence') for item in repair_options(frozen))
 
 
+def evidence_operation(identifier,contract,frozen):
+    return bool(contract.get('evidence_only') or
+                identifier=='audio.transcribe' and evidence_collection_available(frozen))
+
+
 def completion_candidate(frozen):
     """Offer sealing for a successful batch, without assuming the goal is complete."""
     tasks=frozen.get('tasks',[]);trigger=frozen.get('trigger') or {}
@@ -384,7 +389,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
             for index,(identifier,contract) in enumerate(sorted(contracts.items())):
                 bound=deepcopy(fields);bound['operation']={'type':'string','enum':[identifier]};bound.pop('implementation',None)
                 parameters=deepcopy(contract['parameters_schema']);prefix='Operation'+str(index)+'_'
-                if contract.get('evidence_only'):
+                if evidence_operation(identifier,contract,frozen):
                     bound['purpose']={'type':'string','enum':['evidence']}
                 else:bound['purpose']={'type':'string','enum':['business','repair']}
                 def rename(value):
@@ -398,7 +403,7 @@ def manager_schema(frozen,contracts=None,*,allow_script=True):
                 if roles is not None:bound['inputs']=obj({role:{'$ref':'#/$defs/InputRef'} for role in sorted(roles)},inputs.get('required_roles',[]))
                 else:bound.pop('inputs',None);bound['input_bindings']=deepcopy(input_bindings);input_field='input_bindings'
                 operation_required=[key for key in required if key!='acceptance']
-                if contract.get('evidence_only'):operation_required.append('purpose')
+                if evidence_operation(identifier,contract,frozen):operation_required.append('purpose')
                 operation_required=[key for key in operation_required if key!='inputs']
                 name='OperationCommandTask'+str(index);defs[name]=obj(bound,list(dict.fromkeys([*operation_required,'operation',input_field,'parameters'])))
                 task_variants.append({'$ref':'#/$defs/'+name})
@@ -551,7 +556,7 @@ def compile_manager(command,frozen):
                 from .quality_policy import Acceptance
                 technical=[Acceptance.model_validate(check).model_dump() for check in operation_acceptance(binding,raw.get('parameters',{}))]
                 raw['acceptance']=[*business,*[check for check in technical if check not in business]]
-                if binding.get('evidence_only'):
+                if binding.get('evidence_only') or raw.get('purpose')=='evidence':
                     raw['purpose']='evidence';raw['delivery_stage']=False
                     raw['acceptance']=[{**check,'stage':'current'} for check in raw['acceptance']]
                 if not raw.get('basic_reason'):
@@ -778,7 +783,7 @@ class ToolProtocol:
             task_variants.append({'$ref':'#/$defs/AgentCommandTask'})
             if can_correct and any(item.get('type')=='agent' for item in existing):self.add('replace_agent_tasks','draft_replace_tasks',schema)
         for index,identifier in enumerate(sorted(contracts)):
-            if evidence_repair and not contracts[identifier].get('evidence_only'):continue
+            if evidence_repair and not evidence_operation(identifier,contracts[identifier],self.frozen):continue
             name='OperationCommandTask'+str(index)
             if name in defs:
                 schema=referenced({'$ref':'#/$defs/'+name})
