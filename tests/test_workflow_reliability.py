@@ -102,8 +102,9 @@ class FormatTests(unittest.TestCase):
             root=Path(d);path=root/'status.gif'
             Image.new('RGB',(32,24),'red').save(path,save_all=True,append_images=[Image.new('RGB',(32,24),'blue')],duration=100,loop=0)
             rule={'kind':'image','file':'status.gif','width':32,'height':24}
-            validate_typed_output_targets([Acceptance(**rule)],['status.gif'])
-            report=self.check(root,['status.gif'],[rule])
+            media={'kind':'media','file':'status.gif','min_duration':.19,'max_duration':.21,'decode':True}
+            validate_typed_output_targets([Acceptance(**rule),Acceptance(**media)],['status.gif'])
+            report=self.check(root,['status.gif'],[rule,media])
             self.assertTrue(report['passed']);self.assertEqual(report['files'][0]['frame_count'],2)
 
 class RecoveryTests(unittest.TestCase):

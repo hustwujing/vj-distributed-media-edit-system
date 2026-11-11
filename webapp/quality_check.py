@@ -32,10 +32,14 @@ def inspect(name):
             if image.width*image.height>64_000_000:raise ValueError('图片尺寸过大')
             frames=getattr(image,'n_frames',1)
             if not 1<=frames<=500:raise ValueError('图片帧数超限')
-            for frame in range(frames):image.seek(frame);image.load()
+            duration_ms=0
+            for frame in range(frames):image.seek(frame);image.load();duration_ms+=int(image.info.get('duration',0))
             image.seek(0)
             value.update(kind='image',width=image.width,height=image.height,has_alpha='A' in image.getbands() or 'transparency' in image.info)
-            if frames>1:value.update(frame_count=frames,animated=True)
+            if frames>1:
+                duration=duration_ms/1000
+                value.update(frame_count=frames,animated=True,duration=duration,
+                             fps=frames/duration if duration>0 else 0,video=True,audio_track_present=False)
             if value['has_alpha']:
                 value.update(alpha_evidence(image))
             else:value.update(transparent_fraction=0.0,visible_fraction=1.0,opaque_fraction=1.0,
@@ -95,7 +99,8 @@ def main():
             report['checks'].append({'passed':None,'reason':rule['criterion'],'kind':rule['kind'],'criterion':index})
             continue
         selected=[f for f in report['files'] if (rule.get('file','*')=='*' or Path(f['name']).name==rule['file'])
-                  and (rule['kind'] not in ('image','media') or f['kind']==rule['kind'])]
+                  and (rule['kind'] not in ('image','media') or f['kind']==rule['kind']
+                       or rule['kind']=='media' and f.get('animated'))]
         if rule.get('file','*')=='*' and rule['kind'] in ('text','subtitle','json'):
             allowed={'text':TEXT_SUFFIXES,'subtitle':SUBTITLE_SUFFIXES,'json':{'.json'}}[rule['kind']]
             selected=[f for f in selected if Path(f['name']).suffix.lower() in allowed]

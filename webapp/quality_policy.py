@@ -8,6 +8,7 @@ from pydantic import BaseModel,ConfigDict,Field,model_validator
 OUTPUT_SUFFIXES={'text':TEXT_SUFFIXES,'subtitle':SUBTITLE_SUFFIXES,'json':{'.json'},'image':{'.png','.jpg','.jpeg','.webp'},
     'media':{'.mp4','.mov','.webm','.mkv','.mp3','.wav','.m4a','.flac','.ogg','.aac','.opus'}}
 OUTPUT_SUFFIXES['image']=OUTPUT_SUFFIXES['image']|{'.gif'}
+OUTPUT_SUFFIXES['media']=OUTPUT_SUFFIXES['media']|{'.gif'}
 
 
 def output_target_matches(check,filename):
