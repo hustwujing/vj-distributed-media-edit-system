@@ -19,7 +19,7 @@ def normalize_planner_arguments(name,arguments,dynamic_operation_inputs=()):
     acceptance_fields=set(Acceptance.model_fields)
     def normalize_acceptance_fields(node,path=''):
         if isinstance(node,dict):
-            if node.get('kind') in ('file','image','media','text','json','subtitle','review','agent'):
+            if node.get('kind',node.get('kind_')) in ('file','image','media','text','json','subtitle','review','agent'):
                 for key in list(node):
                     canonical=key[:-1] if key.endswith('_') else ''
                     if canonical in acceptance_fields and canonical not in node:
