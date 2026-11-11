@@ -74,7 +74,7 @@ OpenSandbox cleanup 顺序为：撤销 Gateway grant、停止 Harness、删除�
 ./deploy/sandbox_cluster.sh restart
 ```
 
-`deploy` 冻结源码和私有配置、运行门禁、备份专用数据库并切换服务。`restart` 只重启已部署 release。`targeted_only` 版本只允许定向复测，不能用于完整 campaign 或发布结论。
+`deploy` 冻结源码、私有基础配置和 OpenSandbox/API/Node/Orchestrator 派生配置，运行门禁、备份专用数据库并切换服务。systemd unit 只读取 release 对应的配置快照，使镜像 digest 与源码一起回滚；`restart` 只重启已部署 release。`targeted_only` 版本只允许定向复测，不能用于完整 campaign 或发布结论。
 
 真机驱动固定指向本实例：
 

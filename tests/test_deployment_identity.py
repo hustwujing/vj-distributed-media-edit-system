@@ -85,13 +85,23 @@ class DeploymentIdentityTests(unittest.TestCase):
             for name,value in {'.env':'BASE=one\n','.agent.env':'VIDEO_USE_AGENT_PROFILE=claude\n',
                                '.storage.env':'VIDEO_USE_OBJECT_BUCKET=bucket\n','.distributed.env':'VIDEO_USE_DEPLOYMENT=dynamic-agent\n'}.items():
                 (repo/name).write_text(value)
+            for name,value in {'node-a.env':'VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST=image@sha256:old\n',
+                               'observation.env':'VIDEO_USE_TELEMETRY_ENABLED=1\n',
+                               'orchestrator.env':'VIDEO_USE_STORAGE_METADATA_ONLY=1\n',
+                               'opensandbox-runtime.env':'VIDEO_USE_CPU_COMMAND_SANDBOX_BACKEND=opensandbox\n'}.items():
+                (conf/name).write_text(value)
             with patch.object(cluster,'REPO',repo),patch.object(cluster,'CONF',conf):
                 snapshot,digest=cluster.snapshot_configuration()
                 (repo/'.agent.env').write_text('VIDEO_USE_AGENT_PROFILE=changed\n')
+                (conf/'node-a.env').write_text('VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST=image@sha256:new\n')
                 self.assertEqual(cluster.env_file(snapshot/'.agent.env')['VIDEO_USE_AGENT_PROFILE'],'claude')
+                self.assertEqual(cluster.env_file(snapshot/'node-a.env')['VIDEO_USE_OPEN_SANDBOX_COMMAND_IMAGE_DIGEST'],'image@sha256:old')
                 self.assertNotEqual(digest,cluster.snapshot_configuration()[1])
-                unit=systemd_templates.worker_unit(cluster.template_config(root/'release',snapshot))
+                config=cluster.template_config(root/'release',snapshot)
+                unit=systemd_templates.worker_unit(config)
                 self.assertIn('EnvironmentFile='+str(snapshot/'.agent.env'),unit)
+                self.assertIn('EnvironmentFile='+str(snapshot/'node-%i.env'),unit)
+                self.assertEqual(config.conf,snapshot)
 
     def test_release_record_is_atomic_and_partial_release_cannot_restart(self):
         from deploy import dynamic_cluster as cluster

@@ -78,14 +78,18 @@ def write_release(record):
 
 
 def snapshot_configuration():
-    names=('.env','.agent.env','.storage.env','.distributed.env')
+    private_names=('.env','.agent.env','.storage.env','.distributed.env')
+    runtime_names=('opensandbox-runtime.env','observation.env','orchestrator.env','orchestrator-database.env',
+        *(f'{role}-{node}.env' for node in PORTS for role in ('api','node','media')))
+    files=[(name,REPO/name) for name in private_names]
+    files.extend((name,CONF/name) for name in runtime_names if (CONF/name).is_file())
     digest=hashlib.sha256()
-    for name in names:digest.update(name.encode()+b'\0'+(REPO/name).read_bytes()+b'\0')
+    for name,path in files:digest.update(name.encode()+b'\0'+path.read_bytes()+b'\0')
     identity=digest.hexdigest();target=CONF/'releases'/identity[:16]
     if not target.exists():
         target.mkdir(mode=0o700,parents=True)
-        for name in names:
-            shutil.copyfile(REPO/name,target/name);(target/name).chmod(0o600)
+        for name,path in files:
+            shutil.copyfile(path,target/name);(target/name).chmod(0o600)
     return target,identity
 
 
@@ -96,7 +100,8 @@ def environment(node='a',source=None,config_root=None):
         if source is None or Path(record.get('source',''))==Path(source):config_root=record.get('config_root')
     config_root=Path(config_root) if config_root else REPO
     for name in ('.env','.agent.env','.storage.env','.distributed.env'):values.update(env_file(config_root/name))
-    values.update(env_file(CONF/f'node-{node}.env'));values.update(env_file(CONF/'observation.env'))
+    runtime_root=config_root if (config_root/f'node-{node}.env').is_file() else CONF
+    values.update(env_file(runtime_root/f'node-{node}.env'));values.update(env_file(runtime_root/'observation.env'))
     values['VIDEO_USE_RUNTIME_BUILD']=str((source or release())/'runtime/build')
     return values
 
@@ -223,8 +228,9 @@ def prepare_database():
 
 
 def template_config(source,config_root=None):
+    frozen=Path(config_root) if config_root else None
     return systemd_templates.ServiceConfig(
-        repo=Path(config_root) if config_root else REPO,root=ROOT,release=source,conf=CONF,executors=EXECUTORS,
+        repo=frozen or REPO,root=ROOT,release=source,conf=frozen or CONF,executors=EXECUTORS,
         namespace=NAMESPACE,service_user=NAMESPACE,database_service='video-use-db.service',
         root_path=ENTRY,agent_runtime=NAMESPACE+'-agent-%i',media_runtime_prefix=MEDIA_RUNTIME_PREFIX,
         gpu_lease_root=GPU_LEASE_ROOT,
@@ -239,7 +245,8 @@ def install_units(source,config_root=None):
            NAMESPACE+'-watchdog@.service':systemd_templates.reaper_unit(config),
            NAMESPACE+'-media@.service':systemd_templates.media_unit(config),
            OBSERVER:systemd_templates.observer_unit(config)}
-    sandbox_values=env_file(CONF/'opensandbox-runtime.env') if (CONF/'opensandbox-runtime.env').exists() else {}
+    sandbox_config=config.conf/'opensandbox-runtime.env'
+    sandbox_values=env_file(sandbox_config) if sandbox_config.exists() else {}
     if sandbox_values.get('VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND')=='opensandbox':
         docker=sandbox_values.get('VIDEO_USE_NODE_GATEWAY_DOCKER','')
         if NAMESPACE!='sandbox-agent' or not re.fullmatch(r'/[A-Za-z0-9_./-]+',docker):
@@ -267,7 +274,7 @@ After=network.target video-use-db.service
 User={NAMESPACE}-orch
 Group={NAMESPACE}-orch
 WorkingDirectory={source}
-EnvironmentFile={CONF}/orchestrator.env
+EnvironmentFile={config.conf}/orchestrator.env
 Environment=VIDEO_USE_RELEASE={source.name}
 Environment=VIDEO_USE_INSTANCE=%n
 ExecStart={source}/.venv/bin/python -m webapp.workflow_orchestrator

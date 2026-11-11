@@ -104,6 +104,10 @@ Command Runtime 修复可以只构建和推送 `operation-runtime`。这种部�
 发布证据至少记录：源码 commit、dirty 状态、foundation/base image ID、四个 registry digest、Bundle digest、
 构建命令、离线契约结果和真机 case ID。缺少任一项时只能称为本地构建，不能称为已发布 Runtime。
 
+OpenSandbox runtime env、派生 API/Node/Media env、Orchestrator 和 Observer env 必须与基础私有配置一起进入
+release 配置快照，`config_sha256` 覆盖其内容。systemd unit 不得在已发布 release 中继续引用可变的
+`/etc/<deployment>/node-*.env` 或 `orchestrator.env`；否则 restart/rollback 可能静默换用另一组镜像 digest。
+
 ## 4. 本地离线验证
 
 本地证据写入被忽略的 `runtime/build/`，临时目录和扫描缓存必须位于 `/data2`，不得隐式使用根分区
