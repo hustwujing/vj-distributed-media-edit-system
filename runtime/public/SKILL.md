@@ -24,6 +24,14 @@ script. Use word timestamps when cutting speech. Preserve source audio unless
 the plan requests replacement, fade audio at cuts, and apply subtitles after
 timeline assembly. Inspect actual output before describing it as finished.
 
+The native Harness Skill directory contains the image-pinned document, PDF,
+spreadsheet, presentation, diagram, frontend, MCP and collaboration Skills.
+Use their `SKILL.md` instructions when the task matches. A Skill supplies
+instructions and local helpers only: it does not widen the Task's files,
+network allowlist, Provider operations, model budget or delivery contract.
+Use the approved public HTTPS helper for an authorized URL; never turn a
+Skill's optional network workflow into direct unrestricted access.
+
 Request transcription through `/opt/transcribe.py`, image tools through
 `/opt/image_ai.py`, and scoped canvas changes through `/opt/canvas_edit.py`.
 These interfaces do not require access to credentials. Arbitrary network

@@ -20,11 +20,14 @@ class RuntimeWorkspaceTests(unittest.TestCase):
             (scratch/'temporary.bin').write_bytes(b'must not persist')
             (workspace/'sources').mkdir();(workspace/'sources/input.bin').write_bytes(b'input')
             (state/'cache').mkdir();(state/'cache/ignored').write_bytes(b'cache')
+            skill=state/'codex/skills/xlsx';skill.parent.mkdir(parents=True)
+            skill.symlink_to(root/'image-skill',target_is_directory=True)
             (state/'session.bin').write_bytes(b'session')
             manifest=WorkspaceExporter(workspace,state).export()
             self.assertIn('edit/same.txt',manifest['workspace']);self.assertIn('edit/new.txt',manifest['workspace'])
             self.assertNotIn('edit/workflows/run/task/attempt/.scratch/temporary.bin',manifest['workspace'])
             self.assertNotIn('sources/input.bin',manifest['workspace']);self.assertNotIn('cache/ignored',manifest['state'])
+            self.assertFalse(any('skills' in name for name in manifest['state']))
             remote={
                 '/workspace/edit/same.txt':b'same','/workspace/edit/new.txt':b'new','/state/session.bin':b'session'}
             collected=[];result=WorkspaceCollector(Files(remote)).collect(manifest,
@@ -40,6 +43,11 @@ class RuntimeWorkspaceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);workspace=root/'workspace';state=root/'state';workspace.mkdir();state.mkdir()
             (workspace/'edit').mkdir();(workspace/'edit/target').write_text('x');(workspace/'edit/link').symlink_to(workspace/'edit/target')
+            with self.assertRaises(RuntimeWorkspaceError):WorkspaceExporter(workspace,state).export()
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);workspace=root/'workspace';state=root/'state';workspace.mkdir();state.mkdir()
+            (workspace/'edit').mkdir();target=root/'outside';target.mkdir()
+            (state/'codex').mkdir();(state/'codex/sessions').symlink_to(target,target_is_directory=True)
             with self.assertRaises(RuntimeWorkspaceError):WorkspaceExporter(workspace,state).export()
         record={'size':1,'sha256':hashlib.sha256(b'x').hexdigest(),'executable':False}
         with self.assertRaises(RuntimeWorkspaceError):

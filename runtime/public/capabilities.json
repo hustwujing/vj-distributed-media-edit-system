@@ -50,16 +50,22 @@
       "requires_gpu": false,
       "network_modes": ["none", "approved_public_https"],
       "python_modules": [
-        "av", "cairosvg", "cv2", "ffmpeg", "fitz", "imagehash", "imageio",
-        "jsonschema", "librosa", "matplotlib", "mutagen", "networkx", "numpy",
-        "onnxruntime", "piexif", "PIL", "psd_tools", "pydub", "pymupdf", "rembg",
-        "reportlab", "scipy", "shapely", "skimage", "sklearn", "soundfile",
-        "svgwrite", "sympy", "trimesh", "xmltodict", "yaml"
+        "anthropic", "av", "cairosvg", "cv2", "ffmpeg", "filelock", "fitz",
+        "imagehash", "imageio", "jsonschema", "librosa", "lxml", "markitdown",
+        "matplotlib", "mcp", "mutagen", "networkx", "numpy", "onnxruntime",
+        "openai", "openpyxl", "pandas", "pdf2image", "pdfplumber", "piexif",
+        "PIL", "playwright", "pptx", "psd_tools", "pydub", "pymupdf", "pypdf",
+        "pytesseract", "rembg", "reportlab", "scipy", "shapely", "skimage",
+        "sklearn", "soundfile", "svgwrite", "sympy", "trimesh", "xmltodict", "yaml"
       ],
-      "node_modules": ["esbuild", "playwright", "three"],
+      "node_modules": [
+        "docx", "esbuild", "playwright", "pptxgenjs", "react", "react-dom",
+        "react-icons", "sharp", "three", "typescript"
+      ],
       "system_tools": [
-        "bash", "chromium", "esbuild", "file", "ffmpeg", "ffprobe", "fc-list", "git", "jq",
-        "node", "python", "rg", "socat"
+        "bash", "chromium", "dot", "drawio", "esbuild", "file", "ffmpeg", "ffprobe",
+        "fc-list", "git", "jq", "libreoffice", "node", "pandoc", "pdftoppm",
+        "pdftotext", "pnpm", "python", "qpdf", "rg", "socat", "tesseract", "tsc", "zip"
       ]
     },
     "bwrap_cpu": {

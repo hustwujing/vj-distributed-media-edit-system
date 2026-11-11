@@ -119,11 +119,15 @@ def load_gateway(path,identity):
 
 def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
     config=load_config(path,bundle_root=bundle_root);holder={}
+    from .runtime_skills import materialize_skills
+    skill_state=materialize_skills(config['adapter'].id,source=Path(bundle_root)/'skills')
     harness_config=json.loads(Path(config['harness_config']).read_text())
     if (not isinstance(harness_config,dict)
             or harness_config.get('response_transport')!=config['profile'].response_transport):
         raise ValueError('Harness response transport does not match frozen profile')
-    environment={'PYTHONPATH':'/opt/harness:/opt/video-use:/opt/video-use/helpers'}
+    skill_pythonpath='/opt/video-use:/opt/video-use/helpers'
+    environment={'PYTHONPATH':('/opt/harness:'+skill_pythonpath
+        if config['adapter'].id in ('claude_code','deepseek_harness') else skill_pythonpath)}
     workspace=harness_config.get('task_workspace')
     if workspace is not None:
         from pathlib import PurePosixPath
@@ -146,7 +150,9 @@ def create_runtime(path,*,gateway_port=18766,bundle_root=RUNTIME_BUNDLE):
         WorkspaceExporter())
     app=create_app(config['identity'],config['token'],controller.dispatch,
         lambda:{'ready':True,'state':controller.state,'harness':config['adapter'].id,
-                'runtime_profile':config['binding']['runtime_profile']})
+                'runtime_profile':config['binding']['runtime_profile'],
+                'skill_bundle_version':skill_state['bundle_version'],
+                'skill_count':skill_state['skill_count']})
     holder['service']=app.state.runtime_service
     app.state.harness_controller=controller
     app.router.add_event_handler('shutdown',controller.close)

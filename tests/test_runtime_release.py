@@ -17,6 +17,16 @@ class RuntimeReleaseTests(unittest.TestCase):
             (root/'b').write_text('changed')
             self.assertNotEqual(first['digest'],bundle_record(root,['a','b'])['digest'])
 
+    def test_recursive_skill_bundle_is_canonical_and_content_bound(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);(root/'skills'/'a').mkdir(parents=True)
+            (root/'skills'/'a'/'SKILL.md').write_text('one')
+            first=bundle_record(root,[{'source':'skills','target':'skills','recursive':True}])
+            self.assertEqual([row['path'] for row in first['files']],['skills/a/SKILL.md'])
+            (root/'skills'/'a'/'SKILL.md').write_text('two')
+            self.assertNotEqual(first['digest'],bundle_record(root,[
+                {'source':'skills','target':'skills','recursive':True}])['digest'])
+
     def test_checked_in_release_spec_is_consistent(self):
         value=load_spec()
         self.assertEqual(set(value['profiles']),

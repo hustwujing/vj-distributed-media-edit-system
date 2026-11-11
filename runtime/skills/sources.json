@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "bundle_version": "2026.11.11.1",
+  "retired_skills": [],
+  "dependency_profiles": {
+    "instructions": {
+      "commands": ["python3", "node"],
+      "python_modules": [],
+      "node_modules": []
+    },
+    "anatomy": {
+      "commands": ["node", "chromium"],
+      "python_modules": [],
+      "node_modules": ["esbuild", "react", "react-dom", "typescript"]
+    },
+    "diagram-design": {
+      "commands": ["python3", "chromium"],
+      "python_modules": ["playwright"],
+      "node_modules": []
+    },
+    "drawio": {
+      "commands": ["python3", "drawio", "dot"],
+      "python_modules": ["PIL", "pptx", "yaml"],
+      "node_modules": []
+    },
+    "presentation": {
+      "commands": ["python3"],
+      "python_modules": ["PIL", "filelock", "fitz", "numpy", "openai", "pptx", "requests", "yaml"],
+      "node_modules": []
+    },
+    "office": {
+      "commands": ["libreoffice", "pandoc", "pdftoppm", "pdftotext", "qpdf", "tesseract"],
+      "python_modules": ["PIL", "defusedxml", "lxml", "markitdown", "openpyxl", "pandas", "pdf2image", "pdfplumber", "pypdf", "pytesseract"],
+      "node_modules": ["docx", "pptxgenjs", "react", "react-dom", "react-icons", "sharp"]
+    },
+    "mcp": {
+      "commands": ["python3", "node"],
+      "python_modules": ["anthropic", "mcp"],
+      "node_modules": []
+    },
+    "web": {
+      "commands": ["python3", "node", "pnpm", "chromium"],
+      "python_modules": ["playwright"],
+      "node_modules": ["react", "react-dom", "typescript"]
+    }
+  },
+  "sources": [
+    {
+      "id": "github-awesome-copilot",
+      "url": "https://github.com/github/awesome-copilot",
+      "commit": "eaaffd5d020b756a2777a4b1b161d2bdc126d9a0",
+      "license": "MIT",
+      "skills": [{"id": "doc-and-modernize", "version": "eaaffd5d020b", "profile": "instructions", "network": "none", "test_case": "validate frontmatter and cited local-file workflow"}]
+    },
+    {
+      "id": "agents365-drawio-skill",
+      "url": "https://github.com/Agents365-ai/drawio-skill",
+      "commit": "6550495129d9a42eff7e71434d15bfc9846b6202",
+      "license": "MIT",
+      "skills": [{"id": "drawio-skill", "version": "3.4.4", "profile": "drawio", "network": "optional for remote icons and live sources", "test_case": "build, validate and export an editable draw.io diagram"}]
+    },
+    {
+      "id": "wheresryan22-anatomy",
+      "url": "https://github.com/wheresryan22/anatomy",
+      "commit": "e6600ffc4e8e6620eeb45bf49bcdbd5e4b84163f",
+      "license": "MIT",
+      "skills": [{"id": "anatomy", "version": "1.1.0+e6600ffc", "profile": "anatomy", "network": "optional and only for an explicitly requested gallery publish", "test_case": "build and capture the dial-indicator example"}]
+    },
+    {
+      "id": "cathrynlavery-diagram-design",
+      "url": "https://github.com/cathrynlavery/diagram-design",
+      "commit": "f2496acbde9f45ccb55c24d4f75210c8a1355df8",
+      "license": "MIT",
+      "skills": [{"id": "diagram-design", "version": "2.6", "profile": "diagram-design", "network": "optional for public fonts and onboarding sources", "test_case": "self-check and rasterize a bundled HTML diagram"}]
+    },
+    {
+      "id": "ningzimu-image-to-editable-ppt",
+      "url": "https://github.com/ningzimu/image-to-editable-ppt-skill",
+      "commit": "b7be494e31a0ed56ef98716891db5474606b8cdf",
+      "license": "MIT",
+      "skills": [{"id": "image-to-editable-ppt", "version": "0.1.0+b7be494e", "profile": "presentation", "network": "task-dependent OCR and image backend through configured capabilities", "test_case": "run editppt doctor and prepare a local image page"}]
+    },
+    {
+      "id": "ningzimu-codex-ppt",
+      "url": "https://github.com/ningzimu/codex-ppt-skill",
+      "commit": "941dcafe2f23ea4ae61de99e9b22fb0ef3d9e06c",
+      "license": "MIT",
+      "skills": [{"id": "codex-ppt", "version": "0.6.0+941dcafe", "profile": "presentation", "network": "image backend required for slide generation", "test_case": "assemble a deterministic local slide image into PPTX"}]
+    },
+    {
+      "id": "anthropics-skills",
+      "url": "https://github.com/anthropics/skills",
+      "commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "skills": [
+        {"id": "academy-guide", "version": "2c5958ec", "profile": "instructions", "network": "task-dependent", "test_case": "validate frontmatter"},
+        {"id": "algorithmic-art", "version": "2c5958ec", "profile": "web", "network": "none", "test_case": "validate frontmatter and p5 workflow assets"},
+        {"id": "brand-guidelines", "version": "2c5958ec", "profile": "instructions", "network": "none", "test_case": "validate frontmatter"},
+        {"id": "canvas-design", "version": "2c5958ec", "profile": "web", "network": "none", "test_case": "validate frontmatter and bundled fonts"},
+        {"id": "claude-api", "version": "2c5958ec", "profile": "mcp", "network": "Claude API tasks require a configured route", "test_case": "validate frontmatter and language reference tree"},
+        {"id": "discernment-nudge", "version": "2c5958ec", "profile": "instructions", "network": "none", "test_case": "validate frontmatter"},
+        {"id": "doc-coauthoring", "version": "2c5958ec", "profile": "instructions", "network": "none", "license": "not declared upstream", "test_case": "validate frontmatter"},
+        {"id": "docx", "version": "2c5958ec", "profile": "office", "network": "none", "test_case": "create and render a DOCX"},
+        {"id": "frontend-design", "version": "2c5958ec", "profile": "web", "network": "task-dependent assets", "test_case": "validate frontmatter"},
+        {"id": "internal-comms", "version": "2c5958ec", "profile": "instructions", "network": "none", "test_case": "validate frontmatter"},
+        {"id": "mcp-builder", "version": "2c5958ec", "profile": "mcp", "network": "task-dependent SDK documentation", "test_case": "import Python MCP dependencies"},
+        {"id": "pdf", "version": "2c5958ec", "profile": "office", "network": "none", "test_case": "create, inspect and rasterize a PDF"},
+        {"id": "pptx", "version": "2c5958ec", "profile": "office", "network": "none", "test_case": "create, render and validate a PPTX"},
+        {"id": "skill-creator", "version": "2c5958ec", "profile": "web", "network": "optional for browser review", "test_case": "run skill structure checks"},
+        {"id": "slack-gif-creator", "version": "2c5958ec", "profile": "instructions", "network": "none", "test_case": "import image dependencies"},
+        {"id": "theme-factory", "version": "2c5958ec", "profile": "instructions", "network": "none", "test_case": "validate bundled theme files"},
+        {"id": "web-artifacts-builder", "version": "2c5958ec", "profile": "web", "network": "package installation for generated projects", "test_case": "initialize and bundle a minimal artifact"},
+        {"id": "webapp-testing", "version": "2c5958ec", "profile": "web", "network": "none for local apps", "test_case": "launch Python Playwright against local HTML"},
+        {"id": "xlsx", "version": "2c5958ec", "profile": "office", "network": "none", "test_case": "create and recalculate an XLSX"}
+      ]
+    }
+  ]
+}

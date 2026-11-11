@@ -1,5 +1,6 @@
 import {processArtifact,orderedArtifacts,collectResults,resultSections} from './artifact_order.js';
 import {previewType} from './preview_type.js';
+import {documentKind,renderDocumentPreview} from './document_preview.js';
 export {orderedArtifacts};
 export const $=id=>document.getElementById(id);
 export const base=new URL(document.querySelector('base').href);
@@ -87,7 +88,10 @@ export class Preview{
   if(item.type?.startsWith('video/')){
    stage.innerHTML=`<video controls playsinline preload="metadata" ${item.poster_url?`poster="${esc(href(item.poster_url))}"`:''} src="${esc(href(item.url))}"></video>`;const video=stage.querySelector('video');video.onloadedmetadata=()=>{if(token===this.token)this.container.querySelector('.preview-info').textContent=`${duration(video.duration)} · ${video.videoWidth} × ${video.videoHeight}`;};video.onerror=()=>failed('视频加载或解码失败，请重试或下载原文件查看。');if(autoplay)video.play().catch(()=>{});
   }else if(isPreviewImage(item)){stage.innerHTML=`<img class="preview-image" src="${esc(href(item.url))}" alt="${esc(item.name)}">`;stage.querySelector('img').onerror=()=>failed('图片加载失败，请重试或下载原文件。');}
-  else if(item.type==='application/pdf')stage.innerHTML=`<iframe class="preview-document" src="${href(item.url)}" title="预览 ${esc(item.name)}"></iframe>`;
+  else if(documentKind(item)){
+   const result=await renderDocumentPreview(stage,{...item,url:href(item.url)},()=>token===this.token);
+   if(result&&!result.error&&token===this.token)this.container.querySelector('.preview-info').textContent=result.detail;
+  }
   else if(item.type==='text/html'){
    stage.innerHTML='<div class="loading-state"><span class="spinner"></span>正在读取内容…</div>';
    try{
@@ -100,7 +104,7 @@ export class Preview{
    }catch(error){if(token===this.token)stage.innerHTML=`<p class="inline-error">${esc(error.message)}</p>`;}
   }
   else if(item.type?.startsWith('audio/')){stage.innerHTML=`<audio controls src="${esc(href(item.url))}"></audio>`;const audio=stage.querySelector('audio');audio.onerror=()=>failed('音频加载或解码失败，请重试或下载原文件。');if(autoplay)audio.play().catch(()=>{});}
-  else if(item.type==='application/octet-stream'||/\.(psd|ora|zip|tiff?|docx|xlsx|pptx)$/i.test(item.name))stage.innerHTML='<div class="preview-empty"><h3>暂不支持此格式的在线预览</h3><p>文件可下载后在兼容的应用中查看。</p></div>';
+  else if(item.type==='application/octet-stream'||/\.(psd|ora|zip|tiff?|doc|pptx)$/i.test(item.name))stage.innerHTML='<div class="preview-empty"><h3>暂不支持此格式的在线预览</h3><p>文件可下载后在兼容的应用中查看。</p></div>';
   else{stage.innerHTML='<div class="loading-state"><span class="spinner"></span>正在读取内容…</div>';try{const response=await fetch(href(item.url));if(!response.ok)throw new Error('无法读取文件');let text=await response.text();if(item.type==='application/json'){try{text=JSON.stringify(JSON.parse(text),null,2);}catch{}}if(token===this.token)stage.innerHTML=`<pre class="text-preview">${esc(text.slice(0,180000))}</pre>`;}catch(error){if(token===this.token)stage.innerHTML=`<p class="inline-error">${esc(error.message)}</p>`;}}
  }
 }

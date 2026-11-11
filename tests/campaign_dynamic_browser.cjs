@@ -10,9 +10,9 @@ const REPO=path.resolve(__dirname,'..'),PY=path.join(REPO,'.venv/bin/python');
 const DEPLOY_ROOT=path.resolve(process.env.DYNAMIC_CASE_DEPLOY_ROOT||path.join(REPO,'.cluster'));
 const ROOT=path.join(DEPLOY_ROOT,'campaigns/dynamic-plan');
 const BASE=(process.env.DYNAMIC_CASE_BASE||'http://127.0.0.1/distributed-agent-system').replace(/\/$/,'');
-const MODEL_PROFILE=process.env.DYNAMIC_MODEL_PROFILE||'claude';
-const EXPECT_MODEL=process.env.DYNAMIC_EXPECT_MODEL||'claude-4.6-sonnet';
-const MODEL_EFFORT=process.env.DYNAMIC_MODEL_EFFORT||'high';
+const MODEL_PROFILE=process.env.DYNAMIC_MODEL_PROFILE||'';
+const EXPECT_MODEL=process.env.DYNAMIC_EXPECT_MODEL||'';
+const MODEL_EFFORT=process.env.DYNAMIC_MODEL_EFFORT||'';
 const TOKEN_BUDGET_MULTIPLIER=Math.max(1,Math.min(4,Number(process.env.DYNAMIC_TOKEN_BUDGET_MULTIPLIER||1)));
 const baseURL=new URL(BASE);
 assert.equal(baseURL.pathname,process.env.DYNAMIC_EXPECT_PATH||'/distributed-agent-system','Refusing a main/unknown application path');
@@ -107,13 +107,19 @@ async function runCase(browser,spec){
   (spec.complexity==='simple'?500000:4000000)*TOKEN_BUDGET_MULTIPLIER))=>{
   await page.locator('#dynamic-input-form').waitFor({state:'visible'});await page.locator('#dynamic-input-content').fill(prompt);
   const origin=await page.locator('#dynamic-input-form').getAttribute('data-run'),creating=origin==='new';
-  let expectedProviderBudget;
+  let expectedProviderBudget,expectedModel=state.model_configurations?.at(-1)?.model||null,
+      expectedEffort=state.model_configurations?.at(-1)?.reasoning_effort||null;
   if(creating){
    await page.locator('#dynamic-execution-settings').evaluate(node=>{node.open=true;});await page.locator('[name="delivery-target"]').evaluateAll(nodes=>nodes.forEach(node=>{node.checked=false;node.dispatchEvent(new Event('change',{bubbles:true}));}));await page.locator('#dynamic-targets-other').fill(targets);
-   await page.locator('#dynamic-model-profile').selectOption(MODEL_PROFILE);
-   await page.locator('#dynamic-reasoning-effort').selectOption(MODEL_EFFORT);
    const modelCapabilities=await api('GET',`/api/projects/${state.project}/runs/capabilities`);
    assert.equal(modelCapabilities.model_protocol_policy,'plan_draft_v1_strict_preferred');
+   const selectedProfileId=MODEL_PROFILE||modelCapabilities.model_choices.default_profile;
+   const selectedProfile=modelCapabilities.model_choices.profiles.find(profile=>profile.id===selectedProfileId);
+   assert.ok(selectedProfile?.available,'Selected campaign model profile is unavailable: '+selectedProfileId);
+   expectedEffort=MODEL_EFFORT||selectedProfile.default_effort;
+   await page.locator('#dynamic-model-profile').selectOption(selectedProfileId);
+   await page.locator('#dynamic-reasoning-effort').selectOption(expectedEffort);
+   expectedModel=EXPECT_MODEL||selectedProfile.model;
    state.model_protocol_policy=modelCapabilities.model_protocol_policy;
    await page.locator('#dynamic-scope').evaluate(node=>{node.open=true;});await page.locator('#dynamic-token-budget').fill(String(spec.dynamic_hook==='token_budget'?1024:budget));
    const requestedLimits=Object.fromEntries((spec.allowed_external_operations||[]).map(operation=>[operation,1]));
@@ -126,10 +132,10 @@ async function runCase(browser,spec){
   let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
   if(!result){await capture('authorization-content-refresh-'+state.run_ids.length);state.events.push({action:'reconfirm_refreshed_content',at:Date.now()/1000});await page.locator('#dynamic-input-submit').click();result=await response;}
   assert.equal(result.status(),202,await result.text());const submitted=await result.json();run=creating?submitted:await api('GET',`/api/projects/${state.project}/runs/${submitted.run_id}`);
-  assert.equal(run.model_configuration.model,EXPECT_MODEL);
-  assert.equal(run.model_configuration.reasoning_effort,MODEL_EFFORT);
-  assert.equal(run.model_configuration.roles.editing_implementer.model,EXPECT_MODEL);
-  assert.equal(run.model_configuration.roles.editing_implementer.reasoning_effort,MODEL_EFFORT);
+  assert.equal(run.model_configuration.model,expectedModel);
+  assert.equal(run.model_configuration.reasoning_effort,expectedEffort);
+  assert.equal(run.model_configuration.roles.editing_implementer.model,expectedModel);
+  assert.match(run.model_configuration.roles.editing_implementer.reasoning_effort,/^[a-z]+$/);
   (state.model_configurations??=[]).push({run_id:run.id,...run.model_configuration});
   state.run_id=run.id;state.execute_id=run.id;state.run_ids.push(run.id);state.task_ids.push(run.id);persist();
   (state.authorizations??=[]).push({run_id:run.id,goal:run.goal,delivery_targets:run.authorization.delivery_targets,

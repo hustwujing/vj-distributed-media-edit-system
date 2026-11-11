@@ -14,6 +14,7 @@ require_digest() {
 case "${1:-}" in
   foundation)
     require_digest PYTHON_IMAGE "${PYTHON_IMAGE:-}"
+    "$PWD/deploy/prepare-runtime-assets.sh"
     "$docker_bin" build -f runtime/opensandbox/foundation.Dockerfile \
       --build-arg "PYTHON_IMAGE=$PYTHON_IMAGE" \
       --build-arg "DEBIAN_MIRROR=${DEBIAN_MIRROR:-http://deb.debian.org}" \

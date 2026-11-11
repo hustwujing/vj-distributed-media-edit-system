@@ -36,10 +36,19 @@ def file_record(path,root=None):
 def bundle_record(root,names):
     records=[]
     for item in names:
-        if isinstance(item,str):source=target=item
-        else:source,target=item['source'],item['target']
-        record=file_record(Path(root)/source);record['path']=target;records.append(record)
+        if isinstance(item,str):source=target=item;recursive=False
+        else:source,target=item['source'],item['target'];recursive=item.get('recursive',False)
+        path=Path(root)/source
+        if recursive:
+            for member in sorted(value for value in path.rglob('*') if value.is_file()
+                    and not value.is_symlink() and '__pycache__' not in value.parts
+                    and value.suffix not in ('.pyc','.pyo')):
+                record=file_record(member);record['path']=(PurePosixPath(target)/member.relative_to(path)).as_posix()
+                records.append(record)
+        else:
+            record=file_record(path);record['path']=target;records.append(record)
     records.sort(key=lambda item:item['path'])
+    if len({item['path'] for item in records})!=len(records):raise ValueError('Duplicate Skill Bundle target')
     encoded=json.dumps(records,sort_keys=True,separators=(',',':')).encode()
     return {'digest':'sha256:'+hashlib.sha256(encoded).hexdigest(),'files':records}
 
@@ -63,14 +72,16 @@ def load_spec(path=SPEC):
             raise ValueError('Harness model routes do not match the Gateway protocol')
         if set(profile['gateway_capabilities'])-GATEWAY_CAPABILITIES:
             raise ValueError('Unknown Gateway capability')
-    if any(not isinstance(item,dict) or set(item)!={'source','target'} for item in value['skill_bundle']):
+    if any(not isinstance(item,dict) or set(item) not in ({'source','target'},{'source','target','recursive'})
+            or ('recursive' in item and item['recursive'] is not True) for item in value['skill_bundle']):
         raise ValueError('Invalid Skill Bundle member')
     sources=[item['source'] for item in value['skill_bundle']]
     targets=[item['target'] for item in value['skill_bundle']]
     paths=[PurePosixPath(path) for path in sources+targets if isinstance(path,str)]
     if (len(paths)!=len(sources)+len(targets) or len(set(targets))!=len(targets) or
             any(path.is_absolute() or '..' in path.parts for path in paths) or
-            any(not (ROOT/source).is_file() for source in sources)):
+            any(not ((ROOT/item['source']).is_dir() if item.get('recursive') else
+                     (ROOT/item['source']).is_file()) for item in value['skill_bundle'])):
         raise ValueError('Invalid Skill Bundle path')
     return value
 

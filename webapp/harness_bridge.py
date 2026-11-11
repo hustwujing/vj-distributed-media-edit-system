@@ -62,7 +62,8 @@ class Bridge:
                                       # This bridge already runs after UID drop in
                                       # the application filesystem/network/cgroup
                                       # sandbox. Native nesting is unavailable.
-                                      env={**self.runtime_environment(),'DSH_PERMISSION_MODE':'danger-full-access'},
+                                      env={**self.runtime_environment(),'DSH_PERMISSION_MODE':'danger-full-access',
+                                           'PYTHONPATH':'/opt/video-use:/opt/video-use/helpers'},
                                       request_timeout_seconds=30, shutdown_timeout_seconds=5)
             self.sdk.start()
             if self.resume:
@@ -95,7 +96,7 @@ class Bridge:
             session_id=None if self.resume else self.session_id,
             env={**self.runtime_environment(),'ANTHROPIC_BASE_URL': 'http://127.0.0.1:18766', 'ANTHROPIC_API_KEY': 'gateway-placeholder',
                  'CLAUDE_CONFIG_DIR': '/state/claude', 'CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC': '1',
-                 'DISABLE_AUTOUPDATER': '1'},
+                 'DISABLE_AUTOUPDATER': '1','PYTHONPATH':'/opt/video-use:/opt/video-use/helpers'},
         )
         outcome = None
         async for message in query(prompt=text, options=options):

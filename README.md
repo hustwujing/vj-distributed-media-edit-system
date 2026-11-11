@@ -93,6 +93,11 @@ OpenSandbox cleanup 顺序为：撤销 Gateway grant、停止 Harness、删除�
 
 `runtime/opensandbox/` 定义 foundation、共享 base、Command Runtime 和 Codex/Claude/DeepSeek Agent Runtime。运行配置只接受 registry manifest digest；裸 tag 和本地 image ID 只能用于本机构建链，不能成为正式 Profile。
 
+三种 Agent Runtime 共用 `runtime/skills/manifest.json` 冻结的 25 个 Native Skill，覆盖文档、PDF、
+表格、演示文稿、图表、前端、MCP 和协作写作等能力。Skill 内容和依赖都进入 Bundle/Image 摘要；媒体生成
+仍通过系统登记的受控 Operation 提交、轮询和回收，不由 Skill 直接持有 Provider 密钥。页面支持 PDF、
+DOCX、XLS/XLSX 本地在线预览，解析失败时保留授权下载。
+
 当前 `base.Dockerfile` 安装完整 `webapp` wheel，因此 `webapp/**` 变化默认要求四张业务镜像统一重建。定向复测可以只重建实际启用且受影响的镜像，但必须标记 `targeted_only`；进入 full gate 前仍要补齐统一 base、四镜像、Bundle、离线契约和扫描证据。
 
 ```bash

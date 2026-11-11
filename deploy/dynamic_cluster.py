@@ -51,10 +51,11 @@ OBSERVER=NAMESPACE+'-observer.service'
 SERVICES=APIS+WORKERS+REAPERS+MEDIA+[ORCHESTRATOR,OBSERVER]
 CAPACITY_ENV={'VIDEO_USE_CONCURRENCY':'4','VIDEO_USE_NODE_CONCURRENCY':'4','VIDEO_USE_USER_CONCURRENCY':'8',
               'VIDEO_USE_NODE_CPU_SLOTS':'12','VIDEO_USE_NODE_MEMORY_MB':'49152'}
-FROZEN_TREES=('webapp','helpers','references','runtime/public','runtime/opensandbox','tests','deploy','docs')
+FROZEN_TREES=('webapp','helpers','references','runtime/public','runtime/opensandbox','runtime/skills','tests','deploy','docs')
 FROZEN_FILES=('SKILL.md','AGENTS.md','pyproject.toml','uv.lock','uv.toml','deploy.sh','.gitignore',
               'README.md','WEB_UI.md','UI_DESIGN.md','video-use-dynamic-agent-workflow-design.md',
-              'runtime/assets-manifest.json')
+              'runtime/assets-manifest.json','runtime/skill_bundle.py','runtime/skill_probe.py',
+              'runtime/skill_smoke.py','runtime/drawio_wrapper.sh','runtime/editppt_wrapper.sh')
 run=common.run
 env_file=common.env_file
 private_env=common.private_env

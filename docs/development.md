@@ -95,7 +95,7 @@ XDG_CACHE_HOME=/data2/wujing03/vu-tmp/cache PYTHONDONTWRITEBYTECODE=1 \
   tests.test_conversation_memory tests.test_workflow_messages tests.test_workflow_conversation
 ```
 
-成果预览修改运行 `node --test tests/preview_type.test.mjs`，并使用真实本地 MP4 执行 `tests/browser_artifact_preview.cjs`。HTML 预览必须同时验证脚本未执行、外部资源请求为零、桌面和窄屏可见以及大页面拖拽有效。
+成果预览修改运行 `node --test tests/preview_type.test.mjs`，并使用真实本地 MP4 执行 `tests/browser_artifact_preview.cjs`。HTML 预览必须同时验证脚本未执行、外部资源请求为零、桌面和窄屏可见以及大页面拖拽有效。PDF、DOCX、XLS/XLSX 预览还要运行 `tests/browser_document_preview.cjs`，验证真实解析、Sheet 切换、错误反馈和下载兜底。
 
 Python 报告写入 `docs/test-evidence/distributed-suite.json`，记录用例选择、源码摘要、失败、错误和跳过原因。定向运行会覆盖该报告，不能作为全量发布证明；测试期间相关源码变化也会使报告不通过。测试数量随代码演进，以当次报告为准。
 

@@ -27,6 +27,7 @@ ENV PATH=/opt/venv/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     NUMBA_CACHE_DIR=/tmp/numba-cache \
     PLAYWRIGHT_BROWSERS_PATH=/opt/runtime-assets/ms-playwright \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    CHROME_PATH=/usr/local/bin/chromium \
     U2NET_HOME=/opt/runtime-assets/rembg \
     HOME=/state
 
@@ -36,6 +37,11 @@ RUN addgroup --gid 10001 video-use && \
     test -x /usr/bin/ffmpeg && test -x /usr/bin/ffprobe
 COPY --from=runtime-builder /opt/venv /opt/venv
 COPY runtime/public /opt/video-use
+COPY runtime/skills /opt/video-use/skills
+COPY runtime/skill_smoke.py /usr/local/bin/sandbox-skill-smoke
+COPY runtime/skill_probe.py /opt/video-use/skill_probe.py
+COPY runtime/drawio_wrapper.sh /usr/local/bin/drawio
+COPY runtime/editppt_wrapper.sh /usr/local/bin/editppt
 COPY references /opt/video-use/references
 COPY helpers/edit_media.py helpers/edit_plan.py helpers/edit_captions.py /opt/video-use/helpers/
 COPY helpers/preview_style.py helpers/image_edit.py helpers/render.py /opt/video-use/helpers/
@@ -47,13 +53,20 @@ RUN find /opt/video-use -type d -exec chmod 0555 {} + && \
     find /opt/runtime-assets -type d -exec chmod 0555 {} + && \
     find /opt/runtime-assets -type f -exec chmod 0444 {} + && \
     chmod 0755 /opt/runtime-assets/node_modules/esbuild/bin/esbuild \
+      /usr/local/bin/sandbox-skill-smoke \
+      /usr/local/bin/drawio /usr/local/bin/editppt \
       /opt/runtime-assets/bin/node \
+      /opt/runtime-assets/node_modules/pnpm/pnpm \
+      /opt/runtime-assets/node_modules/typescript/bin/tsc \
       /opt/runtime-assets/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell \
       /opt/runtime-assets/ms-playwright/ffmpeg-1011/ffmpeg-linux && \
     ln -s /opt/runtime-assets/node_modules/esbuild/bin/esbuild /usr/local/bin/esbuild && \
     ln -s /opt/runtime-assets/bin/node /usr/local/bin/node && \
+    ln -s /opt/runtime-assets/node_modules/pnpm/pnpm /usr/local/bin/pnpm && \
+    ln -s /opt/runtime-assets/node_modules/typescript/bin/tsc /usr/local/bin/tsc && \
     ln -s /opt/runtime-assets/ms-playwright/chromium_headless_shell-1234/chrome-headless-shell-linux64/chrome-headless-shell /usr/local/bin/chromium && \
-    test -x /usr/local/bin/node && test -x /usr/local/bin/esbuild && test -x /usr/local/bin/chromium
+    test -x /usr/local/bin/node && test -x /usr/local/bin/esbuild && test -x /usr/local/bin/chromium && \
+    PYTHONPATH=/opt/video-use/skills/image-to-editable-ppt/cli python /opt/video-use/skill_probe.py
 
 USER 10001:10001
 WORKDIR /workspace

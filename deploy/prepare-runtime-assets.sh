@@ -10,6 +10,7 @@ test -d "$source_root/node_modules"
 test -d "$source_root/ms-playwright"
 test -x "$source_root/bin/node"
 test -f "$source_root/rembg/u2net.onnx"
+test -f "$source_root/drawio-amd64-32.6.10.deb"
 
 node - "$source_root" "$manifest" <<'JS'
 const fs=require('node:fs'),path=require('node:path');
@@ -29,4 +30,5 @@ rsync -a --delete "$source_root/bin/" "$target/bin/"
 rsync -a --delete "$source_root/node_modules/" "$target/node_modules/"
 rsync -a --delete "$source_root/ms-playwright/" "$target/ms-playwright/"
 rsync -a --delete "$source_root/rembg/" "$target/rembg/"
+rsync -a "$source_root/drawio-amd64-32.6.10.deb" "$target/drawio-amd64-32.6.10.deb"
 echo "Runtime assets staged and verified at $target"

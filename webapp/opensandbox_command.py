@@ -143,7 +143,7 @@ class OpenSandboxCommandRuntime:
             from opensandbox.models.execd import RunCommandOpts
             from opensandbox.models.execd_sync import ExecutionHandlersSync
             opts=RunCommandOpts(working_directory='/workspace',timeout=timedelta(seconds=timeout),
-                uid=10001,gid=10001,envs={'PATH':'/opt/venv/bin:/usr/bin:/bin',
+                uid=10001,gid=10001,envs={'PATH':'/opt/venv/bin:/usr/local/bin:/usr/bin:/bin',
                     'PYTHONPATH':'/opt/venv/lib/python3.13/site-packages/webapp:/opt/video-use/helpers',
                     'HOME':'/state','LANG':'C.UTF-8'})
             execution_id=[None]

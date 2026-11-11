@@ -71,6 +71,27 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(run['authorization']['review_policy'],policy)
         self.assertGreater(run['authorization_version'],1)
 
+    def test_initial_confirmation_can_complete_a_structured_delivery_contract(self):
+        history=graph.create(self.store,self.run['project_id'],None,
+            {**self.run['authorization'],'goal':'Earlier completed image task'},scope_confirmed=True)
+        self.store.execute("UPDATE runs SET status='SUCCEEDED',graph_version=1,delivered_at=? WHERE id=?",
+            (self.store.now(),history['id']))
+        existing={**graph.get(self.store,self.run['id'])['authorization'],
+            'delivery_targets':['report.txt']}
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',
+            (graph.encode(existing),self.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',
+            (graph.encode(existing),self.run['id']))
+        contract=graph.DeliveryContract(filenames=['report.txt'],formats=['txt']).model_dump()
+        self.stage(targets=[],delivery_contract=contract)
+        self.answer(self.decision(),'approve')
+        run=graph.get(self.store,self.run['id'])
+        self.assertEqual(run['graph_version'],1)
+        self.assertEqual(run['authorization']['delivery_targets'],['report.txt'])
+        self.assertEqual(run['authorization']['delivery_contract'],contract)
+        self.assertTrue(self.store.query(
+            'SELECT 1 FROM workflow_plan_tasks WHERE run_id=? LIMIT 1',(run['id'],)))
+
     def test_checkpoint_policy_revision_preserves_an_existing_delivery_list(self):
         existing={**graph.get(self.store,self.run['id'])['authorization'],'delivery_targets':['report.txt']}
         self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(existing),self.run['id']))

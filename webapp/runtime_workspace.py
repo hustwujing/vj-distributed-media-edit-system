@@ -27,6 +27,10 @@ class WorkspaceExporter:
                     from .sandbox_path_policy import is_reserved_scratch_path
                     dirs[:]=[name for name in dirs
                         if not is_reserved_scratch_path((base/name).relative_to(root).as_posix())]
+                else:
+                    from .session_checkpoint import persistent
+                    dirs[:]=[name for name in dirs if persistent(
+                        (base/name).relative_to(root).as_posix())]
                 if any((base/name).is_symlink() for name in dirs):raise RuntimeWorkspaceError('Workspace contains a linked directory')
                 for name in names:
                     path=base/name;relative=path.relative_to(root).as_posix()

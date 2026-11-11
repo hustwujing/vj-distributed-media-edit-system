@@ -64,7 +64,26 @@ Operation 不得因为镜像可用而自动迁移。
 - Helper/Skill 声明的路径必须实际存在于镜像并由 UID 10001 可读；仅校验摘要而不执行代表性 helper
   不足以证明 Bundle 可用。
 
-### 3.1 变更路径与强制重建矩阵
+### 3.1 Native Skill Bundle
+
+Codex、Claude 和 DeepSeek 共用 `runtime/skills/manifest.json` 中冻结的 Native Skill 集合。每个 Skill
+必须记录上游 URL、commit、许可证、依赖 profile、文件数和内容摘要；`runtime/skill_bundle.py verify`
+必须能从实际目录重算出完全相同的 manifest。Skill 树以 release spec 的递归成员进入统一 Bundle，
+因此任何 Skill 文件变化都会改变 Attempt 冻结的 `skill_digest`，并要求四张业务镜像全部重建。
+
+Runtime Bootstrap 完成整个 Bundle 校验后，才把镜像只读 Skill 目录链接到 `/state/codex/skills`、
+`/state/claude/skills` 或 `/state/dsh/skills`。恢复 checkpoint 后重新物化镜像版本；只删除上一镜像明确
+管理且新 manifest 已退役的条目，不能删除用户自有目录。Skill 只是指令和本地 helper，不扩大 Task 的
+文件、网络、模型、Provider、预算或交付授权。需要联网时仍使用冻结 `network_urls` 和 Gateway 的公开
+HTTPS 路由，Provider 凭据不得进入 Skill 或沙箱。
+
+依赖分三层维护：foundation 固化 LibreOffice、Pandoc、Poppler、qpdf、Tesseract、Graphviz、Draw.io；
+`wheels/` 提供离线 Python 依赖；`runtime/assets-manifest.json` 固化 Node 包和二进制摘要。修改任一层要同步
+能力清单和构建输入，不能只复制 Skill 文本。镜像门禁须运行 `skill_probe.py` 和
+`sandbox-skill-smoke`；后者覆盖全部 manifest Skill、三种 Harness 目录，并实际生成 DOCX/XLSX/PDF/PPTX、
+Draw.io/图表/浏览器/GIF 等代表性产物。
+
+### 3.2 变更路径与强制重建矩阵
 
 是否重建以“当前源码相对已部署镜像所记录的源码 commit”做 diff，不能只看最近一次 commit，也不能因为
 控制面测试通过就继续使用旧镜像。下表是**完整发布**的强制矩阵。当前 `base.Dockerfile` 会安装完整
@@ -76,6 +95,7 @@ Operation 不得因为镜像可用而自动迁移。
 | `runtime/opensandbox/base.Dockerfile`、`pyproject.toml`、`uv.lock`、`wheels/**`、`webapp/**` | `operation-runtime`、Codex、Claude、DeepSeek 四张全部重建 |
 | `.dockerignore` 中影响 Runtime context 的规则 | 按受影响输入处理；无法证明只影响单张时四张全部重建 |
 | `runtime/public/**`、`references/**`、release spec 中的 Bundle 成员、被复制的 `helpers/*.py` | 更新并冻结 Bundle，四张全部重建 |
+| `runtime/skills/**`、`runtime/skill_*.py`、Skill 依赖或 Runtime Node 资产 | 校验并冻结 Bundle，按依赖层重建 foundation/base，随后四张全部重建 |
 | `runtime/opensandbox/codex.Dockerfile`、`vendor/codex` | 只重建 Codex；共享 base digest 不得变化 |
 | `runtime/opensandbox/claude.Dockerfile` 或 Claude SDK/Harness 专属 wheel/version | 只重建 Claude；共享 base digest 不得变化 |
 | `runtime/opensandbox/deepseek.Dockerfile` 或 DeepSeek Harness 专属 wheel/version | 只重建 DeepSeek；共享 base digest 不得变化 |
@@ -91,7 +111,7 @@ Command Runtime 修复可以只构建和推送 `operation-runtime`。这种部�
 三张 Agent 镜像尚未基于新 base 重建，不得生成完整 release manifest、跑完整 campaign 或宣称四镜像
 发布完成。进入最终 full-gate 发布前，仍必须按上表补齐四张镜像并统一验证。
 
-### 3.2 镜像发布顺序
+### 3.3 镜像发布顺序
 
 1. 停止使用旧源码继续跑真机 case；确认没有活动 sandbox 依赖待替换 tag。
 2. 更新 `release-spec.json` 的 Bundle 文件集合，运行 `runtime_release.py --freeze-bundle` 并提交

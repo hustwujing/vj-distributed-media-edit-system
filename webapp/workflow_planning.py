@@ -271,13 +271,16 @@ def apply(store,run,request,*,confirmed_plan=False):
     proposed_policy=result.review_policy.model_dump() if result.review_policy is not None else current_policy
     current_delivery=run['authorization'].get('delivery_contract',DeliveryContract().model_dump())
     proposed_delivery=result.delivery_contract.model_dump() if result.delivery_contract is not None else current_delivery
+    initial_plan=(run['graph_version']==0 and not run['tasks'] and not store.query(
+        'SELECT 1 FROM workflow_plan_tasks WHERE run_id=? LIMIT 1',(run['id'],)))
     if confirmed_plan and (not run['authorization']['delivery_targets']
             or result.delivery_targets and set(result.delivery_targets)!=set(run['authorization']['delivery_targets'])
             or proposed_policy!=current_policy or proposed_delivery!=current_delivery):
         from .run_authorization import approve
         confirmed_targets=result.delivery_targets or run['authorization']['delivery_targets']
         if not confirmed_targets:raise ValueError('Confirmed plan has no delivery targets')
-        if run['authorization']['delivery_targets'] and not input_records:raise ValueError('Delivery amendment lacks explicit user input')
+        if run['authorization']['delivery_targets'] and not input_records and not initial_plan:
+            raise ValueError('Delivery amendment lacks explicit user input')
         approve(store,run,Authorization.model_validate({**run['authorization'],'delivery_targets':confirmed_targets,
                                                         'delivery_contract':proposed_delivery,'review_policy':proposed_policy}))
         run=get(store,run['id'])

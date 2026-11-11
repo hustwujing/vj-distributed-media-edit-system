@@ -12,8 +12,9 @@ class RuntimeImageDefinitionTests(unittest.TestCase):
         foundation=(folder/'foundation.Dockerfile').read_text()
         self.assertIn('PYTHON_IMAGE must be immutable',foundation)
         self.assertIn('ffmpeg',foundation)
-        for package in ('file','procps','socat'):
+        for package in ('file','procps','socat','graphviz','libreoffice-core','pandoc','poppler-utils','qpdf','tesseract-ocr'):
             self.assertIn(package,foundation)
+        self.assertIn('drawio-amd64-32.6.10.deb',foundation)
         self.assertIn('fonts-wqy-zenhei',foundation)
         base=(folder/'base.Dockerfile').read_text()
         self.assertIn('BASE_IMAGE must be immutable',base)
@@ -22,6 +23,8 @@ class RuntimeImageDefinitionTests(unittest.TestCase):
             self.assertIn(dependency,(ROOT/'pyproject.toml').read_text())
         self.assertIn('FROM ${BASE_IMAGE} AS runtime-builder',base)
         self.assertIn('COPY --from=runtime-builder /opt/venv',base)
+        self.assertIn('COPY runtime/skills /opt/video-use/skills',base)
+        self.assertIn('sandbox-skill-smoke',base)
         self.assertIn('COPY references /opt/video-use/references',base)
         self.assertIn('COPY helpers/edit_media.py',base)
         self.assertIn('find /opt/video-use -type f -exec chmod 0444',base)

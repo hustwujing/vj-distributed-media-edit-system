@@ -2,13 +2,13 @@
   "files": [
     {
       "path": "SKILL.md",
-      "sha256": "8e54c22cd9ba81115d230915e64c001c14716a3f5c86edaad2e8b720488af8c7",
-      "size": 9644
+      "sha256": "a130d2610a74a61d123b94c780240bcc8c0d978fed9416ee0b68f0080d41511e",
+      "size": 10159
     },
     {
       "path": "capabilities.json",
-      "sha256": "9f10056991caf57874296d5a593a7fcf1408a3355add744651594fd139187180",
-      "size": 3252
+      "sha256": "be44ebc5f0f702bf2ebc5ee6de67cf6edee7db855069a319dd6496a3202e121d",
+      "size": 3650
     },
     {
       "path": "helpers/canvas_render.py",
@@ -146,12 +146,5167 @@
       "size": 5944
     },
     {
+      "path": "skills/academy-guide/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/academy-guide/SKILL.md",
+      "sha256": "f27992510c051355dfe68c92394d509af730da5298094ec86834ee40bbd31376",
+      "size": 7755
+    },
+    {
+      "path": "skills/algorithmic-art/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/algorithmic-art/SKILL.md",
+      "sha256": "3bc4092c09804853186524c826bc0621b940bb6122c05b84496dff95388e6eef",
+      "size": 19769
+    },
+    {
+      "path": "skills/algorithmic-art/templates/generator_template.js",
+      "sha256": "9ee0f1da52ef8f7bbfde1917123654880890d43f2d388642d71eab6dd78f94c4",
+      "size": 7826
+    },
+    {
+      "path": "skills/algorithmic-art/templates/viewer.html",
+      "sha256": "86c79d7ce97d2599ebe4bd9b97fdeb7295c9d3ed61ceeb513cbe1b2bb5d1ce29",
+      "size": 20844
+    },
+    {
+      "path": "skills/anatomy/CHANGELOG.md",
+      "sha256": "5f7cdb0212f216f4d7089c113fab07a84224e3114cb63a84148a995d284378a9",
+      "size": 11323
+    },
+    {
+      "path": "skills/anatomy/LICENSE",
+      "sha256": "87c078ab9d90a3044f359e6b563d4e6afea7aa060897cf4f21618687b3856796",
+      "size": 1061
+    },
+    {
+      "path": "skills/anatomy/README.md",
+      "sha256": "834bf0870eb238deb360e9a479717e04b5eb990187cf2a5b8d1fb9f31433cda5",
+      "size": 24672
+    },
+    {
+      "path": "skills/anatomy/SKILL.md",
+      "sha256": "1993151ca39afd7880a20d871aacc0ddd348090530d8135dc5ea51af28f25305",
+      "size": 31600
+    },
+    {
+      "path": "skills/anatomy/agents/openai.yaml",
+      "sha256": "254b17510460bc5151295b1e1e40b6a1aceeff60a0dda4e9594adcfa36819526",
+      "size": 120
+    },
+    {
+      "path": "skills/anatomy/examples/arcade-cabinet/arcade-cabinet-light.html",
+      "sha256": "03f832383879a031119de40dfaaff7b800baa975065992079ff6377267d8cb5e",
+      "size": 1007953
+    },
+    {
+      "path": "skills/anatomy/examples/arcade-cabinet/arcade-cabinet.css",
+      "sha256": "a0ea7bce89a665ddd13f72daf31849c07d8b517b66a3d555543aa506b8933629",
+      "size": 3221
+    },
+    {
+      "path": "skills/anatomy/examples/arcade-cabinet/arcade-cabinet.html",
+      "sha256": "6d95f892c35d888ac635870244ec904bf6e79e10927f1f5a345bb844bc606bff",
+      "size": 1007952
+    },
+    {
+      "path": "skills/anatomy/examples/arcade-cabinet/build.mjs",
+      "sha256": "a5e92188b54fb18fe7fbce3dbc86a8e55abf32f2560be667ac0866d089ba7b84",
+      "size": 51493
+    },
+    {
+      "path": "skills/anatomy/examples/arcade-cabinet/live.js",
+      "sha256": "d9f02ea9193f3109501333bdfb4ab297a71457aaba431f05f5df667ea8c40c8f",
+      "size": 21286
+    },
+    {
+      "path": "skills/anatomy/examples/arcade-cabinet/parts.mjs",
+      "sha256": "3ba74b8c55e72933b1e119e3d24c939f654b2c43d41ff26cf855f064cbc7d2a3",
+      "size": 4296
+    },
+    {
+      "path": "skills/anatomy/examples/arcade-cabinet/screen.mjs",
+      "sha256": "8fbb8aebb1d657508979ec9b58a29281c71403396df1fcdc6f8f834fe9097be9",
+      "size": 6701
+    },
+    {
+      "path": "skills/anatomy/examples/desk-computer/build.mjs",
+      "sha256": "d378f9814acf75bc915921d4f2d83ed1eb4991a8b4298eb0de0e10383b2ff66d",
+      "size": 23023
+    },
+    {
+      "path": "skills/anatomy/examples/desk-computer/desk-computer-light.html",
+      "sha256": "ce63c5bed81b76491a82f5e94d22e5f64744c87bc448fdad8726ae0c6ecd0b59",
+      "size": 237394
+    },
+    {
+      "path": "skills/anatomy/examples/desk-computer/desk-computer.html",
+      "sha256": "94f04084c1ce997a88e60fc0b4d9c5b6dbe859b95ee0dd7a10603e648fced2bc",
+      "size": 237393
+    },
+    {
+      "path": "skills/anatomy/examples/dial-indicator/build.mjs",
+      "sha256": "e4eaa2324af7f2630650ca72e52a78d56159213a786e14fba8321344789f990d",
+      "size": 14973
+    },
+    {
+      "path": "skills/anatomy/examples/dial-indicator/dial-indicator-light.html",
+      "sha256": "bc1810e340d916a25cc1749589b44096b7e41970f22fa7fce569bbefc0613093",
+      "size": 136489
+    },
+    {
+      "path": "skills/anatomy/examples/dial-indicator/dial-indicator.html",
+      "sha256": "2ba95d49a5432a5aa764fca89af91ab91043531669609ed57b92bd50b51e5519",
+      "size": 136488
+    },
+    {
+      "path": "skills/anatomy/examples/raptor-engine/build.mjs",
+      "sha256": "26064df05bb650845ec485195f972f5a0fed3c21ee152f0b8db8194fdc26d916",
+      "size": 70705
+    },
+    {
+      "path": "skills/anatomy/examples/raptor-engine/live.js",
+      "sha256": "03d801ef2b75e17a38ebc3d5cb9178747226ea8c2e0c527caafb9c72844d88d8",
+      "size": 30752
+    },
+    {
+      "path": "skills/anatomy/examples/raptor-engine/raptor-engine-light.html",
+      "sha256": "f49110757e6e55ebfbee090e40676e3fce814ce664de0f8905a20233a1432265",
+      "size": 1610583
+    },
+    {
+      "path": "skills/anatomy/examples/raptor-engine/raptor-engine.html",
+      "sha256": "2d0f782b459dcd5bc3aa8c4ce922a1f523f63f2799d120f9c0de2dc732cc92e1",
+      "size": 1610582
+    },
+    {
+      "path": "skills/anatomy/examples/raptor-engine/raptor.css",
+      "sha256": "f850575feeeacac8ef5d9d9c49359f4deaef848666c68a4dafa9727fe926cd6e",
+      "size": 6792
+    },
+    {
+      "path": "skills/anatomy/examples/ripple-tank/build.mjs",
+      "sha256": "5a5b846bcd146630be3eafb73ebd04cfdd2101d05def15a877fff7188822b493",
+      "size": 32062
+    },
+    {
+      "path": "skills/anatomy/examples/ripple-tank/live.js",
+      "sha256": "d2427eada1948662c680b9ca42e8d6e81979f9206c0572524ac404f204f07b5e",
+      "size": 21720
+    },
+    {
+      "path": "skills/anatomy/examples/ripple-tank/model.mjs",
+      "sha256": "f6315aa53e80c0c69bf3c52baf0a1340ca4daacfae80245def02f357c2d33882",
+      "size": 5004
+    },
+    {
+      "path": "skills/anatomy/examples/ripple-tank/ripple-tank-light.html",
+      "sha256": "922ca1692b76a72bbc9330708af56a5073c41f6936d87da507f5fc1247a9c94f",
+      "size": 505478
+    },
+    {
+      "path": "skills/anatomy/examples/ripple-tank/ripple-tank.html",
+      "sha256": "6ae0099f420c96b0241a74361aea700ef83e554d5f17d5fbcdfd9c130335c27e",
+      "size": 505477
+    },
+    {
+      "path": "skills/anatomy/examples/ripple-tank/ripple.css",
+      "sha256": "1bf7a778f0b50928adcd54e67c44aa2b12a6877b45f15a0b697d87ab7be0dd5c",
+      "size": 1675
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/art.tsx",
+      "sha256": "aecef8d6ee247e99d52717371a319283af8b1bbba2adfcdd4d012553d2963b38",
+      "size": 4491
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/drops.ts",
+      "sha256": "9bec874c5e324d69a25cc9085ecf2c5d9c3c2e3bd1a8c667c45e048301b899d4",
+      "size": 19131
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/fan.ts",
+      "sha256": "648c1d946e9512afcae60e077d2436926ca1ea94b02c944df8624419812077b1",
+      "size": 2715
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/figure.tsx",
+      "sha256": "b9db1ef99bfac58d55d0506f05e0c178e5c9566c61cbf26826ea25cfaa57805f",
+      "size": 1078
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/geometry.ts",
+      "sha256": "faf7d6bf1b475daacd4751687d409d7a5c03a6c2bb216ae81beadce5a3cea99a",
+      "size": 10962
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/live.tsx",
+      "sha256": "e96fd47aa4ab250a6b2c6fe3c6c3c96d4bcf737dff7f084d4912f5d1ef195116",
+      "size": 11718
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/rig.ts",
+      "sha256": "b19fc1637a1f4c411c23f34c7a48361f308402b15b11efc44fb6555e8f67ceea",
+      "size": 8160
+    },
+    {
+      "path": "skills/anatomy/examples/spot-plate/spot-plate.css",
+      "sha256": "b31e4c8e02f4de0b77fe0a71718f59d7df2e3abc3d9772f802e00fc3d8a582bd",
+      "size": 1518
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/art.tsx",
+      "sha256": "a6b8c1094a9402380d9835ecedbcc677254686b7391027a20da10fc8bf24dae5",
+      "size": 7372
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/figure.tsx",
+      "sha256": "2dbaef167b9a6a96de74357fc57ae2a650159007852d3d4e8c471b8837e463a9",
+      "size": 850
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/geometry.ts",
+      "sha256": "b8c275eb58b093a85c312f90dc5d79fd9d9a93ae266e42a8a6fa7f6f9aaeb571",
+      "size": 13085
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/live.tsx",
+      "sha256": "46a4c338a2805fc0078a20d6f4e12d9de20fc4145ec051ffce3964b164c5a7da",
+      "size": 17463
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/pose.ts",
+      "sha256": "380e1d07afcaa3a4e2cd1b13556500f2b336e354fa1c369918b3173f0c9d0866",
+      "size": 3894
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/rig.ts",
+      "sha256": "9672431d6982acaa7b6f28e88e1371443bd6a10fb906ff52fc7bdb0f5fd88b05",
+      "size": 5604
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/stretch.css",
+      "sha256": "dd15f4582b5fb9b228dc7e32ef57dbcba0129dad38b36e5707247eeb7a2abe8b",
+      "size": 1210
+    },
+    {
+      "path": "skills/anatomy/examples/test-rig/view.ts",
+      "sha256": "5465a3e122c2074f8de755b874c7bdb783b365e4140e3e741fc91a32cd69500c",
+      "size": 3116
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/build.mjs",
+      "sha256": "dcb1b2a1fec2c98c2cea401c6a5b1c7e6545da3b5ea08433cfd72a7f27a49248",
+      "size": 32098
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/dial.css",
+      "sha256": "769fc9596dcd2bbc46823d6e2816a3e584b52e0a6db359d93bedce16f354bedd",
+      "size": 509
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/live.js",
+      "sha256": "e872f0d930ba583ce7c4c252a3767aa6b9f6cd1f97fe6dddb212653a0579b41f",
+      "size": 12523
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/stress.mjs",
+      "sha256": "6d3aec19d8ce6daadffe15113da9415c2fe084c6407d1bb7fb4b5fec86330314",
+      "size": 19414
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/turning-dial-light.html",
+      "sha256": "7873a4873e4f1a204ca59691765915f155f44095c2c290730aa2b915b4c88c9e",
+      "size": 673894
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/turning-dial-verify-light.html",
+      "sha256": "7516d25e04c8a2c7d3abc7bf19e78985cfca2a2f37e1de72740808a977346366",
+      "size": 701752
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/turning-dial.html",
+      "sha256": "e477d45029568c45966bf2e4ae2353265e065b90663877e8c21de5b6741e4e90",
+      "size": 673893
+    },
+    {
+      "path": "skills/anatomy/examples/turning-dial/turning-stress-light.html",
+      "sha256": "e175e82f1bba087bb6031e375fb5da386f4f779e89e91a7864f7fc298b8b14e3",
+      "size": 1228774
+    },
+    {
+      "path": "skills/anatomy/kit/audit.mjs",
+      "sha256": "90c5bb4a86f108e8a1d3211dbea326bed16acd887c3438810ea29200a2cde28d",
+      "size": 92696
+    },
+    {
+      "path": "skills/anatomy/kit/canvas-painter.mjs",
+      "sha256": "1918db10279c9d9df87d7df52c7ed8c2de8acd0bbce214c8f2115a39e7f955ac",
+      "size": 27535
+    },
+    {
+      "path": "skills/anatomy/kit/gl-shared.mjs",
+      "sha256": "8c3773cf3e15844df332db3ba55af940186edb2227201e5839347ecc390c039c",
+      "size": 8863
+    },
+    {
+      "path": "skills/anatomy/kit/gl.mjs",
+      "sha256": "17a477411e0b9fcb8e84e718094eaefa6be2c0b7d6ce15ee03fe8e252944130a",
+      "size": 8763
+    },
+    {
+      "path": "skills/anatomy/kit/iso-kit.mjs",
+      "sha256": "6d3ecc725d30c3b0346da309cf61dfa5a65017c23620bbd4093009d4fb104018",
+      "size": 35175
+    },
+    {
+      "path": "skills/anatomy/kit/iso-kit.ts",
+      "sha256": "e9fc988c61a11bfac1f097e62419915ea86b2130ab091f1b50c0e019c907e253",
+      "size": 38631
+    },
+    {
+      "path": "skills/anatomy/kit/iso.css",
+      "sha256": "ef19bac5a42ba9be42b56b2c1cf7fc7e21d332a8060765e9ca1d987b8ab23924",
+      "size": 7698
+    },
+    {
+      "path": "skills/anatomy/kit/lathe.mjs",
+      "sha256": "a4e7e974b1a37e603ad2b76363b6f9815cc101dfff0ad277a5d4e8f1dc56fccb",
+      "size": 48028
+    },
+    {
+      "path": "skills/anatomy/kit/react/draw.tsx",
+      "sha256": "d5389bd78aa3d5424a37b1ce6f635bd102eb86faf27d064b10957716278a631c",
+      "size": 6602
+    },
+    {
+      "path": "skills/anatomy/kit/react/live.tsx",
+      "sha256": "6d01fa12bca4ec14d1b7d7d5331d18a997dd3ee131d59dd57f83b932a1705f42",
+      "size": 4359
+    },
+    {
+      "path": "skills/anatomy/kit/tube.mjs",
+      "sha256": "bcb3cc360f6d83e6a5753f4c464b4587ab7965028b05a5d58e285abce58667c9",
+      "size": 14230
+    },
+    {
+      "path": "skills/anatomy/kit/turn-audit.mjs",
+      "sha256": "e118b838c00621eb5d86409552b75b50d02c303eaedefc008146a7c62c2eaefd",
+      "size": 57157
+    },
+    {
+      "path": "skills/anatomy/kit/turn-build.mjs",
+      "sha256": "b95d76f9181703508b5bb758973bf004eb92d298a01e0e5ff5457f830c183888",
+      "size": 65265
+    },
+    {
+      "path": "skills/anatomy/kit/turn-fixed.mjs",
+      "sha256": "7429b46eb7673aefb6ed90adeaf130c1dafe8e32af038cbde24a04e693d13fc7",
+      "size": 147055
+    },
+    {
+      "path": "skills/anatomy/kit/turn.mjs",
+      "sha256": "cb4b530b5e1750ba0e4fd2367d5f25e00195c0136672aa2ecd665c0622ffd1a2",
+      "size": 139815
+    },
+    {
+      "path": "skills/anatomy/references/3d.md",
+      "sha256": "de58da5415b4c9fe7712b5b71e0868c4d36363d54e4e32d98a6b016363554536",
+      "size": 44644
+    },
+    {
+      "path": "skills/anatomy/references/craft.md",
+      "sha256": "38761fa9b81d66b30e50b05488501d4815830d3627f153d60f76ca783f598936",
+      "size": 50299
+    },
+    {
+      "path": "skills/anatomy/references/kit.md",
+      "sha256": "684672e069fdb52735efabc3f4310dedd840d0c8066a8dc7784be2b7e656be71",
+      "size": 67873
+    },
+    {
+      "path": "skills/anatomy/references/motion.md",
+      "sha256": "dda401ca1b4661a5f0b7c1e33dac6e7e4b8c13d51ca5d9312123a5c02dab320b",
+      "size": 22611
+    },
+    {
+      "path": "skills/anatomy/references/publish.md",
+      "sha256": "57790e740662bc8f2044ba5f0385598bad955d6a38dd2a47d56d644f21d8deb8",
+      "size": 4113
+    },
+    {
+      "path": "skills/anatomy/references/react.md",
+      "sha256": "76b5cee6e0a7513e3c77a832e3f58b1343806597d469774e1749f141525801fd",
+      "size": 3614
+    },
+    {
+      "path": "skills/anatomy/references/verify.md",
+      "sha256": "fb81437fc5d75094a34432eb6f545644aa228e15173a27d08b3cace912033561",
+      "size": 43574
+    },
+    {
+      "path": "skills/anatomy/references/walkthrough.md",
+      "sha256": "4d157e0169080a6ed44d5b06de0a5de2931baf3d0fac30283d2644dd66506dfa",
+      "size": 5276
+    },
+    {
+      "path": "skills/anatomy/references/webgl.md",
+      "sha256": "fb4e2421c6a705d4ad849c8e516731ebc958bc5ff0855548ff58232b0aa01923",
+      "size": 61104
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-affine-bounds.test.mjs",
+      "sha256": "038e0a879363c4b0d2c7146a62065b09f2973210114928d5005e9082219654d2",
+      "size": 4175
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-cache.test.mjs",
+      "sha256": "00b49601c068897e94bf8309d652bb55595e541283c510bba34957c457edd57e",
+      "size": 1603
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-clearance-envelope.test.mjs",
+      "sha256": "ffa8321d25996ac165dd1fdb6473a903c1c6f03b86996b2fef6978203b8f2bd8",
+      "size": 2407
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-empty-clipping.test.mjs",
+      "sha256": "a28384ccbf303acc32f7788753459a7338c94bc74ee5efe70762daa75a62c8cb",
+      "size": 3936
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-order-convergence.test.mjs",
+      "sha256": "9ad7b9a645d9e90a788e561484013b0fdefb1a8abd38fcb160f5d1a6464be278",
+      "size": 2875
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-path-origin.test.mjs",
+      "sha256": "1e5917a4a3bc337aa4497e5717de47b198db8fc9538d5f10d40a788f5f821d37",
+      "size": 1594
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-profile.test.mjs",
+      "sha256": "80179ae38afa6e58ed254a597daeee27240e85f87d1bbd0421def4e347ec37c0",
+      "size": 2171
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-projection.test.mjs",
+      "sha256": "0cd790e0dfc64633019db3233b87fec823c6148037d9335e1c2b16ea1c722db6",
+      "size": 1934
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-slide-clearance.test.mjs",
+      "sha256": "007f68aa5262eae40aceef00eec91e4d5be0164bd5fb9377680996164ff9ac19",
+      "size": 2875
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-svg-attributes.test.mjs",
+      "sha256": "2d2a949639f90d6328eeea401f6b7f3a3dc1fcc17f1d46cbe2de208afc3c6533",
+      "size": 3484
+    },
+    {
+      "path": "skills/anatomy/scripts/audit-taper.test.mjs",
+      "sha256": "ea4415ef743efc4ba1393457c571cdfc2b91bfd5ea931ae32829926c80aed487",
+      "size": 1267
+    },
+    {
+      "path": "skills/anatomy/scripts/capture-current-geometry.test.mjs",
+      "sha256": "ad0c0555e693c8c9e2b14a3098b91acd04df6e7c45779615aaa86e81be452756",
+      "size": 5109
+    },
+    {
+      "path": "skills/anatomy/scripts/capture-selector.test.mjs",
+      "sha256": "046ce21a686e99c1a5a760f529b999cdca5b7f504961784bc087395b0b586eff",
+      "size": 7665
+    },
+    {
+      "path": "skills/anatomy/scripts/capture.mjs",
+      "sha256": "b000f78cf72aee3fb2096a74527a8ef87d9022fb28fecc35d3f232cf3a6e6d8f",
+      "size": 13283
+    },
+    {
+      "path": "skills/anatomy/scripts/capture.test.mjs",
+      "sha256": "319aed308ded5eb4137c8d633720a9254d8c5f35a8adcc1e883066e6c983ed62",
+      "size": 2023
+    },
+    {
+      "path": "skills/anatomy/scripts/chrome-port.mjs",
+      "sha256": "6775d3d389d26f37a52be8358aa88d1dc0aded63cb24ae20a936505a192e5d9d",
+      "size": 1083
+    },
+    {
+      "path": "skills/anatomy/scripts/chrome-startup.test.mjs",
+      "sha256": "bd3c0eb4b699ebfbfd4efa5920acf386f31876ed490aaee839886dd8ed4cf797",
+      "size": 1838
+    },
+    {
+      "path": "skills/anatomy/scripts/drive-actions.test.mjs",
+      "sha256": "ef415f9860e656dcf0d1c95b48aedf974cf311aa31e547403f7684c59d676aa3",
+      "size": 1822
+    },
+    {
+      "path": "skills/anatomy/scripts/drive-async-until.test.mjs",
+      "sha256": "86058cb8456c1c9c2822c7a3ece698e2dba40a1a01f2746668cfe2e2cb193435",
+      "size": 2743
+    },
+    {
+      "path": "skills/anatomy/scripts/drive-turn-controller.test.mjs",
+      "sha256": "2b7deda0e9706208ae9c21cc2ada09d623eebee9e0dfc512503b8ddbeb4ddcac",
+      "size": 2702
+    },
+    {
+      "path": "skills/anatomy/scripts/drive.mjs",
+      "sha256": "6376ebdae1eba1ec33dddac198ca3b1852f35013c7a3f8cb09642b26b7e5e452",
+      "size": 22086
+    },
+    {
+      "path": "skills/anatomy/scripts/drive.test.mjs",
+      "sha256": "c4f354f8c79e766858d913321fcb84786355e814ca2e096992a088b2181529f0",
+      "size": 3690
+    },
+    {
+      "path": "skills/anatomy/scripts/enter-key.test.mjs",
+      "sha256": "2592318f2b41735e4ff8ed2edcbc3abee46d81f9184b02dd99c121d8900d3838",
+      "size": 2560
+    },
+    {
+      "path": "skills/anatomy/scripts/fidelity-cut.test.mjs",
+      "sha256": "7f3518eba374167ada79cc73970cc9557ef48faa3e8b390326589c67ab989787",
+      "size": 3702
+    },
+    {
+      "path": "skills/anatomy/scripts/fidelity-tube-coverage.test.mjs",
+      "sha256": "eef7300ea786d82268811cc4e4153c1de913bae17cec58bd4a28f64ea875c525",
+      "size": 3223
+    },
+    {
+      "path": "skills/anatomy/scripts/fingerprint.mjs",
+      "sha256": "1582728c6f70b340f8fdda28f287e6f8d45e291ab739ef9ff527a5374f7b1654",
+      "size": 1241
+    },
+    {
+      "path": "skills/anatomy/scripts/inline-kit.mjs",
+      "sha256": "01e08df7c2556ce52a7e8ed9009a332036b209ab7e42389874af2a65fda6e9db",
+      "size": 648
+    },
+    {
+      "path": "skills/anatomy/scripts/line-ends.mjs",
+      "sha256": "e8a121473dfe62245eab2116e8fb6b4d8ed86e3fe29ea50a90e86ffed335b1cd",
+      "size": 15143
+    },
+    {
+      "path": "skills/anatomy/scripts/lines-arcs.test.mjs",
+      "sha256": "ae915157d4bbdfe8e4af031c0e2e5f5f566c938ba7bb88884ae377489aff540e",
+      "size": 2059
+    },
+    {
+      "path": "skills/anatomy/scripts/lines-bezier.test.mjs",
+      "sha256": "7a95169325fed35eecb0c7aefcb806a48bfd09eaba3df5461dc2e30c5d0695f4",
+      "size": 1769
+    },
+    {
+      "path": "skills/anatomy/scripts/lines-round.test.mjs",
+      "sha256": "7a012c3eb010b7f8082ee49ce939d6f35f384d188d897e3fd3708682c5d3a657",
+      "size": 2458
+    },
+    {
+      "path": "skills/anatomy/scripts/lines-rounded-rect.test.mjs",
+      "sha256": "88d0a27b047895a00f5654f59d93c775fb8312a5c28be3b47b5e673d80efe5b6",
+      "size": 2527
+    },
+    {
+      "path": "skills/anatomy/scripts/lines.mjs",
+      "sha256": "b0ca73ab3a0d1cd4a28fda933496cbd7384ef315d821b5d2fffae1c704ce79cc",
+      "size": 1700
+    },
+    {
+      "path": "skills/anatomy/scripts/lines.test.mjs",
+      "sha256": "82931231d33d977bcc44c54b05bdb7b78c4ddebc422848ab59539018dd43583a",
+      "size": 1537
+    },
+    {
+      "path": "skills/anatomy/scripts/navigation.test.mjs",
+      "sha256": "b9bd9d7360735e178b24e086e5c875e1703e3e0593e7ddff5f10fe0b4f0f7587",
+      "size": 2255
+    },
+    {
+      "path": "skills/anatomy/scripts/orbit-sampling.test.mjs",
+      "sha256": "ed6ce6b0dd32f6c7ab51a5a50ea2dd4b920858ff35d725bea22bee79e323b97a",
+      "size": 2810
+    },
+    {
+      "path": "skills/anatomy/scripts/publish.mjs",
+      "sha256": "9f6addf3b1c8bfb1bcb1de3402d33fa22a9dfd3606b72b487a0fdf40bd0677d6",
+      "size": 19497
+    },
+    {
+      "path": "skills/anatomy/scripts/publish.test.mjs",
+      "sha256": "85bd3761918ce75095361205d3e691d817621c7d10db95558d46cfa9dfa37431",
+      "size": 5677
+    },
+    {
+      "path": "skills/anatomy/scripts/react-dots-opacity.test.mjs",
+      "sha256": "e7d2b5386f397efe4197b4607f2131170bf88dc52ccc3cfcfea2677f28d41aec",
+      "size": 2817
+    },
+    {
+      "path": "skills/anatomy/scripts/react-readout-first-write.test.mjs",
+      "sha256": "088a2d29d67e9638f7e43e9b5204c027566934d38302c0ee5e406752f2a4780a",
+      "size": 3846
+    },
+    {
+      "path": "skills/anatomy/scripts/react-readout-target.test.mjs",
+      "sha256": "1354dc4a3fc44063034bd586b7e0e1e589804c65e47ee522c5c553dbded9e05d",
+      "size": 4657
+    },
+    {
+      "path": "skills/anatomy/scripts/react-solid-seamless.test.mjs",
+      "sha256": "f45927c14dd6023eec7109da5db10cddd46cd46b21f58675a6d4dc6ca12122b0",
+      "size": 2752
+    },
+    {
+      "path": "skills/anatomy/scripts/react-visibility-target.test.mjs",
+      "sha256": "78c630aa974d2fbd04cb096a95b528d64d3027e2a9666b85e9d7a50965160925",
+      "size": 3844
+    },
+    {
+      "path": "skills/anatomy/scripts/session.mjs",
+      "sha256": "8896ea1587a5a612a20db7a7a9310a53387d6eef640277834f7bac7e69109302",
+      "size": 4834
+    },
+    {
+      "path": "skills/anatomy/scripts/session.test.mjs",
+      "sha256": "200fe708d40646b5ee24451e561744ac281e1cf0bf2c75c233d340eeed304f79",
+      "size": 2663
+    },
+    {
+      "path": "skills/anatomy/scripts/turn-bench.mjs",
+      "sha256": "d86cd53e3702fa92e22b4052ee9bf47da10fd0a71401fe477bd8da2fe30b1631",
+      "size": 3863
+    },
+    {
+      "path": "skills/anatomy/scripts/turn-check.mjs",
+      "sha256": "b08ec017c59288d728f17074eb82d5da518f092c860951750523c1e7c07e6df9",
+      "size": 37440
+    },
+    {
+      "path": "skills/anatomy/scripts/turn-fidelity.mjs",
+      "sha256": "4b8e7ad29d0a255d2dd5e7f396bce11f13e5baa5eb682adc68025d4ee16a1fb7",
+      "size": 20164
+    },
+    {
+      "path": "skills/anatomy/scripts/turn-group-reference.test.mjs",
+      "sha256": "bfac2f910c80c7fcfba9e4861391552000a0f25414ae86576a9ef9ef46291412",
+      "size": 2174
+    },
+    {
+      "path": "skills/anatomy/scripts/turn-split-owner.test.mjs",
+      "sha256": "829febf610ba09cdca651fbd86340f13932f241b4e3525a3d8566ac70d75a69d",
+      "size": 3411
+    },
+    {
+      "path": "skills/brand-guidelines/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/brand-guidelines/SKILL.md",
+      "sha256": "1120b3769e2985cefb3d25be981b1f914abeba57ae079b83c20c666c164fa9fe",
+      "size": 2235
+    },
+    {
+      "path": "skills/canvas-design/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/canvas-design/SKILL.md",
+      "sha256": "a1f288079624402f30682753c1d43920b6664785698d21d3e7aa197450a6448b",
+      "size": 11939
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/ArsenalSC-OFL.txt",
+      "sha256": "8ddd61b18ba2c0d0dbe4a691cf5f1a0673f473d02fa0546e67ee88c006aeff6e",
+      "size": 4373
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/ArsenalSC-Regular.ttf",
+      "sha256": "65e6f89df58f68fd905b3add34a79dd6106aa3b3044df0dad9676fff53d504b9",
+      "size": 165848
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/BigShoulders-Bold.ttf",
+      "sha256": "b43bcd198b9fdf717dd42aa61a34dba32e01aceaeae659d689afd0ca52c37ea2",
+      "size": 94528
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/BigShoulders-OFL.txt",
+      "sha256": "fbc746aabf0eb1847dfd92e2efc4596d79fa897d60b8e64062a22f585508fb3f",
+      "size": 4397
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/BigShoulders-Regular.ttf",
+      "sha256": "18a879fc71978a4447150705caf880a9da3860083c259fd29e6dc03057b6842a",
+      "size": 94396
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Boldonse-OFL.txt",
+      "sha256": "45cc82ab4032273c0924025ffcf8f0665a68e1a5955e3f7247e5daf1deeb1326",
+      "size": 4390
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Boldonse-Regular.ttf",
+      "sha256": "cc2e540604565c0f90a7d8d46194a2f42fc9c45512cd2e39bf03b50eb68c35a4",
+      "size": 77168
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/BricolageGrotesque-Bold.ttf",
+      "sha256": "a737b146fe0d77ffe8a86e3cd16700dd431d3b1e420d4fd80e142cd68a1cb50d",
+      "size": 90952
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/BricolageGrotesque-OFL.txt",
+      "sha256": "0e4f4eb8534bc66a76aca13dd19c1f9731b2008866b29ccff182b764649df9b4",
+      "size": 4403
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/BricolageGrotesque-Regular.ttf",
+      "sha256": "972a6d098c9867ae131d0ea99e221e63976b11a19d4b931c2c7ace525674e4f6",
+      "size": 90920
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/CrimsonPro-Bold.ttf",
+      "sha256": "48f191e38355c8db100eb3ce157c20f9302a3b9a37b44a660f77ecfce3986609",
+      "size": 107352
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/CrimsonPro-Italic.ttf",
+      "sha256": "52318db3526b644e6efa60be0b3ca5a50e40fbe8bd026c261e0aa206f0772267",
+      "size": 108828
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/CrimsonPro-OFL.txt",
+      "sha256": "35680d14547b6748b6f362a052a46d22764ce5eccf96e18b74f567bb2ee58114",
+      "size": 4394
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/CrimsonPro-Regular.ttf",
+      "sha256": "48fad08cb1917a7b2f2c6fe5135d6c07743a6663cf7631ec4481108aaf081422",
+      "size": 106696
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/DMMono-OFL.txt",
+      "sha256": "bfe7842fcb88323e2981e24710c25202677385a8c75fb6a87217b275a0247ae3",
+      "size": 4392
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/DMMono-Regular.ttf",
+      "sha256": "f98ada968dc3b6b2c08d3f5caaf266977df0bfe0929372b93df5a06cf2ace450",
+      "size": 48852
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/EricaOne-OFL.txt",
+      "sha256": "e0de629968b52255548d5fafcf30b24ff9edae0eda362380755a75816404d0fa",
+      "size": 4410
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/EricaOne-Regular.ttf",
+      "sha256": "db1d89e80e33a8a01beaaac7a85df582857d24a43f1e181461aa7ff5d701476a",
+      "size": 24872
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/GeistMono-Bold.ttf",
+      "sha256": "75c0828d5c1ee44b9ef9f4df577bf41595ec362e2ea3f1e558590c9e92c7949d",
+      "size": 78304
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/GeistMono-OFL.txt",
+      "sha256": "6a873c900f584109b13ae0aaf81d6e3cf0a68751a216b03f7b6c68d547057bb4",
+      "size": 4388
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/GeistMono-Regular.ttf",
+      "sha256": "a55c1b51cda4afeab9e471e7947b85a20f7c8831d7e6b1470c1b7fbdc0f0f15e",
+      "size": 78232
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Gloock-OFL.txt",
+      "sha256": "c0a3f3125ac491ef3d1f09f401be4834c646562f647e44f2bcbc49f0466c656d",
+      "size": 4381
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Gloock-Regular.ttf",
+      "sha256": "e86b4ce66dbd3f1f83eee8db99ec96e0da1128c3f53df0e9b3b7472025dfe960",
+      "size": 95156
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/IBMPlexMono-Bold.ttf",
+      "sha256": "dbd2a2fb024579438d6400a84e57579bfd2dbe67c306c8fd9fde92a61e4f2eea",
+      "size": 136008
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/IBMPlexMono-OFL.txt",
+      "sha256": "5294ce778857e1eb02e830b6ab06435537d38f43055327e73d03a2d4d57d5123",
+      "size": 4363
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/IBMPlexMono-Regular.ttf",
+      "sha256": "ab08018ccd276b79fb2c636bb95b9c543598f9d50505fe92506fcb4dae7810cd",
+      "size": 133796
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/IBMPlexSerif-Bold.ttf",
+      "sha256": "b8d294e9b5c5a0940f167c3ced0f7ef2e3f57082ca3ff096ef30e86e26c1c159",
+      "size": 161000
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/IBMPlexSerif-BoldItalic.ttf",
+      "sha256": "da64b75f4284f53e7b5c71fa190a35b8bf3494fe19f1804c81c3a53340bca570",
+      "size": 169840
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/IBMPlexSerif-Italic.ttf",
+      "sha256": "b11f1048745e715a55c9d837b3f10226ca3d78867b7db7251ddad8f98dcf0f38",
+      "size": 170004
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/IBMPlexSerif-Regular.ttf",
+      "sha256": "77cd233a2af8dc6b1022faea3bb3b01f3c75af68bcf530cb6aeb15982ff3dbb7",
+      "size": 160380
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/InstrumentSans-Bold.ttf",
+      "sha256": "444f85bf1c4b0e1ce1ca624f6be54bcd832207714ccaf4ea99ee531341683bdf",
+      "size": 68084
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/InstrumentSans-BoldItalic.ttf",
+      "sha256": "3762f6cef95d6039489ad5ba5787d4c30f17a1ad01e9ac3c816ed69692722a68",
+      "size": 70004
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/InstrumentSans-Italic.ttf",
+      "sha256": "78e85858e371b2cb4e18f617c10f0f937c0e12a0887ffee98555b24ed305b3a7",
+      "size": 69900
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/InstrumentSans-OFL.txt",
+      "sha256": "bf4dc6d13a8cccd4807133c77a1ee9619a16b92cb23322258725ab6731c2f6e5",
+      "size": 4403
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/InstrumentSans-Regular.ttf",
+      "sha256": "a22cb26e48fd79bcb01bf2fc92d36785474dce36d9c544ab0a8868c2657c4a87",
+      "size": 68028
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/InstrumentSerif-Italic.ttf",
+      "sha256": "9c86e4d5a47b50224a2463a9eca8535835257c8e85c470c2c6b454b1af6f046e",
+      "size": 70868
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/InstrumentSerif-Regular.ttf",
+      "sha256": "56ac3be03ac3ba283196b3e77850ab2ffcf56cfb6fd3212c5620109a972f8c99",
+      "size": 69312
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Italiana-OFL.txt",
+      "sha256": "8373b11312ace78c4cec2e8f9f6aa9f2330601107dac7bcf899c6f2dbd40c5a5",
+      "size": 4394
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Italiana-Regular.ttf",
+      "sha256": "15c4dd6ab8cf4a29ba8826f65edcbe2f6c266c557d34d081f25072dfd5605fd2",
+      "size": 27184
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/JetBrainsMono-Bold.ttf",
+      "sha256": "a2349098b9e45419e7bf0e2958d6c4937a049dded37387b08be725be4c7615f3",
+      "size": 114828
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/JetBrainsMono-OFL.txt",
+      "sha256": "a76abf002c49097d146e86740a3105a5d00450b1592e820a1109a8c5680cd697",
+      "size": 4399
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/JetBrainsMono-Regular.ttf",
+      "sha256": "b6b1ff4ddefe36d7f2a6174e1d001cab374e594519ee9049af028d577b64c5f5",
+      "size": 114904
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Jura-Light.ttf",
+      "sha256": "c891a381df056b2c4dfe85841e911bf45da0890fa21a7b2692cbe5ea1f505e1e",
+      "size": 154308
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Jura-Medium.ttf",
+      "sha256": "c72965cb732a92872643819fd1734128238583cc36b116313859137a51d3368a",
+      "size": 154488
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Jura-OFL.txt",
+      "sha256": "eaf9bdb675f6d87e5feb88199ab3ea581d3bd2082f426e384fa9c394576d7260",
+      "size": 4380
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/LibreBaskerville-OFL.txt",
+      "sha256": "55959eef5b0c3b2e3c1c7631b8ff0f9447d75de20f29cfa7db5bcfb026763343",
+      "size": 4449
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/LibreBaskerville-Regular.ttf",
+      "sha256": "2101302538d9e88adb679031c04623e4578b5745e89566284fd2c508d79acae0",
+      "size": 147584
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Lora-Bold.ttf",
+      "sha256": "7d74015e950c2fb66519c7295b8155621d22200ae2ca2a4c6b43ce3c490cac87",
+      "size": 133828
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Lora-BoldItalic.ttf",
+      "sha256": "152f87e71f5ddb60d5c57ecd9132807c947e65c42977193c9164e7c5a6690081",
+      "size": 140332
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Lora-Italic.ttf",
+      "sha256": "be627e595184e8afe521f08da0607eee613f1997d423bc8dadc5798995581377",
+      "size": 139328
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Lora-OFL.txt",
+      "sha256": "62e37a82d3f1ef2a70712885fa8b3144b65fd144d8e748d6196b690a354d792c",
+      "size": 4423
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Lora-Regular.ttf",
+      "sha256": "7ed00e7c9cdf16ab7e2fd2361fe45d4f0b61263cd60aae398b27b7ee08108827",
+      "size": 133888
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/NationalPark-Bold.ttf",
+      "sha256": "69ac4c301c4a7233c6e602d12a92c54d7967b575f4449951c45ce773f7acff53",
+      "size": 79208
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/NationalPark-OFL.txt",
+      "sha256": "81c6c71d83b5b45d7344f96df12bb4a2477a5b092a9144757ee1d0f50f855175",
+      "size": 4399
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/NationalPark-Regular.ttf",
+      "sha256": "a477338b7e18308d476650dfe31235ef86a883572665e56ffb5fb80f82009b58",
+      "size": 76424
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/NothingYouCouldDo-OFL.txt",
+      "sha256": "7c2a6970584ddad04919816163746f83b378078015899b18468b40f05e9ce128",
+      "size": 4363
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/NothingYouCouldDo-Regular.ttf",
+      "sha256": "d866f985896d3280f4fce72db7e17302c24a0c1fdb0699b6b5ed3af14f944d57",
+      "size": 32020
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Outfit-Bold.ttf",
+      "sha256": "6654b93d21301ec61887d3cedd6c11d9df1b1dfb63f9cf45ac7995f6e2235ab1",
+      "size": 55392
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Outfit-OFL.txt",
+      "sha256": "1945b62cd76da9a3051a1660dde72afaa64ffc2666d30e7a78356d651653ba2f",
+      "size": 4389
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Outfit-Regular.ttf",
+      "sha256": "f24945365147c9e783e91d8649959b59be6b00c9ee4ecd2f6b33afbb2dd871fe",
+      "size": 54912
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/PixelifySans-Medium.ttf",
+      "sha256": "38397504f71c122b03d234ea6f55118e3d5bdbddffd82bedddbd7755d3b3be82",
+      "size": 51072
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/PixelifySans-OFL.txt",
+      "sha256": "7f54d1d9f1ae1ba9f2722f978145f90324fea34ca3c2304b3a29cfa96ac6037e",
+      "size": 4395
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/PoiretOne-OFL.txt",
+      "sha256": "2eaf541f7eb8b512e4c757a5212060abf5b6edfef230e9d7640bf736b315c33a",
+      "size": 4366
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/PoiretOne-Regular.ttf",
+      "sha256": "9cf265b139648b36b6c0afdfeb0bf27f7e66db9a16094bc40f644d8da05bc318",
+      "size": 45244
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/RedHatMono-Bold.ttf",
+      "sha256": "7ef48353f4be5ddb90f000f6fad48f2b62b3e8c27d9818d8d45ff46c201065e0",
+      "size": 34420
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/RedHatMono-OFL.txt",
+      "sha256": "435fbfb7e66988b2a06686a4cb966faec733f35d8fe100a1601573c27f3e0bb8",
+      "size": 4394
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/RedHatMono-Regular.ttf",
+      "sha256": "452fe826871b37539f5212b20c87cf30f82f58dd2741f1c96edd1dcbdc0db6b4",
+      "size": 34488
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Silkscreen-OFL.txt",
+      "sha256": "6b849745119bbe85ec01fd080c9cd50234da9f52ac6e48b55d1a424a0c4d7ca9",
+      "size": 4394
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Silkscreen-Regular.ttf",
+      "sha256": "49567408600809e25147e9225ac4f37f410e2df45a750696c45027531fb65f1b",
+      "size": 31960
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/SmoochSans-Medium.ttf",
+      "sha256": "dd76e6e77cce82f827a8654cd906e9ce58f3aaf78adda63c4a7f655b8ecb41f0",
+      "size": 59704
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/SmoochSans-OFL.txt",
+      "sha256": "74c9c4eb88e891483e1b7bc54780b452cbf4f4df66d4e71881d7569aa2130749",
+      "size": 4396
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Tektur-Medium.ttf",
+      "sha256": "52bbe8c9b057b3d2da4eeace31a524b1ea26a1375ae34319cf6900ccc57a4c82",
+      "size": 76248
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Tektur-OFL.txt",
+      "sha256": "3f1466cb5438f31782eeb6e895f3a655bc4d090e24263e331f555357d1cb734e",
+      "size": 4385
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/Tektur-Regular.ttf",
+      "sha256": "162e1b36c4718c5b051b36c971ad7e50d341944f35618f480422ebbe72988f98",
+      "size": 75604
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/WorkSans-Bold.ttf",
+      "sha256": "240d125fc9f8561363dc1ea3f513501253bd70942f41468f48f0b0cafb0c82e2",
+      "size": 191304
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/WorkSans-BoldItalic.ttf",
+      "sha256": "a5b2cad813df0aaa7d16621f2e93b5117c25e9bc788bc9a3ad218e9d6348ce34",
+      "size": 175772
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/WorkSans-Italic.ttf",
+      "sha256": "6b7f7002e0b0c8b261fe878658ef5551e3e59d9f6b609b04efb90dde1e2c1ada",
+      "size": 174280
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/WorkSans-OFL.txt",
+      "sha256": "ace8c22a3326318b54e67c3691857929634205533f454a70ef5a3473ddb2e2ba",
+      "size": 4397
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/WorkSans-Regular.ttf",
+      "sha256": "e67985a843df0d3cdee51a3d0f329eb1774a344ad9ff0c9ab923751f1577e2a4",
+      "size": 188916
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/YoungSerif-OFL.txt",
+      "sha256": "cdcb8039606b40a027a6d24586ec62d5fe29c701343d82a048c829cb28a3dd28",
+      "size": 4398
+    },
+    {
+      "path": "skills/canvas-design/canvas-fonts/YoungSerif-Regular.ttf",
+      "sha256": "f8dc08f77abad753a00670af70756a8ace938e5c3f0b770f4f4c2071c4bd8fc6",
+      "size": 105136
+    },
+    {
+      "path": "skills/claude-api/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/claude-api/SKILL.md",
+      "sha256": "40537cca17c4aa86e4ce83ced39efcbfb1204905e3cf4c4ff98f2eab011e4b7f",
+      "size": 105146
+    },
+    {
+      "path": "skills/claude-api/csharp/claude-api/README.md",
+      "sha256": "87a2cc5c6e670e0bf34120f9a592d321567eea57c716c06791f6d2dcaba08b00",
+      "size": 18933
+    },
+    {
+      "path": "skills/claude-api/csharp/claude-api/batches.md",
+      "sha256": "ec276fccf21757ed00803dfa4bc35f14f334138629fa53c77a025d718eda96a1",
+      "size": 413
+    },
+    {
+      "path": "skills/claude-api/csharp/claude-api/files-api.md",
+      "sha256": "766ccf5dca9ef3caba8cefeddde10f6d171a7bd2ff4c97689462fad2d0d18e4b",
+      "size": 900
+    },
+    {
+      "path": "skills/claude-api/csharp/claude-api/streaming.md",
+      "sha256": "bc0100e50b3495e869901bcfb231870cb3483b936534af5fd3dddb5d07e4531e",
+      "size": 787
+    },
+    {
+      "path": "skills/claude-api/csharp/claude-api/tool-use.md",
+      "sha256": "18aa857c41e39eedb35815bfd8d50868a1bbc1f1a657f5e7233a3879baebc764",
+      "size": 7623
+    },
+    {
+      "path": "skills/claude-api/curl/examples.md",
+      "sha256": "4520e447d37924e62fe982923f3eceea5338dbf3b3a0d25d0f914272c16b90a0",
+      "size": 9714
+    },
+    {
+      "path": "skills/claude-api/curl/managed-agents.md",
+      "sha256": "faa7dd3d83cfd32d1faabb13fee5902e041285579b00256f17fd21681ed3ff2a",
+      "size": 10788
+    },
+    {
+      "path": "skills/claude-api/go/claude-api/README.md",
+      "sha256": "c73ac644d8efe65a8d149e800267f98b0aa9d1e716ca38a22fd8803d5c35bfae",
+      "size": 8477
+    },
+    {
+      "path": "skills/claude-api/go/claude-api/files-api.md",
+      "sha256": "7bf67ece5e4d18b1fb07085a55b680420cc7bd4de94a1fb2bb73cb23f39c20f0",
+      "size": 936
+    },
+    {
+      "path": "skills/claude-api/go/claude-api/streaming.md",
+      "sha256": "a523e992e438309ca1bbc075ded2b652eb257242fd0ce521afd3b8ea024ed94d",
+      "size": 1026
+    },
+    {
+      "path": "skills/claude-api/go/claude-api/tool-use.md",
+      "sha256": "18c6dc0cec151293b44697c340e0e0759f6081ad711ca34b06570c2450f243e9",
+      "size": 10018
+    },
+    {
+      "path": "skills/claude-api/go/managed-agents/README.md",
+      "sha256": "0343be8d49f94687fe5e068ad69d9e05253b408e7bcd0e230b39924f6404facc",
+      "size": 22460
+    },
+    {
+      "path": "skills/claude-api/java/claude-api/README.md",
+      "sha256": "cb6d395dc1d930371f828290132681541eff7f1a7e2739bb4c6655ebbb3b8c7f",
+      "size": 11946
+    },
+    {
+      "path": "skills/claude-api/java/claude-api/files-api.md",
+      "sha256": "1c792f3421de32f42a56235327f87807a5579340726bba677ec13e05f9b493c7",
+      "size": 1198
+    },
+    {
+      "path": "skills/claude-api/java/claude-api/streaming.md",
+      "sha256": "de13bc9573b37edb5af69606853c4fde3d494ee10ff47d1a030ecef9cc17463b",
+      "size": 655
+    },
+    {
+      "path": "skills/claude-api/java/claude-api/tool-use.md",
+      "sha256": "1916b8d4e49b5d319a2d0c7e21b5a3d7a0f225e4a94d82139e769f66eb66f6d1",
+      "size": 11134
+    },
+    {
+      "path": "skills/claude-api/java/managed-agents/README.md",
+      "sha256": "ba2a845898b302dc78b5354aa8f34ae4fc2c2ea41d12aa7d0440db59ee004e0c",
+      "size": 20465
+    },
+    {
+      "path": "skills/claude-api/php/claude-api/README.md",
+      "sha256": "00e2e88f3ea9a6cce812d3e6ae9e035bc36f88828a09e518bb73af91097a9d66",
+      "size": 6554
+    },
+    {
+      "path": "skills/claude-api/php/claude-api/batches.md",
+      "sha256": "6f82a29f718ff6e6b02aaaee3cfd6cda2feb82aca57d945f11a2c021214a699d",
+      "size": 447
+    },
+    {
+      "path": "skills/claude-api/php/claude-api/files-api.md",
+      "sha256": "0715a0d4cce88fd885f57bd33b4654071a9068d5f8a892143b062c78fe51afc9",
+      "size": 476
+    },
+    {
+      "path": "skills/claude-api/php/claude-api/streaming.md",
+      "sha256": "3b8ac667b21f17750eb3c1fc7dc166fd7b1f57a1d8b11e74489de4432e21d31d",
+      "size": 682
+    },
+    {
+      "path": "skills/claude-api/php/claude-api/tool-use.md",
+      "sha256": "1d79c316ef608d8327da1ae7495ecc4a0c517bdd761037c886d8fc61a0eca7d0",
+      "size": 9722
+    },
+    {
+      "path": "skills/claude-api/php/managed-agents/README.md",
+      "sha256": "2f9ada8a85098a7a4a7265c29fadb74d695a33bf19bc6d5df3a2c275b4a535b2",
+      "size": 16555
+    },
+    {
+      "path": "skills/claude-api/python/claude-api/README.md",
+      "sha256": "284fbc6408809afd27288da95c5fb32daa48bd77518cd5fd4e973cc05363eaa8",
+      "size": 20623
+    },
+    {
+      "path": "skills/claude-api/python/claude-api/batches.md",
+      "sha256": "7e4d07173845836617be3db70482c182311ad2d6d5ddf786482ca57c7c45776c",
+      "size": 5723
+    },
+    {
+      "path": "skills/claude-api/python/claude-api/files-api.md",
+      "sha256": "2aa142978660d9ae3200d21a4d333531ca101898706f620834304e8a7d534580",
+      "size": 4499
+    },
+    {
+      "path": "skills/claude-api/python/claude-api/sdk-upgrade.md",
+      "sha256": "f7c5651b21dd6fd5651935415d907fa0a369736f3055d50edb3d236ea016527c",
+      "size": 28760
+    },
+    {
+      "path": "skills/claude-api/python/claude-api/streaming.md",
+      "sha256": "8f73a54dbbb5e82c2c7690d7d866f17ad8c72f662a2be6dd788b5c0956714026",
+      "size": 11940
+    },
+    {
+      "path": "skills/claude-api/python/claude-api/tool-use.md",
+      "sha256": "548dcc4bd2a36e8b90cec446f9b0b7917d2d75a085c7c2603b28c840bd621621",
+      "size": 21411
+    },
+    {
+      "path": "skills/claude-api/python/managed-agents/README.md",
+      "sha256": "82b6e5847027b0ffe5976116e5c249a58e9e2781eb09e914a81ee2f9eb970245",
+      "size": 14823
+    },
+    {
+      "path": "skills/claude-api/ruby/claude-api/README.md",
+      "sha256": "c7de89d236f22bc0b44a091a45ee186ec057caa021a71acd4d3849599cbf3b36",
+      "size": 4843
+    },
+    {
+      "path": "skills/claude-api/ruby/claude-api/streaming.md",
+      "sha256": "09b784f2ab0a5fd17e0589225408c618d26c6dd3cd601364ff92f409d5b104a0",
+      "size": 235
+    },
+    {
+      "path": "skills/claude-api/ruby/claude-api/tool-use.md",
+      "sha256": "80cbb7c7fd4a01b816524eb54e0f8f4e5b4cc7643d393dfce6b9682e0f4d61b6",
+      "size": 2688
+    },
+    {
+      "path": "skills/claude-api/ruby/managed-agents/README.md",
+      "sha256": "729ba22b8711a09192006d169098f16b933dd124ff36421772e4334d862306ab",
+      "size": 12201
+    },
+    {
+      "path": "skills/claude-api/shared/admin-api.md",
+      "sha256": "a69c53817391fca50c0a1848f46de9debf71fa3681298fccb0a6435b760bac2d",
+      "size": 11606
+    },
+    {
+      "path": "skills/claude-api/shared/agent-design.md",
+      "sha256": "9960728faf6976a2ddfceed02ed72af122d3b2558af573a9a0ea207b3adec2bc",
+      "size": 8736
+    },
+    {
+      "path": "skills/claude-api/shared/anthropic-cli.md",
+      "sha256": "2baa725ea0248ab7d98dcb218f09e5eb22f768006ad28f4d5011b4975b4d500e",
+      "size": 23999
+    },
+    {
+      "path": "skills/claude-api/shared/claude-platform-on-aws.md",
+      "sha256": "dec03193c61909167846c0526a4feacf011578b5e7ee29f76378141315cf97f5",
+      "size": 4420
+    },
+    {
+      "path": "skills/claude-api/shared/cost-optimization.md",
+      "sha256": "d0107a954e9059f43c0aaac07ac1f8a9f5aa0a898834d3d983d623e5976e051b",
+      "size": 58448
+    },
+    {
+      "path": "skills/claude-api/shared/error-codes.md",
+      "sha256": "1abf8dcc262732f7ee5e4c58d1909fbb0722ac12e1b957bffdf64f28fde9e4d2",
+      "size": 20796
+    },
+    {
+      "path": "skills/claude-api/shared/evals/build-eval.md",
+      "sha256": "c8f6ae960867f6b3b35557aec75361553888ae7168f268365444bf6a4e09a5d7",
+      "size": 54835
+    },
+    {
+      "path": "skills/claude-api/shared/evals/cost-hillclimb.md",
+      "sha256": "dd46a354fed24d96c7f9acf42f9da64f5cceaa797949662d82374fd2cf7a3515",
+      "size": 31711
+    },
+    {
+      "path": "skills/claude-api/shared/evals/eval-audit.md",
+      "sha256": "a013f8eb0452c51c5a31860df0fb47219dcdb4da507092fc98867225095026ba",
+      "size": 27892
+    },
+    {
+      "path": "skills/claude-api/shared/evals/eval-hillclimb.md",
+      "sha256": "315ae8540ebaeb9f1d7de5efa49625e6137ead255dc3a545b63393df89375588",
+      "size": 69153
+    },
+    {
+      "path": "skills/claude-api/shared/evals/report/SCHEMA.md",
+      "sha256": "9a83404a9b3c413113df39d9bdf08e003ff4d6a75386f4010887da3298766687",
+      "size": 16121
+    },
+    {
+      "path": "skills/claude-api/shared/evals/report/build-report-lite.mjs",
+      "sha256": "af79ca5fa5f06747dbcaa1d40017c8c8e81e0aa11cb8e32b848043893cdb03c7",
+      "size": 27329
+    },
+    {
+      "path": "skills/claude-api/shared/evals/report/runner-scaffold.mjs",
+      "sha256": "c3a87ba4b94b3018b83c075d5148ba7760580aa447699d513d45ab55b82a531a",
+      "size": 33142
+    },
+    {
+      "path": "skills/claude-api/shared/live-sources.md",
+      "sha256": "cc82c88587c861919557598df0421ea7e8cec683f63adead997a0170dc78732b",
+      "size": 17732
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-api-reference.md",
+      "sha256": "efd84dc8a17a2842965c775a905b17fa94cf762cc544df81e708f3aa7a89ae7b",
+      "size": 35296
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-client-patterns.md",
+      "sha256": "e9cf54ca98a9cdd7dba0f51acfedfc1b0f160bad243e39f338ff39d4bf5bf823",
+      "size": 12095
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-core.md",
+      "sha256": "b1e7f90f644ef3333bc2c8407ba17410cf672314868474c73242ac969e22007f",
+      "size": 33515
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-environments.md",
+      "sha256": "227e52e6a3d1c967c68912738ff184a97d1f4cd019c6a7bc7cd90c9b9857e5a5",
+      "size": 14234
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-events.md",
+      "sha256": "3c5edc1428bc4b9cff1ebf01cecffaff3ef1650c19afa48c616fcd05b9586e03",
+      "size": 26015
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-memory.md",
+      "sha256": "0dec5641630f97629ea75bbbe5c2bced861f9c16b0572a68c901849ea4d00bcb",
+      "size": 11362
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-multiagent.md",
+      "sha256": "f3d03cc910064cf419c80ce79c5fe62abde127467deea55491b447a07953a06b",
+      "size": 66616
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-onboarding-from-quickstart.md",
+      "sha256": "e37628c5639786a7868acfed4be0e25678b69b7d13a9aced03d74deebe042342",
+      "size": 19798
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-onboarding-from-url.md",
+      "sha256": "b6c49289186d7cc521c995ba88fa916b65433101b2b3e9bf3c9add94ad87fa34",
+      "size": 32707
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-onboarding.md",
+      "sha256": "025683a9ee3db081d8a6978980349ce68d1df316d0c5aea31ae12438907208c9",
+      "size": 16787
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-outcomes.md",
+      "sha256": "a516c6bf6a6a76f7f5ef83ec80895efd5de718e8f9418b57c705ce151afc5afe",
+      "size": 8960
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-overview.md",
+      "sha256": "abcbdc29435c07be4749e21f005ed51f45942af03fa0bdcdeb18ebfa38c6a6f8",
+      "size": 14571
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/bug-hunter.md",
+      "sha256": "9afd40ef3e1bca9e1cc4c6655d314127cec0b4dcff0e12f6016508c134954248",
+      "size": 8096
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/contract-tracker.md",
+      "sha256": "312ee5f886de59b6db4603d2df9766d66285db36973656c5b9ff0bcc1ed02279",
+      "size": 1806
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/data-analyst.md",
+      "sha256": "c2116bac43972f2b40311104bd7cd4e084cca806dd40a1ddf8462845d785bd57",
+      "size": 1561
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/deep-researcher.md",
+      "sha256": "a680856d874dff23cd3f016e36d0a58bc4db36c56d790d216743f236ee37a48c",
+      "size": 2430
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/explainer-video-maker.md",
+      "sha256": "c2570c5e14d51c5caa77646ac417d18619d34a27cc94dc72cf020c698f2803f3",
+      "size": 4886
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/field-monitor.md",
+      "sha256": "f17f26eee0109f4172134c5bea5761c52b8459e44ae03608c701cd3492f4a3af",
+      "size": 2105
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/incident-commander.md",
+      "sha256": "badd3622ffab0798ab44a55189f47e95c107107ce57eda9fa5357b1aded8fb2a",
+      "size": 1723
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/performance-tuner.md",
+      "sha256": "922396e14b569bc98a7bdde34d10890cc81c5184e81971e6c9be108d191dd639",
+      "size": 11394
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/sprint-retro-facilitator.md",
+      "sha256": "8b5ed9895feb1ade54578a270493c63d0f57b3bb0fbc2eafcfa2e87d3130fa75",
+      "size": 2091
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/structured-extractor.md",
+      "sha256": "c278074c8c48d35fc6c68ed32eaa8704cae73a8e74035fd1d4a6abdcb9bd0fbd",
+      "size": 1541
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/support-agent.md",
+      "sha256": "da75c50edf207f5ef468fbbbfc2e77d56e7d906a6c2cda28756f896195e171c5",
+      "size": 1481
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/support-to-eng-escalator.md",
+      "sha256": "46720e5341808a9938825be44f936c91f83739ebdef9e1d17d9f0ec22738346b",
+      "size": 1842
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-quickstarts/watchlist-scanner.md",
+      "sha256": "e67861c63b9d46b01c8d2784998b7f0de9a87aa6012b77127def1253c5ac13db",
+      "size": 5642
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-scheduled-deployments.md",
+      "sha256": "3fdf7bd691b4f798149d7ebdb933dcee7d14d5d47dd6bf8196c41b819223175e",
+      "size": 9561
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-self-hosted-sandboxes.md",
+      "sha256": "a0c0d98ee1921ee5856a9fd1c02931d724c7b7ffffe17f72c85bc90190399085",
+      "size": 27926
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-tools.md",
+      "sha256": "9a9fd54ebb5e81eb0c6b7505f1cadc420fed5696cdab3e0080dd00ccf2e37b6f",
+      "size": 37869
+    },
+    {
+      "path": "skills/claude-api/shared/managed-agents-webhooks.md",
+      "sha256": "38746f77a3ee971f9b1f7d47cec9e753131bf271fd795aed5c3da1764c9a6ac1",
+      "size": 11321
+    },
+    {
+      "path": "skills/claude-api/shared/model-migration.md",
+      "sha256": "b4fe96362b865a28726ab877c966624d5bfc2f86ff9b34940a34e3f8b6fc034e",
+      "size": 346255
+    },
+    {
+      "path": "skills/claude-api/shared/models.md",
+      "sha256": "c1af1f093d46fd58e50ef3e8e28d339650f333059bfc49a63d01d0175675161b",
+      "size": 17502
+    },
+    {
+      "path": "skills/claude-api/shared/platform-availability.md",
+      "sha256": "607997bc16de403970cb32c1dc1fa63e68f7f02328728be59397e7cefb2efed4",
+      "size": 7415
+    },
+    {
+      "path": "skills/claude-api/shared/preserved-thinking-migration.md",
+      "sha256": "29921d69fa8dc7e450e7bb793c9f59ae755262ccc933a52eb7116c207defb34c",
+      "size": 64049
+    },
+    {
+      "path": "skills/claude-api/shared/preserved-thinking-migration/causes.md",
+      "sha256": "c2dbadb0439806863723e5ef7279d626d731d8179fd39293ff26d226b94d3694",
+      "size": 39705
+    },
+    {
+      "path": "skills/claude-api/shared/preserved-thinking-migration/drop_block_probe.py",
+      "sha256": "f23abb75bc079d835f57da7598ac5a1bee4318214ab803185feb94d8db8c4b88",
+      "size": 66582
+    },
+    {
+      "path": "skills/claude-api/shared/preserved-thinking-migration/prefix_diff.py",
+      "sha256": "734934b81b5f26e9ed2f8f51f44fed6554233de4f37b22a8845ae4ffcb622ac0",
+      "size": 94008
+    },
+    {
+      "path": "skills/claude-api/shared/prompt-audit.md",
+      "sha256": "1a50ec950f9c11bb4ad1a5032a26bb20cd52c9d358adf6add2cb1ceb1aaf6cc9",
+      "size": 49344
+    },
+    {
+      "path": "skills/claude-api/shared/prompt-caching.md",
+      "sha256": "5800f883ff1babe24105e7e0e3fc7e9b03dfcce25bb2ccded4bb40d8c81d8464",
+      "size": 33116
+    },
+    {
+      "path": "skills/claude-api/shared/token-counting.md",
+      "sha256": "8674e246c165decdc13106a4861a254ededb0421caf7fa4015ed0fb36e6c60dc",
+      "size": 1603
+    },
+    {
+      "path": "skills/claude-api/shared/tool-use-concepts.md",
+      "sha256": "62293e7bb7763f7ae487d3b98ead6b733689b2fd7089784ad5859dd869a153f5",
+      "size": 44359
+    },
+    {
+      "path": "skills/claude-api/typescript/claude-api/README.md",
+      "sha256": "b2a01ccbaa0d4406e400bcd8efc033759af5d646a97aab744aee55bf07d6ab16",
+      "size": 15833
+    },
+    {
+      "path": "skills/claude-api/typescript/claude-api/batches.md",
+      "sha256": "acc33bb981acd48b6ee9a6b2c2afeef9487c42ef2b117225da3949dc61efb464",
+      "size": 2594
+    },
+    {
+      "path": "skills/claude-api/typescript/claude-api/files-api.md",
+      "sha256": "df8e4e433a4ded6d4c3eb40de9bc0782cf77aaa8e3e331a539aec1cff55d1316",
+      "size": 2384
+    },
+    {
+      "path": "skills/claude-api/typescript/claude-api/streaming.md",
+      "sha256": "09db982effb0b7d14e29eddd5425b00040debfedccf3dd0db9af73f7d2da3e79",
+      "size": 9514
+    },
+    {
+      "path": "skills/claude-api/typescript/claude-api/tool-use.md",
+      "sha256": "d0c3e5da146c6da8a85ced14f964dc33de4c0153aa2748dee35c319752e8b725",
+      "size": 24295
+    },
+    {
+      "path": "skills/claude-api/typescript/managed-agents/README.md",
+      "sha256": "5daf6b0c6a443e1ae720b0a7343e061ebdbaeb751dd674f37f9abf9d12efc66f",
+      "size": 14013
+    },
+    {
+      "path": "skills/codex-ppt/.clawhubignore",
+      "sha256": "f3e634b276e8223b244da0d773e8e1816f1c312fbccdbdca960aec4653aaaa99",
+      "size": 162
+    },
+    {
+      "path": "skills/codex-ppt/LICENSE",
+      "sha256": "68e435621ab299c7cbe3ad8f088e877f9bca76508c621f27a697606df8ff2154",
+      "size": 1065
+    },
+    {
+      "path": "skills/codex-ppt/SKILL.md",
+      "sha256": "dce8b7ef2c3610fba7bf74115904f460ae1f64b54b50c0f4504f66fd65e5d2bb",
+      "size": 10391
+    },
+    {
+      "path": "skills/codex-ppt/docs/backend-selection.md",
+      "sha256": "4c288d9eb5d609b195f32c82a2564b4c74a9c278ec8917538cb784c921021364",
+      "size": 3588
+    },
+    {
+      "path": "skills/codex-ppt/docs/cli-api-fallback.md",
+      "sha256": "04792fb9ff20095cfec873fffb8e44515e5f09ba25af6b5987b268f0f43ae679",
+      "size": 5070
+    },
+    {
+      "path": "skills/codex-ppt/docs/image-model-configuration.md",
+      "sha256": "846228d7d7a314a248f6ad9b6ab161c761954317fbc297c39191925bcd19f4d0",
+      "size": 3542
+    },
+    {
+      "path": "skills/codex-ppt/docs/outline-style-and-sample.md",
+      "sha256": "d6f0a477f1027d0c075abcdd5a1df781a499a1d59d9be6d63ddcfc21ad26596c",
+      "size": 9533
+    },
+    {
+      "path": "skills/codex-ppt/docs/project-assembly-and-reporting.md",
+      "sha256": "46821aa1a02b10d1d4dfba4c80f81cea793b76c48ed828ff3c369d0756206f33",
+      "size": 8467
+    },
+    {
+      "path": "skills/codex-ppt/docs/slide-generation-and-subagents.md",
+      "sha256": "0119ea8a08d12595667557612834c1459dddc376e632a4411b44d3a31a907eed",
+      "size": 14823
+    },
+    {
+      "path": "skills/codex-ppt/docs/style-library.md",
+      "sha256": "0f12f9d7e45a38d57771e1b48a5cdaff93a655774cdd7c2e708deef872a780fc",
+      "size": 6518
+    },
+    {
+      "path": "skills/codex-ppt/docs/user-supplied-assets.md",
+      "sha256": "e60ffab53f5c52035a42040f8dda6a002bdd9d49ce5098c4c5835e08231c4069",
+      "size": 3120
+    },
+    {
+      "path": "skills/codex-ppt/docs/workflow-gates-and-progress.md",
+      "sha256": "dd0fe2bc30851dd1c8830127227c20b1aeaace3e6417a3be003e86dc49e236e6",
+      "size": 2581
+    },
+    {
+      "path": "skills/codex-ppt/prompts/slide-worker.md",
+      "sha256": "b606b666ca9aacbaa73008677ebf4546c8bb6c0d1de96fc40a9fc23f82211a23",
+      "size": 2649
+    },
+    {
+      "path": "skills/codex-ppt/references/\u515a\u653f\u7ea2\u98ce\u683c.md",
+      "sha256": "a72ee5fa667e4ea53ede2a561f84bbf73e415d9aab518e0ffd76cce9cda4dd04",
+      "size": 8673
+    },
+    {
+      "path": "skills/codex-ppt/references/\u521b\u610f\u6742\u5fd7\u98ce.md",
+      "sha256": "d8c81a620e412f47c490ab0e61b8974bc84e01b35e26f93373914c642776663e",
+      "size": 3396
+    },
+    {
+      "path": "skills/codex-ppt/references/\u590d\u53e4\u6241\u5e73\u63d2\u753b\u98ce.md",
+      "sha256": "094b9034380a6f7050816c3be171e4285335adb2af6673d6a7b04484546676d5",
+      "size": 3339
+    },
+    {
+      "path": "skills/codex-ppt/references/\u624b\u7ed8\u6280\u672f\u89e3\u91ca\u98ce.md",
+      "sha256": "03ed2af2ab0776c0a3b14e468d17b2ef018c14817a74120df7f7d995b7f11921",
+      "size": 4767
+    },
+    {
+      "path": "skills/codex-ppt/references/\u624b\u7ed8\u767d\u677f\u98ce.md",
+      "sha256": "e1560db95ce7882f2b874afca96e946ebd91204072af04709642ed396cb68911",
+      "size": 3337
+    },
+    {
+      "path": "skills/codex-ppt/references/\u6559\u5b66\u8bfe\u4ef6\u98ce.md",
+      "sha256": "997de64c6f94ccef6e89a15cdff3bfe21a33c5bd27f789b6da968592225273f3",
+      "size": 9949
+    },
+    {
+      "path": "skills/codex-ppt/references/\u6570\u636e\u4eea\u8868\u76d8\u98ce.md",
+      "sha256": "0619047dd46b60ad81f5226974b649ed3e89a99409f8983d5be5855028c4ac54",
+      "size": 3527
+    },
+    {
+      "path": "skills/codex-ppt/references/\u6e05\u723d\u4e13\u4e1a\u98ce.md",
+      "sha256": "e651d6571248c9a3980ebee719ea87847a6dde87876b1cf8d1fbd6dd37b56576",
+      "size": 4512
+    },
+    {
+      "path": "skills/codex-ppt/references/\u6e29\u6696\u624b\u5de5\u98ce.md",
+      "sha256": "ecd61190b4d4b3c330a9d601bc0faf344f43c4d12e4ea7568b69e45795dec75d",
+      "size": 3332
+    },
+    {
+      "path": "skills/codex-ppt/references/\u7535\u5b50\u58a8\u6c34\u6742\u5fd7\u98ce.md",
+      "sha256": "93d659797c8685d3e6c28a657cc6783b899f21a31d7d01f1608c27c4f92fe59f",
+      "size": 4714
+    },
+    {
+      "path": "skills/codex-ppt/references/\u79d1\u7814\u7b54\u8fa9\u98ce.md",
+      "sha256": "7dbf693eb74027503b9e1022de185c084b98171c6c77555db02392e10e1e7f00",
+      "size": 9334
+    },
+    {
+      "path": "skills/codex-ppt/references/\u9ea6\u80af\u9521\u98ce\u683c.md",
+      "sha256": "8cd4c90907aac68405a0e38cb36ca8c6a34f1b32d98f5ff217fb0d24d5e5ceb6",
+      "size": 15195
+    },
+    {
+      "path": "skills/codex-ppt/requirements.txt",
+      "sha256": "84767f3a6b1e814348b059e0a016ef719fc2ea2d8a16ae17b61408c0f25cf60d",
+      "size": 65
+    },
+    {
+      "path": "skills/codex-ppt/scripts/assemble_ppt.py",
+      "sha256": "c4ac18e2aa28d92ecc50299e6267e127c226e041c601bd3c7224ec7278061fe5",
+      "size": 14837
+    },
+    {
+      "path": "skills/codex-ppt/scripts/codex_ppt_runtime.py",
+      "sha256": "b3dd856822b9674dbc7821ce5e676b9bc6fe3431be91b3d514f3bdbccf2e09ef",
+      "size": 8668
+    },
+    {
+      "path": "skills/codex-ppt/scripts/image_gen.py",
+      "sha256": "d71c0879f29e6846fb574449aff1a6a781c2fc596b988e2e35b7f81291023789",
+      "size": 34896
+    },
+    {
+      "path": "skills/codex-ppt/scripts/image_providers/__init__.py",
+      "sha256": "f4a8db421052b42be962037d7a3df74bec598a67be4bcae6ac3aaefff64a5c3e",
+      "size": 188
+    },
+    {
+      "path": "skills/codex-ppt/scripts/image_providers/atlascloud.py",
+      "sha256": "bcdc6c35afd7c483f01125cb5788ef852c16cd9525eddebb6b206673193fa450",
+      "size": 8310
+    },
+    {
+      "path": "skills/codex-ppt/scripts/image_providers/base.py",
+      "sha256": "027468265d72c0bf4e4372bdbfbe8cf12759f929e873fa10c16c13577a468296",
+      "size": 887
+    },
+    {
+      "path": "skills/codex-ppt/scripts/image_providers/factory.py",
+      "sha256": "d7d72145ea38da394e315b2a2c0990bf7fdf24cd10dd5bb54d1999d9849714d2",
+      "size": 734
+    },
+    {
+      "path": "skills/codex-ppt/scripts/image_providers/openai_compatible.py",
+      "sha256": "2b258767f9521a07c4c0f694cf6b5d2593366da775ce6d6f80a27fcfacbc32d8",
+      "size": 7448
+    },
+    {
+      "path": "skills/codex-ppt/scripts/prepare_slide_prompts.py",
+      "sha256": "92cc338a85afa463b1faa09035ab5b73b993813ea54ff95c9e47b4788e45ef81",
+      "size": 20270
+    },
+    {
+      "path": "skills/codex-ppt/scripts/record_slide_blocker.py",
+      "sha256": "92be04beb2a690ec6c19dea48a9674d2daea3ceabe2de9e64b181361d0dbde9c",
+      "size": 1422
+    },
+    {
+      "path": "skills/codex-ppt/scripts/record_slide_dispatch.py",
+      "sha256": "f5ce8806a0aecf24ea3b7c657c8d20507d83b6fd21a81da86d8f6f9da623ed54",
+      "size": 2309
+    },
+    {
+      "path": "skills/codex-ppt/scripts/record_slide_result.py",
+      "sha256": "ae14297acf87991ef0cb4af41bd0a591665f288d25ff5d6f0b9b264e5a59bac1",
+      "size": 6779
+    },
+    {
+      "path": "skills/codex-ppt/scripts/remove_chroma_key.py",
+      "sha256": "b4ebb3ac26dc3aeea277f90cc7abf5e4380229014890f00b0b9c2f51edd42bd2",
+      "size": 14123
+    },
+    {
+      "path": "skills/codex-ppt/scripts/slide_job_status.py",
+      "sha256": "15c90c28b5733275990b162e36c32dd7940465ec7c6522f49aaa8a42c5dbd293",
+      "size": 2364
+    },
+    {
+      "path": "skills/codex-ppt/scripts/slide_run_state.py",
+      "sha256": "b7534c3aec858a5ec4210e5af80693c899dbbe670083093ec1c055d471ba5e42",
+      "size": 6536
+    },
+    {
+      "path": "skills/diagram-design/LICENSE",
+      "sha256": "bb7e12e91fecef43024111123ff784cec6c485585561d8b552557c0173b3ed29",
+      "size": 1071
+    },
+    {
+      "path": "skills/diagram-design/SKILL.md",
+      "sha256": "673aa27d72e3c135afead0372faba21f15392bf057316eb37214f87825d7580d",
+      "size": 31164
+    },
+    {
+      "path": "skills/diagram-design/assets/example-arc-diagram-dark.html",
+      "sha256": "acd6b0c9d174b7d915d1e4e1a98a6019c30b02b8e5264f53f4ef2657dcbde77e",
+      "size": 8288
+    },
+    {
+      "path": "skills/diagram-design/assets/example-arc-diagram-full.html",
+      "sha256": "e785227378c5bde8a09d323ba743cf0f53b8dccb5e029325e99cccaed6a8f669",
+      "size": 11761
+    },
+    {
+      "path": "skills/diagram-design/assets/example-arc-diagram.html",
+      "sha256": "49044919cbfcdbd2b4b6025df2d52e42a553dddbf2fde2523e5185ba8d5cec08",
+      "size": 8203
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-containment-dark.html",
+      "sha256": "853399a330a541d63d5ca05834bb9f1545364fff61546754190899a49e54d28a",
+      "size": 14552
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-containment-full.html",
+      "sha256": "4b96ed9774d236c3b4968a10be0f7b5c8805095b0206d249bd8e53b4e893debe",
+      "size": 17524
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-containment.html",
+      "sha256": "10013c62e6449880627c2271edacfdc094f006a16e365a55f117e844097fe2de",
+      "size": 14411
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-dark.html",
+      "sha256": "b471f857f2d8745705925ee49659d8506de291c3a7b3761a3fb47a0394b9c8df",
+      "size": 12036
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-delta-dark.html",
+      "sha256": "d3f0984c7ff145656bb400ff294e9595d7f5f1209d156edbb5e5676e8ee199b9",
+      "size": 20558
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-delta-full.html",
+      "sha256": "cd23ff4b3dcc2a734a13ab31807ce46c1e26dd82c3a91bac7b161f0d3abaeea0",
+      "size": 22225
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-delta.html",
+      "sha256": "0a88e1e44fcac97be87accccb429c4930380938f59534468090e82c45ceabfc6",
+      "size": 20459
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture-full.html",
+      "sha256": "6c3951cbb3cdb94b1825efbfabbf5dda996c20106f00fa1d06511d58792b0248",
+      "size": 14981
+    },
+    {
+      "path": "skills/diagram-design/assets/example-architecture.html",
+      "sha256": "a9e8b59854d31e70288abba522509494f82a319bc684c3694e08e67dfc990bc5",
+      "size": 12099
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-campus-animated.html",
+      "sha256": "72420915d79afb6daaa6f6215ac08754b4d2dc02b8c844cb5e25b52771002350",
+      "size": 47875
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-campus-dark.html",
+      "sha256": "7d13e33fcfa93e177179c357c0ad884fbb73d826ba79123420ad513ea174ba7c",
+      "size": 31662
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-campus-full.html",
+      "sha256": "e1d28913537b8e206af137c8e6fbc212cb47203de3f69baa4fac2cee96beea19",
+      "size": 34299
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-campus.html",
+      "sha256": "5d03a724dd85ec929dd17643294dbec7a6fd6165ee010fd0fef44dc72bdf1e31",
+      "size": 31659
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-coffee-shop-animated.html",
+      "sha256": "7c948dc5daf9c9568c6ce1b22fae4c2b0c0c330794785f767655ebaf7da6e70e",
+      "size": 55593
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-coffee-shop-dark.html",
+      "sha256": "0d5836e9b4ca2f85c4a1fd976ef0b7f89a29a29fb169dcb59b483a4e731bd46b",
+      "size": 39572
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-coffee-shop-full.html",
+      "sha256": "ba03f90070b4bda66dc8cdbe3ba8334fadfa77e94f8ddde3d3aa3aa6b4d97e5a",
+      "size": 42146
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-coffee-shop.html",
+      "sha256": "90f8f78c306ea5b96b64c6c5c5e68c85e13fdd9a4f40aecc25dccf1f9b34283e",
+      "size": 39381
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-dark.html",
+      "sha256": "fa041519f9e71e518069334397886c6e545f9286b28dcdbc254a6aaa96a1034a",
+      "size": 28850
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-full.html",
+      "sha256": "13a7506ec0f4576a4f10313ba954b9c85a88bda258542c0c2017189f15a06adc",
+      "size": 31351
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-warehouse-animated.html",
+      "sha256": "e43acc91d852143ea615cd30b4251627a3e1224c95e433565c185bb4045620f6",
+      "size": 54978
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-warehouse-dark.html",
+      "sha256": "a85d79254ec2e1813a13055efb9951b84ea55a04f43aa6fb6c880aa448924d38",
+      "size": 39154
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-warehouse-full.html",
+      "sha256": "596cf38433b5c5a3c0a1af348863a61e6c31ecff3c1b46e04d989b10822c37a5",
+      "size": 41540
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan-warehouse.html",
+      "sha256": "aed38ba8afc9c560fe22c7cbba1448e3c8f0efe43853d2c457b32e76d1bfef76",
+      "size": 38780
+    },
+    {
+      "path": "skills/diagram-design/assets/example-axonometric-plan.html",
+      "sha256": "1ffd4767dbb9c0fd49190582a7304d0aac4cd6df7cd7d538eb6e84cd1803f30a",
+      "size": 28651
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bar-dark.html",
+      "sha256": "fb96534eff0910a006dabca940d71aeb1019076abfbe9a020758747c2e2cbb0a",
+      "size": 9122
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bar-full.html",
+      "sha256": "ac8eff087cc5f2f04cffda1cb63b4e95641e9b05ca151a580e4df0016ddd08e1",
+      "size": 11252
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bar.html",
+      "sha256": "b82fea59d393f0754f1543cf1e8d9189542fb93cf458bcd256a0c56fa060461b",
+      "size": 8917
+    },
+    {
+      "path": "skills/diagram-design/assets/example-beeswarm-dark.html",
+      "sha256": "597cf05ad582eb0dbe8040949c6f164096ce84631e6d3ba85d5fbf778d2b1dc7",
+      "size": 32654
+    },
+    {
+      "path": "skills/diagram-design/assets/example-beeswarm-full.html",
+      "sha256": "515edbc59376ad9bc99afc8cf9d55c0fa6a7e68f8eca95a02cf282086857e6cc",
+      "size": 36450
+    },
+    {
+      "path": "skills/diagram-design/assets/example-beeswarm.html",
+      "sha256": "e69a9b7ac33fae509c02a1ef06b39e1a548cd3925644e7cefd3ff2119a88a060",
+      "size": 32180
+    },
+    {
+      "path": "skills/diagram-design/assets/example-box-plot-dark.html",
+      "sha256": "28bc2a9b9df1e715b07c11a57b2ab8d0ee59ed5ebc782dacd74f3401e0cdd39b",
+      "size": 11533
+    },
+    {
+      "path": "skills/diagram-design/assets/example-box-plot-full.html",
+      "sha256": "a9bf7fc36d4db874b0fda6d27140fb6d3b9e51b06b13ca657e8dfb414a5fe617",
+      "size": 15046
+    },
+    {
+      "path": "skills/diagram-design/assets/example-box-plot.html",
+      "sha256": "16449419e0cca7dc153bc23c9c416dcb149ddcdfe4ca45c9535708719aa0b909",
+      "size": 11399
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bubble-dark.html",
+      "sha256": "e5297625f2a81cebcd63250dcd7455f5c84160da501354f530dfcf59baf0ab9e",
+      "size": 11428
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bubble-full.html",
+      "sha256": "6aaf526da9c9eccb82c3f88d502e831268003c01f1de6cdc171b2a8970b03b99",
+      "size": 15124
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bubble.html",
+      "sha256": "48f6b009e1a05d780a66a8f9f3c3c9323da5aa3a6f7f6c50003558b4ba163657",
+      "size": 11335
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bump-dark.html",
+      "sha256": "0e1ed31a2850405f60a00df02942532642bcd1bd5c2d728721e2087045c12840",
+      "size": 12926
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bump-full.html",
+      "sha256": "aa62110a0d9dc11b19477013de1da1e09d37efb58f1b56b4af47fe9e80a7de0f",
+      "size": 16635
+    },
+    {
+      "path": "skills/diagram-design/assets/example-bump.html",
+      "sha256": "cdf62733836ff70f2b04e3a9062609b24f17d3b8be60d110a8182f9bc12a02a7",
+      "size": 12807
+    },
+    {
+      "path": "skills/diagram-design/assets/example-data-flow-dark.html",
+      "sha256": "a3f5f27b4a690a6d806c735bf2db42b1e3d7f235387018200830329379829917",
+      "size": 12966
+    },
+    {
+      "path": "skills/diagram-design/assets/example-data-flow-full.html",
+      "sha256": "606d1f7650ea6db8e84f977beb591616fa32df9bc3085c09072da81885db5133",
+      "size": 15830
+    },
+    {
+      "path": "skills/diagram-design/assets/example-data-flow.html",
+      "sha256": "f65978b77410fff9993fc099f4cf0d25bcaf67ce98fea2e281976e2406783b99",
+      "size": 12798
+    },
+    {
+      "path": "skills/diagram-design/assets/example-datalake-dark.html",
+      "sha256": "7eb08a81b703a1fb87877d33c79c0f31fcbd9a8fbc1dac20646e3f68aff93404",
+      "size": 25092
+    },
+    {
+      "path": "skills/diagram-design/assets/example-datalake-full.html",
+      "sha256": "f978706df71ffcdd6b2408aaeab78360ad68010487b9a849459219cd8cb8f5a3",
+      "size": 28598
+    },
+    {
+      "path": "skills/diagram-design/assets/example-datalake.html",
+      "sha256": "311b9143dc66cb96d7fe1ca3fa6d9cbf17b864976b8168ee3e8e8c497fe264d6",
+      "size": 26674
+    },
+    {
+      "path": "skills/diagram-design/assets/example-db-schema-dark.html",
+      "sha256": "c1f566f092642c8c58969b7609598272ea78eae5beb172f35afe1d1366078c6a",
+      "size": 24740
+    },
+    {
+      "path": "skills/diagram-design/assets/example-db-schema-full.html",
+      "sha256": "897c88e8cde6537409e0b0359495dfa33e658dc40581fdf0039bc65a0433cd25",
+      "size": 27627
+    },
+    {
+      "path": "skills/diagram-design/assets/example-db-schema.html",
+      "sha256": "5b65adae081c31b8f4a9772d8ba4a4066e759625197e2111885ac503cf8c2104",
+      "size": 24523
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dependency-dark.html",
+      "sha256": "2e7f6d263d67bd751ca8d00111dcccd4a6a18d4d4241a709321cd043b630785d",
+      "size": 17822
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dependency-full.html",
+      "sha256": "8498d290f2a74e85e99836ca1146879c6068e476ac8f2a847daa837c4cd1cd7d",
+      "size": 21122
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dependency.html",
+      "sha256": "c75e1d72834ed4bbdd57f7470136d272f13d0cc7c41b02e84ae187553a6e893b",
+      "size": 17607
+    },
+    {
+      "path": "skills/diagram-design/assets/example-deployment-dark.html",
+      "sha256": "2c0c99d16f6d85fac54552bd4fe102ce9e0286fdf8eabd97ab4d90e5a97667e6",
+      "size": 13554
+    },
+    {
+      "path": "skills/diagram-design/assets/example-deployment-full.html",
+      "sha256": "9187eaafb9107e979c2e43bcde77edf63e974fc59cf72a50fef33ea8df460650",
+      "size": 16827
+    },
+    {
+      "path": "skills/diagram-design/assets/example-deployment.html",
+      "sha256": "8e4cee0bc1105dcd040b19d0000f84c69f81bde75d4cb16d2261fab617a7aee5",
+      "size": 13448
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dp-integration-dark.html",
+      "sha256": "d28f525d2c7d0666b61d6e80133d006da942f1dfeefa41b0c8d32faf2120ca64",
+      "size": 14898
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dp-integration-full.html",
+      "sha256": "fa9393528e19170873437c3f661fb7aa3cbaa94fa4001985f9d8faa7479708c6",
+      "size": 17415
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dp-integration.html",
+      "sha256": "d521d09532183ee10d5ebdcea9cbc509a45d90cd85c35973ba40dbe94f338291",
+      "size": 14867
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dp-security-matrix-dark.html",
+      "sha256": "1d93ac4553013cbb5d5fe962517601a0dadf03a8d1bf9ae522f10d7a83e05968",
+      "size": 10279
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dp-security-matrix-full.html",
+      "sha256": "8f34f504368ba9fd13c2bb20b028d2fc27800fbb46c238e73b0aa65101ca4ad0",
+      "size": 12601
+    },
+    {
+      "path": "skills/diagram-design/assets/example-dp-security-matrix.html",
+      "sha256": "9ae674dcec652483ea75a9368f88fd4c61a447b34354b2f2386049c10491e83f",
+      "size": 10905
+    },
+    {
+      "path": "skills/diagram-design/assets/example-er-dark.html",
+      "sha256": "c007c14d88a48a8ea30b1144dd4ac392ee7891a2278262e2a6f6836b43aa7fdf",
+      "size": 14198
+    },
+    {
+      "path": "skills/diagram-design/assets/example-er-full.html",
+      "sha256": "e778b7e790c3fd3f9219807aef3115bda4d7b1efb9998df413bcd224f77ed163",
+      "size": 17123
+    },
+    {
+      "path": "skills/diagram-design/assets/example-er.html",
+      "sha256": "dcbca24c5eeeb84711510a60fae190754503f9b57d9551936b086f3fb589f617",
+      "size": 14134
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-ai-stack-animated.html",
+      "sha256": "f8448f23ac359dc698cf19a1288080f1f804fb8f157fbc830aa7d50fc1c930a0",
+      "size": 53486
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-ai-stack-dark.html",
+      "sha256": "2c249164a0959ad426b7d6e071c5c66fc05037e6a425601ea1b90025b81f29b0",
+      "size": 36043
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-ai-stack-full.html",
+      "sha256": "0f1ba200c4f6391fde4e1b350889ec50d63c4c1ead0fee680b1bcf4b4e9cce6f",
+      "size": 38911
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-ai-stack.html",
+      "sha256": "d2ac4530f8e3fb8eb9b4f344704ab9c36c3e983e6e5f8725250df1aa06b0ef2b",
+      "size": 36058
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-dark.html",
+      "sha256": "408cdc4779bf0db7456cdda4651cd1678adbb129c5c06ba6bf0d6632b544770c",
+      "size": 8543
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-full.html",
+      "sha256": "3f1ab91f536a6dd3547a61e2150b31a49bf9ba154ecc6f3bb813fd3d9269f16c",
+      "size": 11447
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-keyboard-animated.html",
+      "sha256": "7fac285e6daf22592a35cf1dedd6c54673923815b6c1f2ab20477464978e7566",
+      "size": 208294
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-keyboard-dark.html",
+      "sha256": "95ab0d91853a75c45e8b66de73373ae55bcd71fb722fda15ad586b6b0c04b0b4",
+      "size": 180795
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-keyboard-full.html",
+      "sha256": "8b1fb4cee1d8a80f710296cdf25e3985ae4041a3b6a3084b35e8e695de3527ca",
+      "size": 193684
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-keyboard.html",
+      "sha256": "858d60f2af6025301751a296125aca03cd7ea253d3efa8fef0e74df953992dc8",
+      "size": 190868
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-phone-animated.html",
+      "sha256": "de0bb80121f68b34449a08f028da0d1b5007aae88848ae79c8db7419a8d77067",
+      "size": 34616
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-phone-dark.html",
+      "sha256": "7dc2c3785b4456b54229f8c5fe56a22253614fc464ba7550e7f73c0619c21731",
+      "size": 17431
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-phone-full.html",
+      "sha256": "87c750c84a4e8811e09eef44cb9fba5567ff7fbc559718683b92922b954f6c4f",
+      "size": 20048
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-phone.html",
+      "sha256": "3866a52045df1b95333b09347b010871a73422f785bd7aad5de14fcf1f2189ef",
+      "size": 17302
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-unboxing-animated.html",
+      "sha256": "b0b081c3435ec728c776638757f69b8bbe286d40eadcafb0c1816d65b315eb00",
+      "size": 34065
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-unboxing-dark.html",
+      "sha256": "3bbe1e9be1c611e49796bdfe47bf69c714ec5e0ff5a13921cce548cfafe94f0b",
+      "size": 16707
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-unboxing-full.html",
+      "sha256": "601554b9fc46d378031b89f78454a595821a0a693d4eeb916c088d2ec157c628",
+      "size": 19391
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded-unboxing.html",
+      "sha256": "9cbec60cb42ca24315f5e3392485699d24a3d22cd0879e128eae5d3988b4333f",
+      "size": 16644
+    },
+    {
+      "path": "skills/diagram-design/assets/example-exploded.html",
+      "sha256": "07eb320afdaa31516c221a80a9ae6a8e72be62185a8b790841237db823ef638a",
+      "size": 8724
+    },
+    {
+      "path": "skills/diagram-design/assets/example-fishbone-dark.html",
+      "sha256": "f884b81b83f7ce40cf85b8aa6c3a55db99b7fb2d38502deff222aaff36d7db47",
+      "size": 8675
+    },
+    {
+      "path": "skills/diagram-design/assets/example-fishbone-full.html",
+      "sha256": "cb55d2df262eec426d61503758aaef8c1f31322e71ac8fec5a2912655bfc337c",
+      "size": 11407
+    },
+    {
+      "path": "skills/diagram-design/assets/example-fishbone.html",
+      "sha256": "d0925f006f7ae339b7e3467886dc069e73def905e1316a5de00b2baeb61a63b2",
+      "size": 8648
+    },
+    {
+      "path": "skills/diagram-design/assets/example-flowchart-dark.html",
+      "sha256": "9b69415f880744d1c3dff23cf1dfa6bfbcc3bf38178456ce6668a74b783647ef",
+      "size": 9446
+    },
+    {
+      "path": "skills/diagram-design/assets/example-flowchart-full.html",
+      "sha256": "68bdada8201f46df8c76aa27be10194bc8d870a683696d400435817a19f0b696",
+      "size": 12295
+    },
+    {
+      "path": "skills/diagram-design/assets/example-flowchart.html",
+      "sha256": "f9c92596d77b010417b78f710ae96cf161395831ad8e51153caa41fa4a31446c",
+      "size": 9395
+    },
+    {
+      "path": "skills/diagram-design/assets/example-gantt-dark.html",
+      "sha256": "777c051f19001dbfdf9ced01d836622bda2ee5ad9d2d753012cd6f23fdde70d4",
+      "size": 10331
+    },
+    {
+      "path": "skills/diagram-design/assets/example-gantt-full.html",
+      "sha256": "171c7bed870d24976124e3f56aa884bd107d46380dd212bb0300fd92badd91b2",
+      "size": 11895
+    },
+    {
+      "path": "skills/diagram-design/assets/example-gantt.html",
+      "sha256": "4e017a543771aec9338e15df3be5f9278fa4883e306373c4ea0555b65c7c43a4",
+      "size": 10072
+    },
+    {
+      "path": "skills/diagram-design/assets/example-heatmap-dark.html",
+      "sha256": "6ec2953db65dbabcdbd5abe3d43f7e001524317ddd3e1230398f9de927e547c0",
+      "size": 18248
+    },
+    {
+      "path": "skills/diagram-design/assets/example-heatmap-full.html",
+      "sha256": "f3b92bf979a5504fd2c5bc4c107830ec50b43cc6685f662976a28739c9691f2d",
+      "size": 22036
+    },
+    {
+      "path": "skills/diagram-design/assets/example-heatmap.html",
+      "sha256": "18ee707bd2235b0530250218a4aa98574db42abcbfa02dae92c70b48cb0261da",
+      "size": 18108
+    },
+    {
+      "path": "skills/diagram-design/assets/example-high-level-dark.html",
+      "sha256": "d47d9056f2972d8ae68ddaabefdaf65c644cfafa2e19123e9ee0a675d19a0438",
+      "size": 24080
+    },
+    {
+      "path": "skills/diagram-design/assets/example-high-level-full.html",
+      "sha256": "359dc10e77c8de97550dbfab993c4ce4d683bd089a44302e20c1dcd4ad27501e",
+      "size": 28360
+    },
+    {
+      "path": "skills/diagram-design/assets/example-high-level-vertical-dark.html",
+      "sha256": "aabf08d05808d96ef6c5b16395830234022ce1f48abf8c56b2719acdde9a8aa2",
+      "size": 24854
+    },
+    {
+      "path": "skills/diagram-design/assets/example-high-level-vertical-full.html",
+      "sha256": "70a7fd733caba9e8c1bd05ea96b10bb22cb15594f24435058acfd4735f6fa3ae",
+      "size": 28619
+    },
+    {
+      "path": "skills/diagram-design/assets/example-high-level-vertical.html",
+      "sha256": "371385a4fd00a7d9f3896ac44417352bd7276e86488c3f4eaa72bd6df2902ae7",
+      "size": 30380
+    },
+    {
+      "path": "skills/diagram-design/assets/example-high-level.html",
+      "sha256": "7fc2cd00413de7a5221dde192403f87a8bef883984f8331f64c56f3bc387fa5e",
+      "size": 26902
+    },
+    {
+      "path": "skills/diagram-design/assets/example-import-drawio.html",
+      "sha256": "4404af257bf1216ef9959f3340cd82f2117d29d548b571e94ccf7931d4dd6bcd",
+      "size": 12079
+    },
+    {
+      "path": "skills/diagram-design/assets/example-import-excalidraw.html",
+      "sha256": "8a09e53ae6b0efbb9360784917117e784f90da53a4cc1de2a838e3ccef57d712",
+      "size": 7689
+    },
+    {
+      "path": "skills/diagram-design/assets/example-import-mermaid.html",
+      "sha256": "ed6109da74fe8fa2f5d6385ef1dda20e1b2d95c3e3d2d274499362de1aa20db9",
+      "size": 8105
+    },
+    {
+      "path": "skills/diagram-design/assets/example-import-plantuml.html",
+      "sha256": "95cc95bca1bbfc327e442783c71427fabe02383a0d0793bd91fd7b2e5c474106",
+      "size": 10239
+    },
+    {
+      "path": "skills/diagram-design/assets/example-it-state-dark.html",
+      "sha256": "3b571ce2bc0810586d8c125936fa1d90a898bad74b1079a6d8c6699024ae4c15",
+      "size": 11992
+    },
+    {
+      "path": "skills/diagram-design/assets/example-it-state-full.html",
+      "sha256": "ca864942c8d70da13e2ee19a35661c45be8c42ae79317eb08da2b1f5689a51ba",
+      "size": 14223
+    },
+    {
+      "path": "skills/diagram-design/assets/example-it-state.html",
+      "sha256": "9a91ec8959b77734745ddfa19f3dbf2992a3bf1134cb7352b9778ab3253e8d5b",
+      "size": 12498
+    },
+    {
+      "path": "skills/diagram-design/assets/example-journey-dark.html",
+      "sha256": "c1866ca355d8859d27f6e99d9e2415daf204c313ed4463ae9663ba9e930a9949",
+      "size": 9153
+    },
+    {
+      "path": "skills/diagram-design/assets/example-journey-full.html",
+      "sha256": "e739a7a1dbdd24bd3d9faae798ca02ed7d25b6e6944db1f43307287d541b348d",
+      "size": 11721
+    },
+    {
+      "path": "skills/diagram-design/assets/example-journey.html",
+      "sha256": "3703a5f553e1daabbf17d9785626ab63508bde326967bbce1390c1a72a0f2b37",
+      "size": 9109
+    },
+    {
+      "path": "skills/diagram-design/assets/example-kanban-dark.html",
+      "sha256": "30809cae8600a1852131362df275d9ab1c6aeedc65d3855caed264d48e19f5dc",
+      "size": 11036
+    },
+    {
+      "path": "skills/diagram-design/assets/example-kanban-full.html",
+      "sha256": "e557f78ae75b4f088f148ff7e3006d8c4aa0f8dfc0824e237ba656eb566021f8",
+      "size": 13899
+    },
+    {
+      "path": "skills/diagram-design/assets/example-kanban.html",
+      "sha256": "9171e229f6ca68c228a8ab3f47bd4a4b69f2ea77c2738282713a5f6271b32e1e",
+      "size": 10945
+    },
+    {
+      "path": "skills/diagram-design/assets/example-layers-dark.html",
+      "sha256": "412df7b0710cf14cd95c1e806e708241bda6b3bc8e1f142107adf857ed6aa7d1",
+      "size": 6913
+    },
+    {
+      "path": "skills/diagram-design/assets/example-layers-full.html",
+      "sha256": "6d9a2dc1eaa4f2d7309d93b8dedb9e379bb9debe42787030ee474725d26e68d8",
+      "size": 10023
+    },
+    {
+      "path": "skills/diagram-design/assets/example-layers.html",
+      "sha256": "e4edabd125d9d9de3e27d2a530b7e791042910e97ec71c3d8e23912eafda5082",
+      "size": 6875
+    },
+    {
+      "path": "skills/diagram-design/assets/example-line-dark.html",
+      "sha256": "552abdcac08788dac5ee7fa419ab854c5e09451b69822eb48935712880382a9d",
+      "size": 7608
+    },
+    {
+      "path": "skills/diagram-design/assets/example-line-full.html",
+      "sha256": "d121a15bc242986e2ce490ea34623ceba4eca96d6e16a531ab985fbc60dfd079",
+      "size": 10051
+    },
+    {
+      "path": "skills/diagram-design/assets/example-line.html",
+      "sha256": "8d53adb388306a8593a72c4eea063b8a95a0ba79d2134f51313a645c2554e227",
+      "size": 7440
+    },
+    {
+      "path": "skills/diagram-design/assets/example-loop-dark.html",
+      "sha256": "8ef6feecb47dc6043e1a7714fd0a795e357d484d38df35b594be85105029eb01",
+      "size": 6821
+    },
+    {
+      "path": "skills/diagram-design/assets/example-loop-full.html",
+      "sha256": "975a0d3e2954b928473fdc4e6e1720c84ebf23a84cc295434ea2ec74894d4cc5",
+      "size": 9964
+    },
+    {
+      "path": "skills/diagram-design/assets/example-loop-terminal.html",
+      "sha256": "93a2f86cca043537bf472973c6c1d51de54d85208ec54cd448c40e3f09aa73e8",
+      "size": 9993
+    },
+    {
+      "path": "skills/diagram-design/assets/example-loop.html",
+      "sha256": "7346157c67b6994b274772d0ffeb6c5ae2e935991246bd541e4aab84e31f3a8d",
+      "size": 6789
+    },
+    {
+      "path": "skills/diagram-design/assets/example-marimekko-dark.html",
+      "sha256": "91371c8c9915cd5a9fa5d04ddd425d2a17df8b495e2c1a195de8e73130bb3f44",
+      "size": 13604
+    },
+    {
+      "path": "skills/diagram-design/assets/example-marimekko-full.html",
+      "sha256": "e809f059a9df5634a62bcf0444311bb391b2168b45f4c4d4842a2692f1ff48b5",
+      "size": 17040
+    },
+    {
+      "path": "skills/diagram-design/assets/example-marimekko.html",
+      "sha256": "2b1407bcdc69114d3c74ac4a7e257d5081212b87c2aff05913044fc622c46b4a",
+      "size": 13496
+    },
+    {
+      "path": "skills/diagram-design/assets/example-medallion-dark.html",
+      "sha256": "de936de0ee480c4fe9d789f576e1f9bbbc69613c903b73435879f5cbf02cb23e",
+      "size": 13052
+    },
+    {
+      "path": "skills/diagram-design/assets/example-medallion-full.html",
+      "sha256": "8d75d30cb7ae0d3a5479a929d0b288b8ec8cc9072e1ed167d68e97c64321b376",
+      "size": 15894
+    },
+    {
+      "path": "skills/diagram-design/assets/example-medallion.html",
+      "sha256": "ccd63d89878af1f9d1bcc83e126ea11254f4bbfedb3d87a21e7242793cb2c526",
+      "size": 12861
+    },
+    {
+      "path": "skills/diagram-design/assets/example-nested-dark.html",
+      "sha256": "8c9862a5a41d2fc5485b51cb9aab318595ceadd2f799ccab7b57e3183906c4c5",
+      "size": 6735
+    },
+    {
+      "path": "skills/diagram-design/assets/example-nested-full.html",
+      "sha256": "2b87e484fee759346562080dc7639549176af7998389cb0a8be7303649246494",
+      "size": 9844
+    },
+    {
+      "path": "skills/diagram-design/assets/example-nested.html",
+      "sha256": "fd4001be8af64a8aeae2c9b46e6f476030fcd8791ea3f9b508a503fc5bc70ffb",
+      "size": 6854
+    },
+    {
+      "path": "skills/diagram-design/assets/example-org-chart-dark.html",
+      "sha256": "2cb9f912a9ab635fe72924425a23aabb3ddfcbc704e6fdbc12cd0399b2d1de5f",
+      "size": 11599
+    },
+    {
+      "path": "skills/diagram-design/assets/example-org-chart-full.html",
+      "sha256": "f74b14ed6e30a7cf8bcdc8e78dd97c7549d6c73187dea81a13c06edb6e6b1d78",
+      "size": 12049
+    },
+    {
+      "path": "skills/diagram-design/assets/example-org-chart.html",
+      "sha256": "82356766f5d5af0c10fa60a728c784674138c45416933c15f58d5553a7f4b9b4",
+      "size": 11527
+    },
+    {
+      "path": "skills/diagram-design/assets/example-paved-road-animated.html",
+      "sha256": "a17f220a610f0616a1d416bde05cb8591182293ac6cd25e3746eaaf08663fc19",
+      "size": 28321
+    },
+    {
+      "path": "skills/diagram-design/assets/example-polar-dark.html",
+      "sha256": "7c284696cfed61e832dd4dde814840901967cca64bd54a4cddfff7cbeaddb04e",
+      "size": 10447
+    },
+    {
+      "path": "skills/diagram-design/assets/example-polar-full.html",
+      "sha256": "be8080fa08a05dd27191d3a26585d1246153f9fbdcd5122533833ae57eb016b0",
+      "size": 12653
+    },
+    {
+      "path": "skills/diagram-design/assets/example-polar.html",
+      "sha256": "3bbfe08f63c9be96cecfdb7432b8236d2f0788bf6008e69254cbbef18cd3fc39",
+      "size": 10385
+    },
+    {
+      "path": "skills/diagram-design/assets/example-policy-trace-animated.html",
+      "sha256": "1303da75c366e6013dadbc4be0126ab9db34ed0c7a2fdae507c9bd449e871307",
+      "size": 25465
+    },
+    {
+      "path": "skills/diagram-design/assets/example-process-dark.html",
+      "sha256": "eb0a12c31ab57cce1f300e03c40aedb6d1a2d035320901688b12f32a3805475d",
+      "size": 15033
+    },
+    {
+      "path": "skills/diagram-design/assets/example-process-full.html",
+      "sha256": "801c93a1cde612566800cf6a07dd77ce5c030d4d065153946bdb84d2d88b8bf8",
+      "size": 17467
+    },
+    {
+      "path": "skills/diagram-design/assets/example-process.html",
+      "sha256": "7c336a00d6a63fbebd2f9055af8df1b421f25a209900aa70c4028cd747982fb5",
+      "size": 14997
+    },
+    {
+      "path": "skills/diagram-design/assets/example-pyramid-dark.html",
+      "sha256": "831bc6531d0b3b0eba1b348722a0b3e4d5548f287f5380ddb7e26d3f5edcb80c",
+      "size": 6682
+    },
+    {
+      "path": "skills/diagram-design/assets/example-pyramid-full.html",
+      "sha256": "ca4c4c9a61072c25ec6e3446c8247f201b89d781d3d2000783fb7a4d50680e1f",
+      "size": 9731
+    },
+    {
+      "path": "skills/diagram-design/assets/example-pyramid.html",
+      "sha256": "a49c1dd8f932ea82253c7fbbec54365cb722ae65fba975a15c2aa392c27c5fbf",
+      "size": 6576
+    },
+    {
+      "path": "skills/diagram-design/assets/example-quadrant-consultant.html",
+      "sha256": "0eff4b878e56a0ca3104457128254b1c5b329dc7ed6f891c10807063ccdfb983",
+      "size": 11881
+    },
+    {
+      "path": "skills/diagram-design/assets/example-quadrant-dark.html",
+      "sha256": "ac1edf5d9c1251a51a93eb82db17fc1820811f1934ec59c1272ea7f89c501465",
+      "size": 6606
+    },
+    {
+      "path": "skills/diagram-design/assets/example-quadrant-full.html",
+      "sha256": "b4182d3f570e7379b0124667a3268b41f704541d6c6b2e44a4bede954b851457",
+      "size": 9620
+    },
+    {
+      "path": "skills/diagram-design/assets/example-quadrant.html",
+      "sha256": "95f6100d6059a773bcce44d42a9eedba925226c65cacf6613b8488330ae09934",
+      "size": 6573
+    },
+    {
+      "path": "skills/diagram-design/assets/example-queue-animated.html",
+      "sha256": "826566166454ba86fafd1731f6e591bbdbae0cb6bb49f5968222c49660d5535f",
+      "size": 30003
+    },
+    {
+      "path": "skills/diagram-design/assets/example-radar-dark.html",
+      "sha256": "e24eabbc722e67b83ac498407247e1c09d162ff19e047944a323d44594a68258",
+      "size": 7687
+    },
+    {
+      "path": "skills/diagram-design/assets/example-radar-full.html",
+      "sha256": "5a95adc1d24f5f02b0e5f2c27d901b8c221f50d5586da0e387cc58ecbf34976b",
+      "size": 10429
+    },
+    {
+      "path": "skills/diagram-design/assets/example-radar.html",
+      "sha256": "9572164b5aa0d8d1e0e713e8ffb7ef750d0b04e06d3eb842829fa4bdaaaff2c1",
+      "size": 7863
+    },
+    {
+      "path": "skills/diagram-design/assets/example-ridgeline-dark.html",
+      "sha256": "b430c4ec58ab69c044cba2eb39e20adbc8769cbd85fb5f41d8c3f75136d62f90",
+      "size": 10354
+    },
+    {
+      "path": "skills/diagram-design/assets/example-ridgeline-full.html",
+      "sha256": "33fd98b39d5316ca4b65a65c8cd331c55d032ae5d7de3c94feb5e506168718b9",
+      "size": 14273
+    },
+    {
+      "path": "skills/diagram-design/assets/example-ridgeline.html",
+      "sha256": "8c6a17edea0742642bfa991ba353c414d2e7608fff09c073d52c3f9de2d71337",
+      "size": 10281
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sankey-dark.html",
+      "sha256": "4c2a4ff17cfba1412aee8b6569e76c1d314d9ce64d6038c99e89505225b9baf1",
+      "size": 8969
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sankey-full.html",
+      "sha256": "33f52288399db22c20374ecbfd26ec597b77f3512c03115cea240ece21485bb9",
+      "size": 11814
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sankey.html",
+      "sha256": "5997eca7d06b41cc779abed904ef1b782a5d9be160f9dffcb0fef067142b904f",
+      "size": 8921
+    },
+    {
+      "path": "skills/diagram-design/assets/example-scatter-dark.html",
+      "sha256": "347bea032f65f2698f1ce0fe2a5fc01b02dfa03e4fadd84c7a4260369d95fb80",
+      "size": 9666
+    },
+    {
+      "path": "skills/diagram-design/assets/example-scatter-full.html",
+      "sha256": "af03bf90e91b1a4449ee5b776f08df07a40dec1c1fa27457dc75540c8fa4e379",
+      "size": 11577
+    },
+    {
+      "path": "skills/diagram-design/assets/example-scatter.html",
+      "sha256": "baa3fe5115e6a0448fd90629c20729b78eb735d5d95b74501f8d3d0fd8183980",
+      "size": 9423
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sequence-dark.html",
+      "sha256": "f2c0fc2e127bce07c78ff09e6b8540f4993d1d85deafbca73af4834b8944e89b",
+      "size": 13794
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sequence-full.html",
+      "sha256": "8e891b0498e318431dbf0a87c7e5a15d4ab51ff513cfea1fc7a71a68642143c9",
+      "size": 18212
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sequence-oauth-dark.html",
+      "sha256": "5d4755a698aa868126b51049445d3468a7b40401e902a80319a62a31a7969e64",
+      "size": 12113
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sequence-oauth-full.html",
+      "sha256": "f067c6bce636a823ac0aaa66c035bb31d75f793f77fb36729110fd9287213fe9",
+      "size": 16581
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sequence-oauth.html",
+      "sha256": "40b38df11cb54fe055c223a44ddaa7363a2ec0c030dc995e7951a1fb8df42083",
+      "size": 14362
+    },
+    {
+      "path": "skills/diagram-design/assets/example-sequence.html",
+      "sha256": "aac9bfcad5a001206567a577e9816e3d0904bb3e1afc9d8505fb576b93292db8",
+      "size": 13723
+    },
+    {
+      "path": "skills/diagram-design/assets/example-service-blueprint-dark.html",
+      "sha256": "b09196833e457a760a435bbee90d21d09525b42ea467e0c0484b8573eb67f6bb",
+      "size": 14978
+    },
+    {
+      "path": "skills/diagram-design/assets/example-service-blueprint-full.html",
+      "sha256": "23a36032d1f4ed031c1bd353a03504e4a53b29a766f2020f9619949f3fd67f53",
+      "size": 19464
+    },
+    {
+      "path": "skills/diagram-design/assets/example-service-blueprint.html",
+      "sha256": "e7c29fa4e09c5a7cff1ec75ee2310e3f1d623f4df80854dc2d72a2dd87c31c87",
+      "size": 15842
+    },
+    {
+      "path": "skills/diagram-design/assets/example-slopegraph-dark.html",
+      "sha256": "36cdffff3d70fa34b091dd0e7814a8892cc6c3436525c666402d790cbbdc5ecc",
+      "size": 10452
+    },
+    {
+      "path": "skills/diagram-design/assets/example-slopegraph-full.html",
+      "sha256": "1815f1854f486c5163780f2d8f9cf9c0b96a7e42594099dfb31bd14c453a1f55",
+      "size": 13992
+    },
+    {
+      "path": "skills/diagram-design/assets/example-slopegraph.html",
+      "sha256": "c20f22a1ba7ae6388d3fae506927242173475f6447da655a96f06f92adfd706e",
+      "size": 10370
+    },
+    {
+      "path": "skills/diagram-design/assets/example-state-dark.html",
+      "sha256": "d5a29f22ee80fef6fe6f857e767fb0bf4afca8bc8f8cbb478f33286d76f88706",
+      "size": 8698
+    },
+    {
+      "path": "skills/diagram-design/assets/example-state-full.html",
+      "sha256": "683febd8bf1c1658f52f44829d2e72e73453484b54d36409737961718fa2a83c",
+      "size": 11623
+    },
+    {
+      "path": "skills/diagram-design/assets/example-state-lifecycle-dark.html",
+      "sha256": "caf933ffcfffd7cc46e4354d5d3dd4d2c0ea8fc5c56e5fefb9b0ec63dc3358d9",
+      "size": 9633
+    },
+    {
+      "path": "skills/diagram-design/assets/example-state-lifecycle-full.html",
+      "sha256": "6b354ce8290c458d3fdce5d30f8f759c8879c9ca490c115156ff6e746c4d3cc2",
+      "size": 12624
+    },
+    {
+      "path": "skills/diagram-design/assets/example-state-lifecycle.html",
+      "sha256": "0c8406d87facec01143bc4356d896a3ffdc7c429ae481e7ee9fbcd06bfae674c",
+      "size": 10236
+    },
+    {
+      "path": "skills/diagram-design/assets/example-state.html",
+      "sha256": "33a210ded8261c3117222a7d897a17ccddae89267c4779f19eeaf868a5545a15",
+      "size": 8662
+    },
+    {
+      "path": "skills/diagram-design/assets/example-story-map-dark.html",
+      "sha256": "0c288216307ff36b43b513445e0e63fa83ed5902695ead17fdd507a470acc6b7",
+      "size": 12247
+    },
+    {
+      "path": "skills/diagram-design/assets/example-story-map-full.html",
+      "sha256": "fd3a8394c161f8db01c51eb8c3e89b3e0e6fbc85da45c221820dc4ff18036362",
+      "size": 15483
+    },
+    {
+      "path": "skills/diagram-design/assets/example-story-map.html",
+      "sha256": "2e8765e83ee8fb3c62bd31105d3a73b9f11400035036466d14ec59874e194dde",
+      "size": 12186
+    },
+    {
+      "path": "skills/diagram-design/assets/example-streamgraph-dark.html",
+      "sha256": "986d4485111c165a18f0eb86055aa326f932c618d26c32f90d6b9457f9189515",
+      "size": 13002
+    },
+    {
+      "path": "skills/diagram-design/assets/example-streamgraph-full.html",
+      "sha256": "dbc513480b04e07056c6ca0532017ea56b107c278eb70360868fa484b762aedc",
+      "size": 16442
+    },
+    {
+      "path": "skills/diagram-design/assets/example-streamgraph.html",
+      "sha256": "92f45dca6ce38436d1a790424ec1212b4b5eed74a1a309f85fa037c68facbff5",
+      "size": 12941
+    },
+    {
+      "path": "skills/diagram-design/assets/example-swimlane-dark.html",
+      "sha256": "d7038fab163c5fc5f56b58502a0d1e07d2961d08a6f6cd10a729864d670186de",
+      "size": 10580
+    },
+    {
+      "path": "skills/diagram-design/assets/example-swimlane-full.html",
+      "sha256": "dc7bf931bb2ee07072f0fe1e151b0b39a79e0da0317836f897c46b5d2a88953d",
+      "size": 13524
+    },
+    {
+      "path": "skills/diagram-design/assets/example-swimlane.html",
+      "sha256": "c044be167127091b9bc442fdfe7d1dea439a7de23ea2c9819fb8382e511bb6e9",
+      "size": 10534
+    },
+    {
+      "path": "skills/diagram-design/assets/example-timeline-dark.html",
+      "sha256": "fb9a45991b281e7937e8288abbfeb6eb12e0140ee5dcac17821721d5129fb647",
+      "size": 7390
+    },
+    {
+      "path": "skills/diagram-design/assets/example-timeline-full.html",
+      "sha256": "03b38d6dc44286113cf6680ece546affa53ff13092118fb8b4a68b671f55069f",
+      "size": 10391
+    },
+    {
+      "path": "skills/diagram-design/assets/example-timeline.html",
+      "sha256": "d853c86bfd40491d5b747a07ca10b9d55d3349701ca01f508d83ba972b805788",
+      "size": 7338
+    },
+    {
+      "path": "skills/diagram-design/assets/example-tree-block-decomposition-dark.html",
+      "sha256": "1a862a84bb85391a850e6c6cc5d657dd019a1c2a4efe8e7d05f6045b876856df",
+      "size": 8303
+    },
+    {
+      "path": "skills/diagram-design/assets/example-tree-block-decomposition-full.html",
+      "sha256": "9c315f8dcb3693c6c79e9057198e13cb6bd10eb2faa6ed2a5a1956f489271543",
+      "size": 11639
+    },
+    {
+      "path": "skills/diagram-design/assets/example-tree-block-decomposition.html",
+      "sha256": "c5f3051ea93495e6b040d25642ca7a5e67664678bb5e3147509404ed068551da",
+      "size": 8224
+    },
+    {
+      "path": "skills/diagram-design/assets/example-tree-dark.html",
+      "sha256": "43aa056d0761d323cad0bd6205de3083fe7413af4e10639cad5e92c8ed41beac",
+      "size": 11029
+    },
+    {
+      "path": "skills/diagram-design/assets/example-tree-full.html",
+      "sha256": "ee52773ac71a12d584fbe33569da0a64481e05c94ac1ab4729653552e631d8cc",
+      "size": 13990
+    },
+    {
+      "path": "skills/diagram-design/assets/example-tree.html",
+      "sha256": "6812d3e99c21ddc29d346cfb3713ea997bd6ac1fcb5b29b5c764c200afa0ea20",
+      "size": 10913
+    },
+    {
+      "path": "skills/diagram-design/assets/example-treemap-dark.html",
+      "sha256": "43cbbb2ec7c30a71edf5f5436e51dd8369cedb1da80f6e6241b62278ea4e5698",
+      "size": 7651
+    },
+    {
+      "path": "skills/diagram-design/assets/example-treemap-full.html",
+      "sha256": "9339c9007d81969f6d04c30edcf9d3ef558f753ecf9cd8f401978551cfc5c069",
+      "size": 10737
+    },
+    {
+      "path": "skills/diagram-design/assets/example-treemap.html",
+      "sha256": "224c33a048dc64cbbd687bd826a3a09c8178dcd3d311ea3b53bc43f767f420f6",
+      "size": 7579
+    },
+    {
+      "path": "skills/diagram-design/assets/example-uml-class-dark.html",
+      "sha256": "eca2e26603714d4df494532a2a712101321a484cc2d1263f7629b8f0e214357d",
+      "size": 12400
+    },
+    {
+      "path": "skills/diagram-design/assets/example-uml-class-full.html",
+      "sha256": "0c73c3f1b9b4dd569d264a0caff859bf0a3a82849432294c73fed8435a4772e7",
+      "size": 15679
+    },
+    {
+      "path": "skills/diagram-design/assets/example-uml-class.html",
+      "sha256": "98e58c2833cc6b4f2b3e176bbf173907e7168aedf5310cb900d7bdfeb6e22c8d",
+      "size": 12355
+    },
+    {
+      "path": "skills/diagram-design/assets/example-venn-dark.html",
+      "sha256": "ea604fc7ff3c2da573bba856b54b0ac6a95491f26cb707caefda94ac64215a4f",
+      "size": 6699
+    },
+    {
+      "path": "skills/diagram-design/assets/example-venn-full.html",
+      "sha256": "7dc6a440cc8881f70f6184200e3557a7501d21f93495a5aa209c6c8c479dd0ba",
+      "size": 9901
+    },
+    {
+      "path": "skills/diagram-design/assets/example-venn.html",
+      "sha256": "a9f6ab1f15906f7618a2f876bc9cd998a1b0be9b31b7e49eeaf42c3c156340f6",
+      "size": 5079
+    },
+    {
+      "path": "skills/diagram-design/assets/example-wardley-dark.html",
+      "sha256": "80aff4e268d3775541eca4cf1c1cac918f0895637cd79568d4895e84b9f2046b",
+      "size": 8924
+    },
+    {
+      "path": "skills/diagram-design/assets/example-wardley-full.html",
+      "sha256": "1986784529ddb529a3d321e6dbc2add1046abccba5fd8bcab23679742731769d",
+      "size": 11344
+    },
+    {
+      "path": "skills/diagram-design/assets/example-wardley.html",
+      "sha256": "a386727c65063f36df75e096f963c305ca540799c5005daf079ff05e05428436",
+      "size": 8881
+    },
+    {
+      "path": "skills/diagram-design/assets/example-waterfall-dark.html",
+      "sha256": "ce4eb6038b09b87eca88b6981a7b43d19f603f480b6e91fb16d5d7c58a9103a6",
+      "size": 9844
+    },
+    {
+      "path": "skills/diagram-design/assets/example-waterfall-full.html",
+      "sha256": "5a5987e9988cad66b26f769e07eca805796895a951a8cc084f0e0aa8503fca09",
+      "size": 11594
+    },
+    {
+      "path": "skills/diagram-design/assets/example-waterfall.html",
+      "sha256": "501231921ae5065423f75efa6a37fbfc4753ef76d26b9ab116902dc9964ad818",
+      "size": 9760
+    },
+    {
+      "path": "skills/diagram-design/assets/icons.html",
+      "sha256": "8301219558a40abce2d739def01feda6a8b72adce00f8d60154c989dfb581090",
+      "size": 108545
+    },
+    {
+      "path": "skills/diagram-design/assets/index.html",
+      "sha256": "e6fac04ca9548668fd4ab09ba65c733aceb741019a23874a0cc537d49d79e900",
+      "size": 27630
+    },
+    {
+      "path": "skills/diagram-design/assets/template-dark.html",
+      "sha256": "98428c8de2c4fe8e799d7110606421effb876e2e788f8639140854c1033d82d5",
+      "size": 4080
+    },
+    {
+      "path": "skills/diagram-design/assets/template-full.html",
+      "sha256": "bfe0aa003eb264f4a2b6f10c540d9d7a53950574ed0f5dba2af3cac61fc2f52a",
+      "size": 23154
+    },
+    {
+      "path": "skills/diagram-design/assets/template-motion.html",
+      "sha256": "0dc228e58e5810fe99d80b0895515bb9a7f129ced1de2960d343f1e9539d5359",
+      "size": 20935
+    },
+    {
+      "path": "skills/diagram-design/assets/template-terminal.html",
+      "sha256": "d449b50f439214cef9025b91f7ad4d8f786c0f329496aa95b5ea864c1586708d",
+      "size": 5481
+    },
+    {
+      "path": "skills/diagram-design/assets/template.html",
+      "sha256": "f6978a9d50dd286f32ab149bcf505261b9fc331df7320071f87509a285dee7f4",
+      "size": 4202
+    },
+    {
+      "path": "skills/diagram-design/references/animation.md",
+      "sha256": "f68388e400f8e11968c7f69ea4c980fe8c01df384b17bddc9e5bf47e6e5eff67",
+      "size": 12437
+    },
+    {
+      "path": "skills/diagram-design/references/doctor.md",
+      "sha256": "3df848b2431ea9cacc0898ef774c92d58dd7c2e6da26f474ea18d0266e445ff8",
+      "size": 6329
+    },
+    {
+      "path": "skills/diagram-design/references/export-registry.md",
+      "sha256": "6d35bdccf32e7a2f28ebafac75d099451881a3ad9e268798c86acea2c2c66410",
+      "size": 6319
+    },
+    {
+      "path": "skills/diagram-design/references/export.md",
+      "sha256": "356aae225112e81a22c3bda90a6c3dfd9ace1c987ec3f02bd01441cabc184266",
+      "size": 31981
+    },
+    {
+      "path": "skills/diagram-design/references/import-drawio.md",
+      "sha256": "55e340657f7c2f54c9be2349b4b71786779e4ae5d89fb4c1ce4f31de5e49ec08",
+      "size": 14476
+    },
+    {
+      "path": "skills/diagram-design/references/import-excalidraw.md",
+      "sha256": "323260ca813c3ee5c196362d6424779ee1d3cfcc1afb23329f60d59674a3aeec",
+      "size": 11490
+    },
+    {
+      "path": "skills/diagram-design/references/import-mermaid.md",
+      "sha256": "70de6854d8b4c537972fbe5bf1c1ebbd526d1ba2fee27b97ec1530c2360b0a77",
+      "size": 12649
+    },
+    {
+      "path": "skills/diagram-design/references/import-plantuml.md",
+      "sha256": "12b98f00c25fa417489e8ae6a9daf2e4accc8c2450d2f1ed3511fcb55567a3ed",
+      "size": 12554
+    },
+    {
+      "path": "skills/diagram-design/references/layout-budget.md",
+      "sha256": "0e27b0f3261bffc0636bb23483e8e627d0458c6c896090a6aee1147fbeeec71d",
+      "size": 4558
+    },
+    {
+      "path": "skills/diagram-design/references/onboarding.md",
+      "sha256": "9e1268f502253b856a1dae2d1e8b109769e942c05306996fa5ae011a266edaec",
+      "size": 16931
+    },
+    {
+      "path": "skills/diagram-design/references/output-spec.md",
+      "sha256": "12dc0eed3514e387328651652604ef4fba1a76bce1823a79f4da2993336d1e69",
+      "size": 19200
+    },
+    {
+      "path": "skills/diagram-design/references/primitive-annotation.md",
+      "sha256": "c4cab11c4660375856a8bea668922b07932199dc26a695ebcf95c5a23ba03ec5",
+      "size": 1661
+    },
+    {
+      "path": "skills/diagram-design/references/primitive-icons.md",
+      "sha256": "ea768a2b2f169ff3cd98ed41da9ad3a30ed92374bc2da44a8ba83f1f3d453c43",
+      "size": 105941
+    },
+    {
+      "path": "skills/diagram-design/references/primitive-sketchy.md",
+      "sha256": "8859f0d70c10f46f59817cb348346e7fb9e1609b70a4a513d297b8c850c866a4",
+      "size": 1700
+    },
+    {
+      "path": "skills/diagram-design/references/primitive-terminal.md",
+      "sha256": "7b52c2fb229c822a60b0061caa64ae6a68aacd4f1c22a1a98d1d0eaaa2333b55",
+      "size": 3915
+    },
+    {
+      "path": "skills/diagram-design/references/primitives-core.md",
+      "sha256": "601305baed49217870dda15a0ebc879a6a560608cb63fe2108aaebee1abefbc9",
+      "size": 13125
+    },
+    {
+      "path": "skills/diagram-design/references/profiles.md",
+      "sha256": "8afea09015a456b218287f08a2e9ac44bb50f6a9ebd2a7c1487bd774e89f9016",
+      "size": 14434
+    },
+    {
+      "path": "skills/diagram-design/references/semantic-patterns.md",
+      "sha256": "7aa5f7a0840be234d2b10bc3742b17151f94f550a0d72afd820413859a898c8f",
+      "size": 16679
+    },
+    {
+      "path": "skills/diagram-design/references/style-guide.md",
+      "sha256": "320881ec802004384c09ce4f4f087b9242d926b08071d6b908160e14c707d155",
+      "size": 20856
+    },
+    {
+      "path": "skills/diagram-design/references/type-architecture-delta.md",
+      "sha256": "e5813f26e1fb924863efe70db36f112e1b9570e47335d7f6fa6e46473136e4e5",
+      "size": 14595
+    },
+    {
+      "path": "skills/diagram-design/references/type-architecture.md",
+      "sha256": "28260c9c0a72fe17ddf6eed7b1fff01c04f58f62bbb7147c45372574c9e38eea",
+      "size": 10485
+    },
+    {
+      "path": "skills/diagram-design/references/type-axonometric-plan.md",
+      "sha256": "be8ead6d582df5c19fdf611f7540c058f166929293155ab40ddc3ef524232ba6",
+      "size": 7184
+    },
+    {
+      "path": "skills/diagram-design/references/type-bar.md",
+      "sha256": "0e4d2c7b1df4b1c7a1c47c27db1d298f810bc73f4eb30186eda9827518d38f5b",
+      "size": 14056
+    },
+    {
+      "path": "skills/diagram-design/references/type-data-flow.md",
+      "sha256": "ad1cd8358c9360663200f5100a199e57e43a4e6702982752220ad423127941e8",
+      "size": 20858
+    },
+    {
+      "path": "skills/diagram-design/references/type-db-schema.md",
+      "sha256": "91f017b8813cfc63d775809d18659971d0aa5982967af94d47def31690713083",
+      "size": 4954
+    },
+    {
+      "path": "skills/diagram-design/references/type-dependency.md",
+      "sha256": "3e11e3dee49877f20cc0ae408ee41efaa776260c9abf53978b81b7f9222210dc",
+      "size": 10703
+    },
+    {
+      "path": "skills/diagram-design/references/type-deployment.md",
+      "sha256": "296adfee79069e8fd8f9a19012cca731c5cc237990a0274ca1a8a807173c9fec",
+      "size": 4295
+    },
+    {
+      "path": "skills/diagram-design/references/type-dp-integration.md",
+      "sha256": "b84195582b3daa1139dced192253ba97dd6984cfd7ba9a0da76a44588f744119",
+      "size": 22215
+    },
+    {
+      "path": "skills/diagram-design/references/type-dp-security-matrix.md",
+      "sha256": "209f4870ec19d90eff1ab80ecfe0062f3a5075c3b666b1a3a900a27260ba8832",
+      "size": 19086
+    },
+    {
+      "path": "skills/diagram-design/references/type-er.md",
+      "sha256": "d1495abeb6f5004bd89fface17d3767ebab71c8450dca195b055e18bf3132c57",
+      "size": 1531
+    },
+    {
+      "path": "skills/diagram-design/references/type-exploded.md",
+      "sha256": "785b904ce1a1be806824c97a5719578a2c32c931fb424d0a1a69c4480a527152",
+      "size": 11157
+    },
+    {
+      "path": "skills/diagram-design/references/type-fishbone.md",
+      "sha256": "3441d3c73334813bf55cf1d0d96ea1aa4f9e46a60001ba83dfe9442be1745f8b",
+      "size": 5796
+    },
+    {
+      "path": "skills/diagram-design/references/type-flowchart.md",
+      "sha256": "c2af5e2b849255ae4859125db7b101b74bfb9b201204725c1e83fac51a98ebab",
+      "size": 1079
+    },
+    {
+      "path": "skills/diagram-design/references/type-gantt.md",
+      "sha256": "d7d6b199fd804b417200f2b878f36042cb5d6b025af711c06d3d3e429b0ae6b0",
+      "size": 2433
+    },
+    {
+      "path": "skills/diagram-design/references/type-heatmap.md",
+      "sha256": "9ea18de9d461abd8afddef34c7658812ea7f2b22e45fbc3b03caa1099765966a",
+      "size": 7696
+    },
+    {
+      "path": "skills/diagram-design/references/type-high-level.md",
+      "sha256": "f9629c9b3dd4b85da3a19c762d0f5fd58213b5e3994ad783b2033f4e83260264",
+      "size": 28325
+    },
+    {
+      "path": "skills/diagram-design/references/type-it-state.md",
+      "sha256": "b5c35f1703a53e3ca4196352912898e5ea5f1fce054a40d4a3568629535cd7ec",
+      "size": 29677
+    },
+    {
+      "path": "skills/diagram-design/references/type-journey.md",
+      "sha256": "85be7b12d841aec1638d67ad9a599d313a9d42300e35af675a87a0a3e67d9b6f",
+      "size": 5385
+    },
+    {
+      "path": "skills/diagram-design/references/type-kanban.md",
+      "sha256": "447a8a231d5bb1e822945a02e8bd4adc219b0791bb0182cab48680fbbd88d045",
+      "size": 4531
+    },
+    {
+      "path": "skills/diagram-design/references/type-layers.md",
+      "sha256": "a822afe4e06ffaf9793f5466810e2504c020e6ae3abd0b9e53c6f7b1368f2609",
+      "size": 1570
+    },
+    {
+      "path": "skills/diagram-design/references/type-line.md",
+      "sha256": "f29a97ab0e72b23365304dfda6640503e37244eaad2c3851069585a569814089",
+      "size": 43216
+    },
+    {
+      "path": "skills/diagram-design/references/type-loop.md",
+      "sha256": "9ac996dfa83f41064477f10b61b6bdd2b0ceaefa6053b87432554668adf22af6",
+      "size": 12609
+    },
+    {
+      "path": "skills/diagram-design/references/type-medallion.md",
+      "sha256": "a1af03521adb53431766a559e05c984ee07871fd3cf495cf63146999f56f6f42",
+      "size": 22226
+    },
+    {
+      "path": "skills/diagram-design/references/type-nested.md",
+      "sha256": "c16da375df52f047748c65276f564a1b0d7d2dd420170b92dbf7cdac68981516",
+      "size": 1363
+    },
+    {
+      "path": "skills/diagram-design/references/type-org-chart.md",
+      "sha256": "fd64716f3f419f41785c40fbabb96b36cfddcdfd0cc7ee444585f3e2b528f9c9",
+      "size": 3101
+    },
+    {
+      "path": "skills/diagram-design/references/type-polar.md",
+      "sha256": "11237fa0be82c3c6e963bc1aaed20283d839c7570dadfd0805e202ea129edba0",
+      "size": 7998
+    },
+    {
+      "path": "skills/diagram-design/references/type-process.md",
+      "sha256": "cefb9669074ecbc7cd4c78dccb941db1ae52b5bbdc5f20b66edcdf05ea7e2928",
+      "size": 28224
+    },
+    {
+      "path": "skills/diagram-design/references/type-pyramid.md",
+      "sha256": "c21ef0c6f3832eb30f0cd1aef0e0ec72b6758abbb1b8128acf36e81384679714",
+      "size": 1805
+    },
+    {
+      "path": "skills/diagram-design/references/type-quadrant.md",
+      "sha256": "eb7d542ddac72e2e1a75cb7ca64ddb67901283859413a133a332137e7fb9e5b1",
+      "size": 6256
+    },
+    {
+      "path": "skills/diagram-design/references/type-radar.md",
+      "sha256": "49c66e7921e1fd7575cf879852c41aa86e0db7f98b0c8105e3103202af49f563",
+      "size": 5626
+    },
+    {
+      "path": "skills/diagram-design/references/type-sankey.md",
+      "sha256": "874866a0867e56525f11f38a11b442b9c33f02f416b632ee76aced7f3bfc2bb5",
+      "size": 9389
+    },
+    {
+      "path": "skills/diagram-design/references/type-scatter.md",
+      "sha256": "e0066ff48cf7af900eea5570abeb060ca8ebbbc60676ac677cfca997c2062b6c",
+      "size": 28072
+    },
+    {
+      "path": "skills/diagram-design/references/type-sequence.md",
+      "sha256": "e3a109d4983a951ff670346c352529e48619c1e81db1774edfa6f05d3e93f778",
+      "size": 6798
+    },
+    {
+      "path": "skills/diagram-design/references/type-service-blueprint.md",
+      "sha256": "ae0475dc5972273d3ff2ab0bf53ae9947e8e35f59decef85f4422459c60c64ca",
+      "size": 7700
+    },
+    {
+      "path": "skills/diagram-design/references/type-state.md",
+      "sha256": "9c8ed85762d5bbb3672907bc1664ebf94bcc72850efbacf33d5ee12731053122",
+      "size": 1958
+    },
+    {
+      "path": "skills/diagram-design/references/type-story-map.md",
+      "sha256": "0ab4fae3de1f9909e20f27ca30414c5574fd8af583c28e1f55ba2af1b50f51fc",
+      "size": 4882
+    },
+    {
+      "path": "skills/diagram-design/references/type-swimlane.md",
+      "sha256": "3557f11a03e5660e4e44e767caba91a4b8c35892d9aa920967b4387708bcf9fb",
+      "size": 1197
+    },
+    {
+      "path": "skills/diagram-design/references/type-timeline.md",
+      "sha256": "a6b4ad26c05957835705229579f8c733b32791de9d01f9f268fea8a70228f501",
+      "size": 1091
+    },
+    {
+      "path": "skills/diagram-design/references/type-tree.md",
+      "sha256": "60194950ef4e46725d7670d93e405a7d4b9af44bf775c549b8f3ce63ca6ce15c",
+      "size": 1517
+    },
+    {
+      "path": "skills/diagram-design/references/type-treemap.md",
+      "sha256": "7c80b1aa7f3fff205ec74261d874971f5bb09324e3cd357d58c0214acdbbf2de",
+      "size": 18520
+    },
+    {
+      "path": "skills/diagram-design/references/type-uml-class.md",
+      "sha256": "2940353d4c0afeb25b8d5e830e3408d5fdec3c4c89504739f5d847e064ad12c2",
+      "size": 4902
+    },
+    {
+      "path": "skills/diagram-design/references/type-venn.md",
+      "sha256": "7ead49ed70f1b2506beb83e9c84862d7dbc63f1225f0e50ecc6e2b1b4a632b38",
+      "size": 1659
+    },
+    {
+      "path": "skills/diagram-design/references/type-wardley.md",
+      "sha256": "4060402f648fa2ec858850f532675f52ac5d5df0b209c9c9450cc3df332114fb",
+      "size": 5778
+    },
+    {
+      "path": "skills/diagram-design/references/type-waterfall.md",
+      "sha256": "07db1d30ce52356884b9c7005ad473434c6104257eee0252e3487209e59d0da9",
+      "size": 8987
+    },
+    {
+      "path": "skills/diagram-design/scripts/drawio_extract.py",
+      "sha256": "328e683a2d536a15a45ea8dfc1887bd62f9f1195910f21384dfed6206ae1f7c7",
+      "size": 35563
+    },
+    {
+      "path": "skills/diagram-design/scripts/excalidraw_extract.py",
+      "sha256": "58f7284b6ee4c1d98d3ec5d7b59221ed273ef2efe76b34ac386de2d194fc087b",
+      "size": 27197
+    },
+    {
+      "path": "skills/diagram-design/scripts/export_png.py",
+      "sha256": "430ddcc2d39441808bd4217fbdeb944dbb6de0be281782705a81747986d7d348",
+      "size": 3682
+    },
+    {
+      "path": "skills/diagram-design/scripts/export_svg.py",
+      "sha256": "b5f45b8a36138874e095e07d22c3eaa2322a53927616c8eec5861ddbe9e89d2e",
+      "size": 69322
+    },
+    {
+      "path": "skills/diagram-design/scripts/mermaid_extract.py",
+      "sha256": "21fb365e323fc8ab8029638bce27decfe7b45e892088abf4036e1b40f3c933b3",
+      "size": 65339
+    },
+    {
+      "path": "skills/diagram-design/scripts/plantuml_extract.py",
+      "sha256": "d4c2fe72ed59b1f046aeea88adad7f2d94da7471e25ce2b616323f00cf61863c",
+      "size": 82126
+    },
+    {
+      "path": "skills/diagram-design/scripts/self_check.py",
+      "sha256": "94055febf79eff9bfef42b4fc2635ad83f35fffeb798985fa8477c0bc8e133c5",
+      "size": 49404
+    },
+    {
+      "path": "skills/diagram-design/scripts/verify_geometry.py",
+      "sha256": "e87c22d2720bfe354b595940d2cf93b555fb5176c823ed3ea46c31a68a10ffd3",
+      "size": 28175
+    },
+    {
+      "path": "skills/discernment-nudge/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/discernment-nudge/SKILL.md",
+      "sha256": "9191177c4a8ef11a20dace786d708506b22d43e748c71287bb823de0dc812dad",
+      "size": 10592
+    },
+    {
+      "path": "skills/doc-and-modernize/LICENSE",
+      "sha256": "e32449d23085399adc1222f7a17408b730550258e51627c153cb108ca9955823",
+      "size": 1059
+    },
+    {
+      "path": "skills/doc-and-modernize/SKILL.md",
+      "sha256": "a1b5ff3752fa95d1597d33f95f265ca29171bd00c7315854b062f5117d0a89b6",
+      "size": 49934
+    },
+    {
+      "path": "skills/doc-and-modernize/references/copilot-instructions.template.md",
+      "sha256": "26660ec9124859675fc27b53744f1767d6d0add38921b16b174ad96820a977cc",
+      "size": 7857
+    },
+    {
+      "path": "skills/doc-and-modernize/references/migration-hazards.md",
+      "sha256": "1c2e674bb178492371a5448d83d1f8bed93fab4464077c6aee5fba436442bc53",
+      "size": 14189
+    },
+    {
+      "path": "skills/doc-coauthoring/SKILL.md",
+      "sha256": "2e47d78846faeea4a56e9809c52700087a15a2155a3f293a3efbaded81398ef4",
+      "size": 15815
+    },
+    {
+      "path": "skills/docx/LICENSE.txt",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "size": 11357
+    },
+    {
+      "path": "skills/docx/SKILL.md",
+      "sha256": "9e8202e2524a9ed87da67a5b3eaa76e8e6038f4171f8251ad6aaefd34e82a3df",
+      "size": 6897
+    },
+    {
+      "path": "skills/docx/scripts/__init__.py",
+      "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "size": 1
+    },
+    {
+      "path": "skills/docx/scripts/accept_changes.py",
+      "sha256": "0c991d2bc7304a1248e9f3bf9b1498f0b6e76641fc457e7cbd73c99b4eef3a74",
+      "size": 4051
+    },
+    {
+      "path": "skills/docx/scripts/comment.py",
+      "sha256": "37d116e5f56bb142b208c6c6a4bbcf960495abf470ddb7c6675ccfac864ba3d7",
+      "size": 14054
+    },
+    {
+      "path": "skills/docx/scripts/merge_runs.py",
+      "sha256": "3ab367fd7fba4647943d0aa5e65203b15458551410f5ffc821d902616a4b9f40",
+      "size": 9398
+    },
+    {
+      "path": "skills/docx/scripts/office/helpers/__init__.py",
+      "sha256": "678e42456d9e10923c8b9a93691cdd993de3433448a184fa72a0c31f4ae086d5",
+      "size": 3358
+    },
+    {
+      "path": "skills/docx/scripts/office/helpers/pptx_chart.py",
+      "sha256": "47ac266f7d39d11ede6bb0d1f3a19d801394fd2964636f1b48beb701f1832964",
+      "size": 5862
+    },
+    {
+      "path": "skills/docx/scripts/office/helpers/pptx_slide.py",
+      "sha256": "7b9f69b4a5bd6a2d9eabf9e0e3e796d7a421373145f6a8cd11f60b7ba2d6a5d0",
+      "size": 1675
+    },
+    {
+      "path": "skills/docx/scripts/office/helpers/pptx_theme.py",
+      "sha256": "ebb54c56e9c13807f5f98f0cae22d47cdd0162da8525eaa664e3f2c8c8d6bb03",
+      "size": 3510
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
+      "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354",
+      "size": 74984
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
+      "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412",
+      "size": 6956
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
+      "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40",
+      "size": 51302
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
+      "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026",
+      "size": 624
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd",
+      "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9",
+      "size": 152039
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
+      "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c",
+      "size": 1231
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
+      "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88",
+      "size": 8862
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
+      "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614",
+      "size": 14795
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd",
+      "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff",
+      "size": 83612
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
+      "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8",
+      "size": 1269
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
+      "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2",
+      "size": 7328
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
+      "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece",
+      "size": 6382
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
+      "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281",
+      "size": 1248
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
+      "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4",
+      "size": 880
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
+      "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285",
+      "size": 2608
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
+      "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368",
+      "size": 3507
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
+      "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b",
+      "size": 7507
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd",
+      "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a",
+      "size": 23313
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
+      "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637",
+      "size": 1367
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd",
+      "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578",
+      "size": 242277
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd",
+      "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763",
+      "size": 26148
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
+      "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155",
+      "size": 25279
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
+      "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e",
+      "size": 535
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
+      "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519",
+      "size": 5712
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
+      "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831",
+      "size": 4010
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd",
+      "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd",
+      "size": 171367
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd",
+      "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2",
+      "size": 4646
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-contentTypes.xsd",
+      "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a",
+      "size": 1963
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-coreProperties.xsd",
+      "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8",
+      "size": 2515
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-digSig.xsd",
+      "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24",
+      "size": 2856
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/ecma/fouth-edition/opc-relationships.xsd",
+      "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26",
+      "size": 1344
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/mce/mc.xsd",
+      "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413",
+      "size": 3127
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/microsoft/wml-2010.xsd",
+      "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2",
+      "size": 26549
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/microsoft/wml-2012.xsd",
+      "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74",
+      "size": 3745
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/microsoft/wml-2018.xsd",
+      "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad",
+      "size": 901
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/microsoft/wml-cex-2018.xsd",
+      "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081",
+      "size": 1778
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/microsoft/wml-cid-2016.xsd",
+      "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d",
+      "size": 1002
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd",
+      "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604",
+      "size": 600
+    },
+    {
+      "path": "skills/docx/scripts/office/schemas/microsoft/wml-symex-2015.xsd",
+      "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b",
+      "size": 745
+    },
+    {
+      "path": "skills/docx/scripts/office/soffice.py",
+      "sha256": "df2c8d7249c132a4512d744482e4b5ed0ecbe885f0bcfb1295e7e6a7ced0432c",
+      "size": 5927
+    },
+    {
+      "path": "skills/docx/scripts/office/validate.py",
+      "sha256": "346a4c89d92fff55e610f11efda48c30228815b29bdb10b987e48f7af70acf1e",
+      "size": 6142
+    },
+    {
+      "path": "skills/docx/scripts/office/validators/__init__.py",
+      "sha256": "83e0f035c5abea238d3f2c3968afbd511ed022b527b7c9cb60a9434cc34ff987",
+      "size": 336
+    },
+    {
+      "path": "skills/docx/scripts/office/validators/base.py",
+      "sha256": "f818ea28c793ba42960fa4498265e2632a62c86f7b5d6aff6fa89dacc02d59ea",
+      "size": 33756
+    },
+    {
+      "path": "skills/docx/scripts/office/validators/docx.py",
+      "sha256": "93d3444c0ef3f043d21a2285c46d2cda478426b930dc33dcf3b11265935517b5",
+      "size": 17482
+    },
+    {
+      "path": "skills/docx/scripts/office/validators/pptx.py",
+      "sha256": "17eadad2b7a8374ccbe4cda45693bcd6a36f9d61a7d60f9c9ceef9464dec8299",
+      "size": 15966
+    },
+    {
+      "path": "skills/docx/scripts/office/validators/redlining.py",
+      "sha256": "ed50d0885eee4b9c387f546b059bcaed64086815880a5167336244f93e305123",
+      "size": 11231
+    },
+    {
+      "path": "skills/docx/scripts/templates/comments.xml",
+      "sha256": "a08ba83ee8790ac9e3dc61921f4988f19edd7e06ac09d6f1897a877c1581818d",
+      "size": 2603
+    },
+    {
+      "path": "skills/docx/scripts/templates/commentsExtended.xml",
+      "sha256": "544eeecfeceed4b468fff163cd9c366d33641c8b8ab691ce002576197846afe8",
+      "size": 2611
+    },
+    {
+      "path": "skills/docx/scripts/templates/commentsExtensible.xml",
+      "sha256": "bad10b3283e6ad6e7ef6d1ca5169683721ed690ee331282c65df04017e080631",
+      "size": 2707
+    },
+    {
+      "path": "skills/docx/scripts/templates/commentsIds.xml",
+      "sha256": "db20f9616e004ec42ef736e80c2384e45db0f8d1194d31dc8b37c7d6ecdd6420",
+      "size": 2619
+    },
+    {
+      "path": "skills/docx/scripts/templates/people.xml",
+      "sha256": "056f63aa1197fd8c9dda980c9f1b9ff016fd5fa4a462df8aec5f384f39d23e37",
+      "size": 115
+    },
+    {
+      "path": "skills/drawio-skill/LICENSE",
+      "sha256": "0d43b46456eda48a9054fbfa915ac80e150f5db5cf90714eda710c02e1df461a",
+      "size": 1069
+    },
+    {
+      "path": "skills/drawio-skill/SKILL.md",
+      "sha256": "2b2718db634fe4056b798596ec00ee3222cb000ce28520ecde9837e13da0c48f",
+      "size": 10697
+    },
+    {
+      "path": "skills/drawio-skill/agents/openai.yaml",
+      "sha256": "ca8053ac6cec8b9fce47320e6cc902c615a8692e5cbb2cfa701863898862e0fc",
+      "size": 307
+    },
+    {
+      "path": "skills/drawio-skill/data/SHAPE-INDEX-NOTICE.md",
+      "sha256": "dc6e070b9fd905c6a574614dd0c4403253ad8b7111e2f2f3892996b2729e26ab",
+      "size": 880
+    },
+    {
+      "path": "skills/drawio-skill/data/databricks-icons.json",
+      "sha256": "760d80cdd57e5b7784b036d07ce49c149b78d362a35078c5f92171e2d268ec7c",
+      "size": 11762
+    },
+    {
+      "path": "skills/drawio-skill/data/diagram-ir.schema.json",
+      "sha256": "92891a36b4160a2a08398884fd0cbec224791c406a9107c923acf934f471e016",
+      "size": 1534
+    },
+    {
+      "path": "skills/drawio-skill/data/lobe-icons.json",
+      "sha256": "e7c309bd5ebf4df948563d48469090d0868432549f168319534215f79b0077cc",
+      "size": 12919
+    },
+    {
+      "path": "skills/drawio-skill/data/shape-index.json.gz",
+      "sha256": "f19d9f794775d91e196b0a8d1fce32d6dbbf9828f094bedc53e843c8131ee8ea",
+      "size": 436148
+    },
+    {
+      "path": "skills/drawio-skill/references/autolayout.md",
+      "sha256": "1d993371633b87b5563a785e8f3c862e0103f0d0251b7986e37d862b9c59b1ef",
+      "size": 19798
+    },
+    {
+      "path": "skills/drawio-skill/references/ci-gate.md",
+      "sha256": "4aff775b72567c0325b467805e9108187fa9e38c4df339c84a100028f3e65c50",
+      "size": 2090
+    },
+    {
+      "path": "skills/drawio-skill/references/cookbook.md",
+      "sha256": "c85e1373b685d4ed3ecdec115649da1f38de0ed7abce5ccbc15be2ca75d5ca59",
+      "size": 7087
+    },
+    {
+      "path": "skills/drawio-skill/references/databricks.md",
+      "sha256": "aa47283c8c875305569bcca8f83649912c7f8e8ceefef723220fdc139531c8c9",
+      "size": 2625
+    },
+    {
+      "path": "skills/drawio-skill/references/derasterize.md",
+      "sha256": "a4efd3152ba340299a92ae599d936fd07296d725a1a86efc79ed9a7b25754bb8",
+      "size": 2526
+    },
+    {
+      "path": "skills/drawio-skill/references/diagram-ir.md",
+      "sha256": "3a12b71703f1631b0cf6cfc5fb0faf46534a7f9382e1e5d26eecbcde685232d8",
+      "size": 4847
+    },
+    {
+      "path": "skills/drawio-skill/references/diagram-types.md",
+      "sha256": "958b6d0ab59b2731b6fb9d567a95d8c8cde596cddad18d5242304d916a78f7e1",
+      "size": 16691
+    },
+    {
+      "path": "skills/drawio-skill/references/live-infra.md",
+      "sha256": "87d92e8b8ae259a1433764f349ff8f8dd1f7991dba5d4c55198fb9fa1706580a",
+      "size": 3670
+    },
+    {
+      "path": "skills/drawio-skill/references/mcp.md",
+      "sha256": "f0c5463d653e734cbec1670a7cb82a58250b691335721f418c4cf6a424a8280a",
+      "size": 3405
+    },
+    {
+      "path": "skills/drawio-skill/references/mermaid-authoring.md",
+      "sha256": "b44d45322be91ee3b32da2badaa8ff53e6951350185bb71f7fb8f48ac9120b96",
+      "size": 4978
+    },
+    {
+      "path": "skills/drawio-skill/references/pr-bot.md",
+      "sha256": "c34a85d91ec4e5b79d7bfb42b725ae9f15435f1f2dc67b98f6d0523ada294d6f",
+      "size": 3927
+    },
+    {
+      "path": "skills/drawio-skill/references/security.md",
+      "sha256": "35f2072dcf1a01ead5dd72c971ac74bfc89a6c174667586bce495023070faa0e",
+      "size": 2082
+    },
+    {
+      "path": "skills/drawio-skill/references/semantic-workflows.md",
+      "sha256": "40a4130d1452bd49fea43bc04e16f646bf61c87ff9939487bf49f8abb20dbc01",
+      "size": 3043
+    },
+    {
+      "path": "skills/drawio-skill/references/shapes.md",
+      "sha256": "b696df00bb4d74afb93670adf0e58acd6e0eb5cf8145e40994851ec052a18c23",
+      "size": 7155
+    },
+    {
+      "path": "skills/drawio-skill/references/style-extraction.md",
+      "sha256": "9dfba198a0e0f610e2fdaecff29aa380984ba03c67d5a02c86b75106c95de2a0",
+      "size": 17575
+    },
+    {
+      "path": "skills/drawio-skill/references/style-presets.md",
+      "sha256": "b40f2dfd2cd21e244a9769d05b597d96dd2135518bea9478aa15d08616d848c6",
+      "size": 11171
+    },
+    {
+      "path": "skills/drawio-skill/references/toolbox.md",
+      "sha256": "261615c4b009c6cfcfe74d03756590fe74f0fb54e087135148eb51b9aa63ba7a",
+      "size": 12048
+    },
+    {
+      "path": "skills/drawio-skill/references/troubleshooting.md",
+      "sha256": "d88f7141a5a42d808e1f962bc4f2663068d42b53dac3b6d5016176eb7efe43d0",
+      "size": 8107
+    },
+    {
+      "path": "skills/drawio-skill/references/tubemap.md",
+      "sha256": "654db7cc5f5c757a28e0b64060e3c78880fa11045944810150af1770cd8107c1",
+      "size": 3275
+    },
+    {
+      "path": "skills/drawio-skill/references/xml-authoring.md",
+      "sha256": "9733296f91e687266fd5af7be30f9df3fa7eb86a81d4046d9aa68f36c809569e",
+      "size": 15786
+    },
+    {
+      "path": "skills/drawio-skill/scripts/aiicons.py",
+      "sha256": "96017e7e289eacbf7b304a623b207b6df2258fe04ffe9894d266bcde2c135c2d",
+      "size": 8398
+    },
+    {
+      "path": "skills/drawio-skill/scripts/asyncapiimports.py",
+      "sha256": "8a4e39f8933db55227575c23705b04a16551de1bbb833431c3462af8e881a3c2",
+      "size": 11148
+    },
+    {
+      "path": "skills/drawio-skill/scripts/autolayout.py",
+      "sha256": "d72e15eb0cfa356e9722c9824037d2fbd65840ee686324e87070d195d973a162",
+      "size": 18286
+    },
+    {
+      "path": "skills/drawio-skill/scripts/buildup.py",
+      "sha256": "d3937cac70ad1653b6c06e4d1179adb82a23229256e941cee242512b741f8324",
+      "size": 14585
+    },
+    {
+      "path": "skills/drawio-skill/scripts/c4.py",
+      "sha256": "82f349e1a5240984275f1fc9cfe21a91dd4124fbf42a61903439eaf90ceadd22",
+      "size": 6670
+    },
+    {
+      "path": "skills/drawio-skill/scripts/ciimports.py",
+      "sha256": "c9de9a7af0aa3ed6b2d3e4e1bfaa045444940bf31666fc7e0118ce962ae1ed86",
+      "size": 7776
+    },
+    {
+      "path": "skills/drawio-skill/scripts/composeimports.py",
+      "sha256": "ae9c96282daa3f35ddba65a443456034ca9e7e6920a3db5b646ed8fe0a17909d",
+      "size": 4738
+    },
+    {
+      "path": "skills/drawio-skill/scripts/compress.py",
+      "sha256": "464689570eccf3a8992531164f03933380624e00f3e97c421e74a49c1d3250a7",
+      "size": 10582
+    },
+    {
+      "path": "skills/drawio-skill/scripts/dbxicons.py",
+      "sha256": "dfa302a7d803b6c710d7cfdf4fc06d959c8cd9e53ef1f73108f9d2946a03db16",
+      "size": 12632
+    },
+    {
+      "path": "skills/drawio-skill/scripts/diagram_ir.py",
+      "sha256": "05b2b64af048b797fa15ae1f44709a7ebb6f43bbe91b45d17e115ceaa6984fcc",
+      "size": 59171
+    },
+    {
+      "path": "skills/drawio-skill/scripts/diagramctl.py",
+      "sha256": "3d9749ceb9ef6bfb1a74ae5d8932e2cdd9289b1a1960f18ec5bded8c7915956a",
+      "size": 20804
+    },
+    {
+      "path": "skills/drawio-skill/scripts/diagramctl_mcp.py",
+      "sha256": "b2b270477ac04c29d9ed213f89662246e0fae9b6fa536e49b0808582a7fbb67c",
+      "size": 16745
+    },
+    {
+      "path": "skills/drawio-skill/scripts/dockerimports.py",
+      "sha256": "7a06bcc73f754b01d651bf5276d0e947d6eeb9817c412abcd1bb69f3752760ec",
+      "size": 6391
+    },
+    {
+      "path": "skills/drawio-skill/scripts/drawio2mermaid.py",
+      "sha256": "c6bc00fd9d3e7f3f0534dddc4e519708559404e0c40c808ebc89312160b9e01c",
+      "size": 5965
+    },
+    {
+      "path": "skills/drawio-skill/scripts/drawio2pptx.py",
+      "sha256": "7fa749165bd5db8326af5d27920196d88b5c45e9ad33f8d99cdb3e615d9c4287",
+      "size": 5042
+    },
+    {
+      "path": "skills/drawio-skill/scripts/drawio_cli.py",
+      "sha256": "a4c1cd83d128b918cfe8dff09ccfecc4208c186b5d8531664549dc09c0680163",
+      "size": 2119
+    },
+    {
+      "path": "skills/drawio-skill/scripts/drawiodiff.py",
+      "sha256": "392396ad3633f30776208388165a3552f0faa894cf2f5ec45a1b0ce5101fdcba",
+      "size": 10854
+    },
+    {
+      "path": "skills/drawio-skill/scripts/drawiohtml.py",
+      "sha256": "d2c820586bec1dcd68c22c6d8c15b129a8b703241d21a041d63f3994b8edf069",
+      "size": 11122
+    },
+    {
+      "path": "skills/drawio-skill/scripts/edgeports.py",
+      "sha256": "429f1c8c0be958ef68418d38ddbf4af0e1da9d52f25015ecb599c74fa1b64f7a",
+      "size": 9285
+    },
+    {
+      "path": "skills/drawio-skill/scripts/encode_drawio_url.py",
+      "sha256": "47b77e4bc46226cc1a1cea29e93988877796d0a60706a2a38c7fd7910af3dfef",
+      "size": 2250
+    },
+    {
+      "path": "skills/drawio-skill/scripts/explain.py",
+      "sha256": "ce2dfff696714eb30491a8bb906467c12aea86d5685f393eb3d115a93bd4461d",
+      "size": 6226
+    },
+    {
+      "path": "skills/drawio-skill/scripts/goimports.py",
+      "sha256": "a2cb0ea9cfbfb6b276abf746e35d352d5edce2c7469e31a1e0d1d48ad3939a51",
+      "size": 6131
+    },
+    {
+      "path": "skills/drawio-skill/scripts/graphqlerd.py",
+      "sha256": "be39395bd95f7f9c22d398cc7925222fab7495e91eee51466f7d5b82c701d67b",
+      "size": 16089
+    },
+    {
+      "path": "skills/drawio-skill/scripts/heatmap.py",
+      "sha256": "91d0c98537bf31b14b8766f7ee98046a9142716df450a97b062092bdec532a73",
+      "size": 9176
+    },
+    {
+      "path": "skills/drawio-skill/scripts/jsimports.py",
+      "sha256": "63b563d5ec10498d445885d7d762d7dbc26eb2cb47d379120db372ce7261bad1",
+      "size": 6535
+    },
+    {
+      "path": "skills/drawio-skill/scripts/k8simports.py",
+      "sha256": "3d2c32c908c78cf0f557ba2f3c00a3351b15052a3586d94c34cfe5251057782f",
+      "size": 9805
+    },
+    {
+      "path": "skills/drawio-skill/scripts/openapiimports.py",
+      "sha256": "2d29c8b205d862acd1201875dedbc91fc510266012bcb64f469902d7c365afdc",
+      "size": 6786
+    },
+    {
+      "path": "skills/drawio-skill/scripts/prdiff.py",
+      "sha256": "341923187a9a026b8e8a7f94cd921599d3c47863605935c56035d10a97dda185",
+      "size": 8199
+    },
+    {
+      "path": "skills/drawio-skill/scripts/protoimports.py",
+      "sha256": "e742b59c5e9f7ae6b884184b6cf9df4465ee3cafa15069658af6cd2852d9ba99",
+      "size": 17956
+    },
+    {
+      "path": "skills/drawio-skill/scripts/pyclasses.py",
+      "sha256": "1fbcf0370c0154bf18cdde559b56e1dbf4a6b069b75dda8ed49e386d56308be2",
+      "size": 6271
+    },
+    {
+      "path": "skills/drawio-skill/scripts/pyimports.py",
+      "sha256": "619a27f15e22995b323c28b6c2037fb02d9a9522e1bbbd1fe90680d98a46d9bd",
+      "size": 7036
+    },
+    {
+      "path": "skills/drawio-skill/scripts/raster2drawio.py",
+      "sha256": "7a81fad51336f01fa5791c354a3467994faea396b76d018d99c377c0374fcdb5",
+      "size": 7467
+    },
+    {
+      "path": "skills/drawio-skill/scripts/relabel.py",
+      "sha256": "98db0ebe5928754719ccf7c1ebcf661d14e010aed3962cc38bae57c25810c414",
+      "size": 4247
+    },
+    {
+      "path": "skills/drawio-skill/scripts/repair_png.py",
+      "sha256": "1a453cb88231813dcb5631456b0c7431eb59acd21570c7e749c1cce89ae31c4c",
+      "size": 1097
+    },
+    {
+      "path": "skills/drawio-skill/scripts/restyle.py",
+      "sha256": "b12ff51e133de46aff66ca70c546d82d2eba77673b872786c3f02a31996c7140",
+      "size": 7243
+    },
+    {
+      "path": "skills/drawio-skill/scripts/runbook.py",
+      "sha256": "56059a1bb86ff76047dc962b2fa8276b01090bc0bfe6051b388a8adb9bc5dc9c",
+      "size": 10187
+    },
+    {
+      "path": "skills/drawio-skill/scripts/rustimports.py",
+      "sha256": "9b6bfbc97a1daa5e6eee6ab6733a88500e5ea8d4accb92acf08cc633761ca41f",
+      "size": 7928
+    },
+    {
+      "path": "skills/drawio-skill/scripts/seqlayout.py",
+      "sha256": "527c522dfd1ccff1c252bb146f250710d0033385444ac3cc2a33ede11ee09fc4",
+      "size": 9917
+    },
+    {
+      "path": "skills/drawio-skill/scripts/shapesearch.py",
+      "sha256": "ac624fa2d532c1a72cc77ec0b2fd94a71e0baf4cd03ba339b60eb7a784e511b3",
+      "size": 5967
+    },
+    {
+      "path": "skills/drawio-skill/scripts/sqlerd.py",
+      "sha256": "a442b1189ff91f145f9cfb7788a056cac47adc2af373ef36c6006aca8aafbd83",
+      "size": 8814
+    },
+    {
+      "path": "skills/drawio-skill/scripts/svgflow.py",
+      "sha256": "3053c99cbd88e999974d79855ab50fece2173e20cc74e7e8366c7e3ac979bb6f",
+      "size": 4241
+    },
+    {
+      "path": "skills/drawio-skill/scripts/tfimports.py",
+      "sha256": "66636c6b73b41d485560a90e0b4a13a4b30d4ecb03910f66cd3519d40406b007",
+      "size": 11910
+    },
+    {
+      "path": "skills/drawio-skill/scripts/tfstate.py",
+      "sha256": "aa2728eb203462621de7fde8eac9d2a3631252fd8b4b3ddd647f5fb596718ade",
+      "size": 5587
+    },
+    {
+      "path": "skills/drawio-skill/scripts/timelapse.py",
+      "sha256": "e57c1738897102be7ace16770abe9a796e1faa855b8022de90dff09d1555b87c",
+      "size": 11683
+    },
+    {
+      "path": "skills/drawio-skill/scripts/tubemap.py",
+      "sha256": "f3bf38c0ca6941ea5b96174275532748793a2246d91aad2459d485666881fb6e",
+      "size": 6948
+    },
+    {
+      "path": "skills/drawio-skill/scripts/validate.py",
+      "sha256": "3effc1cdfd5b43b672630d0dbbc6f233a4925f6469f808e271d8c623530b9540",
+      "size": 16591
+    },
+    {
+      "path": "skills/drawio-skill/styles/built-in/colorblind-safe.json",
+      "sha256": "3b836988e6533c07bf0e6676cc35731e750f0fa659ab25e80bfef7087436f3eb",
+      "size": 1472
+    },
+    {
+      "path": "skills/drawio-skill/styles/built-in/corporate.json",
+      "sha256": "0cb0ba05b44e5938ce775bb917b6ffaa3a0501ceedbd610975cc6e909fe5e60b",
+      "size": 1471
+    },
+    {
+      "path": "skills/drawio-skill/styles/built-in/dark.json",
+      "sha256": "2a78d4da3b6bc747da7943597bb1d58e9ff12f5188192ecc09589570d6873fae",
+      "size": 1546
+    },
+    {
+      "path": "skills/drawio-skill/styles/built-in/default.json",
+      "sha256": "5340c1f80ab983f412e895d58d5dffb4949c246acc516702fd565675fec140e1",
+      "size": 1454
+    },
+    {
+      "path": "skills/drawio-skill/styles/built-in/handdrawn.json",
+      "sha256": "92a1fdca1bbb95e5239fca62b2da81d4035936a11ca690e026419a5c2508e541",
+      "size": 1474
+    },
+    {
+      "path": "skills/drawio-skill/styles/schema.json",
+      "sha256": "4886d76481285d584eaa7963053c1ec6786eb335b4f75e1093b66788dce148c0",
+      "size": 5362
+    },
+    {
+      "path": "skills/frontend-design/LICENSE.txt",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "size": 10174
+    },
+    {
+      "path": "skills/frontend-design/SKILL.md",
+      "sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3",
+      "size": 9390
+    },
+    {
+      "path": "skills/image-to-editable-ppt/LICENSE",
+      "sha256": "68e435621ab299c7cbe3ad8f088e877f9bca76508c621f27a697606df8ff2154",
+      "size": 1065
+    },
+    {
+      "path": "skills/image-to-editable-ppt/SKILL.md",
+      "sha256": "899725dfaaadc7ba36f9a4f8864358312f7b4fd5b0ffc39fc09d8cc0be7240c5",
+      "size": 17041
+    },
+    {
+      "path": "skills/image-to-editable-ppt/agents/openai.yaml",
+      "sha256": "bd4f362b6b02ed889053e3519e82a96f69b16cec6468c4ea44872c148c33d4e2",
+      "size": 261
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/__init__.py",
+      "sha256": "a7833154ef22876fa19e1ec8355064aea30a04319390cb28d4b11b33a9b1de38",
+      "size": 23
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/cli.py",
+      "sha256": "7a1fef4e8c9e9bdcb877e05d5191f3d0daf1d884449fa944602107c1dda699ac",
+      "size": 706
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/__init__.py",
+      "sha256": "3ca19eef7cca8923807c80dc0ecd6d67b262f45c889ae761edd9b5c1dc5c4e54",
+      "size": 67
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/_input_normalization.py",
+      "sha256": "aea66757f8a7bcee2b2751443a98f74f413e1d67ae405a6653ea85ece2d06c65",
+      "size": 14874
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/_page_artifacts.py",
+      "sha256": "2f141c8837c82b5074e0ec886d308d15228c99135df979b0c6f4ffc056eb3695",
+      "size": 4363
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/build_pptx_from_manifest.py",
+      "sha256": "856e86fc59e73ad591b6e13d7e2eae318c5a46f5e4e4ecee907367cf5c275571",
+      "size": 52473
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/configure_image_backend.py",
+      "sha256": "ab93885fb5984d090644acc4c248bd8083f27a14508436360052d4b84c70ebd0",
+      "size": 4886
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/deck_run_state.py",
+      "sha256": "f23da1f111e711f36e1f4ac3244bd64e38a50d9591f4a23b2380bb31891f04e9",
+      "size": 5794
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/deck_text_hints.py",
+      "sha256": "2f267a49504992ce3829683daa7f4a8bd54cf70912ab61263393f792099feda6",
+      "size": 7724
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/finalize_deck_run.py",
+      "sha256": "d3d2df4e58d440edf45fb69317c190103c4cb09fa27d07df1a131bc9d9c960b2",
+      "size": 3762
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/formula_renderer.py",
+      "sha256": "65f4c0883d3457f67fcc1f13ba8bcfe001216641839bacd9b6affea30f86202e",
+      "size": 8691
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/image_gen.py",
+      "sha256": "c04d8688bcf5e514fe51a5b39df93044c72019efef5313f5fdb5e87b7ea8d1e6",
+      "size": 30134
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/main.py",
+      "sha256": "a18eba1b84147203a13fc1b509045052e24c652cf9e3dbd2304f3ae521a63bba",
+      "size": 37914
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/make_page_contact_sheet.py",
+      "sha256": "b205774265de2fcca2c3ea3228cb1b9e3da82b394f320255f5d82c3fe67a4412",
+      "size": 881
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/native_tables.py",
+      "sha256": "915c329163991e3b63b6c63cd42bfe00e62edfcb87942dd8eeaf37ce787c1ec8",
+      "size": 8379
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/paddle_text_hints.py",
+      "sha256": "1f9647acc267863c693bc9284bcf1bbb6a4eceb572f2a8a63d6ed214a323377d",
+      "size": 9732
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/page_job_status.py",
+      "sha256": "01e8effade4c3ab6719341c60490cb874f6c9d780e1fdbe00088696362d8703b",
+      "size": 2147
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/page_text_metrics.py",
+      "sha256": "683948879b666ea47eb12fb10bc2371be52f271cf531e3802d759fc6398a1595",
+      "size": 11865
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/path_geometry.py",
+      "sha256": "7a4550b89bbc82ace904bdf5fc6dc5f2e5e0fba32dc3860a7dbf4d13c0af7a99",
+      "size": 7999
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/prepare_deck_run.py",
+      "sha256": "b0f96ea60479cb62f001d49c5384739e13187e8a8605a871de00b7cc3c8d3cf7",
+      "size": 7213
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/process_asset_sheet.py",
+      "sha256": "cf4e34db733a3093ecb725bf5020e86c8a88165263ee145349ed699329213088",
+      "size": 5843
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/record_imagegen_result.py",
+      "sha256": "fc959b5809ccd59c4b58ba5bf1e705dff18895046b818dc928776c217a3242fb",
+      "size": 5910
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/record_page_dispatch.py",
+      "sha256": "d91b45281c0eafa10801b1344f3c423712b5aeae0aea0231d2243003176f0522",
+      "size": 2862
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/record_page_result.py",
+      "sha256": "34f73bcc70da439e6a547f2737148812485fee130df6c49ce33e58721643eb55",
+      "size": 5014
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/remove_chroma_key.py",
+      "sha256": "68b018feee3e97f140daa3216b05cfb09f79efb58c305f2bf8656f1ff751939d",
+      "size": 13894
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/reset_page_job.py",
+      "sha256": "787a05361c69f114a9177633eac2556833c711a1bd16da6bd6ad6c0b9ab7e63b",
+      "size": 2636
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/runtime_env.py",
+      "sha256": "2b289ab00d6ebbe95c85d783c638519ba352f0661f631af79188bbae6a341025",
+      "size": 13484
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/split_alpha_components.py",
+      "sha256": "732908babf636659e60a2572cd5b73c178db4ffd889200bb7c306627d98119cd",
+      "size": 13577
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/text_hints.py",
+      "sha256": "07daccc89a847bf9c481fa8f2f2044cc7924e59389e12e0a36eff0a43b45001d",
+      "size": 13963
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/editppt/runtime/validate_pptx.py",
+      "sha256": "536721ac565c589d54f09b6c21dd29d751c8babe6be0017ef895d13429b60e1a",
+      "size": 35674
+    },
+    {
+      "path": "skills/image-to-editable-ppt/cli/pyproject.toml",
+      "sha256": "b9a90cdf26b98e76d28eced7c63375c9ef0cc3bd34ad7a2306b5cfdb822c2cba",
+      "size": 561
+    },
+    {
+      "path": "skills/image-to-editable-ppt/prompts/page-worker.md",
+      "sha256": "8b30866caeacef3209324bb6b4cbb11c3d52623dec06242d8bf8d709bc2deacc",
+      "size": 5106
+    },
+    {
+      "path": "skills/image-to-editable-ppt/references/cli-helper.md",
+      "sha256": "1ef924ad2643d4db447d786ccea772e74dda74d15443d3e3ea7ed492ee5cafce",
+      "size": 16267
+    },
+    {
+      "path": "skills/image-to-editable-ppt/references/manifest-schema.md",
+      "sha256": "006cfaab11a03a7e559e0aaa3b82bb8f6ab70615e3f3ad9a2b4a19b9e54b5d2e",
+      "size": 22633
+    },
+    {
+      "path": "skills/image-to-editable-ppt/references/page-decision-tree.md",
+      "sha256": "fa1ccfb5489b81c93068c1e2900663a031319cca26e7073e18dcbebc9fce517f",
+      "size": 25462
+    },
+    {
+      "path": "skills/image-to-editable-ppt/scripts/build-page-worker-prompt.py",
+      "sha256": "8a92d0cea004f7b41c55b105128ec846510be0cd036c24e700e2c9c27af2fc7c",
+      "size": 4594
+    },
+    {
+      "path": "skills/internal-comms/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/internal-comms/SKILL.md",
+      "sha256": "067b7587a344a928fc6534ef66b1bcd591fc7c26d207ea7ca3334aeb678d6475",
+      "size": 1511
+    },
+    {
+      "path": "skills/internal-comms/examples/3p-updates.md",
+      "sha256": "087e4363c0f3513728a7e695eeb9ead5c3ecd12a4681b59340691180e65b68fc",
+      "size": 3274
+    },
+    {
+      "path": "skills/internal-comms/examples/company-newsletter.md",
+      "sha256": "30f81cfbdb03858a006169c72169024089c7c5d3d32611d337782da4f38c86b5",
+      "size": 3295
+    },
+    {
+      "path": "skills/internal-comms/examples/faq-answers.md",
+      "sha256": "5ecd3356cd6666937f2ebefa753253edfdbdca15e368d07baf398bfcced72484",
+      "size": 2366
+    },
+    {
+      "path": "skills/internal-comms/examples/general-comms.md",
+      "sha256": "4d3a4bb198a77626bcf018e96b2b45a2dbabed172d4ade0fcd70d23ae8a47a47",
+      "size": 602
+    },
+    {
+      "path": "skills/manifest.json",
+      "sha256": "ed2ab70139a299fde470e1eed1712edc2f275a899dd3f2df2a208be875623e75",
+      "size": 23398
+    },
+    {
+      "path": "skills/mcp-builder/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/mcp-builder/SKILL.md",
+      "sha256": "b483b56d6673134497e45489c317f26ae0f1429c194db0297e43073e17e6748c",
+      "size": 11129
+    },
+    {
+      "path": "skills/mcp-builder/reference/evaluation.md",
+      "sha256": "8c99479f8a2d22a636c38e274537aac3610879e26f34e0709825077c4576f427",
+      "size": 21663
+    },
+    {
+      "path": "skills/mcp-builder/reference/mcp_best_practices.md",
+      "sha256": "80fb4369a349447cf18ecdd7494fe7938b6065377e9f08c077cec411093a3007",
+      "size": 7330
+    },
+    {
+      "path": "skills/mcp-builder/reference/node_mcp_server.md",
+      "sha256": "ee3c95d812e450f6168b734390d0c9ef6f8ebeef041d73a122c972dfbd4d476a",
+      "size": 28745
+    },
+    {
+      "path": "skills/mcp-builder/reference/node_mcp_server_v2.md",
+      "sha256": "49b2fe48f33910b743ae3a56353fffa5d5f252f531053f24f2da4e5914c0d3aa",
+      "size": 35171
+    },
+    {
+      "path": "skills/mcp-builder/reference/python_mcp_server.md",
+      "sha256": "2da52f77e675191014ca2e146a4b95aa04d0ca7dd7e2b100322df15ade685e80",
+      "size": 25099
+    },
+    {
+      "path": "skills/mcp-builder/scripts/connections.py",
+      "sha256": "9403668a2041568772082a8b334122c1f88daf0541fb393af4522d0094a47a6e",
+      "size": 4875
+    },
+    {
+      "path": "skills/mcp-builder/scripts/evaluation.py",
+      "sha256": "49ed1d17cdce5da101b210197740713f49b935c29d4f339542a14b132658e6f7",
+      "size": 12579
+    },
+    {
+      "path": "skills/mcp-builder/scripts/example_evaluation.xml",
+      "sha256": "9272b348ddcc4b06ba562367ccd0770e018158c0068ac5116d5e34aaeff8777a",
+      "size": 1194
+    },
+    {
+      "path": "skills/mcp-builder/scripts/requirements.txt",
+      "sha256": "d5d7558b2368ecea9dfeed7d1fbc71ee9e0750bebd1282faa527d528a344c3c7",
+      "size": 29
+    },
+    {
+      "path": "skills/pdf/LICENSE.txt",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "size": 11357
+    },
+    {
+      "path": "skills/pdf/SKILL.md",
+      "sha256": "d1c7caf5f35eb7d37877dd7fc33a095037be2b34fb5d2f7f4d43bde3165bb4ee",
+      "size": 8058
+    },
+    {
+      "path": "skills/pdf/forms.md",
+      "sha256": "9530b3f57034792e0242a3abfe8b3c296466329551916f2ff6c5a70db78f7e44",
+      "size": 11854
+    },
+    {
+      "path": "skills/pdf/reference.md",
+      "sha256": "03a5f964f8abecbbe156f363356e927e864d7ee964f1012c84ee1bfc8acbeb95",
+      "size": 16692
+    },
+    {
+      "path": "skills/pdf/scripts/check_bounding_boxes.py",
+      "sha256": "0ced522402dd7b3c82a0be9518cf4e485fa9cc0467d7beab6ddb04cb36fcc3e1",
+      "size": 2774
+    },
+    {
+      "path": "skills/pdf/scripts/check_fillable_fields.py",
+      "sha256": "1fe10b9980a5493c9bbec8c20630c603eaa475b45403751c08f26738736647b8",
+      "size": 268
+    },
+    {
+      "path": "skills/pdf/scripts/convert_pdf_to_images.py",
+      "sha256": "7f58e292a67e18a8ff000d30bad2469389546731f7e8a698cc1d0aed001ea15d",
+      "size": 1008
+    },
+    {
+      "path": "skills/pdf/scripts/create_validation_image.py",
+      "sha256": "8fa9fd7962c9f940045b81cf6b991e7c1057c1838e3f9cc6d305007a222ffebf",
+      "size": 1258
+    },
+    {
+      "path": "skills/pdf/scripts/extract_form_field_info.py",
+      "sha256": "bb235b36f497bbb1c7c6821cecf527bbba7213520de11219da99f7b13a38c109",
+      "size": 4300
+    },
+    {
+      "path": "skills/pdf/scripts/extract_form_structure.py",
+      "sha256": "6814e3fe8f78c2b16d766c132b5a727ff7a31b71d76a7d46bd6e40fe50bc97c5",
+      "size": 3945
+    },
+    {
+      "path": "skills/pdf/scripts/fill_fillable_fields.py",
+      "sha256": "d140872c2e92e41b1e05370ae8d270c5b7f5ebdf55d9905f03bc974a9c708ff5",
+      "size": 3819
+    },
+    {
+      "path": "skills/pdf/scripts/fill_pdf_form_with_annotations.py",
+      "sha256": "8a56e063a49ed53c0b0e1d312ecf8023af76816ed139486ec3b539873de202fd",
+      "size": 3235
+    },
+    {
+      "path": "skills/pptx/LICENSE.txt",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "size": 11357
+    },
+    {
+      "path": "skills/pptx/SKILL.md",
+      "sha256": "b60bd282c6e01297f0eefe71594d1756dbf60a584f524c04a803ec6950b7fba2",
+      "size": 20782
+    },
+    {
+      "path": "skills/pptx/scripts/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "skills/pptx/scripts/add_slide.py",
+      "sha256": "3922f819ee1f6b8bdc6aa146d1a86de70640f5f919321fe3f01a764482ff69c9",
+      "size": 14537
+    },
+    {
+      "path": "skills/pptx/scripts/clean.py",
+      "sha256": "5c808cd4dff7e02661ef3c68b5917f4e25097cc6610c92a3a7df4a6366a5c3c1",
+      "size": 10415
+    },
+    {
+      "path": "skills/pptx/scripts/office/helpers/__init__.py",
+      "sha256": "678e42456d9e10923c8b9a93691cdd993de3433448a184fa72a0c31f4ae086d5",
+      "size": 3358
+    },
+    {
+      "path": "skills/pptx/scripts/office/helpers/pptx_chart.py",
+      "sha256": "47ac266f7d39d11ede6bb0d1f3a19d801394fd2964636f1b48beb701f1832964",
+      "size": 5862
+    },
+    {
+      "path": "skills/pptx/scripts/office/helpers/pptx_slide.py",
+      "sha256": "7b9f69b4a5bd6a2d9eabf9e0e3e796d7a421373145f6a8cd11f60b7ba2d6a5d0",
+      "size": 1675
+    },
+    {
+      "path": "skills/pptx/scripts/office/helpers/pptx_theme.py",
+      "sha256": "ebb54c56e9c13807f5f98f0cae22d47cdd0162da8525eaa664e3f2c8c8d6bb03",
+      "size": 3510
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
+      "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354",
+      "size": 74984
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
+      "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412",
+      "size": 6956
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
+      "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40",
+      "size": 51302
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
+      "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026",
+      "size": 624
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd",
+      "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9",
+      "size": 152039
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
+      "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c",
+      "size": 1231
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
+      "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88",
+      "size": 8862
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
+      "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614",
+      "size": 14795
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd",
+      "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff",
+      "size": 83612
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
+      "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8",
+      "size": 1269
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
+      "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2",
+      "size": 7328
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
+      "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece",
+      "size": 6382
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
+      "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281",
+      "size": 1248
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
+      "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4",
+      "size": 880
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
+      "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285",
+      "size": 2608
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
+      "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368",
+      "size": 3507
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
+      "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b",
+      "size": 7507
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd",
+      "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a",
+      "size": 23313
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
+      "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637",
+      "size": 1367
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd",
+      "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578",
+      "size": 242277
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd",
+      "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763",
+      "size": 26148
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
+      "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155",
+      "size": 25279
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
+      "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e",
+      "size": 535
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
+      "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519",
+      "size": 5712
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
+      "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831",
+      "size": 4010
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd",
+      "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd",
+      "size": 171367
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd",
+      "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2",
+      "size": 4646
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ecma/fouth-edition/opc-contentTypes.xsd",
+      "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a",
+      "size": 1963
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ecma/fouth-edition/opc-coreProperties.xsd",
+      "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8",
+      "size": 2515
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ecma/fouth-edition/opc-digSig.xsd",
+      "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24",
+      "size": 2856
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/ecma/fouth-edition/opc-relationships.xsd",
+      "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26",
+      "size": 1344
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/mce/mc.xsd",
+      "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413",
+      "size": 3127
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/microsoft/wml-2010.xsd",
+      "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2",
+      "size": 26549
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/microsoft/wml-2012.xsd",
+      "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74",
+      "size": 3745
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/microsoft/wml-2018.xsd",
+      "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad",
+      "size": 901
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/microsoft/wml-cex-2018.xsd",
+      "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081",
+      "size": 1778
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/microsoft/wml-cid-2016.xsd",
+      "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d",
+      "size": 1002
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd",
+      "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604",
+      "size": 600
+    },
+    {
+      "path": "skills/pptx/scripts/office/schemas/microsoft/wml-symex-2015.xsd",
+      "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b",
+      "size": 745
+    },
+    {
+      "path": "skills/pptx/scripts/office/soffice.py",
+      "sha256": "df2c8d7249c132a4512d744482e4b5ed0ecbe885f0bcfb1295e7e6a7ced0432c",
+      "size": 5927
+    },
+    {
+      "path": "skills/pptx/scripts/office/validate.py",
+      "sha256": "346a4c89d92fff55e610f11efda48c30228815b29bdb10b987e48f7af70acf1e",
+      "size": 6142
+    },
+    {
+      "path": "skills/pptx/scripts/office/validators/__init__.py",
+      "sha256": "83e0f035c5abea238d3f2c3968afbd511ed022b527b7c9cb60a9434cc34ff987",
+      "size": 336
+    },
+    {
+      "path": "skills/pptx/scripts/office/validators/base.py",
+      "sha256": "f818ea28c793ba42960fa4498265e2632a62c86f7b5d6aff6fa89dacc02d59ea",
+      "size": 33756
+    },
+    {
+      "path": "skills/pptx/scripts/office/validators/docx.py",
+      "sha256": "93d3444c0ef3f043d21a2285c46d2cda478426b930dc33dcf3b11265935517b5",
+      "size": 17482
+    },
+    {
+      "path": "skills/pptx/scripts/office/validators/pptx.py",
+      "sha256": "17eadad2b7a8374ccbe4cda45693bcd6a36f9d61a7d60f9c9ceef9464dec8299",
+      "size": 15966
+    },
+    {
+      "path": "skills/pptx/scripts/office/validators/redlining.py",
+      "sha256": "ed50d0885eee4b9c387f546b059bcaed64086815880a5167336244f93e305123",
+      "size": 11231
+    },
+    {
+      "path": "skills/pptx/scripts/thumbnail.py",
+      "sha256": "94ef83a84346aa2d63913de0d42bb2fe902ccdc17bfac6130096ca758381793c",
+      "size": 9802
+    },
+    {
+      "path": "skills/skill-creator/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/skill-creator/SKILL.md",
+      "sha256": "dcd4803e61e913e6fc27294184cd3a71f09f5e924ff20c8a9a20173e7b3c2bcf",
+      "size": 33168
+    },
+    {
+      "path": "skills/skill-creator/agents/analyzer.md",
+      "sha256": "bf68f4cac5a56c673a928c2e6d619586c5b93ea364026ab37547772cb45a663a",
+      "size": 10376
+    },
+    {
+      "path": "skills/skill-creator/agents/comparator.md",
+      "sha256": "fe1fc9787c495d864c5d6eada47396478572325fde1b33a96d78bf4b849b7a3e",
+      "size": 7287
+    },
+    {
+      "path": "skills/skill-creator/agents/grader.md",
+      "sha256": "57134da0c1a4eea33fbd74a1c9c44aa814f07d6bc64de303edb586f941e5d21a",
+      "size": 9049
+    },
+    {
+      "path": "skills/skill-creator/assets/eval_review.html",
+      "sha256": "ce477dcc74dc1c0d1d3352646a79167b5a63634e936b1019160025065974e452",
+      "size": 7058
+    },
+    {
+      "path": "skills/skill-creator/eval-viewer/generate_review.py",
+      "sha256": "fc9d1b9243fe5ab6012ebd579bd76d0035de1b79fd3b969de114defab26478fb",
+      "size": 16365
+    },
+    {
+      "path": "skills/skill-creator/eval-viewer/viewer.html",
+      "sha256": "a53213426ee1100441d701a3a0d49cda7a842f992d2c36463f4d3cc0258575fa",
+      "size": 44998
+    },
+    {
+      "path": "skills/skill-creator/references/schemas.md",
+      "sha256": "8e8876180a8989b406a4d3edddf875b04cdfd5805cc8616686d552b11ce4455f",
+      "size": 12061
+    },
+    {
+      "path": "skills/skill-creator/scripts/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "size": 0
+    },
+    {
+      "path": "skills/skill-creator/scripts/aggregate_benchmark.py",
+      "sha256": "123ef128ea5ccc01a4b1ac212ef5567f21e9c13d3d240609780beeb3200c49aa",
+      "size": 14386
+    },
+    {
+      "path": "skills/skill-creator/scripts/generate_report.py",
+      "sha256": "13df7118a3c50c83c4c3250a606d5f2b20b25a3d44cbc392b3d669ec75281453",
+      "size": 12847
+    },
+    {
+      "path": "skills/skill-creator/scripts/improve_description.py",
+      "sha256": "87d864570220b699fac52da309d2d6efdb060647bfebc74f768128e646accf80",
+      "size": 11116
+    },
+    {
+      "path": "skills/skill-creator/scripts/package_skill.py",
+      "sha256": "1a33059b0db1ef73375d46d513e5ea81369d2e8838c970597b0d52ddef8d1c0f",
+      "size": 4234
+    },
+    {
+      "path": "skills/skill-creator/scripts/quick_validate.py",
+      "sha256": "67cf5703402013936c8fb75ad6a1afecd8841d45cc5e606b634eb05825fde365",
+      "size": 3972
+    },
+    {
+      "path": "skills/skill-creator/scripts/run_eval.py",
+      "sha256": "43e3b8f80dbf69c343967ba77e268fae991d9fa3ed68b32a0ff02532cd48657f",
+      "size": 11464
+    },
+    {
+      "path": "skills/skill-creator/scripts/run_loop.py",
+      "sha256": "7bd6f674203168520517eec94c55f493c0d154339b061b4d7c0f0dad187d0f21",
+      "size": 13605
+    },
+    {
+      "path": "skills/skill-creator/scripts/utils.py",
+      "sha256": "3af8ae62c40c73ab712207436a0d9a981e845f25c5a7040229eb189cc8e45bb1",
+      "size": 1661
+    },
+    {
+      "path": "skills/slack-gif-creator/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/slack-gif-creator/SKILL.md",
+      "sha256": "2efca615ce55a3edd8fc05c779068a8085816617991987e446606403cd3abb22",
+      "size": 7841
+    },
+    {
+      "path": "skills/slack-gif-creator/core/easing.py",
+      "sha256": "60bc943449802541f0f0881a874faa7ef408aaaf0b758fde756664ada7740452",
+      "size": 6265
+    },
+    {
+      "path": "skills/slack-gif-creator/core/frame_composer.py",
+      "sha256": "a127ea8f2a58893ea10a5c7b5cab4e2010af6515adc538676eb0cc14f5a03985",
+      "size": 4548
+    },
+    {
+      "path": "skills/slack-gif-creator/core/gif_builder.py",
+      "sha256": "b6f50d738c491ee0438a2e86e897f71cdab9792494ba4605f140befb0bddbf89",
+      "size": 9847
+    },
+    {
+      "path": "skills/slack-gif-creator/core/validators.py",
+      "sha256": "56bd19e3aae05f8387d78ec8185d6098b3dc909d1fa041211753da37212528a3",
+      "size": 3785
+    },
+    {
+      "path": "skills/slack-gif-creator/requirements.txt",
+      "sha256": "edc7108a0c6b56183566c71ee96830f6dc791e3b41952112d9cb56b33a6bd757",
+      "size": 66
+    },
+    {
+      "path": "skills/sources.json",
+      "sha256": "5096c0d30169a192f746dd92c5a5eb38a8f4dd78636967648e668a7cd2875774",
+      "size": 7191
+    },
+    {
+      "path": "skills/theme-factory/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/theme-factory/SKILL.md",
+      "sha256": "c35893e221e28895c52143cc11bf30e41a44817796b39d4b15727dadc9796552",
+      "size": 3124
+    },
+    {
+      "path": "skills/theme-factory/theme-showcase.pdf",
+      "sha256": "3e126eca9fe99088051f7cb984c97cedb31c7d9e09ce0ba5d61bd01e70a0d253",
+      "size": 124310
+    },
+    {
+      "path": "skills/theme-factory/themes/arctic-frost.md",
+      "sha256": "868a75a8fb5b2a61d0f0ab87c437fe632d3cbab6371c418f06aa2816ac109ae0",
+      "size": 544
+    },
+    {
+      "path": "skills/theme-factory/themes/botanical-garden.md",
+      "sha256": "222cb8e7496abc9b75b29453c809fb9839e7e4b01fa45deecdd896b38d087765",
+      "size": 519
+    },
+    {
+      "path": "skills/theme-factory/themes/desert-rose.md",
+      "sha256": "bd065b8629be3b64655183927e248e3d892a27b8d184b009cfba89c96102744f",
+      "size": 496
+    },
+    {
+      "path": "skills/theme-factory/themes/forest-canopy.md",
+      "sha256": "ecb722efa24688e808b5bf323c334ca2349e989cfddd72ce8400ce5d4c4bd3e7",
+      "size": 506
+    },
+    {
+      "path": "skills/theme-factory/themes/golden-hour.md",
+      "sha256": "3444a00df971d3c2f06b665e21a2e9eb5d7d7d6f6281f2758773b8345776a139",
+      "size": 528
+    },
+    {
+      "path": "skills/theme-factory/themes/midnight-galaxy.md",
+      "sha256": "0e134c4c0324df41e34ac314269aa6829cd378cf3c304b31858d0cd158d2f944",
+      "size": 513
+    },
+    {
+      "path": "skills/theme-factory/themes/modern-minimalist.md",
+      "sha256": "b8bc572b75948d4df69c401af703b9262ed6820a3ceb270da30a529e92763614",
+      "size": 549
+    },
+    {
+      "path": "skills/theme-factory/themes/ocean-depths.md",
+      "sha256": "a7ad8eec85341dbfcb2665da827a4b6a4baee08ab3335ac02421f18e6b46b2e2",
+      "size": 555
+    },
+    {
+      "path": "skills/theme-factory/themes/sunset-boulevard.md",
+      "sha256": "658af11ab04be4923692571081ffb42a428141ae537703117b9236d9f8ee22a3",
+      "size": 558
+    },
+    {
+      "path": "skills/theme-factory/themes/tech-innovation.md",
+      "sha256": "183648163026dd5eeba3df5effa335b55ba333c3ee1fe215278605e55f40a52a",
+      "size": 547
+    },
+    {
+      "path": "skills/web-artifacts-builder/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/web-artifacts-builder/SKILL.md",
+      "sha256": "81c5002c6643b0de7b8710b00e7a9038daa6fb9b68d59870ee6adb12da8d10f8",
+      "size": 3087
+    },
+    {
+      "path": "skills/web-artifacts-builder/scripts/bundle-artifact.sh",
+      "sha256": "abf0e480bf6585b56fab8526a407dfb7dc740812bddd70c636e1e8f3df5f9618",
+      "size": 1517
+    },
+    {
+      "path": "skills/web-artifacts-builder/scripts/init-artifact.sh",
+      "sha256": "355e5dd4382aaaee91f01f1627eaeab30b2676ffa8d9b3ec328a1ae450ebccaa",
+      "size": 9924
+    },
+    {
+      "path": "skills/web-artifacts-builder/scripts/shadcn-components.tar.gz",
+      "sha256": "1296f069e825de7933de7e8ac63672495cacce3f88f2dc45554dbcddbcbca60f",
+      "size": 19967
+    },
+    {
+      "path": "skills/webapp-testing/LICENSE.txt",
+      "sha256": "bc6b3af2f331cbc7fb0da1344efb2cbe5877a31498b4d70dbc7000f3405a1362",
+      "size": 11345
+    },
+    {
+      "path": "skills/webapp-testing/SKILL.md",
+      "sha256": "51b7349e77ec63b7744a6f63647e7566a0b4d2e301121cc10e8c2113af6556a2",
+      "size": 3913
+    },
+    {
+      "path": "skills/webapp-testing/examples/console_logging.py",
+      "sha256": "ea46877289acb82da7e7ce59d0bc37c8977cd57e2a006d0c88d7a1c625bf95da",
+      "size": 1027
+    },
+    {
+      "path": "skills/webapp-testing/examples/element_discovery.py",
+      "sha256": "d63c89604a22f8845d724e95dda45db49b1bf57c25ce0a83afbb7b8da3d402f0",
+      "size": 1463
+    },
+    {
+      "path": "skills/webapp-testing/examples/static_html_automation.py",
+      "sha256": "9d533aafb875ee3ab8b8ebf8f5b9003ac8d999da3d09b285cce252e623140064",
+      "size": 953
+    },
+    {
+      "path": "skills/webapp-testing/scripts/with_server.py",
+      "sha256": "b0dcf4918935b795f4eda9821579b9902119235ff4447f687a30286e7d0925fd",
+      "size": 3693
+    },
+    {
+      "path": "skills/xlsx/LICENSE.txt",
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "size": 11357
+    },
+    {
+      "path": "skills/xlsx/SKILL.md",
+      "sha256": "caa1e1c29cf974c8d874bf3d0a70838445e7342b570f856ddb3e4a21ef7c7e8b",
+      "size": 8584
+    },
+    {
+      "path": "skills/xlsx/scripts/office/helpers/__init__.py",
+      "sha256": "678e42456d9e10923c8b9a93691cdd993de3433448a184fa72a0c31f4ae086d5",
+      "size": 3358
+    },
+    {
+      "path": "skills/xlsx/scripts/office/helpers/pptx_chart.py",
+      "sha256": "47ac266f7d39d11ede6bb0d1f3a19d801394fd2964636f1b48beb701f1832964",
+      "size": 5862
+    },
+    {
+      "path": "skills/xlsx/scripts/office/helpers/pptx_slide.py",
+      "sha256": "7b9f69b4a5bd6a2d9eabf9e0e3e796d7a421373145f6a8cd11f60b7ba2d6a5d0",
+      "size": 1675
+    },
+    {
+      "path": "skills/xlsx/scripts/office/helpers/pptx_theme.py",
+      "sha256": "ebb54c56e9c13807f5f98f0cae22d47cdd0162da8525eaa664e3f2c8c8d6bb03",
+      "size": 3510
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chart.xsd",
+      "sha256": "41b93bd8857cc68b1e43be2806a872d736a9bdd6566900062d8fdb57d7bbb354",
+      "size": 74984
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-chartDrawing.xsd",
+      "sha256": "3fd0586f2637b98bb9886f0e0b67d89e1cc987c2d158cc7deb5f5b9890ced412",
+      "size": 6956
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-diagram.xsd",
+      "sha256": "29b254ee0d10414a8504b5a08149c7baec35a60d5ff607d6b3f492aa36815f40",
+      "size": 51302
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-lockedCanvas.xsd",
+      "sha256": "5cb76dabd8b97d1e9308a1700b90c20139be4d50792d21a7f09789f5cccd6026",
+      "size": 624
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-main.xsd",
+      "sha256": "5375417f0f5394b8dd1a7035b9679151f19a6b65df309dec10cfb4a420cb00e9",
+      "size": 152039
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-picture.xsd",
+      "sha256": "5d389d42befbebd91945d620242347caecd3367f9a3a7cf8d97949507ae1f53c",
+      "size": 1231
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-spreadsheetDrawing.xsd",
+      "sha256": "b4532b6d258832953fbb3ee4c711f4fe25d3faf46a10644b2505f17010d01e88",
+      "size": 8862
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/dml-wordprocessingDrawing.xsd",
+      "sha256": "bdad416b096b61d37b71603b2c949484f9070c830bdaeba93bf35e15c8900614",
+      "size": 14795
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/pml.xsd",
+      "sha256": "d173c3e5d61e42e2e3a97226c632fd2ab7cc481fc4e492365b87024ab546daff",
+      "size": 83612
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-additionalCharacteristics.xsd",
+      "sha256": "3c6709101c6aaa82888df5d8795c33f9e857196790eb320d9194e64be2b6bdd8",
+      "size": 1269
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-bibliography.xsd",
+      "sha256": "0b364451dc36a48dd6dae0f3b6ada05fd9b71e5208211f8ee5537d7e51a587e2",
+      "size": 7328
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-commonSimpleTypes.xsd",
+      "sha256": "e2abacbb9a55ce1365f8961bc1b1395bbc811e512b111000d8c333f98458dece",
+      "size": 6382
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlDataProperties.xsd",
+      "sha256": "0ef4bb354ff44b923564c4ddbdda5987919d220225129ec94614a618ceafc281",
+      "size": 1248
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-customXmlSchemaProperties.xsd",
+      "sha256": "0d103b99a4a8652f8871552a69d42d2a3760ac6a5e3ef02d979c4273257ff6a4",
+      "size": 880
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesCustom.xsd",
+      "sha256": "9c085407751b9061c1f996f6c39ce58451be22a8d334f09175f0e89e42736285",
+      "size": 2608
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesExtended.xsd",
+      "sha256": "bc92e36ccd233722d4c5869bec71ddc7b12e2df56059942cce5a39065cc9c368",
+      "size": 3507
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-documentPropertiesVariantTypes.xsd",
+      "sha256": "7b5b7413e2c895b1e148e82e292a117d53c7ec65b0696c992edca57b61b4a74b",
+      "size": 7507
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-math.xsd",
+      "sha256": "3213ef1631606250f5010b42cad7ef716f7c59426367798e33c374c0ec391d3a",
+      "size": 23313
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/shared-relationshipReference.xsd",
+      "sha256": "12264f3c03d738311cd9237d212f1c07479e70f0cbe1ae725d29b36539aef637",
+      "size": 1367
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/sml.xsd",
+      "sha256": "beffeed56945c22a77440122c8bdc426f3fcbe7f3b12ea0976c770d1f8d54578",
+      "size": 242277
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-main.xsd",
+      "sha256": "f5ee623b08b6a66935e5aced2f5d8ad0fc71bf9e8e833cd490150c0fa94b8763",
+      "size": 26148
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-officeDrawing.xsd",
+      "sha256": "585bedc1313b40888dcc544cb74cd939a105ee674f3b1d3aa1cc6d34f70ff155",
+      "size": 25279
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-presentationDrawing.xsd",
+      "sha256": "133c9f64a5c5d573b78d0a474122b22506d8eadb5e063f67cdbbb8fa2f161d0e",
+      "size": 535
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-spreadsheetDrawing.xsd",
+      "sha256": "6bdeb169c3717eb01108853bd9fc5a3750fb1fa5b82abbdd854d49855a40f519",
+      "size": 5712
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/vml-wordprocessingDrawing.xsd",
+      "sha256": "475dcae1e7d1ea46232db6f8481040c15e53a52a3c256831d3df204212b0e831",
+      "size": 4010
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/wml.xsd",
+      "sha256": "c2dd9f61f892deae6acd8d20771ea79b12018af25f3bf8d06639c8542d218cfd",
+      "size": 171367
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ISO-IEC29500-4_2016/xml.xsd",
+      "sha256": "a539aa2fb154fa50e0f5cc97e6ad7cbc66f8ec3e3746f61ec6a8b0d5d15ecdf2",
+      "size": 4646
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ecma/fouth-edition/opc-contentTypes.xsd",
+      "sha256": "9e0b7209fc69ab11987900404540969976000c5ebe4d4f58c43dc3842886bf3a",
+      "size": 1963
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ecma/fouth-edition/opc-coreProperties.xsd",
+      "sha256": "451958454e8588dfc7cd945981ada142ca06ff3307937f5700df059c2b307fa8",
+      "size": 2515
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ecma/fouth-edition/opc-digSig.xsd",
+      "sha256": "6de111e11403f7cd49027400755bae0ea1cabef2815f09bd40a24f0017613b24",
+      "size": 2856
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/ecma/fouth-edition/opc-relationships.xsd",
+      "sha256": "f565adfef5a502044abc3a9153e157edc25af78304d335994afb958874b15e26",
+      "size": 1344
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/mce/mc.xsd",
+      "sha256": "3a37e461ecf5a8670fdec34029703401f8728ab9c96ec1739a6ae58d55212413",
+      "size": 3127
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/microsoft/wml-2010.xsd",
+      "sha256": "568b26ee156cb9549aa439ca2158965f77b7c1602b7e0316f40ac6cf586e35f2",
+      "size": 26549
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/microsoft/wml-2012.xsd",
+      "sha256": "0fa75578a000439a7988ba0c59fdc69f774bbd416cbacc14d07125b3f686cb74",
+      "size": 3745
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/microsoft/wml-2018.xsd",
+      "sha256": "be0ff793a22dd31384650c3a4da14c2fa8062751c2e97b0e5ee852bda13c60ad",
+      "size": 901
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/microsoft/wml-cex-2018.xsd",
+      "sha256": "fddc2b880cabb9005aebbc7e783e53c19fec1c03df7d0e2f2076a33a0fdfd081",
+      "size": 1778
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/microsoft/wml-cid-2016.xsd",
+      "sha256": "127ca209fa73d7cb708449cb355c871867948a96e4a74f7bf5811ef62d17991d",
+      "size": 1002
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/microsoft/wml-sdtdatahash-2020.xsd",
+      "sha256": "842e7163409c8d74f4d7088a8bc99500d80bc75332681a0980055b08f374a604",
+      "size": 600
+    },
+    {
+      "path": "skills/xlsx/scripts/office/schemas/microsoft/wml-symex-2015.xsd",
+      "sha256": "16f6f8072249f431370723c2cd8974672e0d9c897e00e97dd918079df934871b",
+      "size": 745
+    },
+    {
+      "path": "skills/xlsx/scripts/office/soffice.py",
+      "sha256": "df2c8d7249c132a4512d744482e4b5ed0ecbe885f0bcfb1295e7e6a7ced0432c",
+      "size": 5927
+    },
+    {
+      "path": "skills/xlsx/scripts/office/validate.py",
+      "sha256": "346a4c89d92fff55e610f11efda48c30228815b29bdb10b987e48f7af70acf1e",
+      "size": 6142
+    },
+    {
+      "path": "skills/xlsx/scripts/office/validators/__init__.py",
+      "sha256": "83e0f035c5abea238d3f2c3968afbd511ed022b527b7c9cb60a9434cc34ff987",
+      "size": 336
+    },
+    {
+      "path": "skills/xlsx/scripts/office/validators/base.py",
+      "sha256": "f818ea28c793ba42960fa4498265e2632a62c86f7b5d6aff6fa89dacc02d59ea",
+      "size": 33756
+    },
+    {
+      "path": "skills/xlsx/scripts/office/validators/docx.py",
+      "sha256": "93d3444c0ef3f043d21a2285c46d2cda478426b930dc33dcf3b11265935517b5",
+      "size": 17482
+    },
+    {
+      "path": "skills/xlsx/scripts/office/validators/pptx.py",
+      "sha256": "17eadad2b7a8374ccbe4cda45693bcd6a36f9d61a7d60f9c9ceef9464dec8299",
+      "size": 15966
+    },
+    {
+      "path": "skills/xlsx/scripts/office/validators/redlining.py",
+      "sha256": "ed50d0885eee4b9c387f546b059bcaed64086815880a5167336244f93e305123",
+      "size": 11231
+    },
+    {
+      "path": "skills/xlsx/scripts/recalc.py",
+      "sha256": "66f6e726d5a53cfabea0b6471d6669deb95e54e96cb7913b687e4388da1bb3d9",
+      "size": 10670
+    },
+    {
       "path": "transcribe.py",
       "sha256": "a2f8c19c368b7f6ed3c85996375448ff8b3dd710f888b3f18a867b0c5e1b2cd1",
       "size": 379
     }
   ],
   "schema_version": 1,
-  "skill_digest": "sha256:97080fcdc5eb8de8ad04743792fb6ff02eee9f8bc0e41aeb5f23241e17a7b9fc",
-  "tool_schema_digest": "sha256:9f10056991caf57874296d5a593a7fcf1408a3355add744651594fd139187180"
+  "skill_digest": "sha256:961c14514cd840c1f0c492c67f156dad0b1cd83ea6d0171a8fd8c741db462c99",
+  "tool_schema_digest": "sha256:be44ebc5f0f702bf2ebc5ee6de67cf6edee7db855069a319dd6496a3202e121d"
 }

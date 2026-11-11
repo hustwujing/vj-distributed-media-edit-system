@@ -50,6 +50,20 @@ web = [
     "trimesh==5.2.0",
     "reportlab==5.1.0",
     "PyMuPDF==2.1",
+    "anthropic>=0.39,<1",
+    "filelock>=3.16,<4",
+    "lxml>=5,<7",
+    "markitdown[pptx]>=0.1,<1",
+    "mcp>=1.1,<2",
+    "openai>=2,<3",
+    "openpyxl>=3.1,<4",
+    "pandas>=2.2,<4",
+    "pdf2image>=1.17,<2",
+    "pdfplumber>=0.11,<1",
+    "playwright==1.62.0",
+    "pypdf>=5,<7",
+    "pytesseract>=0.3,<1",
+    "python-pptx>=1.0.2,<2",
 ]
 web-test = ["httpx>=0.28,<1", "moto[server]>=5,<6"]
 harnesses = ["claude-agent-sdk==0.2.176", "deepseek-harness-sdk==0.2.1rc2"]

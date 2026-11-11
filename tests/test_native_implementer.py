@@ -126,12 +126,18 @@ class NativeSelectionTests(unittest.TestCase):
     def test_media_document_and_browser_dependencies_are_advertised_consistently(self):
         from webapp.agent_runtime_capabilities import catalogue,validate
         python={'av','cairosvg','ffmpeg','imageio','onnxruntime','pymupdf','rembg','reportlab','shapely','skimage','trimesh'}
-        node={'esbuild','playwright','three'};tools={'chromium','esbuild','node'}
+        base_node={'esbuild','playwright','three'}
+        skill_node=base_node|{'docx','pptxgenjs','react','react-dom','react-icons','sharp','typescript'}
+        base_tools={'chromium','esbuild','node'}
+        skill_tools=base_tools|{'dot','drawio','libreoffice','pandoc','pdftoppm','pdftotext',
+                                'pnpm','qpdf','tesseract','tsc','zip'}
         for name,capabilities in catalogue().items():
             with self.subTest(runtime=name):
                 self.assertTrue(python<=set(capabilities['python_modules']))
-                self.assertEqual(set(capabilities['node_modules']),node)
-                self.assertTrue(tools<=set(capabilities['system_tools']))
+                self.assertEqual(set(capabilities['node_modules']),
+                    skill_node if name=='opensandbox_cpu' else base_node)
+                self.assertTrue((skill_tools if name=='opensandbox_cpu' else base_tools)
+                    <=set(capabilities['system_tools']))
         self.assertEqual(validate({'requires_gpu':False,'python_modules':['rembg'],
             'node_modules':['playwright','three'],'system_tools':['chromium'],'network_urls':[]},
             selected='opensandbox_cpu'),'opensandbox_cpu')

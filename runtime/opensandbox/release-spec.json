@@ -15,6 +15,7 @@
     {"source": "runtime/public/pyvenv.cfg", "target": "pyvenv.cfg"},
     {"source": "runtime/public/transcribe.py", "target": "transcribe.py"},
     {"source": "runtime/public/network_fetch.py", "target": "network_fetch.py"},
+    {"source": "runtime/skills", "target": "skills", "recursive": true},
     {"source": "helpers/edit_media.py", "target": "helpers/edit_media.py"},
     {"source": "helpers/edit_plan.py", "target": "helpers/edit_plan.py"},
     {"source": "helpers/edit_captions.py", "target": "helpers/edit_captions.py"},

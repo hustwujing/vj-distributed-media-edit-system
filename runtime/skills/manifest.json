@@ -1,0 +1,852 @@
+{
+  "schema_version": 1,
+  "bundle_version": "2026.11.11.1",
+  "retired_skills": [],
+  "skills": [
+    {
+      "id": "academy-guide",
+      "version": "2c5958ec",
+      "profile": "instructions",
+      "network": "task-dependent",
+      "test_case": "validate frontmatter",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "77e436efcd52eedb08c577ed808d923b2048be8f64be705875157597a3802cac",
+      "file_count": 2
+    },
+    {
+      "id": "algorithmic-art",
+      "version": "2c5958ec",
+      "profile": "web",
+      "network": "none",
+      "test_case": "validate frontmatter and p5 workflow assets",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node",
+          "pnpm",
+          "chromium"
+        ],
+        "python_modules": [
+          "playwright"
+        ],
+        "node_modules": [
+          "react",
+          "react-dom",
+          "typescript"
+        ]
+      },
+      "content_sha256": "d23255bd0f00c8024d4344da1857849a9a88d8d3f8667cb046d9950dc6e4e7f6",
+      "file_count": 4
+    },
+    {
+      "id": "anatomy",
+      "version": "1.1.0+e6600ffc",
+      "profile": "anatomy",
+      "network": "optional and only for an explicitly requested gallery publish",
+      "test_case": "build and capture the dial-indicator example",
+      "source": "wheresryan22-anatomy",
+      "source_url": "https://github.com/wheresryan22/anatomy",
+      "source_commit": "e6600ffc4e8e6620eeb45bf49bcdbd5e4b84163f",
+      "license": "MIT",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "node",
+          "chromium"
+        ],
+        "python_modules": [],
+        "node_modules": [
+          "esbuild",
+          "react",
+          "react-dom",
+          "typescript"
+        ]
+      },
+      "content_sha256": "315480a4efd8acc1a2ecef5d927c5f359337dba27c99e185f1aebc9648c6c126",
+      "file_count": 127
+    },
+    {
+      "id": "brand-guidelines",
+      "version": "2c5958ec",
+      "profile": "instructions",
+      "network": "none",
+      "test_case": "validate frontmatter",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "431d48f1a9d3a842d77bdec731df7e8aa233287fd24833b8c5592e371e4bd834",
+      "file_count": 2
+    },
+    {
+      "id": "canvas-design",
+      "version": "2c5958ec",
+      "profile": "web",
+      "network": "none",
+      "test_case": "validate frontmatter and bundled fonts",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node",
+          "pnpm",
+          "chromium"
+        ],
+        "python_modules": [
+          "playwright"
+        ],
+        "node_modules": [
+          "react",
+          "react-dom",
+          "typescript"
+        ]
+      },
+      "content_sha256": "b9ae310f12090043d02f69749c78436707c50258051bfd4fe6219041552c8193",
+      "file_count": 83
+    },
+    {
+      "id": "claude-api",
+      "version": "2c5958ec",
+      "profile": "mcp",
+      "network": "Claude API tasks require a configured route",
+      "test_case": "validate frontmatter and language reference tree",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [
+          "anthropic",
+          "mcp"
+        ],
+        "node_modules": []
+      },
+      "content_sha256": "c7f3fc01c19b62e681ed532131ed6494b0bedba672403b5f92ef85524641019a",
+      "file_count": 96
+    },
+    {
+      "id": "codex-ppt",
+      "version": "0.6.0+941dcafe",
+      "profile": "presentation",
+      "network": "image backend required for slide generation",
+      "test_case": "assemble a deterministic local slide image into PPTX",
+      "source": "ningzimu-codex-ppt",
+      "source_url": "https://github.com/ningzimu/codex-ppt-skill",
+      "source_commit": "941dcafe2f23ea4ae61de99e9b22fb0ef3d9e06c",
+      "license": "MIT",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3"
+        ],
+        "python_modules": [
+          "PIL",
+          "filelock",
+          "fitz",
+          "numpy",
+          "openai",
+          "pptx",
+          "requests",
+          "yaml"
+        ],
+        "node_modules": []
+      },
+      "content_sha256": "755b8f05233435e181be8d51cefe362465adc496e81828e87c59be582b3f3b5d",
+      "file_count": 41
+    },
+    {
+      "id": "diagram-design",
+      "version": "2.6",
+      "profile": "diagram-design",
+      "network": "optional for public fonts and onboarding sources",
+      "test_case": "self-check and rasterize a bundled HTML diagram",
+      "source": "cathrynlavery-diagram-design",
+      "source_url": "https://github.com/cathrynlavery/diagram-design",
+      "source_commit": "f2496acbde9f45ccb55c24d4f75210c8a1355df8",
+      "license": "MIT",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "chromium"
+        ],
+        "python_modules": [
+          "playwright"
+        ],
+        "node_modules": []
+      },
+      "content_sha256": "8f1cfc91ec3fa39f42071721b83301ab784775a048487e045ca0d2d9a8f80c49",
+      "file_count": 298
+    },
+    {
+      "id": "discernment-nudge",
+      "version": "2c5958ec",
+      "profile": "instructions",
+      "network": "none",
+      "test_case": "validate frontmatter",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "8a7fa1ca44e3bd800b4d07739543d6afc27fece893c66d4f9487ddd09038269f",
+      "file_count": 2
+    },
+    {
+      "id": "doc-and-modernize",
+      "version": "eaaffd5d020b",
+      "profile": "instructions",
+      "network": "none",
+      "test_case": "validate frontmatter and cited local-file workflow",
+      "source": "github-awesome-copilot",
+      "source_url": "https://github.com/github/awesome-copilot",
+      "source_commit": "eaaffd5d020b756a2777a4b1b161d2bdc126d9a0",
+      "license": "MIT",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "86b1ef63c7698673ae8370a6a47a76d2a7489947477cd4a8beebeafadb6a073e",
+      "file_count": 4
+    },
+    {
+      "id": "doc-coauthoring",
+      "version": "2c5958ec",
+      "profile": "instructions",
+      "network": "none",
+      "license": "not declared upstream",
+      "test_case": "validate frontmatter",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "c5f02f64a32ef7b61092370fd85e142cda7e4dcf429289f422d3c6c1eb3a81e9",
+      "file_count": 1
+    },
+    {
+      "id": "docx",
+      "version": "2c5958ec",
+      "profile": "office",
+      "network": "none",
+      "test_case": "create and render a DOCX",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "libreoffice",
+          "pandoc",
+          "pdftoppm",
+          "pdftotext",
+          "qpdf",
+          "tesseract"
+        ],
+        "python_modules": [
+          "PIL",
+          "defusedxml",
+          "lxml",
+          "markitdown",
+          "openpyxl",
+          "pandas",
+          "pdf2image",
+          "pdfplumber",
+          "pypdf",
+          "pytesseract"
+        ],
+        "node_modules": [
+          "docx",
+          "pptxgenjs",
+          "react",
+          "react-dom",
+          "react-icons",
+          "sharp"
+        ]
+      },
+      "content_sha256": "693b6a3ca9812b7f3473dec242fcef0f773810a39b58d047f242c9041b768ba0",
+      "file_count": 61
+    },
+    {
+      "id": "drawio-skill",
+      "version": "3.4.4",
+      "profile": "drawio",
+      "network": "optional for remote icons and live sources",
+      "test_case": "build, validate and export an editable draw.io diagram",
+      "source": "agents365-drawio-skill",
+      "source_url": "https://github.com/Agents365-ai/drawio-skill",
+      "source_commit": "6550495129d9a42eff7e71434d15bfc9846b6202",
+      "license": "MIT",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "drawio",
+          "dot"
+        ],
+        "python_modules": [
+          "PIL",
+          "pptx",
+          "yaml"
+        ],
+        "node_modules": []
+      },
+      "content_sha256": "3d26faf6324f8b803fccd7ca3be800051a70e307a434443e18f48f2b72aeb2be",
+      "file_count": 80
+    },
+    {
+      "id": "frontend-design",
+      "version": "2c5958ec",
+      "profile": "web",
+      "network": "task-dependent assets",
+      "test_case": "validate frontmatter",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node",
+          "pnpm",
+          "chromium"
+        ],
+        "python_modules": [
+          "playwright"
+        ],
+        "node_modules": [
+          "react",
+          "react-dom",
+          "typescript"
+        ]
+      },
+      "content_sha256": "d43ace63d22e3502ab5c53b63138dafd0431ed5fd2fa63320285c8167ab27de6",
+      "file_count": 2
+    },
+    {
+      "id": "image-to-editable-ppt",
+      "version": "0.1.0+b7be494e",
+      "profile": "presentation",
+      "network": "task-dependent OCR and image backend through configured capabilities",
+      "test_case": "run editppt doctor and prepare a local image page",
+      "source": "ningzimu-image-to-editable-ppt",
+      "source_url": "https://github.com/ningzimu/image-to-editable-ppt-skill",
+      "source_commit": "b7be494e31a0ed56ef98716891db5474606b8cdf",
+      "license": "MIT",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3"
+        ],
+        "python_modules": [
+          "PIL",
+          "filelock",
+          "fitz",
+          "numpy",
+          "openai",
+          "pptx",
+          "requests",
+          "yaml"
+        ],
+        "node_modules": []
+      },
+      "content_sha256": "340dfc7456bfd97e65bab5cc24d88aa36b1ec9d7e9e1cfeb2f1a4bbd7756fe0f",
+      "file_count": 39
+    },
+    {
+      "id": "internal-comms",
+      "version": "2c5958ec",
+      "profile": "instructions",
+      "network": "none",
+      "test_case": "validate frontmatter",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "7f6f64a9647d855240a83a7bd96967339a1704c8b25f1410d699f793d1d1c5d4",
+      "file_count": 6
+    },
+    {
+      "id": "mcp-builder",
+      "version": "2c5958ec",
+      "profile": "mcp",
+      "network": "task-dependent SDK documentation",
+      "test_case": "import Python MCP dependencies",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [
+          "anthropic",
+          "mcp"
+        ],
+        "node_modules": []
+      },
+      "content_sha256": "f8e859b421059ba94694ae55e7132475f25ddc61bb14150340cad9d67b474c34",
+      "file_count": 11
+    },
+    {
+      "id": "pdf",
+      "version": "2c5958ec",
+      "profile": "office",
+      "network": "none",
+      "test_case": "create, inspect and rasterize a PDF",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "libreoffice",
+          "pandoc",
+          "pdftoppm",
+          "pdftotext",
+          "qpdf",
+          "tesseract"
+        ],
+        "python_modules": [
+          "PIL",
+          "defusedxml",
+          "lxml",
+          "markitdown",
+          "openpyxl",
+          "pandas",
+          "pdf2image",
+          "pdfplumber",
+          "pypdf",
+          "pytesseract"
+        ],
+        "node_modules": [
+          "docx",
+          "pptxgenjs",
+          "react",
+          "react-dom",
+          "react-icons",
+          "sharp"
+        ]
+      },
+      "content_sha256": "589ad497e067e34ce7f58beac282d7199b95b6291f1cd2cc3fac4b14878e996f",
+      "file_count": 12
+    },
+    {
+      "id": "pptx",
+      "version": "2c5958ec",
+      "profile": "office",
+      "network": "none",
+      "test_case": "create, render and validate a PPTX",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "libreoffice",
+          "pandoc",
+          "pdftoppm",
+          "pdftotext",
+          "qpdf",
+          "tesseract"
+        ],
+        "python_modules": [
+          "PIL",
+          "defusedxml",
+          "lxml",
+          "markitdown",
+          "openpyxl",
+          "pandas",
+          "pdf2image",
+          "pdfplumber",
+          "pypdf",
+          "pytesseract"
+        ],
+        "node_modules": [
+          "docx",
+          "pptxgenjs",
+          "react",
+          "react-dom",
+          "react-icons",
+          "sharp"
+        ]
+      },
+      "content_sha256": "1e6e250a368412bac8ee0ae9c0dc8ebe3c082c7ecb7c0fba699a1d6f9938c15a",
+      "file_count": 56
+    },
+    {
+      "id": "skill-creator",
+      "version": "2c5958ec",
+      "profile": "web",
+      "network": "optional for browser review",
+      "test_case": "run skill structure checks",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node",
+          "pnpm",
+          "chromium"
+        ],
+        "python_modules": [
+          "playwright"
+        ],
+        "node_modules": [
+          "react",
+          "react-dom",
+          "typescript"
+        ]
+      },
+      "content_sha256": "412558e2d4103a965f8bd319273797a4787f1d4635c2b16f1df0d77d7e0680f4",
+      "file_count": 18
+    },
+    {
+      "id": "slack-gif-creator",
+      "version": "2c5958ec",
+      "profile": "instructions",
+      "network": "none",
+      "test_case": "import image dependencies",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "1c839cfdff180be343f5ec0d625c817506c37876a1a8671c21d9e8020f9bb983",
+      "file_count": 7
+    },
+    {
+      "id": "theme-factory",
+      "version": "2c5958ec",
+      "profile": "instructions",
+      "network": "none",
+      "test_case": "validate bundled theme files",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node"
+        ],
+        "python_modules": [],
+        "node_modules": []
+      },
+      "content_sha256": "4fa601e9ee98cee8b46ab5c1cdec298cf91a88aab5fae6b8123e9e3d0e94598a",
+      "file_count": 13
+    },
+    {
+      "id": "web-artifacts-builder",
+      "version": "2c5958ec",
+      "profile": "web",
+      "network": "package installation for generated projects",
+      "test_case": "initialize and bundle a minimal artifact",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node",
+          "pnpm",
+          "chromium"
+        ],
+        "python_modules": [
+          "playwright"
+        ],
+        "node_modules": [
+          "react",
+          "react-dom",
+          "typescript"
+        ]
+      },
+      "content_sha256": "65e2d003a783b68c0525fa194e21550d4d63218234d8399a92a0cd5f2953cf85",
+      "file_count": 5
+    },
+    {
+      "id": "webapp-testing",
+      "version": "2c5958ec",
+      "profile": "web",
+      "network": "none for local apps",
+      "test_case": "launch Python Playwright against local HTML",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "python3",
+          "node",
+          "pnpm",
+          "chromium"
+        ],
+        "python_modules": [
+          "playwright"
+        ],
+        "node_modules": [
+          "react",
+          "react-dom",
+          "typescript"
+        ]
+      },
+      "content_sha256": "3ded4688bd2037c39fe7f604a7e0ae8abac53fd95861e6b3c829baad25b29482",
+      "file_count": 6
+    },
+    {
+      "id": "xlsx",
+      "version": "2c5958ec",
+      "profile": "office",
+      "network": "none",
+      "test_case": "create and recalculate an XLSX",
+      "source": "anthropics-skills",
+      "source_url": "https://github.com/anthropics/skills",
+      "source_commit": "2c5958ecac7cee2b583967a2c4981d0f4a75c579",
+      "license": "per-skill LICENSE.txt",
+      "supported_harnesses": [
+        "codex",
+        "claude",
+        "deepseek"
+      ],
+      "entry": "SKILL.md",
+      "dependencies": {
+        "commands": [
+          "libreoffice",
+          "pandoc",
+          "pdftoppm",
+          "pdftotext",
+          "qpdf",
+          "tesseract"
+        ],
+        "python_modules": [
+          "PIL",
+          "defusedxml",
+          "lxml",
+          "markitdown",
+          "openpyxl",
+          "pandas",
+          "pdf2image",
+          "pdfplumber",
+          "pypdf",
+          "pytesseract"
+        ],
+        "node_modules": [
+          "docx",
+          "pptxgenjs",
+          "react",
+          "react-dom",
+          "react-icons",
+          "sharp"
+        ]
+      },
+      "content_sha256": "7a2a4c40feb0ab60cb44675f8e97c4074710b1bcbf6798fb37b0af47fb9744c2",
+      "file_count": 53
+    }
+  ]
+}

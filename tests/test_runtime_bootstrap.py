@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
@@ -23,7 +24,12 @@ class RuntimeBootstrapTests(unittest.TestCase):
         shutil.copyfile(repo/'runtime/public/bundle.json',self.bundle_root/'bundle.json')
         for item in spec['skill_bundle']:
             target=self.bundle_root/item['target'];target.parent.mkdir(parents=True,exist_ok=True)
-            shutil.copyfile(repo/item['source'],target)
+            if item.get('recursive'):shutil.copytree(repo/item['source'],target,dirs_exist_ok=True)
+            else:shutil.copyfile(repo/item['source'],target)
+        destinations={name:self.root/'state'/folder/'skills' for name,folder in
+            {'codex':'codex','claude_code':'claude','deepseek_harness':'dsh'}.items()}
+        self.skill_patch=patch('webapp.runtime_skills.DESTINATIONS',destinations);self.skill_patch.start()
+        self.addCleanup(self.skill_patch.stop)
 
     def write(self,harness='codex'):
         value={'identity':{'attempt_id':'attempt-1','generation':1,'sandbox_id':'sandbox-1'},
@@ -41,6 +47,7 @@ class RuntimeBootstrapTests(unittest.TestCase):
             health=client.get('/healthz').json()
             self.assertEqual((health['ready'],health['state'],health['harness']),
                 (True,'created','codex'))
+            self.assertEqual((health['skill_count'],health['skill_bundle_version']),(25,'2026.11.11.1'))
             self.assertNotIn('s'*16,json.dumps(health))
             command=app.state.harness_controller.bridge.command
             self.assertEqual(command,['/opt/codex','app-server','--listen','stdio://'])
@@ -63,8 +70,12 @@ class RuntimeBootstrapTests(unittest.TestCase):
         self.assertIn('/opt/video-use/helpers',environment['PYTHONPATH'])
         self.assertIn('/opt/harness',environment['PYTHONPATH'].split(':'))
         for value in ('/etc/passwd','/workspace/../outside'):
-            self.harness.write_text(json.dumps({'response_transport':'stream','task_workspace':{**workspace,'inputs':{'source':[value]}}}))
-            with self.assertRaisesRegex(ValueError,'workspace contract'):create_runtime(self.config,bundle_root=self.bundle_root)
+                self.harness.write_text(json.dumps({'response_transport':'stream','task_workspace':{**workspace,'inputs':{'source':[value]}}}))
+                with self.assertRaisesRegex(ValueError,'workspace contract'):create_runtime(self.config,bundle_root=self.bundle_root)
+
+    def test_codex_does_not_inherit_sdk_private_python_packages(self):
+        self.write('codex');app=create_runtime(self.config,bundle_root=self.bundle_root)
+        self.assertNotIn('/opt/harness',app.state.harness_controller.bridge.environment['PYTHONPATH'].split(':'))
 
     def test_gateway_grant_starts_only_a_loopback_client(self):
         value=self.write();gateway_token=self.root/'gateway.token';gateway_ca=self.root/'gateway-ca.pem'
