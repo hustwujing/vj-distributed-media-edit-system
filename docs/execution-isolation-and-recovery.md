@@ -567,6 +567,11 @@ local cleanup completion from unconfirmed upstream cancellation.
 node --test tests/*.test.mjs
 ```
 
+专用真机环境还必须运行 `tests/live_workflow_liveness.py`。该 case 在测试自有 Run 中注入
+`paused` 上游与 `blocked` 下游，要求真实 Orchestrator 创建 `repair_resume`、真实 Planner
+获得 attempt 且方案成功应用；同时验证未知无进展组合显示 `workflow_stalled`。脚本拒绝在非
+`sandbox-agent` 环境、存在活动 lease 或运行中 Run 时执行，并在结束时验证 cleanup 后删除 QA 项目。
+
 Use the isolated runner and prerequisites in [development and testing](development.md).
 The test descriptions above identify coverage areas, not results for the current
 working tree.
