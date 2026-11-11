@@ -73,6 +73,8 @@ class UniformGenerationTests(unittest.TestCase):
             prepared=service.prepare(service.TEXT_AUDIO,AUDIO_PARAMS);handle=service.implementation(prepared);client=Mock()
             client.post.return_value.status_code=200;client.post.return_value.json.return_value={'task_id':'audio-task'}
             self.assertEqual(service.submit(client,prepared,'durable-key'),{'id':'audio-task','status':'waiting'})
+            client.post.return_value.json.return_value={'task_id':123456}
+            self.assertEqual(service.submit(client,prepared,'numeric-key'),{'id':'123456','status':'waiting'})
             self.assertEqual(client.post.call_args.args[0],'https://audio.example/v1/t2a_async_v2')
             client.get.return_value.status_code=200;client.get.return_value.json.return_value={'status':'processing'}
             self.assertEqual(service.poll(client,handle,'audio-task')['status'],'running')

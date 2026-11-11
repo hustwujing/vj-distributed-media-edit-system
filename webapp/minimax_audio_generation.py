@@ -57,8 +57,10 @@ def auth(handle):
 
 
 def identifier(value):
-    if not isinstance(value,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',value):
+    if isinstance(value,bool) or not isinstance(value,(str,int)):
         raise ValueError('Invalid audio provider task ID')
+    value=str(value)
+    if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',value):raise ValueError('Invalid audio provider task ID')
     return value
 
 
