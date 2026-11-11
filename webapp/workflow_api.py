@@ -202,6 +202,7 @@ def public(store,run):
                 'external_wait_timeout':('外部任务等待超时','上游任务等待已超过上限。请在下方选择继续等待，或放弃该任务并重新规划；已有成果会保留。'),
                 'storage_quota_exceeded':('存储额度不足','请清理旧项目或增加存储额度，然后点击“继续”重新检查发布。'),
                 'task_requires_resolution':('任务需要处理','请提交补充要求，系统会在当前执行安全收尾后重新规划；也可以停止本轮。“继续”仅尝试恢复可安全重试的步骤，不会自动重新规划。'),
+                'workflow_stalled':('工作流无法继续推进','系统检测到本轮没有任何可运行步骤、活动执行、等待中的外部任务或待确认决策，已停止空转。无需猜测补充信息；请查看任务状态和错误详情后重新规划，或停止本轮。'),
             }
             pending=value['decisions'][0] if value['decisions'] else None
             request=(pending or {}).get('request') or {}

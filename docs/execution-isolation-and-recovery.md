@@ -570,3 +570,16 @@ node --test tests/*.test.mjs
 Use the isolated runner and prerequisites in [development and testing](development.md).
 The test descriptions above identify coverage areas, not results for the current
 working tree.
+
+## 工作流活性不变量
+
+Orchestrator 每次 reconcile 结束前必须验证非终态 Run 的活性。`ACTIVE` Run 至少存在一种
+可推进事实：活动 lease、已暂存结果、可调度 work item、有截止时间的 retry、进行中的
+provider/cleanup、输入 barrier、待应用 Planner/Review，或明确的 worker 恢复等待。不能仅凭
+`ready`、`retry_wait`、`blocked` 等状态名称推断工作会自行推进；必须同时检查依赖、输入 drain
+和真实调度资格。
+
+修复上下文只等待实际在途或可调度的后代。依赖暂停上游的 `blocked`/`ready` 后代不能阻止
+`repair_resume` Planner。`advance_ready` 修改 work item 后必须重新读取 Run，再决定修复、审查或
+发布。若未知状态组合不满足任何活性条件，Run 必须转为可见的 `WAITING_USER / workflow_stalled`
+并记录任务、Control Job、repair context 和 replan trigger，禁止保持 `ACTIVE` 无限空转。

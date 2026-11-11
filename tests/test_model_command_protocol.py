@@ -404,11 +404,12 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(scopes(value),(None,None))
         self.assertFalse(targeted_user_inputs(value))
         command={'kind':'COMPLETE','reason':'Apply retained input','plan':{'changes':[{
-            'task_id':'render','set':{'objective':'Updated after the input drain'}}]}}
+            'task_id':'render','set':{'name':'Updated visible title','objective':'Updated after the input drain'}}]}}
         with self.assertRaises(CommandError) as raised:compile_manager(command,value)
         self.assertEqual(raised.exception.code,'revision_not_available')
         value['input_batch']={'through_sequence':8,'inputs':[record]}
         revised=compile_manager(command,value)['proposal']['revise_tasks'][0]
+        self.assertEqual(revised['name'],'Updated visible title')
         self.assertEqual(revised['objective'],'Updated after the input drain')
 
     def test_automatic_repair_trigger_owns_revision_count_over_input_history(self):

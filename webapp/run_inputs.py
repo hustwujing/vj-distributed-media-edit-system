@@ -166,8 +166,10 @@ def safe_point_reason(store,run):
     if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):return 'input_waiting_user_decision'
     calls=store.query("SELECT state FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected')",(run['id'],))
     if calls:return 'input_waiting_external_unknown' if any(row['state'] in ('submitting','submission_unknown') for row in calls) else 'draining_provider'
-    if any(job['control_kind']!='MESSAGE' and job['status'] not in ('succeeded','failed','cancelled','paused') for job in run['control_jobs']):return 'draining_control_jobs'
-    if any(task['status'] in ('ready','running','waiting','retry_wait','reviewing') and can_dispatch(run,task) for task in run['tasks']):return 'draining_tasks'
+    from .workflow_dispatch import available,progressing
+    now=store.now();dispatchable=set(available(store,run,now))
+    if any(job['control_kind']!='MESSAGE' and progressing(store,run,job,now,dispatchable) for job in run['control_jobs']):return 'draining_control_jobs'
+    if any(progressing(store,run,task,now,dispatchable) for task in run['tasks']):return 'draining_tasks'
     return ''
 
 

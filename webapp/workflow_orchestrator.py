@@ -114,6 +114,7 @@ class Orchestrator:
                 run=graph.get(store,identifier)
                 if run['status'] not in ('WAITING_USER',*RUN_TERMINAL):
                     self.advance(run)
+                    self.ensure_liveness(graph.get(store,identifier))
             self.check(db,identifier,generation)
             retry_at=store.now()+1
             db.execute('''UPDATE runs SET next_reconcile_at=CASE WHEN next_reconcile_at>? THEN next_reconcile_at ELSE ? END,reconcile_until=0,reconcile_owner='',updated_at=?
@@ -164,6 +165,29 @@ class Orchestrator:
         self.store.execute('UPDATE runs SET status=?,terminal_reason=?,updated_at=? WHERE id=?',
                            (status,reason,self.store.now(),run['id']))
         if run['status']!=status:graph.event(self.store,run,'state_changed',{'status':status,'reason':reason})
+
+    def ensure_liveness(self,run):
+        """Never leave an ACTIVE Run with no actor or condition able to advance it."""
+        if run['status']!='ACTIVE' or run['terminal_reason']=='workers_unavailable':return
+        store=self.store;now=store.now()
+        if run['input_barrier_sequence'] is not None:return
+        if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
+            self.set_status(run,'WAITING_USER','user_decision_pending');return
+        if store.query('SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?',(run['id'],now)):return
+        if store.query("SELECT id FROM task_results WHERE run_id=? AND status='staged'",(run['id'],)):return
+        if store.query("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],)):return
+        if store.query("SELECT id FROM execution_external_cleanup WHERE task_id=? AND state IN ('pending','running','dormant')",(run['id'],)):return
+        if store.query("SELECT request_key FROM workflow_provider_calls WHERE workflow=? AND state NOT IN ('succeeded','failed','cancelled','rejected','submission_unknown')",(run['id'],)):return
+        from .workflow_dispatch import available,progressing
+        dispatchable=set(available(store,run,now))
+        if dispatchable:return
+        if any(item['status']=='retry_wait' and item['next_run_at']>now and progressing(store,run,item,now,dispatchable)
+               for item in graph.work_items(run)):return
+        details={'tasks':{item['id']:item['status'] for item in run['tasks'] if item.get('selected',True)},
+                 'controls':{item['id']:item['status'] for item in run['control_jobs']},
+                 'repair_context':run.get('repair_context',{}),'replan_after':run.get('replan_after',[])}
+        graph.event(store,run,'workflow_stalled',details)
+        self.set_status(run,'WAITING_USER','workflow_stalled')
 
     def begin_failure(self,run,reason):
         self.set_status(run,'CANCELLING',reason)
@@ -894,8 +918,9 @@ class Orchestrator:
                       and (not t['quality'].get('requires_agent') or t['quality'].get('agent_review_passed'))),None)
         if pending:
             self.decision(run,'quality',{'task_id':pending['id'],'revision':pending['revision'],'quality':pending['quality']});return
-        done={t['id'] for t in graph.work_items(run) if t['status']=='succeeded'}
         self.advance_ready(run)
+        run=graph.get(store,run['id'])
+        done={t['id'] for t in graph.work_items(run) if t['status']=='succeeded'}
         if run['input_barrier_sequence'] is not None:return
         self.advance_graph(run,done)
 
@@ -921,9 +946,9 @@ class Orchestrator:
         context=run.get('repair_context',{})
         if not run['sealed'] and context.get('active') and not active_planners:
             triggers=[next((t for t in business if t['id']==identifier),None) for identifier in run['replan_after']]
-            # A blocked descendant cannot make progress until the paused repair
-            # subject is revised. Only actual/in-flight work delays repair.
-            waiting=any(t and t['status'] in ('ready','leased','running','waiting','retry_wait','reviewing') for t in triggers)
+            from .workflow_dispatch import available,progressing
+            dispatchable=set(available(store,run,now))
+            waiting=any(task and progressing(store,run,task,now,dispatchable) for task in triggers)
             if not waiting:
                 try:self.queue_plan(run,{'repair_resume':context.get('source','repair'),'task_id':context.get('subject_task','')})
                 except planning.PlanningBudgetExceeded:self.set_status(run,'FAILED','planning_budget_exhausted')

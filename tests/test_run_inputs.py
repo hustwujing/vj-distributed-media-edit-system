@@ -83,6 +83,25 @@ class RunInputTests(unittest.TestCase):
         self.assertTrue(self.store.query("SELECT id FROM planner_runs WHERE status='pending'"))
         self.assertEqual(self.store.query('SELECT status FROM run_inputs')[0]['status'],'PLANNING')
 
+    def test_nondispatchable_drain_task_does_not_hold_input_barrier_forever(self):
+        lease=self.coordinator.claim(self.run['id'],'workflow',step_id='right');self.assertIsNotNone(lease)
+        self.send();lease.release()
+        self.store.execute('INSERT INTO workflow_dependencies(run_id,upstream_task_id,downstream_task_id,created_graph_version) VALUES (?,?,?,1)',
+                           (self.run['id'],'left','right'))
+        self.store.execute("UPDATE run_tasks SET status='paused',lease_id='',error_code='quality_failed' WHERE run_id=? AND id='left'",(self.run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='ready',lease_id='' WHERE run_id=? AND id='right'",(self.run['id'],))
+        run=graph.get(self.store,self.run['id'])
+        self.assertEqual(run_inputs.safe_point_reason(self.store,run),'')
+        self.f.orchestrator.process_inputs(run)
+        self.assertTrue(self.store.query("SELECT id FROM planner_runs WHERE run_id=? AND status='pending'",(self.run['id'],)))
+
+    def test_dispatchable_retry_wait_remains_a_real_drain_condition(self):
+        lease=self.coordinator.claim(self.run['id'],'workflow',step_id='left');self.assertIsNotNone(lease)
+        self.send();lease.release()
+        self.store.execute("UPDATE run_tasks SET status='retry_wait',lease_id='',next_run_at=? WHERE run_id=? AND id='left'",
+                           (self.store.now()+60,self.run['id']))
+        self.assertEqual(run_inputs.safe_point_reason(self.store,graph.get(self.store,self.run['id'])),'draining_tasks')
+
     def test_input_during_planning_stays_in_the_next_batch(self):
         first=self.send();self.f.tick();second=self.send('Also keep the original dimensions')
         self.reply();run=self.f.tick()

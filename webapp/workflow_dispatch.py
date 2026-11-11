@@ -54,6 +54,19 @@ def available(store,run,now):
             and all(edge['upstream_task_id'] in done for edge in run['dependencies'] if edge['downstream_task_id']==task['id'])]
 
 
+def progressing(store,run,item,now=None,dispatchable=None):
+    """Whether this item is in flight or can advance without a graph change."""
+    now=store.now() if now is None else now
+    if item['status'] in ('leased','running','waiting','reviewing'):return True
+    dispatchable=set(available(store,run,now)) if dispatchable is None else dispatchable
+    if item['id'] in dispatchable:return True
+    if item['status']!='retry_wait':return False
+    from .run_inputs import can_dispatch
+    parents={edge['upstream_task_id'] for edge in run['dependencies'] if edge['downstream_task_id']==item['id']}
+    done={task['id'] for task in graph.work_items(run) if task['status']=='succeeded'}
+    return can_dispatch(run,item) and parents<=done
+
+
 def requirements(store,run,step_id):
     task=next((t for t in graph.work_items(run) if t['id']==step_id),None)
     if not task:raise ValueError('Unknown dynamic task')

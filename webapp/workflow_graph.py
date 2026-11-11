@@ -753,7 +753,7 @@ class ProposalFieldError(ValueError):
 
 def revision_mutable_fields(task_type,user=False):
     fields={'script':['argv'],'operation':['parameters'],'agent':[]}[task_type]
-    user_fields=['objective','inputs','acceptance','semantics']
+    user_fields=['name','objective','inputs','acceptance','semantics']
     if task_type=='agent':user_fields+=['outputs','output_roles']
     return fields+(user_fields if user else [])
 

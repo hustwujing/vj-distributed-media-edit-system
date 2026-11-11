@@ -463,12 +463,13 @@ class DynamicGraphTests(unittest.TestCase):
                                 'add_tasks':[script()],'replan_after':['first']})
         run=self.tick();self.store.execute("UPDATE run_tasks SET status='succeeded',lease_id='' WHERE run_id=? AND id='first'",(run['id'],))
         run=graph.get(self.store,run['id']);current=next(task for task in graph.work_items(run) if task['id']=='first')['spec']
-        revised={**current,'argv':['python','-c','print("revised")']}
+        revised={**current,'name':'Revised visible title','objective':'Write the revised approved report','argv':['python','-c','print("revised")']}
         proposal,_,revisions,_=graph.validate_proposal(self.store,run,{
             'proposal_id':'user-revision','base_graph_version':run['graph_version'],'reason':'Apply user revision',
             'revise_tasks':[revised],'replan_after':['first']},user_revision_scope={'first'})
         self.assertFalse(proposal.sealed)
         self.assertEqual(set(revisions),{'first'})
+        self.assertEqual((revisions['first'].name,revisions['first'].objective),('Revised visible title','Write the revised approved report'))
 
     def test_dependency_can_be_removed_and_readded_as_a_new_graph_generation(self):
         from tests.run_input_fixture import accept_change as accept
@@ -1072,6 +1073,42 @@ class DynamicGraphTests(unittest.TestCase):
         planner=[row for row in self.store.query("SELECT id,trigger_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],)) if row['id'] not in before]
         self.assertEqual(len(planner),1)
         self.assertEqual(json.loads(planner[0]['trigger_json'])['task_id'],'first')
+
+    def test_ready_descendant_with_paused_parent_does_not_deadlock_repair_planning(self):
+        self.tick();self.propose({'proposal_id':'ready-repair','base_graph_version':0,'reason':'initial',
+            'add_tasks':[script('first'),script('child')],
+            'add_dependencies':[{'upstream':'first','downstream':'child'}],
+            'sealed':True,'replan_after':['child']})
+        run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed' WHERE run_id=? AND id='first'",(run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='ready' WHERE run_id=? AND id='child'",(run['id'],))
+        self.store.execute("UPDATE runs SET sealed=0,status='ACTIVE' WHERE id=?",(run['id'],))
+        self.store.execute("UPDATE planner_runs SET status='rejected' WHERE run_id=? AND status='pending'",(run['id'],))
+        self.store.execute("UPDATE control_jobs SET status='cancelled' WHERE run_id=? AND control_kind='PLAN' AND status='ready'",(run['id'],))
+        run=graph.get(self.store,run['id']);self.orchestrator.open_repair(run,'first','task_review','review-id','quality_failed')
+        self.orchestrator.advance(graph.get(self.store,run['id']))
+        planner=self.store.query("SELECT trigger_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))
+        self.assertEqual(len(planner),1);self.assertEqual(json.loads(planner[0]['trigger_json'])['task_id'],'first')
+
+    def test_liveness_guard_surfaces_unknown_active_stall(self):
+        self.store.execute("UPDATE planner_runs SET status='rejected' WHERE run_id=?",(self.run['id'],))
+        self.store.execute("UPDATE control_jobs SET status='cancelled' WHERE run_id=?",(self.run['id'],))
+        self.store.execute("UPDATE runs SET status='ACTIVE',sealed=0,terminal_reason='' WHERE id=?",(self.run['id'],))
+        self.orchestrator.ensure_liveness(graph.get(self.store,self.run['id']))
+        current=graph.get(self.store,self.run['id'])
+        self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','workflow_stalled'))
+        event=self.store.query("SELECT payload_json FROM workflow_graph_events WHERE run_id=? AND kind='workflow_stalled'",(self.run['id'],))
+        self.assertEqual(len(event),1);self.assertIn('repair_context',json.loads(event[0]['payload_json']))
+        from webapp.workflow_api import public
+        shown=public(self.store,current)['blocking_action']
+        self.assertEqual((shown['code'],shown['title']),('workflow_stalled','工作流无法继续推进'))
+        self.assertIn('无需猜测补充信息',shown['message'])
+
+    def test_liveness_guard_preserves_worker_recovery_wait(self):
+        self.store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='workers_unavailable' WHERE id=?",(self.run['id'],))
+        self.orchestrator.ensure_liveness(graph.get(self.store,self.run['id']))
+        current=graph.get(self.store,self.run['id'])
+        self.assertEqual((current['status'],current['terminal_reason']),('ACTIVE','workers_unavailable'))
 
     def test_inconclusive_step_review_preserves_candidate_and_requests_evidence(self):
         run=self.review_fixture();self.orchestrator.queue_review(run,'first')
