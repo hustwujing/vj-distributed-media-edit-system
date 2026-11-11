@@ -96,6 +96,15 @@ class FormatTests(unittest.TestCase):
             root=Path(d);(root/'large.ass').write_bytes(b'x'*(2*1024**2+1))
             result=self.check(root,['large.ass'],[{'kind':'subtitle','file':'large.ass'}])
             self.assertFalse(result['passed']);self.assertIn('max_bytes',result['checks'][0]['codes'])
+    def test_animated_gif_is_a_valid_bounded_image_delivery(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);path=root/'status.gif'
+            Image.new('RGB',(32,24),'red').save(path,save_all=True,append_images=[Image.new('RGB',(32,24),'blue')],duration=100,loop=0)
+            rule={'kind':'image','file':'status.gif','width':32,'height':24}
+            validate_typed_output_targets([Acceptance(**rule)],['status.gif'])
+            report=self.check(root,['status.gif'],[rule])
+            self.assertTrue(report['passed']);self.assertEqual(report['files'][0]['frame_count'],2)
 
 class RecoveryTests(unittest.TestCase):
     def setUp(self):

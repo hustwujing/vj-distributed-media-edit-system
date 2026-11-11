@@ -699,7 +699,7 @@ def inspect(store,run,allowed,reference,offset=0):
         raise InspectionInputError('Unsupported inspection file type; inspect a supported text manifest or media file.', 'unsupported_inspection_type')
     # Media decoding/pixels are supplied by a fixed sandbox tool in the worker,
     # never by the control-plane service.
-    still_image=suffix in ('.png','.jpg','.jpeg','.webp','.gif','.bmp')
+    still_image=suffix in ('.png','.jpg','.jpeg','.webp','.bmp')
     return {'ref':reference,'metadata':metadata,'media':True,'path':path,'still_image':still_image,
             'offset_seconds':0 if still_image else offset}
 
