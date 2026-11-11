@@ -1055,6 +1055,24 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(self.store.query("SELECT status FROM workflow_commands WHERE action='resume'")[0]['status'],'rejected')
         self.assertEqual(len(self.store.query("SELECT id FROM planner_runs WHERE status='pending'")),1)
 
+    def test_blocked_descendant_does_not_deadlock_repair_planning(self):
+        self.tick();self.propose({'proposal_id':'blocked-repair','base_graph_version':0,'reason':'initial',
+            'add_tasks':[script('first'),script('child')],
+            'add_dependencies':[{'upstream':'first','downstream':'child'}],
+            'sealed':True,'replan_after':['child']})
+        run=self.tick()
+        self.store.execute("UPDATE run_tasks SET status='paused',error_code='quality_failed' WHERE run_id=? AND id='first'",(run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='blocked' WHERE run_id=? AND id='child'",(run['id'],))
+        self.store.execute("UPDATE runs SET sealed=0,status='ACTIVE' WHERE id=?",(run['id'],))
+        self.store.execute("UPDATE planner_runs SET status='rejected' WHERE run_id=? AND status='pending'",(run['id'],))
+        self.store.execute("UPDATE control_jobs SET status='cancelled' WHERE run_id=? AND control_kind='PLAN' AND status='ready'",(run['id'],))
+        run=graph.get(self.store,run['id']);self.orchestrator.open_repair(run,'first','task_review','review-id','quality_failed')
+        before={row['id'] for row in self.store.query("SELECT id FROM planner_runs WHERE run_id=?",(run['id'],))}
+        self.orchestrator.advance(graph.get(self.store,run['id']))
+        planner=[row for row in self.store.query("SELECT id,trigger_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],)) if row['id'] not in before]
+        self.assertEqual(len(planner),1)
+        self.assertEqual(json.loads(planner[0]['trigger_json'])['task_id'],'first')
+
     def test_inconclusive_step_review_preserves_candidate_and_requests_evidence(self):
         run=self.review_fixture();self.orchestrator.queue_review(run,'first')
         current=graph.get(self.store,run['id']);review=next(t for t in graph.work_items(current) if t.get('control_kind') and t['spec'].get('profile')=='visual_quality_reviewer')

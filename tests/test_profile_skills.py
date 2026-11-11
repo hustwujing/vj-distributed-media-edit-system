@@ -40,6 +40,7 @@ class ProfileSkillTests(unittest.TestCase):
   self.assertIn('满足请求的全部结果',manager);self.assertIn('制作尚未执行',manager)
   self.assertIn('复用已有缓存',manager);self.assertIn('产物型请求变成信息问答',manager)
   self.assertIn('无消费者的中间产物',manager)
+  self.assertIn('三者不得在方向、位置、时间、数量、文件名',manager);self.assertIn('旧名称',manager)
   self.assertIn('显式参考系为准',manager);self.assertIn('模型推断之间重新选择',manager)
   self.assertIn('存在时才保留',manager);self.assertIn('执行前的具体契约冲突',manager)
   self.assertIn('指定执行者、实现工具或实现方法',manager);self.assertIn('真实执行该方法',manager)

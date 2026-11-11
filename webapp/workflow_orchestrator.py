@@ -921,7 +921,9 @@ class Orchestrator:
         context=run.get('repair_context',{})
         if not run['sealed'] and context.get('active') and not active_planners:
             triggers=[next((t for t in business if t['id']==identifier),None) for identifier in run['replan_after']]
-            waiting=any(t and t['status'] in ('blocked','ready','leased','running','waiting','retry_wait','reviewing') for t in triggers)
+            # A blocked descendant cannot make progress until the paused repair
+            # subject is revised. Only actual/in-flight work delays repair.
+            waiting=any(t and t['status'] in ('ready','leased','running','waiting','retry_wait','reviewing') for t in triggers)
             if not waiting:
                 try:self.queue_plan(run,{'repair_resume':context.get('source','repair'),'task_id':context.get('subject_task','')})
                 except planning.PlanningBudgetExceeded:self.set_status(run,'FAILED','planning_budget_exhausted')
