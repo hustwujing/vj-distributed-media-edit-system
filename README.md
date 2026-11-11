@@ -24,12 +24,15 @@ Redis：带 TTL 的流式事件；数据库仍是权威状态
 Observer：关联 Run、Task/Control Job、Attempt、Generation 和 Sandbox
 ```
 
-- Session 只承载会话和消息，Run 是执行、授权和用量根。
+- Session 保存不可变消息账本和版本化摘要游标，Run 是执行、授权和用量根。Manager 读取当前权威状态、当前消息、游标后原文和历史摘要；摘要不能授予权限或覆盖当前契约。
 - Manager 使用服务端 PlanDraft 和类型化命令；业务 Task 与 PLAN/REVIEW/DIAGNOSE Control Job 分离。
 - 输入与反馈写入 `run_inputs`，第一条输入建立派发屏障；已开始任务排空后统一重规划。
 - 执行器只提交候选和回执，Orchestrator 校验 revision、generation、验收与审查后发布。
 - 失败修复保留逻辑 Task 和不可变 revision；受影响后代重算，无关分支复用。
 - 后端绑定、Runtime Profile、镜像 digest、Bundle digest、授权和 Gateway grant 按 Attempt 冻结，不能因重试静默换后端。
+- 失败恢复能力由服务端按当前 Run、Graph、Authorization、租约、cleanup 和预算生成。自然语言只能选择当前签发的重试选项，不能凭关键词创建恢复权限。
+
+会话上下文按预估 token 异步压缩。默认累计到 `12000` token 后登记摘要任务，摘要成功提交才推进消息游标，并保留约 `4000` token 的游标后原文；原始消息不删除。阈值可通过 `VIDEO_USE_CONVERSATION_COMPACT_TOKENS` 和 `VIDEO_USE_CONVERSATION_TAIL_TOKENS` 配置，完整约束见[会话记忆与重试路由](docs/development/conversation-memory.md)。
 
 ## 混合执行边界
 
@@ -107,6 +110,8 @@ python deploy/runtime_security_report.py
 
 结构化输出采用 strict 优先、显式不支持时有界回退；本地 Schema、语义、权限和授权校验始终执行。Reviewer 的通过必须与 inspection、候选选择和方法使用证据一致；审查 JSON 不是交付产物。实际交付集合由当前有效 revision、用户目标和替代关系确定，不能因文件同名或历史 delivery 标记丢失兄弟产物。
 
+成果预览按可信 MIME 或文件名识别视频、音频、图片、PDF、HTML 和文本。HTML 使用无脚本 sandbox 与严格 CSP，只允许内联样式及 `data/blob` 媒体，不允许预览内容访问网络；大页面在独立 viewport 中滚动或拖拽查看。
+
 ## 开发与测试
 
 ```bash
@@ -133,6 +138,8 @@ Python 测试必须走 `tests.run_distributed_suite`，以获得独立 PostgreSQ
 - [OpenSandbox Runtime](docs/development/change-opensandbox-runtime.md)
 - [分布式执行](docs/development/change-distributed-execution.md)
 - [动态工作流](docs/development/change-dynamic-workflow.md)
+- [会话记忆与重试路由](docs/development/conversation-memory.md)
+- [前端与产物展示](docs/development/change-ui-artifacts.md)
 - [operation](docs/development/add-operation.md)
 - [专业 Agent](docs/development/add-specialist-agent.md)
 - [Harness](docs/development/add-profile-harness.md)

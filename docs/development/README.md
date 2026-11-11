@@ -14,6 +14,7 @@
 | 新增生命周期，或修改 operation 阶段、推进、恢复和取消协议 | [operation 生命周期开发说明](change-operation-lifecycle.md) | 状态转换、Runner 接线、持久化、调度资源、兼容与故障验证 |
 | 修改工作流计划、步骤、依赖、状态、验收、用户决策或恢复行为 | [工作流开发说明](change-workflow.md) | 契约、状态转换、执行与恢复、验收、入口和回归 |
 | 修改轻量对话、Agent 上下文、方案确认、工具授权或对话事件 | [Agent 与对话开发说明](change-agent-conversation.md) | 路由交接、权限、确认、任务控制、历史恢复与展示 |
+| 修改 Manager 连续聊天、Session 消息账本、摘要压缩游标、失败说明或聊天重试 | [会话记忆与重试路由](conversation-memory.md) | token 阈值、后台摘要、游标 CAS、上下文优先级、服务端恢复能力和回归 |
 | 修改调度、租约、资源隔离、回收、检查点或跨节点成果发布 | [分布式执行开发说明](change-distributed-execution.md) | 执行归属、资源准入、故障接管、存储提交与竞争验证 |
 | 修改 OpenSandbox/gVisor、Agent/Command 后端路由、Runtime OCI、Skill Bundle、Profile、Node Gateway grant、远程 cleanup 或发布证据 | [OpenSandbox Runtime 开发规范](change-opensandbox-runtime.md) | 混合执行边界、Attempt 绑定、镜像构建、Gateway、恢复、真机与发布门禁 |
 | 修改聊天/工具/图片页面、实时更新、产物展示、预览或画布交互 | [前端与产物展示开发说明](change-ui-artifacts.md) | 状态来源、事件合并、成果语义、文件权限、表单和画布版本 |

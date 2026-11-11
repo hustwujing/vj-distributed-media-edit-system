@@ -22,6 +22,7 @@ uv sync --locked --extra web --extra web-test
 | `webapp/plan_readiness.py`、`workspace_state.py` | 方案就绪、内容版本与确认依据 |
 | `webapp/agent_host.py`、`scheduling.py`、`task_leases.py` | 执行器、资源调度及跨节点租约 |
 | `webapp/workflow_graph.py`、`workflow_planning.py`、`workflow_orchestrator.py` | 新 DAG 契约、滚动提案、正式状态与验收提交 |
+| `webapp/conversation_memory.py`、`workflow_messages.py`、`workflow_conversation.py` | Session 消息账本、token 压缩游标、Manager 连续对话和受控失败重试；规则见[会话记忆与重试路由](development/conversation-memory.md) |
 | `webapp/workflow_dispatch.py`、`workflow_executor.py`、`workflow_agents.py` | 调度衔接、执行候选、受限专业 Agent 循环 |
 | `webapp/model_selection.py`、`agent_profiles.py`、`static/dynamic_models.js` | 服务端模型预设、端上选择、强度和 Run 冻结配置 |
 | `webapp/profile_harnesses.py`、`workflow_model_protocol.py`、`model_tool_protocol.py`、`strict_schema.py` | 专业执行引擎、新命令编译、strict 传输与本地验证 |
@@ -83,6 +84,18 @@ VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp TMPDIR=/data2/wujing03/t PYTHONDO
 .venv/bin/python -m tests.run_distributed_suite tests.test_conversation_routing
 node --test tests/text_stream.test.mjs tests/plan_readiness.test.mjs
 ```
+
+会话记忆或聊天重试修改至少运行：
+
+```bash
+VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp TMPDIR=/data2/wujing03/t \
+VIDEO_USE_TEST_SUITE_LOCK=/data2/wujing03/video-use-test-suite-conversation.lock \
+XDG_CACHE_HOME=/data2/wujing03/vu-tmp/cache PYTHONDONTWRITEBYTECODE=1 \
+  .venv/bin/python -m tests.run_distributed_suite \
+  tests.test_conversation_memory tests.test_workflow_messages tests.test_workflow_conversation
+```
+
+成果预览修改运行 `node --test tests/preview_type.test.mjs`，并使用真实本地 MP4 执行 `tests/browser_artifact_preview.cjs`。HTML 预览必须同时验证脚本未执行、外部资源请求为零、桌面和窄屏可见以及大页面拖拽有效。
 
 Python 报告写入 `docs/test-evidence/distributed-suite.json`，记录用例选择、源码摘要、失败、错误和跳过原因。定向运行会覆盖该报告，不能作为全量发布证明；测试期间相关源码变化也会使报告不通过。测试数量随代码演进，以当次报告为准。
 
