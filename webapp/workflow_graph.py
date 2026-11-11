@@ -216,6 +216,8 @@ class AgentRuntimeRequirements(Contract):
     node_modules:list[str]=Field(default_factory=list,max_length=64,description='Node package names required by generated code, selected from the code-editor runtime capability catalogue.')
     system_tools:list[str]=Field(default_factory=list,max_length=64,description='Executable names required by generated code, selected from the code-editor runtime capability catalogue.')
     network_urls:list[str]=Field(default_factory=list,max_length=16,description='Exact public HTTPS URLs the generated code may read through the host Gateway. Empty means no public network access.')
+    native_skills:list[str]=Field(default_factory=list,max_length=25,
+        description='Exact image-pinned Native Skill IDs required by this OpenSandbox Harness Task. Empty means no task-specific Native Skill.')
 
     @model_validator(mode='after')
     def valid(self):
@@ -224,8 +226,13 @@ class AgentRuntimeRequirements(Contract):
                 or len(set(self.node_modules))!=len(self.node_modules)
                 or len(set(self.system_tools))!=len(self.system_tools)
                 or len(set(self.network_urls))!=len(self.network_urls)
+                or len(set(self.native_skills))!=len(self.native_skills)
                 or any(not token.fullmatch(value) for value in (*self.python_modules,*self.node_modules,*self.system_tools))):
             raise ValueError('Agent runtime requirements must be unique registered capability names')
+        from .native_skill_catalog import validate as validate_native_skills
+        validate_native_skills(self.native_skills)
+        if self.requires_gpu and self.native_skills:
+            raise ValueError('Native Skills require the OpenSandbox CPU Harness and cannot be declared for GPU/bwrap')
         from .agent_runtime_capabilities import validate_public_url
         for value in self.network_urls:validate_public_url(value)
         return self

@@ -101,6 +101,20 @@ class NativeSelectionTests(unittest.TestCase):
                 self.assertEqual(resource['gpu'],expected)
                 self.assertEqual(resource['runtime_target'],'bwrap_gpu' if expected else 'opensandbox_cpu')
 
+    def test_native_skill_selection_is_manifest_bound_and_opensandbox_only(self):
+        from webapp import workflow_graph as graph
+        from webapp.agent_runtime_capabilities import catalogue,validate
+        available=catalogue()['opensandbox_cpu']['native_skills']
+        self.assertEqual(len(available),25);self.assertIn('academy-guide',available)
+        task=graph.Task.model_validate(self.agent_spec(requires_gpu=False,native_skills=['academy-guide']))
+        self.assertEqual(task.runtime_requirements.native_skills,['academy-guide'])
+        self.assertEqual(validate(task.runtime_requirements.model_dump(),selected='opensandbox_cpu'),'opensandbox_cpu')
+        for runtime in ({'requires_gpu':True,'native_skills':['academy-guide']},
+                        {'requires_gpu':False,'native_skills':['missing-skill']}):
+            with self.subTest(runtime=runtime),self.assertRaises(ValueError):
+                graph.Task.model_validate(self.agent_spec(**runtime))
+        with self.assertRaises(ValueError):validate({'native_skills':['academy-guide']},selected='bwrap_cpu')
+
     def test_model_harness_without_native_image_freezes_structured_cpu_fallback(self):
         from webapp.specialist_profiles import for_task
         from webapp.workflow_dispatch import requirements
@@ -164,12 +178,14 @@ class NativeSelectionTests(unittest.TestCase):
     def test_native_instructions_apply_the_shared_path_contract(self):
         from webapp.native_implementer import instructions
         from webapp.specialist_profiles import get
-        text=instructions(get('editing_implementer'))
+        text=instructions(get('editing_implementer'),[{'id':'academy-guide','path':'/state/codex/skills/academy-guide/SKILL.md','entry_sha256':'a'*64}],'codex')
         self.assertIn('/workspace 是稳定Shell工作目录',text)
         self.assertIn('临时工作文件只能放在VIDEO_USE_STEP_SCRATCH',text)
         self.assertIn('不得删除、移动或改名VIDEO_USE_STEP_OUTPUT本身',text)
         self.assertIn('完成全部声明文件和必要验收后立即结束并提交',text)
         self.assertIn('不得为可选解释重复读取未变化的输入或成果',text)
+        self.assertIn('/state/codex/skills/academy-guide/SKILL.md',text)
+        self.assertIn('不得用通用实现冒充',text)
 
 
 class NativeRunnerTests(unittest.TestCase):
@@ -181,7 +197,8 @@ class NativeRunnerTests(unittest.TestCase):
         stack=ExitStack();self.addCleanup(stack.close)
         stack.enter_context(patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox'}))
         spec={'profile':'editing_implementer','timeout_seconds':60,'output_roles':{'report':'result.txt'},
-              'runtime_requirements':{'requires_gpu':False,'python_modules':[],'system_tools':[],'network_urls':[]}}
+              'runtime_requirements':{'requires_gpu':False,'python_modules':[],'system_tools':[],'network_urls':[],
+                                      'native_skills':['academy-guide']}}
         profile=for_task(spec)
         task={'id':'edit','revision':2,'profile':profile.snapshot(),'repair_context':{},
               'spec':spec}
@@ -218,6 +235,9 @@ class NativeRunnerTests(unittest.TestCase):
         self.assertEqual(run(),'candidate-staged')
         runtime.freeze_harness.assert_called_once();runtime.begin_cleanup.assert_called_once()
         runtime._download_output.assert_called_once()
+        context=runtime.start_harness.call_args.kwargs['task_context']
+        self.assertEqual(context['native_skills'][0]['id'],'academy-guide')
+        self.assertEqual(context['native_skills'][0]['path'],'/state/codex/skills/academy-guide/SKILL.md')
         finish.assert_called_once();self.assertEqual(finish.call_args.args[-2:],({},'edit/workflows/run/edit/out'))
         publisher.message.assert_called();publisher.flush.assert_called_with(complete=True)
         self.assertTrue(publisher.message.call_args.args[1].startswith('代码编辑师：'))

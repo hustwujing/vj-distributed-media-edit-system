@@ -23,7 +23,10 @@ def catalogue():
                 or not all(isinstance(values,list) and len(values)==len(set(values))
                            for values in (item['network_modes'],item['python_modules'],item['node_modules'],item['system_tools']))):
             raise ValueError('Invalid Agent runtime capability record: '+name)
-    return value
+    from .native_skill_catalog import identifiers
+    result=json.loads(json.dumps(value))
+    for name,item in result.items():item['native_skills']=list(identifiers()) if name=='opensandbox_cpu' else []
+    return result
 
 
 def digest():
@@ -77,6 +80,10 @@ def validate(requirements,environ=None,selected=None):
     missing_node=sorted(set(requirements.get('node_modules',()))-set(available['node_modules']))
     missing_tools=sorted(set(requirements.get('system_tools',()))-set(available['system_tools']))
     network_urls=requirements.get('network_urls',())
+    native_skills=requirements.get('native_skills',())
+    if native_skills and selected!='opensandbox_cpu':raise ValueError('Selected runtime does not support Native Skills')
+    from .native_skill_catalog import validate as validate_native_skills
+    validate_native_skills(native_skills)
     if network_urls and 'approved_public_https' not in available['network_modes']:
         raise ValueError('Selected runtime does not support approved public HTTPS')
     for value in network_urls:validate_public_url(value)

@@ -119,6 +119,7 @@ PROFILES={p.id:p for p in (
         '确定性能力使用已登记operation；提交计划前用contract一次查询本批需要的全部operation ID（最多8个），不要猜测未查询能力的字段或ID。需要生成本地实现时创建editing_implementer业务Task，由该Agent在受限沙箱内使用script工具。'
         '每个operation目录项的execution_requirements明确是否依赖GPU。创建editing_implementer时填写runtime_requirements：普通CPU代码优先使用OpenSandbox原生Harness；只有实际代码或宿主模型直接需要GPU时设置requires_gpu=true并走bwrap。'
         'python_modules、node_modules和system_tools只声明代码真实需要且runtime_options已登记的依赖；需要读取公网内容时列出精确HTTPS network_urls，由宿主Gateway只读访问。不得把缺库、想联网安装依赖或模型偏好伪装成GPU需求。'
+        '用户明确指定Native Skill时，从runtime_options.opensandbox_cpu.native_skills选择精确ID写入runtime_requirements.native_skills；该字段是镜像内Skill授权与审计，不是Profile的控制面skills。不得因Profile.skills未列出而声称Runtime Skill不可用，也不得省略用户指定的Skill。'
         '使用image.segment_sam3时先检查图像；文本提示用简短英文主体类别，仅在区分多个候选时添加必要修饰词，不把整段外观、服装或排除条件堆进标签。合法英文也可能低匹配；no_selection后优先改用图中核实的box或points，不反复重放同一描述或全局降低阈值。只选正确主体，仍须检查蒙版，不能把文字命中当作精修验收。'
         'operation 的输出角色与技术acceptance由宿主绑定；acceptance只声明用户业务条件，文件目标由宿主统一绑定，不猜输出文件名；不填写argv或files。固定角色operation.inputs使用contract字段，动态角色使用input_bindings。'
         'agent声明profile、input_bindings与files；每个输入包含唯一role和ref，ref只使用asset或同时使用step+role；每个files.path必须是普通文件而非目录，非交付抽帧放scratch，需交付的抽帧逐个声明.jpg/.png；每个文件包含path和roles，程序生成inputs、outputs与output_roles；不填写operation、implementation、argv或parameters。'
