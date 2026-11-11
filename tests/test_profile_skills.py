@@ -25,6 +25,8 @@ class ProfileSkillTests(unittest.TestCase):
    self.assertIn('近结尾时间窗口',reviewer)
   self.assertIn('criterion_index必须恰好覆盖',profiles.PROFILES['delivery_reviewer'].prompt)
   self.assertIn('没有所以无需保留',profiles.PROFILES['delivery_reviewer'].prompt)
+  self.assertIn('不得编造或填写占位inspection_id',profiles.PROFILES['delivery_reviewer'].prompt)
+  self.assertIn('evidence=[]',profiles.PROFILES['visual_quality_reviewer'].prompt)
   self.assertIn('deliverables必须为空',profiles.PROFILES['visual_quality_reviewer'].prompt)
   self.assertEqual(profiles.PROFILES['visual_quality_reviewer'].max_turns,6)
   self.assertEqual(profiles.PROFILES['media_failure_diagnostician'].max_inspection_rounds,1)

@@ -727,7 +727,11 @@ class ToolProtocol:
                 from .workflow_agent_contracts import review_criteria
                 criteria=review_criteria(frozen)
                 if criteria:
-                    source['properties']['evidence'].update(minItems=len(criteria),maxItems=len(criteria))
+                    # A passing verdict is checked by the domain model and host
+                    # against every criterion. Reject/inconclusive must remain
+                    # representable when inspect produced no usable receipt.
+                    source['properties']['evidence'].pop('minItems',None)
+                    source['properties']['evidence']['maxItems']=len(criteria)
                     source['$defs']['Evidence']['properties']['criterion_index']={'type':'integer','enum':list(range(len(criteria))),
                         'description':'Use every frozen review criterion index exactly once.'}
                 identifiers=list(inspections or {})

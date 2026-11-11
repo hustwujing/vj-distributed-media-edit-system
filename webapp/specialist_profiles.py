@@ -140,7 +140,7 @@ PROFILES={p.id:p for p in (
         '依据冻结的输入、候选产物和验收标准给出结构化结论及证据；不能修改产物或降低标准。'
         '一次批量检查覆盖判定所需的候选与关键时间点；完成检查后的下一轮必须立即调用result，不得重复描述画面、复述标准或用长篇推理耗尽输出预算。'
         '存在temporal持续性要求时，必须批量检查同一候选视频的开头、中段和近结尾时间窗口；静态抽帧或自检JSON不能证明持续时长。'
-        'Task review的deliverables必须为空且primary为空；每项criterion只保留直接支持结论的简洁观察，并复用inspect返回的inspection_id。',
+        'Task review的deliverables必须为空且primary为空；pass时每项criterion只保留直接支持结论的简洁观察，并复用inspect返回的inspection_id。inspect没有返回任何可用inspection_id时，提交evidence=[]的reject或inconclusive并在feedback说明具体检查失败；不得编造或填写占位inspection_id。',
         skills=('media-semantics',),max_turns=6,max_inspection_rounds=2,finalize_rounds=2,max_output_tokens=8000,output_schema='visual-report-v1'),
     SpecialistProfile('editing_implementer','生成满足任务契约的本地处理实现',AgentRole.IMPLEMENTER,('INSPECT','RUN_SCRIPT','SUBMIT_RESULT'),
         '只在任务输出目录完成已授权的本地实现；使用已声明输入，不调用收费供应商，不发布最终成果。'
@@ -159,7 +159,7 @@ PROFILES={p.id:p for p in (
         '缺失、无法检查或不确定的证据不得通过。不得改变目标或权限。'
         '一次批量检查覆盖所有交付候选；完成检查后的下一轮必须立即调用result，不得重复检查、复述计划或用长篇推理耗尽输出预算。'
         '存在temporal持续性要求时，必须批量检查同一候选视频的开头、中段和近结尾时间窗口；静态抽帧或自检JSON不能证明持续时长。'
-        'result.evidence的criterion_index必须恰好覆盖review_criteria的全部索引0到N-1，每个索引只出现一次；每项criterion只提交一个直接观察。'
+        'pass时result.evidence的criterion_index必须恰好覆盖review_criteria的全部索引0到N-1，每个索引只出现一次；每项criterion只提交一个直接观察。inspect没有返回任何可用inspection_id时，提交evidence=[]的reject或inconclusive并在feedback说明具体检查失败；不得编造或填写占位inspection_id。'
         'deliverables和primary严格使用inspect返回的candidate_key。',
         skills=('media-semantics',),max_turns=6,max_inspection_rounds=2,finalize_rounds=3,max_output_tokens=8000,output_schema='frozen-review-v1'),
 )}
