@@ -37,6 +37,7 @@ class ProfileSkillTests(unittest.TestCase):
   self.assertIn('满足请求的全部结果',manager);self.assertIn('制作尚未执行',manager)
   self.assertIn('复用已有缓存',manager);self.assertIn('产物型请求变成信息问答',manager)
   self.assertIn('无消费者的中间产物',manager)
+  self.assertIn('显式参考系为准',manager);self.assertIn('模型推断之间重新选择',manager)
   self.assertIn('指定执行者、实现工具或实现方法',manager);self.assertIn('真实执行该方法',manager)
   self.assertIn('review_policy.user_checkpoint',manager);self.assertIn('不得用Task acceptance制造用户阻塞',manager)
   self.assertIn('不能四项全空',manager)
