@@ -1,5 +1,26 @@
 # 示例库及后续契约、交互专项验收报告
 
+## 2026-11-12：70 项示例库 + Native Skill + 真实媒体生成
+
+本轮以并发 8 对扩展后的 70 项示例库完成去重真机执行：44 项既有示例、25 项 Native Skill、1 项同时调用真实图片/视频/音频 Provider 的组合示例。70/70 均已启动；69 项业务通过，0 项程序失败，1 项非程序失败。69 项成功平均耗时 255.072 秒，最长为三媒体组合生成 814.832 秒。主动中断的诊断轮次不计失败，按每个 case 最近一次通过证据去重。
+
+唯一非程序失败为 `skill-anatomy`：两次 Claude Sonnet 5.5 Native Harness Attempt 均在大模型调用中收到 `llmapi.bilibili.co` 的 `RemoteDisconnected`；OpenSandbox、Skill 注入、Node/Chromium 路径、预算和清理正常。该项没有发布半成品，不能归为程序错误或伪报成功。
+
+最终源码提交为 `fe96756669fafa5d4b118e63e9f2f59001d14314`，工作树干净并已推送。正式独立部署 release 为 `39ee2494f41b99a8f25ddf0d6f6c7834d815d67bddf73e62cd3370b79b163e9e`，配置摘要 `9bb450f03b56869e00e6bbecd802ce8bbfdcf25d6a4d6216d9d8c3b4019f2313`，标记 `full_gate / ready`。数据库 `distributed_agent_sandbox`、对象前缀 `distributed-agent-sandbox`、事件前缀 `distributed-agent-sandbox:events:`、端口 20766/20767 均与来源环境隔离。
+
+最终 Runtime 镜像来自同一提交和同一 base：
+
+- Operation：`sha256:d3bd11d82e6b19c3f8865a66492a571cb1670d2c5f06582d7b9d45ee0b1cb390`
+- Codex：`sha256:f8c1b1579f554ffa9f3fddcfbb19a04e090d772fc32099696f0a89f8d9be5ec1`
+- Claude：`sha256:5bfb7e5843d62eddea6c9945708b8e3771d584c1059b596dd20e9bb7b08db6c5`
+- DeepSeek：`sha256:f52a516af4b6be771082208ee016ad36523f057cc8acd1a1b15960c177df2f5e`
+
+最终门禁：Python 1707/1707 通过、跳过 6；Node 105/105 通过；四镜像离线 Runtime 契约通过。第一次全量 Python 门禁因根分区只剩 1.3 GB，上传统一返回 507，造成 10 个失败和 6 个派生超时；清理本项目遗留的 `/tmp/pip-unpack-*`、旧 wheel/验证/浏览器临时目录后恢复至 2.9 GB，相关 7 个模块 38/38 通过，正式部署的隔离全量门禁随后 1707/1707 通过。
+
+公网域名在最终检查时本机 DNS 暂不可解析；通过 `127.0.0.1` 映射同一 `Host: updream-lab.bilibili.co` 走真实 Nginx 配置验证：API health 正常，示例 70 项、Native Skill 25 项、三媒体生成 1 项；桌面 1440x1000 与移动端 390x844 均显示 70 张卡片、0 控制台错误、0 横向溢出，示例弹窗正常。截图位于 `/data2/wujing03/final-ui-desktop.png` 和 `/data2/wujing03/final-ui-mobile.png`。
+
+本轮均为通用修复，没有按 case ID 特判。主要包括：Native Skill/Runtime/Gateway 冻结绑定；Claude 大消息与模型调用预算；Native 工具 PATH；HTML/Office/GIF 统一验收；PPTX/DOCX/XLSX/PDF 结构和视觉审查；文档图片走视觉通道而非 base64 文本；禁网 LibreOffice 二层隔离；Native Skill 受控图片 Gateway；音频数值句柄规范化；音频转写证据；视频 RGB/对比度证据；计划草稿互斥修改与字段别名规范化。
+
 更新：2026-11-09。按用户最新要求，完成失败项修复、定向真机测试和部署后停止，不再重跑44项。当前产品提交为 `1139d01`，独立环境部署就绪。最近完整44项轮次为final-007，42项通过、1项程序失败、1项提示词/契约失败；不能把后续不同版本的定向结果拼成“当前版本44项全通过”。
 
 ## 当前部署与验证
