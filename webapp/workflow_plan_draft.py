@@ -52,6 +52,13 @@ def _bounded(value):
     changed=[item.get('task_id') for item in value['changes']]
     if len(changed)!=len(set(changed)):
         raise CommandError('duplicate_change','draft.changes','Change each existing Task at most once')
+    repaired=[item.get('task_id') for item in value['repair_replacements']]
+    if len(repaired)!=len(set(repaired)):
+        raise CommandError('duplicate_replacement','draft.repair_replacements','Replace each existing Task at most once')
+    conflicts=set(changed)&(set(repaired)|set(value['replacements']))
+    if conflicts:
+        raise CommandError('duplicate_change','draft.changes',
+            'A Task cannot be revised and replaced in the same draft; use replace_plan_configuration to keep exactly one change strategy')
     edges=[(item.get('upstream'),item.get('downstream')) for item in value['dependencies']]
     if len(edges)!=len(set(edges)):raise CommandError('duplicate_dependency','draft.dependencies','Each dependency must be unique')
 

@@ -28,6 +28,23 @@ def delivery(*,filenames=(),formats=(),roles=(),excluded=()):
 
 
 class ModelCommandTests(unittest.TestCase):
+    def test_plan_draft_rejects_cross_command_revision_replacement_conflicts_immediately(self):
+        from webapp.workflow_plan_draft import apply_value,EMPTY
+        changed=apply_value(EMPTY,'draft_configure',{
+            'changes':[{'task_id':'render','set':{}}]})
+        with self.assertRaisesRegex(CommandError,'cannot be revised and replaced'):
+            apply_value(changed,'draft_configure',{
+                'repair_replacements':[{'task_id':'render','implementation':{}}]})
+        repaired=apply_value(EMPTY,'draft_configure',{
+            'repair_replacements':[{'task_id':'render','implementation':{}}]})
+        with self.assertRaisesRegex(CommandError,'cannot be revised and replaced'):
+            apply_value(repaired,'draft_configure',{
+                'changes':[{'task_id':'render','set':{}}]})
+        with self.assertRaisesRegex(CommandError,'cannot be revised and replaced'):
+            apply_value(EMPTY,'draft_batch',{
+                'changes':[{'task_id':'render','set':{}}],
+                'repair_replacements':[{'task_id':'render','implementation':{}}]})
+
     def test_exhausted_repair_is_not_offered_as_revision_or_replacement(self):
         from webapp.workflow_model_protocol import available_changes,automatic_replacement_tasks
         for count,remaining in ((1,1),(2,0),(3,0)):
