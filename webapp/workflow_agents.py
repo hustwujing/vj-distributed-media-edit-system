@@ -826,6 +826,14 @@ def inspect_document(evidence):
     return {**evidence,'coverage':'spreadsheet_structure','sheet_count':len(names),'sheets':sheets}
 
 
+def bind_inspection_image(evidence,images,maximum):
+    if 'image' not in evidence:return evidence
+    if len(images)>=maximum:
+        evidence.pop('image');evidence['image_omitted']='inspection_image_budget_exhausted';return evidence
+    images.append(evidence.pop('image'));evidence['image_index']=len(images);evidence['remaining_images']=maximum-len(images)
+    return evidence
+
+
 def execute(host,lease,run,task):
     store=host.store
     if task.get('control_kind'):profile=get_profile(task['spec']['profile'])
@@ -1213,9 +1221,7 @@ def execute(host,lease,run,task):
                              graph.encode({'phase':'inspect','origin':'artifact_store','classification':'environment','attempt_id':lease.attempt,'code':code,
                                            'reference_sha256':hashlib.sha256(reference.encode()).hexdigest()}),store.now()))
                         batch.append({'ref':reference,'error':'检查所需产物暂时不可用，请稍后重试。','code':code,'diagnostic':detail});continue
-                    if evidence.get('media') and 'image' in evidence:
-                        images.append(evidence.pop('image'));evidence['image_index']=len(images)
-                        evidence['remaining_images']=profile.max_images-len(images)
+                    bind_inspection_image(evidence,images,profile.max_images)
                     inspection_id=uuid.uuid4().hex
                     from .workflow_agent_contracts import approved_delivery_refs
                     eligible=bool(frozen.get('review_scope')=='final' and any(

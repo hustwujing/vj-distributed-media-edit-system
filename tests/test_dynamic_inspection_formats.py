@@ -66,7 +66,7 @@ class InspectionFormatTests(unittest.TestCase):
         self.assertEqual(result['offset'],0)
 
     def test_presentation_inspection_exposes_slide_text_geometry_and_embedded_pixels(self):
-        from webapp.workflow_agents import inspect_document
+        from webapp.workflow_agents import inspect_document,bind_inspection_image
         image=io.BytesIO();Image.new('RGB',(2560,1440),'#1b4965').save(image,format='PNG')
         path=self.root/'deck.pptx'
         with zipfile.ZipFile(path,'w') as archive:
@@ -81,6 +81,8 @@ class InspectionFormatTests(unittest.TestCase):
         self.assertTrue(result['image'].startswith('data:image/jpeg;base64,'))
         preview=Image.open(io.BytesIO(__import__('base64').b64decode(result['image'].split(',',1)[1])))
         self.assertEqual(preview.size,(1920,1080))
+        images=[];bind_inspection_image(result,images,8)
+        self.assertNotIn('image',result);self.assertEqual(result['image_index'],1);self.assertEqual(len(images),1)
 
     def test_pdf_word_and_spreadsheet_inspections_are_bounded_and_typed(self):
         from webapp.workflow_agents import inspect_document
