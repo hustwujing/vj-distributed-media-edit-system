@@ -94,7 +94,7 @@ def inspect(gateway,body):
             adapter=Adapter(gateway.lease.store,gateway.model,gateway.socket_path.parent)))
         value=inspect_media(host,gateway.lease,run,task,value)
     elif value.get('document'):
-        value=inspect_document(value);value=render_office_document(host,gateway.lease,run,task,value)
+        source_path=value.get('path');value=inspect_document(value);value=render_office_document(value,source_path)
     import uuid
     gateway.lease.store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',
         (uuid.uuid4().hex,run['id'],task['id'],gateway.lease.attempt,body['ref'],snapshot_digest,
