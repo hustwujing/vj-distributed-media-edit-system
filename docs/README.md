@@ -64,7 +64,7 @@
 | 文档 | 范围 |
 | --- | --- |
 | [已确认方案与实施边界](dynamic-plan-todo.md)、[统一 Run 实施记录](unified-run-progress.md) | 已确认设计、源码实现与待部署/真机验收边界 |
-| [示例库真机报告](real-case-campaign/demo-library-test-report.md)、[OpenSandbox 部署后审查](real-case-campaign/opensandbox-post-review-live.md) | 当前 44 项主验收、原生页面及混合沙箱专项；历史轮次不能替代当前版本 |
+| [示例库真机报告](real-case-campaign/demo-library-test-report.md)、[OpenSandbox 部署后审查](real-case-campaign/opensandbox-post-review-live.md) | 当前 70 项清单；原 44 项主验收、原生页面及混合沙箱专项均为历史证据，不能替代当前版本 |
 | [动态真机审查矩阵](real-case-campaign/dynamic-case-review.md)、[历史动态清单](real-case-campaign/dynamic-cases.json) | 统一 Run 重构阶段的 126 条历史/专项清单，保留作协议回归参考 |
 | [模型计数缺口与改造记录](model-token-counting-gap.md) | 网关探测、本地预算估算、回执异常与验证限制 |
 | [v3 模型设置部署验证](model-v3-deployment-validation.md) | 配置错配处置、冻结门禁、浏览器验证和旧轮证据边界 |

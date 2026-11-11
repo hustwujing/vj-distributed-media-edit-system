@@ -5,12 +5,14 @@ The workflow caller must persist intent before submit and own retries/cancellati
 """
 import os
 import requests
-from . import ark_generation, image_generation,wan_generation
+from . import ark_generation,image_generation,minimax_audio_generation,wan_generation
 
 TEXT_IMAGE = 'image.generate_from_text'
 IMAGE_VIDEO = 'video.generate_from_image'
 TEXT_VIDEO = 'video.generate_from_text'
-PROVIDERS={'ark-video-v1':ark_generation,'wan-video-v1':wan_generation}
+TEXT_AUDIO = 'audio.generate_from_text'
+PROVIDERS={'ark-video-v1':ark_generation,'wan-video-v1':wan_generation,
+           minimax_audio_generation.PROTOCOL:minimax_audio_generation}
 
 
 def register_provider(protocol,provider):
@@ -21,6 +23,7 @@ def register_provider(protocol,provider):
 
 
 def prepare(operation, parameters, reference=None):
+    if operation==TEXT_AUDIO:return minimax_audio_generation.prepare(operation,parameters,reference)
     if operation == TEXT_IMAGE:
         if reference is not None:
             raise ValueError('文生图不接受参考图')
@@ -35,7 +38,8 @@ def prepare(operation, parameters, reference=None):
 
 def implementation(prepared):
     """Persist routing and model, never credentials or inline image contents."""
-    return {k: prepared[k] for k in ('provider', 'protocol', 'model', 'operation', 'reference_sha256','credential_binding') if k in prepared}
+    return {k: prepared[k] for k in ('provider','protocol','model','operation','reference_sha256',
+                                      'credential_binding','audio_format') if k in prepared}
 
 
 def submit(client, prepared, request_key):

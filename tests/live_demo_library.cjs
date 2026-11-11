@@ -8,6 +8,7 @@ const base='http://updream-lab.bilibili.co/distributed-agent-sandbox-backend',in
 const selected=process.argv[3]&&process.argv[3]!=='all'?new Set(process.argv[3].split(',')):null;
 const jobs=8,uid=()=>crypto.randomBytes(16).toString('hex'),sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
+const EXPECTED_DEMOS=70;
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const assertModelConfiguration=value=>{
  assert.equal(value.profile,'claude55');
@@ -153,6 +154,18 @@ async function runCase(demo){
    for(const item of current.delivery){const suffix=new URL(item.url,base+'/').pathname.replace('/distributed-agent-sandbox-backend','');const response=await api('GET',suffix);const bytes=await response.body();assert.equal(sha(bytes),item.sha256);assert.equal(bytes.length,item.size);
     const name=path.basename(item.file);fs.mkdirSync(path.join(dir,'artifacts'),{recursive:true});fs.writeFileSync(path.join(dir,'artifacts',name),bytes);state.artifacts.push({...item,local_file:name});}
    const primary=Math.max(0,current.delivery.findIndex(item=>item.is_primary));
+   for(const expected of demo.expected_outputs||[])assert.ok(current.delivery.some(item=>item.name===expected||path.basename(item.file)===expected),`Expected delivery missing: ${expected}`);
+   if(demo.native_skill){
+    const native=current.tasks.filter(task=>task.spec?.type==='agent'&&task.spec?.profile==='editing_implementer');
+    assert.ok(native.length,`Native Skill example did not schedule an editing_implementer: ${demo.native_skill}`);
+    assert.ok(native.some(task=>task.tool_location==='opensandbox'||task.execution_location==='opensandbox'),`Native Skill example did not execute in OpenSandbox: ${demo.native_skill}`);
+    state.native_skill={id:demo.native_skill,agent_tasks:native.map(task=>({id:task.id,status:task.status,execution_location:task.execution_location,tool_location:task.tool_location}))};persist();
+   }
+   if(demo.media_generation){
+    const operations=new Set(current.tasks.map(task=>task.spec?.operation).filter(Boolean));
+    for(const operation of ['image.generate_from_text','video.generate_from_text','audio.generate_from_text'])assert.ok(operations.has(operation),`Missing generation operation: ${operation}`);
+    state.media_generation={operations:[...operations]};persist();
+   }
    await page.locator(`#dynamic-run-result [data-result-preview="current-${primary}"]`).click();
    const kind=current.delivery[primary].type||current.delivery[primary].mime||'';
    if(/^(video|audio)\//.test(kind))await page.waitForFunction(()=>{const media=document.querySelector('#dynamic-preview video,#dynamic-preview audio');return media&&media.readyState>=1;});
@@ -170,13 +183,13 @@ async function runCase(demo){
 
 (async()=>{
  fs.mkdirSync(output,{recursive:true,mode:0o700});
- const catalog=await(await fetch(internal+'/api/demos')).json();assert.equal(catalog.length,44);
+ const catalog=await(await fetch(internal+'/api/demos')).json();assert.equal(catalog.length,EXPECTED_DEMOS);
  save(path.join(output,'catalog.json'),catalog);fs.copyFileSync(__filename,path.join(output,'driver.cjs'));
  const cases=selected?[...selected].map(id=>catalog.find(item=>item.id===id)):catalog;
  if(selected)assert.ok(cases.every(Boolean),'Unknown example requested');
- save(path.join(output,'round.json'),{started_at:Date.now()/1000,total:44,selected:cases.map(d=>d.id),concurrency:jobs,release,catalog_sha256:sha(Buffer.from(JSON.stringify(catalog))),driver_sha256:sha(fs.readFileSync(__filename))});
+ save(path.join(output,'round.json'),{started_at:Date.now()/1000,total:EXPECTED_DEMOS,selected:cases.map(d=>d.id),concurrency:jobs,release,catalog_sha256:sha(Buffer.from(JSON.stringify(catalog))),driver_sha256:sha(fs.readFileSync(__filename))});
  browser=await chromium.launch({headless:true,handleSIGINT:false,handleSIGTERM:false,
   args:['--no-sandbox','--host-resolver-rules=MAP updream-lab.bilibili.co 127.0.0.1']});
  try{let cursor=0;const workers=await Promise.allSettled(Array.from({length:Math.min(jobs,cases.length)},async()=>{while(!stop&&cursor<cases.length&&!fs.existsSync(path.join(output,'pause-new-cases'))){const demo=cases[cursor++];await runCase(demo);}}));const errors=workers.filter(item=>item.status==='rejected').map(item=>String(item.reason));if(errors.length){save(path.join(output,'driver-errors.json'),errors);throw Error(errors.join('\n'));}}
- finally{if(stop)await Promise.allSettled([...active].map(cancel=>cancel()));await browser.close();save(path.join(output,'summary.json'),{total:44,started:results.length,results:results.map(s=>({case:s.case,status:s.status,classification:s.classification,seconds:s.seconds})),finished_at:Date.now()/1000});}
+ finally{if(stop)await Promise.allSettled([...active].map(cancel=>cancel()));await browser.close();save(path.join(output,'summary.json'),{total:EXPECTED_DEMOS,started:results.length,results:results.map(s=>({case:s.case,status:s.status,classification:s.classification,seconds:s.seconds})),finished_at:Date.now()/1000});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

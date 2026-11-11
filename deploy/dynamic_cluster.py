@@ -435,6 +435,9 @@ def initialize(source,config_root=None):
     run(['runuser','-u','postgres','--',PG_BIN/'psql','-X','-v','ON_ERROR_STOP=1','-h',PG_SOCKET,'-p',str(PG_PORT),'-d',DATABASE],input=sql)
     source_demos=REPO/'workspace/demos'
     if (source_demos/'catalog.json').exists():
+        demo_environment=environment(source=source);demo_environment['VIDEO_USE_DEMO_SOURCE_ROOT']=str(source_demos)
+        run([source/'.venv/bin/python','-m','webapp.build_native_skill_demos'],cwd=source,
+            env=demo_environment,timeout=120)
         run([source/'.venv/bin/python','-m','webapp.demo_library','--source',source_demos],cwd=source,env=environment(source=source),timeout=900)
 
 

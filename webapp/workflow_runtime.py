@@ -206,7 +206,7 @@ class Adapter:
             return identifier
 
     def submit_generation(self,w,s):
-        if os.environ.get('VIDEO_USE_GENERATION_BACKEND','jobs')=='ark' or (s['spec']['operation']=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan'):
+        if s['spec']['operation']=='audio.generate_from_text' or os.environ.get('VIDEO_USE_GENERATION_BACKEND','jobs')=='ark' or (s['spec']['operation']=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan'):
             return self.submit_uniform_generation(w,s)
         with self.input_environment(w,s) as env:
             return self.submit_generation_job(w,s,env)
@@ -714,7 +714,8 @@ class Adapter:
                 extension = Path(item.get('name', '')).suffix.lower()
                 if not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', aid):
                     continue
-                if extension not in ('.png', '.jpg', '.jpeg', '.webp', '.psd', '.ora', '.json', '.zip','.mp4','.webm','.mov','.mkv'):
+                if extension not in ('.png','.jpg','.jpeg','.webp','.psd','.ora','.json','.zip','.mp4','.webm','.mov','.mkv',
+                                      '.mp3','.wav','.flac','.m4a','.aac','.ogg','.opus'):
                     continue
                 if handle.get('protocol') in generation_service.PROVIDERS:
                     response=generation_service.download(session,item,handle)
@@ -739,8 +740,9 @@ class Adapter:
                     if any(f['name']==name for f in files):raise ValueError('上游返回重复产物名称')
                     files.append({'name':name,
                                   'data':base64.b64encode(b''.join(chunks)).decode()})
-        if not files or not any(Path(f['name']).suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp','.mp4','.webm','.mov','.mkv') for f in files):
-            raise ValueError('Provider returned no image')
+        media_extensions=('.png','.jpg','.jpeg','.webp','.mp4','.webm','.mov','.mkv','.mp3','.wav','.flac','.m4a','.aac','.ogg','.opus')
+        if not files or not any(Path(f['name']).suffix.lower() in media_extensions for f in files):
+            raise ValueError('Provider returned no supported media artifact')
         self.isolated(dict(env,mode='plan',step_output=output), {'mode':'import', 'output':output, 'files':files}, 60, cancelled)
         paths=[output+'/'+f['name'] for f in files]
         prepared=s.get('bindings',{}).get('_prepared')

@@ -68,8 +68,11 @@ def intent(store,w,s,provider,operation,implementation=None):
             lease.consume('provider:'+selected.budget_group,dynamic['authorization']['provider_call_budget'].get(selected.budget_group,0))
         if lease and not w.get('dynamic') and w.get('origin')!='direct':
             import os
-            category='video' if operation.startswith('video.') else 'transcribe' if operation=='audio.transcribe' else 'image'
-            limit=int(os.environ.get('VIDEO_USE_TASK_VIDEO_CALLS','2')) if category=='video' else 50 if category=='transcribe' else 4
+            category=('video' if operation.startswith('video.') else 'transcribe' if operation=='audio.transcribe'
+                      else 'audio' if operation.startswith('audio.') else 'image')
+            limit=(int(os.environ.get('VIDEO_USE_TASK_VIDEO_CALLS','2')) if category=='video'
+                   else int(os.environ.get('VIDEO_USE_TASK_AUDIO_CALLS','4')) if category=='audio'
+                   else 50 if category=='transcribe' else 4)
             lease.consume(category,limit)
         step=db.execute('SELECT attempts FROM run_tasks WHERE run_id=? AND id=?' if w.get('dynamic') else 'SELECT attempts FROM agent_steps WHERE workflow=? AND id=?',(w['id'],s['id'])).fetchone()
         attempt=max(1,step['attempts']) if step else s['attempts']+1

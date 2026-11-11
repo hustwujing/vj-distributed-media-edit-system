@@ -6,13 +6,18 @@ from unittest.mock import Mock, patch
 
 import requests
 from PIL import Image
-from webapp import ark_generation as ark, generation_service as service
+from webapp import ark_generation as ark,generation_service as service,minimax_audio_generation as minimax
 from webapp.operations import get, validate_parameters
 
 
 CONFIG = {'VIDEO_USE_GENERATION_BACKEND': 'ark', 'VIDEO_USE_GENERATION_URL': 'https://video.example/api/v3',
           'VIDEO_USE_GENERATION_KEY': 'test-private-key', 'VIDEO_USE_GENERATION_MODEL': 'seedance-test'}
 PARAMS = {'prompt': 'A woman runs on a sunny beach', 'width': 1280, 'height': 720, 'duration': 15, 'seed': 1}
+AUDIO_CONFIG={'VIDEO_USE_AUDIO_GENERATION_URL':'https://audio.example/v1',
+              'VIDEO_USE_AUDIO_GENERATION_KEY':'audio-private-key',
+              'VIDEO_USE_AUDIO_GENERATION_MODEL':'speech-2.8-turbo',
+              'VIDEO_USE_AUDIO_GENERATION_DOWNLOAD_HOSTS':'media.example'}
+AUDIO_PARAMS={'text':'灯塔已经点亮，旅程现在开始。','voice_id':'male-qn-qingse','speed':1,'audio_format':'mp3'}
 
 
 class UniformGenerationTests(unittest.TestCase):
@@ -50,6 +55,45 @@ class UniformGenerationTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_parameters(service.TEXT_VIDEO,PARAMS,{'source':{'asset':'x'}})
         with self.assertRaises(ValueError):validate_parameters(service.IMAGE_VIDEO,PARAMS,{})
         self.assertEqual(get(service.TEXT_VIDEO).public()['constraints']['durations'],list(range(4,16)))
+
+    def test_audio_generation_has_a_distinct_contract_and_frozen_route(self):
+        with patch.dict(os.environ,AUDIO_CONFIG):
+            self.assertEqual(validate_parameters(service.TEXT_AUDIO,AUDIO_PARAMS,{}),AUDIO_PARAMS)
+            with self.assertRaises(ValueError):validate_parameters(service.TEXT_AUDIO,AUDIO_PARAMS,{'source':{'asset':'x'}})
+            with self.assertRaises(ValueError):validate_parameters(service.TEXT_AUDIO,{**AUDIO_PARAMS,'speed':3},{})
+            prepared=service.prepare(service.TEXT_AUDIO,AUDIO_PARAMS);handle=service.implementation(prepared)
+            self.assertEqual(handle['protocol'],minimax.PROTOCOL);self.assertEqual(handle['audio_format'],'mp3')
+            self.assertNotIn(AUDIO_CONFIG['VIDEO_USE_AUDIO_GENERATION_KEY'],json.dumps(handle))
+            public=get(service.TEXT_AUDIO).public()
+            self.assertTrue(public['available']);self.assertEqual(public['output_contract']['roles'],['audio'])
+            self.assertEqual(public['constraints']['cancellation'],'unsupported')
+
+    def test_audio_submit_poll_download_and_cancellation_contract(self):
+        with patch.dict(os.environ,AUDIO_CONFIG):
+            prepared=service.prepare(service.TEXT_AUDIO,AUDIO_PARAMS);handle=service.implementation(prepared);client=Mock()
+            client.post.return_value.status_code=200;client.post.return_value.json.return_value={'task_id':'audio-task'}
+            self.assertEqual(service.submit(client,prepared,'durable-key'),{'id':'audio-task','status':'waiting'})
+            self.assertEqual(client.post.call_args.args[0],'https://audio.example/v1/t2a_async_v2')
+            client.get.return_value.status_code=200;client.get.return_value.json.return_value={'status':'processing'}
+            self.assertEqual(service.poll(client,handle,'audio-task')['status'],'running')
+            status=Mock(status_code=200);status.json.return_value={'status':'success','file_id':'file-1'}
+            file_record=Mock(status_code=200);file_record.json.return_value={'file':{'download_url':'https://cdn.media.example/result.mp3?sig=private'}}
+            client.get.side_effect=[status,file_record]
+            result=service.poll(client,handle,'audio-task')
+            self.assertEqual(result,{'status':'succeeded','artifacts':[{'id':'audio','name':'narration.mp3','url':'https://cdn.media.example/result.mp3?sig=private'}]})
+            download=Mock(status_code=200,headers={'Content-Type':'audio/mpeg'})
+            client.get.side_effect=None;client.get.return_value=download
+            self.assertIs(service.download(client,result['artifacts'][0],handle),download)
+            self.assertNotIn('headers',client.get.call_args.kwargs)
+            with self.assertRaises(NotImplementedError):service.cancel(client,handle,'audio-task')
+            with self.assertRaises(ValueError):minimax.validate_download_url('https://media.example.evil.test/result.mp3')
+
+    def test_audio_frozen_credential_rejects_rotation_before_http(self):
+        with patch.dict(os.environ,AUDIO_CONFIG):handle=service.implementation(service.prepare(service.TEXT_AUDIO,AUDIO_PARAMS))
+        client=Mock()
+        with patch.dict(os.environ,{**AUDIO_CONFIG,'VIDEO_USE_AUDIO_GENERATION_KEY':'rotated'}),self.assertRaises(ValueError):
+            service.poll(client,handle,'audio-task')
+        client.get.assert_not_called()
 
     def test_reference_is_inline_and_snapshot_contains_no_image_or_credentials(self):
         p=service.prepare(service.IMAGE_VIDEO,PARAMS,self.image())

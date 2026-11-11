@@ -47,6 +47,26 @@ class GenerationParameters(BaseModel):
     seed:int=Field(default=1,ge=0,le=2147483647)
 
 
+class AudioGenerationParameters(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    text:str=Field(min_length=1,max_length=9999)
+    voice_id:Literal['male-qn-qingse']='male-qn-qingse'
+    speed:float=Field(default=1,ge=.5,le=2)
+    audio_format:Literal['mp3','wav','flac']='mp3'
+
+    @model_validator(mode='after')
+    def duration(self):
+        import re
+        pauses=sum(float(value) for value in re.findall(r'<#([0-9]+(?:\.[0-9]{1,2})?)#>',self.text))
+        spoken=re.sub(r'<#[0-9]+(?:\.[0-9]{1,2})?#>','',self.text)
+        cjk=len(re.findall(r'[\u3400-\u9fff]',spoken))
+        words=len(re.findall(r"[A-Za-z0-9]+(?:['’-][A-Za-z0-9]+)*",spoken))
+        punctuation=len(re.findall(r'[，。！？；：,.!?;:]',spoken))
+        if (cjk/4.5+words/2.5+punctuation*.08)/self.speed+pauses>180:
+            raise ValueError('单次音频生成预计不能超过 180 秒，请按句子拆分')
+        return self
+
+
 IMAGE_PARAMETERS={
     'generate':{'prompt','quality'},'decompose':{'prompt','layer_count'},'remove_bg':set(),
     'segment':{'box','points'},'segment_sam3':{'prompt','box','points','parameters'},'refine_zim':set(),'ocr':set(),
@@ -155,6 +175,9 @@ class Operation:
         elif self.id.startswith('video.generate_') and os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark' and self.available():
             from .ark_generation import capabilities
             result['constraints']=capabilities()['operations'][self.id]
+        elif self.id=='audio.generate_from_text' and self.available():
+            from .minimax_audio_generation import capabilities
+            result['constraints']=capabilities()
         elif self.id=='image.segment_sam3':
             result['constraints']={'selection_modes':['text','points','box'],'selection_modes_exclusive':True,'text_and_spatial_combination':False,
                                    'refinement_optional':True,'spatial_prompt':'empty',
@@ -179,6 +202,8 @@ class Operation:
             if os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark':
                 return self.id.startswith('video.') and all(os.environ.get(k) for k in ('VIDEO_USE_GENERATION_URL','VIDEO_USE_GENERATION_KEY','VIDEO_USE_GENERATION_MODEL'))
             return bool(os.environ.get('VIDEO_USE_GENERATION_URL'))
+        if self.id=='audio.generate_from_text':
+            return all(os.environ.get(k) for k in ('VIDEO_USE_AUDIO_GENERATION_URL','VIDEO_USE_AUDIO_GENERATION_KEY','VIDEO_USE_AUDIO_GENERATION_MODEL'))
         if self.id=='audio.transcribe':return bool(os.environ.get('ELEVENLABS_API_KEY'))
         return True
 
@@ -235,6 +260,9 @@ REGISTRY['audio.process']=Operation('audio.process','audio_process','fixed_media
     memory_mb=2048,timeout=1800,reuse_safe=True,execution_mode='opensandbox_command',
     role_filenames=(('report','audio-process-report.json'),),required_output_roles=('audio','report'))
 REGISTRY['audio.transcribe']=Operation('audio.transcribe','transcribe','transcribe',('audio','video'),('transcript',),retry_safe=False,external_side_effects=True,budget_group='audio.transcribe',concurrency_group='elevenlabs',route_adapter='elevenlabs',provider_identity='elevenlabs',cleanup_category='unqueryable_sync',output_files=('transcript.json',))
+REGISTRY['audio.generate_from_text']=Operation('audio.generate_from_text','text_to_audio','generation_async',(),('audio',),retry_safe=False,
+    external_side_effects=True,budget_group='audio.generate_from_text',concurrency_group='audio_generation',
+    route_adapter='generation',provider_identity='minimax-audio',cleanup_category='generation_protocol',timeout=1200)
 REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,external_side_effects=True,budget_group='image.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api')
 REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_image',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)
 REGISTRY['video.generate_from_text']=Operation('video.generate_from_text','text_to_video','generation_async',(),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)
@@ -334,6 +362,7 @@ def get(operation,implementation=None):
 
 
 def resolved_provider(op):
+    if op.id=='audio.generate_from_text':return op
     if op.executor=='image_sync':
         return replace(op,route_adapter='openai_images',provider_identity='openai-images',concurrency_group='openai_images',cleanup_category='unqueryable_sync')
     if op.route_adapter in ('generation','generation_jobs'):
@@ -396,6 +425,8 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
         if set(inputs)!={'source'}:raise ValueError('转写需要唯一 source 输入')
         return TranscriptionParameters.model_validate(parameters).model_dump()
     if op.executor=='generation_async':
+        if op.id=='audio.generate_from_text':
+            return AudioGenerationParameters.model_validate(parameters).model_dump()
         value=GenerationParameters.model_validate(parameters).model_dump()
         if not value['prompt'].strip():raise ValueError('生成描述不能为空')
         if op.id=='image.generate_from_text':

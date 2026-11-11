@@ -54,7 +54,7 @@ def get(store,run_id):
     records=store.query('SELECT intent,digest FROM execution_intents WHERE run_id=?',(ref,))
     if not records:return None
     value=json.loads(records[0]['intent'])
-    labels={'script':'本地处理','image.remove_background':'图片去背景','image.edit':'生成式图片编辑（外部）','image.generate_from_text':'图片生成',
+    labels={'script':'本地处理','image.remove_background':'图片去背景','image.edit':'生成式图片编辑（外部）','image.generate_from_text':'图片生成','audio.generate_from_text':'音频生成',
         'video.generate_from_image':'参考图生成视频','video.generate_from_text':'文字生成视频','audio.transcribe':'语音转写','image.segment':'主体分割','image.segment_sam3':'主体分割与精修',
         'image.refine_zim':'边缘精修','image.ocr':'文字识别','image.decompose':'图片分层','image.erase':'选区擦除','image.edit_region':'选区重绘',
         'media.render':'视频合成','media.edit':'音视频编辑','media.timeline':'时间线预览','media.analyze':'画面分析','media.review':'成片检查','media.pack':'整理转写'}
