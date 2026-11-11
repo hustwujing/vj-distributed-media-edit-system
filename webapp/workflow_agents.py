@@ -716,8 +716,8 @@ def inspect_document(evidence):
             with pymupdf.open(path) as document:
                 if not 0<len(document)<=200 or index>=len(document):raise InspectionInputError('Document page is outside the bounded page range')
                 page=document[index];text=page.get_text()[:24000]
-                pixels=page.get_pixmap(matrix=pymupdf.Matrix(1.25,1.25),alpha=False)
-                image=pixels.tobytes('jpeg',jpg_quality=80)
+                pixels=page.get_pixmap(matrix=pymupdf.Matrix(2,2),alpha=False)
+                image=pixels.tobytes('jpeg',jpg_quality=88)
                 return {**evidence,'coverage':'pdf_page_text_and_render','page_count':len(document),
                     'page_index':index,'text':text,'image':'data:image/jpeg;base64,'+base64.b64encode(image).decode()}
         except InspectionInputError:raise
@@ -767,8 +767,8 @@ def inspect_document(evidence):
         if pictures:
             from PIL import Image
             with Image.open(io.BytesIO(max(pictures,key=lambda item:item[0])[1])) as source:
-                source.load();pixels=source.convert('RGB');pixels.thumbnail((1024,1024),Image.Resampling.LANCZOS)
-                output=io.BytesIO();pixels.save(output,format='JPEG',quality=82)
+                source.load();pixels=source.convert('RGB');pixels.thumbnail((1920,1920),Image.Resampling.LANCZOS)
+                output=io.BytesIO();pixels.save(output,format='JPEG',quality=90)
             result.update(coverage='presentation_structure_and_embedded_slide_image',
                 image='data:image/jpeg;base64,'+base64.b64encode(output.getvalue()).decode())
         if len(graph.encode({k:v for k,v in result.items() if k!='image'}).encode())>65536:
