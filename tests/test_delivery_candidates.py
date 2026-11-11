@@ -18,7 +18,9 @@ class DeliveryCandidateTests(unittest.TestCase):
               'objective':'Render final video with preview',
               'files':[{'path':'movie.mp4','roles':['video']},{'path':'thumb.png','roles':['preview']}],
               'acceptance':[{'kind':'media','video':True,'source':'user','stage':'final'}]}
-        spec=compile_manager({'kind':'APPLY_PLAN','reason':'Create outputs','plan':{'new_tasks':[task]}},frozen)['proposal']['add_tasks'][0]
+        spec=compile_manager({'kind':'APPLY_PLAN','reason':'Create outputs',
+            'delivery_contract':{'filenames':['movie.mp4'],'formats':['mp4'],'roles':[],'excluded_filenames':[]},
+            'plan':{'new_tasks':[task]}},frozen)['proposal']['add_tasks'][0]
         live=self.task(spec['output_roles']);live['spec']=spec
         snapshot={**frozen,'tasks':[live],'review_scope':'final','delivery_targets':['成片和预览图']}
         self.assertEqual(delivery_candidate_refs(live),{'movie.mp4'})

@@ -250,7 +250,7 @@ class ModelCommandTests(unittest.TestCase):
         value={'tasks':[{'type':'agent','acceptance':[{'kind':'image','height_':64,'max_participation':.5}]}]}
         normalized,changes=normalize_planner_arguments('submit_typed_plan',value)
         self.assertEqual(normalized['tasks'][0]['acceptance'][0],{'kind':'image','height':64,'max_participation':.5})
-        self.assertEqual(changes,['tasks.0.acceptance.0.height_->height'])
+        self.assertEqual(changes,['tasks.0.acceptance.0.height_->height','kind_defaulted_to_apply_plan'])
 
     def test_nonempty_typed_batch_safely_defaults_to_open_plan(self):
         normalized,changes=normalize_planner_arguments('submit_typed_plan',{'tasks':[{'type':'agent'}]})
