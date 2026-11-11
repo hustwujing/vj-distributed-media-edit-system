@@ -33,6 +33,8 @@ def main():
             'poster':'poster.jpg','before':'before.png','before_type':'image/png','files':['result.png','before.png','poster.jpg'],
             'credits':[{'name':'本项目绘制的原创杯子与文字测试图','url':'/video-use/','license':'原创演示素材，可用于本项目编辑示例'}],
             'changes':description+'。模型推理记录保存在本项目验收目录，不把静态示例当成用户新任务结果。'})
+    from .demo_agent_requirements import apply as apply_agent_requirements
+    catalog,_=apply_agent_requirements(catalog)
     new=demos/'catalog.image-new.json';new.write_text(json.dumps(catalog,ensure_ascii=False,indent=2));new.replace(demos/'catalog.json')
     if os.geteuid()==0:
         user=pwd.getpwnam('video-use')

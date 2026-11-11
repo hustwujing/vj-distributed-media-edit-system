@@ -100,6 +100,8 @@ def main():
             for name in ('layer-01.png','layer-02.png','layer-03.png','editable-layers.psd','editable-layers.ora','layer-report.json'):
                 shutil.copyfile(SETUP/'image-workbench-samples/real-decompose'/name,layer_dir/name)
                 if name not in layered['files']:layered['files'].append(name)
+        from .demo_agent_requirements import apply as apply_agent_requirements
+        catalog,_=apply_agent_requirements(catalog)
         temp=ROOT/'catalog.missing-new.json';temp.write_text(json.dumps(catalog,ensure_ascii=False,indent=2));temp.replace(ROOT/'catalog.json')
         if os.geteuid()==0:
             user=pwd.getpwnam('video-use')

@@ -204,6 +204,8 @@ def main():
     # edit_media examples) when rebuilding the original helper demonstrations.
     if target.exists():
         catalog = [d for d in json.loads(target.read_text()) if d.get('workflow') == 'agent'] + catalog
+    from .demo_agent_requirements import apply as apply_agent_requirements
+    catalog,_=apply_agent_requirements(catalog)
     temp=ROOT/'catalog.new.json'
     temp.write_text(json.dumps(catalog,ensure_ascii=False,indent=2),encoding='utf-8')
     temp.replace(target)

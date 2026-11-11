@@ -140,6 +140,8 @@ def main():
             for path in public.iterdir():
                 temp=destination/(path.name+'.new');shutil.copyfile(path,temp);temp.replace(destination/path.name)
             catalog.append(demo)
+        from .demo_agent_requirements import apply as apply_agent_requirements
+        catalog,_=apply_agent_requirements(catalog)
         temp=catalog_path.with_suffix('.new.json');temp.write_text(json.dumps(catalog,ensure_ascii=False,indent=2));temp.replace(catalog_path)
         if os.geteuid()==0:
             account=pwd.getpwnam('video-use')
