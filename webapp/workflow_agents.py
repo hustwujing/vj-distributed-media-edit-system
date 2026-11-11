@@ -840,12 +840,13 @@ def render_office_document(evidence,source_path):
     import pymupdf
     source_path=Path(source_path)
     with tempfile.TemporaryDirectory(prefix='office-review-',dir=os.environ.get('TMPDIR')) as temporary:
-        root=Path(temporary);root.chmod(0o777);suffix=source_path.suffix.lower();target='/input'+suffix
-        command=['/usr/bin/bwrap','--die-with-parent','--new-session','--unshare-user','--unshare-net','--unshare-pid','--unshare-ipc','--unshare-uts',
+        root=Path(temporary);root.chmod(0o700);suffix=source_path.suffix.lower();target='/input'+suffix
+        command=['/usr/bin/bwrap','--die-with-parent','--new-session','--unshare-net','--unshare-pid','--unshare-ipc','--unshare-uts',
             '--ro-bind','/usr','/usr','--ro-bind','/bin','/bin','--ro-bind','/lib','/lib',*(['--ro-bind','/lib64','/lib64'] if Path('/lib64').exists() else []),
             '--ro-bind','/etc','/etc',
             '--ro-bind',str(source_path),target,'--bind',str(root),'/output','--tmpfs','/tmp','--proc','/proc','--dev','/dev',
-            '--uid','65534','--gid','65534','--clearenv','--setenv','HOME','/output','--setenv','TMPDIR','/tmp','--setenv','LANG','C.UTF-8',
+            '--clearenv','--setenv','HOME','/output','--setenv','TMPDIR','/tmp','--setenv','LANG','C.UTF-8',
+            '/usr/bin/setpriv','--clear-groups','--no-new-privs','--bounding-set=-all',
             '/usr/bin/libreoffice','--headless','--nologo','--nodefault','--nolockcheck','--nofirststartwizard',
             '-env:UserInstallation=file:///output/profile','-env:UNO_SHARED_PACKAGES_CACHE=file:///output/shared',
             '--convert-to','pdf','--outdir','/output',target]
