@@ -17,6 +17,21 @@ def poster(result,destination):
     with Image.open(result) as image:
         image=ImageOps.contain(image.convert('RGBA'),(640,480));canvas=Image.new('RGBA',image.size,'#e8ede3');canvas.alpha_composite(image);canvas.convert('RGB').save(destination,quality=92)
 
+def perspective_document(destination):
+    """Warp the whole document so its border and text share one geometry."""
+    import cv2
+    import numpy as np
+    front=Image.new('RGB',(460,300),'#ffffff');draw=ImageDraw.Draw(front)
+    draw.rectangle((0,0,459,299),outline='#dfe5e1',width=4)
+    draw.text((105,95),'UPDREAM\nDOCUMENT',fill='#1d3429',spacing=20)
+    source=np.asarray(front);canvas=np.full((420,640,3),(82,100,93),dtype=np.uint8)
+    corners=np.float32([[130,55],[540,95],[500,360],[85,320]])
+    matrix=cv2.getPerspectiveTransform(np.float32([[0,0],[459,0],[459,299],[0,299]]),corners)
+    warped=cv2.warpPerspective(source,matrix,(640,420),flags=cv2.INTER_LINEAR)
+    mask=cv2.warpPerspective(np.full((300,460),255,dtype=np.uint8),matrix,(640,420),flags=cv2.INTER_LINEAR)
+    blend=(mask.astype(np.float32)/255.0)[...,None]
+    Image.fromarray((warped*blend+canvas*(1-blend)).round().astype(np.uint8)).save(destination)
+
 def image_demo(folder,id,title,category,description,prompt,result,before='image-cup.png',options=(),sources=None):
     target=folder/id;target.mkdir();shutil.copyfile(result,target/'result.png');shutil.copyfile(SOURCES/before,target/'before.png');poster(target/'result.png',target/'poster.jpg')
     return {'id':id,'title':title,'category':category,'description':description,'tags':['图片编辑','真实处理结果'],'media':'image','workflow':'agent','renderer':'image-workbench','prompt':prompt,
@@ -55,7 +70,7 @@ def make_image_examples(staging):
     ocr_preview.save(outputs/'ocr-preview.png');ocr_demo=image_demo(staging,'image-ocr','识别图片文字和位置','OCR 文字识别','识别中文内容、置信度和文字框，不修改原图。','识别图片中的文字，展示文字框和置信度。',outputs/'ocr-preview.png');shutil.copyfile(SETUP/'image-workbench-samples/ocr/result.json',staging/'image-ocr/ocr.json');ocr_demo['files'].append('ocr.json');items.append(ocr_demo)
     out=outputs/'replace-text';files=execute_image({'action':'replace_text','asset':'cup','box':ocr_data['lines'][0]['box'],'text':'夏日新品','size':24,'color':'#202020'},assets,staging/'project',out);items.append(image_demo(staging,'image-replace-text','擦除原字并替换为新文字','选区改字','识别文字框后修补背景并栅格化新中文字。','把“春季新品”改成“夏日新品”，保留杯子和背景。',out/'image.png'))
     # A visibly skewed synthetic document and its corrected result.
-    document=Image.new('RGB',(640,420),'#52645d');draw=ImageDraw.Draw(document);draw.polygon([(130,55),(540,95),(500,360),(85,320)],fill='#ffffff');draw.text((180,140),'UPDREAM\nDOCUMENT',fill='#1d3429',spacing=20);document.save(SOURCES/'image-document-skew.png')
+    perspective_document(SOURCES/'image-document-skew.png')
     shutil.copyfile(SOURCES/'image-document-skew.png',source/'document.png');doc_assets=[{'id':'doc','name':'document.png','filename':'document.png','metadata':inspect_image(source/'document.png')}];out=outputs/'perspective';files=execute_image({'action':'perspective','asset':'doc','points':[[130,55],[540,95],[500,360],[85,320]]},doc_assets,staging/'project',out)
     items.append(image_demo(staging,'image-perspective','四点校正文档透视','透视与扫描','按四个角点拉正倾斜文档。','依次选择文档四角，校正透视并导出。',out/'image.png','image-document-skew.png'))
     # Canvas-only examples exercise versioned layers and exact export rendering.

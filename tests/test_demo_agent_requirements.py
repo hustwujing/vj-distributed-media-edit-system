@@ -19,6 +19,8 @@ class DemoAgentRequirementsTests(unittest.TestCase):
         self.assertIn('3–6秒',prompts['video-shot-notes'])
         self.assertIn('对比度1.18',prompts['image-adjustment-layers'])
         self.assertIn('非生成式修补',prompts['image-erase'])
+        self.assertIn('不需要再次询问',prompts['image-local'])
+        self.assertIn('精确蒙版本地换色',prompts['image-local'])
 
     def test_application_is_idempotent_and_preserves_unrelated_examples(self):
         catalog=[{'id':'local-split','prompt':'old','options':[]},{'id':'other','prompt':'keep','options':['keep']}]
