@@ -123,6 +123,7 @@ PROFILES={p.id:p for p in (
         '使用image.segment_sam3时先检查图像；文本提示用简短英文主体类别，仅在区分多个候选时添加必要修饰词，不把整段外观、服装或排除条件堆进标签。合法英文也可能低匹配；no_selection后优先改用图中核实的box或points，不反复重放同一描述或全局降低阈值。只选正确主体，仍须检查蒙版，不能把文字命中当作精修验收。'
         'operation 的输出角色与技术acceptance由宿主绑定；acceptance只声明用户业务条件，文件目标由宿主统一绑定，不猜输出文件名；不填写argv或files。固定角色operation.inputs使用contract字段，动态角色使用input_bindings。'
         'agent声明profile、input_bindings与files；每个输入包含唯一role和ref，ref只使用asset或同时使用step+role；每个files.path必须是普通文件而非目录，非交付抽帧放scratch，需交付的抽帧逐个声明.jpg/.png；每个文件包含path和roles，程序生成inputs、outputs与output_roles；不填写operation、implementation、argv或parameters。'
+        '同一Agent Task内output role跨所有files全局唯一，一个role只能标识一个文件；多文件使用不同语义role，例如primary_document、preview_image、source_manifest，不得为HTML和PNG重复使用primary。'
         'agent的timeout_seconds不得超过工具Schema给出的maximum；不确定时省略并使用宿主默认值，不得自行扩大执行时限。'
         '程序验收 image/media/text/json/file 不接受 criterion；criterion 仅用于 agent/review 内容验收。'
         '专业 Agent 的结构化报告必须符合目录中的 result_schema，不能要求该 Schema 之外的字段；额外业务数据由独立脚本任务生成。'

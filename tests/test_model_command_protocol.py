@@ -1172,6 +1172,16 @@ class ModelCommandTests(unittest.TestCase):
         result=compile_manager(transform(transform(command,schema,encode=True),schema),f)['proposal']['add_tasks'][0]
         self.assertTrue(result['runtime_requirements']['requires_gpu'])
 
+    def test_agent_file_schema_requires_globally_unique_semantic_roles(self):
+        f=frozen(False);schema=manager_schema(f)
+        task={'id':'web','type':'agent','profile':'editing_implementer','name':'Build web artifact',
+            'objective':'Build HTML and preview','input_bindings':[],
+            'files':[{'path':'artifact.html','roles':['primary']},{'path':'preview.png','roles':['primary']}],
+            'acceptance':[{'kind':'file'}],'basic_reason':'Local implementation'}
+        command={'kind':'APPLY_PLAN','reason':'Build files','plan':{'new_tasks':[task]}}
+        with self.assertRaisesRegex(Exception,'Each role identifies exactly one file'):
+            compile_manager(transform(transform(command,schema,encode=True),schema),f)
+
     def test_review_uses_only_actual_inspection_ids_and_host_snapshot(self):
         from webapp.workflow_agent_contracts import ReviewDecision
         f=frozen();f.update(result_schema=ReviewDecision.model_json_schema(),review_scope='task')

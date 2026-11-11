@@ -66,7 +66,8 @@ class ReviewPolicy(Contract):
 
 
 DELIVERY_FORMATS=frozenset({'png','jpeg','webp','tif','tiff','mp4','mov','mkv','webm','wav','mp3','m4a','flac',
-                            'srt','vtt','ass','json','txt','md','csv','pdf','zip','psd','ora','svg','py'})
+                            'srt','vtt','ass','json','txt','md','csv','pdf','zip','psd','ora','svg','py',
+                            'html','docx','xlsx','pptx','gif','drawio'})
 
 
 class DeliveryContract(Contract):

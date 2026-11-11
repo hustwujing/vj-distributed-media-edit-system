@@ -6,6 +6,13 @@ from webapp.quality_policy import Acceptance
 from webapp.execution_contracts import profile,dispatch_kind,classify_error
 
 class ContractTests(unittest.TestCase):
+    def test_native_skill_delivery_formats_are_supported_plain_files(self):
+        from webapp.workflow_graph import DeliveryContract
+        names=['artifact.html','report.docx','budget.xlsx','deck.pptx','status.gif','workflow.drawio']
+        value=DeliveryContract(filenames=names)
+        self.assertEqual(value.filenames,names)
+        self.assertEqual(set(value.formats),{'html','docx','xlsx','pptx','gif','drawio'})
+
     def test_input_validation_preserves_normalized_parameters_for_all_input_counts(self):
         from pydantic import BaseModel,ConfigDict
         from webapp.operations import OperationContract
