@@ -1,32 +1,34 @@
 """Host-side view of the immutable Native Skill Bundle manifest."""
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
+import re
 
 
-def root():
-    candidates=(Path(__file__).resolve().parents[1]/'runtime/skills',Path('/opt/video-use/skills'))
+def bundle():
+    candidates=(Path(__file__).resolve().parents[1]/'runtime/public/bundle.json',Path('/opt/video-use/bundle.json'))
     for candidate in candidates:
-        if (candidate/'manifest.json').is_file():return candidate
-    raise ValueError('Native Skill Bundle manifest is unavailable')
+        try:
+            if candidate.is_file():return json.loads(candidate.read_text())
+        except PermissionError:continue
+    raise ValueError('Native Skill Bundle index is unavailable')
 
 
 def manifest():
-    value=json.loads((root()/'manifest.json').read_text())
-    if value.get('schema_version')!=1 or not isinstance(value.get('skills'),list):
-        raise ValueError('Invalid Native Skill Bundle manifest')
+    value=bundle()
+    if value.get('schema_version')!=1 or not isinstance(value.get('skill_digest'),str) or not isinstance(value.get('files'),list):
+        raise ValueError('Invalid Native Skill Bundle index')
     result={}
-    for item in value['skills']:
-        identifier=item.get('id')
-        if not isinstance(identifier,str) or not identifier or identifier in result:
-            raise ValueError('Invalid or duplicate Native Skill ID')
-        entry=root()/identifier/'SKILL.md'
-        if not entry.is_file():raise ValueError('Native Skill entry is missing: '+identifier)
-        result[identifier]={'id':identifier,'content_sha256':item.get('content_sha256'),
-                            'supported_harnesses':item.get('supported_harnesses',[])}
-    return {'bundle_version':value.get('bundle_version'),'skills':result}
+    for item in value['files']:
+        match=re.fullmatch(r'skills/([a-z0-9][a-z0-9_-]{0,79})/SKILL\.md',str(item.get('path','')))
+        if not match:continue
+        identifier=match.group(1)
+        if identifier in result or not re.fullmatch(r'[a-f0-9]{64}',str(item.get('sha256',''))):
+            raise ValueError('Invalid or duplicate Native Skill entry')
+        result[identifier]={'id':identifier,'entry_sha256':item['sha256']}
+    if len(result)!=25:raise ValueError('Native Skill Bundle must expose exactly 25 entries')
+    return {'bundle_digest':value['skill_digest'],'skills':result}
 
 
 def identifiers():return tuple(sorted(manifest()['skills']))
@@ -41,14 +43,10 @@ def validate(selected):
 
 
 def records(selected,harness):
-    aliases={'codex':'codex','claude_code':'claude','deepseek_harness':'deepseek'}
-    if harness not in aliases:raise ValueError('Unsupported Native Skill Harness')
+    if harness not in {'codex','claude_code','deepseek_harness'}:raise ValueError('Unsupported Native Skill Harness')
     value=manifest();validate(selected);result=[]
     for identifier in selected:
         item=value['skills'][identifier]
-        if aliases[harness] not in item['supported_harnesses']:
-            raise ValueError('Native Skill does not support selected Harness: '+identifier)
-        entry=root()/identifier/'SKILL.md';raw=entry.read_bytes()
-        result.append({'id':identifier,'entry_sha256':hashlib.sha256(raw).hexdigest(),
-                       'content_sha256':item['content_sha256']})
+        result.append({'id':identifier,'entry_sha256':item['entry_sha256'],
+                       'bundle_digest':value['bundle_digest']})
     return result
