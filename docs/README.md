@@ -16,7 +16,7 @@
 
 ## 部署与排障
 
-本分支按[README 的独立部署入口](../README.md)和 `deploy/dynamic_cluster.py` 操作。
+本分支按[README 的独立部署入口](../README.md)操作：集群使用 `deploy/sandbox_cluster.sh`，真机使用 `deploy/sandbox_campaign.sh`，OpenSandbox cleanup 恢复使用 `deploy/sandbox_opensandbox_recovery.sh`。不要直接调用带来源默认值的 `dynamic_cluster.py`。
 
 | 文档 | 内容 |
 | --- | --- |
@@ -42,7 +42,7 @@
 | [能力接入指南](operation-extension-guide.md)、[接入流程](operation-onboarding.md) | 新 operation 的参数、适配器、生命周期和验证 |
 | [统一生成接口](uniform-generation-design.md) | 图片/视频生成接口、输入输出与调用边界 |
 | [分布式执行实现](distributed-execution-implementation.md) | 租约、调度、对象发布和故障接管 |
-| [OpenSandbox Runtime 开发规范](development/change-opensandbox-runtime.md) | 默认停止边界、OCI/Bundle/Profile、本地发布证据和真机升级门禁 |
+| [OpenSandbox Runtime 开发规范](development/change-opensandbox-runtime.md) | 混合路由、Attempt 绑定、OCI/Bundle/Profile、Gateway、cleanup、真机和发布门禁 |
 | [分布式执行与混合沙箱 TODO](distributed-execution-todo.md#13-opensandboxgvisor-混合执行后端设计已对齐实现中) | OpenSandbox/gVisor与bwrap路由、Runtime镜像、Node Gateway、恢复、账本、异常回收、Warm Pool和节点缓存优化 |
 | [对话执行设计](conversation-execution-design.md)、[通用分析兜底](conversation-fallback.md) | 轻量入口、沙盒交接、方案检查和确认 |
 | [用量统计设计](task-usage-design.md) | 调用账本、关联范围与统计口径；当前页面说明见 Web 使用指南 |
@@ -64,7 +64,8 @@
 | 文档 | 范围 |
 | --- | --- |
 | [已确认方案与实施边界](dynamic-plan-todo.md)、[统一 Run 实施记录](unified-run-progress.md) | 已确认设计、源码实现与待部署/真机验收边界 |
-| [当前真机审查矩阵](real-case-campaign/dynamic-case-review.md)、[真机清单](real-case-campaign/dynamic-cases.json) | 当前 126 条及冻结模型配置，不能以历史通过替代当前轮次 |
+| [示例库真机报告](real-case-campaign/demo-library-test-report.md)、[OpenSandbox 部署后审查](real-case-campaign/opensandbox-post-review-live.md) | 当前 44 项主验收、原生页面及混合沙箱专项；历史轮次不能替代当前版本 |
+| [动态真机审查矩阵](real-case-campaign/dynamic-case-review.md)、[历史动态清单](real-case-campaign/dynamic-cases.json) | 统一 Run 重构阶段的 126 条历史/专项清单，保留作协议回归参考 |
 | [模型计数缺口与改造记录](model-token-counting-gap.md) | 网关探测、本地预算估算、回执异常与验证限制 |
 | [v3 模型设置部署验证](model-v3-deployment-validation.md) | 配置错配处置、冻结门禁、浏览器验证和旧轮证据边界 |
 | [Agent 执行体验清单](agent-execution-experience-todo.md) | 正文与活动、规划预算、用量说明和方案检查 |

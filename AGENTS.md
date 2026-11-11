@@ -9,9 +9,9 @@
 - 根据任务读取 [专项开发说明索引](docs/development/README.md)，只加载相关子文档；子文档是对应任务的开发规则。
 - 本分支的动态工作流控制面按 [动态工作流开发规范](docs/development/change-dynamic-workflow.md)；
   新增 harness、专业 Agent、LLM 分别读取索引中的对应接入说明。
-- 实施统一 Run/Control Job、Provider 拆分、用户反馈或运行中输入重构前，必读[已确认方案与实施边界](docs/dynamic-plan-todo.md)。质量反馈统一走 run_inputs 和全 Run 排空安全点，Provider 不保留旧字段兼容；逐项核对文末五个边界及验证要求。
+- 修改统一 Run/Control Job、Provider 元数据、用户反馈或运行中输入时，读取[动态工作流开发规范](docs/development/change-dynamic-workflow.md)和[程序正确性审查原则](docs/program-correctness-audit.md)。质量反馈统一走 `run_inputs` 和全 Run 排空安全点；不得恢复旧 Plan/Execute 双写或旧 Provider 字段兼容。
 - 新增 operation、为现有 operation 增加实现，或修改其契约/生命周期时，必须先读 [新增与扩展 operation](docs/development/add-operation.md)。
-- 修改 OpenSandbox/gVisor、Runtime 镜像、Skill Bundle、Profile、Node Gateway grant 或相关发布证据时，必须先读 [OpenSandbox Runtime 开发与发布准备](docs/development/change-opensandbox-runtime.md)。未获明确授权时只做本地离线准备，不推送镜像、不改数据库/daemon/网络、不启动真沙箱或部署。
+- 修改 OpenSandbox/gVisor、Runtime 镜像、Skill Bundle、Profile、Node Gateway grant、远程 Agent/Command 路由或 cleanup 时，必须先读 [OpenSandbox Runtime 开发规范](docs/development/change-opensandbox-runtime.md)。当前独立环境已经运行真实 OpenSandbox；代码存在不等于部署生效，历史真机通过也不代表新镜像通过。
 - 修改或执行真机 case、归因、复测及交接审查时，读取[真机测试与审查规范](docs/development/run-live-campaign.md)。模型选择和计量修改同时读取 LLM、动态工作流及可观测性专项；模型版本、执行 harness 和 strict 传输模式必须分别核实。
 
 ## 通用约定
@@ -19,9 +19,11 @@
 - 复用现有契约、调度、隔离、取消、恢复和成果发布机制；业务特例留在对应能力实现中。
 - 输入归属、方案确认、版本绑定和租约校验不能因功能扩展被绕过。状态与交付相关改动参考 [程序正确性审查原则](docs/program-correctness-audit.md)。
 - 测试使用独立数据与隔离入口；先验证直接影响的行为，发布检查按现有部署流程执行。文档改动检查链接、示例和代码一致性即可。
-- 本机 Python 定向测试也必须使用 `VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp TMPDIR=/data2/wujing03/t VIDEO_USE_TEST_SUITE_LOCK=/data2/wujing03/video-use-test-suite-0.lock XDG_CACHE_HOME=/data2/wujing03/vu-tmp/cache PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m tests.run_distributed_suite <测试模块>`，不得直接使用 `python -m unittest` 绕过隔离初始化。临时文件、测试缓存、锁文件和日志放在 `/data2/wujing03`；不要回退到根分区 `/tmp`。
+- 本机 Python 定向测试也必须使用 `VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp TMPDIR=/data2/wujing03/t VIDEO_USE_TEST_SUITE_LOCK=/data2/wujing03/video-use-test-suite-0.lock XDG_CACHE_HOME=/data2/wujing03/vu-tmp/cache PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -m tests.run_distributed_suite <测试模块>`，不得直接使用 `python -m unittest` 绕过隔离初始化。临时文件、测试缓存、锁文件和日志放在 `/data2/wujing03`；不要回退到根分区 `/tmp`。并行工作区使用不同 suite lock，避免互相等待或覆盖报告。
 - 交付时说明改动、验证结果及未验证边界；历史验收不代表当前代码通过，工作区修改不代表已部署。
-- 本机独立部署通过 `deploy/dynamic_cluster.py` / `deploy.sh` 管理；共享部署原语与 unit 模板分别位于 `deploy/common.py` 和 `deploy/systemd_templates.py`。不得以其他真机驱动操作 main；服务名、端口、数据目录、UID/cgroup、数据库、Redis 前缀和 BOSS 前缀必须独立。
+- 本机独立部署统一通过 `deploy/sandbox_cluster.sh` 管理，真机通过 `deploy/sandbox_campaign.sh`，OpenSandbox cleanup 恢复通过 `deploy/sandbox_opensandbox_recovery.sh`。共享部署原语与 unit 模板位于 `deploy/common.py` 和 `deploy/systemd_templates.py`。不得用 `deploy.sh`、来源仓库驱动或裸 `dynamic_cluster.py` 绕过本仓库固定命名空间。
+- 当前混合路由是 CPU Command `opensandbox`、CPU Agent `local_bwrap`、GPU 本机隔离、外部能力走登记 Provider。后端选择、Runtime Profile、镜像/Bundle digest 和 Gateway grant 必须冻结到 Attempt；页面、日志与报告按真实 `execution_location` / `tool_location` 展示，不能把宿主 Agent 写成 OpenSandbox Agent。
+- OpenSandbox 创建、续租、清理和 Gateway 撤销必须按 Attempt 幂等。create 回执丢失时按 Attempt 查询已有实例；cleanup 未确认时保留重试状态，不得释放资源或重复创建来掩盖未知状态。
 - 动态 Task 的正式状态只由 Orchestrator 提交；执行器仅保存候选和回执。不得绕过 sealed、
   授权包络、候选验证或旧 generation 防护来让测试通过。
 - 修复使用逻辑 Task + 不可变 revision；只允许原授权、目标、输入输出和验收内的实现修订。修复根计数，受影响后代换 revision，无关分支复用；旧 revision、结果和 plan 选择记录不得覆盖。
@@ -40,7 +42,7 @@
 - 不维护旧 Provider 字段兼容读取，不做新旧执行身份双写；专用数据库按部署流程备份后重置。
 - 输入、反馈、重新授权均通过 run_inputs、安全点与版本化 grant；禁止新增绕过屏障的修订 API。
 - Control Job 不进入业务 DAG；日志和指标区分控制调用、业务重试与正常 poll/collect。
-- 当前真机用例共 126 条，以冻结 manifest/驱动/源码与配置部署摘要共同绑定结果；旧 119 条冻结轮结果不能替代当前验证。
+- 当前主验收是示例库 44 项及其原生页面/恢复专项；以轮次 manifest、驱动、源码、配置、Runtime 镜像和 Bundle 摘要共同绑定结果。旧 119/126 条或历史 44 项轮次均不能替代当前版本验证。
 
 ## 维护开发说明
 

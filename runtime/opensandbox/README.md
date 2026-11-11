@@ -10,6 +10,14 @@ reviewed `wheels/` set. The foundation layer is the only networked build: it
 installs OS packages from a Python base and must be pinned by digest before it
 is accepted by the runtime build.
 
+The repository also has an isolated live deployment. Its current routing uses
+the Command Runtime through OpenSandbox/gVisor while CPU Agents remain on the
+local bwrap backend. The Codex, Claude and DeepSeek images are real release
+artifacts, but their presence does not mean remote Agent execution is enabled.
+See the root [`README.md`](../../README.md) for the deployed topology and the
+runtime development guide for the evidence required before changing that
+routing.
+
 1. Build `foundation.Dockerfile` with an immutable `PYTHON_IMAGE`.
 2. Record the local foundation digest, then build `base.Dockerfile` offline with
    that digest as `BASE_IMAGE`.
@@ -63,3 +71,28 @@ The current Aliyun Debian mirror is not a historical snapshot; the generated
 OS package lock records exactly what was built, but a registry publication
 must additionally freeze a package snapshot or archive the verified `.deb`
 inputs before claiming byte-for-byte reproducibility.
+
+## Isolated deployment validation
+
+Run deployment and live validation through the namespace-pinning wrappers from
+the repository root:
+
+```bash
+./deploy/sandbox_cluster.sh status
+./deploy/sandbox_cluster.sh deploy
+./deploy/sandbox_campaign.sh run --cases C06 --jobs 1 --order risk
+./deploy/sandbox_opensandbox_recovery.sh
+```
+
+Do not invoke `dynamic_cluster.py` directly for this environment: its defaults
+belong to the source deployment. The wrappers freeze the `sandbox-agent`
+service namespace, dedicated database, Redis/BOSS prefixes, ports, executor
+roots and evidence paths.
+
+A successful Command case must record the source and configuration release,
+registry manifest digest, Bundle digest, Attempt/Generation, Sandbox ID,
+execution location, artifacts and cleanup receipt. Cleanup recovery additionally
+requires the Sandbox API to return 404 after deletion. A `targeted_only`
+deployment proves only its named retest; full campaign claims require a
+matching full-gate release and the complete image matrix required by the
+development guide.

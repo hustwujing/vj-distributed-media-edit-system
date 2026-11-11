@@ -68,6 +68,13 @@ export function bindMedia(container,items,callback=openMedia){const lookup=new M
 export function sourceItems(project){return project.assets.map(a=>({...a,type:a.kind==='video'?'video/mp4':a.kind==='image'?(a.mime||'image/png'):a.kind==='audio'?(a.mime||'audio/wav'):a.kind==='document'?(a.mime||'application/octet-stream'):'text/plain',subtitle:a.kind==='video'?`${duration(a.duration)} · ${a.width} × ${a.height}`:a.kind==='image'?`${a.width} × ${a.height} · 图片 · 点击放大`:a.kind==='audio'?`${duration(a.duration)} · 音频 · 点击试听`:a.kind==='document'?`${Math.max(1,Math.ceil((a.size||0)/1024))} KB · 参考资料`:'字幕文件'}));}
 export const isProcessFile=processArtifact;
 export function resultItems(project,turns=[]){return collectResults(project,turns,labels,date);}
+function bindDocumentPan(viewport){
+ let pan=null;
+ viewport.onpointerdown=event=>{if(event.button!==0)return;pan={x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};viewport.setPointerCapture(event.pointerId);viewport.classList.add('panning');event.preventDefault();};
+ viewport.onpointermove=event=>{if(!pan)return;viewport.scrollLeft=pan.left-(event.clientX-pan.x);viewport.scrollTop=pan.top-(event.clientY-pan.y);};
+ const finish=event=>{if(!pan)return;if(viewport.hasPointerCapture(event.pointerId))viewport.releasePointerCapture(event.pointerId);pan=null;viewport.classList.remove('panning');};
+ viewport.onpointerup=finish;viewport.onpointercancel=finish;
+}
 export class Preview{
  constructor(container,{modal=false}={}){this.container=container;this.current=null;this.token=0;this.modal=modal;container.innerHTML=`<div class="preview-top"><div><span class="eyebrow">PREVIEW</span><h3 class="preview-name">作品预览</h3></div><button class="icon-button preview-expand" title="放大预览">${icon('expand')}</button></div><div class="preview-stage"><div class="preview-empty">${icon('film',38)}<h3>在这里，先看效果</h3><p>选择素材或生成结果即可预览</p></div></div><div class="preview-bottom"><span class="preview-info">音视频、图片和文本都可以直接预览</span><a class="button subtle preview-download" hidden> ${icon('download',15)}下载</a></div>`;container.querySelector('.preview-expand').onclick=()=>{if(this.current)openMedia(this.current);};if(modal)container.querySelector('.preview-expand').hidden=true;}
  async show(item,{autoplay=false}={}){
@@ -81,6 +88,17 @@ export class Preview{
    stage.innerHTML=`<video controls playsinline preload="metadata" ${item.poster_url?`poster="${esc(href(item.poster_url))}"`:''} src="${esc(href(item.url))}"></video>`;const video=stage.querySelector('video');video.onloadedmetadata=()=>{if(token===this.token)this.container.querySelector('.preview-info').textContent=`${duration(video.duration)} · ${video.videoWidth} × ${video.videoHeight}`;};video.onerror=()=>failed('视频加载或解码失败，请重试或下载原文件查看。');if(autoplay)video.play().catch(()=>{});
   }else if(isPreviewImage(item)){stage.innerHTML=`<img class="preview-image" src="${esc(href(item.url))}" alt="${esc(item.name)}">`;stage.querySelector('img').onerror=()=>failed('图片加载失败，请重试或下载原文件。');}
   else if(item.type==='application/pdf')stage.innerHTML=`<iframe class="preview-document" src="${href(item.url)}" title="预览 ${esc(item.name)}"></iframe>`;
+  else if(item.type==='text/html'){
+   stage.innerHTML='<div class="loading-state"><span class="spinner"></span>正在读取内容…</div>';
+   try{
+    const response=await fetch(href(item.url));if(!response.ok)throw new Error('无法读取文件');const documentText=await response.text();if(token!==this.token)return;
+    stage.innerHTML='<div class="preview-document-viewport" tabindex="0"><iframe class="preview-document preview-html" sandbox="allow-same-origin" title=""></iframe></div>';
+    const viewport=stage.querySelector('.preview-document-viewport'),frame=viewport.querySelector('iframe');frame.title=`预览 ${item.name}`;bindDocumentPan(viewport);
+    frame.onload=()=>{if(token!==this.token)return;try{const doc=frame.contentDocument,root=doc?.documentElement,body=doc?.body,width=Math.min(8192,Math.max(1024,root?.scrollWidth||0,body?.scrollWidth||0)),height=Math.min(16384,Math.max(720,root?.scrollHeight||0,body?.scrollHeight||0));frame.style.width=width+'px';frame.style.height=height+'px';}catch{};};
+    const policy=`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; media-src data: blob:">`;
+    frame.srcdoc=policy+documentText.slice(0,2_000_000);
+   }catch(error){if(token===this.token)stage.innerHTML=`<p class="inline-error">${esc(error.message)}</p>`;}
+  }
   else if(item.type?.startsWith('audio/')){stage.innerHTML=`<audio controls src="${esc(href(item.url))}"></audio>`;const audio=stage.querySelector('audio');audio.onerror=()=>failed('音频加载或解码失败，请重试或下载原文件。');if(autoplay)audio.play().catch(()=>{});}
   else if(item.type==='application/octet-stream'||/\.(psd|ora|zip|tiff?|docx|xlsx|pptx)$/i.test(item.name))stage.innerHTML='<div class="preview-empty"><h3>暂不支持此格式的在线预览</h3><p>文件可下载后在兼容的应用中查看。</p></div>';
   else{stage.innerHTML='<div class="loading-state"><span class="spinner"></span>正在读取内容…</div>';try{const response=await fetch(href(item.url));if(!response.ok)throw new Error('无法读取文件');let text=await response.text();if(item.type==='application/json'){try{text=JSON.stringify(JSON.parse(text),null,2);}catch{}}if(token===this.token)stage.innerHTML=`<pre class="text-preview">${esc(text.slice(0,180000))}</pre>`;}catch(error){if(token===this.token)stage.innerHTML=`<p class="inline-error">${esc(error.message)}</p>`;}}

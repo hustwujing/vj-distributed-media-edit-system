@@ -15,14 +15,14 @@
 | 修改工作流计划、步骤、依赖、状态、验收、用户决策或恢复行为 | [工作流开发说明](change-workflow.md) | 契约、状态转换、执行与恢复、验收、入口和回归 |
 | 修改轻量对话、Agent 上下文、方案确认、工具授权或对话事件 | [Agent 与对话开发说明](change-agent-conversation.md) | 路由交接、权限、确认、任务控制、历史恢复与展示 |
 | 修改调度、租约、资源隔离、回收、检查点或跨节点成果发布 | [分布式执行开发说明](change-distributed-execution.md) | 执行归属、资源准入、故障接管、存储提交与竞争验证 |
-| 修改 OpenSandbox/gVisor、Runtime OCI、Skill Bundle、Profile、Node Gateway grant 或本地发布证据 | [OpenSandbox Runtime 开发与发布准备](change-opensandbox-runtime.md) | 默认停止边界、镜像构建、离线契约、安全扫描、容量模型和真机升级门禁 |
+| 修改 OpenSandbox/gVisor、Agent/Command 后端路由、Runtime OCI、Skill Bundle、Profile、Node Gateway grant、远程 cleanup 或发布证据 | [OpenSandbox Runtime 开发规范](change-opensandbox-runtime.md) | 混合执行边界、Attempt 绑定、镜像构建、Gateway、恢复、真机与发布门禁 |
 | 修改聊天/工具/图片页面、实时更新、产物展示、预览或画布交互 | [前端与产物展示开发说明](change-ui-artifacts.md) | 状态来源、事件合并、成果语义、文件权限、表单和画布版本 |
 | 接入或修改外部供应商、认证、调用协议、下载及取消核实 | [外部服务与供应商接入](change-external-providers.md) | 协议选型、调用意图、固定路由、恢复、额度和真实服务验收 |
 | 修改日志、指标、诊断、告警、活动或用量统计 | [可观测性与用量开发](change-observability-usage.md) | 关联与脱敏、事务审计、故障降级、回执去重及汇总口径 |
 
 ## 阅读与维护边界
 
-先按实际修改选择主说明，再读取被影响机制的专项；引用其他主题用于定位，不要求递归读完所有文档。HTTP 请求的并发与耗时隔离归 API，能力注册归 operation，步骤契约与验收归工作流，方案确认归 Agent，对执行归属和持久化的修改归分布式，供应商协议归外部服务，指标与账本归可观测性，浏览器呈现归前端。
+先按实际修改选择主说明，再读取被影响机制的专项；引用其他主题用于定位，不要求递归读完所有文档。HTTP 请求的并发与耗时隔离归 API，能力注册归 operation，步骤契约与验收归工作流，方案确认归 Agent，执行归属和持久化归分布式，OpenSandbox Runtime/Profile/Gateway/cleanup 归 OpenSandbox，供应商协议归外部服务，指标与账本归可观测性，浏览器呈现归前端。
 
 跨主题只保留调用方必须遵守的边界，完整实现步骤、字段语义和测试细节集中在负责该机制的说明，通过链接复用。通用环境、隔离测试、发布检查及仅文档改动的验证方式统一维护在[开发与测试](../development.md)；各篇命令是定向示例，不是每次任务都需执行的固定清单。
 

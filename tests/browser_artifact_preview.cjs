@@ -9,12 +9,15 @@ const files={
  '/clip.mp4':['video/mp4',video],'/sound.wav':['audio/wav',wav],
  '/picture.svg':['image/svg+xml',Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="blue"/></svg>')],
  '/data.json':['application/json',Buffer.from('{"message":"预览内容"}')],
+ '/page.html':['text/html',Buffer.from('<!doctype html><style>html,body{margin:0;width:1500px;min-height:1300px;background:white}header{height:120px;background:#164}main{margin:40px;width:1300px;height:1000px;background:#eef}</style><header></header><main id="far">HTML PREVIEW</main><img src="/preview-must-not-fetch"><script>document.body.dataset.scriptRan="yes"</script>')],
  '/captions.srt':['text/plain',Buffer.from('1\n00:00:00,000 --> 00:00:01,000\n你好')],
  '/unknown.bin':['application/octet-stream',Buffer.from([0,255,1])],
  '/broken.mp4':['video/mp4',Buffer.from('not a video')],
 };
+let blockedRequests=0;
 const server=http.createServer((req,res)=>{
  const name=new URL(req.url,'http://localhost').pathname;
+ if(name==='/preview-must-not-fetch'){blockedRequests++;res.writeHead(204);res.end();return;}
  if(name==='/'){res.setHeader('Content-Type','text/html');res.end('<!doctype html><base href="/"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/studio.css"><div id="results"></div><div id="dynamic-preview" style="margin-top:2000px"></div>');return;}
  if(files[name]){const [type,data]=files[name];res.setHeader('Content-Type',type);const range=req.headers.range?.match(/^bytes=(\d+)-(\d*)$/);if(range){const start=Number(range[1]),end=Math.min(data.length-1,range[2]?Number(range[2]):data.length-1);res.writeHead(206,{'Content-Range':`bytes ${start}-${end}/${data.length}`,'Content-Length':end-start+1});res.end(data.subarray(start,end+1));}else{res.setHeader('Content-Length',data.length);res.end(data);}return;}
  if(/^\/[a-z_]+\.(js|css)$/.test(name)){res.setHeader('Content-Type',name.endsWith('.js')?'text/javascript':'text/css');res.end(fs.readFileSync(path.join(root,name)));return;}
@@ -32,13 +35,19 @@ const server=http.createServer((req,res)=>{
     window.inline=new Preview($('dynamic-preview'));await window.inline.show(delivery[0]);
     renderRunResult($('results'),{id:'done',state:'SUCCEEDED',delivery,tasks:[]},showArtifact);window.ready=true;`});
    await page.waitForFunction(()=>window.ready);
-   const cases=[['clip.mp4','video'],['picture.svg','img'],['sound.wav','audio'],['data.json','pre'],['captions.srt','pre'],['unknown.bin','.preview-empty'],['broken.mp4','.preview-error']];
+   const cases=[['clip.mp4','video'],['picture.svg','img'],['sound.wav','audio'],['page.html','iframe'],['data.json','pre'],['captions.srt','pre'],['unknown.bin','.preview-empty'],['broken.mp4','.preview-error']];
    for(const [name,selector] of cases){
     await page.getByRole('button',{name:'预览 '+name,exact:true}).click();const dialog=page.locator('#media-modal');await dialog.waitFor({state:'visible'});
     const item=dialog.locator(selector);await item.waitFor({state:'visible'});
     if(name==='clip.mp4'){await item.evaluate(v=>v.play());await page.waitForFunction(()=>document.querySelector('#media-modal video').currentTime>0);}
     if(name==='picture.svg')await page.waitForFunction(()=>document.querySelector('#media-modal img').naturalWidth===32);
     if(name==='data.json')assert.match(await item.innerText(),/预览内容/);
+    if(name==='page.html'){
+     await page.waitForFunction(()=>document.querySelector('#media-modal iframe')?.contentDocument?.readyState==='complete');
+     assert.equal(await dialog.locator('iframe').count(),1);assert.equal(await item.evaluate(frame=>frame.contentDocument.body.dataset.scriptRan),undefined);assert.equal(blockedRequests,0);
+     const viewport=dialog.locator('.preview-document-viewport'),before=await viewport.evaluate(node=>({left:node.scrollLeft,top:node.scrollTop,width:node.scrollWidth,height:node.scrollHeight,clientWidth:node.clientWidth,clientHeight:node.clientHeight}));
+     assert.ok(before.width>before.clientWidth&&before.height>before.clientHeight);const box=await viewport.boundingBox();await page.mouse.move(box.x+box.width*.75,box.y+box.height*.75);await page.mouse.down();await page.mouse.move(box.x+box.width*.25,box.y+box.height*.25,{steps:5});await page.mouse.up();const after=await viewport.evaluate(node=>({left:node.scrollLeft,top:node.scrollTop}));assert.ok(after.left>before.left&&after.top>before.top);
+    }
     if(name==='captions.srt')assert.match(await item.innerText(),/你好/);
     if(name==='broken.mp4')assert.match(await item.innerText(),/加载或解码失败/);
     if(name==='unknown.bin')assert.match(await item.innerText(),/暂不支持/);

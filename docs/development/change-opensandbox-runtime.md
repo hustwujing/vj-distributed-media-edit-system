@@ -1,30 +1,30 @@
-# OpenSandbox Runtime 开发与发布准备
+# OpenSandbox Runtime 开发规范
 
 适用于修改 OpenSandbox/gVisor 后端、Runtime Daemon、Agent/Command OCI 镜像、Skill Bundle、
-Profile、Node Capability Gateway grant、远程清理，以及在不部署的前提下准备本地发布证据。
+Profile、Node Capability Gateway grant、远程清理、独立部署及发布证据。
 调度、租约、检查点和跨节点成果仍按[分布式执行开发说明](change-distributed-execution.md)；
 真实环境测试按[真机测试与审查](run-live-campaign.md)。
 
-## 1. 当前阶段与默认边界
+## 1. 当前阶段与边界
 
-当前开发分支已具备 OpenSandbox Agent/Command 传输、四张本地 Runtime 镜像、冻结 Bundle/Profile、
-离线契约检查和本地安全报告，但远程 factory 默认关闭，尚未完成数据库持久化绑定、registry 发布、
-生产 Gateway/TLS、真实 gVisor 沙箱、多机恢复和 Watchdog 故障演练。
+当前分支已在独立 `sandbox-agent` 环境接通数据库持久化、OpenSandbox 生命周期服务、gVisor
+Command Runtime、隔离 registry digest、Bundle/Profile、Attempt 绑定、Gateway grant、远程 cleanup 和
+部署后真机。当前实际路由是 CPU Command `opensandbox`、CPU Agent `local_bwrap`；GPU 和外部 Provider
+保留各自登记路径。代码具备远程 Agent Runtime，但当前部署没有启用，不能把 Command 真机结果写成
+“所有 Agent 已迁移 OpenSandbox”。
 
-除非用户本轮明确授权对应动作，默认只能执行开发工作区和本地 Docker 镜像内的可逆操作：
+已验证的单机独立环境仍不等于生产多机完成。以下结论必须分开：
 
-| 默认允许 | 需要新授权 |
+| 已有独立环境证据 | 尚未由当前环境证明 |
 | --- | --- |
-| 修改源码、Dockerfile、测试和文档 | 修改或重建任何现有业务数据库 |
-| 构建本地、未部署的镜像 | 推送镜像、签名或写 registry |
-| `docker run --rm` 离线契约检查 | 修改 Docker daemon、runsc、网络、防火墙或 Nginx |
-| 读取本地镜像并生成 SBOM/漏洞报告 | 启动 OpenSandbox 真沙箱或改变现有服务配置 |
-| 使用隔离临时数据库运行开发回归 | 部署、重启、停服或执行节点故障注入 |
-| 纯计算容量模型和 Profile dry-run | 真实 30 沙箱压测、多机演练或真实模型调用 |
+| 真实 gVisor Command sandbox、不可变镜像/Bundle、产物回传 | 远程 Codex/Claude/DeepSeek Agent 全链路 |
+| Attempt/Sandbox 持久化、租约、cleanup、DELETE 404 | 至少两台物理节点的接管与整机故障容灾 |
+| orphan、create 回执丢失、Lifecycle 服务中断恢复 | 生产 Gateway TLS/CA、中央日志和外部告警 |
+| 独立数据库、Redis/BOSS 前缀、端口和 systemd 服务 | 经批准的 30 沙箱容量、长期稳定性和生产流量切换 |
 
-“继续官方部署”“开始真机验收”等指令只授权其明确范围，不自动授权数据库重建、宿主重启、
-防火墙变更或生产流量切换。无法在上述默认范围内继续获得新证据时，应报告停止点并等待授权；
-不要用更多 mock、文档勾选或重复静态扫描冒充下一阶段进展。
+开发、部署和故障演练使用不同操作范围。修改源码和离线镜像不应隐式改动运行中服务；部署、数据库
+重置、Docker/runsc/网络变更和故障注入按任务明确范围执行。任何阶段都不能用 mock、容量计算或历史
+报告冒充当前真机证据。
 
 ## 2. 实现与构建入口
 
@@ -168,27 +168,39 @@ Command 失败须解包有界的结构化 worker 错误回执，保留真实子�
 实际 GET 返回 404、服务恢复 active、测试行删除且 sandbox 列表无残留。它只操作独立部署，不能指向
 来源数据库、来源 OpenSandbox 端口或共享生产命名空间。
 
-## 6. 升级到真机阶段
+## 6. 独立部署与真机
 
-进入下一阶段前，必须明确获得并记录以下隔离资源和授权：
+当前仓库固定使用以下入口，避免误操作来源实例：
 
-1. 测试镜像 registry、命名空间和签名策略；推送后使用 registry manifest digest 重建 Profile。
-2. 独立测试数据库、对象存储前缀、Redis 前缀、节点目录和可清理的测试用户/项目。
-3. 独立 OpenSandbox/gVisor 节点、专用 bridge 子网、Gateway TLS/CA、端口与防火墙变更范围。
-4. 允许启动的真实沙箱数、CPU/内存/磁盘水位、预热池规模及停止条件。
-5. Watchdog、Executor kill、节点重启、数据库断连等故障演练窗口和恢复责任人。
+```bash
+./deploy/sandbox_cluster.sh status
+./deploy/sandbox_cluster.sh deploy
+./deploy/sandbox_campaign.sh run --cases C06 --jobs 1 --order risk
+./deploy/sandbox_opensandbox_recovery.sh
+```
 
-真机阶段按“单个 Command → 单个 Agent → Gateway 模型/工具 → Checkpoint 恢复 → cleanup/故障 →
-多节点 → 容量/预热”的顺序扩大。每步保存 registry digest、源码/配置摘要、Attempt/Generation、
-Gateway grant、Usage、Checkpoint、Cleanup Receipt 和实际残留资源证据；前一步失败不得通过扩大范围
-绕过。
+部署资源必须保持 `sandbox-agent` 服务前缀、`distributed_agent_sandbox` 数据库、
+`distributed-agent-sandbox` Redis/BOSS 前缀、`2076x` 端口、`.sandbox-cluster` 证据目录和
+`/data2/wujing03/das-sandbox-exec` Executor 根目录。OpenSandbox 使用专用生命周期服务、网络和 registry；
+不得指向来源数据库、来源对象前缀或来源测试 Cookie。
+
+真机按“单个 Command → 业务 DAG → review/revision → checkpoint → cleanup/故障 → 并发”扩大。
+每步保存源码/配置摘要、registry digest、Bundle digest、Attempt/Generation、Sandbox ID、Gateway grant、
+Usage、Checkpoint、Cleanup Receipt 和实际残留证据。运行前确认目标 release 是 `full_gate` 还是
+`targeted_only`；后者只能验证指定修复。
+
+远程 Agent、多物理节点和生产网络是后续独立阶段。启用前需补齐三张 Agent 镜像的真实 Gateway/模型
+验证、native resume、checkpoint 恢复、取消和 cleanup；多机还需 registry/对象存储网络、节点发现、
+中央观测、外部告警、容量水位和故障演练。
 
 ## 7. 完成口径
 
-可称为“本地发布准备完成”的最低条件：四张本地镜像构建成功；Bundle/Profile 冻结；强化契约、
-定向及全量非真机测试通过；最新 image ID 有对应 SBOM/漏洞/许可证证据；工作区提交且 release
-manifest 为 `dirty=false`。
+单机独立 Command Runtime 完成口径：源码与配置冻结；operation-runtime 使用 registry digest；Bundle、
+Profile、Gateway 能力一致；定向及全量门禁通过；真实 Command case、浏览器、数据库、对象、Redis、
+Sandbox、cleanup 和恢复专项通过；报告绑定同一 release。当前环境可以按证据范围声明这一能力，不能
+扩大成远程 Agent 或多机生产能力。
 
-只有完成 registry digest/签名、独立数据库和 Gateway 接线、至少两台物理节点的真实恢复与清理、
-网络隔离、账本、故障演练及批准的容量测试后，才可称为“OpenSandbox 后端完成”或“可上线”。
-本地镜像、mock SDK、Docker 容器冒烟、容量计算和历史测试均不能替代这些证据。
+完整四镜像发布还要求同一共享 base、Codex/Claude/DeepSeek 镜像、离线契约、SBOM/漏洞/许可证、
+registry manifest 和真实 Agent case。只有进一步完成至少两台物理节点的接管与清理、生产网络隔离、
+中央观测、外部告警、账本、故障演练及批准容量测试，才能讨论多机上线。历史测试和 `targeted_only`
+部署不能充当这些证据。

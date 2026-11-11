@@ -1,137 +1,146 @@
-# Distributed Agent System
+# Distributed Agent Sandbox Backend
 
-通过自然语言执行媒体处理任务的分布式 Agent 系统。用户先确认目标、素材和预算，Manager 根据实际结果逐轮编辑服务端 PlanDraft；注册 operation 和受限专业 Agent 生成候选结果，独立 Orchestrator 验证后提交正式状态与交付。
+面向对话式媒体处理的统一 Run 系统。本仓库在分布式 Agent 控制面上增加 OpenSandbox/gVisor Command Runtime，并保留本机 bwrap Agent 与 GPU 工具，形成按任务能力选择执行后端的混合架构。
 
-当前开发分支为 `feature/unified-run`。设计见[动态工作流方案](video-use-dynamic-agent-workflow-design.md)，上一冻结轮验收见[119 条真机 case 最终报告](docs/real-case-campaign/final-119-report.md)，当前清单已扩展为 126 条；逐尝试证据见[动态测试证据索引](docs/real-case-campaign/dynamic-test-report.md)。历史版本结果不代表当前版本通过。
+当前开发分支为 `feature/opensandbox-hybrid-execution`。工作区是 `/data2/wujing03/distributed-agent-sandbox-backend`；独立部署入口为 `/distributed-agent-sandbox/`。历史报告只说明其绑定版本，不能替代当前工作区或当前部署验证。
 
-## 工作方式
+## 架构
 
 ```text
-浏览器：目标 / 素材 / 授权预算 / 暂停取消 / 验收 / 下载
-                            │
-                         API 副本
-                            │
-                 PostgreSQL 权威状态与命令
-                    ↕                 ↕
-          独立 Orchestrator       调度器与执行节点
-         校验 / 恢复 / 发布       ├─ Manager：编辑并原子提交 PlanDraft
-                                ├─ 注册 operation / 专业 Agent
-                                └─ 固定工具、隔离沙盒、独立 reaper
+浏览器 / API
+      │
+PostgreSQL 权威状态 ── Run / Business Task / Control Job / Attempt / Lease
+      │
+Orchestrator ── 规划、屏障、修订、审查、发布、恢复
+      │
+Executor a/b
+  ├─ CPU Command operation ── OpenSandbox + gVisor
+  ├─ CPU Agent / specialist ── 本机 bwrap
+  ├─ GPU 与固定本机能力 ───── 本机隔离运行时
+  └─ 外部 Provider ────────── 按已冻结调用协议执行
 
-BOSS/S3：加密素材、不可变检查点、候选与交付产物
-Redis：带过期时间的事件传输；业务状态仍以数据库为准
-观测服务：关联 run / task 或 control job / attempt / generation 的日志、用量、诊断
+BOSS/S3：加密素材、检查点、候选与交付
+Redis：带 TTL 的流式事件；数据库仍是权威状态
+Observer：关联 Run、Task/Control Job、Attempt、Generation 和 Sandbox
 ```
 
-- **统一身份**：Session 记录会话和消息；Run 是执行与用量根。业务 Task 与 PLAN/REVIEW/DIAGNOSE Control Job 分表，使用同一租约体系，API 统一为 `/runs`。
-- **持续输入与反馈**：输入写入 `run_inputs`，第一条输入建立全 Run 派发屏障；已开始的工作正常结束，在安全点合并重规划。质量反馈也走同一入口，不能豁免技术或 Agent 拒绝；正式交付后输入创建待确认范围的 successor Run。
-- **滚动计划与修复**：Manager 只规划注册 `operation` 与 `agent` Task；需要动态代码时由 `editing_implementer` 在受限沙箱内执行，Manager 不提交原始 shell、SQL、URL 或代码。旧 revision 和结果历史不可改写；失败节点可在原授权、目标、输入输出与验收内产生新 revision，依赖后代随之失效，无关分支继续复用。
-- **明确授权**：绑定素材内容指纹、操作实现、专业 Agent 策略、模型 Token、外部调用额度和任务期限；扩大范围需要用户确认。
-- **Provider 治理**：外部副作用、授权预算组、调度并发组、路由适配器和实际 Provider 身份分别记录；调用前冻结元数据与恢复句柄，配置变化不得重放生成。
-- **可靠执行**：租约及 generation 约束领取、结果提交与回收。已知外部句柄可继续查询，提交结果未知时禁止自动重复生成。
-- **独立验收**：执行器只暂存候选；技术完整性、内容审核及封口后的最终验收通过后，由 Orchestrator 发布成果。
-- **可复用结果**：已验收成果可以按固定修订和哈希加入下一轮素材，重新授权后执行新目标。
-- **可追踪失败**：保留错误分类、执行证据、用量、清理状态；模型判断不能覆盖程序完整性约束。
-- **类型化媒体语义**：音轨存在、静音、响度、文本匹配、Alpha/蒙版、主体范围、一致性和动作时序分别表达。多片段拼接和常用音频处理走受控 operation，并记录资源与测量报告。
+- Session 只承载会话和消息，Run 是执行、授权和用量根。
+- Manager 使用服务端 PlanDraft 和类型化命令；业务 Task 与 PLAN/REVIEW/DIAGNOSE Control Job 分离。
+- 输入与反馈写入 `run_inputs`，第一条输入建立派发屏障；已开始任务排空后统一重规划。
+- 执行器只提交候选和回执，Orchestrator 校验 revision、generation、验收与审查后发布。
+- 失败修复保留逻辑 Task 和不可变 revision；受影响后代重算，无关分支复用。
+- 后端绑定、Runtime Profile、镜像 digest、Bundle digest、授权和 Gateway grant 按 Attempt 冻结，不能因重试静默换后端。
 
-部署形态为单机多实例，支持同机节点接管；它不提供整机故障容灾。当前 observe collector 也只覆盖这种单机拓扑：它跟随本机 systemd journal，探测本机 API、GPU、内存和磁盘，并将索引保存到本地 SQLite；整机失联时无法自行对外告警。结构化遥测协议和任务诊断模型可以复用，但跨物理机部署必须另行接入各机采集 Agent、中央日志/指标后端和独立外部告警，不能直接沿用当前 collector 宣称全集群可观测。
+## 混合执行边界
 
-| 组件角色 | 当前内置部署 | 协议能力与跨机边界 |
+当前独立部署的实际配置是：
+
+| 工作类型 | 当前后端 | 说明 |
 | --- | --- | --- |
-| API / Media | 同机两个 API 实例，每个实例通过本机 Unix Socket 使用 Media Sidecar | API 可复用共享 PostgreSQL/S3 协议；跨机负载均衡、节点发现和 Media 配套部署未由当前脚本提供 |
-| Orchestrator | 单个 `dynamic-agent-orchestrator.service` | owner、TTL 和 reconcile generation 支持多副本竞争；当前未提供多机 unit、滚动发布和副本数监控 |
-| Executor / Coordinator / Scheduler | 同机 a/b 两个 Executor；Coordinator 和 Scheduler 逻辑内嵌于 AgentHost | 共享数据库租约与对象检查点支持多节点协调；当前只安装本机节点 |
-| Watchdog / Reaper | 每个本机执行节点一个独立 Watchdog；Reaper 是其代码角色名 | 必须随执行节点本地部署，不能跨机回收 UID、cgroup、挂载和 GPU 租约 |
-| Observer | 单机 journal 采集、本机资源探测和本地 SQLite 索引 | 遥测协议可复用；跨机需要各机采集 Agent、中央后端和外部告警 |
-| PostgreSQL / Redis / S3 | PostgreSQL 复用本机服务，Redis 是可选实时传输，S3/BOSS 是共享对象层 | 跨机必须另行部署网络可达且符合可用性目标的共享基础设施 |
+| 支持的 CPU Command operation | OpenSandbox Command Runtime | gVisor、只读根文件系统、Attempt 私有目录、不可变镜像与 Bundle |
+| CPU Agent，包括 Editing Implementer | `local_bwrap` | 使用本机 Agent sandbox；页面必须显示真实执行位置 |
+| Manager、Reviewer、Diagnostician | Agent Worker 宿主控制任务 | 不伪装成业务 Task，也不宣称运行在 OpenSandbox |
+| GPU operation | 本机隔离运行时 | 不因 OpenSandbox 可用而自动迁移 |
+| 外部 Provider operation | 已登记 Provider 协议 | 保存调用意图、外部句柄、恢复和清理状态 |
 
-专业 Agent 默认使用注册的 `structured-profile-v4` 工具循环：Manager 通过类型化命令修改 snapshot 绑定的 PlanDraft，`commit_plan` 原子编译为权威 Proposal；strict 优先、明确不支持时回退，本地校验始终执行。底层通过既有模型协议适配器调用 LLM；这不等同于运行某个厂商的 CLI/SDK harness。
+代码支持远程 Agent Runtime，但当前部署没有启用它。未经真实 Profile、Gateway、checkpoint、恢复和清理验证，不能把 Command Runtime 的通过结论外推到远程 Agent。
 
-专业角色还冻结各自的响应传输策略。Manager、Reviewer和Diagnostician使用`buffered`结构化响应，避免网关因`stream=true`切换到不同的长尾路由；需要动态编写和执行处理代码的Editing Implementer保留`stream`。页面仍实时展示工具与DAG活动，buffered角色在每轮完成后展示公开摘要；缺少模型commentary不会使合法工具调用失败。
+OpenSandbox cleanup 顺序为：撤销 Gateway grant、停止 Harness、删除指定 Sandbox、确认实例消失，最后释放本地资源。创建回执丢失时按 Attempt 查询；未知提交和未知实例不得靠重复创建探测。
 
-## 本机隔离部署
+## 独立部署
 
-工作区：`/data2/wujing03/distributed-agent-system`。服务入口：`/distributed-agent-system/`。
+本仓库只管理 `sandbox-agent` 实例，不操作来源 `distributed-agent-system`：
 
-| 资源 | 独立实例 |
+| 资源 | 独立值 |
 | --- | --- |
-| systemd 服务前缀 | `dynamic-agent-` |
-| API / 内部代理 / 观测端口 | `19766, 19767` / `19765` / `19768` |
-| PostgreSQL 数据库 | `distributed_agent_system` |
-| 业务 / 控制器数据库角色 | `distributed_agent_system` / `distributed_agent_orchestrator` |
-| Redis key 前缀 | `distributed-agent-system:events:` |
-| BOSS 对象前缀 | `distributed-agent-system`，独立加密密钥 |
-| 私有配置 / 运行目录 | `/etc/distributed-agent-system` / 本仓库 `.cluster` |
-| 执行节点注册目录 | `/data2/wujing03/da-exec/a`、`b` |
-
-当前隔离实例按两个执行节点、每节点4个沙箱配置，总沙箱准入8；每节点12个CPU slot和48 GiB内存准入，单任务内存上限仍为12 GiB。真机驱动最多并发6条普通case，故障注入和独占资源case仍按驱动规则串行。实际调度还受用户、Provider并发组及节点实时资源限制。
-
-`deploy.sh` 只管理此实例。它复用已有 PostgreSQL、Redis、BOSS 服务，但不重启 main 服务、不写 main 数据，也不使用 main 的会话 Cookie。运行需 root 及已有主机依赖；首次配置从同机现有私有配置读取共享依赖连接信息，并生成独立密钥、账号和命名空间。凭据不纳入 Git。
+| systemd 前缀 | `sandbox-agent-` |
+| Web 入口 | `/distributed-agent-sandbox/` |
+| API / proxy / observer | `20766, 20767` / `20765` / `20768` |
+| PostgreSQL | `distributed_agent_sandbox` |
+| Redis 前缀 | `distributed-agent-sandbox:events:` |
+| BOSS 前缀 | `distributed-agent-sandbox` |
+| 配置目录 | `/etc/distributed-agent-sandbox-backend` |
+| 部署与证据 | `.sandbox-cluster/` |
+| Executor 根目录 | `/data2/wujing03/das-sandbox-exec` |
+| OpenSandbox API | `127.0.0.1:28090`，专用 Docker 网络与 gVisor `runsc` |
 
 ```bash
-./deploy.sh status
-./deploy.sh deploy       # 冻结源码，完整 Python/JS 门禁，备份独立数据库，部署并检查健康
-./deploy.sh check        # 检查实际已部署版本
-./deploy.sh restart      # 重启已部署版本，不发布工作区代码
-./deploy.sh observe status
+./deploy/sandbox_cluster.sh status
+./deploy/sandbox_cluster.sh deploy
+./deploy/sandbox_cluster.sh check
+./deploy/sandbox_cluster.sh restart
 ```
 
-每个部署版本同时冻结源码和 `.env/.agent.env/.storage.env/.distributed.env` 的私有配置快照；`.cluster/release.json` 记录两份 SHA、配置快照目录及 `deploying/ready` 状态。工作区配置后续变化不会影响已部署 release 的 watchdog 重启。若发布进程在数据库重建或 unit 切换中被强杀，记录保持 `deploying`，普通 `restart` 会拒绝启动半发布版本；重新执行 `deploy` 完成恢复。真机 source lock 只接受 `state=ready` 且源码/配置摘要匹配的发布。
+`deploy` 冻结源码和私有配置、运行门禁、备份专用数据库并切换服务。`restart` 只重启已部署 release。`targeted_only` 版本只允许定向复测，不能用于完整 campaign 或发布结论。
 
-本分支不迁移旧 Workflow 数据、不双写旧状态。复用的媒体 operation、工具、图层处理及 CLI 能力仍在仓库中。旧集群运维文档描述 main；维护此分支时以本页和[动态图开发规范](docs/development/change-dynamic-workflow.md)为准。
+真机驱动固定指向本实例：
 
-## 模型与执行协议
+```bash
+./deploy/sandbox_campaign.sh list
+./deploy/sandbox_campaign.sh run --cases C06,R01,R02 --jobs 3 --order risk
+./deploy/sandbox_campaign.sh report
 
-动态工作流页面可以选择服务端登记的沙盒 Harness、模型版本与推理强度；该选择只作用于 Implementer。Manager、Reviewer和Diagnostician的模型由服务端`VIDEO_USE_SPECIALIST_MODEL_PROFILES_JSON`配置，不开放给用户修改。本机已准备的默认沙盒配置为 **Claude 4.6 Sonnet / high**，并登记了Claude Sonnet 5.5供测试；部署后以能力接口和Run的实际冻结角色映射核实。仓库不内置机器凭据或保证任意环境具有同样默认值。
+# 要求工作流集群空闲；覆盖 orphan、create 回执丢失和服务中断恢复
+./deploy/sandbox_opensandbox_recovery.sh
+```
 
-沙盒选择和服务端专家映射都在创建Run时分别冻结，后续修改浏览器草稿、项目默认值或后台预设不会切换本轮模型。自动successor继承原Run配置，显式创建新Run可另选沙盒配置。预设在确认期间发生变化时，需要刷新核对后重新确认。
+共享 PostgreSQL、Redis 和 BOSS 服务只表示复用基础设施进程；数据库、角色、key、对象前缀、Cookie、密钥和证据目录均独立。部署或测试不得写来源实例。
 
-`structured-profile-v4` 使用 PlanDraft 类型化命令和 strict 优先策略。Task 类型、Operation 参数、草稿修复和控制出口分别使用小型白名单 Schema；相同错误重复两次即有界停止。Manager只选择`APPLY_PLAN`或`COMPLETE`，宿主从草稿依赖图派生等待叶节点，并从`stage=final`业务验收派生交付资格；replacement ID、依赖、revision和技术验收同样由宿主生成。自动修复阶段只开放冻结范围内的revision/replacement，不能自由新增无关Task。网关明确拒绝strict，或返回违反传输Schema的参数时，按有界策略回退非strict并保留具体字段路径；超时、鉴权、限流或5xx不作为strict不支持的证据。本地Schema、业务契约、Provider约束、证据、权限、草稿revision和快照绑定始终执行。选用Claude模型不表示切换到Claude Code SDK harness。
+## Runtime 镜像
 
-证据 Task 必须引用可达输入。已成功 Task 可用普通 step/role；质量暂停或失败候选必须用冻结的 `repair_candidate` 绑定逻辑 Task、revision、artifact、SHA 和 role。编译器与图校验器拒绝把等待未验收输出的 evidence Task 放入 `replan_after`，避免开放 Run 永久等待 blocked 节点。
+`runtime/opensandbox/` 定义 foundation、共享 base、Command Runtime 和 Codex/Claude/DeepSeek Agent Runtime。运行配置只接受 registry manifest digest；裸 tag 和本地 image ID 只能用于本机构建链，不能成为正式 Profile。
 
-最终审查的证据使用内部inspection ID，交付选择使用本次检查生成的短candidate key；宿主将其绑定当前Run、attempt、快照和不可变文件。实际媒体Task拥有交付资格，视觉审查/诊断JSON只负责放行或拒绝，不能替代用户成果。
+当前 `base.Dockerfile` 安装完整 `webapp` wheel，因此 `webapp/**` 变化默认要求四张业务镜像统一重建。定向复测可以只重建实际启用且受影响的镜像，但必须标记 `targeted_only`；进入 full gate 前仍要补齐统一 base、四镜像、Bundle、离线契约和扫描证据。
 
-Claude / DeepSeek 的指定模型可显式配置版本化本地输入预算预估，以适配缺少原生计数端点的路由。参考分词、校准余量与图片预算分别记录；预估用于准入，不冒充厂商实际用量。实际有输出但`output_tokens=0`时，系统单独结算有效input回执并只保留当前命令阶段的输出上限，记录`partially_settled_output_unknown`；原始冲突回执仍保留。说明见[计数改造记录](docs/model-token-counting-gap.md)，接入规则见[LLM 开发规范](docs/development/add-llm-provider.md)。
+```bash
+python deploy/runtime_release.py --freeze-bundle
+DOCKER=/path/to/docker python deploy/runtime_release.py --max-resident 30
+DOCKER=/path/to/docker python deploy/verify_runtime_images.py
+python deploy/runtime_security_report.py
+```
+
+镜像不得包含长期 Provider、数据库、Redis、对象存储或模型凭据。Attempt 临时配置和短期 Gateway token 注入 `/run/video-use`；Runtime 用户固定为 `10001:10001`。完整规则见 [OpenSandbox Runtime 开发规范](docs/development/change-opensandbox-runtime.md)。
+
+## 模型与审查
+
+专家角色模型由服务端配置并按 Run 冻结，用户页面不能覆盖。页面选择只控制沙盒 Implementer 的 Harness、模型和推理强度。模型选择不改变角色权限、工具策略、Workspace Policy 或业务授权。
+
+结构化输出采用 strict 优先、显式不支持时有界回退；本地 Schema、语义、权限和授权校验始终执行。Reviewer 的通过必须与 inspection、候选选择和方法使用证据一致；审查 JSON 不是交付产物。实际交付集合由当前有效 revision、用户目标和替代关系确定，不能因文件同名或历史 delivery 标记丢失兄弟产物。
 
 ## 开发与测试
 
-依赖安装：`uv sync --locked --extra web --extra web-test`。真实沙盒测试需要 Linux、PostgreSQL 工具、bubblewrap、FFmpeg 和必要权限。
-
 ```bash
-.venv/bin/python -m tests.run_distributed_suite
-node --test tests/*.test.mjs
+uv sync --locked --extra web --extra web-test
 
-# 已部署隔离实例上的真实浏览器、模型和外部依赖测试
-.venv/bin/python tests/campaign_suite.py list
-.venv/bin/python tests/campaign_suite.py run --cases S01 --jobs 1
-.venv/bin/python tests/campaign_suite.py run --group all --jobs 2
-.venv/bin/python tests/campaign_suite.py report
+VIDEO_USE_TEST_TMP_ROOT=/data2/wujing03/vu-tmp \
+TMPDIR=/data2/wujing03/t \
+VIDEO_USE_TEST_SUITE_LOCK=/data2/wujing03/video-use-test-suite-0.lock \
+XDG_CACHE_HOME=/data2/wujing03/vu-tmp/cache \
+PYTHONDONTWRITEBYTECODE=1 \
+  .venv/bin/python -m tests.run_distributed_suite
+
+node --test tests/*.test.mjs
 ```
 
-当前真机清单覆盖修复 revision、批量 Reviewer 检查、透明主体边界、静音/音轨、受控音频和大规模顺序拼接。报告按业务成功、程序错误、非程序错误但应对正确、依赖阻塞和未执行分别统计。
+Python 测试必须走 `tests.run_distributed_suite`，以获得独立 PostgreSQL、S3 协议服务、环境清理和报告；不要直接用 `unittest` 绕过隔离。定向测试在命令末尾追加模块名。临时文件、缓存、锁和媒体证据放在 `/data2/wujing03`，不要写根分区 `/tmp`。
 
-真机清单共 126 条：原有 99 条逐条保留业务目标并调整协议，新增 27 条统一 Run、异常输入、恢复和交付边界用例；当前开发状态见[实施记录](docs/unified-run-progress.md)，见[审查矩阵](docs/real-case-campaign/dynamic-case-review.md)。每次尝试保存独立版本、输入哈希、浏览器截图、日志、数据库与缓存状态、BOSS 审计、产物校验和清理记录。程序检查通过后仍需逐例审查实际触发边界与浏览器表现；模型/依赖失败必须证明程序应对正确才能单独结案。
+当前示例库真机清单为 44 项。最新完整轮和后续定向复测见 [示例库真机报告](docs/real-case-campaign/demo-library-test-report.md)；OpenSandbox 专项历史见 [部署后审查记录](docs/real-case-campaign/opensandbox-post-review-live.md)。系统 `SUCCEEDED` 不能替代实际产物、浏览器、数据库、Redis、BOSS、Sandbox 和 cleanup 审查。
 
-源码、测试快照和已部署版本是不同对象；只认绑定源码摘要的验证证据。冻结部署验证会建立可供测试账号读取的独立源码副本，避免为了测试开放私有部署数据目录。
+## 开发规范
 
-上一轮 119 条真机显式选择 Claude 4.6 Sonnet / high 沙盒配置，专家角色使用 Claude Sonnet 5.5 / high；结果为 98 条业务/协议成功、21 条非程序失败且程序处理正确、0 条程序错误，详见[历史最终报告](docs/real-case-campaign/final-119-report.md)。当前 126 条清单须在新的冻结源码、配置和驱动摘要下重新执行，不能沿用上述统计；执行、归因和定期汇报按[真机测试与审查规范](docs/development/run-live-campaign.md)。
+从 [AGENTS.md](AGENTS.md)、[开发与测试](docs/development.md)和[专项规范索引](docs/development/README.md)进入。常用专题：
 
-破坏性架构变更可用 `./deploy.sh deploy --reset-database` 重置专用数据库：完整冻结测试通过后停止本实例、备份数据库，再检查未完成的外部调用与清理记录。存在未收尾记录时拒绝重置；共享 PostgreSQL 服务和 main 数据库不受操作。旧 BOSS 对象及历史证据不会被该命令批量删除。
-
-## 开发规范与目录
-
-从 [AGENTS.md](AGENTS.md)、[开发测试](docs/development.md)及[专项规范索引](docs/development/README.md)进入：
-
-- [动态图、控制器与验收](docs/development/change-dynamic-workflow.md)
-- [新增专业 Agent](docs/development/add-specialist-agent.md)
-- [新增 Profile Harness](docs/development/add-profile-harness.md)
-- [新增 LLM Provider 与模型协议](docs/development/add-llm-provider.md)
-- [新增或扩展 operation](docs/development/add-operation.md)
+- [OpenSandbox Runtime](docs/development/change-opensandbox-runtime.md)
+- [分布式执行](docs/development/change-distributed-execution.md)
+- [动态工作流](docs/development/change-dynamic-workflow.md)
+- [operation](docs/development/add-operation.md)
+- [专业 Agent](docs/development/add-specialist-agent.md)
+- [Harness](docs/development/add-profile-harness.md)
+- [LLM Provider](docs/development/add-llm-provider.md)
 - [真机测试与审查](docs/development/run-live-campaign.md)
 
-`webapp/` 包含控制器、执行器、协议、API 和原生 JavaScript 界面；`helpers/` 包含媒体能力；`deploy/` 管理独立部署；`tests/` 保存单元、集成与真机驱动；`runtime/public/` 是沙盒公开工具协议；`docs/` 保存规范与报告。
+`webapp/` 是控制面、执行器和页面；`runtime/` 是公开 Bundle 与 OCI Runtime；`deploy/` 管理独立部署和发布证据；`tests/` 包含单元、集成、浏览器和真机驱动；`docs/` 保存规范与绑定版本的报告。
 
 ## 来源与许可证
 
-本项目基于 [browser-use/video-use](https://github.com/browser-use/video-use) 扩展，保留 MIT 许可证与版权声明，见 [LICENSE](LICENSE)。字体许可证见 [webapp/static/fonts/LICENSE-wqy.txt](webapp/static/fonts/LICENSE-wqy.txt)。Python 包名仍为 `vj-distributed-media-edit-system`，环境变量保留 `VIDEO_USE_*` 前缀。
+项目基于 [browser-use/video-use](https://github.com/browser-use/video-use) 扩展，保留 MIT 许可证与版权声明，见 [LICENSE](LICENSE)。Python 包名仍为 `vj-distributed-media-edit-system`，环境变量保留 `VIDEO_USE_*` 前缀。
