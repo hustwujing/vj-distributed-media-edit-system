@@ -125,6 +125,7 @@ class UniformGenerationTests(unittest.TestCase):
         validate_parameters('video.extend',{**PARAMS,'extend_direction':'forward'},{'source':video})
         extend=get('video.extend').public()['constraints']
         self.assertEqual(extend['output_semantics'],'generated_extension_segment_only')
+        self.assertIn('source start',extend['extend_direction_semantics']['backward'])
 
     def test_first_last_assets_are_submitted_with_frozen_roles(self):
         references={'first_frame':{'bytes':self.image()},'last_frame':{'bytes':self.image()}}
@@ -153,7 +154,7 @@ class UniformGenerationTests(unittest.TestCase):
         self.assertTrue(edited['payload']['content'][0]['text'].startswith('严格编辑视频1'))
         extended=service.prepare('video.extend',{**PARAMS,'duration':5,'extend_direction':'backward'},source)
         self.assertEqual(extended['payload']['duration'],5);self.assertEqual(extended['payload']['ratio'],'adaptive')
-        self.assertTrue(extended['payload']['content'][0]['text'].startswith('向后延长视频1'))
+        self.assertTrue(extended['payload']['content'][0]['text'].startswith('在视频1开头之前生成前序片段（backward）'))
 
     def test_reference_and_capability_mismatches_are_rejected_before_submission(self):
         for operation,parameters,reference in ((service.IMAGE_VIDEO,PARAMS,None),(service.TEXT_VIDEO,PARAMS,self.image()),

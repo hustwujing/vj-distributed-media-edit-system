@@ -45,7 +45,9 @@ def capabilities():
                'cancellation': 'queued_only'} for name in OPERATIONS}
     operations['video.extend'].update(
         output_semantics='generated_extension_segment_only',
-        duration_semantics='duration is the generated extension segment length; concatenate locally when the delivery must include the original')
+        duration_semantics='duration is the generated extension segment length; concatenate locally when the delivery must include the original',
+        extend_direction_semantics={'forward':'generate after the source end; extension first frame joins source last frame',
+                                    'backward':'generate before the source start; extension last frame joins source first frame'})
     return {'protocol': PROTOCOL, 'model': model, 'operations': operations}
 
 
@@ -156,7 +158,10 @@ def prepare(operation, parameters, reference=None):
     references=_references(operation,reference);mode=MODES[operation]
     prompt=parameters['prompt']
     if mode=='edit_video':prompt='严格编辑视频1，未提及的内容保持不变。'+prompt
-    elif mode=='extend_video':prompt=('向前' if parameters['extend_direction']=='forward' else '向后')+'延长视频1。'+prompt
+    elif mode=='extend_video':
+        prompt=(('在视频1结尾之后继续生成后续片段（forward），新增片段首帧必须自然衔接视频1末帧。'
+                 if parameters['extend_direction']=='forward' else
+                 '在视频1开头之前生成前序片段（backward），新增片段末帧必须自然衔接视频1首帧。')+prompt)
     ratio='adaptive' if mode in ('edit_video','extend_video') else ('16:9' if parameters['width'] > parameters['height'] else '9:16' if parameters['width'] < parameters['height'] else '1:1')
     payload = {'model': model, 'content': [{'type':'text','text':prompt}],
                'duration': -1 if mode=='edit_video' else int(parameters['duration']),
