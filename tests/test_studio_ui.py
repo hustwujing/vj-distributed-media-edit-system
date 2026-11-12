@@ -57,6 +57,9 @@ class StudioTests(unittest.TestCase):
             self.assertIn(self.pid,response.text)
             self.assertEqual(self.b.get(f'/{route}/{self.pid}').status_code,404)
             if route=='chat':
+                self.assertIn('data-control="cancel"',response.text)
+                self.assertIn('■ 停止项目',response.text)
+                self.assertIn('停止项目并回收资源',response.text)
                 self.assertIn('id="dynamic-preview"',response.text)
                 self.assertIn('id="dynamic-role-activity"',response.text)
                 self.assertIn('设为 0 表示禁止调用',response.text)

@@ -1370,7 +1370,8 @@ class Orchestrator:
         store.execute("UPDATE workflow_decisions SET status='cancelled' WHERE run_id=? AND status='pending'",(run['id'],))
         busy=store.query("SELECT attempt FROM execution_leases WHERE run_id=? AND active=1 AND expires>?",(run['id'],store.now()))
         cleanup=store.query("SELECT attempt FROM execution_cleanup WHERE task_id=? AND state<>'complete'",(run['id'],))
-        if not busy and not cleanup:
+        external=store.query("SELECT id FROM execution_external_cleanup WHERE task_id=? AND state IN ('pending','running','dormant')",(run['id'],))
+        if not busy and not cleanup and not external:
             terminal='CANCELLED' if run['terminal_reason']=='user_cancelled' else 'FAILED'
             self.set_status(run,terminal,run['terminal_reason'])
 

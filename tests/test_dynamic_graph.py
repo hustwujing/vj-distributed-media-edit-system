@@ -411,6 +411,17 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(rejected['status'],'rejected')
         self.assertEqual(rejected['error_code'],'workflow_terminal')
 
+    def test_cancel_waits_for_active_external_cleanup_before_terminal_state(self):
+        graph.command(self.store,self.run['id'],'owner','cancel',request_id='stop-project')
+        self.store.execute("INSERT INTO execution_external_cleanup(id,task_id,provider,external_id,state) VALUES (?,?,?,?,?)",
+            ('provider-cleanup',self.run['id'],'https://provider.invalid','job-1','pending'))
+        current=self.tick();self.assertEqual(current['status'],'CANCELLING')
+        from webapp.workflow_api import public
+        shown=public(self.store,current);self.assertEqual(shown['cleanup_pending'],1)
+        self.store.execute("UPDATE execution_external_cleanup SET state='complete' WHERE id='provider-cleanup'")
+        current=self.tick();self.assertEqual(current['status'],'CANCELLED')
+        self.assertEqual(current['terminal_reason'],'user_cancelled')
+
     def test_pause_cannot_undo_an_earlier_cancel_command(self):
         graph.command(self.store,self.run['id'],'owner','cancel')
         graph.command(self.store,self.run['id'],'owner','pause')
