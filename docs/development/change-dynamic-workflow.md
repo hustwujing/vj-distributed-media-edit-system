@@ -127,6 +127,26 @@ Session 不承担执行状态；Run 正式 state 与派生 activity 分离。PLA
 
 授权追加写 run_authorizations；已有 Task 保留原 grant，新建或修订 Task 使用当前 grant。增加预算不能丢弃历史使用或未知预留。已交付输入建立 scope_confirmed=false 的 successor；未完整确认不得规划业务执行。
 
+Proposal 生命周期由 `planner_runs` 权威保存：`pending -> running -> staged` 后只能进入
+`awaiting_confirmation`、`awaiting_authorization`、`applied` 或明确的 `rejected`。等待授权不是拒绝，
+必须保留原 proposal、草稿、图版本、授权版本和 proposal digest。用户批准后重新绑定服务器拥有的
+实现身份并校验同一 proposal；只有图、输入游标或交付契约已经变化才允许重新调用 Planner。相同授权
+幂等，不增加版本；同一确认在无图变化时再次出现必须收敛为系统错误，不能继续要求用户确认。
+
+Run 顶层 state 只用于生命周期概览，调度另投影五个正交状态轴：`business_admission`、
+`user_decision`、`external_reconcile`、`control_activity`、`input_barrier`。用户决策阻止新的业务副作用，
+但不能阻止已有 external_id 的 poll/collect、结果收取或清理。API 必须公开该投影；页面和诊断不能用
+单一 `WAITING_USER` 推断所有后台工作都已停止。
+
+Agent 用户授权摘要只覆盖可见行为语义，包括角色、提示词、工具能力、Skill 内容与限制；Harness、
+响应传输和完整 Python 包摘要属于执行策略身份，保留在 Task `profile_json` 和发布证明中。未启动 Task
+在行为语义不变时可自动迁移执行策略并记录 `task_execution_policy_rebound`；行为语义、联网范围或
+副作用能力变化仍需新授权。不得因普通内部代码发布要求用户重新确认未扩张的业务范围。
+
+用户决策按类型化 Handler 迁移。每个 Handler 必须独立声明允许动作、快照前置条件、原子写入、
+后置动作、恢复规则和公开结果。`_answer` 只负责通用快照/幂等校验及路由；新决策类型不得继续向
+单一分支函数叠加完整业务协议。
+
 质量决策携带候选摘要与快照，重复请求幂等、过期请求拒绝。只有原本声明的人工 Review 可 approve，不能批准技术失败或 Agent 拒绝。用户可指定修改根，服务器计算后代闭包；无关节点保持 revision、哈希和验收记录。自动修复不得改变原授权/要求。replacement 必须显式声明，被替代失败和历史 plan selection 保留。
 
 修订权限只来自本轮冻结 `input_batch` 或自动修复触发；`user_changes` 中已 APPLIED 的输入只提供历史事实，不能在后续普通规划轮重新授予修改 objective/acceptance 的权限。不得按交付物类型、尺寸或验收签名猜测 replacement；新增相似交付物保留原 Task，替代关系必须来自授权范围内的显式替代请求。在线 worker 目录损坏或非空目录无一致契约时延后规划，恢复后再创建 PLAN，不把暂不可知的能力当作空目录交给 Manager。

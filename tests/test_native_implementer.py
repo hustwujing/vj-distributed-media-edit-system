@@ -55,7 +55,7 @@ class NativeSelectionTests(unittest.TestCase):
                 else:self.assertEqual(item['harness'],'structured-profile-v4')
             authorized=authorization_snapshot('editing_implementer')
             with patch.dict(os.environ,{'VIDEO_USE_OPEN_SANDBOX_AGENT_PROFILES_JSON':'{"version":2}'}):
-                self.assertNotEqual(authorization_snapshot('editing_implementer'),authorized)
+                self.assertEqual(authorization_snapshot('editing_implementer'),authorized)
 
     def test_attempt_selection_uses_frozen_role_not_current_default(self):
         from webapp.agent_host import AgentHost

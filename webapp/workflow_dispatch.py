@@ -1,6 +1,7 @@
 """Dynamic graph integration with the existing resource scheduler and leases."""
 import json
 from . import workflow_graph as graph
+from .workflow_state_axes import is_external_reconcile_task
 
 
 def paused_task_allows_dispatch(task,paused_business,barrier,repair_trigger=False):
@@ -12,8 +13,7 @@ def paused_task_allows_dispatch(task,paused_business,barrier,repair_trigger=Fals
 
 
 def external_reconcile(run,task):
-    return (run['status']=='WAITING_USER' and task['status']=='ready' and task['phase'] in ('poll','collect')
-            and bool(task.get('external_id')) and not task.get('control_kind'))
+    return run['status']=='WAITING_USER' and task['status']=='ready' and is_external_reconcile_task(task)
 
 
 def candidates(store):

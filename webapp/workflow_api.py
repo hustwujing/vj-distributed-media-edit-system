@@ -268,6 +268,8 @@ def public(store,run):
     value['commands']=store.query('SELECT id,action,status,error_code,created_at,applied_at FROM workflow_commands WHERE run_id=? ORDER BY created_at DESC LIMIT 20',(run['id'],))
     value['diagnoses']=[{'task_id':row['subject_task'],'diagnosis':json.loads(row['decision_json'])} for row in
         store.query("SELECT subject_task,decision_json FROM workflow_reviews WHERE run_id=? AND purpose='diagnose' AND status='completed' ORDER BY created_at",(run['id'],))]
+    from .workflow_state_axes import project as state_axes
+    value['state_axes']=state_axes(store,run)
     value['external_cleanup']=store.query('SELECT state,phase,error FROM execution_external_cleanup WHERE task_id=?',(run['id'],))
     value['token_usage']=store.query('''SELECT
         COALESCE(SUM(input_settled_tokens),0) AS settled_input,

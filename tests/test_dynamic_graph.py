@@ -258,6 +258,25 @@ class DynamicGraphTests(unittest.TestCase):
         _,tasks,_,_=graph.validate_proposal(self.store,{**run,'status':'ACTIVE'},proposal,repair_scope='subject')
         self.assertEqual([task.id for task in tasks],['repair'])
 
+    def test_unstarted_agent_rebinds_execution_identity_only_when_semantics_match(self):
+        authorization=graph.bind_authorization({**self.run['authorization'],
+            'allowed_agent_profiles':['editing_implementer','media_failure_diagnostician']})
+        encoded=graph.encode(authorization.model_dump())
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(encoded,self.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(encoded,self.run['id']))
+        self.tick();self.propose({'proposal_id':'agent-policy','base_graph_version':0,'reason':'Create report',
+            'add_tasks':[script(type='agent',profile='editing_implementer',argv=[],inputs={})],'sealed':True})
+        run=self.tick();task=run['tasks'][0];frozen={**task['profile'],'harness_digest':'0'*64}
+        self.store.execute('UPDATE run_tasks SET profile_json=? WHERE run_id=? AND id=?',(graph.encode(frozen),run['id'],task['id']))
+        self.orchestrator.rebind_pending_agent_policies(graph.get(self.store,run['id']))
+        rebound=graph.get(self.store,run['id'])['tasks'][0]
+        self.assertNotEqual(rebound['profile']['harness_digest'],'0'*64)
+        self.assertTrue(self.store.query("SELECT seq FROM workflow_graph_events WHERE run_id=? AND kind='task_execution_policy_rebound'",(run['id'],)))
+        changed={**rebound['profile'],'prompt':rebound['profile']['prompt']+' changed','harness_digest':'1'*64}
+        self.store.execute('UPDATE run_tasks SET profile_json=? WHERE run_id=? AND id=?',(graph.encode(changed),run['id'],task['id']))
+        self.orchestrator.rebind_pending_agent_policies(graph.get(self.store,run['id']))
+        self.assertEqual(graph.get(self.store,run['id'])['tasks'][0]['profile']['harness_digest'],'1'*64)
+
     def test_authorized_rejected_proposal_is_restaged_without_another_model_turn(self):
         self.tick();request_id=self.propose({'proposal_id':'reuse-approved','base_graph_version':0,
             'reason':'Create report','add_tasks':[script()],'sealed':True})
@@ -336,6 +355,7 @@ class DynamicGraphTests(unittest.TestCase):
 
     def test_waiting_user_continues_only_existing_external_poll(self):
         from webapp.workflow_dispatch import available,candidates
+        from webapp.workflow_state_axes import project as state_axes
         self.tick();self.propose({'proposal_id':'poll-during-decision','base_graph_version':0,'reason':'Create work',
             'add_tasks':[script('external',outputs=['external.txt'],output_roles={'report':'external.txt'},delivery_stage=False),
                          script('new-submit',outputs=['new.txt'],output_roles={'report':'new.txt'},delivery_stage=False)],
@@ -349,6 +369,9 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(next(t for t in current['tasks'] if t['id']=='external')['status'],'ready')
         self.assertEqual(available(self.store,current,now),['external'])
         self.assertEqual([item['step_id'] for item in candidates(self.store)],['external'])
+        self.assertEqual(state_axes(self.store,current),{
+            'business_admission':'BLOCKED','user_decision':'PENDING','external_reconcile':'ACTIVE',
+            'control_activity':'IDLE','input_barrier':'NONE'})
 
     def test_frozen_model_profile_rejects_too_short_code_editor_task_before_confirmation(self):
         import uuid

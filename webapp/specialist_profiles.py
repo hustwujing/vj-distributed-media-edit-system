@@ -197,14 +197,15 @@ def for_run_task(store,run_id,spec):
 
 
 def authorization_snapshot(identifier):
-    value=get(identifier);snapshot=value.snapshot()
-    if identifier=='editing_implementer':
-        from .agent_runtime_capabilities import digest
-        from .profile_harnesses import get as harness
-        snapshot['runtime_capabilities_digest']=digest()
-        snapshot['execution_harnesses']={name:harness(name).fingerprint()
-            for name in ('structured-profile-v4','native-implementer-v1')}
-    return snapshot
+    return authorization_semantics(get(identifier).snapshot())
+
+
+def authorization_semantics(snapshot):
+    """User-approved behavior, excluding deploy-owned execution identity."""
+    value=dict(snapshot)
+    for key in ('harness','harness_digest','response_transport','execution_harnesses'):
+        value.pop(key,None)
+    return value
 
 
 def validate(value):

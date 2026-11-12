@@ -218,6 +218,10 @@ class Orchestrator:
         self.set_status(run,'WAITING_USER','authorization_convergence_failed')
         graph.event(self.store,run,'authorization_convergence_failed',{'error_code':'authorization_convergence_failed'})
 
+    @staticmethod
+    def reject_decision(code,message=''):
+        raise DecisionError(code,message)
+
     def resume_approved_plan_change(self,run):
         """Recover a proposal already approved before an interrupted or buggy replan."""
         store=self.store
@@ -340,20 +344,8 @@ class Orchestrator:
         if row['graph_version']!=run['graph_version'] or row['authorization_version']!=run['authorization_version'] or payload.get('snapshot_digest')!=row['snapshot_digest']:
             raise DecisionError('decision_snapshot_stale')
         request=json.loads(row['request_json'])
-        if row['kind']=='plan_confirmation' and payload['action']=='approve':
-            if run['input_sequence']!=request['input_sequence']:raise DecisionError('decision_snapshot_stale')
-            if graph.content_fingerprint(store,run['project_id'])!=request['content_fingerprint']:raise DecisionError('content_changed')
-            plans=store.query("SELECT * FROM planner_runs WHERE id=? AND run_id=? AND status='awaiting_confirmation'",
-                              (request['planning_request_id'],run['id']))
-            if not plans or graph.digest(json.loads(plans[0]['proposal_json']))!=request['proposal_digest']:
-                raise DecisionError('decision_snapshot_stale')
-            plan=plans[0]
-            store.execute("UPDATE planner_runs SET status='staged' WHERE id=?",(plan['id'],))
-            self.set_status(run,'ACTIVE','plan_confirmed')
-            planning.apply(store,graph.get(store,run['id']),{**plan,'status':'staged'},confirmed_plan=True)
-            store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",
-                          (encode(payload),store.now(),row['id']))
-            return
+        from .workflow_decision_handlers import handle_approval
+        if handle_approval(self,run,row,request,payload):return
         if row['kind']=='publication_checkpoint':
             reviews=store.query("SELECT * FROM workflow_reviews WHERE id=? AND run_id=? AND purpose='final' AND status='passed'",
                                 (request.get('review_id'),run['id']))
@@ -512,27 +504,6 @@ class Orchestrator:
             store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode({**payload,'successor_run_id':successor['id']}),store.now(),row['id']))
             graph.event(store,run,'successor_created',{'successor_run_id':successor['id']})
             return
-        elif row['kind'] in ('plan_change','successor_authorization') and payload.get('action')=='approve':
-            # This service has no vendor credentials or private backend settings.
-            # Freeze the implementation advertised by the actual executors.
-            try:authorization=planning.rebind_scope(store,payload.get('authorization'))
-            except ValueError as exc:raise DecisionError('scope_invalid',str(exc)) from exc
-            filling_initial_targets=not run['tasks'] and run['graph_version']==0 and not run['authorization']['delivery_targets']
-            if authorization.goal!=run['goal']:raise ValueError('Changing the top-level goal requires a new Run')
-            old_contract=graph.DeliveryContract.model_validate(run['authorization'].get('delivery_contract',{})).model_dump()
-            contract_changed=authorization.delivery_contract.model_dump()!=old_contract
-            if run['scope_confirmed'] and not filling_initial_targets and (set(authorization.delivery_targets)!=set(run['authorization']['delivery_targets']) or contract_changed):
-                cutoff=int(request.get('input_through_sequence',0))
-                if not cutoff or not store.query("SELECT id FROM run_inputs WHERE run_id=? AND sequence<=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],cutoff)):
-                    raise ValueError('Delivery contract change requires explicit pending user input')
-            owned={asset['id'] for asset in store.assets(run['project_id'])}
-            if not set(authorization.allowed_assets)<=owned:raise ValueError('Foreign asset')
-            if authorization.content_fingerprint!=graph.content_fingerprint(store,run['project_id']):raise DecisionError('content_changed')
-            from .run_authorization import approve
-            approve(store,run,authorization)
-            store.execute("UPDATE workflow_decisions SET status='superseded',updated_at=? WHERE run_id=? AND id<>? AND status='pending'",
-                          (store.now(),run['id'],row['id']))
-            self.set_status(run,'ACTIVE')
         elif row['kind']=='delivery_scope_change' and payload.get('action')=='approve':
             try:authorization=planning.rebind_scope(store,payload.get('authorization'))
             except ValueError as exc:raise DecisionError('scope_invalid',str(exc)) from exc
@@ -573,18 +544,6 @@ class Orchestrator:
             self.set_status(run,'ACTIVE')
         else:raise ValueError('Unsupported answer')
         store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
-        if payload.get('action')=='approve' and row['kind'] in ('plan_change','successor_authorization'):
-            current=graph.get(store,run['id'])
-            if row['kind']=='plan_change' and request.get('planner_run'):
-                try:restaged=planning.restage_after_authorization(store,current,request['planner_run'],request.get('proposal_digest',''))
-                except AuthorizationRequired as exc:
-                    self.authorization_convergence_failed(current,exc);return
-                except ValueError:restaged=False
-                if restaged:
-                    self.set_status(current,'ACTIVE','authorization_proposal_resumed')
-                    return
-            self.queue_plan(current,{'authorization_changed':row['id']})
-            return
         if payload.get('action') not in ('reject','revise'):
             if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
                 self.set_status(run,'WAITING_USER','user_decision_pending')
@@ -993,6 +952,8 @@ class Orchestrator:
 
     def advance(self,run):
         store=self.store;now=store.now()
+        self.rebind_pending_agent_policies(run)
+        run=graph.get(store,run['id'])
         if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
             self.advance_external_waits(run)
             if self.resume_approved_plan_change(graph.get(store,run['id'])):return
@@ -1009,6 +970,21 @@ class Orchestrator:
         done={t['id'] for t in graph.work_items(run) if t['status']=='succeeded'}
         if run['input_barrier_sequence'] is not None:return
         self.advance_graph(run,done)
+
+    def rebind_pending_agent_policies(self,run):
+        """Move unstarted Agents to a new execution identity without widening user scope."""
+        from .specialist_profiles import authorization_semantics,authorization_snapshot,for_run_task
+        store=self.store
+        for task in graph.work_items(run):
+            if (task.get('control_kind') or task['type']!='agent' or task['status'] not in ('blocked','ready','retry_wait')
+                    or task['attempts'] or task['lease_id'] or task['candidate_result']):continue
+            profile=task['spec']['profile']
+            if digest(authorization_semantics(task['profile']))!=digest(authorization_snapshot(profile)):continue
+            current=for_run_task(store,run['id'],task['spec']).snapshot()
+            if current==task['profile']:continue
+            graph.write_work(store,task,'UPDATE run_tasks SET profile_json=?,updated_at=? WHERE run_id=? AND id=?',
+                             (encode(current),store.now(),run['id'],task['id']))
+            graph.event(store,run,'task_execution_policy_rebound',{'task_id':task['id']})
 
     def advance_external_waits(self,run):
         """Poll already-submitted effects while business decisions remain fenced."""
