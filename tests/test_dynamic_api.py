@@ -54,6 +54,15 @@ class DynamicAPITests(unittest.TestCase):
         self.assertEqual(current['blocking_action']['message'],reason)
         self.assertNotIn('未登记',current['blocking_action']['message'])
 
+    def test_pending_policy_change_uses_user_facing_copy_not_failure_metadata(self):
+        from webapp import workflow_graph as graph
+        identifier=self.a.post(self.prefix,json=self.body()).json()['id'];store=self.app.state.store
+        Orchestrator(store).decision(graph.get(store,identifier),'plan_change',{
+            'reason':'Agent policy changed and requires renewed authorization'})
+        action=self.a.get(self.prefix+'/'+identifier).json()['blocking_action']
+        self.assertIn('策略已更新',action['message']);self.assertIn('不会重新规划',action['message'])
+        self.assertNotIn('failure_kind',action);self.assertNotIn('unknown',action.values())
+
     def test_final_review_pause_exposes_actual_feedback_without_task_errors(self):
         from webapp import workflow_graph as graph
         identifier=self.a.post(self.prefix,json=self.body()).json()['id'];store=self.app.state.store

@@ -248,16 +248,22 @@ def public(store,run):
                     'quality':'请检查当前候选','external_wait':'外部任务等待超时',
                     'external_submission':'外部请求结果需要核实','publication_checkpoint':'请确认最终发布',
                 }.get(pending['kind'],'需要你的处理')
-                message=request.get('question') or request.get('reason') or request.get('message') or '请处理当前确认事项后继续。'
+                reason=request.get('reason') or ''
+                public_reasons={
+                    'Agent policy changed and requires renewed authorization':'代码编辑策略已更新。请确认继续使用当前已授权素材和能力执行这份修复方案；确认后不会重新规划。',
+                    'Operation implementation requires renewed authorization':'执行工具实现已更新。请确认继续按当前范围执行；确认后不会重新规划。',
+                }
+                message=request.get('question') or public_reasons.get(reason,reason) or request.get('message') or '请处理当前确认事项后继续。'
             elif run['terminal_reason'] in CATALOG:
                 definition=failure_definition(run['terminal_reason']);title,message=definition.title,definition.message
             else:
                 title,message='需要你的处理',request.get('question') or request.get('message') or '系统未登记该错误类型；请查看下方真实错误详情，不需要猜测应补充什么信息。'
             first=next((item for item in value['failure_details'] if item['code']==run['terminal_reason']),{})
             if not pending and first.get('message'):message=first['message']
+            metadata={} if pending else public_metadata(run['terminal_reason'])
             value['blocking_action']={'kind':'workflow_action','code':run['terminal_reason'],
                 'title':title,'message':message,'decision_id':pending['id'] if pending else None,
-                'details':value['failure_details'] if not pending else [],**public_metadata(run['terminal_reason']),
+                'details':value['failure_details'] if not pending else [],**metadata,
                 'required_fields':request.get('required_fields',[]),'examples':request.get('examples',[])}
             if run['terminal_reason']=='review_incomplete' and not pending:
                 latest=store.query("SELECT task_id,subject_task,purpose,decision_json FROM workflow_reviews WHERE run_id=? AND purpose IN ('task','final') AND status='rejected' ORDER BY updated_at DESC,created_at DESC LIMIT 1",(run['id'],))
