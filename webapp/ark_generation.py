@@ -32,7 +32,7 @@ def configuration():
 
 def capabilities():
     base, _, model = configuration()
-    return {'protocol': PROTOCOL, 'model': model, 'operations': {
+    operations={
         name: {'durations': [-1] if name == 'video.edit' else list(range(4, 16)),
                'sizes': [] if name in ('video.edit','video.extend') else [list(s) for s in SIZES],
                'generation_mode': MODES[name],
@@ -41,8 +41,12 @@ def capabilities():
                'reference_inputs_available': references_configured() if name != 'video.generate_from_text' else True,
                'audio': True, 'reference_transport': 'ark_asset' if name != 'video.generate_from_text' else 'none',
                'reference_restrictions': '当前接入点拒绝写实人物参考图；人物图生视频请使用已配置的 Wan 适配器',
-               'duration_tolerance_seconds': 0.05,
-               'cancellation': 'queued_only'} for name in OPERATIONS}}
+               'duration_tolerance_seconds': 0.10,
+               'cancellation': 'queued_only'} for name in OPERATIONS}
+    operations['video.extend'].update(
+        output_semantics='generated_extension_segment_only',
+        duration_semantics='duration is the generated extension segment length; concatenate locally when the delivery must include the original')
+    return {'protocol': PROTOCOL, 'model': model, 'operations': operations}
 
 
 def validate(operation, parameters):

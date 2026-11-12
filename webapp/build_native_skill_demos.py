@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import subprocess
 import textwrap
 
 from PIL import Image,ImageDraw,ImageFont
@@ -133,6 +134,16 @@ def reference_frames():
         draw.rectangle((0,510,1280,720),fill=(22,31,39));draw.ellipse((x-90,330,x+90,510),fill=accent)
         draw.rectangle((x-18,205,x+18,360),fill=(240,244,246));draw.polygon(((x-75,240),(x+75,240),(x,150)),fill=accent)
         draw.text((54,52),label,font=font(42,True),fill=(245,247,250));image.save(source/name)
+    sky=Image.new('RGB',(1280,720),(82,162,224));draw=ImageDraw.Draw(sky)
+    draw.ellipse((950,70,1080,200),fill=(255,236,154));draw.rectangle((0,420,1280,720),fill=(72,138,72))
+    for x,y,w in ((120,120,250),(520,190,310),(850,290,210)):
+        draw.ellipse((x,y,x+w,y+90),fill=(242,247,250));draw.ellipse((x+70,y-35,x+w-50,y+80),fill=(242,247,250))
+    draw.polygon(((0,520),(330,330),(660,520)),fill=(64,115,80));draw.polygon(((430,520),(840,280),(1280,520)),fill=(54,104,74))
+    still=source/'generation-sky-source.png';sky.save(still)
+    temporary=source/'generation-sky-source.new.mp4'
+    subprocess.run(['ffmpeg','-y','-v','error','-loop','1','-i',str(still),'-t','10','-r','24',
+        '-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart',str(temporary)],check=True,timeout=60)
+    temporary.replace(source/'generation-sky-source.mp4')
 
 
 def reference_media_demo(identifier):
@@ -142,15 +153,15 @@ def reference_media_demo(identifier):
             [{'key':'first','name':'起始画面.png','file':'generation-first-frame.png'},
              {'key':'last','name':'结束画面.png','file':'generation-last-frame.png'}],['first-last-video.mp4']),
         'generate-video-multimodal':('多模态参考生成视频','同时冻结图片、视频和音频参考后生成新视频。',
-            '先给出明确方案，确认后使用 video.generate_from_references：reference_image_1 绑定构图参考图，reference_video_1 绑定动作参考视频，reference_audio_1 绑定旋律参考音频；生成 5 秒 1280×720 的纸艺自然场景 MP4并保留生成音频。验收实际视频、音轨、尺寸、时长和解码，只交付 multimodal-video.mp4。',
-            [{'key':'image','name':'构图参考.png','file':'image-document-skew.png'},
+            '先给出明确方案，确认后使用 video.generate_from_references：reference_image_1 绑定纸艺灯塔构图参考，reference_video_1 只参考缓慢镜头漂移，reference_audio_1 只参考旋律氛围；生成 5 秒 1280×720 的纸艺灯塔自然场景 MP4并保留生成音频。验收实际视频、灯塔构图、轻微漂移、可听音轨、尺寸、时长和解码，只交付 multimodal-video.mp4。',
+            [{'key':'image','name':'灯塔构图参考.png','file':'generation-first-frame.png'},
              {'key':'video','name':'动作参考.mp4','file':'nature.mp4'},
              {'key':'audio','name':'旋律参考.wav','file':'local-test-melody.wav'}],['multimodal-video.mp4']),
         'generate-video-edit':('使用外部模型编辑视频','把已有视频作为冻结编辑源进行定向修改。',
-            '先给出明确方案，确认后使用 video.edit，source 绑定输入视频，仅把天空改成柔和的极光夜空，其他主体和运动保持不变，不生成新音频。验收可解码、时长和主体连续性，只交付 edited-video.mp4。',
-            [{'key':'source','name':'待编辑视频.mp4','file':'bunny-original.mp4'}],['edited-video.mp4']),
+            '先给出明确方案，确认后使用 video.edit，source 绑定具有大面积蓝天和绿色山地的输入视频，仅把上半部蓝色天空改成有清晰柔和光带的极光夜空；地面、山体的位置与色彩保持不变，不生成新音频。验收可解码、时长、天空改动和非天空区域保持，只交付 edited-video.mp4。',
+            [{'key':'source','name':'待编辑天空视频.mp4','file':'generation-sky-source.mp4'}],['edited-video.mp4']),
         'generate-video-extend':('使用外部模型延长视频','从冻结源视频结尾继续生成新内容。',
-            '先给出明确方案，确认后使用 video.extend，source 绑定输入视频，extend_direction=backward，从结尾自然延长 5 秒，保持角色、场景和镜头运动连续，不生成新音频。验收可解码、延长方向、连续性和实际时长，只交付 extended-video.mp4。',
+            '先给出明确方案，确认后使用 video.extend，source 绑定输入视频，extend_direction=backward，从结尾自然生成新的 5 秒延长片段，保持角色、场景和镜头运动连续，不生成新音频。Provider 只交付新增片段，不与原片拼接；验收新增片段可解码、约 5 秒、延长方向和连续性，只交付 extended-video.mp4。',
             [{'key':'source','name':'待延长视频.mp4','file':'answer.mp4'}],['extended-video.mp4'])}
     title,description,prompt,sources,outputs=definitions[identifier];target=ROOT/identifier
     target.mkdir(parents=True,exist_ok=True);artwork(identifier,title,outputs,target)

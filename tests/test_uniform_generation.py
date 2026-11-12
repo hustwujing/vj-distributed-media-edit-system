@@ -59,6 +59,7 @@ class UniformGenerationTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_parameters(service.TEXT_VIDEO,PARAMS,{'source':{'asset':'x'}})
         with self.assertRaises(ValueError):validate_parameters(service.IMAGE_VIDEO,PARAMS,{})
         self.assertEqual(get(service.TEXT_VIDEO).public()['constraints']['durations'],list(range(4,16)))
+        self.assertEqual(get(service.TEXT_VIDEO).public()['constraints']['duration_tolerance_seconds'],.1)
 
     def test_audio_generation_has_a_distinct_contract_and_frozen_route(self):
         with patch.dict(os.environ,AUDIO_CONFIG):
@@ -121,6 +122,8 @@ class UniformGenerationTests(unittest.TestCase):
         with self.assertRaises(ValueError):validate_parameters('video.generate_from_references',PARAMS,{'reference_audio_1':audio})
         validate_parameters('video.edit',{'prompt':'replace the sky','generate_audio':False},{'source':video})
         validate_parameters('video.extend',{**PARAMS,'extend_direction':'forward'},{'source':video})
+        extend=get('video.extend').public()['constraints']
+        self.assertEqual(extend['output_semantics'],'generated_extension_segment_only')
 
     def test_first_last_assets_are_submitted_with_frozen_roles(self):
         references={'first_frame':{'bytes':self.image()},'last_frame':{'bytes':self.image()}}
