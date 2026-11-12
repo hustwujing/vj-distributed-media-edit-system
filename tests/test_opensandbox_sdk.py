@@ -66,7 +66,7 @@ class OpenSandboxSDKTests(unittest.TestCase):
         self.assertEqual(list(files.read_chunks('/out')),[b'payload'])
         self.assertEqual(service.calls,[('read_chunks',65536)])
 
-    def test_connector_forces_server_proxy_and_skips_daemon_health(self):
+    def test_connector_forces_server_proxy_and_waits_for_daemon_health(self):
         calls={}
         def config_factory(**kwargs):calls['config']=kwargs;return SimpleNamespace(**kwargs)
         class Factory:
@@ -76,7 +76,7 @@ class OpenSandboxSDKTests(unittest.TestCase):
             config_factory=config_factory,sandbox_factory=Factory).connect('sbx-1')
         self.assertTrue(calls['config']['use_server_proxy'])
         self.assertFalse(calls['config']['follow_redirects'])
-        self.assertTrue(calls['connect'][1]['skip_health_check'])
+        self.assertFalse(calls['connect'][1]['skip_health_check'])
         session.close();self.assertTrue(session.sandbox.closed)
 
 

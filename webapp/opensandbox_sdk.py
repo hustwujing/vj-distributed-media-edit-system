@@ -107,5 +107,5 @@ class OpenSandboxSDK:
             api_key=self.api_key,use_server_proxy=True,follow_redirects=False,
             request_timeout=timedelta(seconds=30))
         sandbox=self.sandbox_factory.connect(sandbox_id,connection_config=config,
-            connect_timeout=timedelta(seconds=30),skip_health_check=True)
+            connect_timeout=timedelta(seconds=30),skip_health_check=False)
         return OpenSandboxSDKSession(sandbox,config)
