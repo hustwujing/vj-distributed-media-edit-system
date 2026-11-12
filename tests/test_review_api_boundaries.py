@@ -7,12 +7,13 @@ import unittest
 from unittest.mock import patch
 
 import httpx
+from tests.isolation import temporary_root
 from webapp.app import create_app
 
 
 class RequestBoundaryTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
-        self.folder=tempfile.TemporaryDirectory()
+        self.folder=tempfile.TemporaryDirectory(dir=temporary_root())
         self.app=create_app(Path(self.folder.name),False)
         self.client=httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app),base_url='http://test:8080')
 
