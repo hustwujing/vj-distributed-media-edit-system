@@ -483,6 +483,9 @@ class Orchestrator:
                             and data.get('transient') and business_attempts<3)
         retry=retry or bool(task.get('type')=='agent' and code in ('model_rate_limited','model_service_unavailable')
                             and data.get('transient') and business_attempts<3)
+        runtime_retry=bool(task.get('type')=='agent' and code=='agent_runtime_unavailable'
+                           and data.get('runtime_transient') and task.get('infrastructure_interruptions',0)<2)
+        retry=retry or runtime_retry
         message=failure_message(code,data.get('error_detail'))
         if code=='execution_failed':
             detail=str(data.get('error_detail') or '')
@@ -517,9 +520,13 @@ class Orchestrator:
         if code=='provider_failed' and data.get('error_detail'):
             message=str(data['error_detail'])[:600]+'。系统未自动重复提交收费请求；请按上游建议调整参数，或稍后重新规划。'
         if code=='agent_runtime_unavailable':
-            message='系统沙箱运行环境故障：'+str(data.get('error_detail') or '原生 Harness 无法启动')[:600]+'。不需要补充任务信息，需修复运行环境后重新执行。'
-        graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,next_run_at=? WHERE run_id=? AND id=?',
-            ('retry_wait' if retry else 'paused',phase,code,message,int(retry and phase in ('poll','collect')),store.now()+min(30,2**(task['recovery_count']+1)),run['id'],task['id']))
+            detail=str(data.get('error_detail') or '原生 Harness 无法启动')[:600]
+            message=(('系统沙箱运行中断：'+detail+f'。正在清理资源并自动恢复（{task.get("infrastructure_interruptions",0)+1}/2），不需要补充任务信息。')
+                     if runtime_retry else
+                     ('系统沙箱运行环境故障：'+detail+'。不需要补充任务信息，需修复运行环境后重新执行。'))
+        graph.write_work(store,task,'UPDATE run_tasks SET status=?,phase=?,error_code=?,error_detail=?,recovery_count=recovery_count+?,infrastructure_interruptions=infrastructure_interruptions+?,next_run_at=? WHERE run_id=? AND id=?',
+            ('retry_wait' if retry else 'paused',phase,code,message,int(retry and phase in ('poll','collect')),
+             int(runtime_retry),store.now()+min(30,2**(task['recovery_count']+1)),run['id'],task['id']))
         if task.get('control_kind') and retry:
             if task['spec'].get('profile')=='media_planner':
                 store.execute("UPDATE planner_runs SET status='pending',error_code='',updated_at=? WHERE run_id=? AND task_id=?",

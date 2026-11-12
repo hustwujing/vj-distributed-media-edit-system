@@ -27,7 +27,7 @@ def envelope(store,request_id,proposal=None,kind='APPLY_PLAN',**extra):
 
 
 class DynamicGraphTests(unittest.TestCase):
-    def test_native_runtime_failure_is_visible_fatal_and_never_asks_a_model_to_repair_the_script(self):
+    def test_native_runtime_configuration_failure_is_visible_fatal_and_never_asks_a_model_to_repair_the_script(self):
         self.tick()
         self.propose({'proposal_id':'runtime-failure','reason':'Create report','base_graph_version':0,
             'add_tasks':[script(on_failure='diagnose')],'replan_after':['first']})
@@ -44,6 +44,33 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertIn('不需要补充任务信息',value['failure_details'][0]['message'])
         self.assertIn('websockets',value['failure_details'][0]['message'])
         self.assertEqual(current['terminal_reason'],'agent_runtime_unavailable')
+
+    def test_native_runtime_transport_loss_retries_twice_then_fails_visibly(self):
+        authorization=graph.bind_authorization({**self.run['authorization'],
+            'allowed_agent_profiles':['editing_implementer','media_failure_diagnostician']})
+        encoded=graph.encode(authorization.model_dump())
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(encoded,self.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(encoded,self.run['id']))
+        self.tick()
+        self.propose({'proposal_id':'runtime-interruption','reason':'Create report','base_graph_version':0,
+            'add_tasks':[script(type='agent',profile='editing_implementer',argv=[],inputs={},on_failure='diagnose')],
+            'replan_after':['first']})
+        run=self.tick();task=run['tasks'][0]
+        failure={'error_code':'agent_runtime_unavailable','phase':'local',
+                 'error_detail':'Runtime WebSocket send failed','runtime_transient':True}
+        for interruption in (1,2):
+            self.orchestrator.task_failure(graph.get(self.store,run['id']),task,failure)
+            current=graph.get(self.store,run['id']);task=current['tasks'][0]
+            self.assertEqual((task['status'],task['infrastructure_interruptions']),('retry_wait',interruption))
+            self.assertIn(f'自动恢复（{interruption}/2）',task['error_detail'])
+            self.assertEqual(current['status'],'ACTIVE')
+            self.store.execute("UPDATE run_tasks SET status='running' WHERE run_id=? AND id=?",(run['id'],task['id']))
+            task=graph.get(self.store,run['id'])['tasks'][0]
+        self.orchestrator.task_failure(graph.get(self.store,run['id']),task,failure)
+        current=graph.get(self.store,run['id']);task=current['tasks'][0]
+        self.assertEqual((task['status'],task['infrastructure_interruptions']),('failed',2))
+        self.assertEqual(current['terminal_reason'],'agent_runtime_unavailable')
+        self.assertNotIn('补充任务信息',task['error_detail'].replace('不需要补充任务信息',''))
 
     def test_provider_failure_shows_saved_actionable_reason_without_resubmission_prompt(self):
         self.tick()

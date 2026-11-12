@@ -101,6 +101,8 @@ class NativeSelectionTests(unittest.TestCase):
                 resource=requirements(Mock(),run,'edit')
                 self.assertEqual(resource['gpu'],expected)
                 self.assertEqual(resource['runtime_target'],'bwrap_gpu' if expected else 'opensandbox_cpu')
+                self.assertEqual((resource['cpu'],resource['memory_mb']),
+                                 (2,4096) if expected else (4,8192))
 
     def test_native_skill_selection_is_manifest_bound_and_opensandbox_only(self):
         from webapp import workflow_graph as graph

@@ -14,6 +14,18 @@ def agent_runtime_error(exc):
                            RemoteRuntimeError,BackendConfigurationError,BackendNotReady))
 
 
+def transient_agent_runtime_error(exc):
+    """Only an established control-channel loss is safe to replay.
+
+    Startup, dependency and configuration failures require an operator fix;
+    retrying them only hides the real fault.  A transport loss happens before
+    a native result is accepted and the native task has no external side
+    effect, so a bounded fresh Attempt is safe.
+    """
+    from .runtime_client import RuntimeTransportError
+    return isinstance(exc,RuntimeTransportError)
+
+
 def model_service_error_code(exc):
     from .workflow_agents import ModelServiceError
     if not isinstance(exc,ModelServiceError):return None
@@ -213,6 +225,7 @@ def _execute(host,lease):
             except Exception as checkpoint_error:emit('workflow.failure_checkpoint_failed','WARNING',exc=checkpoint_error,task_id=lease.run_id,step_id=lease.step_id)
         calls=store.query('SELECT state FROM workflow_provider_calls WHERE request_key=?',(run['id']+':'+task['id']+':'+str(task['revision']),))
         transient_model=bool(task['type']=='agent' and transient_model_error(exc))
+        transient_runtime=bool(task['type']=='agent' and transient_agent_runtime_error(exc))
         from .runtime_client import NativeTaskTimeout
         if task['type']=='agent' and isinstance(exc,NativeTaskTimeout):
             code='agent_timeout'
@@ -227,6 +240,7 @@ def _execute(host,lease):
         else:code=failure_error_code(task,phase,calls,classification)
         stage_result(store,lease,'failed',{'error_code':code,'phase':phase,
                                          'classification':classification,'transient':transient_model,
+                                         'runtime_transient':transient_runtime,
                                          'error_type':diagnostic['error_type'],'error_detail':diagnostic['message'],
                                          'quota_scope':getattr(exc,'diagnostic',{}).get('scope'),
                                          'quota_used':getattr(exc,'diagnostic',{}).get('used'),

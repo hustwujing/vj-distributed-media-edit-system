@@ -87,8 +87,13 @@ def requirements(store,run,step_id):
         runtime=('bwrap_gpu' if spec.runtime_requirements.requires_gpu else
                  'opensandbox_cpu' if task['profile'].get('harness')=='native-implementer-v1' else 'bwrap_cpu')
         validate_runtime(spec.runtime_requirements.model_dump(),selected=runtime)
-        result.update(cpu=2,memory_mb=4096 if runtime=='bwrap_gpu' else 2048,
-            gpu=spec.runtime_requirements.requires_gpu,runtime_target=runtime)
+        # A native Harness includes the gVisor sentry, model CLI and media
+        # working set.  Its resource envelope is materially larger than a
+        # fixed command sandbox; 2 GiB lets ordinary frame processing OOM the
+        # sentry and makes the control WebSocket disappear mid-turn.
+        if runtime=='opensandbox_cpu':result.update(cpu=4,memory_mb=8192)
+        else:result.update(cpu=2,memory_mb=4096 if runtime=='bwrap_gpu' else 2048)
+        result.update(gpu=spec.runtime_requirements.requires_gpu,runtime_target=runtime)
         return result
     spec=graph.Task.model_validate(task['spec'])
     if spec.type=='script':result.update(cpu=2,memory_mb=2048)
