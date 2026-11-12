@@ -734,9 +734,15 @@ class Orchestrator:
             self.queue_plan(graph.get(store,run['id']),{'review_incomplete':review['id'],'task_id':review['subject_task']})
             return
         if not retry and code=='submission_unknown':
-            self.decision(run,'external_submission',{'task_id':task['id'],
-                'question':'外部请求结果未确认。请选择：提供供应商任务 ID 以继续查询，或确认未受理后允许使用同一请求重新提交。',
-                'options':['attach_external_id','resubmit']})
+            from .operation_lifecycle import for_operation
+            from .operations import get as operation
+            implementation=for_operation(operation(task['spec']['operation'],task['spec']['implementation']))
+            queryable='poll' in implementation.protocol.phases
+            self.decision(run,'external_submission',{'task_id':task['id'],'external_id_queryable':queryable,
+                'question':('外部请求结果未确认。可以提供供应商任务 ID 继续查询原请求；只有确认上游未受理，才允许重新提交。' if queryable else
+                            '同步外部请求的回执丢失，且该接口不提供可查询的任务 ID。系统无法确认服务端是否已处理；重新提交可能重复生成或重复计费。请明确确认是否仍要重新提交。'),
+                'options':['attach_external_id','resubmit'] if queryable else ['resubmit'],
+                'resubmit_may_duplicate':True})
             return
         if not retry:
             diagnose=(not task.get('control_kind') and task['spec'].get('on_failure')=='diagnose'

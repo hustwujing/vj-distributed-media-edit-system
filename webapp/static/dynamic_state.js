@@ -27,8 +27,12 @@ export function decisionPresentation(decision, run) {
   if(decision.kind==='input_question')return {title:'需要明确的事项',description:'可以在这里或聊天框直接回答。',actions:[{action:'reject',label:'停止当前方向',primary:false}]};
   if (decision.kind === 'external_wait') return {title:'外部任务等待超时', description:'继续等待原任务，或放弃该任务并重新规划；其他已完成成果保留。',
     actions:[{action:'approve',label:'再等一个周期',primary:true},{action:'reject',label:'放弃该任务并重新规划',primary:false}]};
-  if (decision.kind === 'external_submission') return {title:'外部请求结果需要核实', description:'有任务 ID 时继续查询原请求；只有确认上游未受理，才选择重新提交。',
-    actions:[{action:'approve',label:'提供 ID 并继续查询',primary:true},{action:'reject',label:'确认未受理并重新提交',primary:false}]};
+  if (decision.kind === 'external_submission') {
+    if(decision.request?.external_id_queryable===false)return {title:'同步请求结果未知',description:'该接口没有可查询的任务 ID。重新提交可能重复生成或重复计费。',
+      actions:[{action:'reject',label:'确认风险并重新提交',primary:false}]};
+    return {title:'外部请求结果需要核实', description:'有任务 ID 时继续查询原请求；只有确认上游未受理，才选择重新提交。',
+      actions:[{action:'approve',label:'提供 ID 并继续查询',primary:true},{action:'reject',label:'确认未受理并重新提交',primary:false}]};
+  }
   return {title:['plan_change','successor_authorization','new_run'].includes(decision.kind)?'请确认执行范围':decision.kind==='input_question'?'需要补充信息':'请检查当前候选',
     description:'请确认候选是否满足你的要求。',
     actions:[...(canApproveDecision(decision,run)?[{action:'approve',label:'批准并继续',primary:true}]:[]),

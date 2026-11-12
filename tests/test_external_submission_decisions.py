@@ -129,3 +129,35 @@ class ExternalSubmissionDecisionTests(unittest.TestCase):
         self.dispatch()
         self.assertEqual(len(self.posts),2)
         self.assertEqual(len(self.store.query('SELECT request_key FROM workflow_provider_calls WHERE workflow=?',(self.run['id'],))),2)
+
+    def test_sync_unknown_submission_is_never_presented_as_an_id_lookup(self):
+        spec=graph.Task.model_validate({'id':'render','type':'operation','operation':'image.generate_from_text',
+            'implementation':'image_sync@1','name':'image','objective':'Generate approved baseline image',
+            'parameters':{'prompt':'dark baseline','width':1280,'height':720,'quality':'high','fit':'native','background':'#ffffff'},
+            'acceptance':[{'kind':'image'}],'basic_reason':'Synchronous receipt recovery fixture'}).model_dump()
+        self.store.execute("UPDATE run_tasks SET spec_json=?,status='running',phase='sync',error_code='',error_detail='' WHERE run_id=? AND id='render'",
+            (graph.encode(spec),self.run['id']))
+        self.store.execute('DELETE FROM workflow_decisions WHERE run_id=?',(self.run['id'],))
+        self.store.execute("UPDATE runs SET status='ACTIVE',terminal_reason='' WHERE id=?",(self.run['id'],))
+        current=graph.get(self.store,self.run['id']);task=current['tasks'][0]
+        self.f.f.orchestrator.task_failure(current,task,{'error_code':'submission_unknown','phase':'sync'})
+        decision=self.store.query("SELECT request_json FROM workflow_decisions WHERE run_id=? AND kind='external_submission' AND status='pending'",(self.run['id'],))[0]
+        request=json.loads(decision['request_json'])
+        self.assertFalse(request['external_id_queryable'])
+        self.assertEqual(request['options'],['resubmit'])
+        self.assertIn('不提供可查询的任务 ID',request['question'])
+
+    def test_public_snapshot_upgrades_legacy_sync_decision_without_mutating_history(self):
+        spec=graph.Task.model_validate({'id':'render','type':'operation','operation':'image.generate_from_text',
+            'implementation':'image_sync@1','name':'image','objective':'Generate approved baseline image',
+            'parameters':{'prompt':'dark baseline','width':1280,'height':720,'quality':'high','fit':'native','background':'#ffffff'},
+            'acceptance':[{'kind':'image'}],'basic_reason':'Synchronous receipt recovery fixture'}).model_dump()
+        self.store.execute("UPDATE run_tasks SET spec_json=? WHERE run_id=? AND id='render'",(graph.encode(spec),self.run['id']))
+        legacy=json.loads(self.decision['request_json']);legacy.pop('external_id_queryable',None);legacy.pop('resubmit_may_duplicate',None)
+        self.store.execute('UPDATE workflow_decisions SET request_json=? WHERE id=?',(graph.encode(legacy),self.decision['id']))
+        from webapp.workflow_api import public
+        shown=public(self.store,graph.get(self.store,self.run['id']))
+        request=shown['decisions'][0]['request']
+        self.assertFalse(request['external_id_queryable'])
+        self.assertEqual(request['options'],['resubmit'])
+        self.assertIn('重复生成或重复计费',request['question'])

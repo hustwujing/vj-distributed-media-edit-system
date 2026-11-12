@@ -59,6 +59,9 @@ test('external decisions expose exactly one clearly named action for each choice
  const submission=decisionPresentation({kind:'external_submission'},run);
  assert.equal(submission.actions.filter(item=>item.action==='approve').length,1);
  assert.equal(submission.actions.find(item=>item.action==='reject').label,'确认未受理并重新提交');
+ const sync=decisionPresentation({kind:'external_submission',request:{external_id_queryable:false}},run);
+ assert.equal(sync.title,'同步请求结果未知');
+ assert.deepEqual(sync.actions.map(item=>[item.action,item.label]),[['reject','确认风险并重新提交']]);
  assert.equal(decisionPresentation({kind:'quality_feedback'},run).actions.some(item=>item.action==='approve'),false);
 });
 
@@ -146,4 +149,9 @@ test('terminal run input creates a model-inheriting successor instead of posting
  assert.match(source,/parent=current&&terminalRun\(current\.state\)\?current\.id:null,origin=current&&!terminalRun\(current\.state\)\?current\.id:null/);
  assert.match(source,/chosen=parent\?null:\{\.\.\.modelChoice\}/);
  assert.match(source,/parent_run_id:parent,model_choice:chosen/);
+});
+
+test('synchronous unknown submissions never render an external id field',()=>{
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.match(source,/d\.kind==='external_submission'&&d\.request\.external_id_queryable!==false/);
 });

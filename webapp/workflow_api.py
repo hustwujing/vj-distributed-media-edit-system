@@ -167,7 +167,21 @@ def public(store,run):
     value['plan_drafts']=store.query('''SELECT planning_request_id,schema_version,status,revision,
         repeated_error_count,created_at,updated_at FROM workflow_plan_drafts WHERE run_id=? ORDER BY created_at''',(run['id'],))
     value['decisions']=store.query("SELECT id,kind,graph_version,authorization_version,snapshot_digest,request_json,status FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))
-    for item in value['decisions']:item['request']=json.loads(item.pop('request_json'))
+    for item in value['decisions']:
+        item['request']=json.loads(item.pop('request_json'))
+        if item['kind']=='external_submission' and 'external_id_queryable' not in item['request']:
+            task=graph.work_item(run,item['request'].get('task_id',''))
+            if task and task['type']=='operation':
+                try:
+                    from .operation_lifecycle import for_operation
+                    from .operations import get as operation
+                    queryable='poll' in for_operation(operation(task['spec']['operation'],task['spec']['implementation'])).protocol.phases
+                except (KeyError,ValueError):queryable=False
+                item['request']['external_id_queryable']=queryable
+                item['request']['resubmit_may_duplicate']=True
+                if not queryable:
+                    item['request']['question']='同步外部请求的回执丢失，且该接口不提供可查询的任务 ID。系统无法确认服务端是否已处理；重新提交可能重复生成或重复计费。请明确确认是否仍要重新提交。'
+                    item['request']['options']=['resubmit']
     question_cutoff=max((item['request'].get('input_through_sequence',0) for item in value['decisions'] if item['kind']=='input_question'),default=0)
     for item in value['inputs']:
         item['waiting_for_answer']=bool(item['status']=='ACCEPTED' and item['sequence']<=question_cutoff)
