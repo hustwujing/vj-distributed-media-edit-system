@@ -1,8 +1,10 @@
 import io
 import json
 import os
-import unittest
 from pathlib import Path
+import subprocess
+import tempfile
+import unittest
 from unittest.mock import Mock, patch
 
 import requests
@@ -140,21 +142,25 @@ class UniformGenerationTests(unittest.TestCase):
         self.assertTrue(all(item['image_url']['url'].startswith('asset://') for item in payload['content'][1:]))
 
     def test_multimodal_edit_and_extend_references_are_validated_before_provider_calls(self):
-        root=Path(__file__).parents[1]/'workspace/demos/sources'
-        references={
-            'reference_image_1':{'bytes':(root/'generation-first-frame.png').read_bytes()},
-            'reference_video_1':{'bytes':(root/'nature.mp4').read_bytes()},
-            'reference_audio_1':{'bytes':(root/'local-test-melody.wav').read_bytes()}}
-        multimodal=service.prepare('video.generate_from_references',{**PARAMS,'duration':5},references)
-        self.assertEqual([item['kind'] for item in multimodal['references']],['image','video','audio'])
-        self.assertEqual(set(multimodal['reference_sha256s']),set(references))
-        source={'source':{'bytes':(root/'bunny-original.mp4').read_bytes()}}
-        edited=service.prepare('video.edit',{'prompt':'replace sky'},source)
-        self.assertEqual(edited['payload']['duration'],-1);self.assertEqual(edited['payload']['ratio'],'adaptive')
-        self.assertTrue(edited['payload']['content'][0]['text'].startswith('严格编辑视频1'))
-        extended=service.prepare('video.extend',{**PARAMS,'duration':5,'extend_direction':'backward'},source)
-        self.assertEqual(extended['payload']['duration'],5);self.assertEqual(extended['payload']['ratio'],'adaptive')
-        self.assertTrue(extended['payload']['content'][0]['text'].startswith('在视频1开头之前生成前序片段（backward）'))
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);video=root/'reference.mp4';audio=root/'reference.wav'
+            subprocess.run(['ffmpeg','-y','-v','error','-f','lavfi','-i','testsrc2=size=854x480:rate=24',
+                '-t','2','-c:v','libx264','-pix_fmt','yuv420p',str(video)],check=True,timeout=30)
+            subprocess.run(['ffmpeg','-y','-v','error','-f','lavfi','-i','sine=frequency=440:sample_rate=32000',
+                '-t','2','-c:a','pcm_s16le',str(audio)],check=True,timeout=30)
+            references={'reference_image_1':{'bytes':self.image()},
+                'reference_video_1':{'bytes':video.read_bytes()},
+                'reference_audio_1':{'bytes':audio.read_bytes()}}
+            multimodal=service.prepare('video.generate_from_references',{**PARAMS,'duration':5},references)
+            self.assertEqual([item['kind'] for item in multimodal['references']],['image','video','audio'])
+            self.assertEqual(set(multimodal['reference_sha256s']),set(references))
+            source={'source':{'bytes':video.read_bytes()}}
+            edited=service.prepare('video.edit',{'prompt':'replace sky'},source)
+            self.assertEqual(edited['payload']['duration'],-1);self.assertEqual(edited['payload']['ratio'],'adaptive')
+            self.assertTrue(edited['payload']['content'][0]['text'].startswith('严格编辑视频1'))
+            extended=service.prepare('video.extend',{**PARAMS,'duration':5,'extend_direction':'backward'},source)
+            self.assertEqual(extended['payload']['duration'],5);self.assertEqual(extended['payload']['ratio'],'adaptive')
+            self.assertTrue(extended['payload']['content'][0]['text'].startswith('在视频1开头之前生成前序片段（backward）'))
 
     def test_reference_and_capability_mismatches_are_rejected_before_submission(self):
         for operation,parameters,reference in ((service.IMAGE_VIDEO,PARAMS,None),(service.TEXT_VIDEO,PARAMS,self.image()),

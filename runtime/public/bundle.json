@@ -2,8 +2,8 @@
   "files": [
     {
       "path": "SKILL.md",
-      "sha256": "a130d2610a74a61d123b94c780240bcc8c0d978fed9416ee0b68f0080d41511e",
-      "size": 10159
+      "sha256": "b72efdb82756861554fcb05165b7f5bf4fcb07665804f55babac9aedad486278",
+      "size": 10795
     },
     {
       "path": "capabilities.json",
@@ -5307,6 +5307,6 @@
     }
   ],
   "schema_version": 1,
-  "skill_digest": "sha256:961c14514cd840c1f0c492c67f156dad0b1cd83ea6d0171a8fd8c741db462c99",
+  "skill_digest": "sha256:249a22b2cd8fd7f935b9cf60ff41b116028ba158e68ad1e7254aac14ec54b0a7",
   "tool_schema_digest": "sha256:be44ebc5f0f702bf2ebc5ee6de67cf6edee7db855069a319dd6496a3202e121d"
 }
