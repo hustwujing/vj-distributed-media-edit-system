@@ -134,7 +134,7 @@ node --test tests/*.test.mjs
 
 Python 测试必须走 `tests.run_distributed_suite`，以获得独立 PostgreSQL、S3 协议服务、环境清理和报告；不要直接用 `unittest` 绕过隔离。定向测试在命令末尾追加模块名。临时文件、缓存、锁和媒体证据放在 `/data2/wujing03`，不要写根分区 `/tmp`。
 
-当前示例库真机清单为 70 项：原有 44 项、25 个逐 Skill 独立 Native Skill case，以及 1 个图片/视频/音频联合生成 case。扩容前完整轮和后续定向复测见 [示例库真机报告](docs/real-case-campaign/demo-library-test-report.md)；OpenSandbox 专项历史见 [部署后审查记录](docs/real-case-campaign/opensandbox-post-review-live.md)。系统 `SUCCEEDED` 不能替代实际产物、浏览器、数据库、Redis、BOSS、Sandbox 和 cleanup 审查。
+当前示例库真机清单为 74 项：原有 44 项、25 个逐 Skill 独立 Native Skill case、1 个图片/视频/音频联合生成 case，以及 4 个外部视频参考模式 case（首尾帧、多模态参考、视频编辑、视频延长）。扩容前完整轮和后续定向复测见 [示例库真机报告](docs/real-case-campaign/demo-library-test-report.md)；OpenSandbox 专项历史见 [部署后审查记录](docs/real-case-campaign/opensandbox-post-review-live.md)。系统 `SUCCEEDED` 不能替代实际产物、浏览器、数据库、Redis、BOSS、Sandbox 和 cleanup 审查。
 
 ## 开发规范
 

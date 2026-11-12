@@ -2,6 +2,7 @@ import io
 import json
 import os
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import requests
@@ -11,7 +12,10 @@ from webapp.operations import get, validate_parameters
 
 
 CONFIG = {'VIDEO_USE_GENERATION_BACKEND': 'ark', 'VIDEO_USE_GENERATION_URL': 'https://video.example/api/v3',
-          'VIDEO_USE_GENERATION_KEY': 'test-private-key', 'VIDEO_USE_GENERATION_MODEL': 'seedance-test'}
+          'VIDEO_USE_GENERATION_KEY': 'test-private-key', 'VIDEO_USE_GENERATION_MODEL': 'seedance-test',
+          'VIDEO_USE_ARK_ACCESS_KEY':'ark-access','VIDEO_USE_ARK_SECRET_KEY':'ark-secret',
+          'VIDEO_USE_ARK_PROJECT_NAME':'ark-project','VIDEO_USE_ARK_ASSET_GROUP_ID':'group-test',
+          'VIDEO_USE_OBJECT_BUCKET':'test-bucket','VIDEO_USE_OBJECT_ENDPOINT':'https://objects.example'}
 PARAMS = {'prompt': 'A woman runs on a sunny beach', 'width': 1280, 'height': 720, 'duration': 15, 'seed': 1}
 AUDIO_CONFIG={'VIDEO_USE_AUDIO_GENERATION_URL':'https://audio.example/v1',
               'VIDEO_USE_AUDIO_GENERATION_KEY':'audio-private-key',
@@ -51,7 +55,7 @@ class UniformGenerationTests(unittest.TestCase):
     def test_three_operations_have_separate_input_contracts(self):
         self.assertEqual(get(service.TEXT_VIDEO).input_kinds,())
         self.assertEqual(get(service.IMAGE_VIDEO).input_kinds,('image',))
-        self.assertEqual(validate_parameters(service.TEXT_VIDEO,PARAMS,{}),PARAMS)
+        self.assertEqual(validate_parameters(service.TEXT_VIDEO,PARAMS,{}),{**PARAMS,'generate_audio':False})
         with self.assertRaises(ValueError):validate_parameters(service.TEXT_VIDEO,PARAMS,{'source':{'asset':'x'}})
         with self.assertRaises(ValueError):validate_parameters(service.IMAGE_VIDEO,PARAMS,{})
         self.assertEqual(get(service.TEXT_VIDEO).public()['constraints']['durations'],list(range(4,16)))
@@ -97,14 +101,55 @@ class UniformGenerationTests(unittest.TestCase):
             service.poll(client,handle,'audio-task')
         client.get.assert_not_called()
 
-    def test_reference_is_inline_and_snapshot_contains_no_image_or_credentials(self):
+    def test_reference_is_content_addressed_and_snapshot_contains_no_bytes_or_credentials(self):
         p=service.prepare(service.IMAGE_VIDEO,PARAMS,self.image())
-        self.assertEqual(p['payload']['content'][1]['role'],'first_frame')
-        self.assertTrue(p['payload']['content'][1]['image_url']['url'].startswith('data:image/png;base64,'))
+        self.assertEqual(len(p['references']),1);self.assertEqual(p['references'][0]['role'],'first_frame')
+        self.assertEqual(p['payload']['content'],[{'type':'text','text':PARAMS['prompt']}])
         snapshot=service.implementation(p)
         self.assertEqual(len(snapshot['reference_sha256']),64)
         self.assertNotIn('payload',snapshot)
+        self.assertNotIn('references',snapshot)
         self.assertNotIn('test-private-key',json.dumps(snapshot))
+
+    def test_new_video_reference_modes_have_distinct_contracts_and_payloads(self):
+        image={'asset':'image'};video={'asset':'video'};audio={'asset':'audio'}
+        frames={'first_frame':image,'last_frame':image}
+        self.assertEqual(set(get('video.generate_from_frames').public()['input_contract']['required_roles']),set(frames))
+        validate_parameters('video.generate_from_frames',{**PARAMS,'generate_audio':True},frames)
+        refs={'reference_image_1':image,'reference_audio_1':audio}
+        validate_parameters('video.generate_from_references',PARAMS,refs)
+        with self.assertRaises(ValueError):validate_parameters('video.generate_from_references',PARAMS,{'reference_audio_1':audio})
+        validate_parameters('video.edit',{'prompt':'replace the sky','generate_audio':False},{'source':video})
+        validate_parameters('video.extend',{**PARAMS,'extend_direction':'forward'},{'source':video})
+
+    def test_first_last_assets_are_submitted_with_frozen_roles(self):
+        references={'first_frame':{'bytes':self.image()},'last_frame':{'bytes':self.image()}}
+        prepared=service.prepare('video.generate_from_frames',{**PARAMS,'duration':5,'generate_audio':True},references)
+        activated=[{**item,'asset_uri':'asset://asset-'+str(index)} for index,item in enumerate(prepared['references'],1)]
+        client=Mock();client.post.return_value.status_code=200;client.post.return_value.json.return_value={'id':'task'}
+        with patch('webapp.ark_generation.prepare_reference_assets',return_value=activated):
+            self.assertEqual(service.submit(client,prepared,'key')['id'],'task')
+        payload=client.post.call_args.kwargs['json']
+        self.assertEqual([item.get('role') for item in payload['content'][1:]],['first_frame','last_frame'])
+        self.assertTrue(payload['generate_audio'])
+        self.assertTrue(all(item['image_url']['url'].startswith('asset://') for item in payload['content'][1:]))
+
+    def test_multimodal_edit_and_extend_references_are_validated_before_provider_calls(self):
+        root=Path(__file__).parents[1]/'workspace/demos/sources'
+        references={
+            'reference_image_1':{'bytes':(root/'generation-first-frame.png').read_bytes()},
+            'reference_video_1':{'bytes':(root/'nature.mp4').read_bytes()},
+            'reference_audio_1':{'bytes':(root/'local-test-melody.wav').read_bytes()}}
+        multimodal=service.prepare('video.generate_from_references',{**PARAMS,'duration':5},references)
+        self.assertEqual([item['kind'] for item in multimodal['references']],['image','video','audio'])
+        self.assertEqual(set(multimodal['reference_sha256s']),set(references))
+        source={'source':{'bytes':(root/'bunny-original.mp4').read_bytes()}}
+        edited=service.prepare('video.edit',{'prompt':'replace sky'},source)
+        self.assertEqual(edited['payload']['duration'],-1);self.assertEqual(edited['payload']['ratio'],'adaptive')
+        self.assertTrue(edited['payload']['content'][0]['text'].startswith('严格编辑视频1'))
+        extended=service.prepare('video.extend',{**PARAMS,'duration':5,'extend_direction':'backward'},source)
+        self.assertEqual(extended['payload']['duration'],5);self.assertEqual(extended['payload']['ratio'],'adaptive')
+        self.assertTrue(extended['payload']['content'][0]['text'].startswith('向后延长视频1'))
 
     def test_reference_and_capability_mismatches_are_rejected_before_submission(self):
         for operation,parameters,reference in ((service.IMAGE_VIDEO,PARAMS,None),(service.TEXT_VIDEO,PARAMS,self.image()),

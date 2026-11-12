@@ -11,6 +11,7 @@ TEXT_IMAGE = 'image.generate_from_text'
 IMAGE_VIDEO = 'video.generate_from_image'
 TEXT_VIDEO = 'video.generate_from_text'
 TEXT_AUDIO = 'audio.generate_from_text'
+REFERENCE_VIDEO_OPERATIONS = {'video.generate_from_frames','video.generate_from_references','video.edit','video.extend'}
 PROVIDERS={'ark-video-v1':ark_generation,'wan-video-v1':wan_generation,
            minimax_audio_generation.PROTOCOL:minimax_audio_generation}
 
@@ -38,8 +39,8 @@ def prepare(operation, parameters, reference=None):
 
 def implementation(prepared):
     """Persist routing and model, never credentials or inline image contents."""
-    return {k: prepared[k] for k in ('provider','protocol','model','operation','reference_sha256',
-                                      'credential_binding','audio_format') if k in prepared}
+    return {k: prepared[k] for k in ('provider','protocol','model','operation','generation_mode',
+                                      'reference_sha256','reference_sha256s','credential_binding','audio_format') if k in prepared}
 
 
 def submit(client, prepared, request_key):

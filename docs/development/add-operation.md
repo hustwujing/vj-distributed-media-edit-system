@@ -79,6 +79,8 @@ handler 的调用形态为 `handler(adapter, workflow, step, *, cancelled=None, 
 
 `audio.generate_from_text` 使用 MiniMax 异步 T2A 适配器：文本、音色、语速和格式属于冻结业务参数；Provider URL、模型、密钥及下载域名 allowlist 分别由 `VIDEO_USE_AUDIO_GENERATION_URL`、`VIDEO_USE_AUDIO_GENERATION_MODEL`、`VIDEO_USE_AUDIO_GENERATION_KEY`、`VIDEO_USE_AUDIO_GENERATION_DOWNLOAD_HOSTS` 配置。密钥只进入宿主执行器和外部清理进程；任务句柄、协议、模型、格式和凭据绑定摘要进入不可变调用记录。该 Provider 不支持取消，取消流程必须公开 `unsupported`，不能重提同一 revision。下载只接受 HTTPS allowlist 域名；tar 包只在内存中读取唯一有界音频成员，不解压任意路径。
 
+Seedance 参考模式使用独立业务 ID：`video.generate_from_frames`、`video.generate_from_references`、`video.edit`、`video.extend`。不要把模式作为任意字符串下发，也不要让 Agent 构造素材 URL。输入角色、媒体类型、数量和总时长由 `OperationContract` 冻结；`workflow_runtime` 只读取已绑定版本，`ark_generation` 校验实际字节，`ark_reference_assets` 用内容摘要发布目标环境专属 BOSS 对象并注册 Ark Asset。新增参考角色、格式或 Provider 限制时必须同步这三层和真实 case。Ark/BOSS 长期凭据只在宿主私有环境中，不能写入调用 implementation、诊断或 Runtime 镜像。
+
 不要在 handler 中另建任务池、数据库轮询线程或成果发布事务；依赖、租约、超时、状态推进、验收和正式发布由现有框架处理。新实现仍需实际接入这些设施，仅填写生命周期或 cancellation 字段不会自动实现取消行为。
 
 音频窗口证据必须在重采样后按采样点数截取，再输出 PCM；FFmpeg 的 `-t` 受包时间戳和 AAC 填充影响，不能单独保证解码样本数上限。验证包括上限窗口、带 offset 的短窗口和合法但不均匀的包时间戳，不通过增大资源上限掩盖溢出。

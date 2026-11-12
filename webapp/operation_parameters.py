@@ -294,10 +294,14 @@ def model(operation_id,executor,action):
     if executor=='image_sync':
         from .image_generation import Parameters as ImageGeneration
         return ImageGeneration
-    from .operations import TranscriptionParameters,GenerationParameters,AudioGenerationParameters,IMAGE_PARAMETERS
+    from .operations import (TranscriptionParameters,GenerationParameters,VideoGenerationParameters,
+        VideoEditParameters,VideoExtendParameters,AudioGenerationParameters,IMAGE_PARAMETERS)
     if executor=='transcribe':return TranscriptionParameters
     if executor=='generation_async':
         if operation_id=='audio.generate_from_text':return AudioGenerationParameters
+        if operation_id=='video.edit':return VideoEditParameters
+        if operation_id=='video.extend':return VideoExtendParameters
+        if operation_id.startswith('video.'):return VideoGenerationParameters
         if operation_id!='image.generate_from_text':return GenerationParameters
         return create_model('TextImageParameters',__base__=Parameters,**{
             name:(field.annotation,field) for name,field in GenerationParameters.model_fields.items() if name!='duration'})

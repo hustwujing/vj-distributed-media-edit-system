@@ -206,7 +206,10 @@ class Adapter:
             return identifier
 
     def submit_generation(self,w,s):
-        if s['spec']['operation']=='audio.generate_from_text' or os.environ.get('VIDEO_USE_GENERATION_BACKEND','jobs')=='ark' or (s['spec']['operation']=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan'):
+        from .generation_service import REFERENCE_VIDEO_OPERATIONS
+        if (s['spec']['operation']=='audio.generate_from_text' or s['spec']['operation'] in REFERENCE_VIDEO_OPERATIONS
+                or os.environ.get('VIDEO_USE_GENERATION_BACKEND','jobs')=='ark'
+                or (s['spec']['operation']=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan')):
             return self.submit_uniform_generation(w,s)
         with self.input_environment(w,s) as env:
             return self.submit_generation_job(w,s,env)
@@ -251,11 +254,13 @@ class Adapter:
         spec=s['spec'];bindings=resolve(self.store,w,s,env)
         reference=None
         if bindings:
-            ref=bindings['source']
-            if ref['metadata'].get('kind')!='image':raise ValueError('图生视频需要图片参考')
-            source=(env['sources']/Path(ref['path']).name) if ref.get('asset') else env['workspace']/ref['path']
-            if source.stat().st_size>20*1024**2:raise ValueError('参考图片过大')
-            reference=source.read_bytes()
+            reference={}
+            for role,ref in bindings.items():
+                source=(env['sources']/Path(ref['path']).name) if ref.get('asset') else env['workspace']/ref['path']
+                if source.stat().st_size>200*1024**2:raise ValueError('生成参考素材超过 200MB')
+                reference[role]={'bytes':source.read_bytes(),'metadata':ref['metadata'],'sha256':ref['sha256']}
+            if set(reference)=={'source'} and spec['operation']=='video.generate_from_image':
+                reference=reference['source']['bytes']
         prepared=generation_service.prepare(spec['operation'],spec['parameters'],reference)
         current=next(x for x in get(self.store,w['run_id'])['steps'] if x['id']==s['id'])
         key=intent(self.store,w,current,prepared['provider'],spec['operation'],generation_service.implementation(prepared))

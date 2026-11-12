@@ -47,6 +47,21 @@ class GenerationParameters(BaseModel):
     seed:int=Field(default=1,ge=0,le=2147483647)
 
 
+class VideoGenerationParameters(GenerationParameters):
+    generate_audio:bool=False
+
+
+class VideoEditParameters(BaseModel):
+    model_config=ConfigDict(extra='forbid')
+    prompt:str=Field(min_length=1,max_length=5000)
+    generate_audio:bool=False
+    seed:int=Field(default=1,ge=0,le=2147483647)
+
+
+class VideoExtendParameters(VideoGenerationParameters):
+    extend_direction:Literal['forward','backward']
+
+
 class AudioGenerationParameters(BaseModel):
     model_config=ConfigDict(extra='forbid')
     text:str=Field(min_length=1,max_length=9999)
@@ -172,7 +187,7 @@ class Operation:
         if self.id=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan' and self.available():
             from .wan_generation import capabilities
             result['constraints']=capabilities()
-        elif self.id.startswith('video.generate_') and os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark' and self.available():
+        elif (self.id.startswith('video.generate_') or self.id in ('video.edit','video.extend')) and os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark' and self.available():
             from .ark_generation import capabilities
             result['constraints']=capabilities()['operations'][self.id]
         elif self.id=='audio.generate_from_text' and self.available():
@@ -196,8 +211,17 @@ class Operation:
     def available(self):
         if self.id=='video.generate_from_image' and os.environ.get('VIDEO_USE_IMAGE_VIDEO_BACKEND')=='wan':
             return all(os.environ.get(k) for k in ('VIDEO_USE_IMAGE_VIDEO_URL','VIDEO_USE_IMAGE_VIDEO_KEY','VIDEO_USE_IMAGE_VIDEO_MODEL'))
+        if self.id=='video.generate_from_image' and os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark':
+            from .ark_reference_assets import configured
+            return (all(os.environ.get(k) for k in ('VIDEO_USE_GENERATION_URL','VIDEO_USE_GENERATION_KEY','VIDEO_USE_GENERATION_MODEL'))
+                and configured())
         if self.executor=='image_sync':
             return bool((os.environ.get('VIDEO_USE_IMAGE_GENERATION_URL') or os.environ.get('VIDEO_USE_MODEL_BASE_URL')) and (os.environ.get('VIDEO_USE_IMAGE_GENERATION_KEY') or os.environ.get('VIDEO_USE_MODEL_API_KEY')))
+        if self.id in ('video.generate_from_frames','video.generate_from_references','video.edit','video.extend'):
+            from .ark_reference_assets import configured
+            return (os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark'
+                and all(os.environ.get(k) for k in ('VIDEO_USE_GENERATION_URL','VIDEO_USE_GENERATION_KEY','VIDEO_USE_GENERATION_MODEL'))
+                and configured())
         if self.id in ('image.generate_from_text','video.generate_from_image','video.generate_from_text'):
             if os.environ.get('VIDEO_USE_GENERATION_BACKEND')=='ark':
                 return self.id.startswith('video.') and all(os.environ.get(k) for k in ('VIDEO_USE_GENERATION_URL','VIDEO_USE_GENERATION_KEY','VIDEO_USE_GENERATION_MODEL'))
@@ -266,6 +290,14 @@ REGISTRY['audio.generate_from_text']=Operation('audio.generate_from_text','text_
 REGISTRY['image.generate_from_text']=Operation('image.generate_from_text','text_to_image','generation_async',(),('primary_image',),retry_safe=False,external_side_effects=True,budget_group='image.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api')
 REGISTRY['video.generate_from_image']=Operation('video.generate_from_image','image_to_video','generation_async',('image',),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_image',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)
 REGISTRY['video.generate_from_text']=Operation('video.generate_from_text','text_to_video','generation_async',(),('video',),retry_safe=False,external_side_effects=True,budget_group='video.generate_from_text',concurrency_group='generation',route_adapter='generation_jobs',provider_identity='generation-jobs',cleanup_category='job_api',timeout=3600)
+for identifier,action,kinds in (
+        ('video.generate_from_frames','first_last_frames',('image',)),
+        ('video.generate_from_references','multimodal_reference',('image','video','audio')),
+        ('video.edit','reference_video_edit',('video','image','audio')),
+        ('video.extend','reference_video_extend',('video','image','audio'))):
+    REGISTRY[identifier]=Operation(identifier,action,'generation_async',kinds,('video',),retry_safe=False,
+        external_side_effects=True,budget_group=identifier,concurrency_group='generation',route_adapter='generation',
+        provider_identity='ark',cleanup_category='generation_protocol',timeout=3600)
 
 
 @dataclass(frozen=True)
@@ -337,6 +369,18 @@ def contract(operation):
     if operation.action=='normalize_clip':return OperationContract(parameters,frozenset({'source'}),frozenset({'source'}))
     if operation.executor=='fixed_media':
         return OperationContract(parameters,minimum_inputs=1)
+    if operation.id=='video.generate_from_frames':
+        return OperationContract(parameters,frozenset({'first_frame','last_frame'}),
+            frozenset({'first_frame','last_frame'}),role_kinds={'first_frame':('image',),'last_frame':('image',)})
+    reference_roles={**{f'reference_image_{n}':('image',) for n in range(1,10)},
+        **{f'reference_video_{n}':('video',) for n in range(1,4)},
+        **{f'reference_audio_{n}':('audio',) for n in range(1,4)}}
+    if operation.id=='video.generate_from_references':
+        return OperationContract(parameters,minimum_inputs=1,allowed_inputs=frozenset(reference_roles),
+            role_kinds=reference_roles)
+    if operation.id in ('video.edit','video.extend'):
+        return OperationContract(parameters,frozenset({'source'}),frozenset({'source',*reference_roles}),
+            role_kinds={'source':('video',),**reference_roles})
     if operation.executor in ('generation_async','image_sync'):
         roles=frozenset({'source'}) if operation.input_kinds else frozenset()
         return OperationContract(parameters,roles,roles)
@@ -363,6 +407,8 @@ def get(operation,implementation=None):
 
 def resolved_provider(op):
     if op.id=='audio.generate_from_text':return op
+    if op.id in ('video.generate_from_frames','video.generate_from_references','video.edit','video.extend'):
+        return op
     if op.executor=='image_sync':
         return replace(op,route_adapter='openai_images',provider_identity='openai-images',concurrency_group='openai_images',cleanup_category='unqueryable_sync')
     if op.route_adapter in ('generation','generation_jobs'):
@@ -427,14 +473,21 @@ def validate_parameters(operation,parameters,inputs,implementation=None):
     if op.executor=='generation_async':
         if op.id=='audio.generate_from_text':
             return AudioGenerationParameters.model_validate(parameters).model_dump()
-        value=GenerationParameters.model_validate(parameters).model_dump()
+        from .operation_parameters import model as parameter_model
+        value=parameter_model(op.id,op.executor,op.action).model_validate(parameters).model_dump()
         if not value['prompt'].strip():raise ValueError('生成描述不能为空')
         if op.id=='image.generate_from_text':
             if 'duration' in parameters:raise ValueError('图片生成没有时长参数')
             value.pop('duration',None)
-        if op.input_kinds and 'source' not in inputs:raise ValueError('图生视频需要 source 输入')
-        if op.input_kinds and set(inputs)!={'source'}:raise ValueError('图生视频只接受 source 输入')
-        if not op.input_kinds and inputs:raise ValueError('纯文本生成不接受图片输入')
+        if op.id=='video.generate_from_references':
+            if not inputs:raise ValueError('多模态参考生成至少需要一个输入')
+            if all(name.startswith('reference_audio_') for name in inputs):
+                raise ValueError('音频参考必须同时包含图片或视频参考')
+        elif op.id in ('video.generate_from_frames','video.edit','video.extend'):
+            pass
+        elif op.input_kinds and ('source' not in inputs or set(inputs)!={'source'}):
+            raise ValueError('图生视频只接受唯一 source 输入')
+        elif not op.input_kinds and inputs:raise ValueError('纯文本生成不接受图片输入')
         return value
     from .image_document import ImageTask
     if set(parameters)-IMAGE_PARAMETERS[op.action]:raise ValueError('图片操作包含不适用的参数，不能覆盖输入或动作')

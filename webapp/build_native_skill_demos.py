@@ -15,6 +15,8 @@ ROOT=Path(os.environ.get('VIDEO_USE_DEMO_SOURCE_ROOT',REPO/'workspace/demos')).r
 MANIFEST=REPO/'runtime/skills/manifest.json'
 PREFIX='skill-'
 MEDIA_ID='generate-image-video-audio'
+REFERENCE_MEDIA_IDS=('generate-video-first-last','generate-video-multimodal',
+    'generate-video-edit','generate-video-extend')
 
 
 SPECS={
@@ -122,21 +124,65 @@ def media_demo():
             'changes':'封面不冒充生成结果；载入并确认后会调用图片、视频和音频三个独立受控 Provider Operation。'}
 
 
+def reference_frames():
+    source=ROOT/'sources';source.mkdir(parents=True,exist_ok=True)
+    for name,sky,accent,label,x in (
+            ('generation-first-frame.png',(24,52,86),(255,190,72),'START',260),
+            ('generation-last-frame.png',(78,36,76),(105,220,245),'END',760)):
+        image=Image.new('RGB',(1280,720),sky);draw=ImageDraw.Draw(image)
+        draw.rectangle((0,510,1280,720),fill=(22,31,39));draw.ellipse((x-90,330,x+90,510),fill=accent)
+        draw.rectangle((x-18,205,x+18,360),fill=(240,244,246));draw.polygon(((x-75,240),(x+75,240),(x,150)),fill=accent)
+        draw.text((54,52),label,font=font(42,True),fill=(245,247,250));image.save(source/name)
+
+
+def reference_media_demo(identifier):
+    definitions={
+        'generate-video-first-last':('首尾帧生成过渡视频','用两张冻结画面约束视频开头和结尾。',
+            '先给出明确方案，确认后使用 video.generate_from_frames，以“灯塔亮起，镜头平稳横移，保持纸艺风格”为描述，first_frame 绑定起始画面，last_frame 绑定结束画面，生成 5 秒 1280×720、包含生成音频的 MP4；验收首尾内容、尺寸、时长、解码和音轨，只交付 first-last-video.mp4。',
+            [{'key':'first','name':'起始画面.png','file':'generation-first-frame.png'},
+             {'key':'last','name':'结束画面.png','file':'generation-last-frame.png'}],['first-last-video.mp4']),
+        'generate-video-multimodal':('多模态参考生成视频','同时冻结图片、视频和音频参考后生成新视频。',
+            '先给出明确方案，确认后使用 video.generate_from_references：reference_image_1 绑定构图参考图，reference_video_1 绑定动作参考视频，reference_audio_1 绑定旋律参考音频；生成 5 秒 1280×720 的纸艺自然场景 MP4并保留生成音频。验收实际视频、音轨、尺寸、时长和解码，只交付 multimodal-video.mp4。',
+            [{'key':'image','name':'构图参考.png','file':'image-document-skew.png'},
+             {'key':'video','name':'动作参考.mp4','file':'nature.mp4'},
+             {'key':'audio','name':'旋律参考.wav','file':'local-test-melody.wav'}],['multimodal-video.mp4']),
+        'generate-video-edit':('使用外部模型编辑视频','把已有视频作为冻结编辑源进行定向修改。',
+            '先给出明确方案，确认后使用 video.edit，source 绑定输入视频，仅把天空改成柔和的极光夜空，其他主体和运动保持不变，不生成新音频。验收可解码、时长和主体连续性，只交付 edited-video.mp4。',
+            [{'key':'source','name':'待编辑视频.mp4','file':'bunny-original.mp4'}],['edited-video.mp4']),
+        'generate-video-extend':('使用外部模型延长视频','从冻结源视频结尾继续生成新内容。',
+            '先给出明确方案，确认后使用 video.extend，source 绑定输入视频，extend_direction=backward，从结尾自然延长 5 秒，保持角色、场景和镜头运动连续，不生成新音频。验收可解码、延长方向、连续性和实际时长，只交付 extended-video.mp4。',
+            [{'key':'source','name':'待延长视频.mp4','file':'answer.mp4'}],['extended-video.mp4'])}
+    title,description,prompt,sources,outputs=definitions[identifier];target=ROOT/identifier
+    target.mkdir(parents=True,exist_ok=True);artwork(identifier,title,outputs,target)
+    return {'id':identifier,'title':title,'category':'多媒体生成','description':description,
+        'tags':['真实 Provider','Seedance 参考素材'],'workflow':'agent','media_generation':True,
+        'prompt':prompt,'options':['必须使用登记的外部生成 Operation','参考素材必须来自当前项目冻结输入','只交付：'+outputs[0]],
+        'sources':sources,'preset':{'kind':'agent','assets':[item['key'] for item in sources]},
+        'expected_outputs':outputs,'result':'preview.png','result_type':'image/png','poster':'poster.jpg',
+        'files':['preview.png','poster.jpg'],'credits':[{'name':'Updream generated capability preview',
+            'url':'https://github.com/hustwujing/vj-distributed-media-edit-system','license':'Repository license',
+            'license_url':'https://github.com/hustwujing/vj-distributed-media-edit-system'}],
+        'changes':'封面不冒充生成结果；运行时由宿主冻结参考素材并通过 BOSS/Ark Asset 交给外部视频 Provider。'}
+
+
 def main():
     manifest=json.loads(MANIFEST.read_text());skills={item['id']:item for item in manifest['skills']}
     if set(skills)!=set(SPECS):raise ValueError('Native Skill example specifications do not match the frozen manifest')
-    catalog=json.loads((ROOT/'catalog.json').read_text());replaced={PREFIX+name for name in SPECS}|{MEDIA_ID}
+    reference_frames()
+    catalog=json.loads((ROOT/'catalog.json').read_text());replaced={PREFIX+name for name in SPECS}|{MEDIA_ID,*REFERENCE_MEDIA_IDS}
     catalog=[item for item in catalog if item['id'] not in replaced]
     catalog.extend(demo(name,skills[name],SPECS[name]) for name in SPECS)
     catalog.append(media_demo())
-    if len(catalog)!=70 or len({item['id'] for item in catalog})!=70:raise ValueError('Expected exactly 70 unique examples')
+    catalog.extend(reference_media_demo(identifier) for identifier in REFERENCE_MEDIA_IDS)
+    if len(catalog)!=74 or len({item['id'] for item in catalog})!=74:raise ValueError('Expected exactly 74 unique examples')
     temporary=ROOT/'catalog.native-new.json';temporary.write_text(json.dumps(catalog,ensure_ascii=False,indent=2)+'\n')
     temporary.replace(ROOT/'catalog.json')
-    for path in [ROOT/'catalog.json',*[ROOT/(PREFIX+name) for name in SPECS],ROOT/MEDIA_ID]:
+    for path in [ROOT/'catalog.json',*[ROOT/(PREFIX+name) for name in SPECS],ROOT/MEDIA_ID,
+                 *[ROOT/name for name in REFERENCE_MEDIA_IDS]]:
         path.chmod(0o755 if path.is_dir() else 0o644)
         if path.is_dir():
             for child in path.iterdir():child.chmod(0o644)
-    print(json.dumps({'examples':len(catalog),'native_skills':len(SPECS),'media_generation':1},ensure_ascii=False))
+    print(json.dumps({'examples':len(catalog),'native_skills':len(SPECS),'media_generation':5},ensure_ascii=False))
 
 
 if __name__=='__main__':main()

@@ -1,4 +1,4 @@
-"""Load the actual public 70-case catalogue using isolated PG/S3/API nodes."""
+"""Load the actual public 74-case catalogue using isolated PG/S3/API nodes."""
 import hashlib,json,os,shutil,tempfile
 from pathlib import Path
 from tests.suite_lock import suite_lock
@@ -9,7 +9,8 @@ from tests.isolation import isolate_environment,isolate_network
 def main():
  source=Path('workspace/demos').resolve();output=Path('.cluster/campaigns/20261101-stream-activity/demo-isolated.json').resolve()
  output.parent.mkdir(parents=True,exist_ok=True)
- with suite_lock(),tempfile.TemporaryDirectory(prefix='vdl-',dir='/vqt') as folder:
+ temporary=Path(os.environ.get('VIDEO_USE_TEST_TMP_ROOT','/data2/wujing03/vu-tmp'));temporary.mkdir(parents=True,exist_ok=True)
+ with suite_lock(),tempfile.TemporaryDirectory(prefix='vdl-',dir=temporary) as folder:
   root=Path(folder);root.chmod(0o755);isolate_environment(root);isolate_network();pg=PostgresServer();s3=S3Server()
   try:
    os.environ.update(VIDEO_USE_DATABASE_URL=pg.dsn,VIDEO_USE_OBJECT_ENDPOINT=s3.endpoint,VIDEO_USE_OBJECT_BUCKET='actual-demos',AWS_ACCESS_KEY_ID='test',AWS_SECRET_ACCESS_KEY='test',AWS_DEFAULT_REGION='us-east-1',VIDEO_USE_DISTRIBUTED='1',VIDEO_USE_SESSION_SECRET='d3'*32)
