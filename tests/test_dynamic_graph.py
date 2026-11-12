@@ -275,8 +275,8 @@ class DynamicGraphTests(unittest.TestCase):
         self.tick();request_id=self.propose({'proposal_id':'approved-in-place','base_graph_version':0,
             'reason':'Create report','add_tasks':[script()],'sealed':True})
         request=self.store.query('SELECT task_id,proposal_json FROM planner_runs WHERE id=?',(request_id,))[0]
-        self.store.execute("UPDATE planner_runs SET status='rejected',error_code='authorization_required' WHERE id=?",(request_id,))
-        self.store.execute("UPDATE control_jobs SET status='failed',error_code='authorization_required' WHERE run_id=? AND id=?",
+        self.store.execute("UPDATE planner_runs SET status='awaiting_authorization',error_code='authorization_required' WHERE id=?",(request_id,))
+        self.store.execute("UPDATE control_jobs SET status='waiting',error_code='authorization_required' WHERE run_id=? AND id=?",
                            (self.run['id'],request['task_id']))
         self.orchestrator.decision(graph.get(self.store,self.run['id']),'plan_change',{
             'planner_run':request_id,'proposal':json.loads(request['proposal_json'])['proposal'],
@@ -288,6 +288,24 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE id=?',(request_id,))[0]['status'],'staged')
         self.assertEqual(len(self.store.query('SELECT id FROM planner_runs WHERE run_id=?',(self.run['id'],))),1)
         self.assertEqual(self.tick()['graph_version'],1)
+
+    def test_authorization_failure_preserves_staged_proposal_and_digest(self):
+        authorization=graph.bind_authorization({**self.run['authorization'],
+            'allowed_agent_profiles':['editing_implementer','media_failure_diagnostician']}).model_dump()
+        authorization['agent_profile_digests']['editing_implementer']='stale-policy'
+        encoded=graph.encode(authorization)
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(encoded,self.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=?',(encoded,self.run['id']))
+        self.tick();request_id=self.propose({'proposal_id':'needs-current-policy','base_graph_version':0,
+            'reason':'Create report','add_tasks':[script(type='agent',profile='editing_implementer',argv=[],inputs={})],
+            'sealed':True})
+        current=self.tick();self.assertEqual(current['status'],'WAITING_USER')
+        planner=self.store.query('SELECT status,error_code,proposal_json FROM planner_runs WHERE id=?',(request_id,))[0]
+        self.assertEqual((planner['status'],planner['error_code']),('awaiting_authorization','authorization_required'))
+        self.assertIn(self.store.query('SELECT status FROM workflow_plan_drafts WHERE planning_request_id=?',(request_id,))[0]['status'],('OPEN','COMMITTED'))
+        decision=self.store.query("SELECT request_json FROM workflow_decisions WHERE run_id=? AND kind='plan_change' AND status='pending'",(self.run['id'],))[0]
+        request=json.loads(decision['request_json'])
+        self.assertEqual(request['proposal_digest'],graph.digest(json.loads(planner['proposal_json'])))
 
     def test_pending_duplicate_recovers_last_approved_proposal(self):
         self.tick();request_id=self.propose({'proposal_id':'recover-approved','base_graph_version':0,

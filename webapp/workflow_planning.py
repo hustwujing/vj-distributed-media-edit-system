@@ -162,7 +162,7 @@ def operation_contract(store,frozen,identifier):
 def queue(store,run,trigger):
     """Called in the orchestrator's fenced transaction."""
     if run['input_barrier_sequence'] is not None and 'input_batch' not in trigger:return None
-    current=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged','awaiting_confirmation')",(run['id'],))
+    current=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged','awaiting_confirmation','awaiting_authorization')",(run['id'],))
     if current:return current[0]['id']
     # A Planner retired only because its immutable execution policy changed
     # during an infrastructure interruption did not complete a business
@@ -366,12 +366,15 @@ def apply(store,run,request,*,confirmed_plan=False):
     return version
 
 
-def restage_after_authorization(store,run,request_id):
+def restage_after_authorization(store,run,request_id,expected_digest=''):
     """Rebind and revalidate one immutable proposal after explicit approval."""
     rows=store.query('SELECT * FROM planner_runs WHERE id=? AND run_id=?',(request_id,run['id']))
     if not rows:return False
     request=rows[0]
-    if request['status']!='rejected' or request['error_code']!='authorization_required':return False
+    legacy_rejected=request['status']=='rejected' and request['error_code']=='authorization_required'
+    if request['status']!='awaiting_authorization' and not legacy_rejected:return False
+    if expected_digest and digest(json.loads(request['proposal_json']))!=expected_digest:
+        raise ValueError('Authorized proposal digest changed')
     result=ManagerResult.model_validate(json.loads(request['proposal_json']))
     if result.proposal is None:return False
     if result.base_graph_version!=run['graph_version']:raise ValueError('Authorized proposal graph changed')
@@ -382,11 +385,11 @@ def restage_after_authorization(store,run,request_id):
                       repair_scope=repair_scope,user_revision_scope=user_scope)
     rebound=result.model_copy(update={'authorization_version':run['authorization_version']})
     changed=store.execute("""UPDATE planner_runs SET status='staged',authorization_version=?,proposal_json=?,error_code='',updated_at=?
-        WHERE id=? AND run_id=? AND status='rejected' AND error_code='authorization_required'""",
+        WHERE id=? AND run_id=? AND (status='awaiting_authorization' OR (status='rejected' AND error_code='authorization_required'))""",
         (run['authorization_version'],encode(rebound.model_dump()),store.now(),request_id,run['id']))
     if not changed:return False
     store.execute("""UPDATE control_jobs SET status='staged',authorization_version=?,error_code='',error_detail='',updated_at=?
-        WHERE run_id=? AND id=? AND status='failed'""",
+        WHERE run_id=? AND id=? AND status IN ('failed','waiting')""",
         (run['authorization_version'],store.now(),run['id'],request['task_id']))
     store.execute('UPDATE runs SET next_reconcile_at=? WHERE id=?',(store.now(),run['id']))
     event(store,run,'proposal_reauthorized',{'proposal_id':result.proposal.proposal_id,'task_id':request['task_id']})

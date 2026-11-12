@@ -233,7 +233,7 @@ class Orchestrator:
             try:approved=planning.rebind_scope(store,answer['authorization']).model_dump()
             except ValueError:continue
             if encode(approved)!=encode(run['authorization']):continue
-            try:restaged=planning.restage_after_authorization(store,{**run,'status':'ACTIVE'},request['planner_run'])
+            try:restaged=planning.restage_after_authorization(store,{**run,'status':'ACTIVE'},request['planner_run'],request.get('proposal_digest',''))
             except AuthorizationRequired as exc:
                 store.execute("UPDATE workflow_decisions SET status='superseded',updated_at=? WHERE run_id=? AND kind='plan_change' AND status='pending'",
                               (store.now(),run['id']))
@@ -437,6 +437,11 @@ class Orchestrator:
                 store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
                 self.set_status(run,'ACTIVE','external_submission_resubmit');return
             if row['kind'] in ('plan_change','successor_authorization'):
+                if request.get('planner_run'):
+                    store.execute("UPDATE planner_runs SET status='rejected',error_code='authorization_rejected',updated_at=? WHERE id=? AND run_id=? AND status='awaiting_authorization'",
+                                  (store.now(),request['planner_run'],run['id']))
+                    store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE planning_request_id=? AND status IN ('OPEN','COMMITTED')",
+                                  (store.now(),request['planner_run']))
                 cutoff=int(request.get('input_through_sequence') or 0)
                 if cutoff:
                     from .run_inputs import reject_batch
@@ -571,7 +576,7 @@ class Orchestrator:
         if payload.get('action')=='approve' and row['kind'] in ('plan_change','successor_authorization'):
             current=graph.get(store,run['id'])
             if row['kind']=='plan_change' and request.get('planner_run'):
-                try:restaged=planning.restage_after_authorization(store,current,request['planner_run'])
+                try:restaged=planning.restage_after_authorization(store,current,request['planner_run'],request.get('proposal_digest',''))
                 except AuthorizationRequired as exc:
                     self.authorization_convergence_failed(current,exc);return
                 except ValueError:restaged=False
@@ -757,7 +762,7 @@ class Orchestrator:
                 store.execute("UPDATE workflow_reviews SET status='pending',updated_at=? WHERE run_id=? AND task_id=?",
                               (store.now(),run['id'],task['id']))
         elif task.get('control_kind'):
-            store.execute("UPDATE planner_runs SET status='rejected',error_code=?,updated_at=? WHERE run_id=? AND task_id=? AND status IN ('pending','running','staged')",(code,store.now(),run['id'],task['id']))
+            store.execute("UPDATE planner_runs SET status='rejected',error_code=?,updated_at=? WHERE run_id=? AND task_id=? AND status IN ('pending','running','staged','awaiting_authorization')",(code,store.now(),run['id'],task['id']))
             store.execute("""UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=?
                 WHERE run_id=? AND planning_request_id=? AND status IN ('OPEN','COMMITTED')
                 AND planning_request_id IN (SELECT id FROM planner_runs WHERE run_id=? AND status='rejected')""",
@@ -829,18 +834,25 @@ class Orchestrator:
             try:
                 with graph.atomic_effect(store):planning.apply(store,run,request)
             except (AuthorizationRequired,ValueError) as exc:
-                code='authorization_required' if isinstance(exc,AuthorizationRequired) else 'invalid_proposal'
+                authorization_required=isinstance(exc,AuthorizationRequired)
+                code='authorization_required' if authorization_required else 'invalid_proposal'
                 batch=frozen.get('input_batch')
                 if batch:
                     from .run_inputs import defer_batch
                     defer_batch(store,run,batch['through_sequence'])
                 store.execute('UPDATE runs SET repair_context_json=? WHERE id=?',
                     (encode({**run['repair_context'],'last_plan_error':{'code':code,'detail':str(exc)[:1000]}}),run['id']))
-                store.execute("UPDATE planner_runs SET status='rejected',error_code=?,updated_at=? WHERE id=?",(code,store.now(),request['id']))
-                store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE planning_request_id=? AND status IN ('OPEN','COMMITTED')",(store.now(),request['id']))
-                store.execute("UPDATE control_jobs SET status='failed',error_code=? WHERE run_id=? AND id=?",(code,run['id'],request['task_id']))
-                if isinstance(exc,AuthorizationRequired):self.decision(run,'plan_change',{'planner_run':request['id'],'proposal':json.loads(request['proposal_json']).get('proposal'),'reason':str(exc),
-                    'input_through_sequence':(batch or {}).get('through_sequence',0)})
+                store.execute("UPDATE planner_runs SET status=?,error_code=?,updated_at=? WHERE id=?",
+                              ('awaiting_authorization' if authorization_required else 'rejected',code,store.now(),request['id']))
+                if not authorization_required:
+                    store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE planning_request_id=? AND status IN ('OPEN','COMMITTED')",(store.now(),request['id']))
+                store.execute("UPDATE control_jobs SET status=?,error_code=? WHERE run_id=? AND id=?",
+                              ('waiting' if authorization_required else 'failed',code,run['id'],request['task_id']))
+                if authorization_required:self.decision(run,'plan_change',{
+                    'planner_run':request['id'],'proposal':json.loads(request['proposal_json']).get('proposal'),
+                    'proposal_digest':digest(json.loads(request['proposal_json'])),
+                    'base_graph_version':request['base_graph_version'],'authorization_version':request['authorization_version'],
+                    'reason':str(exc),'input_through_sequence':(batch or {}).get('through_sequence',0)})
                 else:
                     graph.event(store,run,'proposal_rejected',{'request_id':request['id'],'error_code':code})
                     try:self.queue_plan(run,{'rejected':request['id'],'reason':str(exc)[:1000]})
@@ -944,7 +956,7 @@ class Orchestrator:
         rebounds=store.query("SELECT COUNT(*) AS n FROM planner_runs WHERE run_id=? AND error_code='policy_rebound'",(run['id'],))[0]['n']
         if rebounds>=3:return False
         now=store.now()
-        store.execute("UPDATE planner_runs SET status='rejected',error_code='policy_rebound',lease_id='',lease_generation=0,updated_at=? WHERE run_id=? AND task_id=? AND status IN ('pending','running','staged')",
+        store.execute("UPDATE planner_runs SET status='rejected',error_code='policy_rebound',lease_id='',lease_generation=0,updated_at=? WHERE run_id=? AND task_id=? AND status IN ('pending','running','staged','awaiting_authorization')",
                       (now,run['id'],task['id']))
         store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE run_id=? AND planning_request_id=? AND status IN ('OPEN','COMMITTED')",
                       (now,run['id'],task['id']))
@@ -1028,7 +1040,7 @@ class Orchestrator:
 
     def advance_graph(self,run,done):
         store=self.store;now=store.now()
-        active_planners=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
+        active_planners=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged','awaiting_authorization','awaiting_confirmation')",(run['id'],))
         business=[t for t in graph.work_items(run) if not t.get('control_kind')]
         context=run.get('repair_context',{})
         if not run['sealed'] and context.get('active') and not active_planners:
@@ -1444,7 +1456,7 @@ class Orchestrator:
         store.execute("UPDATE run_inputs SET status='FAILED',error_code='run_cancelled' WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],))
         store.execute("UPDATE run_tasks SET status='cancelled' WHERE run_id=? AND selected=1 AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
         store.execute("UPDATE control_jobs SET status='cancelled' WHERE run_id=? AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
-        store.execute("UPDATE planner_runs SET status='rejected',error_code='cancelled' WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
+        store.execute("UPDATE planner_runs SET status='rejected',error_code='cancelled' WHERE run_id=? AND status IN ('pending','running','staged','awaiting_authorization','awaiting_confirmation')",(run['id'],))
         store.execute("""UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=?
             WHERE run_id=? AND status IN ('OPEN','COMMITTED')
             AND planning_request_id IN (SELECT id FROM planner_runs WHERE run_id=? AND status='rejected')""",
