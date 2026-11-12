@@ -153,7 +153,7 @@ def reference_media_demo(identifier):
             [{'key':'first','name':'起始画面.png','file':'generation-first-frame.png'},
              {'key':'last','name':'结束画面.png','file':'generation-last-frame.png'}],['first-last-video.mp4']),
         'generate-video-multimodal':('多模态参考生成视频','同时冻结图片、视频和音频参考后生成新视频。',
-            '先给出明确方案，确认后使用 video.generate_from_references：reference_image_1 绑定纸艺灯塔构图参考，reference_video_1 只参考缓慢镜头漂移，reference_audio_1 只参考旋律氛围；生成 5 秒 1280×720 的纸艺灯塔自然场景 MP4并保留生成音频。验收实际视频、灯塔构图、轻微漂移、可听音轨、尺寸、时长和解码，只交付 multimodal-video.mp4。',
+            '先给出明确方案，确认后使用 video.generate_from_references：reference_image_1 绑定纸艺灯塔构图参考，要求灯塔位于画面左侧约五分之一、右侧保留大片天空和海面、地平线约在画面高度70%；reference_video_1 只参考缓慢轻微镜头漂移，reference_audio_1 只参考旋律氛围；生成 5 秒 1280×720 的纸艺灯塔自然场景 MP4并保留生成音频。验收实际视频、灯塔构图、轻微漂移、可听音轨、尺寸、时长和解码，只交付 multimodal-video.mp4。',
             [{'key':'image','name':'灯塔构图参考.png','file':'generation-first-frame.png'},
              {'key':'video','name':'动作参考.mp4','file':'nature.mp4'},
              {'key':'audio','name':'旋律参考.wav','file':'local-test-melody.wav'}],['multimodal-video.mp4']),
@@ -161,8 +161,8 @@ def reference_media_demo(identifier):
             '先给出明确方案，确认后使用 video.edit，source 绑定具有大面积蓝天和绿色山地的输入视频，仅把上半部蓝色天空改成有清晰柔和光带的极光夜空；地面、山体的位置与色彩保持不变，不生成新音频。验收可解码、时长、天空改动和非天空区域保持，只交付 edited-video.mp4。',
             [{'key':'source','name':'待编辑天空视频.mp4','file':'generation-sky-source.mp4'}],['edited-video.mp4']),
         'generate-video-extend':('使用外部模型延长视频','从冻结源视频结尾继续生成新内容。',
-            '先给出明确方案，确认后使用 video.extend，source 绑定输入视频，extend_direction=backward，从结尾自然生成新的 5 秒延长片段，保持角色、场景和镜头运动连续，不生成新音频。Provider 只交付新增片段，不与原片拼接；验收新增片段可解码、约 5 秒、延长方向和连续性，只交付 extended-video.mp4。',
-            [{'key':'source','name':'待延长视频.mp4','file':'answer.mp4'}],['extended-video.mp4'])}
+            '先给出明确方案，确认后使用 video.extend，source 绑定蓝天、白云和绿色山地的输入视频，extend_direction=backward，在原片开头之前生成新的 5 秒前序片段；新片段末帧必须保持同一蓝天、云层、绿色山地、光照和静止机位并自然衔接原片首帧，不生成新音频。Provider 只交付新增片段，不与原片拼接；验收新增片段可解码、约 5 秒、延长方向和连续性，只交付 extended-video.mp4。',
+            [{'key':'source','name':'待延长天空视频.mp4','file':'generation-sky-source.mp4'}],['extended-video.mp4'])}
     title,description,prompt,sources,outputs=definitions[identifier];target=ROOT/identifier
     target.mkdir(parents=True,exist_ok=True);artwork(identifier,title,outputs,target)
     return {'id':identifier,'title':title,'category':'多媒体生成','description':description,
