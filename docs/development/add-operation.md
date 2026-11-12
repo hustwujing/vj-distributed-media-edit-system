@@ -81,6 +81,8 @@ handler 的调用形态为 `handler(adapter, workflow, step, *, cancelled=None, 
 
 Seedance 参考模式使用独立业务 ID：`video.generate_from_frames`、`video.generate_from_references`、`video.edit`、`video.extend`。不要把模式作为任意字符串下发，也不要让 Agent 构造素材 URL。输入角色、媒体类型、数量和总时长由 `OperationContract` 冻结；`workflow_runtime` 只读取已绑定版本，`ark_generation` 校验实际字节，`ark_reference_assets` 用内容摘要发布目标环境专属 BOSS 对象并注册 Ark Asset。新增参考角色、格式或 Provider 限制时必须同步这三层和真实 case。Ark/BOSS 长期凭据只在宿主私有环境中，不能写入调用 implementation、诊断或 Runtime 镜像。
 
+Seedance 运行中拒绝 DELETE 是阶段性取消限制，不等于协议永久不支持，也不是普通传输失败。适配器以结构化错误码抛出 `CancellationDeferred`，外部清理回到 `poll` 并持续查询同一 Provider ID；轮询到终态才释放调用占用。真正不可查询的协议仍明确 `unsupported`，离线或认证故障仍按既有三次有界失败进入 `unconfirmed`。
+
 不要在 handler 中另建任务池、数据库轮询线程或成果发布事务；依赖、租约、超时、状态推进、验收和正式发布由现有框架处理。新实现仍需实际接入这些设施，仅填写生命周期或 cancellation 字段不会自动实现取消行为。
 
 音频窗口证据必须在重采样后按采样点数截取，再输出 PCM；FFmpeg 的 `-t` 受包时间戳和 AAC 填充影响，不能单独保证解码样本数上限。验证包括上限窗口、带 offset 的短窗口和合法但不均匀的包时间戳，不通过增大资源上限掩盖溢出。

@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from .store import Store
 from .egress_policy import session,provider_base
+from .generation_errors import CancellationDeferred
 
 
 def run(store,identifier):
@@ -24,7 +25,7 @@ def run(store,identifier):
             db.execute("UPDATE execution_external_cleanup SET state='unconfirmed',error='未确认上游取消，上游可能继续运行。' WHERE id=?",(identifier,));return
         deadline=row['deadline_at'] or now+max(20,float(os.environ.get('VIDEO_USE_EXTERNAL_CLEANUP_SECONDS','300')))
         db.execute("UPDATE execution_external_cleanup SET state='running',attempts=attempts+1,generation=generation+1,owner=?,deadline_at=?,lease_until=?,phase='poll' WHERE id=?",(owner,deadline,min(now+20,deadline),identifier))
-    state,error,next_phase='pending','', 'poll';policy=''
+    state,error,next_phase='pending','', 'poll';policy='';deferred=False
     try:
         if row['provider'].startswith('opensandbox:'):
             policy='opensandbox';attempt=row['provider'].removeprefix('opensandbox:')
@@ -71,6 +72,9 @@ def run(store,identifier):
             raise NotImplementedError('Synchronous provider has no queryable cancellation handle')
         elif policy=='job_api':
             state,error,next_phase=job_api_cleanup(store,row,base,method,url,state,error,next_phase)
+    except CancellationDeferred:
+        deferred=True;state='pending';next_phase='poll'
+        error='上游当前阶段暂不接受取消；将继续查询原任务到终态。'
     except NotImplementedError:
         state='unsupported';error='该上游接口不支持已验证的取消能力，任务可能继续运行。'
     except Exception as exc:
@@ -84,8 +88,8 @@ def run(store,identifier):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE')
         if row['attempts']+1>=3 and state not in ('complete','unsupported'):state='unconfirmed';error='未确认上游取消，上游可能继续运行。'
-        changed=db.execute('UPDATE execution_external_cleanup SET state=?,phase=?,lease_until=0,next_retry=?,error=? WHERE id=? AND generation=? AND owner=? AND lease_until>?',
-                   (state,next_phase,store.now()+5*(row['attempts']+1),error,identifier,row['generation']+1,owner,store.now())).rowcount
+        changed=db.execute('UPDATE execution_external_cleanup SET state=?,phase=?,attempts=CASE WHEN ? THEN 0 ELSE attempts END,lease_until=0,next_retry=?,error=? WHERE id=? AND generation=? AND owner=? AND lease_until>?',
+                   (state,next_phase,deferred,store.now()+min(30,5*(row['attempts']+1)),error,identifier,row['generation']+1,owner,store.now())).rowcount
         if changed and state=='complete':
             terminal=row.get('_provider_terminal')
             if terminal:

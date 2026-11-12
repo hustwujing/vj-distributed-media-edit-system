@@ -75,3 +75,16 @@ class UnsupportedCancellationTests(unittest.TestCase):
         self.assertEqual(row,{'state':'unsupported','attempts':1})
         client.request.assert_not_called();client.post.assert_not_called();client.delete.assert_not_called()
         with patch('webapp.external_cleanup.session') as factory:external_cleanup.run(self.store,'one');factory.assert_not_called()
+
+    def test_running_seedance_cancel_returns_to_poll_without_spending_failure_attempts(self):
+        from webapp.generation_errors import CancellationDeferred
+        self.store.execute("INSERT INTO workflow_provider_calls(request_key,workflow,step,revision,attempt,provider,operation,state,external_id,inputs,created,updated,implementation) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            ('one','workflow','video',0,1,'http://127.0.0.1:9898','video.edit','running','job123','{}',0,0,
+             json.dumps({'protocol':'ark-video-v1','provider':'http://127.0.0.1:9898','route_adapter':'generation','cleanup_category':'generation_protocol'})))
+        client=MagicMock();client.__enter__.return_value=client
+        with patch('webapp.external_cleanup.session',return_value=client),\
+             patch('webapp.generation_service.cancel',side_effect=CancellationDeferred('running')):
+            external_cleanup.run(self.store,'one')
+        row=self.store.query('SELECT state,phase,attempts,error FROM execution_external_cleanup')[0]
+        self.assertEqual((row['state'],row['phase'],row['attempts']),('pending','poll',0))
+        self.assertIn('继续查询',row['error'])

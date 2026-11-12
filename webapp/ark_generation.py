@@ -9,7 +9,7 @@ import av
 from PIL import Image
 from .ark_reference_assets import configured as references_configured,prepare as prepare_reference_assets
 from .egress_policy import provider_base
-from .generation_errors import raise_for_status
+from .generation_errors import CancellationDeferred,raise_for_status
 from .generation_auth import credential_binding,frozen_headers
 
 PROTOCOL = 'ark-video-v1'
@@ -244,12 +244,11 @@ def download(client, artifact):
 def cancel(client, handle, identifier):
     response = client.delete(task_url(handle, identifier), headers=auth(handle),
                              timeout=(3, 5), allow_redirects=False)
-    if response.status_code == 400:
-        try:code=(response.json().get('error') or {}).get('code')
-        except (ValueError,AttributeError):code=None
-        if code=='InvalidAction.RunningTaskDeletion':
-            raise NotImplementedError('Seedance 已进入运行状态，当前接口不允许取消运行中的任务')
-    raise_for_status(response)
+    try:raise_for_status(response)
+    except Exception as exc:
+        if getattr(exc,'provider_error_code','')=='InvalidAction.RunningTaskDeletion':
+            raise CancellationDeferred('Seedance 运行阶段暂不接受取消；继续查询原任务到终态') from None
+        raise
     # Ark DELETE acknowledges deletion/cancellation; errors (e.g. running job)
     # remain unconfirmed and are handled by the bounded cleanup coordinator.
     if response.status_code != 204:

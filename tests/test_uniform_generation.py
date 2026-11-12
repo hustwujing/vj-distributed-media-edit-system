@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 import requests
 from PIL import Image
 from webapp import ark_generation as ark,generation_service as service,minimax_audio_generation as minimax
+from webapp.generation_errors import CancellationDeferred
 from webapp.operations import get, validate_parameters
 
 
@@ -244,7 +245,7 @@ class UniformGenerationTests(unittest.TestCase):
         with self.assertRaises(ValueError):service.cancel(client,handle,'task')
         client.delete.return_value.status_code=400
         client.delete.return_value.json.return_value={'error':{'code':'InvalidAction.RunningTaskDeletion'}}
-        with self.assertRaises(NotImplementedError):service.cancel(client,handle,'task')
+        with self.assertRaises(CancellationDeferred):service.cancel(client,handle,'task')
 
     def test_uniform_image_result_is_inline_and_separate_from_video(self):
         with (patch('webapp.image_generation.configuration',return_value=('https://images.example/v1','private','image-model')),

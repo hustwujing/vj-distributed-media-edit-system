@@ -3,6 +3,10 @@ import re
 import requests
 
 
+class CancellationDeferred(RuntimeError):
+    """The task is queryable but the Provider cannot cancel its current phase."""
+
+
 def failure_info(record):
     """Normalize provider fields; free text never determines failure classification."""
     from .egress_policy import scrub,secrets
