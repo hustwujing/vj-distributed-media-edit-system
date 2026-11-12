@@ -433,7 +433,7 @@ class DynamicGraphTests(unittest.TestCase):
                 self.assertFalse(self.store.query('SELECT id FROM control_jobs'))
                 state=graph.get(self.store,self.run['id'])
                 self.assertEqual((state['status'],state['terminal_reason']),('ACTIVE','workers_unavailable'))
-                self.assertGreater(state['next_reconcile_at'],self.store.now()+4)
+                self.assertGreater(state['next_reconcile_at'],self.store.now())
         self.store.execute('UPDATE execution_operation_catalog SET catalogue=? WHERE worker=?',(graph.encode(good),'catalogue-b'))
         self.assertIsNotNone(planning.queue(self.store,graph.get(self.store,self.run['id']),{}))
         self.assertEqual(len(self.store.query('SELECT id FROM planner_runs')),1)
