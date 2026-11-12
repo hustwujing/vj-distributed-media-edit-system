@@ -103,7 +103,7 @@ def public(store,run):
         recovery_notices.append({'code':'policy_rebound','message':f'部署后已自动创建 {rebound} 个绑定当前 Agent 策略的新规划任务。'})
     value['recovery_notices']=recovery_notices
     if terminal_notice and recovery_notices:
-        terminal_notice+=' 过程记录：'+'；'.join(item['message'] for item in recovery_notices)
+        terminal_notice+=' 过程记录：'+'；'.join(item['message'].rstrip('。；') for item in recovery_notices)+'。'
     value['terminal_notice']=terminal_notice
     revision_versions={(row['task_id'],row['revision']):row['created_graph_version'] for row in
         store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}
