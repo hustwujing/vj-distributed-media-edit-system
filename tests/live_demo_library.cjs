@@ -8,7 +8,14 @@ const base='http://updream-lab.bilibili.co/distributed-agent-sandbox-backend',in
 const selected=process.argv[3]&&process.argv[3]!=='all'?new Set(process.argv[3].split(',')):null;
 const jobs=8,uid=()=>crypto.randomBytes(16).toString('hex'),sha=bytes=>crypto.createHash('sha256').update(bytes).digest('hex');
 const extraDeliveryTargets=(process.env.DEMO_EXTRA_DELIVERY_TARGETS||'').trim();
-const EXPECTED_DEMOS=70;
+const EXPECTED_DEMOS=74;
+const expectedGenerationOperations={
+ 'generate-image-video-audio':['image.generate_from_text','video.generate_from_text','audio.generate_from_text'],
+ 'generate-video-first-last':['video.generate_from_frames'],
+ 'generate-video-multimodal':['video.generate_from_references'],
+ 'generate-video-edit':['video.edit'],
+ 'generate-video-extend':['video.extend'],
+};
 const terminal=value=>['SUCCEEDED','FAILED','CANCELLED'].includes(value);
 const assertModelConfiguration=value=>{
  assert.equal(value.profile,'claude55');
@@ -163,7 +170,8 @@ async function runCase(demo){
    }
    if(demo.media_generation){
     const operations=new Set(current.tasks.map(task=>task.spec?.operation).filter(Boolean));
-    for(const operation of ['image.generate_from_text','video.generate_from_text','audio.generate_from_text'])assert.ok(operations.has(operation),`Missing generation operation: ${operation}`);
+    const expected=expectedGenerationOperations[demo.id];assert.ok(expected,`Missing generation test contract: ${demo.id}`);
+    for(const operation of expected)assert.ok(operations.has(operation),`Missing generation operation: ${operation}`);
     state.media_generation={operations:[...operations]};persist();
    }
    await page.locator(`#dynamic-run-result [data-result-preview="current-${primary}"]`).click();
