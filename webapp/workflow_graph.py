@@ -998,9 +998,14 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
             Step.model_validate(task.execution_spec([parent for parent,child in edges if child==task.id]))
         if task.type=='agent':
             if task.profile not in task_scope.allowed_agent_profiles:raise AuthorizationRequired('Agent profile requires additional authorization')
-            from .specialist_profiles import authorization_snapshot
-            if task_scope.agent_profile_digests.get(task.profile)!=digest(authorization_snapshot(task.profile)):
-                raise AuthorizationRequired('Agent policy changed and requires renewed authorization')
+            # Unchanged tasks execute their immutable profile_json under the
+            # authorization version frozen when they entered the graph. A
+            # later release must not retroactively invalidate completed or
+            # unrelated tasks while validating a new proposal.
+            if task.id in added or task.id in revised:
+                from .specialist_profiles import authorization_snapshot
+                if task_scope.agent_profile_digests.get(task.profile)!=digest(authorization_snapshot(task.profile)):
+                    raise AuthorizationRequired('Agent policy changed and requires renewed authorization')
             from .agent_runtime_capabilities import validate as validate_runtime
             validate_runtime(task.runtime_requirements.model_dump())
             if task.id in added or task.id in revised:

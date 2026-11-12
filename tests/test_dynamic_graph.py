@@ -229,6 +229,109 @@ class DynamicGraphTests(unittest.TestCase):
         _,tasks,_,_=graph.validate_proposal(self.store,allowed,proposal)
         self.assertEqual(tasks[0].runtime_requirements.network_urls,[url])
 
+    def test_unchanged_agent_keeps_frozen_policy_while_repair_uses_current_policy(self):
+        import copy
+        authorization=graph.bind_authorization({**self.run['authorization'],
+            'allowed_agent_profiles':['editing_implementer','media_failure_diagnostician']})
+        encoded=graph.encode(authorization.model_dump())
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(encoded,self.run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=? AND version=1',(encoded,self.run['id']))
+        self.tick()
+        old_agent=script('old-agent',type='agent',profile='editing_implementer',argv=[],inputs={})
+        subject=script('subject')
+        self.propose({'proposal_id':'old-policy','base_graph_version':0,'reason':'Initial work',
+            'add_tasks':[old_agent,subject],'sealed':False,'replan_after':['subject']})
+        run=self.tick();self.assertEqual(run['graph_version'],1)
+        current=copy.deepcopy(run['authorization']);old=copy.deepcopy(current)
+        old['agent_profile_digests']['editing_implementer']='frozen-old-policy'
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=? AND version=1',
+                           (graph.encode(old),run['id']))
+        self.store.execute('INSERT INTO run_authorizations VALUES (?,?,?,?)',(run['id'],2,graph.encode(current),self.store.now()))
+        self.store.execute('UPDATE runs SET authorization_json=?,authorization_version=2 WHERE id=?',
+                           (graph.encode(current),run['id']))
+        self.store.execute("UPDATE run_tasks SET status=CASE id WHEN 'old-agent' THEN 'succeeded' ELSE 'paused' END WHERE run_id=?",
+                           (run['id'],))
+        run=graph.get(self.store,run['id']);source=next(t['spec'] for t in run['tasks'] if t['id']=='subject')
+        replacement={**source,'id':'repair','type':'agent','profile':'editing_implementer','argv':[]}
+        proposal={'proposal_id':'current-policy-repair','base_graph_version':1,'reason':'Repair failed task',
+            'add_tasks':[replacement],'replacements':{'subject':'repair'},'sealed':False,'replan_after':['repair']}
+        _,tasks,_,_=graph.validate_proposal(self.store,{**run,'status':'ACTIVE'},proposal,repair_scope='subject')
+        self.assertEqual([task.id for task in tasks],['repair'])
+
+    def test_authorized_rejected_proposal_is_restaged_without_another_model_turn(self):
+        self.tick();request_id=self.propose({'proposal_id':'reuse-approved','base_graph_version':0,
+            'reason':'Create report','add_tasks':[script()],'sealed':True})
+        request=self.store.query('SELECT task_id FROM planner_runs WHERE id=?',(request_id,))[0]
+        self.store.execute("UPDATE planner_runs SET status='rejected',error_code='authorization_required' WHERE id=?",(request_id,))
+        self.store.execute("UPDATE control_jobs SET status='failed',error_code='authorization_required' WHERE run_id=? AND id=?",
+                           (self.run['id'],request['task_id']))
+        self.assertTrue(planning.restage_after_authorization(self.store,graph.get(self.store,self.run['id']),request_id))
+        row=self.store.query('SELECT status,error_code FROM planner_runs WHERE id=?',(request_id,))[0]
+        self.assertEqual(row,{'status':'staged','error_code':''})
+        applied=self.tick();self.assertEqual(applied['graph_version'],1)
+        self.assertEqual(len(self.store.query('SELECT id FROM planner_runs WHERE run_id=?',(self.run['id'],))),1)
+
+    def test_plan_change_answer_applies_same_proposal_without_replanning(self):
+        self.tick();request_id=self.propose({'proposal_id':'approved-in-place','base_graph_version':0,
+            'reason':'Create report','add_tasks':[script()],'sealed':True})
+        request=self.store.query('SELECT task_id,proposal_json FROM planner_runs WHERE id=?',(request_id,))[0]
+        self.store.execute("UPDATE planner_runs SET status='rejected',error_code='authorization_required' WHERE id=?",(request_id,))
+        self.store.execute("UPDATE control_jobs SET status='failed',error_code='authorization_required' WHERE run_id=? AND id=?",
+                           (self.run['id'],request['task_id']))
+        self.orchestrator.decision(graph.get(self.store,self.run['id']),'plan_change',{
+            'planner_run':request_id,'proposal':json.loads(request['proposal_json'])['proposal'],
+            'reason':'Agent policy changed and requires renewed authorization'})
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
+        current=graph.get(self.store,self.run['id'])
+        self.orchestrator.answer(current,{'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],
+            'action':'approve','authorization':current['authorization']})
+        self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE id=?',(request_id,))[0]['status'],'staged')
+        self.assertEqual(len(self.store.query('SELECT id FROM planner_runs WHERE run_id=?',(self.run['id'],))),1)
+        self.assertEqual(self.tick()['graph_version'],1)
+
+    def test_pending_duplicate_recovers_last_approved_proposal(self):
+        self.tick();request_id=self.propose({'proposal_id':'recover-approved','base_graph_version':0,
+            'reason':'Create report','add_tasks':[script()],'sealed':True})
+        request=self.store.query('SELECT task_id,proposal_json FROM planner_runs WHERE id=?',(request_id,))[0]
+        self.store.execute("UPDATE planner_runs SET status='rejected',error_code='authorization_required' WHERE id=?",(request_id,))
+        self.store.execute("UPDATE control_jobs SET status='failed',error_code='authorization_required' WHERE run_id=? AND id=?",
+                           (self.run['id'],request['task_id']))
+        approved_request={'planner_run':request_id,'proposal':json.loads(request['proposal_json'])['proposal'],
+            'reason':'Agent policy changed and requires renewed authorization'}
+        self.orchestrator.decision(graph.get(self.store,self.run['id']),'plan_change',approved_request)
+        approved=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
+        authorization=graph.get(self.store,self.run['id'])['authorization']
+        self.store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",
+                           (graph.encode({'action':'approve','authorization':authorization}),self.store.now(),approved['id']))
+        self.orchestrator.decision(graph.get(self.store,self.run['id']),'plan_change',approved_request)
+        waiting=graph.get(self.store,self.run['id']);self.orchestrator.advance(waiting)
+        self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE id=?',(request_id,))[0]['status'],'staged')
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],)))
+        self.assertEqual(graph.get(self.store,self.run['id'])['terminal_reason'],'authorization_proposal_resumed')
+
+    def test_approving_identical_authorization_is_idempotent(self):
+        from webapp.run_authorization import approve
+        before=len(self.store.query('SELECT version FROM run_authorizations WHERE run_id=?',(self.run['id'],)))
+        version=approve(self.store,self.run,graph.Authorization.model_validate(self.run['authorization']))
+        self.assertEqual(version,self.run['authorization_version'])
+        self.assertEqual(len(self.store.query('SELECT version FROM run_authorizations WHERE run_id=?',(self.run['id'],))),before)
+
+    def test_waiting_user_continues_only_existing_external_poll(self):
+        from webapp.workflow_dispatch import available,candidates
+        self.tick();self.propose({'proposal_id':'poll-during-decision','base_graph_version':0,'reason':'Create work',
+            'add_tasks':[script('external',outputs=['external.txt'],output_roles={'report':'external.txt'},delivery_stage=False),
+                         script('new-submit',outputs=['new.txt'],output_roles={'report':'new.txt'},delivery_stage=False)],
+            'sealed':False,'replan_after':['external']})
+        run=self.tick();self.assertTrue(run['tasks'],run['repair_context']);now=self.store.now()
+        self.store.execute("UPDATE run_tasks SET status='waiting',phase='poll',external_id='provider-job',next_run_at=0 WHERE run_id=? AND id='external'",(run['id'],))
+        self.store.execute("UPDATE run_tasks SET status='ready',phase='local',next_run_at=0 WHERE run_id=? AND id='new-submit'",(run['id'],))
+        self.orchestrator.decision(graph.get(self.store,run['id']),'plan_change',{'reason':'Confirm repair'})
+        waiting=graph.get(self.store,run['id']);self.orchestrator.advance(waiting)
+        current=graph.get(self.store,run['id'])
+        self.assertEqual(next(t for t in current['tasks'] if t['id']=='external')['status'],'ready')
+        self.assertEqual(available(self.store,current,now),['external'])
+        self.assertEqual([item['step_id'] for item in candidates(self.store)],['external'])
+
     def test_frozen_model_profile_rejects_too_short_code_editor_task_before_confirmation(self):
         import uuid
         from dataclasses import replace

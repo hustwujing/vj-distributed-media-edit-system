@@ -299,5 +299,5 @@ class RunInputTests(unittest.TestCase):
         self.f.orchestrator.answer(run,{'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],
             'action':'approve','authorization':stale})
         current=graph.get(self.store,run['id'])
-        self.assertEqual(current['authorization_version'],2)
+        self.assertEqual(current['authorization_version'],1)
         self.assertNotIn('0'*64,current['authorization']['agent_profile_digests'].values())

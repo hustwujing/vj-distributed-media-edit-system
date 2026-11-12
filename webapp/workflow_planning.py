@@ -366,6 +366,33 @@ def apply(store,run,request,*,confirmed_plan=False):
     return version
 
 
+def restage_after_authorization(store,run,request_id):
+    """Rebind and revalidate one immutable proposal after explicit approval."""
+    rows=store.query('SELECT * FROM planner_runs WHERE id=? AND run_id=?',(request_id,run['id']))
+    if not rows:return False
+    request=rows[0]
+    if request['status']!='rejected' or request['error_code']!='authorization_required':return False
+    result=ManagerResult.model_validate(json.loads(request['proposal_json']))
+    if result.proposal is None:return False
+    if result.base_graph_version!=run['graph_version']:raise ValueError('Authorized proposal graph changed')
+    frozen=json.loads(request['snapshot_json'])
+    from .workflow_model_protocol import scopes
+    repair_scope,user_scope=scopes(frozen)
+    validate_proposal(store,{**run,'status':'ACTIVE'},result.proposal.model_dump(),
+                      repair_scope=repair_scope,user_revision_scope=user_scope)
+    rebound=result.model_copy(update={'authorization_version':run['authorization_version']})
+    changed=store.execute("""UPDATE planner_runs SET status='staged',authorization_version=?,proposal_json=?,error_code='',updated_at=?
+        WHERE id=? AND run_id=? AND status='rejected' AND error_code='authorization_required'""",
+        (run['authorization_version'],encode(rebound.model_dump()),store.now(),request_id,run['id']))
+    if not changed:return False
+    store.execute("""UPDATE control_jobs SET status='staged',authorization_version=?,error_code='',error_detail='',updated_at=?
+        WHERE run_id=? AND id=? AND status='failed'""",
+        (run['authorization_version'],store.now(),run['id'],request['task_id']))
+    store.execute('UPDATE runs SET next_reconcile_at=? WHERE id=?',(store.now(),run['id']))
+    event(store,run,'proposal_reauthorized',{'proposal_id':result.proposal.proposal_id,'task_id':request['task_id']})
+    return True
+
+
 def apply_control_result(store,run,request,result,frozen):
     from .workflow_orchestrator import Orchestrator
     from .run_inputs import finish_batch,defer_batch

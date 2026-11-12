@@ -18,6 +18,7 @@ def approve(store,run,authorization):
     if new['max_planning_rounds']<plans:raise ValueError('Planning budget cannot discard prior rounds')
     limits=store.query('SELECT used_seconds FROM execution_limits WHERE task_id=?',(run['id'],))[0]
     if new['wall_time_budget']<limits['used_seconds']:raise ValueError('Execution budget cannot discard prior usage')
+    if run['scope_confirmed'] and encode(new)==encode(old):return run['authorization_version']
     version=run['authorization_version']+1
     store.execute('INSERT INTO run_authorizations VALUES (?,?,?,?)',(run['id'],version,encode(new),store.now()))
     store.execute('UPDATE runs SET authorization_json=?,authorization_version=?,scope_confirmed=1,goal=? WHERE id=?',

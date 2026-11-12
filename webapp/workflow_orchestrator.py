@@ -211,6 +211,42 @@ class Orchestrator:
                 (uuid.uuid4().hex,run['id'],kind,run['graph_version'],run['authorization_version'],digest(frozen),encode(request),store.now(),store.now()))
         self.set_status(run,'WAITING_USER',kind)
 
+    def authorization_convergence_failed(self,run,detail):
+        context={**run.get('repair_context',{}),'last_plan_error':{
+            'code':'authorization_convergence_failed','detail':str(detail)[:1000]}}
+        self.store.execute('UPDATE runs SET repair_context_json=? WHERE id=?',(encode(context),run['id']))
+        self.set_status(run,'WAITING_USER','authorization_convergence_failed')
+        graph.event(self.store,run,'authorization_convergence_failed',{'error_code':'authorization_convergence_failed'})
+
+    def resume_approved_plan_change(self,run):
+        """Recover a proposal already approved before an interrupted or buggy replan."""
+        store=self.store
+        if not store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND kind='plan_change' AND status='pending'",(run['id'],)):
+            return False
+        if store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],)):
+            return False
+        rows=store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND kind='plan_change' AND status='applied' AND graph_version=? ORDER BY updated_at DESC",
+                         (run['id'],run['graph_version']))
+        for row in rows:
+            request=json.loads(row['request_json']);answer=json.loads(row['answer_json'])
+            if answer.get('action')!='approve' or not answer.get('authorization') or not request.get('planner_run'):continue
+            try:approved=planning.rebind_scope(store,answer['authorization']).model_dump()
+            except ValueError:continue
+            if encode(approved)!=encode(run['authorization']):continue
+            try:restaged=planning.restage_after_authorization(store,{**run,'status':'ACTIVE'},request['planner_run'])
+            except AuthorizationRequired as exc:
+                store.execute("UPDATE workflow_decisions SET status='superseded',updated_at=? WHERE run_id=? AND kind='plan_change' AND status='pending'",
+                              (store.now(),run['id']))
+                self.authorization_convergence_failed(run,exc);return True
+            except ValueError:continue
+            if not restaged:continue
+            store.execute("UPDATE workflow_decisions SET status='superseded',updated_at=? WHERE run_id=? AND kind='plan_change' AND status='pending'",
+                          (store.now(),run['id']))
+            self.set_status(run,'ACTIVE','authorization_proposal_resumed')
+            graph.event(store,run,'authorization_proposal_resumed',{'proposal_id':request['planner_run']})
+            return True
+        return False
+
     def open_repair(self,run,subject,source,evidence='',error_code=''):
         context={'active':True,'subject_task':subject,'subject_revision':next((t['revision'] for t in graph.work_items(run) if t['id']==subject),0) if subject else None,
                  'source':source,'evidence':evidence,'error_code':error_code,'opened_graph_version':run['graph_version']}
@@ -534,6 +570,14 @@ class Orchestrator:
         store.execute("UPDATE workflow_decisions SET status='applied',answer_json=?,updated_at=? WHERE id=?",(encode(payload),store.now(),row['id']))
         if payload.get('action')=='approve' and row['kind'] in ('plan_change','successor_authorization'):
             current=graph.get(store,run['id'])
+            if row['kind']=='plan_change' and request.get('planner_run'):
+                try:restaged=planning.restage_after_authorization(store,current,request['planner_run'])
+                except AuthorizationRequired as exc:
+                    self.authorization_convergence_failed(current,exc);return
+                except ValueError:restaged=False
+                if restaged:
+                    self.set_status(current,'ACTIVE','authorization_proposal_resumed')
+                    return
             self.queue_plan(current,{'authorization_changed':row['id']})
             return
         if payload.get('action') not in ('reject','revise'):
@@ -938,6 +982,8 @@ class Orchestrator:
     def advance(self,run):
         store=self.store;now=store.now()
         if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
+            self.advance_external_waits(run)
+            if self.resume_approved_plan_change(graph.get(store,run['id'])):return
             self.set_status(run,'WAITING_USER','user_decision_pending');return
         # Manual reviews are presented one at a time, but parallel candidates
         # must not lose their pending confirmation when the first is answered.
@@ -951,6 +997,19 @@ class Orchestrator:
         done={t['id'] for t in graph.work_items(run) if t['status']=='succeeded'}
         if run['input_barrier_sequence'] is not None:return
         self.advance_graph(run,done)
+
+    def advance_external_waits(self,run):
+        """Poll already-submitted effects while business decisions remain fenced."""
+        store=self.store;now=store.now()
+        for task in graph.work_items(run):
+            if (task.get('control_kind') or task['status'] not in ('waiting','retry_wait')
+                    or task['phase'] not in ('poll','collect') or not task['external_id'] or task['next_run_at']>now):continue
+            if task['lease_id']:
+                active=store.query('SELECT attempt FROM execution_leases WHERE attempt=? AND active=1 AND expires>?',(task['lease_id'],now))
+                cleaning=store.query("SELECT attempt FROM execution_cleanup WHERE attempt=? AND state<>'complete'",(task['lease_id'],))
+                if active or cleaning:continue
+            graph.write_work(store,task,"UPDATE run_tasks SET status='ready',lease_id='',wait_reason='' WHERE run_id=? AND id=?",
+                             (run['id'],task['id']))
 
     def advance_ready(self,run):
         if run['terminal_reason'] in ('user_paused','user_rejected'):return
