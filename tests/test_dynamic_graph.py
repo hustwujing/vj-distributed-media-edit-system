@@ -176,6 +176,30 @@ class DynamicGraphTests(unittest.TestCase):
         with self.assertRaises(ValueError):graph.create(self.store,self.f.project,self.f.turn,{**self.authorization,'goal':'different'})
         with self.assertRaises(ValueError):graph.create(self.store,self.f.project,self.f.turn,{**self.authorization,'content_fingerprint':'0'*64})
 
+    def test_terminal_run_provider_uncertainty_does_not_hold_global_capacity(self):
+        from webapp.scheduling import provider_inflight
+        from webapp import agent_store,workflows
+        legacy_project=self.store.add_project('owner','legacy')['id']
+        legacy_plan=agent_store.add_turn(self.store,legacy_project,'plan','legacy plan')
+        agent_store.finish(self.store,legacy_plan,'succeeded','approved')
+        legacy_turn=agent_store.add_turn(self.store,legacy_project,'execute','legacy',plan_id=legacy_plan)
+        self.store.execute("UPDATE agent_turns SET status='running' WHERE id=?",(legacy_turn,))
+        legacy=workflows.submit(self.store,legacy_turn,{'key':'legacy','name':'legacy','steps':[fixtures.local_step('legacy')]})
+        self.store.execute('''INSERT INTO workflow_provider_calls(
+          request_key,workflow,step,revision,attempt,provider,operation,state,inputs,created,updated,implementation)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?), (?,?,?,?,?,?,?,?,?,?,?,?)''',
+          ('stale-call',self.run['id'],'image',0,1,'https://provider.invalid','image.generate_from_text',
+           'submission_unknown','{}',self.store.now(),self.store.now(),json.dumps({'concurrency_group':'images'}),
+           'legacy-call',legacy['id'],'generate',0,1,'https://provider.invalid','image.generate_from_text',
+           'waiting','{}',self.store.now(),self.store.now(),json.dumps({'concurrency_group':'images'})))
+        with self.store.connect() as db:self.assertEqual(len(provider_inflight(db)),2)
+        self.store.execute("UPDATE agent_turns SET status='failed' WHERE id=?",(legacy_turn,))
+        with self.store.connect() as db:self.assertEqual(len(provider_inflight(db)),1)
+        self.store.execute("UPDATE runs SET status='FAILED',terminal_reason='provider_failed' WHERE id=?",(self.run['id'],))
+        with self.store.connect() as db:self.assertEqual(provider_inflight(db),[])
+        self.assertEqual(self.store.query("SELECT state FROM workflow_provider_calls WHERE request_key='stale-call'")[0]['state'],
+                         'submission_unknown')
+
     def test_planning_snapshot_preserves_operation_output_alternatives(self):
         frozen=planning.snapshot(self.store,self.run)
         edit=next(item for item in frozen['operations'] if item['id']=='media.edit')

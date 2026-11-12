@@ -6,6 +6,18 @@ from .execution_contracts import dispatch_kind
 from .operations import for_step
 
 _GPU_CAPACITY_CACHE={}
+_PROVIDER_ACTIVE_STATES=('submitting','waiting','queued','running','submission_unknown')
+
+
+def provider_inflight(db):
+    """Return provider calls that can still belong to a live execution."""
+    placeholders=','.join('?' for _ in _PROVIDER_ACTIVE_STATES)
+    return db.execute(f'''SELECT c.operation,c.implementation FROM workflow_provider_calls c
+      LEFT JOIN agent_workflows w ON w.id=c.workflow
+      LEFT JOIN execution_subjects subject ON subject.id=COALESCE(w.run_id,c.workflow)
+      WHERE c.state IN ({placeholders})
+      AND (subject.id IS NULL OR LOWER(subject.status) NOT IN ('succeeded','failed','cancelled'))''',
+      _PROVIDER_ACTIVE_STATES).fetchall()
 
 
 def gpu_devices():
@@ -199,7 +211,9 @@ def admit(db,store,run_id,kind,node,timestamp,step_id=None,worker=None):
             existing=db.execute('SELECT state FROM manual_operation_runs WHERE job_id=?',(run_id,)).fetchone()
             polling=bool(existing and existing['state']!='pending')
         if not polling:
-            rows=db.execute("SELECT operation,implementation FROM workflow_provider_calls WHERE state IN ('submitting','waiting','queued','running','submission_unknown')").fetchall()
+            # Cleanup uncertainty remains auditable after a Run terminates, but
+            # it must not consume a global provider slot forever.
+            rows=provider_inflight(db)
             count=0
             for row in rows:
                 binding=json.loads(row['implementation'])
