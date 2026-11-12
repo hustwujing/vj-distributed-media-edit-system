@@ -1,5 +1,32 @@
 # 示例库及后续契约、交互专项验收报告
 
+## 2026-11-12：外部音视频参考能力与 74 项示例库
+
+参考 `/data2/wujing03/sandbox-harness-platform` 的持久参考素材能力，将示例库由 70 项扩展为 74 项。新增四个受控 Operation：`video.generate_from_frames`（首尾帧）、`video.generate_from_references`（图片/视频/音频多模态参考）、`video.edit`（参考视频编辑）、`video.extend`（前向/后向延长）。参考字节先核对冻结输入摘要和真实媒体约束，再发布到目标环境专属 `aniforge/distributed-agent-sandbox/` BOSS 前缀并注册内容寻址 Ark Asset；Provider 只接收 `asset://` URI，长期 BOSS、Ark 和 Provider 凭据不进入沙箱、计划或持久调用句柄。
+
+四种模式均完成真实 Provider、真实页面、实际下载、媒体解码、语义审查、重进终态和清理验证。不同轮次的最新成功证据如下，不拼成同一批“4/4 一次通过”：
+
+| Case | Operation | 最新成功耗时（秒） | 结果与边界 |
+|---|---|---:|---|
+| `generate-video-first-last` | `video.generate_from_frames` | 415.765 | 首尾帧、1280x720、音轨、5.088 秒容器均通过 |
+| `generate-video-edit` | `video.edit` | 570.575 | 只修改天空，保留地面构图和颜色，无音轨 |
+| `generate-video-multimodal` | `video.generate_from_references` | 577.469 | 第一候选通过灯塔构图、轻微漂移和可听音轨 |
+| `generate-video-extend` | `video.extend` | 1152.224 | `backward` 前序片段经一次受控修订后通过 |
+
+四种模式成功证据的平均耗时为 679.008 秒。最终无介入轮中，多模态第一候选通过；延长的两个候选技术契约均通过，但云层运动方向没有让新增片段末帧衔接源首帧，第三次生成前被有界取消，归类为 Provider 内容失败而非程序失败。系统没有发布不合格片段。证据位于 `/data2/wujing03/demo-library-74-media-reference-r1` 至 `r4`；首次失败、修订和取消记录均保留。
+
+本轮真机暴露并完成四项通用修复：Seedance 含音轨容器时长容差由 ±0.05 秒修正为 ±0.10 秒；明确 `video.extend` 只返回新增片段及 forward/backward 拼接方向；HTTP 409 `InvalidAction.RunningTaskDeletion` 改为延迟取消并持续查询原 Provider ID；示例素材改为语义一致、可独立验证的确定性输入。服务重启后对三条历史 `unconfirmed` 记录执行只查询恢复，全部收敛为 `complete / succeeded`，没有重复 submit。
+
+最终产品提交为 `eb78c53`，正式 release 源码摘要为 `2456e9aec61da8a0ddbd55d56973eb31a17a2717203552d9f6d50e8705b403f5`，配置摘要为 `11ed79c966120ca41982c5e2d6c08ffb1070330588e180602c9f27f085ecf815`，状态 `full_gate / ready`。Python 1714/1714 通过、跳过 6 个显式 GPU 真机项；Node 105/105 通过；74/74 示例完成隔离双 API/S3 发布和加载检查；真实 Nginx 桌面/移动检查均为 74 个唯一示例、0 页面错误、0 横向溢出。
+
+最终 Runtime 镜像与 Skill Bundle：
+
+- Operation：`sha256:74f60f23d2d115e40566c096118d1559c91b818cc2d9da2c28fccb6871474f20`
+- Codex：`sha256:93d76f197bde2c2000451dc8686dd35fccef8d048e36002faa3d974dec33a357`
+- Claude：`sha256:809bc569cd584ea16ebbf427bee131a4342202e19159f36e06dea4d18e9a7414`
+- DeepSeek：`sha256:7e18683ad133c924c3326b0d5f16c9d82c513e730a5b8891a9e387b425409caf`
+- Skill Bundle：`sha256:249a22b2cd8fd7f935b9cf60ff41b116028ba158e68ad1e7254aac14ec54b0a7`
+
 ## 2026-11-12：70 项示例库 + Native Skill + 真实媒体生成
 
 本轮以并发 8 对扩展后的 70 项示例库完成去重真机执行：44 项既有示例、25 项 Native Skill、1 项同时调用真实图片/视频/音频 Provider 的组合示例。70/70 均已启动；69 项业务通过，0 项程序失败，1 项非程序失败。69 项成功平均耗时 255.072 秒，最长为三媒体组合生成 814.832 秒。主动中断的诊断轮次不计失败，按每个 case 最近一次通过证据去重。
