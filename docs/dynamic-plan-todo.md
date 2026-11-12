@@ -264,6 +264,36 @@ Task/revision、预算账本、最终交付和清理证据。没有实际变更�
 - [ ] 覆盖 Wan submit/poll/collect、submission unknown、安全重试、staged result 提交、cleanup、输入在旧图即将发布时到达、规划期间再次输入和 delivered 后 successor Run；证明不重复收费、不丢 checkpoint、不发布旧图、不丢输入。
 - [ ] 浏览器真机验证用户可连续追加多条要求，所有存量 Task 均按正常规则结束，新下游在 barrier 后零领取；证据绑定 input sequence、drain set、Run/Task/revision、attempt/generation、安全点时间、applied graph version、Provider 回执和最终交付。
 
+## Planner 工具协议与异常恢复（2026-11-12 现场新增）
+
+项目 `4f818eb59bc842dcaf68706cac4a58bc` 的 Run `6da1b5de70d546c19ec81a529c06561e`
+在业务图创建前停止：第一、第二个 Planner Attempt 分别在模型调用等待 240 秒后收到
+`RemoteDisconnected`；第二、第三个 Attempt 又分别收到一次包含多个工具调用的回复。请求已携带
+`tool_choice.auto + disable_parallel_tool_use=true`，宿主仍按权威协议拒绝并以
+`ambiguous_tool_calls` 记录。相同错误累计两次后进入
+`WAITING_USER / planning_contract_exhausted`。该 Run 保持 `graph_version=0`，没有业务 Task、Provider
+提交或交付，未知模型用量保留上限，Lease 与 cleanup 均已收敛；安全与计量行为正确，但恢复和用户状态
+仍需改进。
+
+- [ ] 将没有 pending decision、也不需要用户补充业务事实的 Planner 契约耗尽从真实
+  `WAITING_USER` 中分离。公开状态应明确表示系统规划失败或可自动恢复，并提供与恢复策略一致的重试、
+  切换路由/模型或停止入口；不能让用户猜测该补充什么。
+- [ ] 区分模型传输中断、模型违反工具协议和草稿编译失败。连接中断不增加模型纠错计数；同一模型/路由
+  连续传输失败后按冻结策略有界切换健康路由，仍保留原始未知用量，不能重放已经产生外部副作用的工具。
+- [ ] 对 `disable_parallel_tool_use=true` 仍返回多个工具调用的情况记录请求能力、实际路由和响应工具数量，
+  以区分模型违规与中间网关未透传；纠错反馈继续明确“本次没有执行任何工具”。
+- [ ] 保持状态变更工具单调用：草稿增删改、提交、授权请求、用户决策和任何可能产生副作用的动作必须在
+  单一 snapshot/lease/generation 下串行提交，避免顺序依赖、并发草稿 revision、部分成功和不可判定回滚。
+- [ ] 只读且彼此独立的 `inspect` / `contract` 不必永久受顶层单调用限制。优先提供一个服务端有界批量查询
+  工具，或只接受全部声明为 read-only、同 snapshot、无重复引用且有确定结果顺序的多调用；批次作为一个
+  账本动作和一次观察返回。禁止把只读与草稿修改/提交混在同一模型回复中。
+- [ ] Planner Attempt 恢复时复用服务端已验证的素材检查摘要和冻结契约查询结果，避免模型连接中断后重复
+  下载、检查和查询；缓存身份必须绑定素材哈希、能力契约摘要、Run snapshot 和授权版本，不能复用可变或
+  未验证内容。
+- [ ] 增加定向与真机回归：单个合法工具；零工具；两个只读工具；只读与写混合；两个草稿写；提交与其他
+  工具并存；网关忽略 parallel-disable；模型连接在查询前、查询后和提交后中断。核对草稿 revision、纠错
+  计数、用量、公开状态、Lease、cleanup 和 Provider 零重复提交。
+
 ## 资源等待与审查修复可达性（2026-11-06 现场新增）
 
 现场发现通用状态机缺口：内容审查返回 `inconclusive` 后，Orchestrator 将候选 Task 暂停并打开
