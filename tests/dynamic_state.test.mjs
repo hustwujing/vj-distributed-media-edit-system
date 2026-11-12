@@ -131,3 +131,12 @@ test('composer pastes files through the owned upload path and selects them as at
  assert.match(source,/if\(uploaded\.includes\(option\.value\)\)option\.selected=true/);
  assert.match(source,/delete \$\('dynamic-input-form'\)\.dataset\.requestId;renderAttachmentChips\(\);saveInputDraft\(\)/);
 });
+
+test('composer attachments can be removed and never default-select the project library',()=>{
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.doesNotMatch(source,/firstLoad&&currentId==null/);
+ assert.match(source,/data-remove-asset=/);
+ assert.match(source,/if\(option\)option\.selected=false;delete \$\('dynamic-input-form'\)\.dataset\.requestId/);
+ assert.match(source,/input\.value='';clearAttachmentSelection\(\);for\(const option of \$\('dynamic-input-targets'\)\.options\)option\.selected=false/);
+ assert.match(source,/writeDraft\('new','input',\{\.\.\.draft,assets:\[\],targets:\[\]\}\)/);
+});
