@@ -36,6 +36,7 @@ const server=http.createServer((req,res)=>{
    window.tick=()=>updateExecutionClocks();
    window.stopClock=()=>{current.activity_attempts[3].finished=Date.now()/1000;current.activity_attempts[3].status='finished';current.tasks[0].status='succeeded';renderDag(current);};
    window.waitForGpu=()=>{current.tasks[0].status='retry_wait';current.tasks[0].wait_reason='gpu_capacity';current.tasks[0].next_run_at=Date.now()/1000+20;renderDag(current);};
+   window.waitForProvider=()=>{current.tasks[0].status='waiting';current.tasks[0].wait_reason='provider';current.tasks[0].phase='poll';renderDag(current);};
    window.rerender=()=>renderDag(current);window.ready=true;
   `});
   await page.waitForFunction(()=>window.ready);
@@ -67,6 +68,7 @@ const server=http.createServer((req,res)=>{
   assert.equal(sizing.overflow,false);assert.ok(sizing.rows<=39);
   await page.evaluate(()=>window.stopClock());const stopped=await clocks.last().innerText();await page.waitForTimeout(1100);await page.evaluate(()=>window.tick());assert.equal(await clocks.last().innerText(),stopped);
   await page.evaluate(()=>window.waitForGpu());assert.ok(await node.evaluate(n=>n.classList.contains('resource-wait')));const waitingPulse=await node.evaluate(n=>({name:getComputedStyle(n).animationName,duration:getComputedStyle(n).animationDuration,text:n.innerText}));assert.equal(waitingPulse.name,'node-wait-breathe');assert.equal(waitingPulse.duration,'3s');assert.match(waitingPulse.text,/GPU|retry_wait/);
+  await page.evaluate(()=>window.waitForProvider());assert.ok(await node.evaluate(n=>n.classList.contains('active')));const providerPulse=await node.evaluate(n=>({name:getComputedStyle(n).animationName,duration:getComputedStyle(n).animationDuration,text:n.innerText}));assert.equal(providerPulse.name,'node-breathe');assert.equal(providerPulse.duration,'1.6s');assert.match(providerPulse.text,/waiting/);assert.ok(await page.locator('#dag-fab').evaluate(n=>n.classList.contains('has-active')));
   assert.deepEqual(errors,[]);const report={passed:true,kind:'isolated_browser_actual_graph_renderer',records,location_cache_update:true,drag_edges_and_restore:true,page_errors:errors};
   if(process.argv[2])fs.writeFileSync(process.argv[2],JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify(report));
  }finally{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));}
