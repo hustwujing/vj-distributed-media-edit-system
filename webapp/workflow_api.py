@@ -241,6 +241,14 @@ def public(store,run):
             from .workflow_error_catalog import CATALOG,get as failure_definition,public_metadata
             if run['terminal_reason'] in waiting_guidance:
                 title,message=waiting_guidance[run['terminal_reason']]
+            elif pending:
+                title={
+                    'plan_change':'请确认执行范围','successor_authorization':'请确认新一轮执行范围',
+                    'plan_confirmation':'请确认执行方案','input_question':'需要补充具体信息',
+                    'quality':'请检查当前候选','external_wait':'外部任务等待超时',
+                    'external_submission':'外部请求结果需要核实','publication_checkpoint':'请确认最终发布',
+                }.get(pending['kind'],'需要你的处理')
+                message=request.get('question') or request.get('reason') or request.get('message') or '请处理当前确认事项后继续。'
             elif run['terminal_reason'] in CATALOG:
                 definition=failure_definition(run['terminal_reason']);title,message=definition.title,definition.message
             else:

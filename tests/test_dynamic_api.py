@@ -43,6 +43,17 @@ class DynamicAPITests(unittest.TestCase):
         current=self.a.get(self.prefix+'/'+identifier).json()
         self.assertEqual(current['state'],'ACTIVE');self.assertEqual(current['decisions'],[])
 
+    def test_pending_plan_change_exposes_its_real_reason(self):
+        from webapp import workflow_graph as graph
+        identifier=self.a.post(self.prefix,json=self.body()).json()['id'];store=self.app.state.store
+        reason='代码编辑策略发生变化，需要确认当前修复任务。'
+        Orchestrator(store).decision(graph.get(store,identifier),'plan_change',{'reason':reason})
+        current=self.a.get(self.prefix+'/'+identifier).json()
+        self.assertEqual(current['state'],'WAITING_USER')
+        self.assertEqual(current['blocking_action']['title'],'请确认执行范围')
+        self.assertEqual(current['blocking_action']['message'],reason)
+        self.assertNotIn('未登记',current['blocking_action']['message'])
+
     def test_final_review_pause_exposes_actual_feedback_without_task_errors(self):
         from webapp import workflow_graph as graph
         identifier=self.a.post(self.prefix,json=self.body()).json()['id'];store=self.app.state.store
