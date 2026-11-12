@@ -140,3 +140,10 @@ test('composer attachments can be removed and never default-select the project l
  assert.match(source,/input\.value='';clearAttachmentSelection\(\);for\(const option of \$\('dynamic-input-targets'\)\.options\)option\.selected=false/);
  assert.match(source,/writeDraft\('new','input',\{\.\.\.draft,assets:\[\],targets:\[\]\}\)/);
 });
+
+test('terminal run input creates a model-inheriting successor instead of posting to the old run',()=>{
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.match(source,/parent=current&&terminalRun\(current\.state\)\?current\.id:null,origin=current&&!terminalRun\(current\.state\)\?current\.id:null/);
+ assert.match(source,/chosen=parent\?null:\{\.\.\.modelChoice\}/);
+ assert.match(source,/parent_run_id:parent,model_choice:chosen/);
+});

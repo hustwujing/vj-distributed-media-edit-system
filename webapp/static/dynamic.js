@@ -149,14 +149,14 @@ function renderDecisions(run){
 }
 $('dynamic-input-form').onsubmit=async event=>{
  event.preventDefault();const content=$('dynamic-input-content').value.trim();if(!content||busy||uploading)return;busy=true;error('');modelControls();
- const origin=current?.id||null,attachments=[...$('dynamic-input-assets').selectedOptions].map(option=>option.value),targets=[...$('dynamic-input-targets').selectedOptions].map(option=>option.value);
+ const parent=current&&terminalRun(current.state)?current.id:null,origin=current&&!terminalRun(current.state)?current.id:null,attachments=[...$('dynamic-input-assets').selectedOptions].map(option=>option.value),targets=[...$('dynamic-input-targets').selectedOptions].map(option=>option.value);
  const input=$('dynamic-input-content');const key=$('dynamic-input-form').dataset.requestId||uuid();$('dynamic-input-form').dataset.requestId=key;saveInputDraft();$('dynamic-input-submit').disabled=true;
  try{let result;
   if(!origin){
-   if(!modelChoice)throw new Error('请选择可用模型。');const chosen={...modelChoice},fresh=await api(path('/runs/capabilities'));
-   if(!choiceIsCurrent(fresh.model_choices,chosen)){capabilities=fresh;renderModelChoices();throw new Error('模型配置已更新，请核对模型和推理强度后再次确认。');}
+   if(!parent&&!modelChoice)throw new Error('请选择可用模型。');const chosen=parent?null:{...modelChoice},fresh=await api(path('/runs/capabilities'));
+   if(chosen&&!choiceIsCurrent(fresh.model_choices,chosen)){capabilities=fresh;renderModelChoices();throw new Error('模型配置已更新，请核对模型和推理强度后再次确认。');}
    if(fresh.content_fingerprint!==capabilities.content_fingerprint){capabilities.content_fingerprint=fresh.content_fingerprint;throw new Error('素材或工作区内容已变化，请检查当前执行范围后再次确认。');}
-   result=await api(path('/runs'),{method:'POST',body:JSON.stringify({request_id:key,confirmed:true,authorization:authorization(content),parent_run_id:null,model_choice:chosen})});newRunMode=false;currentId=result.id;
+   result=await api(path('/runs'),{method:'POST',body:JSON.stringify({request_id:key,confirmed:true,authorization:authorization(content),parent_run_id:parent,model_choice:chosen})});newRunMode=false;currentId=result.id;
   }else result=await api(path(`/runs/${origin}/inputs`),{method:'POST',body:JSON.stringify({request_id:key,content,attachments,targets})});
   if(input.value.trim()===content&&JSON.stringify([...$('dynamic-input-assets').selectedOptions].map(option=>option.value))===JSON.stringify(attachments)&&JSON.stringify([...$('dynamic-input-targets').selectedOptions].map(option=>option.value))===JSON.stringify(targets)){
    input.value='';clearAttachmentSelection();for(const option of $('dynamic-input-targets').options)option.selected=false;delete $('dynamic-input-form').dataset.requestId;saveInputDraft();
