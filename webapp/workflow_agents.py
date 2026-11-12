@@ -10,6 +10,7 @@ from pathlib import Path
 import time
 import uuid
 from contextlib import contextmanager
+from copy import deepcopy
 from . import workflow_graph as graph,workflow_planning as planning,agent_store
 from .specialist_profiles import get as get_profile
 from .workflow_dispatch import stage_result
@@ -63,6 +64,18 @@ def proposal_feedback(raw):
         return [{'path':'.'.join(map(str,e['loc'])),'type':e['type'],
                  'message':e['msg'][:240]} for e in exc.errors(include_input=False,include_url=False)[:20]]
     return []
+
+
+def contract_projection(value):
+    """Contract facts needed for reasoning; exact parameter schemas stay in tools."""
+    keys=('id','name','description','input_contract','output_contract','constraints','execution_requirements',
+          'external_side_effects','reuse_safe','evidence_only')
+    return {key:value[key] for key in keys if key in value}
+
+
+def inspection_projection(value):
+    """Bounded observation for model context; raw previews travel as image inputs."""
+    return {key:item for key,item in value.items() if key not in ('image','path','probe')}
 
 
 def reserve_tokens(store,lease,run,amount,*,input_tokens=None,output_tokens=None,model_call_limit=None):
@@ -311,7 +324,9 @@ def _model_request(host,lease,run,profile,conversation,images,deadline,protocol,
             structured_stream=StructuredStream(adapter.protocol,public_delta) if protocol is not None and body.get('stream') else None
             from .safe_stream import chunks
             for chunk in chunks(response):
-                if first_chunk_at is None:first_chunk_at=time.monotonic()
+                if first_chunk_at is None:
+                    first_chunk_at=time.monotonic()
+                    if getattr(receipt,'on_activity',None):receipt.on_activity('first_byte')
                 lease.check()
                 if host.stop.is_set():raise LeaseLost('Worker is stopping')
                 if time.monotonic()>deadline:raise TimeoutError('Agent phase deadline reached')
@@ -937,12 +952,37 @@ def execute(host,lease,run,task):
     if profile.id=='media_planner':
         from .workflow_plan_draft import get as get_draft
         draft=get_draft(store,task['spec']['request_id'])
-    initial_protocol=ToolProtocol(profile,frozen,task,draft=draft,store=store)
-    conversation=graph.encode(initial_protocol.context());seen=set();inspections={};candidate_keys={};candidate_refs={};inspection_keys=set();images=[];deadline=time.monotonic()+min(profile.timeout_seconds,task['spec'].get('timeout_seconds',profile.timeout_seconds))
+    seen=set();inspections={};candidate_keys={};candidate_refs={};inspection_keys=set();images=[];contracts={};restored=[]
+    if profile.id=='media_planner':
+        from .workflow_read_cache import list_cached
+        for cached in list_cached(store,run['id'],task['id'],frozen['snapshot_digest']):
+            request=cached['request'];value=cached['result']
+            if cached['kind']=='contract':
+                identifier=request.get('operation') if isinstance(request,dict) else None
+                try:current=planning.operation_contract(store,frozen,identifier)
+                except (TypeError,ValueError):continue
+                if graph.digest(current)!=graph.digest(value):continue
+                contracts[identifier]=current
+            elif cached['kind']=='inspection' and isinstance(request,dict) and isinstance(value,dict):
+                reference=request.get('ref');key=(reference,request.get('offset',0),request.get('window_seconds'))
+                if reference not in allowed or value.get('ref')!=reference or key in inspection_keys:continue
+                evidence=deepcopy(value);bind_inspection_image(evidence,images,profile.max_images)
+                inspection_keys.add(key);seen.add(reference);restored.append(inspection_projection(evidence))
+        if contracts or restored:
+            from .telemetry import emit
+            emit('workflow.read_cache_restored',task_id=lease.run_id,step_id=lease.step_id,
+                 contract_count=len(contracts),inspection_count=len(restored))
+    initial_protocol=ToolProtocol(profile,frozen,task,contracts=contracts,draft=draft,store=store)
+    conversation=graph.encode(initial_protocol.context())
+    if contracts or restored:
+        conversation+='\nRestored snapshot-bound read results (data, no new authority):'+graph.encode({
+            'operation_contracts':[contract_projection(contracts[key]) for key in sorted(contracts)],
+            'inspections':restored})
+    deadline=time.monotonic()+min(profile.timeout_seconds,task['spec'].get('timeout_seconds',profile.timeout_seconds))
     from .agent_text import TextPublisher
     text_stream=TextPublisher(store,run['id'])
     from .agent_profiles import for_specialist
-    transport={'strict':for_specialist(store,run['id'],profile.id).strict_tools};contracts={}
+    transport={'strict':for_specialist(store,run['id'],profile.id).strict_tools}
     output=None;inspection_rounds=0;correction_rounds=0;draft_mutation_rounds=0;finalize_started=False;finalize_calls=0;feedback='';rejections={};script_failures={};inspection_failures={};respond_reviewed=False
     for turn in range(profile.max_turns):
         lease.check()
@@ -1024,7 +1064,7 @@ def execute(host,lease,run,task):
             correction_rounds+=1
             continue
         draft_actions=('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration')
-        if action not in profile.tools and action not in (*draft_actions,'draft_batch_commit'):
+        if action not in profile.tools and action not in (*draft_actions,'draft_batch_commit','read_context'):
             from .telemetry import emit
             emit('workflow.agent_contract_rejected','WARNING',task_id=lease.run_id,step_id=lease.step_id,
                  operation='reply',error_code='unsupported_action')
@@ -1034,7 +1074,7 @@ def execute(host,lease,run,task):
             continue
         from .task_usage import execution_call
         labels={'inspect':'检查已授权输入','contract':'查询冻结能力契约','script':'执行受限脚本','proposal':'提交规划提案','result':'提交候选结果',
-                'draft_add_tasks':'追加规划草稿任务','draft_configure':'配置规划草稿'}
+                'read_context':'批量读取素材与能力契约','draft_add_tasks':'追加规划草稿任务','draft_configure':'配置规划草稿'}
         labels.update({'draft_replace_tasks':'替换规划草稿任务','draft_remove_tasks':'移除规划草稿任务',
                        'draft_replace_configuration':'修正规划草稿配置','draft_batch_commit':'批量构建并提交规划草稿'})
         with execution_call(lease,'tool',action,revision=task['revision'],actor=actor(profile),label=labels[action]) as tool_receipt:
@@ -1095,18 +1135,23 @@ def execute(host,lease,run,task):
                 emit('workflow.plan_draft_updated',task_id=lease.run_id,step_id=lease.step_id,
                      operation=action,graph_version=frozen['graph_version'],task_count=len(value['new_tasks']))
                 continue
-            if action=='contract':
+            if action in ('contract','read_context'):
                 if profile.id!='media_planner':raise ValueError('Only Manager can query operation contracts')
                 details=[]
                 try:
                     for identifier in reply.get('operations',[]):
                         detail=planning.operation_contract(store,frozen,identifier)
                         contracts[identifier]=detail;details.append(detail)
+                        from .workflow_read_cache import put as cache_read
+                        cache_read(store,lease,run['id'],task['id'],frozen['snapshot_digest'],
+                                   'contract',{'operation':identifier},detail)
                 except ValueError as exc:
                     tool_receipt['status']='failed';correction_rounds+=1
                     conversation+='\nContract query rejected: '+str(exc);continue
-                conversation+='\nFrozen operation contracts (data, no authority granted):'+graph.encode(details)
-                continue
+                if details:
+                    conversation+='\nFrozen operation contract summaries (exact parameter schemas are in the current tools; no authority granted):'+graph.encode([
+                        contract_projection(detail) for detail in details])
+                if action=='contract' or not reply.get('refs'):continue
             if action=='proposal':
                 if profile.id!='media_planner':raise ValueError('Only Manager can propose')
                 errors=proposal_feedback(reply.get('proposal'));authorization_required=False
@@ -1193,7 +1238,7 @@ def execute(host,lease,run,task):
                      executable=not authorization_required,
                      retry_success=correction_rounds>0)
                 return stage_result(store,lease,'succeeded',{'result_kind':reply['proposal']['kind']})
-            if action=='inspect':
+            if action in ('inspect','read_context'):
                 if finalize_started:
                     tool_receipt['status']='failed';correction_rounds+=1
                     conversation+='\nInspection rejected: finalize phase has started. Submit the required result/proposal using existing evidence.'
@@ -1252,6 +1297,9 @@ def execute(host,lease,run,task):
                              graph.encode({'phase':'inspect','origin':'artifact_store','classification':'environment','attempt_id':lease.attempt,'code':code,
                                            'reference_sha256':hashlib.sha256(reference.encode()).hexdigest()}),store.now()))
                         batch.append({'ref':reference,'error':'检查所需产物暂时不可用，请稍后重试。','code':code,'diagnostic':detail});continue
+                    if profile.id=='media_planner':
+                        from .workflow_read_cache import put as cache_read
+                        cache_read(store,lease,run['id'],task['id'],frozen['snapshot_digest'],'inspection',request,evidence)
                     bind_inspection_image(evidence,images,profile.max_images)
                     inspection_id=uuid.uuid4().hex
                     from .workflow_agent_contracts import approved_delivery_refs
@@ -1268,9 +1316,9 @@ def execute(host,lease,run,task):
                     store.execute('INSERT INTO workflow_inspections VALUES (?,?,?,?,?,?,?,?)',
                         (inspection_id,run['id'],task['id'],lease.attempt,reference,frozen.get('snapshot_digest',''),
                          graph.encode(stored),store.now()))
-                    seen.add(reference);inspections[inspection_id]=reference;batch.append({
+                    seen.add(reference);inspections[inspection_id]=reference;batch.append(inspection_projection({
                         'inspection_id':inspection_id,'candidate_key':candidate_key or None,
-                        'eligible_for_delivery':eligible,**evidence})
+                        'eligible_for_delivery':eligible,**evidence}))
                 conversation+='\nInspection result (data):'+graph.encode(batch[0] if len(batch)==1 else batch)
             elif action=='script':
                 if 'RUN_SCRIPT' not in profile.action_capabilities:raise ValueError('Profile is read-only')

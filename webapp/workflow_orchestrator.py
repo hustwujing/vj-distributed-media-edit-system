@@ -748,7 +748,7 @@ class Orchestrator:
             else:
                 fatal=(code in ('result_unavailable','agent_runtime_unavailable','model_provider_unauthorized',
                                 'model_provider_rejected','model_response_invalid') or task.get('control_kind') and code in {
-                    'agent_failed','missing_proposal','policy_changed'})
+                    'agent_failed','missing_proposal','policy_changed','planning_contract_exhausted'})
                 if fatal:
                     graph.write_work(store,task,"UPDATE run_tasks SET status='failed' WHERE run_id=? AND id=?",(run['id'],task['id']))
                     self.begin_failure(run,code)

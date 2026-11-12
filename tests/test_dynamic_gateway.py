@@ -169,6 +169,40 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(reader.call_count,1)
         self.assertIn('already inspected',conversations[-1])
 
+    def test_planner_read_batch_survives_attempt_loss_without_reinspection(self):
+        import threading
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        from webapp.workflow_agents import execute
+        snapshot=json.loads(self.store.query('SELECT snapshot_json FROM planner_runs WHERE id=?',(self.task['id'],))[0]['snapshot_json'])
+        operation=snapshot['operations'][0]['id']
+        read={'action':'read_context','refs':[{'ref':'asset','offset':0}], 'operations':[operation]}
+        proposal={'proposal_id':'cached-read-plan','base_graph_version':0,'reason':'Use restored reads',
+                  'add_tasks':[fixtures.script()],'sealed':True}
+        host=SimpleNamespace(store=self.store,stop=threading.Event())
+        with patch('webapp.workflow_agents.inspect',return_value={'ref':'asset','text':'cached homepage evidence'}) as reader, \
+             patch('webapp.workflow_agents.model') as model:
+            model.side_effect=[read,ConnectionError('provider disconnected')]
+            with self.lease.bind(),self.assertRaises(ConnectionError):execute(host,self.lease,self.run,self.task)
+            self.assertEqual(reader.call_count,1)
+            cached=self.store.query('SELECT kind,COUNT(*) AS n FROM workflow_read_cache GROUP BY kind ORDER BY kind')
+            self.assertEqual(cached,[{'kind':'contract','n':1},{'kind':'inspection','n':1}])
+            self.lease.release()
+            self.store.execute("UPDATE control_jobs SET status='ready',lease_id='',lease_generation=0 WHERE run_id=? AND id=?",(self.run['id'],self.task['id']))
+            self.store.execute("UPDATE planner_runs SET status='pending',lease_id='',lease_generation=0 WHERE run_id=? AND id=?",(self.run['id'],self.task['id']))
+            retry=Coordinator(self.store,'gateway-protocol-retry','test').claim(self.run['id'],'workflow',step_id=self.task['id'])
+            self.assertIsNotNone(retry);self.lease.__dict__.update(retry.__dict__)
+            def recovered(*args,**kwargs):
+                conversation=args[4]
+                self.assertIn('Restored snapshot-bound read results',conversation)
+                self.assertIn('cached homepage evidence',conversation)
+                self.assertNotIn('parameters_schema',conversation)
+                return self.bind_reply({'action':'proposal','proposal':proposal})
+            model.side_effect=recovered
+            with self.lease.bind():execute(host,self.lease,self.run,self.task)
+        self.assertEqual(reader.call_count,1)
+        self.assertEqual(self.store.query('SELECT status FROM planner_runs WHERE id=?',(self.task['id'],))[0]['status'],'staged')
+
     def test_real_zip_inspection_in_agent_loop_does_not_call_media_probe(self):
         import threading,zipfile
         from types import SimpleNamespace
@@ -752,7 +786,7 @@ class DynamicGatewayTests(unittest.TestCase):
         self.assertEqual(staged['proposal']['add_tasks'][0]['id'],'draft_report')
         self.assertEqual(staged['delivery_contract'],graph.DeliveryContract(formats=['txt'],roles=['report']).model_dump())
         self.assertEqual(staged['review_policy'],graph.ReviewPolicy().model_dump())
-        self.assertEqual(calls,[['inspect','contract','submit_typed_plan','request_user_input','respond','request_authorization','new_run_required']])
+        self.assertEqual(calls,[['read_context','submit_typed_plan','request_user_input','respond','request_authorization','new_run_required']])
 
     def test_manager_control_result_closes_its_bound_plan_draft(self):
         from types import SimpleNamespace

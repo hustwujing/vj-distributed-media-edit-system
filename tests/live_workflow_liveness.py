@@ -98,7 +98,7 @@ def force_cleanup_project(store,project):
             store.execute(f'DELETE FROM {table} WHERE task_id IN ({placeholders})',args)
         for table in ('execution_leases','execution_attempts','execution_budgets','execution_provider_calls'):
             store.execute(f'DELETE FROM {table} WHERE run_id IN ({placeholders})',args)
-        for table in ('native_task_sessions','specialist_attempt_profiles','run_authorizations','run_inputs','run_input_drain','run_task_replacements','workflow_task_revisions','workflow_plan_tasks','workflow_reconcile_failures','control_jobs','workflow_dependencies','run_tasks','workflow_plan_drafts','planner_runs','task_results','workflow_commands','workflow_decisions','workflow_reviews','workflow_graph_events','workflow_model_reservations','workflow_inspections'):
+        for table in ('native_task_sessions','specialist_attempt_profiles','run_authorizations','run_inputs','run_input_drain','run_task_replacements','workflow_task_revisions','workflow_plan_tasks','workflow_reconcile_failures','control_jobs','workflow_dependencies','run_tasks','workflow_plan_drafts','planner_runs','task_results','workflow_commands','workflow_decisions','workflow_reviews','workflow_graph_events','workflow_model_reservations','workflow_inspections','workflow_read_cache'):
             store.execute(f'DELETE FROM {table} WHERE run_id IN ({placeholders})',args)
         for table,column in (('workflow_agent_outputs','run_id'),('workflow_provider_calls','workflow'),('workflow_diagnostics','workflow'),('agent_run_profiles','task_id'),('agent_run_role_profiles','task_id'),('usage_calls','task_id')):
             store.execute(f'DELETE FROM {table} WHERE {column} IN ({placeholders})',args)

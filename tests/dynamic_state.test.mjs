@@ -106,6 +106,8 @@ test('dynamic activity renders an explicit interrupted state',()=>{
  assert.match(source,/执行器中断，未收到结束回执/);
  assert.match(source,/state==='interrupted'\?'↯'/);
  assert.match(source,/error\('\'\);if\(!eventStream\)/);
+ assert.match(source,/event\.payload\.phase,event\.payload\.label,event\.payload\.operation/);
+ assert.match(source,/timing=timingMarkup\(\{started,finished,status:/);
 });
 
 test('accepted artifacts expose reuse controls outside the hidden task audit container',()=>{
@@ -119,4 +121,13 @@ test('accepted artifacts expose reuse controls outside the hidden task audit con
  const legacy=source.slice(source.indexOf("$('dynamic-tasks').innerHTML"),source.indexOf('renderDecisions(run)'));
  assert.doesNotMatch(legacy,/data-reuse=/);
  assert.match(css,/:has\(#dynamic-context-settings\[open\]\)\{max-height:55vh;overflow-y:auto\}/);
+});
+
+test('composer pastes files through the owned upload path and selects them as attachments',()=>{
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.match(source,/async function uploadFiles\(files\)/);
+ assert.match(source,/addEventListener\('paste',event=>\{const files=clipboardFiles\(event\.clipboardData\)/);
+ assert.match(source,/event\.preventDefault\(\);uploadFiles\(files\)/);
+ assert.match(source,/if\(uploaded\.includes\(option\.value\)\)option\.selected=true/);
+ assert.match(source,/delete \$\('dynamic-input-form'\)\.dataset\.requestId;renderAttachmentChips\(\);saveInputDraft\(\)/);
 });

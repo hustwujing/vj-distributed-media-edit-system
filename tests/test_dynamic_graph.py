@@ -490,6 +490,11 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(self.store.query('SELECT status FROM workflow_plan_drafts WHERE planning_request_id=?',(request,))[0]['status'],'REJECTED')
         self.assertEqual(graph.get(self.store,self.run['id'])['graph_version'],0)
         self.assertFalse(graph.get(self.store,self.run['id'])['tasks'])
+        self.assertEqual(graph.get(self.store,self.run['id'])['status'],'CANCELLING')
+        self.tick()
+        failed=graph.get(self.store,self.run['id'])
+        self.assertEqual((failed['status'],failed['terminal_reason']),('FAILED','planning_contract_exhausted'))
+        self.assertFalse(self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],)))
 
     def test_existing_tasks_cannot_gain_dependencies_or_change_contracts(self):
         self.tick();self.propose({'proposal_id':'initial','base_graph_version':0,'reason':'Initial',

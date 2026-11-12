@@ -437,7 +437,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         store.execute('DELETE FROM agent_steps WHERE workflow IN (SELECT id FROM agent_workflows WHERE project=?)', (project_id,))
         store.execute('DELETE FROM agent_workflows WHERE project=?', (project_id,))
         for table in ('native_task_sessions','specialist_attempt_profiles','run_authorizations','run_inputs','run_input_drain','run_task_replacements','workflow_task_revisions','workflow_plan_tasks','workflow_reconcile_failures','control_jobs','workflow_dependencies','run_tasks','workflow_plan_drafts','planner_runs','task_results','workflow_commands',
-                      'workflow_decisions','workflow_reviews','workflow_graph_events','workflow_model_reservations','workflow_inspections'):
+                      'workflow_decisions','workflow_reviews','workflow_graph_events','workflow_model_reservations','workflow_inspections','workflow_read_cache'):
             store.execute(f'DELETE FROM {table} WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
         store.execute('DELETE FROM workflow_agent_outputs WHERE run_id IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))
         store.execute('DELETE FROM workflow_provider_calls WHERE workflow IN (SELECT id FROM runs WHERE project_id=?)',(project_id,))

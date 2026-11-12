@@ -700,6 +700,7 @@ class ToolProtocol:
         self.profile=profile;self.frozen=deepcopy(frozen);self.task=task;self.store=store;self._draft=draft;self.contracts=contracts or {};self.schemas={};self.names={};self.inspect_aliases={}
         self.correction_mode=bool(draft and draft.get('last_error_signature'))
         tools=set(profile.tools)&({'proposal','result'} if finalize else set(profile.tools))
+        inspect_schema=None;contract_schema=None
         if 'inspect' in tools:
             refs=frozen.get('inspectable_refs',[])
             if refs:
@@ -711,13 +712,22 @@ class ToolProtocol:
                     if alias in aliases and aliases[alias]!=reference:aliases.pop(alias);ambiguous.add(alias)
                     else:aliases[alias]=reference
                 self.inspect_aliases=aliases
-                self.add('inspect','inspect',obj({'refs':{'type':'array','minItems':1,'maxItems':8,'items':obj({
+                inspect_schema={'type':'array','minItems':1,'maxItems':8,'items':obj({
                 'ref':{'type':'string','enum':[*refs,*sorted(aliases)]},'offset':{'type':'number','minimum':0},
-                'window_seconds':{'type':'number','exclusiveMinimum':0,'maximum':8}},['ref'])}}))
+                'window_seconds':{'type':'number','exclusiveMinimum':0,'maximum':8}},['ref'])}
         if 'contract' in tools:
             operations=[row['id'] for row in frozen.get('operations',[])]
-            if operations:self.add('contract','contract',obj({'operations':{'type':'array','minItems':1,'maxItems':8,
-                'uniqueItems':True,'items':{'type':'string','enum':operations}}}))
+            if operations:contract_schema={'type':'array','minItems':1,'maxItems':8,
+                'uniqueItems':True,'items':{'type':'string','enum':operations}}
+        if profile.id=='media_planner' and (inspect_schema or contract_schema):
+            properties={}
+            if inspect_schema:properties['inspections']=inspect_schema
+            if contract_schema:properties['operations']=contract_schema
+            source=obj(properties,[]);source['minProperties']=1
+            self.add('read_context','read_context',source)
+        else:
+            if inspect_schema:self.add('inspect','inspect',obj({'refs':inspect_schema}))
+            if contract_schema:self.add('contract','contract',obj({'operations':contract_schema}))
         if 'script' in tools:self.add('script','script',obj({'code':{'type':'string','minLength':1,'maxLength':64000}}))
         if 'proposal' in tools:
             if draft is None:self.add('submit_plan','proposal',manager_schema(frozen,contracts))
@@ -829,6 +839,7 @@ class ToolProtocol:
     def definitions(self):
         descriptions={'inspect':'Inspect authorized immutable inputs. Returns evidence IDs.',
             'contract':'Read up to eight frozen operation contracts in one call; this does not authorize execution.',
+            'read_context':'Read one bounded batch of independent authorized inputs and frozen operation contracts. This is read-only and grants no execution authority.',
             'script':'Execute a bounded local implementation in the Task output directory.',
             'submit_plan':'Submit a plan command. Identity and unchanged Task fields are bound by the host.',
             'submit_result':'Submit the declared result. Existing evidence and domain rules remain required.',
@@ -857,10 +868,15 @@ class ToolProtocol:
         dynamic={identifier for identifier,contract in self.contracts.items() if contract.get('input_contract',{}).get('allowed_roles') is None}
         arguments,normalizations=normalize_planner_arguments(name,arguments,dynamic)
         payload=transform(arguments,self.schemas[name]);action=self.names[name]
-        if action=='inspect' and self.inspect_aliases:
-            if isinstance(payload.get('refs'),list):
-                for item in payload['refs']:item['ref']=self.inspect_aliases.get(item['ref'],item['ref'])
-            elif 'ref' in payload:payload['ref']=self.inspect_aliases.get(payload['ref'],payload['ref'])
+        if action in ('inspect','read_context') and self.inspect_aliases:
+            refs=payload.get('refs') if action=='inspect' else payload.get('inspections')
+            if isinstance(refs,list):
+                for item in refs:item['ref']=self.inspect_aliases.get(item['ref'],item['ref'])
+            elif action=='inspect' and 'ref' in payload:payload['ref']=self.inspect_aliases.get(payload['ref'],payload['ref'])
+        if action=='read_context':
+            if not payload.get('inspections') and not payload.get('operations'):
+                raise CommandError('empty_read_batch','read_context','At least one inspection or operation contract is required')
+            return {'action':'read_context','refs':payload.get('inspections',[]),'operations':payload.get('operations',[])}
         if action=='proposal':return {'action':'proposal','proposal':compile_manager(payload,self.frozen),'_model_command':payload}
         if action in ('draft_add_tasks','draft_replace_tasks','draft_remove_tasks','draft_configure','draft_replace_configuration'):
             if action in ('draft_add_tasks','draft_batch_commit'):
@@ -913,7 +929,7 @@ class ToolProtocol:
         pending_contracts=required_change_contracts(self.frozen,self.contracts)
         if pending_contracts:
             context['model_command_contract']['required_contract_queries']=pending_contracts
-            context['model_command_contract']['planning']='Query every required_contract_queries operation with contract first. Parameter revision tools remain unavailable until their exact registered schemas are loaded.'
+            context['model_command_contract']['planning']='Query every required_contract_queries operation with read_context first. Parameter revision tools remain unavailable until their exact registered schemas are loaded.'
         if 'complete_run' in self.schemas:
             context['model_command_contract']['planning']+=' All declared Tasks succeeded, which does not prove the entire user goal is complete. Add only remaining authorized work with submit_typed_plan; use complete_run to submit current deliverables for final review. A new Task is an addition, never an implicit replacement: all earlier delivery Tasks remain mandatory. Do not add another rendition to evade a missing repair grant or exhausted repair budget.'
         if 'submit_typed_plan' in self.schemas:
@@ -925,7 +941,7 @@ class ToolProtocol:
             context['model_command_contract']['completion_requirements']={'current_delivery_stage_tasks':delivery,
                 'complete_requires_delivery_stage':True,
                 'instruction':'If current_delivery_stage_tasks is empty, COMPLETE must give the real producing Task a user acceptance with stage=final; the host derives delivery_stage. Never add a pass-through Agent that only copies an accepted upstream result. Reviewer and diagnostic reports are evidence, not delivery inputs.'}
-        context['model_command_contract']['operations']='Query contract before adding an operation Task. Its exact typed Task variant then becomes available inside submit_typed_plan; the host binds the frozen implementation.'
+        context['model_command_contract']['operations']='Use one read_context batch for all currently needed input inspections and operation contracts before adding operation Tasks. Exact typed variants then become available inside submit_typed_plan; the host binds frozen implementations.'
         if 'submit_plan' in self.schemas:
             automatic,user=scopes(self.frozen)
             context['model_command_contract']['replacement']='Automatic repair uses plan.repair_replacements: choose an implementation; host inherits the original requirement exactly.' if automatic is not None and user is None else 'Authorized user feedback may use plan.replacements with explicitly declared new_tasks.'

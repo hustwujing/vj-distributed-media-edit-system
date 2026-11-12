@@ -21,6 +21,10 @@ class ActivityTests(unittest.TestCase):
     def test_model_phases_are_public_states_without_reasoning_text(self):
         from webapp.task_usage import model_call
         with self.lease.bind(),model_call(self.lease,'test',actor='sandbox_agent') as receipt:
+            self.assertEqual((current(self.store,self.t)[0]['phase'],current(self.store,self.t)[0]['label']),
+                             ('model_submitted','模型请求已提交，等待首包'))
+            receipt.on_activity('first_byte')
+            self.assertEqual(current(self.store,self.t)[0]['label'],'已收到首包，正在接收模型响应')
             receipt.accept(json.dumps({'type':'response.reasoning_text.delta','delta':'NEVER-EXPOSE-PRIVATE-REASONING'}))
             self.assertEqual(current(self.store,self.t)[0]['phase'],'analysis')
             receipt.accept(json.dumps({'type':'response.output_text.delta','delta':'公开回复'}))

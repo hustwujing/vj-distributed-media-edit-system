@@ -94,7 +94,7 @@ def model_call(lease,model,actor='host',observer=None):
             call=start(db,lease.run_id,'llm',model,attempt=lease.attempt,step=lease.step_id or '')
     from .live_activity import span
     try:
-        with span(actor,'model_wait','等待模型响应',model) as activity:
+        with span(actor,'model_submitted','模型请求已提交，等待首包',model) as activity:
             observer.on_activity=activity.model_phase
             yield observer
         state=observer.status or 'unknown'

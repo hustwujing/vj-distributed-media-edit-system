@@ -223,6 +223,10 @@ class DynamicAPITests(unittest.TestCase):
                 self.assertIn('诊断',action['message'])
                 self.assertNotIn('请确认下面列出的事项',action['message'])
                 self.assertIsNone(action['decision_id'])
+        self.app.state.store.execute("UPDATE runs SET status='FAILED',terminal_reason='planning_contract_exhausted' WHERE id=?",(run['id'],))
+        terminal=self.a.get(self.prefix+'/'+run['id']).json()
+        self.assertNotIn('blocking_action',terminal)
+        self.assertIn('不是缺少用户确认或素材',terminal['terminal_notice'])
 
     def test_planner_compiler_errors_are_visible_without_downloading_diagnostics(self):
         import json
@@ -301,7 +305,7 @@ class DynamicAPITests(unittest.TestCase):
         result=self.a.delete('/api/projects/'+self.project)
         self.assertEqual(result.status_code,200,result.text)
         for table in ('runs','run_tasks','planner_runs','workflow_commands','workflow_graph_events','workflow_start_requests',
-                      'session_messages','conversation_summaries','conversation_summary_jobs'):
+                      'workflow_read_cache','session_messages','conversation_summaries','conversation_summary_jobs'):
             self.assertFalse(self.app.state.store.query('SELECT * FROM '+table),table)
 
     def test_project_delete_releases_local_artifact_references_for_gc(self):

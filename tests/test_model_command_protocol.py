@@ -612,7 +612,7 @@ class ModelCommandTests(unittest.TestCase):
         change=next(item for item in unqueried['properties']['plan']['anyOf'][0]['properties']['changes']['items']['anyOf'])
         self.assertNotIn('parameters',unqueried['$defs'][change['$ref'][8:]]['properties']['set']['properties'])
         protocol=ToolProtocol(profile('media_planner'),value,{'control_kind':'PLAN'},draft={'status':'OPEN'})
-        self.assertNotIn('submit_typed_plan',protocol.schemas);self.assertIn('contract',protocol.schemas)
+        self.assertNotIn('submit_typed_plan',protocol.schemas);self.assertIn('read_context',protocol.schemas)
         self.assertEqual(protocol.context()['model_command_contract']['required_contract_queries'],['media.edit'])
         contract=operation('media.edit').public()
         queried=manager_schema(value,{'media.edit':contract})
@@ -963,12 +963,17 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(list(p.schemas),['submit_plan'])
         with self.assertRaises(CommandError):p.decode('inspect',{'refs':[]})
 
-    def test_contract_lookup_batches_distinct_frozen_operation_ids(self):
-        f=frozen(False);f['operations']=[{'id':'media.edit'},{'id':'audio.process'}]
+    def test_read_context_batches_distinct_inspections_and_frozen_operation_ids(self):
+        f=frozen(False);f['operations']=[{'id':'media.edit'},{'id':'audio.process'}];f['inspectable_refs']=['asset']
         p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})
-        source=p.schemas['contract'];wire=transform({'operations':['media.edit','audio.process']},source,encode=True)
-        self.assertEqual(p.decode('contract',wire)['operations'],['media.edit','audio.process'])
+        source=p.schemas['read_context'];wire=transform({'inspections':[{'ref':'asset'}],
+            'operations':['media.edit','audio.process']},source,encode=True)
+        decoded=p.decode('read_context',wire)
+        self.assertEqual(decoded['operations'],['media.edit','audio.process'])
+        self.assertEqual(decoded['refs'],[{'ref':'asset'}])
         with self.assertRaises(ValidationError):transform({'operations':['media.edit','media.edit']},source,encode=True)
+        with self.assertRaises(ValidationError):transform({},source,encode=True)
+        with self.assertRaises(ValidationError):transform({'operations':['media.edit'],'tasks':[]},source,encode=True)
 
     def test_plan_draft_uses_typed_commands_with_bounded_schema_complexity(self):
         f=frozen(False);p=ToolProtocol(profile('media_planner'),f,{'control_kind':'PLAN'},draft={'status':'OPEN'})

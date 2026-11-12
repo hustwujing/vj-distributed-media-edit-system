@@ -31,6 +31,7 @@ test('actors are distinct and parallel workflow steps stay visible',()=>{
  {id:'c',actor:'host',phase:'submit',label:'提交操作',operation:'image.remove_bg',status:'running',step:'one',updated:3},
  {id:'d',actor:'workflow_sandbox',phase:'executing',label:'执行代码',status:'running',step:'two',updated:4}];
  const active=runningWork({status:'running'},items);assert.equal(active.length,4);assert.ok(active.some(x=>x.id==='a'));assert.match(workLabel(items[2]),/宿主程序.*image.remove_bg/);
+ assert.match(workLabel({actor:'manager_agent',label:'模型请求已提交，等待首包',operation:'claude-sonnet-5-5'}),/任务规划师.*等待首包.*claude-sonnet-5-5/);
  assert.deepEqual(runningWork({status:'succeeded'},items),[]);
 });
 

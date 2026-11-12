@@ -66,7 +66,8 @@ class Activity:
             from .telemetry import emit
             emit('activity.record_failed','WARNING',exc=exc)
     def model_phase(self,phase):
-        labels={'analysis':'模型分析中','responding':'生成回复','prepare_tool':'准备工具调用','writing':'生成文件修改'}
+        labels={'submitted':'模型请求已提交，等待首包','first_byte':'已收到首包，正在接收模型响应',
+                'analysis':'模型分析中','responding':'生成回复','prepare_tool':'准备工具调用','writing':'生成文件修改'}
         self.update(phase,labels[phase])
 
 @contextmanager

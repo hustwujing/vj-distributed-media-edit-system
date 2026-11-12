@@ -1,6 +1,6 @@
-export const actorLabels={light_agent:'轻量 Agent',sandbox_agent:'沙盒 Agent',workflow_sandbox:'工作流沙盒',host:'宿主程序',media_executor:'媒体执行器',external_service:'外部服务'};
+export const actorLabels={light_agent:'轻量 Agent',sandbox_agent:'沙盒 Agent',workflow_sandbox:'工作流沙盒',host:'宿主程序',media_executor:'媒体执行器',external_service:'外部服务',manager_agent:'任务规划师',reviewer_agent:'质量审查员',diagnostician_agent:'故障诊断师',specialist_agent:'代码编辑师'};
 const active=s=>['queued','running','waiting','cancelling'].includes(s);
-const priority={executing:5,writing:5,inspecting:5,reading:5,operation:5,local:5,checkpoint:4,prepare_tool:3,responding:3,analysis:2,model_wait:1};
+const priority={executing:5,writing:5,inspecting:5,reading:5,operation:5,local:5,checkpoint:4,prepare_tool:3,responding:3,analysis:2,first_byte:2,model_submitted:1,model_wait:1};
 export function runningWork(turn,items){
  if(!active(turn.status))return [];
  const groups=new Map();

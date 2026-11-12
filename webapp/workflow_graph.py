@@ -594,6 +594,11 @@ def initialize(store):
         CREATE TABLE IF NOT EXISTS workflow_inspections(
           id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,attempt_id TEXT NOT NULL,
           reference TEXT NOT NULL,snapshot_digest TEXT NOT NULL,evidence_json TEXT NOT NULL,created_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS workflow_read_cache(
+          run_id TEXT NOT NULL,task_id TEXT NOT NULL,snapshot_digest TEXT NOT NULL,
+          kind TEXT NOT NULL,query_digest TEXT NOT NULL,request_json TEXT NOT NULL,result_json TEXT NOT NULL,
+          source_attempt TEXT NOT NULL,created_at REAL NOT NULL,
+          PRIMARY KEY(run_id,task_id,snapshot_digest,kind,query_digest));
         CREATE TABLE IF NOT EXISTS workflow_agent_outputs(
           lease_id TEXT PRIMARY KEY,run_id TEXT NOT NULL,task_id TEXT NOT NULL,
           generation INTEGER NOT NULL,payload_json TEXT NOT NULL,created_at REAL NOT NULL);
