@@ -197,6 +197,8 @@ def expire_leases(db,task_id=None):
         settle(db,row['attempt'],True)
         db.execute("UPDATE execution_attempts SET status='expired',finished=COALESCE(finished,?) WHERE id=? AND status='running'",
                    (now,row['attempt']))
+        db.execute("UPDATE usage_calls SET status='unknown',finished=COALESCE(finished,?),error_code=CASE WHEN error_code='' THEN 'attempt_interrupted' ELSE error_code END WHERE attempt_id=? AND status='running'",
+                   (now,row['attempt']))
         request_cleanup(db,row['run_id'],attempt_id=row['attempt'],external=False)
 
 

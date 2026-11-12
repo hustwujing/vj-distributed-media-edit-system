@@ -401,6 +401,37 @@ class DynamicGraphTests(unittest.TestCase):
         other.reconcile(*second)
         self.assertEqual(len(self.store.query('SELECT * FROM planner_runs')),1)
 
+    def test_interrupted_planner_rebinds_current_policy_instead_of_failing_run(self):
+        self.tick()
+        current=graph.get(self.store,self.run['id']);old=current['control_jobs'][0]
+        frozen=dict(old['profile']);frozen['harness_digest']='0'*64
+        self.store.execute("UPDATE control_jobs SET status='running',profile_json=?,lease_id='dead-planner',lease_generation=1 WHERE run_id=? AND id=?",
+            (graph.encode(frozen),self.run['id'],old['id']))
+        self.orchestrator.recover(graph.get(self.store,self.run['id']))
+        run=graph.get(self.store,self.run['id']);active=[job for job in run['control_jobs'] if job['status']=='ready']
+        self.assertEqual(run['status'],'ACTIVE');self.assertEqual(len(active),1)
+        self.assertNotEqual(active[0]['id'],old['id'])
+        self.assertNotEqual(active[0]['profile']['harness_digest'],'0'*64)
+        retired=next(job for job in run['control_jobs'] if job['id']==old['id'])
+        self.assertEqual(retired['status'],'cancelled')
+        self.assertEqual(self.store.query('SELECT status,error_code FROM planner_runs WHERE id=?',(old['id'],))[0],
+            {'status':'rejected','error_code':'policy_rebound'})
+        self.assertTrue(self.store.query("SELECT seq FROM workflow_graph_events WHERE run_id=? AND kind='control_policy_rebound'",(run['id'],)))
+
+    def test_policy_rebind_does_not_consume_business_planning_round(self):
+        self.tick()
+        current=graph.get(self.store,self.run['id']);old=current['control_jobs'][0]
+        authorization=dict(current['authorization']);authorization['max_planning_rounds']=1
+        frozen=dict(old['profile']);frozen['harness_digest']='0'*64
+        self.store.execute("UPDATE runs SET authorization_json=? WHERE id=?",(graph.encode(authorization),self.run['id']))
+        self.store.execute("UPDATE control_jobs SET status='running',profile_json=?,lease_id='dead-planner',lease_generation=1 WHERE run_id=? AND id=?",
+            (graph.encode(frozen),self.run['id'],old['id']))
+        self.orchestrator.recover(graph.get(self.store,self.run['id']))
+        run=graph.get(self.store,self.run['id'])
+        self.assertEqual(run['status'],'ACTIVE')
+        self.assertEqual(len([job for job in run['control_jobs'] if job['status']=='ready']),1)
+        self.assertEqual(len(self.store.query("SELECT id FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))),1)
+
     def test_cancel_command_is_idempotent_and_blocks_planning(self):
         first=graph.command(self.store,self.run['id'],'owner','cancel',request_id='same-command')
         self.assertEqual(graph.command(self.store,self.run['id'],'owner','cancel',request_id='same-command')['id'],first['id'])

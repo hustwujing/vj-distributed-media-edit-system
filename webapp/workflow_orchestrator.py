@@ -839,6 +839,8 @@ class Orchestrator:
                     compatible=digest(task['profile'])==digest(policy.snapshot())
                 except (KeyError,ValueError):compatible=False
                 if not compatible:
+                    if task.get('control_kind')=='PLAN' and self.rebind_planner_policy(run,task):
+                        continue
                     self.task_failure(run,task,{'error_code':'policy_changed','phase':task['phase']})
                     continue
                 safe=task['infrastructure_interruptions']<3
@@ -885,6 +887,22 @@ class Orchestrator:
             self.set_status(current,'ACTIVE','repair_planning')
             self.queue_plan(graph.get(store,run['id']),{'runtime_profile_changed':task['id'],'task_id':task['id']})
             break
+
+    def rebind_planner_policy(self,run,task):
+        """Replace an interrupted Planner with a new immutable current-policy job."""
+        store=self.store
+        rebounds=store.query("SELECT COUNT(*) AS n FROM planner_runs WHERE run_id=? AND error_code='policy_rebound'",(run['id'],))[0]['n']
+        if rebounds>=3:return False
+        now=store.now()
+        store.execute("UPDATE planner_runs SET status='rejected',error_code='policy_rebound',lease_id='',lease_generation=0,updated_at=? WHERE run_id=? AND task_id=? AND status IN ('pending','running','staged')",
+                      (now,run['id'],task['id']))
+        store.execute("UPDATE workflow_plan_drafts SET status='REJECTED',updated_at=? WHERE run_id=? AND planning_request_id=? AND status IN ('OPEN','COMMITTED')",
+                      (now,run['id'],task['id']))
+        store.execute("UPDATE control_jobs SET status='cancelled',lease_id='',lease_generation=0,error_code='',error_detail=?,updated_at=? WHERE run_id=? AND id=?",
+                      ('部署后已使用当前 Agent 策略创建新的规划任务。',now,run['id'],task['id']))
+        graph.event(store,run,'control_policy_rebound',{'retired_task_id':task['id'],'round':rebounds+1})
+        self.queue_plan(graph.get(store,run['id']),{'policy_rebound_from':task['id'],'interruption':'deployment_or_worker_loss'})
+        return True
 
     def reconcile_model_reservations(self,run):
         store=self.store

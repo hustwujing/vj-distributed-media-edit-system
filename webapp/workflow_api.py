@@ -90,6 +90,20 @@ def public(store,run):
             terminal_notice={'authorization_rejected':'当前执行方向未获授权，任务已停止。','planning_budget_exhausted':'规划轮次已耗尽，任务未继续执行。','user_cancelled':'你已取消本次任务，已完成成果会保留。','successor_confirmed':'本轮已由新一轮任务取代，请查看后继任务。'}.get(reason,'任务未完成，请查看下方诊断信息。' if run['status']=='FAILED' else '任务已取消。')
             from .workflow_error_catalog import CATALOG,get as failure_definition
             if reason in CATALOG:terminal_notice=failure_definition(reason).message
+    recovery_notices=[]
+    records=store.query('SELECT record FROM workflow_diagnostics WHERE workflow=? ORDER BY created DESC LIMIT 50',(run['id'],))
+    if any((record:=json.loads(row['record'])).get('error_type') in ('ConnectionError','RemoteDisconnected','ConnectionResetError')
+           or record.get('code')=='agent_model_transport_failed' for row in records):
+        recovery_notices.append({'code':'model_transport_interrupted','message':'模型连接曾中断，未取得可提交结果；系统没有把该次调用当作成功。'})
+    interrupted=store.query("SELECT COUNT(*) AS n FROM execution_attempts WHERE run_id=? AND status IN ('expired','interrupted')",(run['id'],))[0]['n']
+    if interrupted:
+        recovery_notices.append({'code':'execution_interrupted','message':f'执行进程曾中断 {interrupted} 次；旧 Lease 已失效，未确认模型用量按未知上限保留。'})
+    rebound=store.query("SELECT COUNT(*) AS n FROM planner_runs WHERE run_id=? AND error_code='policy_rebound'",(run['id'],))[0]['n']
+    if rebound:
+        recovery_notices.append({'code':'policy_rebound','message':f'部署后已自动创建 {rebound} 个绑定当前 Agent 策略的新规划任务。'})
+    value['recovery_notices']=recovery_notices
+    if terminal_notice and recovery_notices:
+        terminal_notice+=' 过程记录：'+'；'.join(item['message'] for item in recovery_notices)
     value['terminal_notice']=terminal_notice
     revision_versions={(row['task_id'],row['revision']):row['created_graph_version'] for row in
         store.query('SELECT task_id,revision,created_graph_version FROM workflow_task_revisions WHERE run_id=?',(run['id'],))}

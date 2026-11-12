@@ -169,6 +169,8 @@ class RunRecoveryTests(unittest.TestCase):
         used_before=self.store.query('SELECT used_seconds FROM execution_limits WHERE task_id=?',(self.run['id'],))[0]['used_seconds']
         self.store.execute("INSERT INTO workflow_model_reservations(id,run_id,attempt_id,reserved_tokens,state,created_at,input_reserved_tokens,output_reserved_tokens) VALUES (?,?,?,?,?,?,?,?)",
             (uuid.uuid4().hex,self.run['id'],lease.attempt,6144,'reserved',self.store.now(),2048,4096))
+        from webapp.task_usage import start as start_usage
+        with self.store.connect() as db:start_usage(db,self.run['id'],'llm','test-model',attempt=lease.attempt,step='render')
         archive=Archive(self.store.root/'orphan-observation')
         def gauges():
             with patch.dict(os.environ,{'VIDEO_USE_OBSERVATION_API_PORTS':''}), \
@@ -188,11 +190,26 @@ class RunRecoveryTests(unittest.TestCase):
         self.assertEqual(row,{'state':'interrupted_usage_unknown','used_tokens':6144})
         self.assertEqual(self.store.query('SELECT active FROM execution_leases WHERE attempt=?',(lease.attempt,))[0]['active'],0)
         self.assertEqual(self.store.query('SELECT status FROM execution_attempts WHERE id=?',(lease.attempt,))[0]['status'],'expired')
+        self.assertEqual(self.store.query('SELECT status,error_code FROM usage_calls WHERE attempt_id=?',(lease.attempt,))[0],
+            {'status':'unknown','error_code':'attempt_interrupted'})
         self.assertEqual(self.store.query('SELECT computing,reserved FROM execution_time_slices WHERE attempt=?',(lease.attempt,))[0],{'computing':0,'reserved':0.0})
         used_after=self.store.query('SELECT used_seconds FROM execution_limits WHERE task_id=?',(self.run['id'],))[0]['used_seconds']
         self.assertAlmostEqual(used_after-used_before,reserved_seconds)
         self.assertEqual(gauges()['model_orphan_reservations'],0)
         with self.assertRaises(LeaseLost):lease.renew()
+
+    def test_public_recovery_chain_explains_model_and_worker_interruptions(self):
+        import json,uuid
+        attempt=uuid.uuid4().hex;now=self.store.now();step='recovery-control'
+        self.store.execute("INSERT INTO execution_attempts(id,run_id,worker,generation,kind,started,finished,status,step_id) VALUES (?,?,?,1,'workflow',?,?,?,?)",
+            (attempt,self.run['id'],'old-worker',now-2,now-1,'expired',step))
+        self.store.execute('INSERT INTO workflow_diagnostics(id,workflow,step,revision,attempt,record,created) VALUES (?,?,?,?,?,?,?)',
+            (uuid.uuid4().hex,self.run['id'],step,0,1,json.dumps({'classification':'execution','error_type':'ConnectionError','phase':'local'}),now-1))
+        from webapp.workflow_api import public
+        shown=public(self.store,graph.get(self.store,self.run['id']))
+        self.assertEqual([item['code'] for item in shown['recovery_notices']],
+            ['model_transport_interrupted','execution_interrupted'])
+        self.assertIn('旧 Lease 已失效',shown['recovery_notices'][1]['message'])
 
     def test_heartbeat_expiry_allows_recovery_and_new_generation_claim(self):
         coordinator=Coordinator(self.store,'heartbeat-recovery','test')

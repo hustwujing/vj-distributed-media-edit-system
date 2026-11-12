@@ -139,7 +139,7 @@ def snapshot(store,run):
         'review_feedback':feedback,'review_feedback_truncated':len(store.query("SELECT id FROM workflow_reviews WHERE run_id=? AND status='rejected' LIMIT 11",(run['id'],)))>10,
         'budget_state':{'model_tokens':{'limit':run['authorization']['model_token_budget'],'used_or_reserved':reservations,
                          'remaining':max(0,run['authorization']['model_token_budget']-reservations)},
-                        'planning_rounds':{'limit':run['authorization']['max_planning_rounds'],'used':len(store.query('SELECT id FROM planner_runs WHERE run_id=?',(run['id'],)))},
+                        'planning_rounds':{'limit':run['authorization']['max_planning_rounds'],'used':len(store.query("SELECT id FROM planner_runs WHERE run_id=? AND error_code<>'policy_rebound'",(run['id'],)))},
                         'provider_calls':{name:{'limit':limit,'used':provider_used.get(name,0),'remaining':max(0,limit-provider_used.get(name,0))}
                             for name,limit in run['authorization']['provider_call_budget'].items()}},
         # Discoverability is not authorization. A Manager must know the actual
@@ -164,7 +164,10 @@ def queue(store,run,trigger):
     if run['input_barrier_sequence'] is not None and 'input_batch' not in trigger:return None
     current=store.query("SELECT id FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged','awaiting_confirmation')",(run['id'],))
     if current:return current[0]['id']
-    count=store.query('SELECT COUNT(*) AS n FROM planner_runs WHERE run_id=?',(run['id'],))[0]['n']
+    # A Planner retired only because its immutable execution policy changed
+    # during an infrastructure interruption did not complete a business
+    # planning round. Keep that recovery outside the user's round budget.
+    count=store.query("SELECT COUNT(*) AS n FROM planner_runs WHERE run_id=? AND error_code<>'policy_rebound'",(run['id'],))[0]['n']
     if count>=run['authorization']['max_planning_rounds']:raise PlanningBudgetExceeded('Planning round budget exhausted')
     identifier=uuid.uuid4().hex;task_id=identifier;now=store.now()
     frozen=snapshot(store,run)
