@@ -81,7 +81,10 @@ async function before(c){
    ?['left','right'].every(id=>r.tasks.some(t=>t.id===id&&t.status==='running'))
    :r.tasks.some(t=>t.status==='running'&&t.type==='agent'),600);
   const started=run.tasks.filter(t=>t.status==='running').map(t=>({id:t.id,revision:t.revision,attempts:t.attempts}));
-  await input();mark({started});
+  const change=hook==='drain_local'
+   ?'同一目标和交付规格不变，修改尚未开始的export：最终拼图改为right在左、left在右。当前left与right正常结束后再重规划，不取消、不重跑它们。'
+   :'同一目标和交付规格不变。当前render正常结束后，复用其已验收primary_image新增一个非交付media.evidence图像证据Task核验64×64尺寸，供最终审查使用；不要取消或重跑render。';
+  await input(change,hook==='drain_local'?['export']:[]);mark({started});
  }else if(hook==='planning_inputs'){
   await wait(r=>activeJob(r,'PLAN'),300);const first=await input();
   // The currently running PLAN has a frozen pre-input snapshot. Wait until the

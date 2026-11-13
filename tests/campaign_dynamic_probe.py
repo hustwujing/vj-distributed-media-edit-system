@@ -30,6 +30,15 @@ def save(path,value):
     temporary.chmod(0o600);temporary.replace(path)
 
 
+def input_sequence_invariants(run,inputs):
+    sequences=[item['sequence'] for item in inputs]
+    contiguous=sequences==list(range(1,len(inputs)+1))
+    cursor=run['input_sequence']
+    bound=(isinstance(cursor,int) and 0<=cursor<=(sequences[-1] if sequences else 0)
+           and (cursor==0 or any(item['sequence']==cursor and item['status'] not in ('ROUTING','REPLIED') for item in inputs)))
+    return contiguous,bound
+
+
 def configure(directory):
     directory=Path(directory).resolve()
     if not directory.is_relative_to((ROOT/'runs').resolve()):raise ValueError('Not an owned dynamic QA attempt')
@@ -203,7 +212,9 @@ def inspect(directory,final=False,*,supplement=False):
             check('local_cleanup_complete:'+wid,all(c['state']=='complete' for c in cleanup))
         if not run['sealed']:check('open_graph_not_delivered:'+wid,run['delivered_at'] is None)
         inputs=store.query('SELECT * FROM run_inputs WHERE run_id=? ORDER BY sequence',(wid,))
-        check('input_sequence_contiguous:'+wid,[item['sequence'] for item in inputs]==list(range(1,run['input_sequence']+1)))
+        records_contiguous,cursor_bound=input_sequence_invariants(run,inputs)
+        check('input_record_sequence_contiguous:'+wid,records_contiguous)
+        check('business_input_cursor_bound:'+wid,cursor_bound)
         grants=store.query('SELECT version,authorization_json FROM run_authorizations WHERE run_id=? ORDER BY version',(wid,))
         check('authorization_ledger_contiguous:'+wid,[grant['version'] for grant in grants]==list(range(1,run['authorization_version']+1)))
         check('current_scope_matches_immutable_grant:'+wid,bool(grants) and json.loads(grants[-1]['authorization_json'])==run['authorization'])
