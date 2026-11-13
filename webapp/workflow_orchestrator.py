@@ -552,6 +552,9 @@ class Orchestrator:
                 store.execute("UPDATE run_tasks SET status='paused',error_code=?,error_detail=? WHERE run_id=? AND id=?",(code,message,run['id'],review['subject_task']))
             self.open_repair(run,review['subject_task'],'review_evidence',review['id'],code)
             store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],))
+            if review['subject_task'] and self.task_inconclusive_exhausted(graph.get(store,run['id']),review['subject_task']):
+                self.set_status(run,'WAITING_USER','review_incomplete')
+                return
             self.set_status(run,'ACTIVE','evidence_planning')
             self.queue_plan(graph.get(store,run['id']),{'review_incomplete':review['id'],'task_id':review['subject_task']})
             return
@@ -1048,6 +1051,11 @@ class Orchestrator:
         prior=self.store.query("SELECT decision_json FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status='rejected'",(run['id'],))
         return sum(json.loads(item['decision_json'] or '{}').get('verdict')=='inconclusive' for item in prior)>=2
 
+    @staticmethod
+    def task_inconclusive_exhausted(run,subject):
+        item=graph.work_item(run,subject)
+        return bool(item and item['review_again_count']>=graph.CANDIDATE_REVIEW_LIMIT)
+
     def accept_review(self,run,task,data):
         store=self.store
         rows=store.query('SELECT * FROM workflow_reviews WHERE id=? AND run_id=?',(task['spec']['request_id'],run['id']))
@@ -1108,6 +1116,9 @@ class Orchestrator:
                     (code,prefix+(decision.get('feedback') or '请检查候选并重新规划。')[:1600],run['id'],row['subject_task']))
                 self.open_repair(run,row['subject_task'],'review_evidence' if inconclusive else 'task_review',row['id'],code)
                 store.execute('UPDATE runs SET sealed=0 WHERE id=?',(run['id'],))
+                if inconclusive and self.task_inconclusive_exhausted(graph.get(store,run['id']),row['subject_task']):
+                    self.set_status(run,'WAITING_USER','review_incomplete')
+                    return
                 self.set_status(run,'ACTIVE','evidence_planning' if inconclusive else 'task_review_rejected')
                 self.queue_plan(graph.get(store,run['id']),{
                     ('review_incomplete' if inconclusive else 'task_review_rejected'):row['id'],

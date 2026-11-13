@@ -1366,6 +1366,23 @@ class DynamicGraphTests(unittest.TestCase):
         planner=self.store.query("SELECT trigger_json FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],))[0]
         self.assertIn('review_incomplete',json.loads(planner['trigger_json']))
 
+    def test_exhausted_step_review_stops_with_feedback_without_impossible_planning(self):
+        run=self.review_fixture()
+        self.store.execute("UPDATE run_tasks SET review_again_count=? WHERE run_id=? AND id='first'",
+                           (graph.CANDIDATE_REVIEW_LIMIT,run['id']))
+        run=graph.get(self.store,run['id']);self.orchestrator.queue_review(run,'first')
+        current=graph.get(self.store,run['id'])
+        review=next(t for t in graph.work_items(current) if t.get('control_kind')=='REVIEW')
+        feedback='The two bounded evidence rounds still cannot distinguish the source interval.'
+        self.orchestrator.accept_review(current,review,{'decision':{
+            'snapshot_digest':review['spec']['snapshot_digest'],'verdict':'inconclusive','feedback':feedback,
+            'missing_evidence':[{'fact':'Compare one more source interval','mode':'image'}]}})
+        current=graph.get(self.store,run['id'])
+        self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','review_incomplete'))
+        self.assertFalse(self.store.query("SELECT id FROM planner_runs WHERE run_id=? AND status='pending'",(run['id'],)))
+        from webapp.workflow_api import public
+        self.assertIn(feedback,public(self.store,current)['blocking_action']['message'])
+
     def test_revised_upstream_can_wait_on_fresh_revision_of_paused_descendant(self):
         self.tick();self.propose({'proposal_id':'paused-chain','base_graph_version':0,'reason':'initial',
             'add_tasks':[script('first'),script('child'),script('unrelated')],
