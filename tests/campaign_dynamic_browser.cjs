@@ -153,7 +153,8 @@ async function runCase(browser,spec){
    state.plan_requirement_corrections=(state.plan_requirement_corrections||0)+1;persist();
    assert.ok(state.plan_requirement_corrections<=2,'Manager repeatedly omitted structured Task progress requirements');
    await feedback('修改当前方案，不改变业务目标或交付：请让这些 Task 原样声明 required_progress_events：'+
-    missingProgress.map(([taskId,events])=>`${taskId}=${JSON.stringify(events)}`).join('；')+'。事件必须在对应持久输出完整写入后发出。');
+    missingProgress.map(([taskId,events])=>`${taskId}=${JSON.stringify(events)}`).join('；')+
+    '。事件必须在对应持久输出完整写入后发出；实际执行命令必须向stdout单独输出一整行JSON {"type":"step_progress","text":"<声明值>"}并立即flush，裸文本无效。');
    return true;
   }
   save(path.join(directory,'plan-confirmation-'+decision.id+'.json'),decision);

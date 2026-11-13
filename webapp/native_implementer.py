@@ -44,6 +44,9 @@ def instructions(profile,native_skills=(),harness=None,gateway_operations=()):
         '不能规划或发布，不调用外部生成/媒体服务，不更改验收条件。只把声明的成果写入指定output_directory，'
         '可在其中创建自检或中间文件；结束前检查每个声明文件真实存在且符合契约。'
         '最终消息说明已生成的文件及实际检查，不代表最终发布或审查通过。'
+        '当Task.required_progress_events非空时，每个值都必须在对应声明输出完整写入并flush后，'
+        '由实际执行命令向stdout单独输出一整行JSON：{"type":"step_progress","text":"<声明值>"}，并立即flush；'
+        '裸文本、最终消息或写入文件均不构成该进度事件。'
         '运行依赖与执行地已由宿主按runtime_requirements冻结；不要联网安装依赖或改用未声明工具。'
         '大型成果优先复用Skill自带模板、构建脚本和库，不要重新生成已有基础代码。将自定义实现拆成有界文件或分段写入并尽早运行自检，禁止把整个Task时间耗在一个超大Write/Edit工具参数上。'
         +path_instructions()+
