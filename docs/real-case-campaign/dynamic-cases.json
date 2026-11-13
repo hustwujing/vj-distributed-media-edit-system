@@ -5598,7 +5598,7 @@
       "assets": [
         "portrait.png"
       ],
-      "prompt": "创建type=agent、profile=editing_implementer的render业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png。必须有技术验收与kind=review的人为内容确认；用户会通过反馈给出下一次修改，不能代替用户批准。Manager不得直接提交脚本或代码。",
+      "prompt": "创建type=agent、profile=editing_implementer的render业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png。必须完成程序与Agent内容验收，并在顶层review_policy启用before_publish用户确认；用户会在publication checkpoint通过反馈要求下一次修改，任何Agent或Reviewer都不能代替用户批准。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 64,
