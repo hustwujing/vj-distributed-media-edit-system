@@ -203,7 +203,15 @@ async function before(c){
   const message=hook==='publish_input'
    ?'同一Run内修改当前交付：保持64×64 final.png和原内容，但给最终图增加2像素纯红色内边框。当前最终审查正常结束后再安全重规划，不得发布旧候选。'
    :'请继续以选中的原始图片生成64×64 final.png，保持原内容和技术要求；如果原版已交付，请作为新一轮确认范围后执行。';
-  const accepted=await appendInput(message,reusable);
+  let accepted;
+  if(successor){
+   state.last_input_request={request_id:key(),content:message,attachments:reusable};
+   accepted=await api('POST',`/api/projects/${state.project}/runs/${original.id}/inputs`,state.last_input_request);
+   state.events.push({action:'successor_input_accepted',input_id:accepted.id,run_id:accepted.run_id,at:Date.now()/1000});
+   state.run_id=accepted.run_id;state.execute_id=accepted.run_id;state.run_ids.push(accepted.run_id);state.task_ids.push(accepted.run_id);persist();
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.waitForFunction(runId=>document.querySelector('#dynamic-current')?.dataset.runId===runId,accepted.run_id);
+  }else accepted=await appendInput(message,reusable);
   state.unified_boundary.input=accepted;state.unified_boundary.after=await read();persist();
   const repeated=await api('POST',`/api/projects/${state.project}/runs/${original.id}/inputs`,state.last_input_request);
   assert.equal(repeated.id,accepted.id);
