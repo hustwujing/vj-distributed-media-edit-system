@@ -150,7 +150,16 @@ async function before(c){
   const accepted=await input('仅修改参考素材：reference改用已授权的rocket.png，以相同ImageOps.fit方法处理为1280×720。给reference及受影响generate创建新revision；最终目标仍为5秒缓慢推镜视频，主体按新参考图。当前reference正常结束后重规划，旧参考不得发给Wan；总生成额度仍为一次。',['reference']);
   mark({input_id:accepted.id,reference_revision:initial.tasks.find(t=>t.id==='reference').revision});
  }else if(hook==='feedback_idempotency'){
-  let run=await wait(r=>r.decisions.some(d=>d.kind==='quality'),600),decision=run.decisions.find(d=>d.kind==='quality');
+  let run=await wait(r=>r.decisions.some(d=>['quality','publication_checkpoint','plan_change'].includes(d.kind)),600);
+  const initialPolicy=run.decisions.find(d=>d.kind==='plan_change');
+  if(initialPolicy){
+   const proposed=initialPolicy.request.authorization;
+   assert.equal(proposed.goal,run.goal);assert.deepEqual(proposed.delivery_targets,run.authorization.delivery_targets);
+   assert.equal(proposed.review_policy.user_checkpoint.enabled,true);
+   await approve('approve',initialPolicy.id);
+   run=await wait(r=>r.decisions.some(d=>d.kind==='quality'||d.kind==='publication_checkpoint'),600);
+  }
+  const decision=run.decisions.find(d=>d.kind==='quality'||d.kind==='publication_checkpoint');
   await page.locator(`[data-decision="${decision.id}"] [data-feedback]`).fill('请在64×64图像内画2像素红色边框，其余不变。');
   await page.reload({waitUntil:'domcontentloaded'});
   await page.locator(`[data-decision="${decision.id}"] [data-feedback]`).waitFor();
