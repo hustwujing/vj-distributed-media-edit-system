@@ -26,11 +26,12 @@ def handle_approval(controller,run,row,request,payload):
     if row['kind'] not in ('plan_change','successor_authorization'):return False
     try:authorization=planning.rebind_scope(store,payload.get('authorization'))
     except ValueError as exc:controller.reject_decision('scope_invalid',str(exc))
-    filling_initial_targets=not run['tasks'] and run['graph_version']==0 and not run['authorization']['delivery_targets']
+    filling_initial_scope=(not run['tasks'] and run['graph_version']==0 and not store.query(
+        'SELECT 1 FROM workflow_plan_tasks WHERE run_id=? LIMIT 1',(run['id'],)))
     if authorization.goal!=run['goal']:raise ValueError('Changing the top-level goal requires a new Run')
     old_contract=graph.DeliveryContract.model_validate(run['authorization'].get('delivery_contract',{})).model_dump()
     contract_changed=authorization.delivery_contract.model_dump()!=old_contract
-    if run['scope_confirmed'] and not filling_initial_targets and (
+    if run['scope_confirmed'] and not filling_initial_scope and (
             set(authorization.delivery_targets)!=set(run['authorization']['delivery_targets']) or contract_changed):
         cutoff=int(request.get('input_through_sequence',0))
         if not cutoff or not store.query("SELECT id FROM run_inputs WHERE run_id=? AND sequence<=? AND status IN ('ACCEPTED','PLANNING')",

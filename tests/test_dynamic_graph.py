@@ -363,6 +363,31 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(len(self.store.query('SELECT id FROM planner_runs WHERE run_id=?',(self.run['id'],))),1)
         self.assertEqual(self.tick()['graph_version'],1)
 
+    def test_initial_provider_authorization_can_also_complete_empty_delivery_contract(self):
+        proposed={**self.run['authorization'],'provider_call_budget':{'image.generate_from_text':1},
+            'delivery_contract':{'filenames':['report.txt'],'formats':['txt'],'roles':[],'excluded_filenames':[]}}
+        self.orchestrator.decision(graph.get(self.store,self.run['id']),'plan_change',{
+            'reason':'Confirm the initially required provider and concrete delivery contract',
+            'authorization':proposed})
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
+        self.orchestrator.answer(graph.get(self.store,self.run['id']),{'decision_id':decision['id'],
+            'snapshot_digest':decision['snapshot_digest'],'action':'approve','authorization':proposed})
+        current=graph.get(self.store,self.run['id'])
+        self.assertEqual(current['authorization']['provider_call_budget'],{'image.generate_from_text':1})
+        self.assertEqual(current['authorization']['delivery_contract']['filenames'],['report.txt'])
+        self.assertEqual(current['graph_version'],0)
+
+    def test_delivery_contract_change_after_first_graph_still_requires_pending_user_input(self):
+        self.tick();self.propose({'proposal_id':'initial-graph','base_graph_version':0,'reason':'Create report',
+            'add_tasks':[script()],'sealed':True});run=self.tick()
+        proposed={**run['authorization'],
+            'delivery_contract':{'filenames':['changed.txt'],'formats':['txt'],'roles':[],'excluded_filenames':[]}}
+        self.orchestrator.decision(run,'plan_change',{'reason':'Attempt an unbound later delivery change'})
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],))[0]
+        with self.assertRaisesRegex(ValueError,'explicit pending user input'):
+            self.orchestrator.answer(run,{'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],
+                'action':'approve','authorization':proposed})
+
     def test_authorization_failure_preserves_staged_proposal_and_digest(self):
         authorization=graph.bind_authorization({**self.run['authorization'],
             'allowed_agent_profiles':['editing_implementer','media_failure_diagnostician']}).model_dump()
