@@ -41,6 +41,20 @@ class DynamicGraphTests(unittest.TestCase):
                            (run['id'],json.dumps(exact),self.store.now()))
         self.assertEqual(missing_progress_events(self.store,run,task,required),[])
 
+    def test_required_progress_event_checkpoint_must_match_final_declared_output(self):
+        from webapp.workflow_orchestrator import missing_progress_events
+        run={'id':'progress-run'};task={'id':'render','revision':2,'lease_id':'current-attempt',
+            'spec':{'output_roles':{'primary_image':'final.png'}}};required=['OUTPUT_READY']
+        path='edit/workflows/progress-run/render/out/final.png'
+        payload={'text':'OUTPUT_READY','execution':{'step_id':'render','revision':2,'attempt_id':'current-attempt'},
+                 'checkpoint_files':{path:{'sha256':'a'*64,'size':10}}}
+        self.store.execute("INSERT INTO agent_events(run_id,kind,payload,created) VALUES (?,'progress',?,?)",
+                           (run['id'],json.dumps(payload),self.store.now()))
+        self.assertEqual(missing_progress_events(self.store,run,task,required,
+            {path:{'sha256':'b'*64,'size':10}}),required)
+        self.assertEqual(missing_progress_events(self.store,run,task,required,
+            {path:{'sha256':'a'*64,'size':10}}),[])
+
     def test_native_runtime_configuration_failure_is_visible_fatal_and_never_asks_a_model_to_repair_the_script(self):
         self.tick()
         self.propose({'proposal_id':'runtime-failure','reason':'Create report','base_graph_version':0,

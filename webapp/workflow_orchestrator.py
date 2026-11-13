@@ -16,7 +16,7 @@ class DecisionError(ValueError):
         super().__init__(message or code);self.code=code
 
 
-def missing_progress_events(store,run,task,required):
+def missing_progress_events(store,run,task,required,authoritative=None):
     if not required:return []
     observed=set()
     for row in store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='progress' ORDER BY seq",(run['id'],)):
@@ -25,6 +25,16 @@ def missing_progress_events(store,run,task,required):
         execution=payload.get('execution') or {}
         if (execution.get('step_id')==task['id'] and execution.get('revision')==task['revision']
                 and execution.get('attempt_id')==task['lease_id']):
+            if authoritative is not None:
+                evidence=payload.get('checkpoint_files') or {};declared=set(task['spec'].get('output_roles',{}).values())
+                matches=True
+                for filename in declared:
+                    paths=[name for name in authoritative if name.startswith(f'edit/workflows/{run["id"]}/{task["id"]}/')
+                           and name.rsplit('/',1)[-1]==filename]
+                    if len(paths)!=1 or paths[0] not in evidence or any(
+                            evidence[paths[0]].get(key)!=authoritative[paths[0]].get(key) for key in ('sha256','size')):
+                        matches=False;break
+                if not matches:continue
             observed.add(payload.get('text'))
     return [value for value in required if value not in observed]
 
@@ -442,7 +452,7 @@ class Orchestrator:
             verified=next((f for f in report.get('files',[]) if f['name']==name),None)
             if report.get('technical_valid') and (not verified or verified.get('sha256')!=record['sha256']):raise ValueError('Quality evidence does not match artifact')
         declared=graph.Task.model_validate(task['spec'])
-        missing=missing_progress_events(store,run,task,declared.required_progress_events)
+        missing=missing_progress_events(store,run,task,declared.required_progress_events,authoritative)
         if missing:raise ValueError('Required progress events were not emitted after durable output: '+', '.join(missing))
         report.pop('agent_review_passed',None)
         from .operations import get as operation

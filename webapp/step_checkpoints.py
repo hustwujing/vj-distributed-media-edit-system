@@ -14,13 +14,14 @@ def initialize(db):
       PRIMARY KEY(workflow,step,revision))''')
 
 
-def save(runtime):
+def save(runtime,*,quiesce=True):
     from .workflows import get
     from .execution_runtime import copy_tree
     lease,store=runtime.lease,runtime.store
     workflow=get(store,lease.run_id)
     step=next(s for s in workflow['steps'] if s['id']==lease.step_id)
-    runtime.quiesce();lease.check()
+    if quiesce:runtime.quiesce()
+    lease.check()
     prefix=f'edit/workflows/{workflow["id"]}/{step["id"]}'
     source=runtime.workspace/prefix
     names=[str(path.relative_to(runtime.workspace)) for path in source.rglob('*') if path.is_file() and not path.is_symlink()
@@ -56,6 +57,7 @@ def save(runtime):
               (workflow['id'],step['id'],step['revision'],runtime.project.name,lease.attempt,json.dumps(merged),store.now()))
             db.execute('UPDATE execution_attempts SET checkpoint=? WHERE id=?',
                        ('step:'+workflow['id']+':'+step['id']+':'+str(step['revision']),lease.attempt))
+        return merged
     except BaseException:
         shutil.rmtree(target,ignore_errors=True)
         raise

@@ -7,6 +7,28 @@ from .specialist_profiles import get,skill_materials
 from .task_leases import LeaseLost
 
 
+class RequiredProgressBridge:
+    """Promote exact tool stdout markers only after a durable output snapshot."""
+    def __init__(self,required,checkpoint,publish):
+        self.required=set(required);self.checkpoint=checkpoint;self.publish=publish
+        self.buffers={};self.emitted=set()
+
+    def handle(self,event):
+        if not self.required or event.kind not in ('tool.output','tool.completed'):return
+        if event.kind=='tool.output':chunk=event.data.get('delta','')
+        else:chunk=(event.data.get('item') or {}).get('aggregatedOutput','')
+        if not isinstance(chunk,str) or not chunk:return
+        key=event.id or '_';value=(self.buffers.get(key,'')+chunk)[-8192:]
+        lines=value.split('\n');self.buffers[key]=lines.pop()
+        if event.kind=='tool.completed' and self.buffers[key]:lines.append(self.buffers.pop(key))
+        for line in lines:
+            try:marker=json.loads(line.strip())
+            except (TypeError,ValueError):continue
+            text=marker.get('text') if isinstance(marker,dict) and marker.get('type')=='step_progress' else None
+            if text not in self.required or text in self.emitted:continue
+            evidence=self.checkpoint();self.publish(text,evidence);self.emitted.add(text)
+
+
 def instructions(profile,native_skills=(),harness=None,gateway_operations=()):
     # Keep role/skill semantics; native SDKs have their own local file/shell
     # tools, not the structured loop's script/submit_result wire protocol.
@@ -74,11 +96,25 @@ def execute(host,lease,run,task):
         'execution':{'attempt_id':lease.attempt,'generation':lease.generation},
         'step_id':task['id'],'revision':task['revision']}),env['assets'])
     messages={};ended=None;sequence=0
+    def checkpoint_progress():
+        runtime._download_output(env,output)
+        from .step_checkpoints import save
+        manifest=save(runtime,quiesce=False);files={}
+        for name in set(task['spec'].get('output_roles',{}).values()):
+            relative=str(__import__('pathlib').PurePosixPath(output)/name)
+            record=manifest.get(relative)
+            if not record:raise ValueError('Progress marker preceded its declared durable output: '+name)
+            files[relative]={key:record[key] for key in ('sha256','size')}
+        return files
+    progress=RequiredProgressBridge(task['spec'].get('required_progress_events',[]),checkpoint_progress,
+        lambda text,files:__import__('webapp.agent_store',fromlist=['event']).event(
+            host.store,run['id'],'progress',{'text':text,'checkpoint_files':files}))
     def event(event):
         nonlocal ended,sequence
         lease.check();sequence+=1
         record(host.store,run['id'],configuration.harness,event,sequence,host.redact)
         tracker.handle_event(event)
+        progress.handle(event)
         if event.kind in ('message.delta','message.completed'):
             identifier=lease.attempt+':'+event.id
             text=(messages.get(identifier,'')+event.data.get('delta','') if event.kind=='message.delta' else event.data.get('text',''))

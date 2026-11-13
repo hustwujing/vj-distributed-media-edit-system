@@ -222,7 +222,7 @@ class NativeSelectionTests(unittest.TestCase):
 
 
 class NativeRunnerTests(unittest.TestCase):
-    def run_case(self,status='completed',stop=False,error=None):
+    def run_case(self,status='completed',stop=False,error=None,required_progress=False):
         from webapp.native_implementer import execute
         from webapp.specialist_profiles import for_task
         from webapp.harness_events import AgentEvent
@@ -230,6 +230,7 @@ class NativeRunnerTests(unittest.TestCase):
         stack=ExitStack();self.addCleanup(stack.close)
         stack.enter_context(patch.dict(os.environ,{'VIDEO_USE_CPU_AGENT_SANDBOX_BACKEND':'opensandbox'}))
         spec={'profile':'editing_implementer','timeout_seconds':60,'output_roles':{'report':'result.txt'},
+              'required_progress_events':['OUTPUT_READY'] if required_progress else [],
               'runtime_requirements':{'requires_gpu':False,'python_modules':[],'system_tools':[],'network_urls':[],
                                       'native_skills':['academy-guide']}}
         profile=for_task(spec)
@@ -246,6 +247,8 @@ class NativeRunnerTests(unittest.TestCase):
         runtime.client.call.side_effect=lambda method,args: {'session_id':'native-session'} if method=='session.open' else {}
         def receive():
             callback[0](AgentEvent('message.delta','m',{'delta':'处理输出'}))
+            if required_progress:callback[0](AgentEvent('tool.output','command',{
+                'delta':'log line\n{\"type\":\"step_progress\",\"text\":\"OUTPUT_READY\"}\n'}))
             callback[0](AgentEvent('message.completed','m',{'text':'结果已生成','phase':'final_answer'}))
             callback[0](AgentEvent('turn.ended','t',{'status':status,
                 'error':error if error is not None else 'fixture failure' if status!='completed' else None}))
@@ -282,6 +285,29 @@ class NativeRunnerTests(unittest.TestCase):
             'inputs_are_read_only','writes_stay_under_output_root','temporary_files_stay_under_scratch_root',
             'shell_cwd_is_stable','cleanup_is_scratch_descendants_only','output_root_is_never_deleted',
             'scratch_is_not_checkpointed'])
+
+    def test_required_tool_progress_snapshots_output_before_publishing_bound_event(self):
+        run,runtime,_,finish=self.run_case(required_progress=True)
+        with patch('webapp.step_checkpoints.save') as checkpoint,patch('webapp.agent_store.event') as publish:
+            checkpoint.return_value={'edit/workflows/run/edit/out/result.txt':{'sha256':'a'*64,'size':1}}
+            self.assertEqual(run(),'candidate-staged')
+        self.assertEqual(runtime._download_output.call_count,2)
+        checkpoint.assert_called_once_with(runtime,quiesce=False)
+        publish.assert_called_once_with(unittest.mock.ANY,'run','progress',{'text':'OUTPUT_READY','checkpoint_files':{
+            'edit/workflows/run/edit/out/result.txt':{'sha256':'a'*64,'size':1}}})
+        finish.assert_called_once()
+
+    def test_progress_bridge_handles_split_lines_and_deduplicates_completed_output(self):
+        from webapp.native_implementer import RequiredProgressBridge
+        from webapp.harness_events import AgentEvent
+        checkpoint=Mock(return_value={'final.png':{'sha256':'a'*64,'size':1}});publish=Mock()
+        bridge=RequiredProgressBridge(['OUTPUT_READY'],checkpoint,publish)
+        bridge.handle(AgentEvent('tool.output','cmd',{'delta':'noise\n{\"type\":\"step_pro'}))
+        bridge.handle(AgentEvent('tool.output','cmd',{'delta':'gress\",\"text\":\"OUTPUT_READY\"}\n'}))
+        bridge.handle(AgentEvent('tool.completed','cmd',{'item':{'aggregatedOutput':
+            '{\"type\":\"step_progress\",\"text\":\"OUTPUT_READY\"}\n'}}))
+        checkpoint.assert_called_once_with();publish.assert_called_once_with('OUTPUT_READY',{
+            'final.png':{'sha256':'a'*64,'size':1}})
 
     def test_harness_failure_does_not_collect_or_stage_success_and_flushes_public_text(self):
         run,runtime,publisher,finish=self.run_case(status='failed')
