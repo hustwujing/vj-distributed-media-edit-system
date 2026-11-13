@@ -161,6 +161,9 @@ PROFILES={p.id:p for p in (
         skills=('script-runtime','media-editing','media-semantics'),max_output_tokens=12000,response_transport='stream',timeout_seconds=1800),
     SpecialistProfile('delivery_reviewer','核对封口图和最终交付',AgentRole.REVIEWER,('INSPECT','SUBMIT_DECISION'),
         '逐项核对用户交付目标、技术验收和实际产物；提交 pass/reject/inconclusive 及结构化证据。'
+        'review_policy.user_checkpoint是宿主在你判定pass之后执行的发布闸门，不是你的验收条件。'
+        '不得因尚无用户批准、user_reviews为空或checkpoint尚未出现而reject/inconclusive；只判断当前候选是否满足冻结的成果与内容标准。'
+        '你判定pass后，宿主才会创建publication checkpoint等待用户批准或反馈。'
         '显式要求保留、复用或继承的内容/属性即使在源输入中不存在也仍是未满足要求；源缺失只能支持reject或inconclusive并要求对齐契约，不能以“没有所以无需保留”或“没有凭空添加”为理由判pass。'
         '缺失、无法检查或不确定的证据不得通过。不得改变目标或权限。'
         '一次批量检查覆盖所有交付候选；完成检查后的下一轮必须立即调用result，不得重复检查、复述计划或用长篇推理耗尽输出预算。'

@@ -1281,6 +1281,23 @@ class DynamicGraphTests(unittest.TestCase):
             (graph.encode(['edit/report.txt']),graph.encode({'technical_valid':True,'passed':True}),self.run['id']))
         return graph.get(self.store,self.run['id'])
 
+    def test_final_reviewer_knows_user_checkpoint_runs_only_after_pass(self):
+        run=self.review_fixture()
+        self.store.execute("UPDATE run_tasks SET status='succeeded',accepted_result_json=candidate_result_json WHERE run_id=? AND id='first'",(run['id'],))
+        authorization={**run['authorization'],'review_policy':{
+            'technical_review':'required','user_checkpoint':{
+                'enabled':True,'stage':'before_publish','reason':'User approves after final review'}}}
+        self.store.execute('UPDATE runs SET authorization_json=? WHERE id=?',(graph.encode(authorization),run['id']))
+        self.store.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=? AND version=?',
+                           (graph.encode(authorization),run['id'],run['authorization_version']))
+        current=graph.get(self.store,run['id']);self.orchestrator.queue_review(current)
+        row=self.store.query("SELECT snapshot_json FROM workflow_reviews WHERE run_id=? AND purpose='final'",(run['id'],))[0]
+        frozen=json.loads(row['snapshot_json'])
+        self.assertTrue(frozen['review_policy']['user_checkpoint']['enabled'])
+        from webapp.specialist_profiles import get
+        prompt=get('delivery_reviewer').prompt
+        self.assertIn('pass之后执行',prompt);self.assertIn('不得因尚无用户批准',prompt)
+
     def test_intermediate_review_is_bound_to_step_criteria_not_final_delivery(self):
         run=self.review_fixture();subject=next(t for t in graph.work_items(run) if t['id']=='first')
         criteria=['自然暖色，保持主体完整','中间文件声音保留']

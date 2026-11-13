@@ -901,6 +901,7 @@ class Orchestrator:
         frozen={'graph_version':run['graph_version'],'authorization_version':run['authorization_version'],
                 'goal':run['goal'],'delivery_targets':run['authorization']['delivery_targets'],'sealed':run['sealed'],
                 'delivery_contract':run['authorization'].get('delivery_contract',graph.DeliveryContract().model_dump()),
+                'review_policy':run['authorization'].get('review_policy',graph.ReviewPolicy().model_dump()),
                 'tasks':[t for t in graph.work_items(run) if not t.get('control_kind') and (not subject or t['id']==subject)]}
         asset_ids=run['authorization'].get('allowed_assets',[])
         frozen['input_asset_names']=[]
