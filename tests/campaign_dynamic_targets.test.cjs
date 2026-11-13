@@ -19,6 +19,7 @@ test('gated intervention cases approve the initial plan before observing work',(
 test('same-run revision decisions follow structured delivery changes',()=>{
  assert.deepEqual([...revisionDecisionKinds({expect:{kind:'image'}})],['plan_confirmation']);
  assert.deepEqual([...revisionDecisionKinds({expect:{kind:'image',min_images:2}})],['plan_confirmation']);
+ assert.deepEqual([...revisionDecisionKinds({intervention_expected_delivery_additions:['final.jpg']})],['plan_confirmation','plan_change']);
 });
 
 test('delivery scope approval precedes confirmation of the amended plan',()=>{

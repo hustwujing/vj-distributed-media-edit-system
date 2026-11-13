@@ -11,7 +11,7 @@ function targetText(spec){
 
 const GATED_INTERVENTIONS=new Set(['R01','R02','R03','R11','R15','R17']);
 const initialPlanApprovalRequired=spec=>GATED_INTERVENTIONS.has(spec.id);
-const revisionDecisionKinds=()=>new Set(['plan_confirmation']);
+const revisionDecisionKinds=spec=>new Set(['plan_confirmation',...(spec.intervention_expected_delivery_additions?.length?['plan_change']:[])]);
 const nextRevisionDecision=decisions=>decisions.find(item=>item.kind==='plan_change')||decisions.find(item=>item.kind==='plan_confirmation')||decisions[0];
 function deliveryAmendmentMatches(existing,request,expectedFilenames=[]){
  if(!request.delivery_scope_changed)return expectedFilenames.length===0&&JSON.stringify(request.delivery_targets)===JSON.stringify(existing);
