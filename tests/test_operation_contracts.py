@@ -6,6 +6,12 @@ from webapp.quality_policy import Acceptance
 from webapp.execution_contracts import profile,dispatch_kind,classify_error
 
 class ContractTests(unittest.TestCase):
+    def test_implementer_requires_declared_machine_readable_progress_events(self):
+        from webapp.specialist_profiles import get as specialist
+        prompt=specialist('editing_implementer').prompt
+        self.assertIn('机器可读进度事件',prompt);self.assertIn('立即flush',prompt)
+        self.assertIn('持久输出已完整写入后发送',prompt)
+
     def test_native_skill_delivery_formats_are_supported_plain_files(self):
         from webapp.workflow_graph import DeliveryContract
         names=['artifact.html','report.docx','budget.xlsx','deck.pptx','status.gif','workflow.drawio']
