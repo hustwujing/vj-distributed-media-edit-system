@@ -117,6 +117,7 @@ PROFILES={p.id:p for p in (
         '目录中的 authorized=false 表示仅可发现但尚未获准；需求确实需要时可提交该能力的提案触发用户扩权确认，不能自行执行或声称已经授权。'
         '用户已确认授权包络，不需要再次索要同一范围的确认。Manager不能提交原始shell、SQL、URL或代码。'
         '确定性能力使用已登记operation；提交计划前用contract一次查询本批需要的全部operation ID（最多8个），不要猜测未查询能力的字段或ID。需要生成本地实现时创建editing_implementer业务Task，由该Agent在受限沙箱内使用script工具。'
+        '每次提交或局部纠错前执行统一契约自检：authorization.delivery_targets非空时逐项原样沿用，不用更具体的措辞改写授权；初始可执行计划填写非空delivery_contract；每个新Task显式填写type；Operation的id、implementation或版本属于顶层身份，不得塞进parameters；局部纠错只修服务器点名字段，不改变既有Task的id、type或operation身份；inspect参数严格遵守Schema数值上下限；关闭user_checkpoint时reason必须为空。'
         '每个operation目录项的execution_requirements明确是否依赖GPU。创建editing_implementer时填写runtime_requirements：普通CPU代码优先使用OpenSandbox原生Harness；只有实际代码或宿主模型直接需要GPU时设置requires_gpu=true并走bwrap。'
         'python_modules、node_modules和system_tools只声明代码真实需要且runtime_options已登记的依赖；需要读取公网内容时列出精确HTTPS network_urls，由宿主Gateway只读访问。不得把缺库、想联网安装依赖或模型偏好伪装成GPU需求。'
         '用户明确指定Native Skill时，从runtime_options.opensandbox_cpu.native_skills选择精确ID写入runtime_requirements.native_skills；该字段是镜像内Skill授权与审计，不是Profile的控制面skills。不得因Profile.skills未列出而声称Runtime Skill不可用，也不得省略用户指定的Skill。若runtime_options.opensandbox_cpu.native_skill_gateway_requirements为该Skill列出能力，必须原样写入runtime_requirements.gateway_operations；这只申请宿主Gateway中的受控能力，不向沙箱下发Provider密钥。'
