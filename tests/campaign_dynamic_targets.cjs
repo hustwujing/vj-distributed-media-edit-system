@@ -9,4 +9,7 @@ function targetText(spec){
  return '符合本次要求的成果与可核实的处理记录';
 }
 
-module.exports={targetText};
+const GATED_INTERVENTIONS=new Set(['R01','R02','R03','R11','R15','R17']);
+const initialPlanApprovalRequired=spec=>GATED_INTERVENTIONS.has(spec.id);
+
+module.exports={targetText,initialPlanApprovalRequired};

@@ -45,7 +45,7 @@ const interrupt=signal=>{
  stopPromise=Promise.allSettled([...activeStops].map(stop=>stop(signal)));
 };
 process.on('SIGINT',()=>interrupt('SIGINT'));process.on('SIGTERM',()=>interrupt('SIGTERM'));
-const {targetText}=require('./campaign_dynamic_targets.cjs');
+const {targetText,initialPlanApprovalRequired}=require('./campaign_dynamic_targets.cjs');
 
 async function runCase(browser,spec){
  const parent=path.join(ROOT,'runs',spec.id);fs.mkdirSync(parent,{recursive:true,mode:0o700});
@@ -304,7 +304,7 @@ async function runCase(browser,spec){
   }else{
    const intervention=spec.id.startsWith('R');
    let initial=spec.prompt;
-   const gated=['R01','R02','R03','R11','R15','R17'].includes(spec.id);
+   const gated=initialPlanApprovalRequired(spec);
    const initialVideo=['R07','R08','R09'].includes(spec.id);
    if(intervention){
     initial='先对 portrait.png 与 rocket.png 分别使用 image.local_adjust 做 brightness=1.1 调整（parameters 内嵌 parameters），保存两个独立可复用的已验收节点 prepare_a 和 prepare_b。这两个中间节点只校验原图尺寸及文件有效性，不限制 alpha 通道是否存在：完全不透明的 RGBA 也是正确结果。';
@@ -320,6 +320,11 @@ async function runCase(browser,spec){
    await start(initial,intervention?(initialVideo?'4秒128×64 MP4及128×64封面PNG':spec.id==='R17'?'64×48 PNG':'128×64双图PNG'):targetText(spec));
    const hook=spec.dynamic_hook;
    await unified.before({spec,state,page,read,wait,appendInput,feedback,approve,api,fault,capture,persist,observeTerminal,control});run=await read();
+   if(intervention&&gated){
+    run=await wait(w=>w.decisions.some(d=>d.kind==='plan_confirmation'),600);
+    assert.equal(await approvePlannedWork(run),true,'Gated intervention must approve its initial plan before observing business outputs');
+    run=await read();
+   }
    if(hook==='cancel_planning'){await wait(w=>w.control_jobs.some(t=>t.control_kind==='PLAN'&&t.status==='running'),90);await control('cancel');run=await wait(w=>terminal(w.state));assert.equal(run.state,'CANCELLED');state.outcome='protocol_passed';}
    else if(hook==='token_budget'){run=await wait(w=>paused(w),120);assert.equal(run.terminal_reason,'model_token_budget_exhausted');state.outcome='protocol_passed';state.browser_assertions.push('Token budget stopped before another model request');}
    else if(hook==='authorize_provider'||hook==='reject_provider'){

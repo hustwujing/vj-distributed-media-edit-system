@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {targetText}=require('./campaign_dynamic_targets.cjs');
+const {targetText,initialPlanApprovalRequired}=require('./campaign_dynamic_targets.cjs');
 
 test('image authorization includes every structured output class',()=>{
  const text=targetText({expect:{kind:'image',width:1600,height:600,min_images:2,extra_alpha:true,extra_extension:'.ora'}});
@@ -9,4 +9,9 @@ test('image authorization includes every structured output class',()=>{
 
 test('explicit target remains authoritative',()=>{
  assert.equal(targetText({delivery_target_text:'完整冻结清单',expect:{kind:'image',width:1,height:1}}),'完整冻结清单');
+});
+
+test('gated intervention cases approve the initial plan before observing work',()=>{
+ for(const id of ['R01','R02','R03','R11','R15','R17'])assert.equal(initialPlanApprovalRequired({id}),true,id);
+ for(const id of ['R04','R10','D01'])assert.equal(initialPlanApprovalRequired({id}),false,id);
 });
