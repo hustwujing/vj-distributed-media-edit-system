@@ -818,7 +818,11 @@ def automatic_revision_retry_safe(task_type,operation_id=None,implementation=Non
 
 def revision_budget_remaining(task,user=False):
     """One budget rule for immutable revisions, replacements and model tools."""
-    return max(0,(5 if user else 2)-task.get('user_revision_count' if user else 'repair_count',0))
+    spec=task.get('spec',task)
+    safe_local_operation=(spec.get('type')=='operation' and
+        automatic_revision_retry_safe('operation',spec.get('operation'),spec.get('implementation')))
+    limit=5 if user else 3 if safe_local_operation else 2
+    return max(0,limit-task.get('user_revision_count' if user else 'repair_count',0))
 
 
 def validate_operation_input_constraints(task,specs,assets):

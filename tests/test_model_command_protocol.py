@@ -67,6 +67,16 @@ class ModelCommandTests(unittest.TestCase):
                     compile_manager({'kind':'APPLY_PLAN','reason':'Retry','plan':{
                         'changes':[{'task_id':'render','set':{}}]}},value)
 
+    def test_retry_safe_local_operation_has_one_additional_bounded_automatic_revision(self):
+        safe={'repair_count':2,'user_revision_count':0,'spec':{
+            'type':'operation','operation':'media.evidence','implementation':None}}
+        external={'repair_count':2,'user_revision_count':0,'spec':{
+            'type':'operation','operation':'image.edit_region','implementation':None}}
+        self.assertEqual(graph.revision_budget_remaining(safe),1)
+        self.assertEqual(graph.revision_budget_remaining({**safe,'repair_count':3}),0)
+        self.assertEqual(graph.revision_budget_remaining(external),0)
+        self.assertEqual(graph.revision_budget_remaining({**safe,'user_revision_count':4},True),1)
+
     def test_user_revision_budget_is_independent_of_automatic_repairs(self):
         from webapp.workflow_model_protocol import available_changes
         value=frozen(user=True);value['tasks'][0].update(repair_count=2,user_revision_count=4)
