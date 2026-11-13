@@ -1,7 +1,8 @@
 """Read-only compact evidence summaries for explicit per-case operator review."""
-import argparse,json
+import argparse,json,os
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1]/'.cluster/campaigns/dynamic-plan'
+REPO=Path(__file__).resolve().parents[1]
+ROOT=Path(os.environ.get('DYNAMIC_CASE_DEPLOY_ROOT',REPO/'.cluster')).resolve()/'campaigns/dynamic-plan'
 def read(path):
  try:return json.loads(path.read_text())
  except FileNotFoundError:return {}
