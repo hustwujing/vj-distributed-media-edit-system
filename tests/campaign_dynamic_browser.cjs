@@ -193,7 +193,7 @@ async function runCase(browser,spec){
  };
  activeStops.add(cancelForInterrupt);
  const feedback=async(content,attachments=[])=>{
-  run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question','publication_checkpoint'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
+  run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question','plan_confirmation','publication_checkpoint'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
   if(!state.feedback_baseline&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
   if(content.includes('{{edge_patch_box}}')){
    assert.ok(state.feedback_baseline,'Local edge feedback requires the original candidate');
