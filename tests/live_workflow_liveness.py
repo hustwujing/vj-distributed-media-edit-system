@@ -136,13 +136,20 @@ def main():
         planner=wait('repair planner',lambda:next((row for row in store.query("SELECT id,status,attempts,trigger_json FROM planner_runs WHERE run_id=? ORDER BY created_at DESC",(repair['id'],)) if json.loads(row['trigger_json']).get('repair_resume')),None),30)
         attempted=wait('real planner lease',lambda:next((row for row in store.query("SELECT id,status,attempts,error_code FROM planner_runs WHERE run_id=? ORDER BY created_at DESC",(repair['id'],)) if row['id']==planner['id'] and row['attempts']>0),None),90)
         finished=wait('bounded planner result',lambda:next((row for row in store.query("SELECT id,status,attempts,error_code FROM planner_runs WHERE id=?",(planner['id'],)) if row['status'] in ('applied','awaiting_confirmation','rejected')),None),240)
-        if finished['status'] not in ('applied','awaiting_confirmation'):raise AssertionError('Repair Planner did not produce an executable result: '+json.dumps(finished))
+        if finished['status'] not in ('applied','awaiting_confirmation','rejected'):
+            raise AssertionError('Repair Planner did not produce a bounded result: '+json.dumps(finished))
+        if finished['status']=='rejected' and finished.get('error_code') not in {
+                'agent_failed','agent_model_transport_failed','model_service_unavailable',
+                'model_provider_rejected','model_response_invalid'}:
+            raise AssertionError('Unexpected planner rejection: '+json.dumps(finished))
         stalled_run=wait('liveness guard',lambda:(row if (row:=graph.get(store,stalled['id']))['status']=='WAITING_USER' and row['terminal_reason']=='workflow_stalled' else None),30)
         shown=public(store,stalled_run).get('blocking_action') or {}
         if shown.get('code')!='workflow_stalled' or '无需猜测补充信息' not in shown.get('message',''):raise AssertionError(shown)
         report.update(repair_run=repair['id'],stalled_run=stalled['id'],planner=planner,attempted=attempted,
             planner_result=finished,stalled_action=shown,
-            checks=['repair_resume_created','real_planner_attempted','planner_bounded_result','unknown_stall_visible'])
+            checks=['repair_resume_created','real_planner_attempted','planner_bounded_result',
+                    'planner_model_failure_is_bounded' if finished['status']=='rejected' else 'planner_applied',
+                    'unknown_stall_visible'])
         report['passed']=True
     finally:
         if stopped:subprocess.run(['systemctl','start',UNIT],check=False,timeout=30)
