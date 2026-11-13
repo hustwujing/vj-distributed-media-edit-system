@@ -164,6 +164,9 @@ class DecisionAnswer(Contract):
 
     @model_validator(mode='after')
     def feedback_required(self):
+        if (not self.input_batch.content and not self.input_batch.attachments and not self.input_batch.targets
+                and (self.feedback or self.attachments or self.upstream_tasks)):
+            self.input_batch=DecisionInputBatch(content=self.feedback,attachments=list(self.attachments),targets=list(self.upstream_tasks))
         if self.input_batch.content and not self.feedback:self.feedback=self.input_batch.content
         if self.input_batch.attachments and not self.attachments:self.attachments=list(self.input_batch.attachments)
         if self.input_batch.targets and not self.upstream_tasks:self.upstream_tasks=list(self.input_batch.targets)
