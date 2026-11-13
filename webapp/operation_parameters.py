@@ -274,13 +274,14 @@ class EvidenceParameters(Parameters):
     mode:Literal['auto','image','video_window','audio','audio_envelope','audio_compare']='auto'
     offset:float=Field(default=0,ge=0,le=86400)
     reference_offset:float|None=Field(default=None,ge=0,le=86400,
-        description='audio_compare only: start time in the reference input. Defaults to offset. For a trimmed candidate, compare its own offset with the corresponding original-source time.')
+        description='audio_compare or comparative video_window: start time in the reference input corresponding to offset in the candidate.')
     window_seconds:float=Field(default=8,gt=0,le=8)
     crop:list[int]|None=Field(default=None,min_length=4,max_length=4)
     @model_validator(mode='after')
     def crop_bounds(self):
         if self.crop and not (0<=self.crop[0]<self.crop[2]<=20000 and 0<=self.crop[1]<self.crop[3]<=20000):raise ValueError('Invalid evidence crop')
-        if self.reference_offset is not None and self.mode!='audio_compare':raise ValueError('Reference offset requires audio_compare')
+        if self.reference_offset is not None and self.mode not in ('audio_compare','video_window'):
+            raise ValueError('Reference offset requires audio_compare or video_window')
         return self
 
 

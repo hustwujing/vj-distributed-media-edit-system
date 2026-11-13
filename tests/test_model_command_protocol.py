@@ -1264,6 +1264,10 @@ class ModelCommandTests(unittest.TestCase):
             'fact':'Compare candidate and source pitch','mode':'audio_compare','offset':1.0,
             'reference_offset':3.0,'window_seconds':2.0}]})
         self.assertEqual(compared.missing_evidence[0].reference_offset,3.0)
+        frames=ReviewDecision.model_validate({**decoded,'missing_evidence':[{
+            'fact':'Compare candidate and source frame order','mode':'video_window','offset':5.0,
+            'reference_offset':10.0,'window_seconds':5.0}]})
+        self.assertEqual(frames.missing_evidence[0].reference_offset,10.0)
         with self.assertRaises(ValueError):ReviewDecision.model_validate({**decoded,'verdict':'pass'})
 
     def test_review_method_facts_are_required_and_cannot_support_a_false_pass(self):

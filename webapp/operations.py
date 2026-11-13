@@ -174,7 +174,9 @@ class Operation:
                                  'minimum_inputs':inputs.minimum_inputs,'kinds':list(self.input_kinds),
                                  'role_kinds':inputs.role_kinds,
                                  'conditional_required_roles':[{'parameter':parameter,'equals':expected,'roles':sorted(roles)}
-                                     for parameter,expected,roles in inputs.conditional_required_inputs]}
+                                     for parameter,expected,roles in inputs.conditional_required_inputs],
+                                 'conditional_present_roles':[{'parameter':parameter,'roles':sorted(roles)}
+                                     for parameter,roles in inputs.conditional_present_inputs]}
         if self.executor=='fixed_media' and self.action in ('edit','render','timeline'):
             result['input_contract']['transcript_binding']={
                 'role':'transcript_<source_role>_t<audio_track>',
@@ -308,12 +310,15 @@ class OperationContract:
     minimum_inputs:int=0
     role_kinds:dict[str,tuple[str,...]]=field(default_factory=dict)
     conditional_required_inputs:tuple[tuple[str,object,frozenset[str]],...]=()
+    conditional_present_inputs:tuple[tuple[str,frozenset[str]],...]=()
 
     def validate(self,parameters,inputs):
         value=self.parameters.model_validate(parameters).model_dump(exclude_none=True)
         required=set(self.required_inputs)
         for parameter,expected,roles in self.conditional_required_inputs:
             if value.get(parameter)==expected:required.update(roles)
+        for parameter,roles in self.conditional_present_inputs:
+            if value.get(parameter) is not None:required.update(roles)
         if not required.issubset(inputs) or len(inputs)<self.minimum_inputs:
             raise ValueError('Operation is missing required inputs')
         if self.allowed_inputs is not None and set(inputs)-self.allowed_inputs:
@@ -365,7 +370,8 @@ def contract(operation):
         role_kinds={'mask':('image',)})
     if operation.evidence_only:return OperationContract(parameters,frozenset({'source'}),frozenset({'source','reference'}),
         role_kinds={'reference':('image','video','audio')},
-        conditional_required_inputs=(('mode','audio_compare',frozenset({'reference'})),))
+        conditional_required_inputs=(('mode','audio_compare',frozenset({'reference'})),),
+        conditional_present_inputs=(('reference_offset',frozenset({'reference'})),))
     if operation.action=='normalize_clip':return OperationContract(parameters,frozenset({'source'}),frozenset({'source'}))
     if operation.executor=='fixed_media':
         return OperationContract(parameters,minimum_inputs=1)

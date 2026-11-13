@@ -45,17 +45,7 @@ const interrupt=signal=>{
  stopPromise=Promise.allSettled([...activeStops].map(stop=>stop(signal)));
 };
 process.on('SIGINT',()=>interrupt('SIGINT'));process.on('SIGTERM',()=>interrupt('SIGTERM'));
-
-function targetText(spec){
- if(spec.delivery_target_text)return spec.delivery_target_text;
- const e=spec.expect;
- if(e.kind==='image')return `符合需求的 ${e.width}×${e.height} 图片${e.min_images>1?'及全部要求的图片版本':''}${e.extra_extension?'，包含 '+e.extra_extension+' 分层文件':''}`;
- if(e.kind==='video')return `符合需求的完整 ${e.duration} 秒 ${e.width}×${e.height} 视频及要求的附加文件`;
- if(e.kind==='video_variants')return '符合需求的所有画幅视频及要求的附加文件';
- if(e.kind==='audio')return `符合需求的 ${e.duration} 秒音频及要求的格式版本`;
- if(e.kind==='text')return '符合需求的 '+e.extensions.join(' 和 ')+' 文件';
- return '符合本次要求的成果与可核实的处理记录';
-}
+const {targetText}=require('./campaign_dynamic_targets.cjs');
 
 async function runCase(browser,spec){
  const parent=path.join(ROOT,'runs',spec.id);fs.mkdirSync(parent,{recursive:true,mode:0o700});

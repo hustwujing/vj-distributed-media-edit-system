@@ -154,7 +154,7 @@ class MissingEvidence(Contract):
         description='Registered media.evidence mode. image is only for a static image artifact; use video_window for every frame or time range from a video.')
     offset:float|None=Field(default=None,ge=0,description='Exact start time in seconds when the fact is time-bound.')
     reference_offset:float|None=Field(default=None,ge=0,
-        description='audio_compare only: exact start time in the reference input corresponding to offset in the candidate.')
+        description='For audio_compare or comparative video_window: exact start time in the reference input corresponding to offset in the candidate. Its presence requires a reference input.')
     window_seconds:float|None=Field(default=None,gt=0,le=8,
         description='Exact duration in seconds. The registered collector is bounded to 8 seconds; split longer or disjoint ranges into separate items.')
     crop:list[int]|None=Field(default=None,min_length=4,max_length=4,
@@ -165,8 +165,8 @@ class MissingEvidence(Contract):
             raise ValueError('Time-bound missing evidence requires offset and window_seconds')
         if self.mode=='audio_compare' and (self.offset is None or self.reference_offset is None or self.window_seconds is None):
             raise ValueError('audio_compare missing evidence requires offset, reference_offset and window_seconds')
-        if self.reference_offset is not None and self.mode!='audio_compare':
-            raise ValueError('reference_offset is available only for audio_compare evidence')
+        if self.reference_offset is not None and self.mode not in ('audio_compare','video_window'):
+            raise ValueError('reference_offset is available only for audio_compare or video_window evidence')
         if self.mode=='image' and (self.offset is not None or self.window_seconds is not None):
             raise ValueError('A time-bound frame from a video requires video_window, not image')
         if self.crop is not None and self.mode not in ('image','video_window'):

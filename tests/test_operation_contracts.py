@@ -41,6 +41,12 @@ class ContractTests(unittest.TestCase):
         self.assertIn({'parameter':'mode','equals':'audio_compare','roles':['reference']},
             contract['conditional_required_roles'])
         self.assertEqual(set(contract['role_kinds']['reference']),{'image','video','audio'})
+        self.assertIn({'parameter':'reference_offset','roles':['reference']},contract['conditional_present_roles'])
+        with self.assertRaisesRegex(ValueError,'missing required inputs'):
+            validate_parameters('media.evidence',{'mode':'video_window','offset':2,'reference_offset':5},source)
+        compared=validate_parameters('media.evidence',{'mode':'video_window','offset':2,'reference_offset':5},
+            {**source,'reference':{'asset':'original'}})
+        self.assertEqual(compared['reference_offset'],5)
 
     def test_evidence_mode_is_rejected_against_known_input_kind_before_execution(self):
         from webapp.workflow_graph import Task,validate_evidence_input_kind
