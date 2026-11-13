@@ -1568,6 +1568,8 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual([(row['sequence'],row['status']) for row in carried],[(1,'APPLIED'),(2,'ACCEPTED')])
         self.assertEqual(carried[0]['applied_graph_version'],0)
         self.assertEqual(successor['input_barrier_sequence'],2)
+        self.assertLessEqual(successor['next_reconcile_at'],self.store.now())
+        self.assertFalse(self.store.query('SELECT id FROM planner_runs WHERE run_id=?',(successor['id'],)))
         event=json.loads(self.store.query("SELECT payload_json FROM workflow_graph_events WHERE run_id=? AND kind='input_batch_applied'",(successor['id'],))[0]['payload_json'])
         self.assertEqual(event,{'through_sequence':1,'next_barrier_sequence':2})
         original=self.store.query('SELECT status,successor_run_id FROM run_inputs WHERE run_id=? ORDER BY sequence',(self.run['id'],))

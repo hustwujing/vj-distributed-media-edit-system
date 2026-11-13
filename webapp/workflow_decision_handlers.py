@@ -154,12 +154,14 @@ def handle_successor(controller,run,row,request,payload,actor):
         raise ValueError('Successor cannot abandon an unresolved external call')
     controller.set_status(run,'CANCELLED','successor_confirmed')
     store.execute("UPDATE run_tasks SET status='cancelled' WHERE run_id=? AND selected=1 AND status NOT IN ('succeeded','failed','cancelled')",(run['id'],))
-    successor=graph.create(store,run['project_id'],None,{**authorization.model_dump(),'require_plan_confirmation':True},parent_run_id=run['id'])
+    successor=graph.create(store,run['project_id'],None,{**authorization.model_dump(),'require_plan_confirmation':True},
+        parent_run_id=run['id'],reconcile_immediately=False)
     cutoff=int(request.get('input_through_sequence',0))
     for item in store.query("SELECT * FROM run_inputs WHERE run_id=? AND status IN ('ROUTING','ACCEPTED','PLANNING') ORDER BY sequence",(run['id'],)):
         carried=accept(store,successor['id'],actor,{'request_id':item['id'],'content':item['content'],
             'attachments':[a['id'] for a in json.loads(item['attachments_json'])]},context={
-            'predecessor_input_id':item['id'],**({'message_disposition':'replan'} if item['status']!='ROUTING' else {})})
+            'predecessor_input_id':item['id'],**({'message_disposition':'replan'} if item['status']!='ROUTING' else {})},
+            defer_reconcile=True)
         if item['status']!='ROUTING' and item['sequence']<=cutoff:
             now=store.now()
             store.execute("UPDATE run_inputs SET status='APPLIED',applied_at=?,applied_graph_version=? WHERE id=?",
@@ -169,6 +171,7 @@ def handle_successor(controller,run,row,request,payload,actor):
         store.execute("UPDATE run_inputs SET status='SUPERSEDED',successor_run_id=?,applied_at=? WHERE id=?",
                       (successor['id'],store.now(),item['id']))
     finish_batch(store,graph.get(store,successor['id']),cutoff)
+    store.execute('UPDATE runs SET next_reconcile_at=?,updated_at=? WHERE id=?',(store.now(),store.now(),successor['id']))
     store.execute('UPDATE runs SET input_barrier_sequence=NULL WHERE id=?',(run['id'],))
     store.execute("UPDATE control_jobs SET status='cancelled',updated_at=? WHERE run_id=? AND control_kind='MESSAGE' AND status NOT IN ('succeeded','failed','cancelled')",
                   (store.now(),run['id']))

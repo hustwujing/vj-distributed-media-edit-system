@@ -53,7 +53,7 @@ def public(row):
     return row
 
 
-def accept(store,identifier,actor,raw,*,context=None):
+def accept(store,identifier,actor,raw,*,context=None,defer_reconcile=False):
     request=Input.model_validate(raw)
     context=context or {}
     identity=graph.digest({'request':request.model_dump(),'actor':actor,'context':context})
@@ -87,7 +87,8 @@ def accept(store,identifier,actor,raw,*,context=None):
             successors=store.query("SELECT id FROM runs WHERE parent_run_id=? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(run['id'],))
             if successors:successor=graph.get(store,successors[0]['id'])
             else:
-                successor=graph.create(store,run['project_id'],None,authorization,parent_run_id=run['id'],scope_confirmed=False,record_message=False)
+                successor=graph.create(store,run['project_id'],None,authorization,parent_run_id=run['id'],scope_confirmed=False,
+                    record_message=False,reconcile_immediately=False)
             run=graph.get(store,successor['id'])
         if not run['scope_confirmed'] and request.attachments:
             # Resolve the destination Run first: the first input sent to a
@@ -133,13 +134,14 @@ def accept(store,identifier,actor,raw,*,context=None):
             (input_id,run['session_id'],run['id'],'user',request.content,now))
         from .conversation_memory import message_recorded
         message_recorded(store,run)
-        if not route_message:activate(store,run,dict(db.execute('SELECT * FROM run_inputs WHERE id=?',(input_id,)).fetchone()))
-        else:store.execute('UPDATE runs SET next_reconcile_at=?,updated_at=? WHERE id=?',(now,now,run['id']))
+        if not route_message:activate(store,run,dict(db.execute('SELECT * FROM run_inputs WHERE id=?',(input_id,)).fetchone()),defer_reconcile=defer_reconcile)
+        else:store.execute('UPDATE runs SET next_reconcile_at=?,updated_at=? WHERE id=?',
+                           (now+60 if defer_reconcile else now,now,run['id']))
         graph.event(store,run,'message_received' if route_message else 'input_accepted',{'input_id':input_id,'input_sequence':sequence,'source':request.source})
         return public(db.execute('SELECT * FROM run_inputs WHERE id=?',(input_id,)).fetchone())
 
 
-def activate(store,run,message):
+def activate(store,run,message,*,defer_reconcile=False):
     """Promote an explicit decision/Manager change, never mere message arrival."""
     context=json.loads(message['context_json']);now=store.now();sequence=message['sequence']
     context['message_disposition']='replan'
@@ -171,10 +173,11 @@ def activate(store,run,message):
             (attempts>0 OR lease_id<>'' OR external_id<>'')''',(sequence,run['id']))
     store.execute("UPDATE run_inputs SET status='ACCEPTED',context_json=?,base_graph_version=?,base_authorization_version=? WHERE id=?",
                   (graph.encode(context),current['graph_version'],current['authorization_version'],message['id']))
+    reconcile_at=now+60 if defer_reconcile else now
     store.execute('''UPDATE runs SET input_sequence=CASE WHEN input_sequence<? THEN ? ELSE input_sequence END,
         input_barrier_was_sealed=CASE WHEN input_barrier_sequence IS NULL THEN sealed ELSE input_barrier_was_sealed END,
         input_barrier_sequence=COALESCE(input_barrier_sequence,?),next_reconcile_at=?,updated_at=? WHERE id=?''',
-        (sequence,sequence,sequence,now,now,run['id']))
+        (sequence,sequence,sequence,reconcile_at,now,run['id']))
 
 
 def can_dispatch(run,item):

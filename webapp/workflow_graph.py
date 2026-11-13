@@ -694,7 +694,7 @@ def asset_digest(asset):
 
 
 def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,scope_confirmed=True,record_message=True,
-           model_configuration=None,role_model_configurations=None):
+           model_configuration=None,role_model_configurations=None,reconcile_immediately=True):
     from .workflow_planning import bind_scope
     authorization=bind_scope(store,raw) if scope_confirmed else Authorization.model_validate(raw)
     identifier=identifier or uuid.uuid4().hex
@@ -727,8 +727,9 @@ def create(store,project,identifier,raw,*,session_id=None,parent_run_id=None,sco
         if authorization.content_fingerprint!=content_fingerprint(store,project):raise ValueError('Approved content has changed')
         now=store.now()
         db.execute('INSERT OR IGNORE INTO sessions(id,project_id,created_at) VALUES (?,?,?)',(session_id,project,now))
+        reconcile_at=now if reconcile_immediately else now+60
         db.execute("INSERT INTO runs(id,project_id,session_id,parent_run_id,scope_confirmed,goal,status,authorization_json,next_reconcile_at,created_at,updated_at) VALUES (?,?,?,?,?,?,'ACTIVE',?,?,?,?)",
-            (identifier,project,session_id,parent_run_id,int(scope_confirmed),authorization.goal,encode(authorization.model_dump()),now,now,now))
+            (identifier,project,session_id,parent_run_id,int(scope_confirmed),authorization.goal,encode(authorization.model_dump()),reconcile_at,now,now))
         db.execute('INSERT INTO run_authorizations VALUES (?,?,?,?)',(identifier,1,encode(authorization.model_dump()),now))
         from .task_lifecycle import ensure
         ensure(db,identifier,now)

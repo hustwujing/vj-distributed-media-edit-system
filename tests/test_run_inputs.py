@@ -228,6 +228,19 @@ class RunInputTests(unittest.TestCase):
         asset=next(item for item in self.store.assets(self.run['project_id']) if item['id']==asset_id)
         self.assertEqual(current['authorization']['allowed_asset_digests'][asset_id],graph.asset_digest(asset))
 
+    def test_deferred_successor_and_input_are_not_reconciled_mid_handoff(self):
+        self.store.execute("UPDATE runs SET status='FAILED',terminal_reason='handoff_fixture' WHERE id=?",(self.run['id'],))
+        successor=graph.create(self.store,self.run['project_id'],None,
+            {**self.run['authorization'],'content_fingerprint':graph.content_fingerprint(self.store,self.run['project_id'])},
+            parent_run_id=self.run['id'],scope_confirmed=False,record_message=False,reconcile_immediately=False)
+        self.assertGreater(successor['next_reconcile_at'],self.store.now()+50)
+        from webapp.run_inputs import accept
+        accept(self.store,successor['id'],'owner',{'request_id':uuid.uuid4().hex,'content':'Carry this input'},
+               context={'message_disposition':'replan'},defer_reconcile=True)
+        held=graph.get(self.store,successor['id'])
+        self.assertEqual(held['input_barrier_sequence'],1)
+        self.assertGreater(held['next_reconcile_at'],self.store.now()+50)
+
     def test_first_delivered_run_input_authorizes_its_new_successor_attachment(self):
         asset_id=self.run['authorization']['allowed_assets'][0]
         self.store.execute("UPDATE runs SET status='SUCCEEDED',delivered_at=?,delivery_json='[]' WHERE id=?",
