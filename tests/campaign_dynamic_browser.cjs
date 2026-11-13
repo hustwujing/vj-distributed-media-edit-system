@@ -360,6 +360,9 @@ async function runCase(browser,spec){
    }
    else if(hook==='orchestrator_competition'){await fault('start_second_orchestrator');secondStarted=true;await page.waitForTimeout(2000);assert.ok((await fault('progress')).orchestrators.length>=2);}
    else if(['manager_hard_kill','reviewer_hard_kill','agent_hard_kill','repeated_agent_hard_kill','provider_poll_hard_kill'].includes(hook)){
+    if(hook!=='manager_hard_kill')await wait(w=>hook==='reviewer_hard_kill'
+     ?w.control_jobs.some(item=>item.control_kind==='REVIEW'&&item.status==='running')
+     :w.tasks.some(item=>item.status==='running'&&(hook==='provider_poll_hard_kill'||item.type==='agent')),600);
     const interruptions=hook==='repeated_agent_hard_kill'?2:1,killed=[];
     for(let round=0;round<interruptions;round++){
      const until=Date.now()+600000;let selected;
@@ -395,6 +398,8 @@ async function runCase(browser,spec){
     const observed=await fault('progress');assert.ok(observed.attempts.every(a=>a.started<=pauseAt+.1));state.pause_boundary={completed_task:activeId,paused_at:pauseAt,attempts:observed.attempts};state.browser_assertions.push('The in-flight task completed while paused; its downstream did not start until resume');persist();await capture('upstream-complete-while-paused');await control('resume');
    }
    if(hook==='executor_restart'||hook==='worker_restart'||hook==='submission_unknown'){
+    await wait(w=>w.tasks.some(task=>task.status==='running'&&(
+     hook==='submission_unknown'||task.spec.retry_policy==='safe_once')),600);
     const until=Date.now()+360000;let selected;
     while(Date.now()<until){const observed=await fault('progress');selected=observed.attempts.find(a=>!a.control_kind&&a.status==='running'&&a.unit&&(hook==='submission_unknown'?observed.submitting.some(p=>p.attempt_id===a.id):a.retry_safe&&Date.now()/1000-a.started>2));if(selected)break;await page.waitForTimeout(750);}
     assert.ok(selected,'No eligible execution boundary was reached');stoppedWorker=selected.unit;state.interrupted_attempt=selected;await fault('stop_worker',stoppedWorker);await capture('worker-stopped');
