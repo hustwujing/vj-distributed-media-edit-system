@@ -318,7 +318,7 @@ async function runCase(browser,spec){
     initial+=initialVideo?'export 本地脚本节点把已验收 clip 导出为4秒128×64 MP4，并将 prepare_a 使用 Pillow ImageOps.fit 默认方法制作128×64 cover.png。':'export 本地脚本节点将两张已处理图片用 Pillow ImageOps.fit 默认方法分别适配到64×64后并排合成128×64 final.png。';
     if(initialVideo)initial+='export 必须在 prepare_a、prepare_b、clip 三个准备节点都验收成功后开始，显式声明这三个依赖，供在途修改时核对已验收成果复用。';
     initial+='export 声明 retry_policy=safe_once，正式处理前等待20秒。';
-    if(spec.id==='R14')initial+='export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。';
+    if(spec.id==='R14')initial+='export Task 必须声明 required_progress_events=["QA_EXPORT_OUTPUT_READY"]；写完 final.png 后打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。';
     initial+=gated?'计划必须设置 review_policy.user_checkpoint enabled=true、stage=before_publish，并写清待发布成果；技术和最终审查通过后等待我确认发布。':'最后通过程序和最终验收交付。';
     if(spec.id==='R17')initial='先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG；计划必须设置 review_policy.user_checkpoint enabled=true、stage=before_publish，并在技术和最终审查通过后等待我确认发布。';
    }

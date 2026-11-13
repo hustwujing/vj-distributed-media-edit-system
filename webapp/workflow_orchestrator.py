@@ -16,6 +16,19 @@ class DecisionError(ValueError):
         super().__init__(message or code);self.code=code
 
 
+def missing_progress_events(store,run,task,required):
+    if not required:return []
+    observed=set()
+    for row in store.query("SELECT payload FROM agent_events WHERE run_id=? AND kind='progress' ORDER BY seq",(run['id'],)):
+        try:payload=json.loads(row['payload'])
+        except (TypeError,ValueError):continue
+        execution=payload.get('execution') or {}
+        if (execution.get('step_id')==task['id'] and execution.get('revision')==task['revision']
+                and execution.get('attempt_id')==task['lease_id']):
+            observed.add(payload.get('text'))
+    return [value for value in required if value not in observed]
+
+
 def delivery_scope(store,run):
     """Extract output requirements without treating authorized input filenames as outputs."""
     asset_ids=run['authorization'].get('allowed_assets',[])
@@ -404,7 +417,7 @@ class Orchestrator:
                 from .egress_policy import scrub,secrets
                 rejection={'stage':'accept_result','error_code':code,'exception_type':type(exc).__name__,
                            'message':scrub(str(exc)[:2000],secrets())}
-                self.task_failure(run,task,{'error_code':code})
+                self.task_failure(run,task,{'error_code':code,'error_detail':rejection['message']})
                 graph.event(store,run,'task_result_rejected',{'task_id':task['id'],**rejection})
             store.execute('UPDATE task_results SET status=?,error_json=?,committed_at=? WHERE id=?',
                           (result_status,encode(rejection) if result_status=='rejected' else '{}',store.now(),result['id']))
@@ -429,6 +442,8 @@ class Orchestrator:
             verified=next((f for f in report.get('files',[]) if f['name']==name),None)
             if report.get('technical_valid') and (not verified or verified.get('sha256')!=record['sha256']):raise ValueError('Quality evidence does not match artifact')
         declared=graph.Task.model_validate(task['spec'])
+        missing=missing_progress_events(store,run,task,declared.required_progress_events)
+        if missing:raise ValueError('Required progress events were not emitted after durable output: '+', '.join(missing))
         report.pop('agent_review_passed',None)
         from .operations import get as operation
         if declared.type=='operation' and operation(declared.operation,declared.implementation).evidence_only:

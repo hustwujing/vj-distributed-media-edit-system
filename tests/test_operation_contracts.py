@@ -12,6 +12,16 @@ class ContractTests(unittest.TestCase):
         self.assertIn('机器可读进度事件',prompt);self.assertIn('立即flush',prompt)
         self.assertIn('持久输出已完整写入后发送',prompt)
 
+    def test_only_agent_tasks_can_declare_bounded_progress_events(self):
+        from webapp.workflow_graph import Task
+        base={'id':'agent','type':'agent','profile':'editing_implementer','name':'agent','objective':'write output',
+              'inputs':{},'outputs':['result.json'],'output_roles':{'result':'result.json'},
+              'acceptance':[{'kind':'json'}],'required_progress_events':['OUTPUT_READY']}
+        self.assertEqual(Task.model_validate(base).required_progress_events,['OUTPUT_READY'])
+        with self.assertRaises(ValueError):Task.model_validate({**base,'required_progress_events':['bad event']})
+        with self.assertRaisesRegex(ValueError,'Only an Agent'):
+            Task.model_validate({**base,'type':'script','profile':None,'argv':['python','-c','pass']})
+
     def test_native_skill_delivery_formats_are_supported_plain_files(self):
         from webapp.workflow_graph import DeliveryContract
         names=['artifact.html','report.docx','budget.xlsx','deck.pptx','status.gif','workflow.drawio']

@@ -290,10 +290,17 @@ class Task(Contract):
     semantics:TaskSemantics=Field(default_factory=TaskSemantics)
     runtime_requirements:AgentRuntimeRequirements=Field(default_factory=AgentRuntimeRequirements,
         description='Code-editor execution requirements. Portable CPU is the default; declare GPU, dependencies and exact public URLs explicitly.')
+    required_progress_events:list[str]=Field(default_factory=list,max_length=8,
+        description='Exact machine-readable step_progress text values that this Task must emit after the corresponding durable output exists.')
     delivery_stage:bool=Field(default=False,description='True for Tasks whose accepted outputs are eligible for final delivery. A sealed graph requires at least one.')
 
     @model_validator(mode='after')
     def valid(self):
+        if (len(set(self.required_progress_events))!=len(self.required_progress_events)
+                or any(not re.fullmatch(r'[A-Za-z0-9_.:-]{1,120}',value) for value in self.required_progress_events)):
+            raise ValueError('Required progress events must be unique bounded protocol values')
+        if self.required_progress_events and self.type!='agent':
+            raise ValueError('Only an Agent Task can declare required progress events')
         if self.type=='agent':
             from .specialist_profiles import get
             profile=get(self.profile)

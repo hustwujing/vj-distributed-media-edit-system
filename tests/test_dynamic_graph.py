@@ -27,6 +27,20 @@ def envelope(store,request_id,proposal=None,kind='APPLY_PLAN',**extra):
 
 
 class DynamicGraphTests(unittest.TestCase):
+    def test_required_progress_event_is_bound_to_current_step_revision_and_attempt(self):
+        from webapp.workflow_orchestrator import missing_progress_events
+        run={'id':'progress-run'};task={'id':'render','revision':2,'lease_id':'current-attempt'}
+        required=['OUTPUT_READY']
+        self.assertEqual(missing_progress_events(self.store,run,task,required),required)
+        wrong={'text':'OUTPUT_READY','execution':{'step_id':'render','revision':1,'attempt_id':'old-attempt'}}
+        self.store.execute("INSERT INTO agent_events(run_id,kind,payload,created) VALUES (?,'progress',?,?)",
+                           (run['id'],json.dumps(wrong),self.store.now()))
+        self.assertEqual(missing_progress_events(self.store,run,task,required),required)
+        exact={'text':'OUTPUT_READY','execution':{'step_id':'render','revision':2,'attempt_id':'current-attempt'}}
+        self.store.execute("INSERT INTO agent_events(run_id,kind,payload,created) VALUES (?,'progress',?,?)",
+                           (run['id'],json.dumps(exact),self.store.now()))
+        self.assertEqual(missing_progress_events(self.store,run,task,required),[])
+
     def test_native_runtime_configuration_failure_is_visible_fatal_and_never_asks_a_model_to_repair_the_script(self):
         self.tick()
         self.propose({'proposal_id':'runtime-failure','reason':'Create report','base_graph_version':0,
