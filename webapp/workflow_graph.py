@@ -145,6 +145,12 @@ class Authorization(Contract):
         return self
 
 
+class DecisionInputBatch(Contract):
+    content:str=Field(default='',max_length=4000)
+    attachments:list[str]=Field(default_factory=list,max_length=20)
+    targets:list[str]=Field(default_factory=list,max_length=64)
+
+
 class DecisionAnswer(Contract):
     decision_id:str=Field(pattern=r'^[a-f0-9]{32}$')
     snapshot_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
@@ -154,11 +160,17 @@ class DecisionAnswer(Contract):
     feedback:str=Field(default='',max_length=4000)
     attachments:list[str]=Field(default_factory=list,max_length=20)
     upstream_tasks:list[str]=Field(default_factory=list,max_length=64)
+    input_batch:DecisionInputBatch=Field(default_factory=DecisionInputBatch)
 
     @model_validator(mode='after')
     def feedback_required(self):
-        if self.action=='revise' and not self.feedback.strip():raise ValueError('Revise requires nonempty feedback')
-        if self.action!='revise' and (self.attachments or self.upstream_tasks):raise ValueError('Only revise can introduce inputs')
+        if self.input_batch.content and not self.feedback:self.feedback=self.input_batch.content
+        if self.input_batch.attachments and not self.attachments:self.attachments=list(self.input_batch.attachments)
+        if self.input_batch.targets and not self.upstream_tasks:self.upstream_tasks=list(self.input_batch.targets)
+        if self.action=='revise' and not self.feedback.strip():
+            raise ValueError('Revise requires nonempty feedback')
+        if self.action!='revise' and (self.attachments or self.upstream_tasks or self.input_batch.content):
+            raise ValueError('Only revise can introduce inputs')
         return self
 
 

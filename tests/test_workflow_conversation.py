@@ -37,6 +37,21 @@ class ConversationTests(unittest.TestCase):
             {'decision_id':decision['id'],'snapshot_digest':decision['snapshot_digest'],'action':action,**extra},
             request_id=uuid.uuid4().hex,actor='owner')
 
+    def test_decision_answer_has_one_structured_input_batch(self):
+        value=graph.DecisionAnswer.model_validate({
+            'decision_id':'a'*32,'snapshot_digest':'b'*64,'action':'revise',
+            'input_batch':{'content':'Use the selected reference','attachments':['asset'],
+                            'targets':['first']}})
+        self.assertEqual(value.input_batch.content,'Use the selected reference')
+        self.assertEqual(value.input_batch.attachments,['asset'])
+        with self.assertRaises(ValueError):
+            graph.DecisionAnswer.model_validate({'decision_id':'a'*32,'snapshot_digest':'b'*64,'action':'revise'})
+        legacy=graph.DecisionAnswer.model_validate({
+            'decision_id':'a'*32,'snapshot_digest':'b'*64,'action':'revise',
+            'feedback':'legacy text','attachments':['asset'],'upstream_tasks':['first']})
+        self.assertEqual(legacy.input_batch.model_dump(),
+                         {'content':'legacy text','attachments':['asset'],'targets':['first']})
+
     def test_plan_creates_no_business_work_until_versioned_approval_and_fills_targets(self):
         from webapp.workflow_history import plan_confirmation_evidence
         run=self.stage();self.assertEqual(run['status'],'WAITING_USER');self.assertEqual(run['tasks'],[])

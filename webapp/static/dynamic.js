@@ -143,6 +143,7 @@ function renderDecisions(run){
      payload.feedback=element.querySelector('textarea').value.trim();if(!payload.feedback)throw new Error('请填写具体修改意见。');
      payload.attachments=[...element.querySelector('[data-feedback-assets]').selectedOptions].map(option=>option.value);
      payload.upstream_tasks=[...element.querySelector('[data-upstreams]').selectedOptions].map(option=>option.value);
+     payload.input_batch={content:payload.feedback,attachments:payload.attachments,targets:payload.upstream_tasks};
     }
     if(['plan_change','successor_authorization','new_run'].includes(d.kind)&&payload.action==='approve'){
      const fresh=await api(path('/runs/capabilities'));

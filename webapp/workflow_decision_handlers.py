@@ -227,6 +227,10 @@ def handle_feedback(controller,run,row,request,payload,request_id,actor,subject)
         raise ValueError('Decision does not support feedback')
     if not request_id:raise ValueError('Feedback requires an idempotency request ID')
     store=controller.store
+    batch=payload.get('input_batch') or {}
+    feedback=str(payload.get('feedback') or batch.get('content') or '')
+    attachments=list(payload.get('attachments') or batch.get('attachments') or [])
+    upstream_tasks=list(payload.get('upstream_tasks') or batch.get('targets') or [])
     from .run_inputs import accept,revision_closure
     context={'decision_id':row['id'],'decision_snapshot':row['snapshot_digest']}
     if row['kind']=='plan_confirmation':
@@ -237,7 +241,7 @@ def handle_feedback(controller,run,row,request,payload,request_id,actor,subject)
         if subject['user_revision_count']>=5:raise ValueError('User revision limit reached')
         context.update(subject_task=subject['id'],subject_revision=subject['revision'],
             candidate_digest=request['candidate_digest'],candidate=subject['candidate_result'],quality=subject['quality'],
-            allowed_revision_tasks=revision_closure(run,subject['id'],payload['upstream_tasks']))
+            allowed_revision_tasks=revision_closure(run,subject['id'],upstream_tasks))
         context['review_evidence']=[json.loads(item['decision_json']) for item in store.query(
             "SELECT decision_json FROM workflow_reviews WHERE run_id=? AND subject_task=? ORDER BY created_at DESC LIMIT 5",
             (run['id'],subject['id']))]
@@ -248,8 +252,8 @@ def handle_feedback(controller,run,row,request,payload,request_id,actor,subject)
         context['superseded_inputs']=[{'id':item['id'],'content':item['content'],'context':json.loads(item['context_json'])}
             for item in store.query("SELECT id,content,context_json FROM run_inputs WHERE run_id=? AND status='ACCEPTED'",(run['id'],))
             if item['id'] in invalid_inputs]
-    accept(store,run['id'],actor,{'request_id':request_id,'content':payload['feedback'],
-        'attachments':payload['attachments'],'source':'user' if row['kind'] in ('input_question','plan_confirmation') else 'quality_feedback'},context=context)
+    accept(store,run['id'],actor,{'request_id':request_id,'content':feedback,
+        'attachments':attachments,'source':'user' if row['kind'] in ('input_question','plan_confirmation') else 'quality_feedback'},context=context)
     if invalid_inputs:
         from .run_inputs import supersede_inputs
         supersede_inputs(store,run,invalid_inputs,'attachment_replaced_by_user')

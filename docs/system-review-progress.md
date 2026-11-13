@@ -376,3 +376,23 @@
 - 发现并修复 successor 的显式素材授权缺口：未确认 successor 收到用户选定素材时，绑定素材摘要并升级本轮授权；已确认 Run 不自动扩大权限。
 - 澄清卡展示上一轮仍存在的已授权素材并默认勾选，用户可以取消；避免用户必须猜测“复用素材”对应哪个内部字段。
 - 当前修复已通过输入/恢复/决策相关回归；待本轮专项清单补齐后，随完整门禁和真机恢复 case 一并验收。
+
+### 13.1 统一交互协议
+
+所有动态工作流介入统一使用 `DecisionAnswer`：
+
+```json
+{
+  "decision_id": "...",
+  "snapshot_digest": "...",
+  "action": "approve | revise | reject",
+  "input_batch": {
+    "content": "用户本轮明确说明",
+    "attachments": ["asset-id"],
+    "targets": ["task-id"]
+  },
+  "authorization": null
+}
+```
+
+`input_batch` 是文本、素材和目标步骤的唯一业务输入载体；`authorization` 只表达权限范围和预算，不由自然语言推断。决策卡与聊天框都生成同一结构，服务端按 `decision_id + snapshot_digest + request_id` 做幂等和快照校验。`feedback/attachments/upstream_tasks` 仅作为旧客户端解析兼容字段，服务端归一化后不再分叉处理。
