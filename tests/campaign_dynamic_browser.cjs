@@ -403,7 +403,12 @@ async function runCase(browser,spec){
     const until=Date.now()+360000;let selected;
     while(Date.now()<until){const observed=await fault('progress');selected=observed.attempts.find(a=>!a.control_kind&&a.status==='running'&&a.unit&&(hook==='submission_unknown'?observed.submitting.some(p=>p.attempt_id===a.id):a.retry_safe&&Date.now()/1000-a.started>2));if(selected)break;await page.waitForTimeout(750);}
     assert.ok(selected,'No eligible execution boundary was reached');stoppedWorker=selected.unit;state.interrupted_attempt=selected;await fault('stop_worker',stoppedWorker);await capture('worker-stopped');
-    if(hook==='submission_unknown'){run=await wait(w=>paused(w),240);assert.ok(run.tasks.some(t=>t.error_code==='submission_unknown'));state.outcome='protocol_passed';}
+    if(hook==='submission_unknown'){
+     run=await wait(w=>w.state==='WAITING_USER'&&w.tasks.some(t=>t.error_code==='submission_unknown')
+      &&w.decisions.some(d=>d.kind==='external_submission'),240);
+     const observed=await fault('progress');assert.equal(observed.provider_calls.length,1,'Unknown submission was replayed');
+     state.browser_assertions.push('Unknown external submission exposed an actionable decision without replay');state.outcome='protocol_passed';
+    }
     else{const end=Date.now()+240000;let taken=false;while(Date.now()<end){const observed=await fault('progress');if(observed.attempts.some(a=>a.step_id===selected.step_id&&a.generation>selected.generation&&a.node!==selected.node)){taken=true;break;}await page.waitForTimeout(1000);}assert.ok(taken,'No cross-node takeover was observed');state.browser_assertions.push('A different node recovered the interrupted task');}
     await fault('start_worker',stoppedWorker);stoppedWorker=null;
    }
