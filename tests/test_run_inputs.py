@@ -223,7 +223,7 @@ class RunInputTests(unittest.TestCase):
             'attachments':[asset_id]})
         current=graph.get(self.store,successor['id'])
         self.assertEqual([item['id'] for item in request['attachments']],[asset_id])
-        self.assertTrue(current['scope_confirmed'])
+        self.assertFalse(current['scope_confirmed'])
         self.assertEqual(current['authorization']['allowed_assets'],[asset_id])
         asset=next(item for item in self.store.assets(self.run['project_id']) if item['id']==asset_id)
         self.assertEqual(current['authorization']['allowed_asset_digests'][asset_id],graph.asset_digest(asset))
@@ -237,7 +237,7 @@ class RunInputTests(unittest.TestCase):
             'attachments':[asset_id]})
         successor=graph.get(self.store,received['run_id'])
         self.assertEqual(successor['parent_run_id'],self.run['id'])
-        self.assertTrue(successor['scope_confirmed'])
+        self.assertFalse(successor['scope_confirmed'])
         self.assertIn(asset_id,successor['authorization']['allowed_assets'])
         self.assertTrue(received['attachments'][0]['authorized'])
 

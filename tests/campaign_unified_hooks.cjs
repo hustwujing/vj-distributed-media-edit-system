@@ -180,12 +180,12 @@ async function before(c){
   assert.equal(repeated.id,accepted.id);
   if(hook==='successor_reusable_assets'){
    const created=await read();assert.notEqual(created.id,original.id);assert.equal(created.parent_run_id,original.id);
-   assert.equal(created.scope_confirmed,1);assert.ok(created.authorization.allowed_assets.includes(reusable[0]));
+   assert.equal(created.scope_confirmed,0);assert.ok(created.authorization.allowed_assets.includes(reusable[0]));
    const recorded=created.inputs.find(item=>item.id===accepted.id);assert.ok(recorded);
    assert.ok(recorded.attachments.some(item=>item.id===reusable[0]&&item.authorized));
    mark({original_run_id:original.id,successor_run_id:created.id,asset_id:reusable[0],input_id:accepted.id});
   }
-  if(accepted.run_id!==original.id&&hook!=='successor_reusable_assets'){
+  if(accepted.run_id!==original.id){
    const second=await api('POST',`/api/projects/${state.project}/runs/${original.id}/inputs`,{request_id:key(),content:'新一轮仍仅交付64×64 final.png，不扩展外部能力。'});
    assert.equal(second.run_id,accepted.run_id);
    const awaiting=await wait(r=>r.decisions.some(d=>d.kind==='successor_authorization'),900);

@@ -95,7 +95,6 @@ def accept(store,identifier,actor,raw,*,context=None):
             # Explicitly selected assets grant only those owned, digest-bound
             # inputs to that unconfirmed successor.
             from . import workflow_planning as planning
-            from .run_authorization import approve
             authorization=dict(run['authorization'])
             allowed=list(authorization.get('allowed_assets',[]))
             digests=dict(authorization.get('allowed_asset_digests',{}))
@@ -104,8 +103,12 @@ def accept(store,identifier,actor,raw,*,context=None):
                 digests[asset_id]=graph.asset_digest(owned[asset_id])
             authorization['allowed_assets']=allowed
             authorization['allowed_asset_digests']=digests
-            approve(store,run,planning.rebind_scope(store,authorization))
-            run=graph.get(store,run['id'])
+            bound=planning.rebind_scope(store,authorization).model_dump()
+            db.execute('UPDATE runs SET authorization_json=?,goal=?,updated_at=? WHERE id=? AND scope_confirmed=0',
+                       (graph.encode(bound),bound['goal'],store.now(),run['id']))
+            db.execute('UPDATE run_authorizations SET authorization_json=? WHERE run_id=? AND version=?',
+                       (graph.encode(bound),run['id'],run['authorization_version']))
+            run={**run,'authorization':bound}
             graph.event(store,run,'successor_input_scope_authorized',
                         {'input_attachments':list(request.attachments),
                          'authorization_version':run['authorization_version']})
