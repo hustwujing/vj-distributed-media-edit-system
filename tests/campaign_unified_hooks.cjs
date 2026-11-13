@@ -129,7 +129,8 @@ async function before(c){
    mark({attempt});state.outcome='protocol_passed';
   }finally{await fault('start_worker',attempt.unit);}
  }else if(hook==='feedback_cutout'||hook==='feedback_layout'){
-  const initial=await wait(r=>r.decisions.some(d=>d.kind==='quality'&&d.request.task_id==='render'),1200);
+  const initial=await wait(r=>r.decisions.some(d=>(d.kind==='quality'&&d.request.task_id==='render')
+   ||d.kind==='publication_checkpoint'),1200);
   state.unified_boundary.before=initial;persist();
   let edgeFeedback;
   if(hook==='feedback_cutout'){

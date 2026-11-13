@@ -5917,7 +5917,7 @@
       "assets": [
         "approved_subject.png"
       ],
-      "prompt": "使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由type=agent、profile=editing_implementer的source_cutout业务Task按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体；再由同类render业务Task按原字节复制为final.png，保留程序和Agent验收，并明确声明人工Review等待局部边缘修改意见，不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。Manager不得直接提交脚本或代码。",
+      "prompt": "使用已提供的512×512透明抠图approved_subject.png，不重新分割或生成主体。先由type=agent、profile=editing_implementer的source_cutout业务Task按原字节复制为foreground.png，保存为已验收非交付上游，程序验证尺寸、Alpha与非空主体；再由同类render业务Task按原字节复制为final.png，保留程序和Agent验收，并在顶层review_policy启用before_publish用户确认以等待局部边缘修改意见，任何Agent或Reviewer都不能代用户批准。后续反馈仅修订render，source_cutout及其字节必须复用。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 512,
@@ -5962,7 +5962,7 @@
         "portrait.png",
         "rocket.png"
       ],
-      "prompt": "先用两个image.local_adjust Task prepare_a、prepare_b将portrait.png、rocket.png分别brightness=1.1，作为已验收非交付中间图；再创建type=agent、profile=editing_implementer的render业务Task，由Agent在受限沙箱内以Pillow ImageOps.fit默认方法各适配为64×64，a左b右合成128×64 final.png。render声明人工Review等待构图意见，不能代用户批准。Manager不得直接提交脚本或代码。",
+      "prompt": "先用两个image.local_adjust Task prepare_a、prepare_b将portrait.png、rocket.png分别brightness=1.1，作为已验收非交付中间图；再创建type=agent、profile=editing_implementer的render业务Task，由Agent在受限沙箱内以Pillow ImageOps.fit默认方法各适配为64×64，a左b右合成128×64 final.png。顶层review_policy必须启用before_publish用户确认以等待构图意见，任何Agent或Reviewer都不能代用户批准。Manager不得直接提交脚本或代码。",
       "expect": {
         "kind": "image",
         "width": 128,
