@@ -180,8 +180,11 @@ async function runCase(browser,spec){
   await assets.evaluate((node,values)=>{const selected=new Set(values);for(const option of node.options)option.selected=selected.has(option.value);node.dispatchEvent(new Event('change',{bubbles:true}));},attachments);
   await selectOptional(page.locator('#dynamic-input-targets'),targets);
   const response=page.waitForResponse(r=>r.url().endsWith(`/runs/${origin}/inputs`)&&r.request().method()==='POST');
+  await page.waitForFunction(()=>document.body.dataset.uploading!=='true'&&!document.querySelector('#dynamic-input-submit')?.disabled);
   await capture('input-before-'+state.events.length);await page.locator('#dynamic-input-submit').click();
-  const result=await response;assert.equal(result.status(),202,await result.text());const input=await result.json();state.last_input_request=result.request().postDataJSON();
+  let result=await Promise.race([response,page.locator('#dynamic-error').filter({hasText:'变化'}).waitFor({state:'visible',timeout:60000}).then(()=>null)]);
+  if(!result){await capture('input-content-refresh-'+state.events.length);state.events.push({action:'reconfirm_refreshed_input',at:Date.now()/1000});persist();await page.waitForFunction(()=>!document.querySelector('#dynamic-input-submit')?.disabled);await page.locator('#dynamic-input-submit').click();result=await response;}
+  assert.equal(result.status(),202,await result.text());const input=await result.json();state.last_input_request=result.request().postDataJSON();
   (state.inputs??=[]).push(input);state.events.push({action:'input_accepted',input_id:input.id,sequence:input.sequence,run_id:input.run_id,at:Date.now()/1000});
   if(input.run_id!==state.run_id){state.run_id=input.run_id;state.execute_id=input.run_id;state.run_ids.push(input.run_id);state.task_ids.push(input.run_id);}
   persist();return input;
