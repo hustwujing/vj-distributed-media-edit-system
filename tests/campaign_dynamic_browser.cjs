@@ -179,7 +179,7 @@ async function runCase(browser,spec){
  };
  activeStops.add(cancelForInterrupt);
  const feedback=async(content,attachments=[])=>{
-  run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
+  run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question','publication_checkpoint'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
   if(!state.feedback_baseline&&decision.request.task_id&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
   if(content.includes('{{edge_patch_box}}')){
    assert.ok(state.feedback_baseline,'Local edge feedback requires the original candidate');
@@ -314,8 +314,8 @@ async function runCase(browser,spec){
     if(initialVideo)initial+='export 必须在 prepare_a、prepare_b、clip 三个准备节点都验收成功后开始，显式声明这三个依赖，供在途修改时核对已验收成果复用。';
     initial+='export 声明 retry_policy=safe_once，正式处理前等待20秒。';
     if(spec.id==='R14')initial+='export 写完 final.png 后，打印一行 JSON {"type":"step_progress","text":"QA_EXPORT_OUTPUT_READY"} 并 flush，再等待30秒才结束。';
-    initial+=gated?'export 必须声明 review 人工验收，等待我决定。':'最后通过程序和最终验收交付。';
-    if(spec.id==='R17')initial='先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG，必须声明 review 人工验收；待我确认后才交付。';
+    initial+=gated?'计划必须设置 review_policy.user_checkpoint enabled=true、stage=before_publish，并写清待发布成果；技术和最终审查通过后等待我确认发布。':'最后通过程序和最终验收交付。';
+    if(spec.id==='R17')initial='先用 image.local_adjust 将 portrait.png 亮度调为1.1，保存 prepare_a 可复用成果；再生成64×48 PNG；计划必须设置 review_policy.user_checkpoint enabled=true、stage=before_publish，并在技术和最终审查通过后等待我确认发布。';
    }
    await start(initial,intervention?(initialVideo?'4秒128×64 MP4及128×64封面PNG':spec.id==='R17'?'64×48 PNG':'128×64双图PNG'):targetText(spec));
    const hook=spec.dynamic_hook;
@@ -428,7 +428,7 @@ async function runCase(browser,spec){
     await approve('approve');assert.notEqual(state.run_id,original);
     state.revision_input=accepted;state.new_scope_boundary={original_run_id:original,successor_run_id:state.run_id,asset_id:asset};persist();
    }else if(intervention&&['R04','R05','R06','R07','R08','R11','R15'].includes(spec.id)){
-    if(['R11','R15'].includes(spec.id))run=await wait(w=>deciding(w),600);
+    if(['R11','R15'].includes(spec.id))run=await wait(w=>w.decisions.some(d=>d.kind==='publication_checkpoint'),600);
     else if(['R04','R05','R06'].includes(spec.id))run=await wait(w=>w.tasks.some(task=>task.id==='staging'&&task.status==='running'),600);
     else run=await wait(unified.videoInterventionReady,600);
     recordSources(run);state.same_run_revision=true;const originalRun=run.id;
@@ -438,8 +438,8 @@ async function runCase(browser,spec){
      R06:'同一目标内，把prepare_a的来源替换为已授权rocket.png并做brightness=1.1，程序验收使用新素材的原尺寸。保持prepare_a逻辑ID并创建新revision，prepare_b保持不变，受影响下游重算，最终仍按Pillow ImageOps.fit默认方法各64×64并排成128×64 final.png。',
      R07:'保持视频和全部原验收要求，只把export的cover.png换为已验收prepare_b，以Pillow ImageOps.fit默认方法做128×64封面。修订export的实现和必要输入/依赖，不重新处理clip或两张准备图。仍交付final.mp4与cover.png，主交付是视频。',
      R08:'保持原视频、音频、封面及全部尺寸时长，在export视频左上角(2,2)增加黄色QA字幕，字号20。修订export的实现，保留clip及准备图的原revision。仍交付final.mp4和cover.png，主交付是视频。',
-     R11:'请在当前128×64拼图上用Pillow ImageDraw.rectangle画4像素纯红色内边框，包含四个角。保持原目标、素材和技术验收，给export创建新revision；prepare_a、prepare_b不要重算。保留原人工Review，待用户复核新版；仍须通过原技术检查、必要Agent验收及Final Review。',
-     R15:'请保持原128×64拼图内容与像素算法不变，给export创建一个新revision重新输出final.png，prepare_a、prepare_b保持原revision。保留原人工Review，待用户复核新版；仍需技术与最终验收。'};
+     R11:'请在当前128×64拼图上用Pillow ImageDraw.rectangle画4像素纯红色内边框，包含四个角。保持原目标、素材和技术验收，给export创建新revision；prepare_a、prepare_b不要重算。保留发布前user_checkpoint，待用户复核新版；仍须通过原技术检查、必要Agent验收及Final Review。',
+     R15:'请保持原128×64拼图内容与像素算法不变，给export创建一个新revision重新输出final.png，prepare_a、prepare_b保持原revision。保留发布前user_checkpoint，待用户复核新版；仍需技术与最终验收。'};
     const input=['R11','R15'].includes(spec.id)?await feedback(messages[spec.id]):await appendInput(messages[spec.id],[],['R05','R06'].includes(spec.id)?['prepare_a']:['export']);
     if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
     const allowedDecisions=revisionDecisionKinds(spec);
@@ -472,7 +472,11 @@ async function runCase(browser,spec){
     assert.ok(sources.length>= (spec.id==='R17'?1:2));
     const selected=[];for(const task of sources.filter(t=>!['R05','R06'].includes(spec.id)||t.id==='prepare_b'))selected.push(await reuse(task));
     if(spec.assets.includes('clip_a.mp4')){const clip=run.tasks.find(t=>t.id==='clip'&&t.status==='succeeded');assert.ok(clip,'Accepted clip required for reuse');selected.push(await reuse(clip));}
-    if(gated){await approve('reject');await wait(w=>paused(w));}
+    if(gated){
+     run=await wait(w=>w.decisions.some(d=>d.kind==='publication_checkpoint'),1200);
+     const checkpoint=run.decisions.find(d=>d.kind==='publication_checkpoint');
+     await approve('reject',checkpoint.id);await wait(w=>paused(w));
+    }
     if(spec.id==='R13'){await control('pause');await wait(w=>paused(w));}
     if(!terminal((await read()).state)){await control('cancel');await wait(w=>terminal(w.state));}
     await page.reload({waitUntil:'domcontentloaded'});await page.waitForFunction(runId=>document.querySelector('#dynamic-current')?.dataset.runId===runId&&!document.querySelector('#dynamic-run-tools')?.hidden,state.run_id);await page.locator('#dynamic-new-run').click();await page.waitForFunction(()=>document.querySelector('#dynamic-input-form')?.dataset.run==='new');await page.locator('#dynamic-input-form').waitFor({state:'visible'});
