@@ -121,6 +121,11 @@ function renderDecisions(run){
    if(draft){element.querySelector('textarea').value=draft.text;for(const option of select.options)option.selected=draft.assets.includes(option.value);}
    else if(d.kind==='input_question'&&Array.isArray(d.request.reusable_assets)){
     for(const option of select.options)option.selected=d.request.reusable_assets.includes(option.value);
+    const composer=$('dynamic-input-assets');
+    if(composer&&!composer.dataset.reusableAssetsDecision){
+     for(const option of composer.options)option.selected=d.request.reusable_assets.includes(option.value);
+     composer.dataset.reusableAssetsDecision=d.id;renderAttachmentChips();saveInputDraft();
+    }
    }
    const ancestors=new Set(),pending=[d.request.task_id];while(pending.length){const child=pending.pop();for(const edge of run.dependencies)if(edge.downstream_task_id===child&&!ancestors.has(edge.upstream_task_id)){ancestors.add(edge.upstream_task_id);pending.push(edge.upstream_task_id);}}
    const upstreams=element.querySelector('[data-upstreams]');for(const id of ancestors){const option=document.createElement('option');option.value=id;option.textContent=run.tasks.find(task=>task.id===id)?.spec.name||id;upstreams.append(option);}

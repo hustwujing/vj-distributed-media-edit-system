@@ -156,6 +156,7 @@ test('successor clarification preselects reusable authorized assets and labels t
  assert.match(source,/d\.request\.reusable_assets\?\.length\?'可复用素材（可取消）'/);
  assert.match(source,/d\.kind==='input_question'&&Array\.isArray\(d\.request\.reusable_assets\)/);
  assert.match(source,/d\.request\.reusable_assets\.includes\(option\.value\)/);
+ assert.match(source,/composer\.dataset\.reusableAssetsDecision=d\.id/);
 });
 
 test('synchronous unknown submissions never render an external id field',()=>{
