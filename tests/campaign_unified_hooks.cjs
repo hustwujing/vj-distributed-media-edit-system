@@ -99,7 +99,10 @@ async function before(c){
    hook==='drain_sync'?item.state==='submitting'&&item.route_adapter==='openai_images':
     item.external_id&&['running','submitted','waiting'].includes(item.state));return Boolean(call);},600);
   if(hook!=='drain_sync')assert.equal(call.provider_identity,'wan','This case requires the actual Wan adapter');
-  await input();mark({provider_before:call});
+  const change=hook==='drain_sync'
+   ?'保持当前外部图片生成请求及句柄不变，完成后复用其已验收结果新增本地后处理，给最终图片增加2像素纯红色内边框；不要取消或重放当前生成请求。'
+   :'保持当前Wan视频生成请求、提示词及句柄不变，完成后复用其已验收视频新增本地后处理，在左上角(2,2)添加黄色QA文字；不要取消或重放当前Wan请求。';
+  await input(change);mark({provider_before:call});
   if(hook==='frozen_route'){
    await fault('switch_provider_route');state.unified_boundary.route_switched=true;persist();
   }
@@ -158,7 +161,16 @@ async function before(c){
   const stale=await api('POST',`/api/projects/${state.project}/runs/${run.id}/commands`,{
    request_id:key(),action:'answer',payload:{decision_id:decision.id,snapshot_digest:decision.snapshot_digest,action:'approve'}});
   run=await wait(r=>r.commands.some(x=>x.id===stale.id&&x.status==='rejected'),120);
-  assert.equal(run.inputs.filter(i=>i.id===accepted.id).length,1);mark({decision_id:decision.id,input_id:accepted.id,stale_command:stale.id,draft_restored:true});
+  assert.equal(run.inputs.filter(i=>i.id===accepted.id).length,1);
+  run=await wait(r=>r.decisions.some(d=>d.kind==='plan_change')||r.tasks.some(t=>t.id==='render'&&t.revision>0),600);
+  const policy=run.decisions.find(d=>d.kind==='plan_change');
+  if(policy){
+   const proposed=policy.request.authorization;
+   assert.equal(proposed.goal,run.goal);assert.deepEqual(proposed.delivery_targets,run.authorization.delivery_targets);
+   assert.equal(proposed.review_policy.user_checkpoint.enabled,true);
+   await approve('approve',policy.id);
+  }
+  mark({decision_id:decision.id,input_id:accepted.id,stale_command:stale.id,draft_restored:true,policy_confirmation:policy?.id||null});
  }else if(hook==='no_waiver'){
   let run=await wait(r=>r.reviews.some(d=>d.purpose==='task'&&d.status==='rejected'),900);
   const rejectedReview=run.reviews.find(d=>d.purpose==='task'&&d.status==='rejected');
