@@ -665,12 +665,13 @@ def compile_manager(command,frozen):
                     parameters=available[index].get('parameters',{})
                     if request['mode']!='auto' and parameters.get('mode','auto')!=request['mode']:continue
                     if request.get('offset') is not None and parameters.get('offset')!=request['offset']:continue
+                    if request.get('reference_offset') is not None and parameters.get('reference_offset')!=request['reference_offset']:continue
                     if request.get('window_seconds') is not None and parameters.get('window_seconds')!=request['window_seconds']:continue
                     if request.get('crop') is not None and parameters.get('crop')!=request['crop']:continue
                     matched=index;break
                 if matched is None:
                     raise CommandError('missing_evidence_coverage','plan.new_tasks',
-                        'Add one media.evidence Task matching every structured missing_evidence item, including exact mode, time window and crop. Missing: '+request['fact'][:300])
+                        'Add one media.evidence Task matching every structured missing_evidence item, including exact mode, candidate/reference time window and crop. Missing: '+request['fact'][:300])
                 unused.remove(matched)
         changed={task['id'] for task in added}|revised_ids
         changed|={identifier for identifier in plan.get('review_again',{}) if identifier in current}
@@ -955,7 +956,7 @@ class ToolProtocol:
         if 'submit_typed_plan' in self.schemas:
             context['model_command_contract']['repair_options']=repair_options(self.frozen)
             if any(item.get('missing_evidence') for item in context['model_command_contract']['repair_options']):
-                context['model_command_contract']['evidence_contract']='Create one separate media.evidence Task for every structured missing_evidence item. Copy mode, offset, window_seconds and crop exactly; never merge disjoint time windows or assume a generic contact sheet covers them.'
+                context['model_command_contract']['evidence_contract']='Create one separate media.evidence Task for every structured missing_evidence item. Copy mode, offset, reference_offset, window_seconds and crop exactly; never merge disjoint time windows or assume a generic contact sheet covers them.'
             context['model_command_contract']['task_repair_budgets']={task['id']:{
                 'automatic_remaining':graph.revision_budget_remaining(task),
                 'user_revision_remaining':graph.revision_budget_remaining(task,True)} for task in self.frozen.get('tasks',[])}

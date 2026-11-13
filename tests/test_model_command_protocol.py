@@ -1253,6 +1253,17 @@ class ModelCommandTests(unittest.TestCase):
         timed=ReviewDecision.model_validate({**decoded,'missing_evidence':[{
             'fact':'Inspect the third second of a video','mode':'video_window','offset':3.0,'window_seconds':1.0}]})
         self.assertEqual(timed.missing_evidence[0].mode,'video_window')
+        with self.assertRaises(ValueError):
+            ReviewDecision.model_validate({**decoded,'missing_evidence':[{
+                'fact':'Compare a twelve second pitch range','mode':'audio_compare','offset':9.0,
+                'reference_offset':12.0,'window_seconds':12.0}]})
+        with self.assertRaisesRegex(ValueError,'reference_offset'):
+            ReviewDecision.model_validate({**decoded,'missing_evidence':[{
+                'fact':'Compare candidate and source pitch','mode':'audio_compare','offset':1.0,'window_seconds':2.0}]})
+        compared=ReviewDecision.model_validate({**decoded,'missing_evidence':[{
+            'fact':'Compare candidate and source pitch','mode':'audio_compare','offset':1.0,
+            'reference_offset':3.0,'window_seconds':2.0}]})
+        self.assertEqual(compared.missing_evidence[0].reference_offset,3.0)
         with self.assertRaises(ValueError):ReviewDecision.model_validate({**decoded,'verdict':'pass'})
 
     def test_review_method_facts_are_required_and_cannot_support_a_false_pass(self):
