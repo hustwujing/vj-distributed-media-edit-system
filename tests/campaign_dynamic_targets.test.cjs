@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict');
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision,deliveryAmendmentMatches}=require('./campaign_dynamic_targets.cjs');
 
 test('image authorization includes every structured output class',()=>{
@@ -33,4 +33,9 @@ test('amended plan confirmation preserves old targets and adds only declared fil
  assert.equal(deliveryAmendmentMatches(existing,request,['final.jpg']),true);
  assert.equal(deliveryAmendmentMatches(existing,{...request,delivery_targets:[...request.delivery_targets,'extra.mov']},['final.jpg']),false);
  assert.equal(deliveryAmendmentMatches(existing,{delivery_scope_changed:false,delivery_targets:existing},[]),true);
+});
+
+test('the executable R04 case declares its expected delivery addition',()=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/real-case-campaign/dynamic-cases.json')));
+ assert.deepEqual(manifest.cases.find(item=>item.id==='R04').intervention_expected_delivery_additions,['final.jpg']);
 });

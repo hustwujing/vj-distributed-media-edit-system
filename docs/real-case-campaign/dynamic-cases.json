@@ -394,10 +394,7 @@
       "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
     },
     {
-    "id": "R04",
-    "intervention_expected_delivery_additions": [
-      "final.jpg"
-    ],
+      "id": "R04",
       "title": "部分完成时追加输出格式",
       "decision": "修改干预协议，保留用户目标",
       "reason": "不再插入旧 Plan/Step 状态；通过实际浏览器创建和控制任务。已开始节点不改写；变更目标需要新授权，原产物哈希与旧租约不变。"
@@ -3518,6 +3515,9 @@
     },
     {
       "id": "R04",
+      "intervention_expected_delivery_additions": [
+        "final.jpg"
+      ],
       "complexity": "intervention",
       "title": "部分完成时追加输出格式",
       "assets": [
