@@ -158,7 +158,7 @@ async function runCase(browser,spec){
   }
   save(path.join(directory,'plan-confirmation-'+decision.id+'.json'),decision);
   assert.ok(deliveryAmendmentMatches(snapshot.authorization.delivery_targets,decision.request,expectedAdditions,
-   spec.intervention_expected_delivery_filenames||[]),
+   expectedAdditions.length?(spec.intervention_expected_delivery_filenames||[]):[]),
    'Campaign confirmation changed delivery scope outside the explicit structured fixture amendment');
   for(const step of decision.request.steps){
    if(step.type==='operation')assert.ok(snapshot.authorization.allowed_operations.includes(step.operation));
