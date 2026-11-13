@@ -305,7 +305,7 @@ class NativeRunnerTests(unittest.TestCase):
         bridge.handle(AgentEvent('tool.output','cmd',{'delta':'noise\n{\"type\":\"step_pro'}))
         bridge.handle(AgentEvent('tool.output','cmd',{'delta':'gress\",\"text\":\"OUTPUT_READY\"}\n'}))
         bridge.handle(AgentEvent('tool.completed','cmd',{'item':{'aggregatedOutput':
-            '{\"type\":\"step_progress\",\"text\":\"OUTPUT_READY\"}\n'}}))
+            json.dumps({'stdout':'{\"type\":\"step_progress\",\"text\":\"OUTPUT_READY\"}\n','stderr':''})}}))
         checkpoint.assert_called_once_with();publish.assert_called_once_with('OUTPUT_READY',{
             'final.png':{'sha256':'a'*64,'size':1}})
 

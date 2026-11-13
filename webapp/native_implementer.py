@@ -16,7 +16,11 @@ class RequiredProgressBridge:
     def handle(self,event):
         if not self.required or event.kind not in ('tool.output','tool.completed'):return
         if event.kind=='tool.output':chunk=event.data.get('delta','')
-        else:chunk=(event.data.get('item') or {}).get('aggregatedOutput','')
+        else:
+            chunk=(event.data.get('item') or {}).get('aggregatedOutput','')
+            try:completed=json.loads(chunk)
+            except (TypeError,ValueError):completed=None
+            if isinstance(completed,dict) and isinstance(completed.get('stdout'),str):chunk=completed['stdout']
         if not isinstance(chunk,str) or not chunk:return
         key=event.id or '_';value=(self.buffers.get(key,'')+chunk)[-8192:]
         lines=value.split('\n');self.buffers[key]=lines.pop()
