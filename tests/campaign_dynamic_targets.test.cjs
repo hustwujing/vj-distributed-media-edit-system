@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {targetText,initialPlanApprovalRequired}=require('./campaign_dynamic_targets.cjs');
+const {targetText,initialPlanApprovalRequired,revisionDecisionKinds}=require('./campaign_dynamic_targets.cjs');
 
 test('image authorization includes every structured output class',()=>{
  const text=targetText({expect:{kind:'image',width:1600,height:600,min_images:2,extra_alpha:true,extra_extension:'.ora'}});
@@ -14,4 +14,9 @@ test('explicit target remains authoritative',()=>{
 test('gated intervention cases approve the initial plan before observing work',()=>{
  for(const id of ['R01','R02','R03','R11','R15','R17'])assert.equal(initialPlanApprovalRequired({id}),true,id);
  for(const id of ['R04','R10','D01'])assert.equal(initialPlanApprovalRequired({id}),false,id);
+});
+
+test('same-run revision decisions follow structured delivery changes',()=>{
+ assert.deepEqual([...revisionDecisionKinds({expect:{kind:'image'}})],['plan_confirmation']);
+ assert.deepEqual([...revisionDecisionKinds({expect:{kind:'image',min_images:2}})],['plan_confirmation','plan_change']);
 });

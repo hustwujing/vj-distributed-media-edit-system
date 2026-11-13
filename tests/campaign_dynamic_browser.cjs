@@ -45,7 +45,7 @@ const interrupt=signal=>{
  stopPromise=Promise.allSettled([...activeStops].map(stop=>stop(signal)));
 };
 process.on('SIGINT',()=>interrupt('SIGINT'));process.on('SIGTERM',()=>interrupt('SIGTERM'));
-const {targetText,initialPlanApprovalRequired}=require('./campaign_dynamic_targets.cjs');
+const {targetText,initialPlanApprovalRequired,revisionDecisionKinds}=require('./campaign_dynamic_targets.cjs');
 
 async function runCase(browser,spec){
  const parent=path.join(ROOT,'runs',spec.id);fs.mkdirSync(parent,{recursive:true,mode:0o700});
@@ -442,8 +442,17 @@ async function runCase(browser,spec){
      R15:'请保持原128×64拼图内容与像素算法不变，给export创建一个新revision重新输出final.png，prepare_a、prepare_b保持原revision。保留原人工Review，待用户复核新版；仍需技术与最终验收。'};
     const input=['R11','R15'].includes(spec.id)?await feedback(messages[spec.id]):await appendInput(messages[spec.id],[],['R05','R06'].includes(spec.id)?['prepare_a']:['export']);
     if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
-    run=await wait(w=>w.inputs.some(item=>item.id===input.id&&item.status==='APPLIED')||deciding(w),900);
-    if(deciding(run))throw Object.assign(Error('Unexpected scope or clarification decision during the already authorized revision'),{model:true});
+    const allowedDecisions=revisionDecisionKinds(spec);
+    for(let round=0;round<5;round++){
+     run=await wait(w=>w.inputs.some(item=>item.id===input.id&&item.status==='APPLIED')||deciding(w),900);
+     if(run.inputs.some(item=>item.id===input.id&&item.status==='APPLIED'))break;
+     const decision=run.decisions[0];
+     if(!allowedDecisions.has(decision.kind))throw Object.assign(Error('Unexpected scope or clarification decision during the authorized revision: '+decision.kind),{model:true});
+     if(decision.kind==='plan_confirmation')assert.equal(await approvePlannedWork(run),true);
+     else await approve('approve',decision.id);
+     run=await read();
+    }
+    assert.ok(run.inputs.some(item=>item.id===input.id&&item.status==='APPLIED'),'Revision input did not become APPLIED after bounded confirmations');
     assert.equal(run.id,originalRun);state.revision_input=input;state.browser_assertions.push('Feedback used the same Run inbox and drained existing work before replanning');persist();
    }else   if(intervention){
     if(['R10','R12','R16'].includes(spec.id)){

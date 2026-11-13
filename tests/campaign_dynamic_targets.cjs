@@ -11,5 +11,6 @@ function targetText(spec){
 
 const GATED_INTERVENTIONS=new Set(['R01','R02','R03','R11','R15','R17']);
 const initialPlanApprovalRequired=spec=>GATED_INTERVENTIONS.has(spec.id);
+const revisionDecisionKinds=spec=>new Set(['plan_confirmation',...(spec.expect?.min_images>1?['plan_change']:[])]);
 
-module.exports={targetText,initialPlanApprovalRequired};
+module.exports={targetText,initialPlanApprovalRequired,revisionDecisionKinds};
