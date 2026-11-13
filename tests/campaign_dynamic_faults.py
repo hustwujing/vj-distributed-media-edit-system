@@ -141,12 +141,27 @@ def kill_frozen_attempt(unit,attempt,observe,runtime=cluster):
         runtime.run(['systemctl','kill','--kill-who=main','--signal=SIGCONT',unit],check=False)
 
 
+def interfering_runs(store,project):
+    """Return other Runs with an actor or transition that a global fault could disturb."""
+    return store.query("""SELECT r.id FROM runs r
+      WHERE r.project_id<>? AND r.status NOT IN ('SUCCEEDED','FAILED','CANCELLED') AND (
+        r.status<>'WAITING_USER'
+        OR EXISTS(SELECT 1 FROM run_tasks t WHERE t.run_id=r.id
+          AND t.status IN ('ready','leased','running','waiting','retry_wait','reviewing'))
+        OR EXISTS(SELECT 1 FROM control_jobs c WHERE c.run_id=r.id
+          AND c.status IN ('ready','leased','running','waiting','retry_wait','reviewing'))
+        OR EXISTS(SELECT 1 FROM execution_leases l WHERE l.run_id=r.id AND l.active=1 AND l.expires>?)
+        OR EXISTS(SELECT 1 FROM workflow_commands c WHERE c.run_id=r.id AND c.status='pending')
+        OR EXISTS(SELECT 1 FROM execution_cleanup c WHERE c.task_id=r.id AND c.state<>'complete'))
+      ORDER BY r.id LIMIT 20""",(project,store.now()))
+
+
 def act(directory,action,unit=None,attempt=None):
     directory,state,release,store=configure(directory)
     restoring=action.startswith('start_') or action in ('stop_second_orchestrator','restore_object','release_workers','restore_provider_route')
     if not restoring:
-        other=store.query("SELECT id FROM runs WHERE project_id<>? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(state['project'],))
-        if other:raise ValueError('Fault injection requires other workflows to be quiescent')
+        other=interfering_runs(store,state['project'])
+        if other:raise ValueError('Fault injection requires other workflows to be quiescent: '+','.join(row['id'] for row in other))
         if (release['sha256'],release.get('config_sha256'))!=(state['release']['sha256'],state['release'].get('config_sha256')):
             raise ValueError('Deployment source or configuration changed during this case')
     before={name:cluster.active(name) for name in cluster.SERVICES}
