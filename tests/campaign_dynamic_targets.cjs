@@ -13,14 +13,18 @@ const GATED_INTERVENTIONS=new Set(['R01','R02','R03','R11','R15','R17']);
 const initialPlanApprovalRequired=spec=>GATED_INTERVENTIONS.has(spec.id);
 const revisionDecisionKinds=spec=>new Set(['plan_confirmation',...(spec.intervention_expected_delivery_additions?.length?['plan_change']:[])]);
 const nextRevisionDecision=decisions=>decisions.find(item=>item.kind==='plan_change')||decisions.find(item=>item.kind==='plan_confirmation')||decisions[0];
-function deliveryAmendmentMatches(existing,request,expectedFilenames=[]){
- if(!request.delivery_scope_changed)return expectedFilenames.length===0&&JSON.stringify(request.delivery_targets)===JSON.stringify(existing);
+function sameNames(left,right){return JSON.stringify([...left].sort())===JSON.stringify([...right].sort());}
+function deliveryAmendmentMatches(existing,request,expectedAdditions=[],expectedFilenames=[]){
+ const contractFilenames=request.delivery_contract?.filenames||[];
+ const exactContract=!expectedFilenames.length||sameNames(contractFilenames,expectedFilenames);
+ if(!request.delivery_scope_changed)return exactContract&&JSON.stringify(request.delivery_targets)===JSON.stringify(existing)
+  &&(expectedAdditions.length===0||expectedAdditions.every(name=>contractFilenames.includes(name)));
  const previous=request.previous_delivery_targets||[],proposed=request.delivery_targets||[];
  if(JSON.stringify(existing)!==JSON.stringify(previous)&&JSON.stringify(existing)!==JSON.stringify(proposed))return false;
  if(!previous.every(target=>proposed.includes(target)))return false;
  const added=proposed.filter(target=>!previous.includes(target));
- return added.length===expectedFilenames.length&&expectedFilenames.every(name=>
-  added.some(target=>target.includes(name))&&(request.delivery_contract?.filenames||[]).includes(name));
+ return exactContract&&added.length===expectedAdditions.length&&expectedAdditions.every(name=>
+  added.some(target=>target.includes(name))&&contractFilenames.includes(name));
 }
 
 module.exports={targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision,deliveryAmendmentMatches};

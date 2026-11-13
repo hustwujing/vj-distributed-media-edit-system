@@ -156,14 +156,15 @@ async function runCase(browser,spec){
     missingProgress.map(([taskId,events])=>`${taskId}=${JSON.stringify(events)}`).join('；')+'。事件必须在对应持久输出完整写入后发出。');
    return true;
   }
-  assert.ok(deliveryAmendmentMatches(snapshot.authorization.delivery_targets,decision.request,expectedAdditions),
+  save(path.join(directory,'plan-confirmation-'+decision.id+'.json'),decision);
+  assert.ok(deliveryAmendmentMatches(snapshot.authorization.delivery_targets,decision.request,expectedAdditions,
+   spec.intervention_expected_delivery_filenames||[]),
    'Campaign confirmation changed delivery scope outside the explicit structured fixture amendment');
   for(const step of decision.request.steps){
    if(step.type==='operation')assert.ok(snapshot.authorization.allowed_operations.includes(step.operation));
    if(step.type==='agent')assert.ok(snapshot.authorization.allowed_agent_profiles.includes(step.profile));
   }
   if(snapshot.graph_version===0)assert.equal(snapshot.tasks.length,0,'Business work existed before initial approval');
-  save(path.join(directory,'plan-confirmation-'+decision.id+'.json'),decision);
   state.browser_assertions.push('Explicit plan confirmation matched frozen fixture scope before business work');
   await approve('approve',decision.id);return true;
  }

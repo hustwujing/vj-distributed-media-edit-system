@@ -3518,6 +3518,10 @@
       "intervention_expected_delivery_additions": [
         "final.jpg"
       ],
+      "intervention_expected_delivery_filenames": [
+        "final.png",
+        "final.jpg"
+      ],
       "complexity": "intervention",
       "title": "部分完成时追加输出格式",
       "assets": [
