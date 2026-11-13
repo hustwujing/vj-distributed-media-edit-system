@@ -181,7 +181,7 @@ async function runCase(browser,spec){
  activeStops.add(cancelForInterrupt);
  const feedback=async(content,attachments=[])=>{
   run=await read();const decision=run.decisions.find(item=>['quality','quality_feedback','input_question','publication_checkpoint'].includes(item.kind));assert.ok(decision,'A feedback decision must exist');
-  if(!state.feedback_baseline&&decision.request.task_id&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
+  if(!state.feedback_baseline&&['R11','R15','D28','D36','D37'].includes(spec.id)){state.feedback_baseline=await downloadCandidate(run,decision,'feedback-original.png');persist();}
   if(content.includes('{{edge_patch_box}}')){
    assert.ok(state.feedback_baseline,'Local edge feedback requires the original candidate');
    const original=path.join(directory,state.feedback_baseline.file);
@@ -198,11 +198,15 @@ async function runCase(browser,spec){
   (state.inputs??=[]).push(input);state.events.push({action:'feedback_accepted',decision_id:decision.id,input_id:input.id,sequence:input.sequence,at:Date.now()/1000});persist();return input;
  };
  async function downloadCandidate(snapshot,decision,name,forApproval=false){
-  const task=snapshot.tasks.find(item=>item.id===decision.request.task_id);assert.ok(task&&task.revision===decision.request.revision);
+  const requested=decision.request.primary||decision.request.deliverables?.[0];
+  const matching=requested?snapshot.tasks.filter(item=>item.candidate_result.some(value=>value===requested||value.split('/').at(-1)===requested)):[];
+  const task=decision.request.task_id?snapshot.tasks.find(item=>item.id===decision.request.task_id):matching.length===1?matching[0]:null;
+  assert.ok(task&&(decision.request.revision==null||task.revision===decision.request.revision),'Decision candidate must resolve to one current Task revision');
   assert.ok(task.quality.technical_valid,'Technical failure cannot be approved');
-  if(forApproval){assert.ok(task.spec.acceptance.some(rule=>rule.kind==='review'),'Only a declared user Review can be approved');
+  if(forApproval){assert.ok(decision.kind==='publication_checkpoint'||task.spec.acceptance.some(rule=>rule.kind==='review'),'Only a publication checkpoint or declared user Review can be approved');
    assert.ok(!task.quality.requires_agent||task.quality.agent_review_passed,'Agent refusal cannot be approved');}
-  const file=task.candidate_result.find(value=>spec.manual_review==='video'?/\.(mp4|mov|mkv|webm)$/i.test(value):value.endsWith('.png'));
+  const file=task.candidate_result.find(value=>requested&&(value===requested||value.split('/').at(-1)===requested))||
+   task.candidate_result.find(value=>spec.manual_review==='video'?/\.(mp4|mov|mkv|webm)$/i.test(value):value.endsWith('.png'));
   assert.ok(file,`A declared ${spec.manual_review==='video'?'video':'PNG'} candidate is required`);
   const response=await context.request.get(BASE+`/api/projects/${state.project}/runs/${snapshot.id}/tasks/${task.id}/file?file=${encodeURIComponent(file)}`);
   assert.equal(response.status(),200);const data=await response.body();assert.ok(data.length<=20*1024*1024);
@@ -235,7 +239,7 @@ async function runCase(browser,spec){
    if(signature!==lastCapture){lastCapture=signature;save(path.join(directory,'workflow-latest.json'),run);persist();if(state.events.filter(e=>e.action==='snapshot').length<40){await capture('stage-'+String(state.events.length).padStart(3,'0'));state.events.push({action:'snapshot',status:run.state,graph_version:run.graph_version,at:Date.now()/1000});}}
    if(terminal(run.state))return run;
    if(deciding(run)){
-    const quality=run.decisions.find(d=>d.kind==='quality');
+    const quality=run.decisions.find(d=>d.kind==='quality'||(d.kind==='publication_checkpoint'&&['R11','R15','D28','D36','D37'].includes(spec.id)));
     if(quality){
      if(await reviewRevisedCandidate(run,quality)){await page.waitForTimeout(1000);continue;}
      if(spec.manual_review==='video'){
