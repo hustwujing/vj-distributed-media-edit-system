@@ -242,10 +242,11 @@ def act(directory,action,unit=None,attempt=None):
     elif action=='delete_input_asset':
         if state['case']!='D48':raise ValueError('Attachment deletion is reserved for D48')
         rows=store.query("""SELECT i.id,i.attachments_json FROM run_inputs i JOIN runs r ON r.id=i.run_id
-            WHERE r.project_id=? AND i.status='ACCEPTED' ORDER BY i.sequence DESC LIMIT 1""",(state['project'],))
-        if not rows:raise ValueError('No accepted input attachment to delete')
+            WHERE r.project_id=? AND i.status IN ('ROUTING','ACCEPTED','PLANNING')
+            ORDER BY i.sequence DESC LIMIT 1""",(state['project'],))
+        if not rows:raise ValueError('No pending input attachment to delete')
         attachments=json.loads(rows[0]['attachments_json'])
-        if len(attachments)!=1:raise ValueError('D48 requires exactly one accepted attachment')
+        if len(attachments)!=1:raise ValueError('D48 requires exactly one pending attachment')
         asset=attachments[0]['id']
         if not store.execute('DELETE FROM assets WHERE id=? AND project=?',(asset,state['project'])):
             raise ValueError('Attachment is no longer owned by this QA project')
