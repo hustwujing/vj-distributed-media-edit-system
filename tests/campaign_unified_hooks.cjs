@@ -177,7 +177,10 @@ async function before(c){
   const reusable=hook==='successor_reusable_assets'?[original.authorization.allowed_assets[0]]:[];
   assert.ok(hook!=='successor_reusable_assets'||reusable[0],'Reusable successor case requires an authorized source asset');
   const prior=await read();state.unified_boundary.before=prior;
-  const accepted=await appendInput('请继续以选中的原始图片生成64×64 final.png，保持原内容和技术要求；如果原版已交付，请作为新一轮确认范围后执行。',reusable);
+  const message=hook==='publish_input'
+   ?'同一Run内修改当前交付：保持64×64 final.png和原内容，但给最终图增加2像素纯红色内边框。当前最终审查正常结束后再安全重规划，不得发布旧候选。'
+   :'请继续以选中的原始图片生成64×64 final.png，保持原内容和技术要求；如果原版已交付，请作为新一轮确认范围后执行。';
+  const accepted=await appendInput(message,reusable);
   state.unified_boundary.input=accepted;state.unified_boundary.after=await read();persist();
   const repeated=await api('POST',`/api/projects/${state.project}/runs/${original.id}/inputs`,state.last_input_request);
   assert.equal(repeated.id,accepted.id);
