@@ -76,6 +76,25 @@ def accept(store,identifier,actor,raw,*,context=None):
             if not set(request.targets)<=active:raise ValueError('Input target is outside the current Run plan')
         owned={asset['id']:asset for asset in store.assets(run['project_id'])}
         if not set(request.attachments)<=set(owned):raise ValueError('Attachment outside project')
+        if not run['scope_confirmed'] and request.attachments:
+            # A successor starts with an empty scope. An asset explicitly
+            # selected on its first user response is the user's concrete grant
+            # for that asset; preserve every other frozen authorization field.
+            from . import workflow_planning as planning
+            from .run_authorization import approve
+            authorization=dict(run['authorization'])
+            allowed=list(authorization.get('allowed_assets',[]))
+            digests=dict(authorization.get('allowed_asset_digests',{}))
+            for asset_id in request.attachments:
+                if asset_id not in allowed:allowed.append(asset_id)
+                digests[asset_id]=graph.asset_digest(owned[asset_id])
+            authorization['allowed_assets']=allowed
+            authorization['allowed_asset_digests']=digests
+            approve(store,run,planning.rebind_scope(store,authorization))
+            run=graph.get(store,run['id'])
+            graph.event(store,run,'successor_input_scope_authorized',
+                        {'input_attachments':list(request.attachments),
+                         'authorization_version':run['authorization_version']})
         if run['delivered_at'] is not None:
             predecessor_targets=[{'task_id':task['id'],'revision':task['revision'],'objective':task['spec']['objective'],'inputs':task['spec']['inputs']} for task in graph.active_tasks(run) if task['id'] in request.targets]
             # A successor has a fresh authority decision; input alone never grants

@@ -208,6 +208,26 @@ class RunInputTests(unittest.TestCase):
         self.assertEqual((rows[1]['sequence'],rows[1]['status']),(2,'ACCEPTED'))
         self.assertEqual(graph.get(self.store,self.run['id'])['input_barrier_sequence'],2)
 
+    def test_explicit_attachment_authorizes_unconfirmed_successor_scope(self):
+        asset_id='successor-reference'
+        self.store.add_asset(self.run['project_id'],asset_id,'reference.png','reference.png',
+                             {'kind':'image','width':8,'height':8})
+        self.store.execute("UPDATE runs SET status='FAILED',terminal_reason='test_failure' WHERE id=?",(self.run['id'],))
+        successor=graph.create(self.store,self.run['project_id'],None,
+            {**self.run['authorization'],'allowed_assets':[],
+             'allowed_asset_digests':{},
+             'content_fingerprint':graph.content_fingerprint(self.store,self.run['project_id'])},
+            parent_run_id=self.run['id'],scope_confirmed=False,record_message=False)
+        request=accept_change(self.store,successor['id'],'owner',{
+            'request_id':uuid.uuid4().hex,'content':'Retry using the original reference',
+            'attachments':[asset_id]})
+        current=graph.get(self.store,successor['id'])
+        self.assertEqual([item['id'] for item in request['attachments']],[asset_id])
+        self.assertTrue(current['scope_confirmed'])
+        self.assertEqual(current['authorization']['allowed_assets'],[asset_id])
+        asset=next(item for item in self.store.assets(self.run['project_id']) if item['id']==asset_id)
+        self.assertEqual(current['authorization']['allowed_asset_digests'][asset_id],graph.asset_digest(asset))
+
     def test_succeeded_run_without_a_published_delivery_rejects_input(self):
         self.store.execute("UPDATE runs SET status='SUCCEEDED',delivered_at=NULL WHERE id=?",(self.run['id'],))
         with self.assertRaisesRegex(ValueError,'cannot accept'):
