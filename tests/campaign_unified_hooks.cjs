@@ -86,11 +86,12 @@ async function before(c){
    :'同一目标和交付规格不变。当前render正常结束后，复用其已验收primary_image新增一个非交付media.evidence图像证据Task核验64×64尺寸，供最终审查使用；不要取消或重跑render。';
   await input(change,hook==='drain_local'?['export']:[]);mark({started});
  }else if(hook==='planning_inputs'){
-  await wait(r=>activeJob(r,'PLAN'),300);const first=await input();
+  await wait(r=>activeJob(r,'PLAN'),300);const first=await input(
+   '同一交付文件和64×64尺寸不变，修改final.png：增加2像素纯红色内边框。这是业务变更，请在当前规划安全结束后重新规划。');
   // The currently running PLAN has a frozen pre-input snapshot. Wait until the
   // safe-point PLAN freezes the first batch before submitting a later message.
   await wait(r=>r.inputs.some(i=>i.id===first.id&&i.status==='PLANNING')&&activeJob(r,'PLAN'),900);
-  const second=await appendInput('补充：最终文件仍为final.png，维持64×64，不改变任何处理参数。');
+  const second=await appendInput('补充修改：边框仍为2像素，但改成纯蓝色；最终文件仍为64×64 final.png，其他处理不变。');
   assert.ok(second.sequence>first.sequence);mark({input_ids:[first.id,second.id]});
  }else if(['drain_wan','drain_sync','frozen_route'].includes(hook)){
   let call;
