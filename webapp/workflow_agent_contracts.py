@@ -151,7 +151,7 @@ class MissingEvidence(Contract):
     fact:str=Field(min_length=1,max_length=1000,
         description='One independently verifiable missing fact. Split disjoint time windows into separate items.')
     mode:Literal['auto','image','video_window','audio','audio_envelope','audio_compare']=Field(
-        description='Registered media.evidence mode that can establish this fact.')
+        description='Registered media.evidence mode. image is only for a static image artifact; use video_window for every frame or time range from a video.')
     offset:float|None=Field(default=None,ge=0,description='Exact start time in seconds when the fact is time-bound.')
     window_seconds:float|None=Field(default=None,gt=0,le=600,description='Exact duration in seconds when the fact is time-bound.')
     crop:list[int]|None=Field(default=None,min_length=4,max_length=4,
@@ -160,6 +160,10 @@ class MissingEvidence(Contract):
     def bounded_request(self):
         if self.mode in ('video_window','audio_envelope') and (self.offset is None or self.window_seconds is None):
             raise ValueError('Time-bound missing evidence requires offset and window_seconds')
+        if self.mode=='image' and (self.offset is not None or self.window_seconds is not None):
+            raise ValueError('A time-bound frame from a video requires video_window, not image')
+        if self.crop is not None and self.mode not in ('image','video_window'):
+            raise ValueError('Crop is available only for image or video_window evidence')
         if self.crop is not None and (self.crop[0]<0 or self.crop[1]<0 or self.crop[2]<=self.crop[0] or self.crop[3]<=self.crop[1]):
             raise ValueError('Missing-evidence crop must have positive ordered bounds')
         return self

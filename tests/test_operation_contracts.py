@@ -42,6 +42,20 @@ class ContractTests(unittest.TestCase):
             contract['conditional_required_roles'])
         self.assertEqual(set(contract['role_kinds']['reference']),{'image','video','audio'})
 
+    def test_evidence_mode_is_rejected_against_known_input_kind_before_execution(self):
+        from webapp.workflow_graph import Task,validate_evidence_input_kind
+        common={'id':'proof','type':'operation','name':'proof','objective':'Inspect a bounded region',
+                'operation':'media.evidence','purpose':'evidence','inputs':{'source':{'asset':'owned'}},
+                'acceptance':[{'kind':'file'}],'basic_reason':'Bounded evidence fixture'}
+        image=Task.model_validate({**common,'parameters':{'mode':'image','crop':[0,0,100,100]}})
+        validate_evidence_input_kind(image,'source',{'kind':'image'})
+        with self.assertRaisesRegex(ValueError,'video_window'):
+            validate_evidence_input_kind(image,'source',{'kind':'media','video':True})
+        video=Task.model_validate({**common,'parameters':{'mode':'video_window','offset':3,'window_seconds':1}})
+        validate_evidence_input_kind(video,'source',{'kind':'media','video':True})
+        with self.assertRaisesRegex(ValueError,'cannot inspect image'):
+            validate_evidence_input_kind(video,'source',{'kind':'image'})
+
     def test_sam3_text_constraints_are_enforced_before_execution_and_discoverable(self):
         from webapp.operations import validate_parameters
         inputs={'source':{'asset':'owned'}}

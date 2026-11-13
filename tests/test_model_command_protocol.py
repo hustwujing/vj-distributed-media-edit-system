@@ -1247,6 +1247,12 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(decoded['evidence'],[])
         self.assertEqual(decoded['missing_evidence'][0]['mode'],'image')
         ReviewDecision.model_validate(decoded)
+        with self.assertRaisesRegex(ValueError,'video_window'):
+            ReviewDecision.model_validate({**decoded,'missing_evidence':[{
+                'fact':'Inspect the third second of a video','mode':'image','offset':3.0}]})
+        timed=ReviewDecision.model_validate({**decoded,'missing_evidence':[{
+            'fact':'Inspect the third second of a video','mode':'video_window','offset':3.0,'window_seconds':1.0}]})
+        self.assertEqual(timed.missing_evidence[0].mode,'video_window')
         with self.assertRaises(ValueError):ReviewDecision.model_validate({**decoded,'verdict':'pass'})
 
     def test_review_method_facts_are_required_and_cannot_support_a_false_pass(self):

@@ -841,6 +841,17 @@ def validate_operation_input_constraints(task,specs,assets):
             +str(target[0])+'x'+str(target[1])+' image acceptance and bind that output as source.')
 
 
+def validate_evidence_input_kind(task,role,metadata):
+    if task.type!='operation' or task.operation!='media.evidence':return
+    kind='video' if metadata.get('video') else 'audio' if metadata.get('audio_track_present') else metadata.get('kind')
+    mode=task.parameters.get('mode','auto')
+    expected={'image':{'image'},'video_window':{'video'},'audio':{'audio','video'},
+              'audio_envelope':{'audio','video'},'audio_compare':{'audio','video'}}.get(mode)
+    if expected is not None and kind not in expected:
+        raise ProposalFieldError('tasks.'+task.id+'.parameters.mode',
+            f'media.evidence mode {mode} cannot inspect {kind or "unknown"} input role {role}; use video_window for video frames, image for static images, and audio modes for audio or video with audio.')
+
+
 def validate_delivery_dependencies(task,specs):
     if not task.delivery_stage:return
     from .specialist_profiles import get as profile
@@ -1057,23 +1068,25 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                     calls[group]=calls.get(group,0)+1
                 if authorization.cost_budget is not None:
                     raise AuthorizationRequired('A finite cost budget requires a verified provider price bound; unavailable')
-        for ref in task.inputs.values():
+        for role,ref in task.inputs.items():
             if ref.repair_candidate:
                 from .repair_inputs import lookup
                 # An immutable candidate already bound to this logical Task
                 # remains readable after its producer is retired. A revision
                 # or replacement does not turn that same input into a new grant.
                 inherited=prior_inputs.get(replacement_sources.get(task.id,task.id),{})
+                candidate=lookup(store,run,ref.repair_candidate.model_dump())
+                validate_evidence_input_kind(task,role,candidate['metadata'])
                 if ref in inherited.values():
-                    lookup(store,run,ref.repair_candidate.model_dump());continue
+                    continue
                 allowed_sources=set(user_revision_scope) if user_revision_scope is not None else set(existing) if repair_scope=='' else {repair_scope} if repair_scope else set()
                 if ref.repair_candidate.logical_task_id not in allowed_sources:raise ValueError('Candidate is outside the frozen repair scope')
-                lookup(store,run,ref.repair_candidate.model_dump())
             elif ref.asset:
                 if ref.asset not in known_assets:
                     raise ValueError('Input asset does not exist in this project')
                 if ref.asset not in task_scope.allowed_assets:raise AuthorizationRequired('Input asset is not authorized')
                 current_asset=owned_assets[ref.asset]
+                validate_evidence_input_kind(task,role,current_asset['metadata'])
                 if (task.id in added or task.id in revised or existing[task.id]['status']!='succeeded') and task_scope.allowed_asset_digests.get(ref.asset)!=asset_digest(current_asset):
                     raise AuthorizationRequired('Approved input content changed; renew its authorization')
             else:
@@ -1086,6 +1099,11 @@ def validate_proposal(store,run,raw,repair_scope=None,user_revision_scope=None):
                 parent=specs[ref.step]
                 roles=operation(parent.operation,parent.implementation).outputs if parent.type=='operation' else parent.output_roles
                 if ref.role not in roles:raise ValueError('Unknown upstream output role')
+                prior=existing.get(ref.step)
+                if prior:
+                    path=prior.get('quality',{}).get('output_roles',{}).get(ref.role)
+                    metadata=next((item for item in prior.get('quality',{}).get('files',[]) if item.get('name')==path),None)
+                    if metadata:validate_evidence_input_kind(task,role,metadata)
         validate_operation_input_constraints(task,specs,owned_assets)
         validate_delivery_dependencies(task,specs)
     if any(count>authorization.provider_call_budget.get(name,0) for name,count in calls.items()):
