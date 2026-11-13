@@ -76,10 +76,24 @@ def accept(store,identifier,actor,raw,*,context=None):
             if not set(request.targets)<=active:raise ValueError('Input target is outside the current Run plan')
         owned={asset['id']:asset for asset in store.assets(run['project_id'])}
         if not set(request.attachments)<=set(owned):raise ValueError('Attachment outside project')
+        if run['delivered_at'] is not None:
+            predecessor_targets=[{'task_id':task['id'],'revision':task['revision'],'objective':task['spec']['objective'],'inputs':task['spec']['inputs']} for task in graph.active_tasks(run) if task['id'] in request.targets]
+            # A successor has a fresh authority decision; input alone never grants
+            # use of new assets, providers or an altered delivery scope.
+            authorization={**run['authorization'],'goal':request.content,'require_plan_confirmation':True,
+                'content_fingerprint':graph.content_fingerprint(store,run['project_id'])}
+            authorization['allowed_assets']=[identifier for identifier in authorization['allowed_assets'] if identifier in owned]
+            authorization['allowed_asset_digests']={key:value for key,value in authorization['allowed_asset_digests'].items() if key in owned}
+            successors=store.query("SELECT id FROM runs WHERE parent_run_id=? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(run['id'],))
+            if successors:successor=graph.get(store,successors[0]['id'])
+            else:
+                successor=graph.create(store,run['project_id'],None,authorization,parent_run_id=run['id'],scope_confirmed=False,record_message=False)
+            run=graph.get(store,successor['id'])
         if not run['scope_confirmed'] and request.attachments:
-            # A successor starts with an empty scope. An asset explicitly
-            # selected on its first user response is the user's concrete grant
-            # for that asset; preserve every other frozen authorization field.
+            # Resolve the destination Run first: the first input sent to a
+            # delivered parent creates its successor inside this transaction.
+            # Explicitly selected assets grant only those owned, digest-bound
+            # inputs to that unconfirmed successor.
             from . import workflow_planning as planning
             from .run_authorization import approve
             authorization=dict(run['authorization'])
@@ -95,19 +109,6 @@ def accept(store,identifier,actor,raw,*,context=None):
             graph.event(store,run,'successor_input_scope_authorized',
                         {'input_attachments':list(request.attachments),
                          'authorization_version':run['authorization_version']})
-        if run['delivered_at'] is not None:
-            predecessor_targets=[{'task_id':task['id'],'revision':task['revision'],'objective':task['spec']['objective'],'inputs':task['spec']['inputs']} for task in graph.active_tasks(run) if task['id'] in request.targets]
-            # A successor has a fresh authority decision; input alone never grants
-            # use of new assets, providers or an altered delivery scope.
-            authorization={**run['authorization'],'goal':request.content,'require_plan_confirmation':True,
-                'content_fingerprint':graph.content_fingerprint(store,run['project_id'])}
-            authorization['allowed_assets']=[identifier for identifier in authorization['allowed_assets'] if identifier in owned]
-            authorization['allowed_asset_digests']={key:value for key,value in authorization['allowed_asset_digests'].items() if key in owned}
-            successors=store.query("SELECT id FROM runs WHERE parent_run_id=? AND status NOT IN ('SUCCEEDED','FAILED','CANCELLED')",(run['id'],))
-            if successors:successor=graph.get(store,successors[0]['id'])
-            else:
-                successor=graph.create(store,run['project_id'],None,authorization,parent_run_id=run['id'],scope_confirmed=False,record_message=False)
-            run=graph.get(store,successor['id'])
         pending=db.execute("SELECT content FROM run_inputs WHERE run_id=? AND status IN ('ROUTING','ACCEPTED','PLANNING')",(run['id'],)).fetchall()
         if len(pending)>=100 or sum(len(item['content'].encode()) for item in pending)+len(request.content.encode())>64000:raise ValueError('Run input queue is full')
         if 'allowed_revision_tasks' not in context:

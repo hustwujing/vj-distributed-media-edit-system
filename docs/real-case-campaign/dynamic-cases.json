@@ -2,8 +2,8 @@
   "campaign": "dynamic-plan-independent-deployment",
   "version": 3,
   "source_count": 77,
-  "new_count": 49,
-  "total_count": 126,
+  "new_count": 50,
+  "total_count": 127,
   "rules": {
     "entry": "Real browser authorization and deployed services; no success-state seeding or mocked live provider results",
     "default_parallel_cases": 2,
@@ -6284,12 +6284,31 @@
       "review_reason": "覆盖用户输入附件在排空安全点前变化的恢复协议；拒绝失效输入必须收敛，不能重复提问、保留陈旧barrier或破坏已开始Task。",
       "status": "not_run",
       "attempts": []
+    },
+    {
+      "id": "D49",
+      "source_case_id": null,
+      "complexity": "dynamic_protocol",
+      "title": "已交付Run首条successor输入携带原素材授权",
+      "assets": ["portrait.png"],
+      "prompt": "创建type=agent、profile=editing_implementer的业务Task，由Agent在受限沙箱内把portrait.png缩小为64×64 final.png，经过程序和最终审查交付。Manager不得直接提交脚本或代码。",
+      "expect": {"kind": "image", "width": 64, "height": 64},
+      "content_checks": ["首轮真实交付完成后通过浏览器发送successor输入", "首条输入显式携带上一轮原素材", "successor在业务Task启动前绑定素材摘要并记录authorized", "父子Run、方案确认、最终交付和清理均收敛"],
+      "workflow_min_steps": 1,
+      "dynamic_hook": "successor_reusable_assets",
+      "entry_mode": "browser_dynamic_authorization",
+      "allowed_external_operations": [],
+      "audit_dimensions": ["browser","logs","observability","database","cache","boss","candidate_archive","local_cleanup","external_cleanup"],
+      "review_decision": "新增",
+      "review_reason": "覆盖统一用户介入协议在已交付父Run首条消息内创建successor时的素材授权时序；不得丢失附件、重复上传或在确认前启动业务Task。",
+      "status": "not_run",
+      "attempts": []
     }
   ],
   "unified_run_review": {
     "baseline_cases": 99,
-    "new_cases": 27,
-    "defined_cases": 126,
+    "new_cases": 28,
+    "defined_cases": 127,
     "live_validation": "in_progress"
   }
 }

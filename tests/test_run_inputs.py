@@ -228,6 +228,19 @@ class RunInputTests(unittest.TestCase):
         asset=next(item for item in self.store.assets(self.run['project_id']) if item['id']==asset_id)
         self.assertEqual(current['authorization']['allowed_asset_digests'][asset_id],graph.asset_digest(asset))
 
+    def test_first_delivered_run_input_authorizes_its_new_successor_attachment(self):
+        asset_id=self.run['authorization']['allowed_assets'][0]
+        self.store.execute("UPDATE runs SET status='SUCCEEDED',delivered_at=?,delivery_json='[]' WHERE id=?",
+                           (self.store.now(),self.run['id']))
+        received=accept_change(self.store,self.run['id'],'owner',{
+            'request_id':uuid.uuid4().hex,'content':'Continue with the selected original input',
+            'attachments':[asset_id]})
+        successor=graph.get(self.store,received['run_id'])
+        self.assertEqual(successor['parent_run_id'],self.run['id'])
+        self.assertTrue(successor['scope_confirmed'])
+        self.assertIn(asset_id,successor['authorization']['allowed_assets'])
+        self.assertTrue(received['attachments'][0]['authorized'])
+
     def test_succeeded_run_without_a_published_delivery_rejects_input(self):
         self.store.execute("UPDATE runs SET status='SUCCEEDED',delivered_at=NULL WHERE id=?",(self.run['id'],))
         with self.assertRaisesRegex(ValueError,'cannot accept'):

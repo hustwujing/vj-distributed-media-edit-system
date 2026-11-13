@@ -52,7 +52,8 @@ function selectedTask(run,identifier){
 }
 const hooks=new Set(['identity','drain_local','drain_agent','planning_inputs','drain_wan','unknown_input',
  'feedback_idempotency','no_waiver','mask_boundary','temporal_boundary','publish_input','successor_inputs','drain_sync','frozen_route',
- 'feedback_cutout','feedback_layout','reference_before_wan','legal_replacement','attachment_change_reject']);
+ 'feedback_cutout','feedback_layout','reference_before_wan','legal_replacement','attachment_change_reject',
+ 'successor_reusable_assets']);
 
 async function before(c){
  const {spec,state,page,read,wait,appendInput,feedback,approve,api,fault,capture,persist,observeTerminal,control}=c;
@@ -166,13 +167,25 @@ async function before(c){
   run=await wait(r=>r.commands.some(x=>x.id===rejected.id&&x.status==='rejected'),120);
   assert.equal(run.delivery.length,0);mark({decision_id:decision?.id,rejected_review:rejectedReview.id,rejected_command:rejected.id});
   state.outcome='protocol_passed';
- }else if(hook==='publish_input'||hook==='successor_inputs'){
-  const original=hook==='successor_inputs'?await observeTerminal():await wait(r=>r.reviews.some(v=>v.purpose==='final'&&['pending','running','staged'].includes(v.status)),900);
-  if(hook==='successor_inputs')assert.equal(original.state,'SUCCEEDED');
-  const accepted=await input('请继续以portrait.png做64×64 final.png，保持原内容和技术要求；如果原版已交付，请作为新一轮确认范围后执行。');
+ }else if(hook==='publish_input'||hook==='successor_inputs'||hook==='successor_reusable_assets'){
+  const successor=hook==='successor_inputs'||hook==='successor_reusable_assets';
+  const original=successor?await observeTerminal():await wait(r=>r.reviews.some(v=>v.purpose==='final'&&['pending','running','staged'].includes(v.status)),900);
+  if(successor)assert.equal(original.state,'SUCCEEDED');
+  const reusable=hook==='successor_reusable_assets'?[original.authorization.allowed_assets[0]]:[];
+  assert.ok(hook!=='successor_reusable_assets'||reusable[0],'Reusable successor case requires an authorized source asset');
+  const prior=await read();state.unified_boundary.before=prior;
+  const accepted=await appendInput('请继续以选中的原始图片生成64×64 final.png，保持原内容和技术要求；如果原版已交付，请作为新一轮确认范围后执行。',reusable);
+  state.unified_boundary.input=accepted;state.unified_boundary.after=await read();persist();
   const repeated=await api('POST',`/api/projects/${state.project}/runs/${original.id}/inputs`,state.last_input_request);
   assert.equal(repeated.id,accepted.id);
-  if(accepted.run_id!==original.id){
+  if(hook==='successor_reusable_assets'){
+   const created=await read();assert.notEqual(created.id,original.id);assert.equal(created.parent_run_id,original.id);
+   assert.equal(created.scope_confirmed,1);assert.ok(created.authorization.allowed_assets.includes(reusable[0]));
+   const recorded=created.inputs.find(item=>item.id===accepted.id);assert.ok(recorded);
+   assert.ok(recorded.attachments.some(item=>item.id===reusable[0]&&item.authorized));
+   mark({original_run_id:original.id,successor_run_id:created.id,asset_id:reusable[0],input_id:accepted.id});
+  }
+  if(accepted.run_id!==original.id&&hook!=='successor_reusable_assets'){
    const second=await api('POST',`/api/projects/${state.project}/runs/${original.id}/inputs`,{request_id:key(),content:'新一轮仍仅交付64×64 final.png，不扩展外部能力。'});
    assert.equal(second.run_id,accepted.run_id);
    const awaiting=await wait(r=>r.decisions.some(d=>d.kind==='successor_authorization'),900);
@@ -227,6 +240,10 @@ async function after(c){
   assert.equal(run.input_barrier_sequence,null);boundary.observed=true;
   for(const original of boundary.original_tasks){const current=run.tasks.find(t=>t.id===original.id);
    assert.ok(current&&current.selected&&current.status==='succeeded');assert.equal(current.revision,original.revision);assert.equal(current.attempts,original.attempts);}
+ }
+ if(hook==='successor_reusable_assets'){
+  assert.equal(run.parent_run_id,boundary.original_run_id);assert.equal(run.state,'SUCCEEDED');
+  assert.ok(run.authorization.allowed_assets.includes(boundary.asset_id));boundary.observed=true;
  }
  if(!boundary.observed)throw Object.assign(Error('Required unified Run boundary was not observed'),{boundary:true});
  persist();
