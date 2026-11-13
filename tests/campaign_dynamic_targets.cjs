@@ -15,9 +15,10 @@ const revisionDecisionKinds=spec=>new Set(['plan_confirmation',...(spec.interven
 const nextRevisionDecision=decisions=>decisions.find(item=>item.kind==='plan_change')||decisions.find(item=>item.kind==='plan_confirmation')||decisions[0];
 function deliveryAmendmentMatches(existing,request,expectedFilenames=[]){
  if(!request.delivery_scope_changed)return expectedFilenames.length===0&&JSON.stringify(request.delivery_targets)===JSON.stringify(existing);
- if(JSON.stringify(request.previous_delivery_targets)!==JSON.stringify(existing))return false;
- if(!existing.every(target=>request.delivery_targets.includes(target)))return false;
- const added=request.delivery_targets.filter(target=>!existing.includes(target));
+ const previous=request.previous_delivery_targets||[],proposed=request.delivery_targets||[];
+ if(JSON.stringify(existing)!==JSON.stringify(previous)&&JSON.stringify(existing)!==JSON.stringify(proposed))return false;
+ if(!previous.every(target=>proposed.includes(target)))return false;
+ const added=proposed.filter(target=>!previous.includes(target));
  return added.length===expectedFilenames.length&&expectedFilenames.every(name=>
   added.some(target=>target.includes(name))&&(request.delivery_contract?.filenames||[]).includes(name));
 }

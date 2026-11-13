@@ -32,6 +32,7 @@ test('amended plan confirmation preserves old targets and adds only declared fil
  const existing=['128×64双图PNG'],request={delivery_scope_changed:true,previous_delivery_targets:existing,
   delivery_targets:[...existing,'128×64双图JPG final.jpg'],delivery_contract:{filenames:['final.png','final.jpg']}};
  assert.equal(deliveryAmendmentMatches(existing,request,['final.jpg']),true);
+ assert.equal(deliveryAmendmentMatches(request.delivery_targets,request,['final.jpg']),true);
  assert.equal(deliveryAmendmentMatches(existing,{...request,delivery_targets:[...request.delivery_targets,'extra.mov']},['final.jpg']),false);
  assert.equal(deliveryAmendmentMatches(existing,{delivery_scope_changed:false,delivery_targets:existing},[]),true);
 });
