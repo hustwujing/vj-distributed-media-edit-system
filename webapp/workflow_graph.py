@@ -51,7 +51,8 @@ class Contract(BaseModel):
 class UserCheckpoint(Contract):
     enabled:bool=False
     stage:Literal['before_publish']='before_publish'
-    reason:str=Field(default='',max_length=500)
+    reason:str=Field(default='',max_length=500,
+        description='Required only when enabled=true; must be the empty string when enabled=false.')
 
     @model_validator(mode='after')
     def valid(self):
