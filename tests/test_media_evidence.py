@@ -274,7 +274,7 @@ class AudioEvidenceTests(unittest.TestCase):
             self.assertAlmostEqual(correct['source_tone_hz'],660,delta=2)
             self.assertAlmostEqual(correct['reference_tone_hz'],660,delta=2)
             self.assertAlmostEqual(correct['tone_difference_hz'],0,delta=.1)
-            with self.assertRaises(ValueError):EvidenceParameters(mode='video_window',reference_offset=2)
+            with self.assertRaises(ValueError):EvidenceParameters(mode='audio',reference_offset=2)
 
     def test_stable_tone_measurement_does_not_invent_pitch_for_noise_or_silence(self):
         import numpy as np
