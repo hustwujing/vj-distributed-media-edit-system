@@ -45,7 +45,7 @@ const interrupt=signal=>{
  stopPromise=Promise.allSettled([...activeStops].map(stop=>stop(signal)));
 };
 process.on('SIGINT',()=>interrupt('SIGINT'));process.on('SIGTERM',()=>interrupt('SIGTERM'));
-const {targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision}=require('./campaign_dynamic_targets.cjs');
+const {targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision,deliveryAmendmentMatches}=require('./campaign_dynamic_targets.cjs');
 
 async function runCase(browser,spec){
  const parent=path.join(ROOT,'runs',spec.id);fs.mkdirSync(parent,{recursive:true,mode:0o700});
@@ -141,10 +141,11 @@ async function runCase(browser,spec){
   let result=await Promise.race([response,page.locator('.dynamic-decision .scope-diff').filter({hasText:'请核对后再次确认'}).waitFor({state:'visible'}).then(()=>null)]);
   if(!result){await capture('scope-fingerprint-reconfirmation');await button.click();result=await response;}
   assert.equal(result.status(),202);state.events.push({action:'decision_'+action,at:Date.now()/1000});persist();await commandApplied((await result.json()).id);const updated=await read();if(updated.successor_run_id){state.run_id=updated.successor_run_id;state.execute_id=state.run_id;state.run_ids.push(state.run_id);state.task_ids.push(state.run_id);persist();}};
- async function approvePlannedWork(snapshot){
+ async function approvePlannedWork(snapshot,expectedAdditions=[]){
   const decision=snapshot.decisions.find(item=>item.kind==='plan_confirmation');if(!decision)return false;
   assert.ok(decision.request.steps.length,'Plan confirmation must expose concrete work');
-  assert.deepEqual(decision.request.delivery_targets,snapshot.authorization.delivery_targets,'Campaign confirmation cannot silently change its declared delivery contract');
+  assert.ok(deliveryAmendmentMatches(snapshot.authorization.delivery_targets,decision.request,expectedAdditions),
+   'Campaign confirmation changed delivery scope outside the explicit structured fixture amendment');
   for(const step of decision.request.steps){
    if(step.type==='operation')assert.ok(snapshot.authorization.allowed_operations.includes(step.operation));
    if(step.type==='agent')assert.ok(snapshot.authorization.allowed_agent_profiles.includes(step.profile));
@@ -448,7 +449,7 @@ async function runCase(browser,spec){
      if(run.inputs.some(item=>item.id===input.id&&item.status==='APPLIED'))break;
      const decision=nextRevisionDecision(run.decisions);
      if(!allowedDecisions.has(decision.kind))throw Object.assign(Error('Unexpected scope or clarification decision during the authorized revision: '+decision.kind),{model:true});
-     if(decision.kind==='plan_confirmation')assert.equal(await approvePlannedWork(run),true);
+     if(decision.kind==='plan_confirmation')assert.equal(await approvePlannedWork(run,spec.intervention_expected_delivery_additions||[]),true);
      else await approve('approve',decision.id);
      run=await read();
     }

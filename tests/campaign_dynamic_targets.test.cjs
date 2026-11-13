@@ -1,5 +1,5 @@
 const test=require('node:test'),assert=require('node:assert/strict');
-const {targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision}=require('./campaign_dynamic_targets.cjs');
+const {targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision,deliveryAmendmentMatches}=require('./campaign_dynamic_targets.cjs');
 
 test('image authorization includes every structured output class',()=>{
  const text=targetText({expect:{kind:'image',width:1600,height:600,min_images:2,extra_alpha:true,extra_extension:'.ora'}});
@@ -18,11 +18,19 @@ test('gated intervention cases approve the initial plan before observing work',(
 
 test('same-run revision decisions follow structured delivery changes',()=>{
  assert.deepEqual([...revisionDecisionKinds({expect:{kind:'image'}})],['plan_confirmation']);
- assert.deepEqual([...revisionDecisionKinds({expect:{kind:'image',min_images:2}})],['plan_confirmation','plan_change']);
+ assert.deepEqual([...revisionDecisionKinds({expect:{kind:'image',min_images:2}})],['plan_confirmation']);
 });
 
 test('delivery scope approval precedes confirmation of the amended plan',()=>{
  const decisions=[{id:'confirm',kind:'plan_confirmation'},{id:'scope',kind:'plan_change'}];
  assert.equal(nextRevisionDecision(decisions).id,'scope');
  assert.equal(nextRevisionDecision([{id:'confirm',kind:'plan_confirmation'}]).id,'confirm');
+});
+
+test('amended plan confirmation preserves old targets and adds only declared filenames',()=>{
+ const existing=['128×64双图PNG'],request={delivery_scope_changed:true,previous_delivery_targets:existing,
+  delivery_targets:[...existing,'128×64双图JPG final.jpg'],delivery_contract:{filenames:['final.png','final.jpg']}};
+ assert.equal(deliveryAmendmentMatches(existing,request,['final.jpg']),true);
+ assert.equal(deliveryAmendmentMatches(existing,{...request,delivery_targets:[...request.delivery_targets,'extra.mov']},['final.jpg']),false);
+ assert.equal(deliveryAmendmentMatches(existing,{delivery_scope_changed:false,delivery_targets:existing},[]),true);
 });

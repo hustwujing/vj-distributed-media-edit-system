@@ -11,7 +11,15 @@ function targetText(spec){
 
 const GATED_INTERVENTIONS=new Set(['R01','R02','R03','R11','R15','R17']);
 const initialPlanApprovalRequired=spec=>GATED_INTERVENTIONS.has(spec.id);
-const revisionDecisionKinds=spec=>new Set(['plan_confirmation',...(spec.expect?.min_images>1?['plan_change']:[])]);
+const revisionDecisionKinds=()=>new Set(['plan_confirmation']);
 const nextRevisionDecision=decisions=>decisions.find(item=>item.kind==='plan_change')||decisions.find(item=>item.kind==='plan_confirmation')||decisions[0];
+function deliveryAmendmentMatches(existing,request,expectedFilenames=[]){
+ if(!request.delivery_scope_changed)return expectedFilenames.length===0&&JSON.stringify(request.delivery_targets)===JSON.stringify(existing);
+ if(JSON.stringify(request.previous_delivery_targets)!==JSON.stringify(existing))return false;
+ if(!existing.every(target=>request.delivery_targets.includes(target)))return false;
+ const added=request.delivery_targets.filter(target=>!existing.includes(target));
+ return added.length===expectedFilenames.length&&expectedFilenames.every(name=>
+  added.some(target=>target.includes(name))&&(request.delivery_contract?.filenames||[]).includes(name));
+}
 
-module.exports={targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision};
+module.exports={targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision,deliveryAmendmentMatches};
