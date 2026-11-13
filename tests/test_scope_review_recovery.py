@@ -74,7 +74,8 @@ class ScopeReviewRecoveryTests(unittest.TestCase):
     def test_staged_old_result_is_late_and_cannot_restore_old_review(self):
         lease=Coordinator(self.store,'old-review','test').claim(self.run['id'],'workflow',step_id=self.old['task_id'])
         self.assertIsNotNone(lease)
-        decision={'snapshot_digest':self.old['snapshot_digest'],'verdict':'inconclusive','feedback':'old scope'}
+        decision={'snapshot_digest':self.old['snapshot_digest'],'verdict':'inconclusive','feedback':'old scope',
+                  'missing_evidence':[{'fact':'Inspect the old candidate','mode':'image'}]}
         try:
             with lease.bind():stage_result(self.store,lease,'succeeded',{'decision':decision})
         finally:lease.release()

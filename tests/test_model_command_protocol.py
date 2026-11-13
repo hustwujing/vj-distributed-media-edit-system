@@ -510,7 +510,8 @@ class ModelCommandTests(unittest.TestCase):
         f=frozen(task);f['tasks'][0].update(status='succeeded',candidate_result=['final.mp4'],
             quality={'technical_valid':True,'passed':True})
         f['review_feedback']=[{'subject_task':'render','decision':{'verdict':'inconclusive',
-            'feedback':'Need RMS evidence for the final audio fade and music mix.'}}]
+            'feedback':'Need RMS evidence for the final audio fade and music mix.',
+            'missing_evidence':[{'fact':'Measure the final four seconds','mode':'audio_envelope','offset':8.0,'window_seconds':4.0}]}}]
         option=next(item for item in repair_options(f) if item['action']=='collect_evidence_then_review_again')
         self.assertEqual(option['task_id'],'render')
         self.assertEqual(option['suggested_modes'],['audio_envelope','audio_compare'])
@@ -529,11 +530,15 @@ class ModelCommandTests(unittest.TestCase):
         self.assertEqual(raised.exception.code,'evidence_task_required')
 
         evidence={'id':'measure','type':'operation','name':'Measure audio','objective':'Measure the accepted audio',
-            'operation':'media.evidence','purpose':'business','parameters':{'mode':'audio_envelope'},
+            'operation':'media.evidence','purpose':'business','parameters':{'mode':'audio_envelope','offset':8.0,'window_seconds':4.0},
             'inputs':{'source':{'repair_candidate':{'logical_task_id':'render','revision':2,
                 'artifact_id':'b'*32,'sha256':'c'*64,'role':'video'}}},
             'acceptance':[{'kind':'json','stage':'final'}]}
         f['repair_candidates']=[{'logical_task_id':'render','revision':2,'artifact_id':'b'*32,'sha256':'c'*64,'role':'video'}]
+        wrong=json.loads(json.dumps(evidence));wrong['parameters']['offset']=7.5
+        with self.assertRaises(CommandError) as uncovered:
+            compile_manager({'kind':'APPLY_PLAN','reason':'Collect the wrong window','plan':{'new_tasks':[wrong]}},f)
+        self.assertEqual(uncovered.exception.code,'missing_evidence_coverage')
         compiled=compile_manager({'kind':'APPLY_PLAN','reason':'Collect bounded evidence','plan':{'new_tasks':[evidence]}},f)
         task=compiled['proposal']['add_tasks'][0]
         self.assertEqual(task['purpose'],'evidence');self.assertFalse(task['delivery_stage'])
@@ -1236,9 +1241,11 @@ class ModelCommandTests(unittest.TestCase):
         evidence=p.schemas['submit_result']['properties']['evidence']
         self.assertNotIn('minItems',evidence);self.assertEqual(evidence['maxItems'],3)
         self.assertEqual(p.schemas['submit_result']['$defs']['Evidence']['properties']['criterion_index']['enum'],[0,1,2])
-        value={'verdict':'inconclusive','evidence':[],'feedback':'Inspection produced no usable receipt'}
+        value={'verdict':'inconclusive','evidence':[],'feedback':'Inspection produced no usable receipt',
+               'missing_evidence':[{'fact':'Inspect the candidate image','mode':'image'}]}
         decoded=p.decode('submit_result',transform(value,p.schemas['submit_result'],encode=True))['decision']
         self.assertEqual(decoded['evidence'],[])
+        self.assertEqual(decoded['missing_evidence'][0]['mode'],'image')
         ReviewDecision.model_validate(decoded)
         with self.assertRaises(ValueError):ReviewDecision.model_validate({**decoded,'verdict':'pass'})
 

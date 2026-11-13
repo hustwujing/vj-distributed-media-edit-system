@@ -26,7 +26,8 @@ class FinalInconclusiveBudgetTests(unittest.TestCase):
             row=store.query("SELECT * FROM workflow_reviews WHERE run_id=? AND purpose='final' AND status='pending'",(run['id'],))[0]
             current=graph.get(store,run['id']);task=graph.work_item(current,row['task_id'])
             f.orchestrator.accept_review(current,task,{'decision':{'snapshot_digest':row['snapshot_digest'],
-                'verdict':'inconclusive','evidence':[],'deliverables':[],'primary':'','feedback':'Evidence still insufficient'}})
+                'verdict':'inconclusive','evidence':[],'deliverables':[],'primary':'','feedback':'Evidence still insufficient',
+                'missing_evidence':[{'fact':'Inspect one additional image fact','mode':'image'}]}})
             if not index:self.assertEqual(graph.get(store,run['id'])['terminal_reason'],'evidence_planning')
         current=graph.get(store,run['id'])
         self.assertEqual((current['status'],current['terminal_reason']),('WAITING_USER','review_incomplete'))

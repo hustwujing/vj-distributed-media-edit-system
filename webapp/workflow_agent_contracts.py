@@ -147,6 +147,24 @@ class ResolvedEvidence(Contract):
     method_use:MethodUse=Field(description=METHOD_USE_DESCRIPTION)
 
 
+class MissingEvidence(Contract):
+    fact:str=Field(min_length=1,max_length=1000,
+        description='One independently verifiable missing fact. Split disjoint time windows into separate items.')
+    mode:Literal['auto','image','video_window','audio','audio_envelope','audio_compare']=Field(
+        description='Registered media.evidence mode that can establish this fact.')
+    offset:float|None=Field(default=None,ge=0,description='Exact start time in seconds when the fact is time-bound.')
+    window_seconds:float|None=Field(default=None,gt=0,le=600,description='Exact duration in seconds when the fact is time-bound.')
+    crop:list[int]|None=Field(default=None,min_length=4,max_length=4,
+        description='Exact [left, top, right, bottom] crop when a local visual region must be enlarged.')
+    @model_validator(mode='after')
+    def bounded_request(self):
+        if self.mode in ('video_window','audio_envelope') and (self.offset is None or self.window_seconds is None):
+            raise ValueError('Time-bound missing evidence requires offset and window_seconds')
+        if self.crop is not None and (self.crop[0]<0 or self.crop[1]<0 or self.crop[2]<=self.crop[0] or self.crop[3]<=self.crop[1]):
+            raise ValueError('Missing-evidence crop must have positive ordered bounds')
+        return self
+
+
 class ReviewDecision(Contract):
     snapshot_digest:str=Field(pattern=r'^[a-f0-9]{64}$')
     verdict:Literal['pass','reject','inconclusive']
@@ -155,9 +173,15 @@ class ReviewDecision(Contract):
     primary:str=Field(default='',max_length=500,
         description='For final passing review, select the primary deliverable by candidate_key. Leave empty for step reviews.')
     feedback:str=Field(default='',max_length=4000)
+    missing_evidence:list[MissingEvidence]=Field(default_factory=list,max_length=16,
+        description='Required for inconclusive. List every independent fact still needed; use separate entries for disjoint time windows.')
     @model_validator(mode='after')
     def supported(self):
         if self.verdict=='pass' and not self.evidence:raise ValueError('Passing review requires evidence')
+        if self.verdict=='inconclusive' and (not self.feedback.strip() or not self.missing_evidence):
+            raise ValueError('Inconclusive review requires concrete feedback and structured missing_evidence')
+        if self.verdict!='inconclusive' and self.missing_evidence:
+            raise ValueError('Only an inconclusive review may request missing evidence')
         validate_method_use(self.verdict,self.evidence)
         return self
 
@@ -169,10 +193,15 @@ class ResolvedReviewDecision(Contract):
     deliverables:list[str]=Field(default_factory=list,max_length=100)
     primary:str=Field(default='',max_length=500)
     feedback:str=Field(default='',max_length=4000)
+    missing_evidence:list[MissingEvidence]=Field(default_factory=list,max_length=16)
     @model_validator(mode='after')
     def supported(self):
         if self.verdict=='pass' and not self.evidence:raise ValueError('Passing review requires evidence')
         if self.primary and self.primary not in self.deliverables:raise ValueError('Primary must be selected')
+        if self.verdict=='inconclusive' and (not self.feedback.strip() or not self.missing_evidence):
+            raise ValueError('Inconclusive review requires concrete feedback and structured missing_evidence')
+        if self.verdict!='inconclusive' and self.missing_evidence:
+            raise ValueError('Only an inconclusive review may request missing evidence')
         validate_method_use(self.verdict,self.evidence)
         return self
 

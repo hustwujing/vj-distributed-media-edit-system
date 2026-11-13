@@ -302,7 +302,8 @@ def repair_options(frozen):
         final_review=review.get('purpose')=='final' or not subject
         if not final_review and subject not in tasks:continue
         if subject in tasks and tasks[subject].get('review_again_count',0)>=graph.CANDIDATE_REVIEW_LIMIT:continue
-        text=(decision.get('feedback') or '').lower();modes=[]
+        missing=decision.get('missing_evidence') or []
+        text=(decision.get('feedback') or '').lower();modes=[item['mode'] for item in missing if item.get('mode') not in (None,'auto')]
         if any(word in text for word in ('fade','淡出','淡入','rms','响度','音量包络')):modes.append('audio_envelope')
         if any(word in text for word in ('mix','混音','原声','music','声源','pitch','frequency','音高','频谱','频率')):modes.append('audio_compare')
         if any(word in text for word in ('pixel','像素','边距','位置','frame','帧')):modes.append('video_window')
@@ -311,6 +312,7 @@ def repair_options(frozen):
         for identifier in subjects:
             options.append({'action':'collect_delivery_evidence' if final_review else 'collect_evidence_then_review_again','task_id':identifier,
                             'operation':'media.evidence','suggested_modes':list(dict.fromkeys(modes or ['auto'])),
+                            'missing_evidence':missing,
                             'meaning':('Keep approved deliverables immutable. Add evidence Tasks for missing final-review facts, then call complete_run after they succeed.'
                                 if final_review else 'Keep the accepted candidate immutable. Add evidence Tasks for the missing facts, then use review_again; do not rerender unchanged media.')})
     return options
@@ -652,6 +654,24 @@ def compile_manager(command,frozen):
             if invalid:
                 raise CommandError('evidence_task_required' if evidence_collection_available(frozen) else 'new_task_not_available','plan.new_tasks',
                     'Automatic repair permits only explicit replacements or registered evidence Operations')
+            requested=next((item.get('missing_evidence',[]) for item in reversed(repair_options(frozen))
+                            if item['action'] in ('collect_evidence_then_review_again','collect_delivery_evidence') and item.get('missing_evidence')),[])
+            available=[task for task in added if task['type']=='operation' and task.get('purpose')=='evidence'
+                       and task.get('operation')=='media.evidence']
+            unused=set(range(len(available)))
+            for request in requested if available else []:
+                matched=None
+                for index in unused:
+                    parameters=available[index].get('parameters',{})
+                    if request['mode']!='auto' and parameters.get('mode','auto')!=request['mode']:continue
+                    if request.get('offset') is not None and parameters.get('offset')!=request['offset']:continue
+                    if request.get('window_seconds') is not None and parameters.get('window_seconds')!=request['window_seconds']:continue
+                    if request.get('crop') is not None and parameters.get('crop')!=request['crop']:continue
+                    matched=index;break
+                if matched is None:
+                    raise CommandError('missing_evidence_coverage','plan.new_tasks',
+                        'Add one media.evidence Task matching every structured missing_evidence item, including exact mode, time window and crop. Missing: '+request['fact'][:300])
+                unused.remove(matched)
         changed={task['id'] for task in added}|revised_ids
         changed|={identifier for identifier in plan.get('review_again',{}) if identifier in current}
         changed={replacements.get(identifier,identifier) for identifier in changed}
@@ -934,6 +954,8 @@ class ToolProtocol:
             context['model_command_contract']['planning']+=' All declared Tasks succeeded, which does not prove the entire user goal is complete. Add only remaining authorized work with submit_typed_plan; use complete_run to submit current deliverables for final review. A new Task is an addition, never an implicit replacement: all earlier delivery Tasks remain mandatory. Do not add another rendition to evade a missing repair grant or exhausted repair budget.'
         if 'submit_typed_plan' in self.schemas:
             context['model_command_contract']['repair_options']=repair_options(self.frozen)
+            if any(item.get('missing_evidence') for item in context['model_command_contract']['repair_options']):
+                context['model_command_contract']['evidence_contract']='Create one separate media.evidence Task for every structured missing_evidence item. Copy mode, offset, window_seconds and crop exactly; never merge disjoint time windows or assume a generic contact sheet covers them.'
             context['model_command_contract']['task_repair_budgets']={task['id']:{
                 'automatic_remaining':graph.revision_budget_remaining(task),
                 'user_revision_remaining':graph.revision_budget_remaining(task,True)} for task in self.frozen.get('tasks',[])}

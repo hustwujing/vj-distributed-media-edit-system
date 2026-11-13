@@ -1357,7 +1357,8 @@ class DynamicGraphTests(unittest.TestCase):
         current=graph.get(self.store,run['id']);review=next(t for t in graph.work_items(current) if t.get('control_kind') and t['spec'].get('profile')=='visual_quality_reviewer')
         self.orchestrator.accept_review(current,review,{'decision':{
             'snapshot_digest':review['spec']['snapshot_digest'],'verdict':'inconclusive',
-            'feedback':'The candidate has no confirmed defect, but deterministic evidence is incomplete.'}})
+            'feedback':'The candidate has no confirmed defect, but deterministic evidence is incomplete.',
+            'missing_evidence':[{'fact':'Inspect the candidate pixels','mode':'image'}]}})
         current=graph.get(self.store,run['id']);subject=next(t for t in current['tasks'] if t['id']=='first')
         self.assertEqual((subject['status'],subject['error_code']),('paused','review_incomplete'))
         self.assertEqual(subject['candidate_result'],['edit/report.txt'])
@@ -1523,7 +1524,8 @@ class DynamicGraphTests(unittest.TestCase):
         run=graph.get(self.store,run['id']);self.orchestrator.queue_review(run)
         current=graph.get(self.store,run['id']);review=next(t for t in graph.work_items(current) if t.get('control_kind') and t['spec'].get('profile')=='delivery_reviewer')
         self.orchestrator.accept_review(current,review,{'decision':{'snapshot_digest':review['spec']['snapshot_digest'],
-            'verdict':'inconclusive','evidence':[],'deliverables':[],'primary':'','feedback':'Need denser pixel frame evidence.'}})
+            'verdict':'inconclusive','evidence':[],'deliverables':[],'primary':'','feedback':'Need denser pixel frame evidence.',
+            'missing_evidence':[{'fact':'Inspect denser candidate pixels','mode':'image'}]}})
         updated=graph.get(self.store,run['id'])
         self.assertEqual((updated['status'],updated['terminal_reason']),('ACTIVE','evidence_planning'))
         self.assertEqual(updated['repair_context']['error_code'],'review_incomplete')
