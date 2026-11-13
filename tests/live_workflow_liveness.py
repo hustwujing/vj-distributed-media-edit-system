@@ -114,7 +114,8 @@ def main():
     parser.add_argument('--cleanup-project')
     args=parser.parse_args()
     if os.geteuid()!=0:raise RuntimeError('Live liveness case requires root for bounded Orchestrator fault setup')
-    release=json.loads((Path(__file__).resolve().parents[1]/'.sandbox-cluster/release.json').read_text())
+    deploy_root=Path(os.environ.get('DYNAMIC_CASE_DEPLOY_ROOT',str(Path(__file__).resolve().parents[1]/'.sandbox-cluster')))
+    release=json.loads((deploy_root/'release.json').read_text())
     if release.get('namespace')!='sandbox-agent' or release.get('state')!='ready':raise RuntimeError('Refusing a non-dedicated or incomplete deployment')
     store=Store(data_root())
     if args.cleanup_project:
