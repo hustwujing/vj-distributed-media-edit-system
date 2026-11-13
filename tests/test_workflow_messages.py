@@ -154,6 +154,15 @@ class WorkflowMessageTests(unittest.TestCase):
             finally:business.release()
         finally:lease.release()
 
+    def test_undecided_routing_message_blocks_terminal_publication(self):
+        message=self.send('最终发布前我可能要修改交付，请先判断这条消息。');self.job()
+        self.store.execute("UPDATE run_tasks SET status='succeeded' WHERE run_id=?",(self.run['id'],))
+        current=graph.get(self.store,self.run['id'])
+        self.f.orchestrator._publish(current,{'id':'not-used-before-routing-settles'})
+        blocked=graph.get(self.store,self.run['id'])
+        self.assertIsNone(blocked['delivered_at']);self.assertNotEqual(blocked['status'],'SUCCEEDED')
+        self.assertEqual(self.store.query('SELECT status FROM run_inputs WHERE id=?',(message['id'],))[0]['status'],'ROUTING')
+
     def test_message_model_runner_uses_existing_manager_and_stages_only_bound_decision(self):
         from types import SimpleNamespace
         from unittest.mock import patch

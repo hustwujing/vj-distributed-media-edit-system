@@ -1161,7 +1161,7 @@ class Orchestrator:
         if run['delivered_at'] is not None or run['input_barrier_sequence'] is not None:return
         if not run['sealed'] or run['status'] in ('CANCELLING','CANCELLED','FAILED'):return
         if any(task['status']!='succeeded' for task in graph.active_tasks(run)):return
-        if store.query("SELECT id FROM run_inputs WHERE run_id=? AND status IN ('ACCEPTED','PLANNING')",(run['id'],)):return
+        if store.query("SELECT id FROM run_inputs WHERE run_id=? AND status IN ('ROUTING','ACCEPTED','PLANNING')",(run['id'],)):return
         if store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND status='pending'",(run['id'],)):
             self.set_status(run,'WAITING_USER','user_decision_pending');return
         authoritative=store.query("""SELECT * FROM workflow_reviews WHERE id=? AND run_id=? AND purpose='final'
