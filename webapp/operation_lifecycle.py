@@ -228,7 +228,10 @@ def recover_dynamic(implementation,task,call=None):
     try:result=json.loads((call or {}).get('result') or '[]')
     except (TypeError,ValueError):result=[]
     if state=='succeeded':
-        return {'action':'validate','candidate':result} if result else {'action':'unavailable'}
+        if result:return {'action':'validate','candidate':result}
+        if external_id and 'collect' in implementation.protocol.phases:
+            return {'action':'poll','external_id':external_id}
+        return {'action':'unavailable'}
     if state in ('failed','rejected'):
         return {'action':'failed','error_code':'provider_failed'}
     if state=='cancelled':

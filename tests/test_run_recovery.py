@@ -142,6 +142,16 @@ class RunRecoveryTests(unittest.TestCase):
         task=graph.get(self.store,self.run['id'])['tasks'][0]
         self.assertEqual((task['status'],task['phase'],task['candidate_result']),('ready','validate',['edit/final.mp4']))
 
+    def test_succeeded_async_provider_without_collected_result_reuses_saved_handle(self):
+        self.provider_task()
+        self.store.execute("UPDATE workflow_provider_calls SET state='succeeded',result='' WHERE workflow=?",(self.run['id'],))
+        self.f.orchestrator.recover(graph.get(self.store,self.run['id']))
+        task=graph.get(self.store,self.run['id'])['tasks'][0]
+        self.assertEqual((task['status'],task['phase'],task['external_id'],task['error_code']),
+                         ('ready','poll','original-job',''))
+        calls=self.store.query('SELECT state,external_id FROM workflow_provider_calls WHERE workflow=?',(self.run['id'],))
+        self.assertEqual(calls,[{'state':'succeeded','external_id':'original-job'}])
+
     def test_interrupted_model_reservation_converges_to_bounded_unknown(self):
         import uuid
         attempt=uuid.uuid4().hex;now=self.store.now()
