@@ -188,9 +188,19 @@ async function runCase(browser,spec){
  };
  const cancelForInterrupt=async signal=>{
   state.interrupted_by=signal;state.events.push({action:'campaign_interrupt',signal,at:Date.now()/1000});persist();
-  if(!state.project)return;
+ if(!state.project)return;
   try{const listing=await storedApi('GET',`/api/projects/${state.project}/runs`);for(const item of listing.runs)if(!terminal(item.state))await storedApi('POST',`/api/projects/${state.project}/runs/${item.id}/commands`,{request_id:uid(),action:'cancel'});}
   catch(error){state.interrupt_cancel_error=error.message;persist();}
+  finally{
+   const restorations=[[state.unified_boundary?.route_switched,'restore_provider_route'],[objectCorrupted,'restore_object'],
+    [workersHeld,'release_workers'],[orchestratorStopped,'start_orchestrator'],[observerStopped,'start_observer'],
+    [apiStopped,'start_api'],[!!stoppedWorker,'start_worker',stoppedWorker],[secondStarted,'stop_second_orchestrator']];
+   for(const [needed,action,unit] of restorations)if(needed){try{await fault(action,unit);}
+    catch(error){state.restore_error=error.message;persist();return;}}
+   objectCorrupted=workersHeld=orchestratorStopped=observerStopped=apiStopped=secondStarted=false;stoppedWorker=null;
+   if(state.unified_boundary?.route_switched)state.unified_boundary.route_restored=true;
+   persist();
+  }
  };
  activeStops.add(cancelForInterrupt);
  const feedback=async(content,attachments=[])=>{

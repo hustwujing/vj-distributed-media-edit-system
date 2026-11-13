@@ -89,7 +89,7 @@ def run_browser(cases,base,jobs):
  except KeyboardInterrupt:
   pause=DEPLOY_ROOT/'campaigns/dynamic-plan/pause-new-cases';pause.write_text('Campaign interrupted; parent recovery is cancelling and cleaning active attempts\n')
   if process.poll() is None:process.terminate()
-  try:process.wait(timeout=10)
+  try:process.wait(timeout=90)
   except subprocess.TimeoutExpired:process.kill();process.wait()
   current=set((DEPLOY_ROOT/'campaigns/dynamic-plan/runs').glob('*/attempt-*/state.json'))
   for state_file in sorted(current-existing):interrupt_attempt(base,state_file)
