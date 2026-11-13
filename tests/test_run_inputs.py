@@ -312,6 +312,11 @@ class RunInputTests(unittest.TestCase):
         self.assertEqual(run['authorization_version'],2)
         self.assertEqual(self.store.query('SELECT COUNT(*) AS n FROM run_authorizations WHERE run_id=?',(run['id'],))[0]['n'],2)
         self.assertEqual(graph.get(self.store,original['id'])['status'],'SUCCEEDED')
+        planners=self.store.query("SELECT snapshot_json FROM planner_runs WHERE run_id=? AND status IN ('pending','running','staged')",(run['id'],))
+        self.assertEqual(len(planners),1)
+        batch=json.loads(planners[0]['snapshot_json']).get('input_batch')
+        self.assertEqual(batch['through_sequence'],second['sequence'])
+        self.assertEqual([item['id'] for item in batch['inputs']],[first['id'],second['id']])
 
     def test_rejecting_plan_change_supersedes_its_input_and_clears_barrier(self):
         accepted=self.send('Request a scope change')

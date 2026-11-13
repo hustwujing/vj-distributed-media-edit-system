@@ -205,7 +205,7 @@ class DynamicGraphTests(unittest.TestCase):
         request=self.store.query("SELECT * FROM planner_runs WHERE run_id=? AND status='pending'",(self.run['id'],))[0]
         from webapp.task_leases import Coordinator
         coordinator=Coordinator(self.store,'planner-test','test')
-        lease=coordinator.claim(self.f.turn,'workflow',step_id=request['task_id'])
+        lease=coordinator.claim(self.run['id'],'workflow',step_id=request['task_id'])
         self.assertIsNotNone(lease)
         try:
             with lease.bind():planning.stage(self.store,lease,request['id'],envelope(self.store,request['id'],raw))
@@ -1588,6 +1588,27 @@ class DynamicGraphTests(unittest.TestCase):
         self.assertEqual(event,{'through_sequence':1,'next_barrier_sequence':2})
         original=self.store.query('SELECT status,successor_run_id FROM run_inputs WHERE run_id=? ORDER BY sequence',(self.run['id'],))
         self.assertTrue(all(row['status']=='SUPERSEDED' and row['successor_run_id']==successor['id'] for row in original))
+
+    def test_successor_consumed_input_history_does_not_cancel_its_first_plan(self):
+        accepted=accept_change(self.store,self.run['id'],'owner',{'request_id':'3'*32,'content':'New overall goal'})
+        authorization={**self.authorization,'goal':'New overall goal','require_plan_confirmation':True}
+        self.orchestrator.decision(graph.get(self.store,self.run['id']),'new_run',{
+            'new_goal':'New overall goal','authorization':authorization,'input_through_sequence':accepted['sequence']})
+        decision=self.store.query("SELECT * FROM workflow_decisions WHERE kind='new_run'")[0]
+        self.orchestrator.answer(graph.get(self.store,self.run['id']),{'decision_id':decision['id'],
+            'snapshot_digest':decision['snapshot_digest'],'action':'approve','authorization':authorization})
+        successor_id=self.store.query('SELECT id FROM runs WHERE parent_run_id=?',(self.run['id'],))[0]['id']
+        self.run=graph.get(self.store,successor_id)
+        self.assertEqual((self.run['input_sequence'],self.run['input_barrier_sequence']),(1,None))
+        self.assertEqual(self.store.query('SELECT status FROM run_inputs WHERE run_id=?',(successor_id,))[0]['status'],'APPLIED')
+        self.tick()
+        self.propose({'proposal_id':'successor-first-plan','base_graph_version':0,'reason':'Create the new report',
+            'add_tasks':[script()],'sealed':True})
+        self.tick()
+        pending=self.store.query("SELECT id FROM workflow_decisions WHERE run_id=? AND kind='plan_confirmation' AND status='pending'",(successor_id,))
+        self.assertEqual(len(pending),1)
+        planner=self.store.query('SELECT status,error_code FROM planner_runs WHERE proposal_id=?',('successor-first-plan',))[0]
+        self.assertEqual((planner['status'],planner['error_code']),('awaiting_confirmation',''))
 
     def test_user_rejecting_quality_also_pauses_the_subject(self):
         run=self.review_fixture();self.orchestrator.decision(run,'quality',{'task_id':'first','revision':0})

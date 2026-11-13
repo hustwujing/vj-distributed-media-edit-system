@@ -58,7 +58,10 @@ def needs_confirmation(run,frozen):
 def hold_plan(store,run,request,result,tasks):
     from .workflow_orchestrator import Orchestrator
     frozen=json.loads(request['snapshot_json'])
-    if run['input_sequence']>result.input_through_sequence:
+    newer_pending=store.query("""SELECT id FROM run_inputs
+        WHERE run_id=? AND sequence>? AND status IN ('ACCEPTED','PLANNING') LIMIT 1""",
+        (run['id'],result.input_through_sequence))
+    if newer_pending:
         from .run_inputs import defer_batch
         defer_batch(store,run,result.input_through_sequence)
         store.execute("UPDATE planner_runs SET status='rejected',error_code='new_input_barrier' WHERE id=?",(request['id'],))
