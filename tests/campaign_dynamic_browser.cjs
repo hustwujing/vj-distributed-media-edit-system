@@ -45,7 +45,7 @@ const interrupt=signal=>{
  stopPromise=Promise.allSettled([...activeStops].map(stop=>stop(signal)));
 };
 process.on('SIGINT',()=>interrupt('SIGINT'));process.on('SIGTERM',()=>interrupt('SIGTERM'));
-const {targetText,initialPlanApprovalRequired,revisionDecisionKinds}=require('./campaign_dynamic_targets.cjs');
+const {targetText,initialPlanApprovalRequired,revisionDecisionKinds,nextRevisionDecision}=require('./campaign_dynamic_targets.cjs');
 
 async function runCase(browser,spec){
  const parent=path.join(ROOT,'runs',spec.id);fs.mkdirSync(parent,{recursive:true,mode:0o700});
@@ -446,7 +446,7 @@ async function runCase(browser,spec){
     for(let round=0;round<5;round++){
      run=await wait(w=>w.inputs.some(item=>item.id===input.id&&item.status==='APPLIED')||deciding(w),900);
      if(run.inputs.some(item=>item.id===input.id&&item.status==='APPLIED'))break;
-     const decision=run.decisions[0];
+     const decision=nextRevisionDecision(run.decisions);
      if(!allowedDecisions.has(decision.kind))throw Object.assign(Error('Unexpected scope or clarification decision during the authorized revision: '+decision.kind),{model:true});
      if(decision.kind==='plan_confirmation')assert.equal(await approvePlannedWork(run),true);
      else await approve('approve',decision.id);
