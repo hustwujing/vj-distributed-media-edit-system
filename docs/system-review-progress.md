@@ -369,3 +369,10 @@
 - 首次完整 Python 门禁 1034 项中出现 3 个同根错误、6 个显式 GPU/OCR skip：Provider ledger 强化后，旧 workflow 对没有持久化 intent 的超时仍写 `submission_unknown` receipt，边界拒绝异常打断了安全暂停。
 - 修复限定在旧 workflow 调用方：仅已有 Provider intent 时更新 receipt；没有 receipt contract 的实现只记录 workflow diagnosis 并暂停，不伪造 Provider ledger，也不重试未知外部副作用。
 - 受影响 lifecycle、legacy workflow、Provider、Operation 和 cleanup 回归 68/68 通过；完整门禁需按新源码摘要重跑。
+
+## 13. 用户介入专项复核（进行中）
+
+- 统一检查输入澄清、素材授权、方案修改、质量反馈、发布确认、失败恢复、暂停/取消、重启回流和重复提交；用户回复必须能落到结构化 decision/attachment/authorization，不能只留下自然语言反馈。
+- 发现并修复 successor 的显式素材授权缺口：未确认 successor 收到用户选定素材时，绑定素材摘要并升级本轮授权；已确认 Run 不自动扩大权限。
+- 澄清卡展示上一轮仍存在的已授权素材并默认勾选，用户可以取消；避免用户必须猜测“复用素材”对应哪个内部字段。
+- 当前修复已通过输入/恢复/决策相关回归；待本轮专项清单补齐后，随完整门禁和真机恢复 case 一并验收。

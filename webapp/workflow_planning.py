@@ -424,6 +424,12 @@ def apply_control_result(store,run,request,result,frozen):
         if result.kind=='REQUEST_AUTHORIZATION' and not run['scope_confirmed']:request_kind='successor_authorization'
         data={'reason':result.reason,'question':result.question,'options':result.options,
               'input_through_sequence':result.input_through_sequence,'new_goal':result.new_goal}
+        if request_kind=='input_question' and not run['scope_confirmed']:
+            parent=store.query('SELECT authorization_json FROM runs WHERE id=(SELECT parent_run_id FROM runs WHERE id=?)',(run['id'],))
+            if parent:
+                previous=json.loads(parent[0]['authorization_json'])
+                owned={asset['id'] for asset in store.assets(run['project_id'])}
+                data['reusable_assets']=[asset for asset in previous.get('allowed_assets',[]) if asset in owned]
         if result.authorization:data['authorization']=result.authorization.model_dump()
         if result.authorization:
             old_contract=DeliveryContract.model_validate(run['authorization'].get('delivery_contract',{})).model_dump()

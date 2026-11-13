@@ -151,6 +151,13 @@ test('terminal run input creates a model-inheriting successor instead of posting
  assert.match(source,/parent_run_id:parent,model_choice:chosen/);
 });
 
+test('successor clarification preselects reusable authorized assets and labels them clearly',()=>{
+ const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
+ assert.match(source,/d\.request\.reusable_assets\?\.length\?'可复用素材（可取消）'/);
+ assert.match(source,/d\.kind==='input_question'&&Array\.isArray\(d\.request\.reusable_assets\)/);
+ assert.match(source,/d\.request\.reusable_assets\.includes\(option\.value\)/);
+});
+
 test('synchronous unknown submissions never render an external id field',()=>{
  const source=readFileSync(new URL('../webapp/static/dynamic.js',import.meta.url),'utf8');
  assert.match(source,/d\.kind==='external_submission'&&d\.request\.external_id_queryable!==false/);
