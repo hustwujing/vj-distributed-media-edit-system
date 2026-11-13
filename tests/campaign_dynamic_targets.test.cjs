@@ -41,3 +41,9 @@ test('the executable R04 case declares its expected delivery addition',()=>{
  const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/real-case-campaign/dynamic-cases.json')));
  assert.deepEqual(manifest.cases.find(item=>item.id==='R04').intervention_expected_delivery_additions,['final.jpg']);
 });
+
+test('the executable R14 case declares its durable progress boundary',()=>{
+ const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/real-case-campaign/dynamic-cases.json')));
+ assert.deepEqual(manifest.cases.find(item=>item.id==='R14').required_task_progress_events,
+  {export:['QA_EXPORT_OUTPUT_READY']});
+});

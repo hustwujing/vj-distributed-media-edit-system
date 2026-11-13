@@ -144,6 +144,18 @@ async function runCase(browser,spec){
  async function approvePlannedWork(snapshot,expectedAdditions=[]){
   const decision=snapshot.decisions.find(item=>item.kind==='plan_confirmation');if(!decision)return false;
   assert.ok(decision.request.steps.length,'Plan confirmation must expose concrete work');
+  const progressRequirements=spec.required_task_progress_events||{};
+  const missingProgress=Object.entries(progressRequirements).filter(([taskId,events])=>{
+   const step=decision.request.steps.find(item=>item.id===taskId);
+   return !step||events.some(event=>!step.required_progress_events?.includes(event));
+  });
+  if(missingProgress.length){
+   state.plan_requirement_corrections=(state.plan_requirement_corrections||0)+1;persist();
+   assert.ok(state.plan_requirement_corrections<=2,'Manager repeatedly omitted structured Task progress requirements');
+   await feedback('修改当前方案，不改变业务目标或交付：请让这些 Task 原样声明 required_progress_events：'+
+    missingProgress.map(([taskId,events])=>`${taskId}=${JSON.stringify(events)}`).join('；')+'。事件必须在对应持久输出完整写入后发出。');
+   return true;
+  }
   assert.ok(deliveryAmendmentMatches(snapshot.authorization.delivery_targets,decision.request,expectedAdditions),
    'Campaign confirmation changed delivery scope outside the explicit structured fixture amendment');
   for(const step of decision.request.steps){
@@ -506,11 +518,7 @@ async function runCase(browser,spec){
     if(spec.id==='R15'){await page.reload({waitUntil:'domcontentloaded'});await page.locator('#dynamic-current').waitFor({state:'visible'});state.browser_assertions.push('Re-entered the project without creating another task');}
     if(spec.id==='R16'){
      run=await observeTerminal();assert.equal(run.state,'SUCCEEDED');await page.locator('#dynamic-input-form').waitFor({state:'visible'});
-     await page.locator('#dynamic-new-run').click();
-     await page.waitForFunction(()=>document.querySelector('#dynamic-input-form')?.dataset.run==='new');
-     await page.waitForFunction(values=>values.every(value=>document.querySelector(`#dynamic-input-assets option[value="${value}"]`)),selected);
-     await page.locator('#dynamic-input-assets').evaluate((node,values)=>{const chosen=new Set(values);for(const option of node.options)option.selected=chosen.has(option.value);node.dispatchEvent(new Event('change',{bubbles:true}));},selected);
-     await start('复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。');
+     await appendInput('复用已验收 prepare_a、prepare_b，分别用 Pillow ImageOps.fit 默认方法适配为64×64并排生成128×64 final.png，再用 Lanczos 生成32×16 thumbnail.png，两张都交付。',selected);
      run=await wait(w=>w.decisions.some(d=>d.kind==='successor_authorization'),900);
      assert.equal(run.scope_confirmed,0);assert.equal(run.tasks.length,0,'Successor executed before scope confirmation');
      const decision=run.decisions.find(d=>d.kind==='successor_authorization'),proposed=decision.request.authorization;

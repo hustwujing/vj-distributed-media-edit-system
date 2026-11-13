@@ -4234,6 +4234,11 @@
     },
     {
       "id": "R14",
+      "required_task_progress_events": {
+        "export": [
+          "QA_EXPORT_OUTPUT_READY"
+        ]
+      },
       "complexity": "intervention",
       "title": "导出完成附近取消并重做",
       "assets": [
