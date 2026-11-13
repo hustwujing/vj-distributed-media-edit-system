@@ -284,6 +284,7 @@ class BoundedExecutor:
 DEFAULTS={
     'read':(6,12,1.,15.),'write':(4,8,1.,30.),'critical':(2,8,1.,15.),
     'storage':(4,8,1.,120.),'media':(2,4,1.,100.),
+    'public_asset':(8,64,5.,30.),
     'diagnostics':(2,4,1.,15.),'control':(2,4,1.,45.),
     'cleanup':(1,8,2.,120.),'auth':(2,4,.5,5.),'stream_read':(2,8,1.,15.),'health':(2,4,.5,5.),
 }

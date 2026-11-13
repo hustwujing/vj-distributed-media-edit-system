@@ -679,12 +679,12 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
     def catalog():return demo_library.snapshot().catalog
 
     @app.get('/api/demos')
-    @lane('storage')
+    @lane('public_asset')
     def demos():
         return catalog()
 
     @app.get('/api/demos/{demo_id}/files/{name}')
-    @lane('storage')
+    @lane('public_asset')
     def demo_file(demo_id: str, name: str):
         edition=demo_library.snapshot()
         demo = next((d for d in edition.catalog if d['id'] == demo_id), None)
@@ -693,7 +693,7 @@ def create_app(data_dir: Path | None = None, run_worker=True) -> FastAPI:
         return FileResponse(edition.file(demo_id+'/'+name))
 
     @app.get('/api/demos/{demo_id}/sources/{key}')
-    @lane('storage')
+    @lane('public_asset')
     def demo_source(demo_id: str, key: str):
         edition=demo_library.snapshot()
         demo=next((d for d in edition.catalog if d['id']==demo_id),None)

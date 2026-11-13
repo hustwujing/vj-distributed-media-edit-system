@@ -58,6 +58,15 @@ class APICapacityTests(unittest.TestCase):
 
 
 class APICapacityProducerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_public_assets_have_burst_capacity_without_expanding_business_storage(self):
+        executors=APIExecutors()
+        try:
+            self.assertEqual((executors.pools['storage'].workers,executors.pools['storage'].queue_limit),(4,8))
+            self.assertEqual((executors.pools['public_asset'].workers,executors.pools['public_asset'].queue_limit),(8,64))
+            results=await asyncio.gather(*(executors.run('public_asset',lambda value=value:(time.sleep(.01),value)[1]) for value in range(48)))
+            self.assertEqual(results,list(range(48)))
+        finally:executors.close()
+
     async def test_sampler_reports_actual_running_work_and_all_pools_without_default_threads(self):
         executors=APIExecutors();release=threading.Event();events=[]
         running=asyncio.create_task(executors.run('media',release.wait,3))
